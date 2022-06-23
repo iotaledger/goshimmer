@@ -22,6 +22,7 @@ var (
 // Index is the ID of an epoch.
 type Index int64
 
+// IndexFromBytes decodes the given bytes to an Index.
 func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
 	if err != nil {
@@ -41,11 +42,12 @@ func IndexFromTime(t time.Time) Index {
 	return Index(elapsedSeconds / int64(Duration))
 }
 
-// CurrentEI returns the EI at the current synced time.
+// CurrentIndex returns the EI at the current synced time.
 func CurrentIndex() Index {
 	return IndexFromTime(clock.SyncedTime())
 }
 
+// Bytes returns the bytes of an Index.
 func (i Index) Bytes() []byte {
 	bytes, err := serix.DefaultAPI.Encode(context.Background(), i, serix.WithValidation())
 	if err != nil {
@@ -55,39 +57,45 @@ func (i Index) Bytes() []byte {
 	return bytes
 }
 
+// String returns the string representation of an Index.
 func (i Index) String() string {
 	return fmt.Sprintf("EI(%d)", i)
 }
 
-// StartTime calculates the start time of the given epoch.
+// StartTime returns the start time of the given epoch.
 func (i Index) StartTime() time.Time {
 	startUnix := GenesisTime + int64(i)*int64(Duration)
 	return time.Unix(startUnix, 0)
 }
 
-// EIToEndTime calculates the end time of the given epoch.
+// EndTime returns the end time of the given epoch.
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i)*int64(Duration) + int64(Duration) - 1
 	return time.Unix(endUnix, 0)
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// MerkleRoot represents a Merkle root byte array as a blake2b-256 hash.
 type MerkleRoot [blake2b.Size256]byte
 
+// ECR is the ECR of an ECRecord.
 type ECR = MerkleRoot
+
+// EC is the EC of an ECRecord.
 type EC = MerkleRoot
 
+// NewMerkleRoot creates a new Merkle root from the given bytes.
 func NewMerkleRoot(bytes []byte) (mr MerkleRoot) {
 	b := [blake2b.Size256]byte{}
 	copy(b[:], bytes[:])
 	return b
 }
 
+// Base58 returns the Base58 representation of the MerkleRoot.
 func (m MerkleRoot) Base58() string {
 	return base58.Encode(m[:])
 }
 
+// Bytes returns the MerkleRoot as a byte slice.
 func (m MerkleRoot) Bytes() []byte {
 	return m[:]
 }
@@ -114,6 +122,7 @@ func NewECRecord(ei Index) (new *ECRecord) {
 	return
 }
 
+// EI returns the epoch Index of an ECRecord.
 func (e *ECRecord) EI() Index {
 	e.RLock()
 	defer e.RUnlock()
@@ -121,6 +130,7 @@ func (e *ECRecord) EI() Index {
 	return e.M.EI
 }
 
+// SetEI sets the epoch Index of an ECRecord.
 func (e *ECRecord) SetEI(ei Index) {
 	e.Lock()
 	defer e.Unlock()
