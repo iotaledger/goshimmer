@@ -29,6 +29,7 @@ type Manager struct {
 	epochCommitmentFactoryMutex sync.RWMutex
 	lastCommittedEpoch          *epoch.ECRecord
 	options                     *ManagerOptions
+	pccMutex                    sync.RWMutex
 	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
 	Events                      *Events
@@ -159,15 +160,15 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
 	m.pccMutex.RLock()
 	defer m.pccMutex.RUnlock()
-	return m.pendingConflictsCount[ei]
+	return m.pendingConflictsCounters[ei]
 }
 
 // PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
 func (m *Manager) PendingConflictsCountAll() map[epoch.Index]uint64 {
 	m.pccMutex.RLock()
 	defer m.pccMutex.RUnlock()
-	duplicate := make(map[epoch.Index]uint64, len(m.pendingConflictsCount))
-	for k, v := range m.pendingConflictsCount {
+	duplicate := make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
+	for k, v := range m.pendingConflictsCounters {
 		duplicate[k] = v
 	}
 	return duplicate
@@ -343,6 +344,8 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := m.getBranchEI(branchID, true)
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -352,6 +355,8 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := m.getBranchEI(branchID, false)
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 	m.pendingConflictsCounters[ei]++
 }
 
@@ -361,6 +366,8 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := m.getBranchEI(branchID, true)
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -420,6 +427,9 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 func (m *Manager) isCommittable(ei epoch.Index) bool {
 	t := m.epochManager.EIToEndTime(ei)
 	diff := time.Since(t)
+
+	m.pccMutex.RLock()
+	defer m.pccMutex.RUnlock()
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
