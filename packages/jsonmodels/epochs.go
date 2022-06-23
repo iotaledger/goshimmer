@@ -29,7 +29,8 @@ type EpochVotersWeightResponse struct {
 }
 
 type EpochUTXOsResponse struct {
-	UTXOs []string `json:"UTXOs"`
+	SpentOutputs   []string `json:"spentOutputs"`
+	CreatedOutputs []string `json:"createdOutputs"`
 }
 
 type EpochMessagesResponse struct {

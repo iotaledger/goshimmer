@@ -9,12 +9,13 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -34,9 +35,11 @@ type CommitmentRoots struct {
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type CommitmentTrees struct {
-	EI                epoch.Index
-	tangleTree        *smt.SparseMerkleTree
-	stateMutationTree *smt.SparseMerkleTree
+	EI                  epoch.Index
+	messageIDsStore     kvstore.KVStore
+	tangleTree          *smt.SparseMerkleTree
+	transactionIDsStore kvstore.KVStore
+	stateMutationTree   *smt.SparseMerkleTree
 }
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
@@ -206,6 +209,27 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 	return nil
 }
 
+func (f *EpochCommitmentFactory) getAllStateMutationLeafs(ei epoch.Index) ([]utxo.TransactionID, error) {
+	f.commitmentsMutex.Lock()
+	defer f.commitmentsMutex.Unlock()
+
+	commitment, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get commitment while deleting tangle leaf")
+	}
+	var transactionIDs []utxo.TransactionID
+	_ = commitment.transactionIDsStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
+
+		var txID utxo.TransactionID
+		if _, err := txID.Decode(key); err != nil {
+			panic("TransactionID could not be parsed!")
+		}
+		transactionIDs = append(transactionIDs, txID)
+		return true
+	})
+	return transactionIDs, nil
+}
+
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
 	f.commitmentsMutex.Lock()
@@ -239,6 +263,27 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 		}
 	}
 	return nil
+}
+
+func (f *EpochCommitmentFactory) getAllTangleLeafs(ei epoch.Index) ([]tangle.MessageID, error) {
+	f.commitmentsMutex.Lock()
+	defer f.commitmentsMutex.Unlock()
+
+	commitment, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get commitment while deleting tangle leaf")
+	}
+	var messageIDs []tangle.MessageID
+	_ = commitment.messageIDsStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
+
+		var msgID tangle.MessageID
+		if _, err := msgID.Decode(key); err != nil {
+			panic("MessageID could not be parsed!")
+		}
+		messageIDs = append(messageIDs, msgID)
+		return true
+	})
+	return messageIDs, nil
 }
 
 // ecRecord retrieves the epoch commitment.
@@ -334,11 +379,12 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 	messageValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
-
 	commitmentTrees := &CommitmentTrees{
-		EI:                ei,
-		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		EI:                  ei,
+		messageIDsStore:     messageIDStore,
+		tangleTree:          smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		transactionIDsStore: stateMutationIDStore,
+		stateMutationTree:   smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 
 	return commitmentTrees

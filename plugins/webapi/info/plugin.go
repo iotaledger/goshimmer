@@ -141,6 +141,6 @@ func getInfo(c echo.Context) error {
 			NodeQueueSizes:    nodeQueueSizes,
 		},
 
-		LastCommittedEpoch: jsonmodels.EpochInfoFromRecord(metrics.GetLastCommittedEpoch()),
+		LastCommittedEpoch: *jsonmodels.EpochInfoFromRecord(metrics.GetLastCommittedEpoch()),
 	})
 }

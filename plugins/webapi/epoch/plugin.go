@@ -93,8 +93,17 @@ func getUTXOs(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := deps.Metrics.GetEpochUTXOs()
-	resp := jsonmodels.EpochUTXOsResponse{UTXOs: allEpochs[ei]}
+	spentIDs, createdIDs := metrics.GetEpochUTXOs(ei)
+	spent := make([]string, len(spentIDs))
+	for i, o := range spentIDs {
+		spent[i] = o.String()
+	}
+	created := make([]string, len(createdIDs))
+	for i, o := range createdIDs {
+		created[i] = o.String()
+	}
+
+	resp := jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -104,8 +113,15 @@ func getMessages(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := deps.Metrics.GetEpochMessages()
-	resp := jsonmodels.EpochMessagesResponse{Messages: allEpochs[ei]}
+	messageIDs, err := metrics.GetEpochMessages(ei)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	messages := make([]string, len(messageIDs))
+	for i, m := range messageIDs {
+		messages[i] = m.String()
+	}
+	resp := jsonmodels.EpochMessagesResponse{Messages: messages}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -115,8 +131,16 @@ func getTransactions(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := deps.Metrics.GetEpochTransactions()
-	resp := jsonmodels.EpochTransactionsResponse{Transactions: allEpochs[ei]}
+	transactionIDs, err := metrics.GetEpochTransactions(ei)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	transactions := make([]string, len(transactionIDs))
+	for i, t := range transactionIDs {
+		transactions[i] = t.String()
+	}
+	resp := jsonmodels.EpochTransactionsResponse{Transactions: transactions}
 
 	return c.JSON(http.StatusOK, resp)
 }

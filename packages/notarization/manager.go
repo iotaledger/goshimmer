@@ -278,6 +278,27 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, spent, created)
 }
 
+func (m *Manager) GetEpochMessages(ei epoch.Index) ([]tangle.MessageID, error) {
+	return m.epochCommitmentFactory.getAllTangleLeafs(ei)
+}
+
+func (m *Manager) GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
+	return m.epochCommitmentFactory.getAllStateMutationLeafs(ei)
+}
+
+func (m *Manager) GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
+	so, co := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	spent = make([]utxo.OutputID, len(so))
+	created = make([]utxo.OutputID, len(co))
+	for i, o := range so {
+		spent[i] = o.ID()
+	}
+	for i, o := range co {
+		created[i] = o.ID()
+	}
+	return spent, created
+}
+
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()

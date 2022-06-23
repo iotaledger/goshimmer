@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
@@ -18,9 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/notarization"
@@ -50,14 +47,8 @@ type dependencies struct {
 	Local           *peer.Local
 }
 
-type epochMetricsDependencies struct {
-	dig.In
-
-	Storage kvstore.KVStore
-}
-
-func newEpochMetrics(deps epochMetricsDependencies) *EpochCommitmentsMetrics {
-	ecm, err := NewEpochCommitmentsMetrics(deps.Storage)
+func newEpochMetrics() *EpochCommitmentsMetrics {
+	ecm, err := NewEpochCommitmentsMetrics()
 	if err != nil {
 		Plugin.Panic(err)
 	}
@@ -347,12 +338,5 @@ func registerLocalMetrics() {
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		message := event.Message
 		deps.EpochMetrics.saveEpochVotersWeight(message)
-		deps.EpochMetrics.saveEpochMessage(message)
-	}))
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
-		deps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
-			deps.EpochMetrics.saveEpochUTXOs(t.(*devnetvm.Transaction))
-			deps.EpochMetrics.saveEpochTransaction(t)
-		})
 	}))
 }
