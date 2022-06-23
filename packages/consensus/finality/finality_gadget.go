@@ -29,38 +29,26 @@ type MessageThresholdTranslation func(aw float64) confirmation.State
 type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) confirmation.State
 
 const (
-	lowLowerBound    = 0.25
-	mediumLowerBound = 0.45
-	highLowerBound   = 0.67
+	acceptanceThreshold = 0.67
 )
 
 var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to confirmation.State of a branch.
 	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
-		switch {
-		case aw >= lowLowerBound && aw < mediumLowerBound:
-			return confirmation.Pending
-		case aw >= mediumLowerBound && aw < highLowerBound:
+		if aw >= acceptanceThreshold {
 			return confirmation.Accepted
-		case aw >= highLowerBound:
-			return confirmation.Confirmed
-		default:
-			return confirmation.Confirmed
 		}
+
+		return confirmation.Pending
 	}
 
 	// DefaultMessageGoFTranslation is the default function to translate the approval weight to confirmation.State of a message.
 	DefaultMessageGoFTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
-		switch {
-		case aw >= lowLowerBound && aw < mediumLowerBound:
-			return confirmation.Pending
-		case aw >= mediumLowerBound && aw < highLowerBound:
+		if aw >= acceptanceThreshold {
 			return confirmation.Accepted
-		case aw >= highLowerBound:
-			return confirmation.Confirmed
-		default:
-			return confirmation.Pending
 		}
+
+		return confirmation.Pending
 	}
 )
 
