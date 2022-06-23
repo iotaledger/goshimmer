@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
 const (
