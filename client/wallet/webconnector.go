@@ -2,10 +2,10 @@ package wallet
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -85,7 +85,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			walletOutput := &Output{
 				Address:                addr,
 				Object:                 lOutput,
-				GradeOfFinalityReached: output.GradeOfFinality == gof.High,
+				GradeOfFinalityReached: output.GradeOfFinality == confirmation.Confirmed,
 				Spent:                  false,
 				Metadata: OutputMetadata{
 					Timestamp: output.Metadata.Timestamp,
@@ -119,7 +119,7 @@ func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err 
 }
 
 // GetTransactionGoF fetches the GoF of the transaction.
-func (webConnector WebConnector) GetTransactionGoF(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+func (webConnector WebConnector) GetTransactionGoF(txID utxo.TransactionID) (gradeOfFinality confirmation.State, err error) {
 	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {
 		return

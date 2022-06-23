@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -106,7 +106,7 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 	snapshot = NewSnapshot(utxo.NewOutputs(), NewOutputsMetadata())
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
+			if outputMetadata.IsSpent() || outputMetadata.ConfirmationState() < confirmation.Accepted {
 				return
 			}
 
@@ -194,13 +194,13 @@ func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInc
 		return false
 	}
 
-	if !txMetadata.SetGradeOfFinality(gof.High) {
+	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
 		return false
 	}
 
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-			outputMetadata.SetGradeOfFinality(gof.High)
+			outputMetadata.SetConfirmationState(confirmation.Accepted)
 		})
 	}
 
@@ -213,13 +213,13 @@ func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInc
 
 // triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
 func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggered bool) {
-	if !txMetadata.SetGradeOfFinality(gof.None) {
+	if !txMetadata.SetConfirmationState(confirmation.Rejected) {
 		return false
 	}
 
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-			outputMetadata.SetGradeOfFinality(gof.None)
+			outputMetadata.SetConfirmationState(confirmation.Rejected)
 		})
 	}
 

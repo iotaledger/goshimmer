@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -54,7 +54,7 @@ func main() {
 		for _, v := range resp.UnspentOutputs {
 			if len(v.Outputs) > 0 {
 				myOutputID = v.Outputs[0].Output.OutputID.Base58
-				confirmed = v.Outputs[0].GradeOfFinality == gof.High
+				confirmed = v.Outputs[0].GradeOfFinality == confirmation.Confirmed
 				break
 			}
 		}

@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -29,29 +29,29 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
+			return confirmation.Pending
 		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
+			return confirmation.Accepted
 		case aw >= testingHighBound:
-			return gof.High
+			return confirmation.Confirmed
 		default:
-			return gof.None
+			return confirmation.Pending
 		}
 	}
 
-	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
+	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
+			return confirmation.Pending
 		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
+			return confirmation.Accepted
 		case aw >= testingHighBound:
-			return gof.High
+			return confirmation.Confirmed
 		default:
-			return gof.None
+			return confirmation.Pending
 		}
 	}
 )

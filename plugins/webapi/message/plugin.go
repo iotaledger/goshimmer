@@ -176,8 +176,8 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		BookedTime:          metadata.BookedTime().Unix(),
 		ObjectivelyInvalid:  metadata.IsObjectivelyInvalid(),
 		SubjectivelyInvalid: metadata.IsSubjectivelyInvalid(),
-		GradeOfFinality:     metadata.GradeOfFinality(),
-		GradeOfFinalityTime: metadata.GradeOfFinalityTime().Unix(),
+		GradeOfFinality:     metadata.ConfirmationState(),
+		GradeOfFinalityTime: metadata.ConfirmationStateTime().Unix(),
 	}
 }
 

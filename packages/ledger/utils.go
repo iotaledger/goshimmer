@@ -6,9 +6,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -152,25 +152,25 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 }
 
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
-func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		gradeOfFinality = txMetadata.GradeOfFinality()
+		confirmationState = txMetadata.ConfirmationState()
 	}) {
-		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
+		return confirmation.Pending, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
 	}
 
 	return
 }
 
 // BranchGradeOfFinality returns the GradeOfFinality of the Conflict with the given BranchID.
-func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (confirmationState confirmation.State, err error) {
 	if branchID == utxo.EmptyTransactionID {
-		return gof.High, nil
+		return confirmation.Confirmed, nil
 	}
 
 	branchGof, gofErr := u.TransactionGradeOfFinality(utxo.TransactionID{branchID.Identifier})
 	if gofErr != nil {
-		return gof.None, errors.Errorf("failed to retrieve GoF of branch %s: %w", branchID, err)
+		return confirmation.Pending, errors.Errorf("failed to retrieve GoF of branch %s: %w", branchID, err)
 	}
 
 	return branchGof, nil

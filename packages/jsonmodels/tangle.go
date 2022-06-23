@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/hive.go/types/confirmation"
 )
 
 // region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,22 +30,22 @@ type Message struct {
 
 // MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                  string              `json:"id"`
-	ReceivedTime        int64               `json:"receivedTime"`
-	Solid               bool                `json:"solid"`
-	SolidificationTime  int64               `json:"solidificationTime"`
-	StructureDetails    *StructureDetails   `json:"structureDetails,omitempty"`
-	BranchIDs           []string            `json:"branchIDs"`
-	AddedBranchIDs      []string            `json:"addedBranchIDs"`
-	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
-	Scheduled           bool                `json:"scheduled"`
-	ScheduledTime       int64               `json:"scheduledTime"`
-	Booked              bool                `json:"booked"`
-	BookedTime          int64               `json:"bookedTime"`
-	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
-	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	ID                  string             `json:"id"`
+	ReceivedTime        int64              `json:"receivedTime"`
+	Solid               bool               `json:"solid"`
+	SolidificationTime  int64              `json:"solidificationTime"`
+	StructureDetails    *StructureDetails  `json:"structureDetails,omitempty"`
+	BranchIDs           []string           `json:"branchIDs"`
+	AddedBranchIDs      []string           `json:"addedBranchIDs"`
+	SubtractedBranchIDs []string           `json:"subtractedBranchIDs"`
+	Scheduled           bool               `json:"scheduled"`
+	ScheduledTime       int64              `json:"scheduledTime"`
+	Booked              bool               `json:"booked"`
+	BookedTime          int64              `json:"bookedTime"`
+	ObjectivelyInvalid  bool               `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool               `json:"subjectivelyInvalid"`
+	GradeOfFinality     confirmation.State `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64              `json:"gradeOfFinalityTime"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

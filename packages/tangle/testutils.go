@@ -14,11 +14,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -300,7 +300,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	outputs.Add(output)
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetGradeOfFinality(gof.High)
+	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())

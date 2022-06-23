@@ -3,7 +3,7 @@ package jsonmodels
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/hive.go/types/confirmation"
 )
 
 // WalletOutputsOnAddress represents wallet outputs on an address.
@@ -16,7 +16,7 @@ type WalletOutputsOnAddress struct {
 type WalletOutput struct {
 	Output          Output               `json:"output"`
 	Metadata        WalletOutputMetadata `json:"metadata"`
-	GradeOfFinality gof.GradeOfFinality  `json:"gradeOfFinality"`
+	GradeOfFinality confirmation.State   `json:"gradeOfFinality"`
 }
 
 // WalletOutputMetadata holds metadata about the output.

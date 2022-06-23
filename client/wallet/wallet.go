@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -24,7 +25,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -1825,7 +1825,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID utxo.TransactionID) (err error)
 		if fetchErr != nil {
 			return fetchErr
 		}
-		if finality == gof.High {
+		if finality == confirmation.Confirmed {
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {

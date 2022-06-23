@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -95,8 +95,8 @@ func registerTangleEvents() {
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleConfirmed{
 					ID:            messageID.Base58(),
-					GoF:           msgMetadata.GradeOfFinality().String(),
-					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
+					GoF:           msgMetadata.ConfirmationState().String(),
+					ConfirmedTime: msgMetadata.ConfirmationStateTime().UnixNano(),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -167,8 +167,8 @@ func registerUTXOEvents() {
 				Type: MsgTypeUTXOGoFChanged,
 				Data: &utxoGoFChanged{
 					ID:          txID.Base58(),
-					GoF:         txMetadata.GradeOfFinality().String(),
-					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
+					GoF:         txMetadata.ConfirmationState().String(),
+					GoFTime:     txMetadata.ConfirmationStateTime().UnixNano(),
 					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
 				},
 			}
@@ -210,7 +210,7 @@ func registerBranchEvents() {
 			Type: MsgTypeBranchGoFChanged,
 			Data: &branchGoFChanged{
 				ID:          event.BranchID.Base58(),
-				GoF:         gof.High.String(),
+				GoF:         confirmation.Confirmed.String(),
 				IsConfirmed: true,
 			},
 		}
@@ -353,8 +353,8 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			IsMarker:             msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                 message.Payload().Type() == devnetvm.TransactionType,
 			IsConfirmed:          deps.FinalityGadget.IsMessageConfirmed(message.ID()),
-			ConfirmedTime:        msgMetadata.GradeOfFinalityTime().UnixNano(),
-			GoF:                  msgMetadata.GradeOfFinality().String(),
+			ConfirmedTime:        msgMetadata.ConfirmationStateTime().UnixNano(),
+			GoF:                  msgMetadata.ConfirmationState().String(),
 		}
 	})
 
@@ -379,8 +379,8 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	var confirmedTime int64
 	var branchIDs []string
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
-		gof = txMetadata.GradeOfFinality().String()
-		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
+		gof = txMetadata.ConfirmationState().String()
+		confirmedTime = txMetadata.ConfirmationStateTime().UnixNano()
 		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58)
 	})
 

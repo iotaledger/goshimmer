@@ -11,11 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -61,19 +61,19 @@ type branch struct {
 	BranchID     utxo.TransactionID              `json:"branchID"`
 	ConflictIDs  *set.AdvancedSet[utxo.OutputID] `json:"conflictIDs"`
 	AW           float64                         `json:"aw"`
-	GoF          gof.GradeOfFinality             `json:"gof"`
+	GoF          confirmation.State              `json:"gof"`
 	IssuingTime  time.Time                       `json:"issuingTime"`
 	IssuerNodeID identity.ID                     `json:"issuerNodeID"`
 	UpdatedTime  time.Time                       `json:"updatedTime"`
 }
 
 type branchJSON struct {
-	BranchID     string              `json:"branchID"`
-	ConflictIDs  []string            `json:"conflictIDs"`
-	AW           float64             `json:"aw"`
-	GoF          gof.GradeOfFinality `json:"gof"`
-	IssuingTime  int64               `json:"issuingTime"`
-	IssuerNodeID string              `json:"issuerNodeID"`
+	BranchID     string             `json:"branchID"`
+	ConflictIDs  []string           `json:"conflictIDs"`
+	AW           float64            `json:"aw"`
+	GoF          confirmation.State `json:"gof"`
+	IssuingTime  int64              `json:"issuingTime"`
+	IssuerNodeID string             `json:"issuerNodeID"`
 }
 
 func (b *branch) ToJSON() *branchJSON {

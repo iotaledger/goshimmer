@@ -6,10 +6,10 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -45,16 +45,16 @@ type ExplorerMessage struct {
 	// ShallowLikeApprovers are the shallow like approvers of the message.
 	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
 	// Solid defines the solid status of the message.
-	Solid               bool                `json:"solid"`
-	BranchIDs           []string            `json:"branchIDs"`
-	AddedBranchIDs      []string            `json:"addedBranchIDs"`
-	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
-	Scheduled           bool                `json:"scheduled"`
-	Booked              bool                `json:"booked"`
-	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
-	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	Solid               bool               `json:"solid"`
+	BranchIDs           []string           `json:"branchIDs"`
+	AddedBranchIDs      []string           `json:"addedBranchIDs"`
+	SubtractedBranchIDs []string           `json:"subtractedBranchIDs"`
+	Scheduled           bool               `json:"scheduled"`
+	Booked              bool               `json:"booked"`
+	ObjectivelyInvalid  bool               `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool               `json:"subjectivelyInvalid"`
+	GradeOfFinality     confirmation.State `json:"gradeOfFinality"`
+	GradeOfFinalityTime int64              `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -95,8 +95,8 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
 		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
-		GradeOfFinality:         messageMetadata.GradeOfFinality(),
-		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
+		GradeOfFinality:         messageMetadata.ConfirmationState(),
+		GradeOfFinalityTime:     messageMetadata.ConfirmationStateTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
 	}
@@ -134,7 +134,7 @@ type ExplorerOutput struct {
 	Output          *jsonmodels.Output         `json:"output"`
 	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
 	TxTimestamp     int                        `json:"txTimestamp"`
-	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
+	GradeOfFinality confirmation.State         `json:"gradeOfFinality"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -267,7 +267,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					Output:          jsonmodels.NewOutput(output),
 					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 					TxTimestamp:     int(timestamp),
-					GradeOfFinality: metaData.GradeOfFinality(),
+					GradeOfFinality: metaData.ConfirmationState(),
 				})
 			}
 
