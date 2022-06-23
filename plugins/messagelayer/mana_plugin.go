@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
