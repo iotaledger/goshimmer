@@ -77,7 +77,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	var epochInterval = 1 * time.Second
 
 	processMsgScenario := tangle.NotarizationMessageScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	notarizationMgr, ecFactory := setupFramework(t, processMsgScenario, epochInterval)
+	eventHandlerMock, notarizationMgr := setupFramework(t, processMsgScenario, epochInterval)
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
@@ -89,8 +89,6 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}(processMsgScenario, t)
-
-	eventHandlerMock := NewEventMock(t, notarizationMgr, ecFactory)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
 		// Message1, issuing time epoch 1
@@ -175,7 +173,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	var epochInterval = 1 * time.Second
 
 	processMsgScenario := tangle.NotarizationTxScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	notarizationMgr, ecFactory := setupFramework(t, processMsgScenario, epochInterval)
+	eventHandlerMock, notarizationMgr := setupFramework(t, processMsgScenario, epochInterval)
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
@@ -187,8 +185,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}(processMsgScenario, t)
-
-	eventHandlerMock := NewEventMock(t, notarizationMgr, ecFactory)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
 		// Message1, issuing time epoch 1
@@ -309,7 +305,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	var epochInterval = 1 * time.Second
 
 	processMsgScenario := tangle.NotarizationConflictTxScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	notarizationMgr, ecFactory := setupFramework(t, processMsgScenario, epochInterval)
+	eventHandlerMock, notarizationMgr := setupFramework(t, processMsgScenario, epochInterval)
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
@@ -321,8 +317,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}(processMsgScenario, t)
-
-	eventHandlerMock := NewEventMock(t, notarizationMgr, ecFactory)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
 		// Message1, issuing time epoch 1
@@ -445,8 +439,8 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	eventHandlerMock.AssertExpectations(t)
 }
 
-func setupFramework(t *testing.T, scenario *tangle.TestScenario, epochInterval time.Duration) (*Manager, *EpochCommitmentFactory) {
-	var minCommittable time.Duration = 2 * time.Second
+func setupFramework(t *testing.T, scenario *tangle.TestScenario, epochInterval time.Duration) (eventMock *EventMock, m *Manager) {
+	var minCommittable time.Duration = 2 * epochInterval
 	genesisTime := time.Now()
 	testTangle := scenario.Tangle
 
@@ -461,7 +455,7 @@ func setupFramework(t *testing.T, scenario *tangle.TestScenario, epochInterval t
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
 	epochMgr := NewEpochManager(Duration(epochInterval), GenesisTime(genesisTime.Unix()))
-	m := NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
+	m = NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()
@@ -474,10 +468,11 @@ func setupFramework(t *testing.T, scenario *tangle.TestScenario, epochInterval t
 	testTangle.Setup()
 
 	registerToTangleEvents(sfg, testTangle)
-
 	loadSnapshot(m, scenario.TestFramework)
 
-	return m, ecFactory
+	eventMock = NewEventMock(t, m, ecFactory)
+
+	return eventMock, m
 }
 
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
