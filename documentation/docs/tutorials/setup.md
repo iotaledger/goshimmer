@@ -200,7 +200,7 @@ services:
     hostname: goshimmer
     stop_grace_period: 2m
     volumes:
-      - "./db:/app/mainnetdb:rw"
+      - "./mainnetdb:/app/mainnetdb:rw"
       - "./peerdb:/app/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
