@@ -249,13 +249,12 @@ func onMessageProcessed(messageID tangle.MessageID) {
 
 		// pledge mana to requester if not specified in the request
 		emptyID := identity.ID{}
-		aManaPledge := fundingRequest.AccessManaPledgeID()
+		var aManaPledge identity.ID
 		if fundingRequest.AccessManaPledgeID() == emptyID {
 			aManaPledge = identity.NewID(message.IssuerPublicKey())
 		}
 
-		cManaPledge := fundingRequest.AccessManaPledgeID()
-
+		var cManaPledge identity.ID
 		if fundingRequest.ConsensusManaPledgeID() == emptyID {
 			cManaPledge = identity.NewID(message.IssuerPublicKey())
 		}
@@ -277,9 +276,13 @@ func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) 
 	}
 
 	emptyID := identity.ID{}
-	if len(pledge) == 2 && fundingRequest.AccessManaPledgeID() == emptyID && fundingRequest.ConsensusManaPledgeID() == emptyID {
-		fundingRequest.SetAccessManaPledgeID(pledge[0])
-		fundingRequest.SetConsensusManaPledgeID(pledge[1])
+	if len(pledge) == 2 {
+		if fundingRequest.AccessManaPledgeID() == emptyID {
+			fundingRequest.SetAccessManaPledgeID(pledge[0])
+		}
+		if fundingRequest.ConsensusManaPledgeID() == emptyID {
+			fundingRequest.SetConsensusManaPledgeID(pledge[1])
+		}
 	}
 
 	// finally add it to the faucet to be processed
