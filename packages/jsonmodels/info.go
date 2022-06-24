@@ -36,15 +36,20 @@ type InfoResponse struct {
 	// LastCommittedEpoch contains information about the last committed epoch.
 	LastCommittedEpoch EpochInfo
 
+	// RateSetter is the rate setter.
+	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
 
 // TangleTime contains the TangleTime sync detailed status.
 type TangleTime struct {
-	MessageID string `json:"messageID"`
-	Time      int64  `json:"time"`
-	Synced    bool   `json:"synced"`
+	AcceptedMessageID string `json:"messageID"`
+	ATT               int64  `json:"ATT"`
+	RATT              int64  `json:"RATT"`
+	CTT               int64  `json:"CTT"`
+	RCTT              int64  `json:"RCTT"`
+	Synced            bool   `json:"synced"`
 }
 
 // Mana contains the different mana values of the node.
@@ -62,10 +67,12 @@ type Scheduler struct {
 	MaxBufferSize     int            `json:"maxBufferSize"`
 	CurrentBufferSize int            `json:"currentBufferSizer"`
 	NodeQueueSizes    map[string]int `json:"nodeQueueSizes"`
+	Deficit           float64        `json:"deficit"`
 }
 
 // RateSetter is the rate setter details.
 type RateSetter struct {
-	Rate float64 `json:"rate"`
-	Size int     `json:"size"`
+	Rate     float64       `json:"rate"`
+	Size     int           `json:"size"`
+	Estimate time.Duration `json:"estimate"`
 }

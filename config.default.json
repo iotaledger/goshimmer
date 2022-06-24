@@ -70,7 +70,7 @@
     "enablePlugins": []
   },
   "pow": {
-    "difficulty": 21,
+    "difficulty": 0,
     "numThreads": 1,
     "timeout": "1m"
   },
@@ -93,5 +93,8 @@
   },
   "networkdelay": {
     "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
+  },
+  "manaInitializer": {
+    "FaucetAPI": "faucet-01.devnet.shimmer.iota.cafe:8080"
   }
 }

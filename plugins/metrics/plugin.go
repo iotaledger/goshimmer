@@ -95,6 +95,7 @@ func run(_ *node.Plugin) {
 				measureRequestQueueSize()
 				measureGossipTraffic()
 				measurePerComponentCounter()
+				measureRateSetter()
 				measureSchedulerMetrics()
 			}, 1*time.Second, ctx)
 		}

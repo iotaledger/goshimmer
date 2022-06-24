@@ -216,7 +216,6 @@ export function drawMessage(
     drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs);
     drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs);
     drawVertexParentReference(parentRefType.ShallowLikeRef, msg.shallowLikeParentIDs);
-    drawVertexParentReference(parentRefType.ShallowDislikeRef, msg.shallowDislikeParentIDs);
 }
 
 export function selectMessage(id: string, vivaLib: vivagraphLib) {

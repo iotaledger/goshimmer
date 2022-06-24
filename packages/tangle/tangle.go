@@ -24,8 +24,6 @@ import (
 )
 
 const (
-	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
-	DefaultGenesisTime int64 = 1616144400
 	// DefaultSyncTimeWindow is the default sync time window.
 	DefaultSyncTimeWindow = 2 * time.Minute
 )
@@ -41,6 +39,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
+	RateSetter            *RateSetter
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -53,6 +52,7 @@ type Tangle struct {
 	WeightProvider        WeightProvider
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
+	OrphanageManager      *OrphanageManager
 }
 
 // ConfirmationOracle answers questions about entities' confirmation.
@@ -80,12 +80,14 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithConflictDAGOptions(tangle.Options.ConflictDAGOptions...))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.RateSetter = NewRateSetter(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.OrphanageManager = NewOrphanageManager(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
@@ -114,7 +116,9 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
+	t.RateSetter.Setup()
 	t.Booker.Setup()
+	t.OrphanageManager.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.Scheduler.Setup()
 	t.TimeManager.Setup()
@@ -131,6 +135,10 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
+
+	t.RateSetter.Events.Error.Attach(event.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
+	}))
 }
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
@@ -140,17 +148,21 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
-	if !t.Synced() {
-		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
+	if !t.Bootstrapped() {
+		err = errors.Errorf("can't issue payload: %w", ErrNotBootstrapped)
 		return
 	}
-
 	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
-// Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
+// Bootstrapped returns a boolean value that indicates if the node has bootstrapped and the Tangle has solidified all messages
 // until the genesis.
-func (t *Tangle) Synced() (synced bool) {
+func (t *Tangle) Bootstrapped() bool {
+	return t.TimeManager.Bootstrapped()
+}
+
+// Synced returns a boolean value that indicates if the node is in sync at this moment.
+func (t *Tangle) Synced() bool {
 	return t.TimeManager.Synced()
 }
 
@@ -164,6 +176,7 @@ func (t *Tangle) Shutdown() {
 	t.Requester.Shutdown()
 	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
+	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()

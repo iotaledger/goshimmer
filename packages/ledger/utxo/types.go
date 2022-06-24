@@ -36,6 +36,11 @@ func (t TransactionID) Length() (length int) {
 	return types.IdentifierLength
 }
 
+// IsEmpty returns true if the TransactionID is empty.
+func (t TransactionID) IsEmpty() (isEmpty bool) {
+	return t == EmptyTransactionID
+}
+
 // String returns a human-readable version of the TransactionID.
 func (t TransactionID) String() (humanReadable string) {
 	return "TransactionID(" + t.Alias() + ")"

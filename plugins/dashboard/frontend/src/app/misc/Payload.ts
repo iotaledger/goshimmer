@@ -103,11 +103,6 @@ export class Balance {
     color: string;
 }
 
-export class StatementPayload {
-    conflicts: Array<Conflict>;
-    timestamps: Array<Timestamp>;
-}
-
 export class Conflict {
     tx_id: string;
     opinion: Opinion;
