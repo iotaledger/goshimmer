@@ -758,40 +758,49 @@ func QueryAllowed() (allowed bool) {
 func loadSnapshot(snapshot *ledger.Snapshot) error {
 	consensusManaByNode := map[identity.ID]float64{}
 	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, areCreated bool) {
+	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
 		for _, outputWithMetadata := range outputsWithMetadata {
 			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
-			var manaValue float64
-			devnetOutput.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				if color != devnetvm.ColorIOTA {
-					return true
-				}
-				manaValue += float64(balance)
-				return true
-			})
+			balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+			if !exists {
+				continue
+			}
 			outputMetadata := outputWithMetadata.OutputMetadata()
 			if areCreated {
-				consensusManaByNode[outputMetadata.ConsensusManaPledgeID()] += manaValue
-				accessManaByNode[outputMetadata.AccessManaPledgeID()] += manaValue
+				baseVector[outputMetadata.ConsensusManaPledgeID()] += float64(balance)
 			} else {
-				consensusManaByNode[outputMetadata.ConsensusManaPledgeID()] -= manaValue
-				accessManaByNode[outputMetadata.AccessManaPledgeID()] -= manaValue
+				baseVector[outputMetadata.ConsensusManaPledgeID()] -= float64(balance)
 			}
 		}
 
 		return
 	}
 
-	processOutputs(snapshot.OutputsWithMetadata, true /* areCreated */)
+	processOutputs(snapshot.OutputsWithMetadata, consensusManaByNode, true /* areCreated */)
+	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
 
-	// We fix the mana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex-epoch.Index(ManaParameters.EpochDelay); ei++ {
+	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+
+	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
 		diff, exists := snapshot.EpochDiffs[ei]
 		if !exists {
 			return errors.Errorf("diff with index %d missing from snapshot", ei)
 		}
-		processOutputs(diff.Created(), true /* areCreated */)
-		processOutputs(diff.Spent(), false /* areCreated */)
+		processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+		processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+	}
+
+	// Only the aMana will be loaded until the latest snapshot's epoch
+	for ei := cManaTargetEpoch + 1; ei <= snapshot.DiffEpochIndex; ei++ {
+		diff, exists := snapshot.EpochDiffs[ei]
+		if !exists {
+			return errors.Errorf("diff with index %d missing from snapshot", ei)
+		}
+		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
 	}
 
 	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
