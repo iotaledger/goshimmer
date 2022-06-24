@@ -96,11 +96,6 @@ func onlyIfBootstrapped[E any](timeManager *tangle.TimeManager, handler func(eve
 	})
 }
 
-// EpochManager return EpochManager instance.
-func (m *Manager) EpochManager() *EpochManager {
-	return m.epochManager
-}
-
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -330,11 +325,11 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 }
 
 func (m *Manager) GetEpochMessages(ei epoch.Index) ([]tangle.MessageID, error) {
-	return m.epochCommitmentFactory.getAllTangleLeafs(ei)
+	return m.epochCommitmentFactory.getEpochMessageIDs(ei)
 }
 
 func (m *Manager) GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
-	return m.epochCommitmentFactory.getAllStateMutationLeafs(ei)
+	return m.epochCommitmentFactory.getEpochTransactionIDs(ei)
 }
 
 func (m *Manager) GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {

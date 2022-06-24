@@ -26,7 +26,7 @@ type EpochCommitmentStorage struct {
 	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
 
 	// Delta storages
-	epochDiffStorages map[epoch.Index]*epochDiffStorage
+	epochContentStorages map[epoch.Index]*epochContentStorages
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -35,9 +35,11 @@ type EpochCommitmentStorage struct {
 	shutdownOnce sync.Once
 }
 
-type epochDiffStorage struct {
-	spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
-	created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+type epochContentStorages struct {
+	spentOutputs   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+	createdOutputs *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+	MessageIDs     kvstore.KVStore
+	TransactionIDs kvstore.KVStore
 }
 
 // newEpochCommitmentStorage returns a new storage instance for the given Ledger.
@@ -62,7 +64,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.epochDiffStorages = make(map[epoch.Index]*epochDiffStorage)
+	new.epochContentStorages = make(map[epoch.Index]*epochContentStorages)
 
 	return new
 }
@@ -115,9 +117,9 @@ func (s *EpochCommitmentStorage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()
-		for _, epochDiffStorage := range s.epochDiffStorages {
-			epochDiffStorage.spent.Shutdown()
-			epochDiffStorage.created.Shutdown()
+		for _, epochDiffStorage := range s.epochContentStorages {
+			epochDiffStorage.spentOutputs.Shutdown()
+			epochDiffStorage.createdOutputs.Shutdown()
 		}
 	})
 }
@@ -142,17 +144,19 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 	return nil
 }
 
-func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
+func (s *EpochCommitmentStorage) dropEpochContentStorage(ei epoch.Index) {
 	// TODO: properly drop (delete epoch bucketed) storage
-	diffStorage := s.getEpochDiffStorage(ei)
-	diffStorage.spent.Shutdown()
-	diffStorage.created.Shutdown()
-	delete(s.epochDiffStorages, ei)
+	contentStorage := s.getEpochContentStorage(ei)
+	contentStorage.spentOutputs.Shutdown()
+	contentStorage.createdOutputs.Shutdown()
+	_ = contentStorage.MessageIDs.Flush()
+	_ = contentStorage.TransactionIDs.Flush()
+	delete(s.epochContentStorages, ei)
 }
 
-func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
-	if epochDiffStorage, exists := s.epochDiffStorages[ei]; exists {
-		return epochDiffStorage
+func (s *EpochCommitmentStorage) getEpochContentStorage(ei epoch.Index) (contentStorage *epochContentStorages) {
+	if epochContentStorage, exists := s.epochContentStorages[ei]; exists {
+		return epochContentStorage
 	}
 
 	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochDiffSpent}, ei.Bytes()...))
@@ -163,24 +167,35 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 	if err != nil {
 		panic(err)
 	}
+	messageIDsStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochMessageIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	diffStorage = &epochDiffStorage{
-		spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+	transactionIDsStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+
+	contentStorage = &epochContentStorages{
+		spentOutputs: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			spentDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 
-		created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+		createdOutputs: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			createdDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
+		MessageIDs:     messageIDsStore,
+		TransactionIDs: transactionIDsStore,
 	}
 
-	s.epochDiffStorages[ei] = diffStorage
+	s.epochContentStorages[ei] = contentStorage
 
 	return
 }
@@ -197,6 +212,10 @@ const (
 	PrefixEpochDiffCreated
 
 	PrefixEpochDiffSpent
+
+	PrefixEpochMessageIDs
+
+	PrefixEpochTransactionIDs
 
 	PrefixStateTreeNodes
 
