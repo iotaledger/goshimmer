@@ -5,12 +5,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 const (
@@ -111,6 +112,6 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 
 // EpochCommitted is the mocked BranchWeightChanged function.
 func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
-	e.Called(event.EI)
+	e.Called(event.CommittedEpoch.EI())
 	atomic.AddUint64(&e.calledEvents, 1)
 }
