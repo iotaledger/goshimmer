@@ -339,13 +339,18 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	// We advance the LedgerState to the next epoch.
 	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
-	return &CommitmentRoots{
+	commitmentRoots = &CommitmentRoots{
 		EI:                ei,
 		stateRoot:         epoch.NewMerkleRoot(stateRoot),
 		manaRoot:          epoch.NewMerkleRoot(manaRoot),
 		tangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
 		stateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
-	}, nil
+	}
+
+	// We are never going to use this epoch's commitment trees again.
+	delete(f.commitmentTrees, ei)
+
+	return commitmentRoots, nil
 }
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
@@ -365,6 +370,13 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
+	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
+	}
+	if ei <= lastCommittedEpoch {
+		return nil, errors.Errorf("cannot get commitment trees for epoch %d, because it is already committed", ei)
+	}
 	commitmentTrees, ok := f.commitmentTrees[ei]
 	if !ok {
 		commitmentTrees = f.newCommitmentTrees(ei)

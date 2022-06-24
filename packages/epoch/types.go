@@ -3,28 +3,24 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 )
 
+var (
+	// GenesisTime is the time (Unix in seconds) of the genesis.
+	GenesisTime int64 = 1655985373
+	// Duration is the default epoch duration.
+	Duration time.Duration = 10 * time.Second
+)
+
 // Index is the ID of an epoch.
 type Index int64
-
-func (e Index) Bytes() []byte {
-	bytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
-	if err != nil {
-		panic(err)
-	}
-
-	return bytes
-}
-
-func (e Index) String() string {
-	return fmt.Sprintf("EI(%d)", e)
-}
 
 func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
@@ -34,6 +30,48 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 
 	return
 }
+
+// IndexFromTime calculates the EI for the given time.
+func IndexFromTime(t time.Time) Index {
+	elapsedSeconds := t.Unix() - GenesisTime
+	if elapsedSeconds <= 0 {
+		return 0
+	}
+
+	return Index(elapsedSeconds / int64(Duration))
+}
+
+// CurrentEI returns the EI at the current synced time.
+func CurrentIndex() Index {
+	return IndexFromTime(clock.SyncedTime())
+}
+
+func (i Index) Bytes() []byte {
+	bytes, err := serix.DefaultAPI.Encode(context.Background(), i, serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
+
+	return bytes
+}
+
+func (i Index) String() string {
+	return fmt.Sprintf("EI(%d)", i)
+}
+
+// StartTime calculates the start time of the given epoch.
+func (i Index) StartTime() time.Time {
+	startUnix := GenesisTime + int64(i)*int64(Duration)
+	return time.Unix(startUnix, 0)
+}
+
+// EIToEndTime calculates the end time of the given epoch.
+func (i Index) EndTime() time.Time {
+	endUnix := GenesisTime + int64(i)*int64(Duration) + int64(Duration) - 1
+	return time.Unix(endUnix, 0)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MerkleRoot [blake2b.Size256]byte
 
