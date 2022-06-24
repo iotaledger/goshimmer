@@ -149,10 +149,10 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message5")
 				assert.Equal(t, epoch.Index(3), msg.EI())
-				assertExistenceOfBlock(t, testFramework, notarizationMgr, []string{
-					"Message1",
-					"Message2",
-					"Message3",
+				assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+					"Message1": true,
+					"Message2": true,
+					"Message3": true,
 				})
 			},
 		},
@@ -282,9 +282,9 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message8")
 				assert.Equal(t, epoch.Index(4), msg.EI())
-				assertExistenceOfTransaction(t, testFramework, notarizationMgr, []string{
-					"Message5",
-					"Message6",
+				assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
+					"Message5": true,
+					"Message6": true,
 				})
 			},
 		},
@@ -412,17 +412,20 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message8")
 				assert.Equal(t, epoch.Index(2), msg.EI())
-				assertExistenceOfBlock(t, testFramework, notarizationMgr, []string{
-					"Message1",
-					"Message2",
-					"Message3",
-					"Message4",
-					"Message5",
-					"Message7",
+				assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+					"Message1": true,
+					"Message2": true,
+					"Message3": true,
+					"Message4": true,
+					"Message5": true,
+					"Message7": true,
+					"Message6": false,
+					"Message8": false,
 				})
-				assertExistenceOfTransaction(t, testFramework, notarizationMgr, []string{
-					"Message5",
-					"Message7",
+				assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
+					"Message5": true,
+					"Message7": true,
+					"Message6": false,
 				})
 			},
 		},
@@ -475,22 +478,21 @@ func setupFramework(t *testing.T, scenario *tangle.TestScenario, epochInterval t
 	return eventMock, m
 }
 
-func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
-	for _, alias := range aliasNames {
+func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
+	for alias, result := range results {
 		p, err := m.GetBlockInclusionProof(testFramework.Message(alias).ID())
 		require.NoError(t, err)
-
 		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, testFramework.Message(alias).ID())
-		assert.True(t, valid)
+		assert.Equal(t, result, valid)
 	}
 }
 
-func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
-	for _, alias := range aliasNames {
+func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
+	for alias, result := range results {
 		p, err := m.GetTransactionInclusionProof(testFramework.Transaction(alias).ID())
 		require.NoError(t, err)
 		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
-		assert.True(t, valid)
+		assert.Equal(t, result, valid)
 	}
 }
 
