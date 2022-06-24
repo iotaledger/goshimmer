@@ -178,9 +178,9 @@ func (m *Manager) PendingConflictsCountAll() map[epoch.Index]uint64 {
 
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) IsCommittable(ei epoch.Index) bool {
-	t := m.epochManager.EIToEndTime(ei)
+	t := ei.EndTime()
 	diff := time.Since(t)
-	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
+	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
