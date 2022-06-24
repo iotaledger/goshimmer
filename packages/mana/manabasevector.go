@@ -3,6 +3,8 @@ package mana
 import (
 	"bytes"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"sort"
 	"time"
 
@@ -122,35 +124,18 @@ func (m *ManaBaseVector) Book(txInfo *TxInfo) {
 		for _, inputInfo := range txInfo.InputInfos {
 			// which node did the input pledge mana to?
 			oldPledgeNodeID := inputInfo.PledgeID[m.Type()]
-			if _, exist := m.M.Vector[oldPledgeNodeID]; !exist {
-				// first time we see this node
-				m.M.Vector[oldPledgeNodeID] = &ManaBase{}
-				m.M.Vector[oldPledgeNodeID].Init()
-			}
-			// save old mana
-			oldMana := *m.M.Vector[oldPledgeNodeID]
-			// revoke BM1
-			err := m.M.Vector[oldPledgeNodeID].revoke(inputInfo.Amount)
-			if errors.Is(err, ErrBaseManaNegative) {
-				panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, oldPledgeNodeID.String()))
-			}
+			oldMana := m.getOldManaAndRevoke(oldPledgeNodeID, inputInfo.Amount)
 			// save events for later triggering
 			revokeEvents = append(revokeEvents, &RevokedEvent{oldPledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, m.Type(), txInfo.TransactionID, inputInfo.InputID})
 			updateEvents = append(updateEvents, &UpdatedEvent{oldPledgeNodeID, &oldMana, m.M.Vector[oldPledgeNodeID], m.Type()})
 		}
 		// second, pledge mana to new nodes
 		newPledgeNodeID := txInfo.PledgeID[m.Type()]
-		if _, exist := m.M.Vector[newPledgeNodeID]; !exist {
-			// first time we see this node
-			m.M.Vector[newPledgeNodeID] = NewManaBase(0)
-		}
-		// save it for proper event trigger
-		oldMana := *m.M.Vector[newPledgeNodeID]
-		// actually pledge and update
-		pledged := m.M.Vector[newPledgeNodeID].pledge(txInfo)
+		oldMana := m.getOldManaAndPledge(newPledgeNodeID, txInfo.sumInputs())
+
 		pledgeEvents = append(pledgeEvents, &PledgedEvent{
 			NodeID:        newPledgeNodeID,
-			Amount:        pledged,
+			Amount:        txInfo.sumInputs(),
 			Time:          txInfo.TimeStamp,
 			ManaType:      m.Type(),
 			TransactionID: txInfo.TransactionID,
@@ -163,6 +148,10 @@ func (m *ManaBaseVector) Book(txInfo *TxInfo) {
 		})
 	}()
 
+	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+}
+
+func (m *ManaBaseVector) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
 	// trigger the events once we released the lock on the mana vector
 	for _, ev := range revokeEvents {
 		Events.Revoked.Trigger(ev)
@@ -173,6 +162,75 @@ func (m *ManaBaseVector) Book(txInfo *TxInfo) {
 	for _, ev := range updateEvents {
 		Events.Updated.Trigger(ev)
 	}
+}
+
+func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
+	var revokeEvents []*RevokedEvent
+	var pledgeEvents []*PledgedEvent
+	var updateEvents []*UpdatedEvent
+	// only lock mana vector while we are working with it
+	func() {
+		m.Lock()
+		defer m.Unlock()
+		// first, revoke mana from previous owners
+		for _, output := range spent {
+			idToRevoke := m.getIDBasedOnManaType(output)
+			outputIOTAs, _ := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
+			oldMana := m.getOldManaAndRevoke(idToRevoke, float64(outputIOTAs))
+			// save events for later triggering
+			revokeEvents = append(revokeEvents, &RevokedEvent{idToRevoke, float64(outputIOTAs), output.OutputMetadata().CreationTime(), m.Type(), output.ID().TransactionID, output.ID()})
+			updateEvents = append(updateEvents, &UpdatedEvent{idToRevoke, &oldMana, m.M.Vector[idToRevoke], m.Type()})
+
+		}
+		// second, pledge mana to new nodes
+		for _, output := range created {
+			idToPledge := m.getIDBasedOnManaType(output)
+			outputIOTAs, _ := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
+			oldMana := m.getOldManaAndPledge(idToPledge, float64(outputIOTAs))
+			pledgeEvents = append(pledgeEvents, &PledgedEvent{idToPledge, float64(outputIOTAs), output.OutputMetadata().CreationTime(), m.Type(), output.Output().ID().TransactionID})
+			updateEvents = append(updateEvents, &UpdatedEvent{idToPledge, &oldMana, m.M.Vector[idToPledge], m.Type()})
+		}
+	}()
+
+	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+}
+
+func (m *ManaBaseVector) getIDBasedOnManaType(output *ledger.OutputWithMetadata) identity.ID {
+	var id identity.ID
+	if m.Type() == ConsensusMana {
+		id = output.OutputMetadata().ConsensusManaPledgeID()
+	} else {
+		id = output.OutputMetadata().AccessManaPledgeID()
+	}
+	return id
+}
+
+func (m *ManaBaseVector) getOldManaAndRevoke(oldPledgeNodeID identity.ID, amount float64) ManaBase {
+	if _, exist := m.M.Vector[oldPledgeNodeID]; !exist {
+		// first time we see this node
+		m.M.Vector[oldPledgeNodeID] = &ManaBase{}
+		m.M.Vector[oldPledgeNodeID].Init()
+	}
+	// save old mana
+	oldMana := *m.M.Vector[oldPledgeNodeID]
+	// revoke BM1
+	err := m.M.Vector[oldPledgeNodeID].revoke(amount)
+	if errors.Is(err, ErrBaseManaNegative) {
+		panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", amount, oldPledgeNodeID.String()))
+	}
+	return oldMana
+}
+
+func (m *ManaBaseVector) getOldManaAndPledge(newPledgeNodeID identity.ID, sumInputs float64) ManaBase {
+	if _, exist := m.M.Vector[newPledgeNodeID]; !exist {
+		// first time we see this node
+		m.M.Vector[newPledgeNodeID] = NewManaBase(0)
+	}
+	// save it for proper event trigger
+	oldMana := *m.M.Vector[newPledgeNodeID]
+	// actually pledge and update
+	m.M.Vector[newPledgeNodeID].pledge(sumInputs)
+	return oldMana
 }
 
 // GetMana returns the Effective Base Mana.

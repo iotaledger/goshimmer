@@ -26,7 +26,7 @@ type EpochCommitmentStorage struct {
 	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
 
 	// Delta storages
-	epochDiffStorages map[epoch.Index]*epochDiffStorage
+	epochDiffStorages map[epoch.Index]*EpochDiffStorage
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -35,9 +35,9 @@ type EpochCommitmentStorage struct {
 	shutdownOnce sync.Once
 }
 
-type epochDiffStorage struct {
-	spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
-	created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+type EpochDiffStorage struct {
+	Spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+	Created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 }
 
 // newEpochCommitmentStorage returns a new storage instance for the given Ledger.
@@ -62,7 +62,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.epochDiffStorages = make(map[epoch.Index]*epochDiffStorage)
+	new.epochDiffStorages = make(map[epoch.Index]*EpochDiffStorage)
 
 	return new
 }
@@ -116,8 +116,8 @@ func (s *EpochCommitmentStorage) Shutdown() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()
 		for _, epochDiffStorage := range s.epochDiffStorages {
-			epochDiffStorage.spent.Shutdown()
-			epochDiffStorage.created.Shutdown()
+			epochDiffStorage.Spent.Shutdown()
+			epochDiffStorage.Created.Shutdown()
 		}
 	})
 }
@@ -145,12 +145,12 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
 	// TODO: properly drop (delete epoch bucketed) storage
 	diffStorage := s.getEpochDiffStorage(ei)
-	diffStorage.spent.Shutdown()
-	diffStorage.created.Shutdown()
+	diffStorage.Spent.Shutdown()
+	diffStorage.Created.Shutdown()
 	delete(s.epochDiffStorages, ei)
 }
 
-func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
+func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *EpochDiffStorage) {
 	if epochDiffStorage, exists := s.epochDiffStorages[ei]; exists {
 		return epochDiffStorage
 	}
@@ -164,15 +164,15 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		panic(err)
 	}
 
-	diffStorage = &epochDiffStorage{
-		spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+	diffStorage = &EpochDiffStorage{
+		Spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			spentDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 
-		created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+		Created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			createdDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

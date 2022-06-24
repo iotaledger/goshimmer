@@ -251,18 +251,18 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	return
 }
 
-// storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
+// storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs Created and Spent in the span of a
 // single epoch. This is because, as UTXOs can be stored out-of-order, we cannot reliably remove intermediate UTXOs
 // before an epoch is committable.
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) {
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
+		epochDiffStorage.Spent.Store(spentOutputWithMetadata).Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
+		epochDiffStorage.Created.Store(createdOutputWithMetadata).Release()
 	}
 }
 
@@ -270,31 +270,31 @@ func (f *EpochCommitmentFactory) deleteDiffUTXOs(ei epoch.Index, spent, created 
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochDiffStorage.spent.Delete(spentOutputWithMetadata.ID().Bytes())
+		epochDiffStorage.Spent.Delete(spentOutputWithMetadata.ID().Bytes())
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochDiffStorage.created.Delete(createdOutputWithMetadata.ID().Bytes())
+		epochDiffStorage.Created.Delete(createdOutputWithMetadata.ID().Bytes())
 	}
 }
 
-// loadDiffUTXOs loads the diff UTXOs occurred on an epoch by removing UTXOs created and spent in the span of the same epoch,
+// loadDiffUTXOs loads the diff UTXOs occurred on an epoch by removing UTXOs Created and Spent in the span of the same epoch,
 // as by the time we load a diff we assume the epoch is being committed and cannot be altered anymore.
 func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created []*ledger.OutputWithMetadata) {
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	spent = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+	epochDiffStorage.Spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutput.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			// We remove spent UTXOs from the created storage before loading them.
-			epochDiffStorage.created.Delete(outputWithMetadata.ID().Bytes())
+			// We remove Spent UTXOs from the Created storage before loading them.
+			epochDiffStorage.Created.Delete(outputWithMetadata.ID().Bytes())
 			spent = append(spent, outputWithMetadata)
 		})
 		return true
 	})
 
 	created = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+	epochDiffStorage.Created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
 			created = append(created, outputWithMetadata)
 		})
@@ -377,7 +377,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spentOutputs, createdOutputs := f.loadDiffUTXOs(ei)
 
-	// Insert  created UTXOs into the state tree.
+	// Insert  Created UTXOs into the state tree.
 	for _, created := range createdOutputs {
 		err = f.insertStateLeaf(created.ID())
 		if err != nil {
@@ -389,7 +389,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 		}
 	}
 
-	// Remove spent UTXOs from the state tree.
+	// Remove Spent UTXOs from the state tree.
 	for _, spent := range spentOutputs {
 		err = f.removeStateLeaf(spent.ID())
 		if err != nil {

@@ -3,6 +3,7 @@ package messagelayer
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"sort"
 	"time"
 
@@ -46,6 +47,7 @@ var (
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
 	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
+	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorToUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -65,6 +67,9 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorToUpdateEvent) {
+		onManaVectorToUpdate(event.EpochDiffCreated, event.EpochDiffSpent)
+	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -101,6 +106,7 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	notarizationManager.Events.ManaVectorToUpdate.Attach(onManaVectorToUpdateClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -126,7 +132,7 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
+		totalAmount, inputInfos := gatherInputInfos(devnetTransaction.Essence().Inputs())
 
 		txInfo = &mana.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
@@ -139,16 +145,27 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 			InputInfos: inputInfos,
 		}
 
-		// book in all mana vectors.
+		// book in only access mana
 		for _, baseManaVector := range baseManaVectors {
-			baseManaVector.Book(txInfo)
+			if baseManaVector.Type() == mana.AccessMana {
+				baseManaVector.Book(txInfo)
+			}
 		}
 	})
 }
 
-func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+func onManaVectorToUpdate(created, spent []*ledger.OutputWithMetadata) {
+	// book in only consensus mana
+	for _, baseManaVector := range baseManaVectors {
+		if baseManaVector.Type() == mana.ConsensusMana {
+			baseManaVector.BookEpoch(created, spent)
+		}
+	}
+}
+
+func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []mana.InputInfo) {
 	inputInfos = make([]mana.InputInfo, 0)
-	for _, input := range transaction.Essence().Inputs() {
+	for _, input := range inputs {
 		var inputInfo mana.InputInfo
 
 		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
@@ -223,6 +240,7 @@ func runManaPlugin(_ *node.Plugin) {
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
 				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				notarizationManager.Events.ManaVectorToUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

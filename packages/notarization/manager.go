@@ -52,8 +52,8 @@ func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommit
 		log:                      options.Log,
 		options:                  options,
 		Events: &Events{
-			EpochCommitted:   event.New[*EpochEvent](),
-			NextEpochStarted: event.New[*EpochEvent](),
+			EpochCommitted:     event.New[*EpochCommittedEvent](),
+			ManaVectorToUpdate: event.New[*ManaVectorToUpdateEvent](),
 		},
 	}
 
@@ -174,7 +174,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
 
-	m.Events.EpochCommitted.Trigger(&EpochEvent{EI: latestCommittableEpoch})
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
 
 	return
 }
@@ -285,7 +285,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.pendingConflictsCounters[ei]--
 }
 
-// OnBranchCreated is the handler for branch created event.
+// OnBranchCreated is the handler for branch Created event.
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -294,7 +294,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.pendingConflictsCounters[ei]++
 }
 
-// OnBranchRejected is the handler for branch created event.
+// OnBranchRejected is the handler for branch Created event.
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -361,7 +361,20 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 	// TODO update to ATT after merging TSC PR
 	currentATT := m.tangle.TimeManager.Time()
 	diff := currentATT.Sub(t)
-	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
+	if diff < m.options.MinCommittableEpochAge {
+		return false
+	}
+	latestEi, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	if err != nil {
+		return false
+	}
+	// epoch is not committable if there are any not resolved conflicts in this and past epochs
+	for index := latestEi; index <= ei; index++ {
+		if m.pendingConflictsCounters[index] != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
@@ -461,10 +474,26 @@ func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
 			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
 			return
 		}
-		for index := currentEpochIndex; index <= ei; index++ {
-			m.Events.NextEpochStarted.Trigger(&EpochEvent{index})
+		if !m.isCommittable(ei) {
+			return
 		}
+		if err = m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(ei); err != nil {
+			m.log.Error(errors.Wrap(err, "could not set latest committable epoch index"))
+			return
+		}
+		m.triggerManaVectorUpdate(ei)
+		// todo move commitments trees to the latest committable epoch
+
 	}
+}
+
+func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
+	epochForManaVector := ei - epoch.Index(m.options.ManaEpochDelay)
+	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
+	m.Events.ManaVectorToUpdate.Trigger(&ManaVectorToUpdateEvent{
+		EpochDiffCreated: created,
+		EpochDiffSpent:   spent,
+	})
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
@@ -473,6 +502,7 @@ type ManagerOption func(options *ManagerOptions)
 // ManagerOptions is a container of all the config parameters of the notarization manager.
 type ManagerOptions struct {
 	MinCommittableEpochAge time.Duration
+	ManaEpochDelay         uint
 	Log                    *logger.Logger
 }
 
@@ -480,6 +510,13 @@ type ManagerOptions struct {
 func MinCommittableEpochAge(d time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.MinCommittableEpochAge = d
+	}
+}
+
+// ManaDelay specifies the epoch offset for mana vector from the last committable epoch.
+func ManaDelay(d uint) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.ManaEpochDelay = d
 	}
 }
 
@@ -493,12 +530,19 @@ func Log(log *logger.Logger) ManagerOption {
 // Events is a container that acts as a dictionary for the existing events of a notarization manager.
 type Events struct {
 	// EpochCommitted is an event that gets triggered whenever an epoch commitment is committable.
-	EpochCommitted   *event.Event[*EpochEvent]
-	NextEpochStarted *event.Event[*EpochEvent]
+	EpochCommitted     *event.Event[*EpochCommittedEvent]
+	ManaVectorToUpdate *event.Event[*ManaVectorToUpdateEvent]
 }
 
-// EpochEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
-type EpochEvent struct {
+// EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
+}
+
+// ManaVectorToUpdateEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type ManaVectorToUpdateEvent struct {
+	// EI is the index of committable epoch.
+	EpochDiffCreated []*ledger.OutputWithMetadata
+	EpochDiffSpent   []*ledger.OutputWithMetadata
 }
