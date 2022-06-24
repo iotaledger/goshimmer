@@ -226,23 +226,23 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 }
 
 // ecRecord retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, isNew bool, err error) {
 	ecRecord = epoch.NewECRecord(ei)
 	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
 		ecRecord.SetECR(record.ECR())
 		ecRecord.SetPrevEC(record.PrevEC())
 	}) {
-		return ecRecord, nil
+		return ecRecord, false, nil
 	}
 
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
-	prevECRecord, err := f.ecRecord(ei - 1)
+	prevECRecord, _, err := f.ecRecord(ei - 1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	prevEC := EC(prevECRecord)
 
