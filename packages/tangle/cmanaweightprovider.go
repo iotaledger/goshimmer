@@ -24,7 +24,7 @@ func init() {
 }
 
 const (
-	activeTimeThreshold  = 30 * time.Minute
+	activeTimeThreshold  = 5 * time.Minute
 	minimumManaThreshold = 0
 	activeNodesKey       = "WeightProviderActiveNodes"
 )

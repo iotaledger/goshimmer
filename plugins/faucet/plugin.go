@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
@@ -110,9 +111,10 @@ func configure(plugin *node.Plugin) {
 	_faucet = newFaucet()
 
 	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*faucet.Payload).Address()
-		msg, txID, err := _faucet.FulFillFundingRequest(msg)
+		faucetRequest := task.Param(0).(*faucet.Payload)
+		addr := faucetRequest.Address()
+
+		msg, txID, err := _faucet.FulFillFundingRequest(faucetRequest)
 		if err != nil {
 			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
@@ -132,11 +134,11 @@ func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
-		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(ctx) {
+		plugin.LogInfo("Waiting for node to become bootstrapped...")
+		if !waitUntilBootstrapped(ctx) {
 			return
 		}
-		plugin.LogInfo("Waiting for node to become synced... done")
+		plugin.LogInfo("Waiting for node to become bootstrapped... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
 		if err := waitForMana(ctx); err != nil {
@@ -166,9 +168,9 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func waitUntilSynced(ctx context.Context) bool {
+func waitUntilBootstrapped(ctx context.Context) bool {
 	// if we are already synced, there is no need to wait for the event
-	if deps.Tangle.TimeManager.Synced() {
+	if deps.Tangle.TimeManager.Bootstrapped() {
 		return true
 	}
 
@@ -208,7 +210,6 @@ func configureEvents() {
 	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
 		onMessageProcessed(event.MessageID)
 	}))
-
 	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
 		if event.Synced {
 			synced <- true
@@ -216,9 +217,25 @@ func configureEvents() {
 	}))
 }
 
-func onMessageProcessed(messageID tangle.MessageID) {
+func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	// Do not start picking up request while waiting for initialization.
 	// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
+	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
+	// sync and initialized.
+	if !initDone.Load() {
+		return errors.New("faucet plugin is not done initializing")
+	}
+
+	if err := handleFaucetRequest(fundingRequest); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func onMessageProcessed(messageID tangle.MessageID) {
+	// Do not start picking up request while waiting for initialization.
+	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req msgs will be enqueued
 	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
 	// sync and initialized.
 	if !initDone.Load() {
@@ -229,39 +246,62 @@ func onMessageProcessed(messageID tangle.MessageID) {
 			return
 		}
 		fundingRequest := message.Payload().(*faucet.Payload)
-		addr := fundingRequest.Address()
 
-		requestBytes, err := fundingRequest.Bytes()
-		if err != nil {
-			Plugin.LogInfof("couldn't serialize faucet request: %w", err)
-			return
+		// pledge mana to requester if not specified in the request
+		emptyID := identity.ID{}
+		if fundingRequest.AccessManaPledgeID() == emptyID {
+			fundingRequest.SetAccessManaPledgeID(identity.NewID(message.IssuerPublicKey()))
 		}
-		// verify PoW
-		leadingZeroes, err := powVerifier.LeadingZeros(requestBytes)
-		if err != nil {
-			Plugin.LogInfof("couldn't verify PoW of funding request for address %s: %w", addr.Base58(), err)
-			return
+		if fundingRequest.ConsensusManaPledgeID() == emptyID {
+			fundingRequest.SetConsensusManaPledgeID(identity.NewID(message.IssuerPublicKey()))
 		}
 
-		if leadingZeroes < targetPoWDifficulty {
-			Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-			return
-		}
-
-		if IsAddressBlackListed(addr) {
-			Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-			return
-		}
-
-		// finally add it to the faucet to be processed
-		_, added := fundingWorkerPool.TrySubmit(message)
-		if !added {
-			RemoveAddressFromBlacklist(addr)
-			Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-			return
-		}
-		Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+		_ = handleFaucetRequest(fundingRequest)
 	})
+}
+
+func handleFaucetRequest(fundingRequest *faucet.Payload) error {
+	addr := fundingRequest.Address()
+
+	if !isFaucetRequestPoWValid(fundingRequest, addr) {
+		return errors.New("PoW requirement is not satisfied")
+	}
+
+	if IsAddressBlackListed(addr) {
+		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
+		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
+	}
+
+	// finally add it to the faucet to be processed
+	_, added := fundingWorkerPool.TrySubmit(fundingRequest)
+	if !added {
+		RemoveAddressFromBlacklist(addr)
+		Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
+		return errors.Newf("dropped funding request for address %s as queue is full", addr.Base58())
+	}
+
+	Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+	return nil
+}
+
+func isFaucetRequestPoWValid(fundingRequest *faucet.Payload, addr devnetvm.Address) bool {
+	requestBytes, err := fundingRequest.Bytes()
+	if err != nil {
+		Plugin.LogInfof("couldn't serialize faucet request: %w", err)
+		return false
+	}
+	// verify PoW
+	leadingZeroes, err := powVerifier.LeadingZeros(requestBytes)
+	if err != nil {
+		Plugin.LogInfof("couldn't verify PoW of funding request for address %s: %w", addr.Base58(), err)
+		return false
+	}
+	if leadingZeroes < targetPoWDifficulty {
+		Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+		return false
+	}
+
+	return true
 }
 
 // IsAddressBlackListed returns if an address is blacklisted.

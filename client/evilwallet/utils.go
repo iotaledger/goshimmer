@@ -52,3 +52,14 @@ func getIotaColorAmount(balance *devnetvm.ColoredBalances) uint64 {
 	})
 	return outBalance
 }
+
+// RateSetterSleep sleeps for the given rate.
+func RateSetterSleep(clt Client, useRateSetter bool) error {
+	if useRateSetter {
+		err := clt.SleepRateSetterEstimate()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

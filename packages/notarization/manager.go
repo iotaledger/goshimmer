@@ -280,7 +280,6 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-
 	ei := m.getBranchEI(branchID, true)
 
 	if m.isEpochAlreadyComitted(ei) {

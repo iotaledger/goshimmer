@@ -277,7 +277,7 @@ func GetBranch(c echo.Context) (err error) {
 	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID), branch.InclusionState()))
 	}) {
 		return
 	}

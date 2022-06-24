@@ -17,8 +17,8 @@ export enum WSMsgType {
     ManaInitRevoke,
     ManaInitDone,
     MsgManaDashboardAddress,
-    MsgTypeMsgOpinionFormed,
     Chat,
+    RateSetter,
     Conflict,
     Branch
 }

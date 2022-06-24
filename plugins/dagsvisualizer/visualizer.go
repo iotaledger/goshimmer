@@ -345,17 +345,16 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 		}
 		ret = &tangleVertex{
-			ID:                      message.ID().Base58(),
-			StrongParentIDs:         message.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParentIDs:           message.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
-			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
-			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
-			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
-			ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
-			GoF:                     msgMetadata.GradeOfFinality().String(),
+			ID:                   message.ID().Base58(),
+			StrongParentIDs:      message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParentIDs:        message.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParentIDs: message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			BranchIDs:            lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+			IsMarker:             msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
+			IsTx:                 message.Payload().Type() == devnetvm.TransactionType,
+			IsConfirmed:          deps.FinalityGadget.IsMessageConfirmed(message.ID()),
+			ConfirmedTime:        msgMetadata.GradeOfFinalityTime().UnixNano(),
+			GoF:                  msgMetadata.GradeOfFinality().String(),
 		}
 	})
 

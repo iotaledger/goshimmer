@@ -488,9 +488,6 @@ const (
 
 	// ShallowLikeApprover is the ApproverType that represents references formed by shallow like parents.
 	ShallowLikeApprover
-
-	// ShallowDislikeApprover is the ApproverType that represents references formed by shallow dislike parents.
-	ShallowDislikeApprover
 )
 
 // ApproverTypeLength contains the amount of bytes that a marshaled version of the ApproverType contains.
@@ -502,10 +499,9 @@ type ApproverType uint8
 
 // ParentTypeToApproverType represents a convenient mapping between a parent type and the approver type.
 var ParentTypeToApproverType = map[ParentsType]ApproverType{
-	StrongParentType:         StrongApprover,
-	WeakParentType:           WeakApprover,
-	ShallowLikeParentType:    ShallowLikeApprover,
-	ShallowDislikeParentType: ShallowDislikeApprover,
+	StrongParentType:      StrongApprover,
+	WeakParentType:        WeakApprover,
+	ShallowLikeParentType: ShallowLikeApprover,
 }
 
 // Bytes returns a marshaled version of the ApproverType.
@@ -522,8 +518,6 @@ func (a ApproverType) String() string {
 		return "ApproverType(WeakApprover)"
 	case ShallowLikeApprover:
 		return "ApproverType(ShallowLikeApprover)"
-	case ShallowDislikeApprover:
-		return "ApproverType(ShallowDislikeApprover)"
 	default:
 		return fmt.Sprintf("ApproverType(%X)", uint8(a))
 	}

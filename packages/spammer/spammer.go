@@ -5,11 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/typeutils"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -23,9 +22,13 @@ const (
 // IssuePayloadFunc is a function which issues a payload.
 type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
 
+// EstimateFunc returns the time estimate required for the message to be issued by the rate setter.
+type EstimateFunc = func() time.Duration
+
 // Spammer spams messages with a static data payload.
 type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
+	estimateFunc     EstimateFunc
 	log              *logger.Logger
 	running          typeutils.AtomicBool
 	shutdown         chan struct{}
@@ -34,9 +37,10 @@ type Spammer struct {
 }
 
 // New creates a new spammer.
-func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger) *Spammer {
+func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc EstimateFunc) *Spammer {
 	return &Spammer{
 		issuePayloadFunc: issuePayloadFunc,
+		estimateFunc:     estimateFunc,
 		shutdown:         make(chan struct{}),
 		log:              log,
 	}
@@ -75,6 +79,10 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 		case <-s.shutdown:
 			return
 		case <-ticker.C:
+			estimatedDuration := s.estimateFunc()
+			// TODO: only sleep if estimate > some threshold.
+			time.Sleep(estimatedDuration)
+
 			// adjust the ticker interval for the poisson imif
 			if imif == "poisson" {
 				ticker = time.NewTicker(time.Duration(float64(timeUnit.Nanoseconds()) * rand.ExpFloat64() / float64(rate)))
@@ -88,7 +96,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued message
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-				if errors.Is(err, tangle.ErrNotSynced) {
+				if errors.Is(err, tangle.ErrNotBootstrapped) {
 					s.log.Info("Stopped spamming messages because node lost sync")
 					s.signalShutdown()
 					return

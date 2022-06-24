@@ -122,6 +122,7 @@ func (p *Parser) setupMessageFilterDataFlow() {
 		for i := 0; i < numberOfMessageFilters; i++ {
 			if i == numberOfMessageFilters-1 {
 				p.messageFilters[i].OnAccept(func(msg *Message, peer *peer.Peer) {
+
 					p.Events.MessageParsed.Trigger(&MessageParsedEvent{
 						Message: msg,
 						Peer:    peer,
