@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -464,6 +466,181 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	eventHandlerMock.AssertExpectations(t)
 }
 
+func TestManager_DiffUTXOs(t *testing.T) {
+	var epochInterval = 1 * time.Second
+
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+
+	var weightProvider *tangle.CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+
+	// Message1, issuing time epoch 1
+	{
+		time.Sleep(epochInterval)
+		fmt.Println("message 1")
+
+		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithInputs("A"), tangle.WithOutput("C1", 400), tangle.WithOutput("C1+", 100), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
+
+		msg := testFramework.Message("Message1")
+		assert.Equal(t, epoch.Index(0), msg.EI())
+	}
+
+	// Message2, issuing time epoch 1
+	{
+		fmt.Println("message 2")
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Message1"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithInputs("B"), tangle.WithOutput("D2", 500), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
+
+		msg := testFramework.Message("Message2")
+		assert.Equal(t, epoch.Index(0), msg.EI())
+	}
+
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A"}, []string{"C1", "C1+"})
+
+	// Message3, issuing time epoch 1
+	{
+		time.Sleep(epochInterval)
+		fmt.Println("message 3")
+
+		//eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		testFramework.CreateMessage("Message3", tangle.WithStrongParents("Message2"), tangle.WithIssuer(nodes["C"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
+
+		msg := testFramework.Message("Message3")
+		assert.Equal(t, epoch.Index(0), msg.EI())
+	}
+
+	// Message4, issuing time epoch 1
+	{
+		fmt.Println("message 4")
+
+		//eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		testFramework.CreateMessage("Message4", tangle.WithStrongParents("Message3"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
+
+		msg := testFramework.Message("Message4")
+		assert.Equal(t, epoch.Index(0), msg.EI())
+	}
+
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A", "B"}, []string{"C1", "C1+", "D2"})
+
+	/*
+		// Message4, issuing time epoch 2
+		{
+			time.Sleep(epochInterval)
+			fmt.Println("message 4")
+
+			eventHandlerMock.Expect("EpochCommitted", epoch.Index(2))
+
+			ecRecord, _, err := testFramework.LatestCommitment()
+			require.NoError(t, err)
+			require.Equal(t, epoch.Index(2), ecRecord.EI())
+			testFramework.CreateMessage("Message4", tangle.WithStrongParents("Message3"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
+
+			msg := testFramework.Message("Message4")
+			assert.Equal(t, epoch.Index(2), msg.EI())
+		}
+		// Message5 TX1, issuing time epoch 3
+		{
+			time.Sleep(epochInterval)
+			fmt.Println("message 5")
+
+			eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
+
+			ecRecord, _, err := testFramework.LatestCommitment()
+			require.NoError(t, err)
+			require.Equal(t, epoch.Index(3), ecRecord.EI())
+			testFramework.CreateMessage("Message5", tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithInputs("A"), tangle.WithOutput("C", 500), tangle.WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
+
+			msg := testFramework.Message("Message5")
+			assert.Equal(t, epoch.Index(3), msg.EI())
+		}
+		// Message6 TX2, issuing time epoch 3
+		{
+			fmt.Println("message 6")
+
+			eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
+
+			ecRecord, _, err := testFramework.LatestCommitment()
+			require.NoError(t, err)
+			require.Equal(t, epoch.Index(3), ecRecord.EI())
+			testFramework.CreateMessage("Message6", tangle.WithStrongParents("Message5"), tangle.WithIssuer(nodes["E"].PublicKey()), tangle.WithInputs("B"), tangle.WithOutput("D", 500), tangle.WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
+
+			msg := testFramework.Message("Message6")
+			assert.Equal(t, epoch.Index(3), msg.EI())
+		}
+
+		// Message7, issuing time epoch 4
+		{
+			time.Sleep(epochInterval)
+			fmt.Println("message 7")
+
+			eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
+
+			ecRecord, _, err := testFramework.LatestCommitment()
+			require.NoError(t, err)
+			require.Equal(t, epoch.Index(4), ecRecord.EI())
+			testFramework.CreateMessage("Message7", tangle.WithStrongParents("Message1"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
+
+			msg := testFramework.Message("Message7")
+			assert.Equal(t, epoch.Index(4), msg.EI())
+			assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+				"Message1": true,
+				"Message2": true,
+				"Message3": true,
+				"Message4": true,
+				"Message5": true,
+				"Message6": false,
+				"Message7": false,
+			})
+			assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
+				"Message5": true,
+				"Message6": false,
+			})
+		}
+
+		eventHandlerMock.AssertExpectations(t)
+	*/
+}
+
 func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle.Option) (testFramework *tangle.MessageTestFramework, eventMock *EventMock, m *Manager) {
 	var minCommittable time.Duration = 2 * epochInterval
 	genesisTime := time.Now()
@@ -506,20 +683,59 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
 	for alias, result := range results {
-		p, err := m.GetBlockInclusionProof(testFramework.Message(alias).ID())
+		msgID := testFramework.Message(alias).ID()
+		p, err := m.GetBlockInclusionProof(msgID)
 		require.NoError(t, err)
-		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, testFramework.Message(alias).ID())
-		assert.Equal(t, result, valid)
+		var ei epoch.Index
+		m.tangle.Storage.Message(msgID).Consume(func(block *tangle.Message) {
+			t := block.IssuingTime()
+			ei = m.epochManager.TimeToEI(t)
+		})
+		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, msgID)
+		assert.Equal(t, result, valid, "block %s not included in epoch %s", alias, ei)
 	}
 }
 
 func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
 	for alias, result := range results {
-		p, err := m.GetTransactionInclusionProof(testFramework.Transaction(alias).ID())
+		txID := testFramework.Transaction(alias).ID()
+		p, err := m.GetTransactionInclusionProof(txID)
 		require.NoError(t, err)
+		var ei epoch.Index
+		m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+			t := tx.(*devnetvm.Transaction).Essence().Timestamp()
+			ei = m.epochManager.TimeToEI(t)
+		})
 		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
-		assert.Equal(t, result, valid)
+		assert.Equal(t, result, valid, "transaction %s not included in epoch %s", alias, ei)
 	}
+}
+
+func assertEpochDiff(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, ei epoch.Index, expectedSpentAliases, expectedCreatedAliases []string) {
+	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	expectedSpentIDs := utxo.NewOutputIDs()
+	expectedCreatedIDs := utxo.NewOutputIDs()
+	actualSpentIDs := utxo.NewOutputIDs()
+	actualCreatedIDs := utxo.NewOutputIDs()
+
+	for _, alias := range expectedSpentAliases {
+		expectedSpentIDs.Add(testFramework.Output(alias).ID())
+	}
+
+	for _, alias := range expectedCreatedAliases {
+		expectedCreatedIDs.Add(testFramework.Output(alias).ID())
+	}
+
+	for _, outputWithMetadata := range spent {
+		actualSpentIDs.Add(outputWithMetadata.ID())
+	}
+
+	for _, outputWithMetadata := range created {
+		actualCreatedIDs.Add(outputWithMetadata.ID())
+	}
+
+	assert.True(t, expectedSpentIDs.Equal(actualSpentIDs), "spent outputs for epoch %d do not match:\nExpected: %v\nActual: %v", ei, expectedSpentIDs, actualSpentIDs)
+	assert.True(t, expectedCreatedIDs.Equal(actualCreatedIDs), "created outputs for epoch %d do not match:\nExpected: %v\nActual: %v", ei, expectedCreatedIDs, actualCreatedIDs)
 }
 
 func testNotarizationManager() *Manager {

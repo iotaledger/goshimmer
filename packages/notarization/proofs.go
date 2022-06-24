@@ -62,13 +62,14 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.Outpu
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
 func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
-	if _, ok := f.commitmentTrees[ei]; !ok {
-		return nil, errors.Newf("commitment tree of epoch %d does not exist.", ei)
+	committmentTrees, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return nil, errors.Newf("cannot get commitment trees for epoch %d", ei)
 	}
 
 	key := txID.Bytes()
-	root := f.commitmentTrees[ei].stateMutationTree.Root()
-	proof, err := f.commitmentTrees[ei].stateMutationTree.ProveForRoot(key, root)
+	root := committmentTrees.stateMutationTree.Root()
+	proof, err := committmentTrees.stateMutationTree.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate the state mutation root proof")
 	}
@@ -77,13 +78,14 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
 func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.MessageID) (*CommitmentProof, error) {
-	if _, ok := f.commitmentTrees[ei]; !ok {
-		return nil, errors.Newf("commitment tree of epoch %d does not exist.", ei)
+	committmentTrees, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return nil, errors.Newf("cannot get commitment trees for epoch %d", ei)
 	}
 
 	key := blockID.Bytes()
-	root := f.commitmentTrees[ei].tangleTree.Root()
-	proof, err := f.commitmentTrees[ei].tangleTree.ProveForRoot(key, root)
+	root := committmentTrees.tangleTree.Root()
+	proof, err := committmentTrees.tangleTree.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate the tangle root proof")
 	}

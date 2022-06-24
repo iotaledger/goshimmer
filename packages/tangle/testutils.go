@@ -233,6 +233,15 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.Transacti
 	return tx.ID()
 }
 
+// Output retrieves the Output that is associated with the given alias.
+func (m *MessageTestFramework) Output(alias string) (output devnetvm.Output) {
+	output, ok := m.outputsByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Output alias %s not registered", alias))
+	}
+	return
+}
+
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledger.TransactionMetadata) {
