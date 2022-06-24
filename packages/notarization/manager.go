@@ -286,7 +286,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch confirmed in already committed epoch %d", ei)
 		return
 	}
@@ -301,7 +301,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, false)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch created in already committed epoch %d", ei)
 		return
 	}
@@ -316,7 +316,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch rejected in already committed epoch %d", ei)
 		return
 	}
@@ -485,7 +485,7 @@ func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
 	if issuingTime.After(currentTime) {
 		currentTime = issuingTime
 	}
-	ei := epoch.TimeToEI(currentTime)
+	ei := epoch.IndexFromTime(currentTime)
 	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
 	if err != nil {
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))

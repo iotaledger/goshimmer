@@ -41,7 +41,7 @@ func IndexFromTime(t time.Time) Index {
 	return Index(elapsedSeconds / int64(Duration))
 }
 
-// CurrentEI returns the EI at the current synced time.
+// CurrentIndex returns the EI at the current synced time.
 func CurrentIndex() Index {
 	return IndexFromTime(clock.SyncedTime())
 }
@@ -65,7 +65,7 @@ func (i Index) StartTime() time.Time {
 	return time.Unix(startUnix, 0)
 }
 
-// EIToEndTime calculates the end time of the given epoch.
+// EndTime calculates the end time of the given epoch.
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i)*int64(Duration) + int64(Duration) - 1
 	return time.Unix(endUnix, 0)
