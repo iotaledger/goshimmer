@@ -171,6 +171,11 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 	return m
 }
 
+// LatestCommitment gets the latest commitment.
+func (m *MessageTestFramework) LatestCommitment(messageAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+	return m.tangle.Options.CommitmentFunc()
+}
+
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	for _, messageAlias := range messageAliases {
