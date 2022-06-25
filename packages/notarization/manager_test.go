@@ -623,10 +623,10 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		"Message8": true,
 	})
 
-	// assertDiffStores(t, testFramework, notarizationMgr, map[epoch.Index][]string{
-	// 	epoch.Index(1): {"Message3", "Message4", "Message8"},
-	// 	epoch.Index(2): {},
-	// })
+	assertDiffStores(t, testFramework, notarizationMgr, map[epoch.Index][]string{
+		epoch.Index(1): {"Message3", "Message4", "Message8"},
+		epoch.Index(2): {},
+	})
 
 	// The transaction should be moved to the earlier epoch
 	p, err := notarizationMgr.GetTransactionInclusionProof(testFramework.Transaction("Message6").ID())
@@ -676,24 +676,36 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 	return testFramework, eventMock, m
 }
 
-// func assertDiffStores(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[epoch.Index][]string) {
-// 	expectedSpent := make([]*ledger.OutputWithMetadata, 0)
-// 	expectedCreated := make([]*ledger.OutputWithMetadata, 0)
+func assertDiffStores(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[epoch.Index][]string) {
+	for ei, aliases := range results {
+		expectedSpent := make([]*ledger.OutputWithMetadata, 0)
+		expectedCreated := make([]*ledger.OutputWithMetadata, 0)
+		tmpCreated := make([]*ledger.OutputWithMetadata, 0)
 
-// 	for ei, aliases := range results {
-// 		for _, a := range aliases {
-// 			s, c := m.resolveOutputs(testFramework.Transaction(a))
-// 			expectedCreated = append(expectedCreated, c...)
-// 			expectedSpent = append(expectedSpent, s...)
-// 		}
+		for _, a := range aliases {
+			s, c := m.resolveOutputs(testFramework.Transaction(a))
+			tmpCreated = append(tmpCreated, c...)
+			expectedSpent = append(expectedSpent, s...)
+		}
+		// remove created are spent in the same epoch
+		for _, c := range tmpCreated {
+			spent := false
+			for _, s := range expectedSpent {
+				if c.ID() == s.ID() {
+					spent = true
+					break
+				}
+			}
+			if !spent {
+				expectedCreated = append(expectedCreated, c)
+			}
+		}
 
-// 		actualSpent, actualCreated := m.epochCommitmentFactory.loadDiffUTXOs(ei)
-// 		assert.Equal(t, len(expectedCreated), len(actualCreated))
-// 		assert.Equal(t, len(expectedSpent), len(actualSpent))
-// 		// assert.ElementsMatch(t, expectedSpent, actualSpent)
-// 		// assert.ElementsMatch(t, expectedCreated, actualCreated)
-// 	}
-// }
+		actualSpent, actualCreated := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+		assert.Equal(t, len(expectedCreated), len(actualCreated))
+		assert.Equal(t, len(expectedSpent), len(actualSpent))
+	}
+}
 
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
 	for alias, result := range results {
