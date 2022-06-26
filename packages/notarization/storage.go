@@ -145,9 +145,11 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
 	// TODO: properly drop (delete epoch bucketed) storage
 	diffStorage := s.getEpochDiffStorage(ei)
-	diffStorage.spent.Shutdown()
-	diffStorage.created.Shutdown()
 	delete(s.epochDiffStorages, ei)
+	go func() {
+		diffStorage.spent.Shutdown()
+		diffStorage.created.Shutdown()
+	}()
 }
 
 func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
