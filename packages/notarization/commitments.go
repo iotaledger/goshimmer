@@ -238,7 +238,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
-		return nil, true, err
+		return nil, false, err
 	}
 	prevECRecord, _, err := f.ecRecord(ei - 1)
 	if err != nil {
@@ -253,7 +253,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		ecRecord = e
 	})
 
-	return
+	return ecRecord, true, nil
 }
 
 // storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
