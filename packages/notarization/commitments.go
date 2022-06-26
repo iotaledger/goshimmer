@@ -289,10 +289,14 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	spent = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		cachedOutput.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			// We remove spent UTXOs from the created storage before loading them.
-			epochDiffStorage.created.Delete(outputWithMetadata.ID().Bytes())
+	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
+			// We remove spent and created UTXOs happened in the same epoch, as we assume that by the time we
+			// load the epoch diff, the epoch is being committed and cannot be altered anymore.
+			if epochDiffStorage.created.DeleteIfPresent(outputWithMetadata.ID().Bytes()) {
+				epochDiffStorage.spent.Delete(outputWithMetadata.ID().Bytes())
+				return
+			}
 			spent = append(spent, outputWithMetadata)
 		})
 		return true
