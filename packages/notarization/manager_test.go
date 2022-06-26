@@ -60,19 +60,20 @@ func TestManager_GetLatestEC(t *testing.T) {
 	commitment, err := m.GetLatestEC()
 	assert.NoError(t, err)
 	// only epoch 0 has pbc = 0
-	assert.Equal(t, epoch.Index(0), commitment.EI)
+	assert.Equal(t, epoch.Index(0), commitment.EI())
 
 	m.pendingConflictsCounters[4] = 0
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 4 has pbc = 0 but is not old enough
-	assert.Equal(t, epoch.Index(0), commitment.EI)
+	assert.Equal(t, epoch.Index(0), commitment.EI())
 
+	m.pendingConflictsCounters[1] = 0
 	m.pendingConflictsCounters[2] = 0
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 2 has pbc=0 and is old enough
-	assert.Equal(t, epoch.Index(2), commitment.EI)
+	assert.Equal(t, epoch.Index(2), commitment.EI())
 }
 
 func TestManager_UpdateTangleTree(t *testing.T) {
@@ -102,7 +103,6 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -115,7 +115,6 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Message2, issuing time epoch 2
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 2")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -203,7 +202,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -217,7 +215,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	{
 		time.Sleep(epochInterval)
 		fmt.Println("message 2")
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -271,7 +268,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	}
 	// Message6 TX2, issuing time epoch 5
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
 		fmt.Println("message 6")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -298,7 +294,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	}
 	// Message8, issuing time epoch 6
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
 		fmt.Println("message 8")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -344,7 +339,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -357,7 +351,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	// Message2, issuing time epoch 1
 	{
 		fmt.Println("message 2")
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -369,7 +362,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	}
 	// Message3, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 3")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -382,7 +374,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	}
 	// Message4, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 4")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -396,7 +387,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	// Message5 TX1, issuing time epoch 2
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 5")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -409,7 +399,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	}
 	// Message6 TX2, issuing time epoch 2
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 6")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -493,7 +482,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -506,7 +494,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	// Message2, issuing time epoch 1
 	{
 		fmt.Println("message 2")
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -518,7 +505,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message3 TX1, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 3")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -531,7 +517,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message4 TX2, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 4")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -548,7 +533,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	// Message5, issuing time epoch 2
 	{
 		time.Sleep(epochInterval)
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 5")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -561,7 +545,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message6, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 6")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -574,7 +557,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message7, issuing time epoch 1
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 7")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -594,7 +576,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message9, issuing time epoch 2
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 9")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -607,7 +588,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	}
 	// Message10, issuing time epoch 2
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 		fmt.Println("message 10")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
@@ -625,10 +605,8 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		"Message8": true,
 	})
 
-	assertDiffStores(t, testFramework, notarizationMgr, map[epoch.Index][]string{
-		epoch.Index(1): {"Message3", "Message4", "Message8"},
-		epoch.Index(2): {},
-	})
+	assertEpochDiff(t, testFramework, notarizationMgr, 1, []string{"A", "B"}, []string{"D", "E"})
+	assertEpochDiff(t, testFramework, notarizationMgr, 2, []string{}, []string{})
 
 	// The transaction should be moved to the earlier epoch
 	p, err := notarizationMgr.GetTransactionInclusionProof(testFramework.Transaction("Message6").ID())
@@ -866,37 +844,6 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 	return testFramework, eventMock, m
 }
 
-func assertDiffStores(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[epoch.Index][]string) {
-	for ei, aliases := range results {
-		expectedSpent := make([]*ledger.OutputWithMetadata, 0)
-		expectedCreated := make([]*ledger.OutputWithMetadata, 0)
-		tmpCreated := make([]*ledger.OutputWithMetadata, 0)
-
-		for _, a := range aliases {
-			s, c := m.resolveOutputs(testFramework.Transaction(a))
-			tmpCreated = append(tmpCreated, c...)
-			expectedSpent = append(expectedSpent, s...)
-		}
-		// remove created are spent in the same epoch
-		for _, c := range tmpCreated {
-			spent := false
-			for _, s := range expectedSpent {
-				if c.ID() == s.ID() {
-					spent = true
-					break
-				}
-			}
-			if !spent {
-				expectedCreated = append(expectedCreated, c)
-			}
-		}
-
-		actualSpent, actualCreated := m.epochCommitmentFactory.loadDiffUTXOs(ei)
-		assert.Equal(t, len(expectedCreated), len(actualCreated))
-		assert.Equal(t, len(expectedSpent), len(actualSpent))
-	}
-}
-
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, results map[string]bool) {
 	for alias, result := range results {
 		msgID := testFramework.Message(alias).ID()
@@ -954,11 +901,15 @@ func assertEpochDiff(t *testing.T, testFramework *tangle.MessageTestFramework, m
 	assert.True(t, expectedCreatedIDs.Equal(actualCreatedIDs), "created outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedCreatedIDs, actualCreatedIDs)
 }
 
-func testNotarizationManager() *Manager {
+func testNotarizationManager() (m *Manager) {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	testTangle := tangle.NewTestTangle()
 	interval := 5 * time.Minute
-	return NewManager(NewEpochManager(GenesisTime(t), Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
+	m = NewManager(NewEpochManager(GenesisTime(t), Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
+
+	m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0)
+	m.epochCommitmentFactory.storage.ecRecordStorage.Store(epoch.NewECRecord(0)).Release()
+	return
 }
 
 func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {
