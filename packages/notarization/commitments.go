@@ -168,7 +168,7 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
-	fmt.Println("insert tx", ei)
+	fmt.Println("insert tx", txID, ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting state mutation leaf")
@@ -196,7 +196,7 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
-	fmt.Println("insert", ei)
+	fmt.Println("insert", msgID, ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
