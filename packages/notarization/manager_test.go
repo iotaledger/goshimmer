@@ -667,8 +667,6 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		time.Sleep(epochInterval)
 		fmt.Println("message 1")
 
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
-
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
@@ -825,7 +823,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(3), []string{"F4"}, []string{"G5"})
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"G5", "D2"}, []string{"F4", "H6"})
 
-	//eventHandlerMock.AssertExpectations(t)
+	eventHandlerMock.AssertExpectations(t)
 }
 
 func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle.Option) (testFramework *tangle.MessageTestFramework, eventMock *EventMock, m *Manager) {
