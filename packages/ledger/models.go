@@ -592,6 +592,15 @@ func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMet
 	return
 }
 
+// FromObjectStorage creates an OutputWithMetadata from sequences of key and bytes.
+func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
+	err := o.Storable.FromObjectStorage(key, value)
+	o.M.Output.SetID(o.ID())
+	o.M.OutputMetadata.SetID(o.ID())
+
+	return err
+}
+
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
 	defer o.RUnlock()
