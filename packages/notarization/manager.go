@@ -387,8 +387,7 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
 	t := ei.EndTime()
-	// TODO update to ATT after merging TSC PR
-	currentATT := m.tangle.TimeManager.Time()
+	currentATT := m.tangle.TimeManager.ATT()
 	diff := currentATT.Sub(t)
 	if diff < m.options.MinCommittableEpochAge {
 		return false
@@ -489,7 +488,7 @@ func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.
 
 // CheckIfEpochChanged check if next epoch started and trigger the event.
 func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
-	currentTime := m.tangle.TimeManager.Time()
+	currentTime := m.tangle.TimeManager.ATT()
 	if issuingTime.After(currentTime) {
 		currentTime = issuingTime
 	}
