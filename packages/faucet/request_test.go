@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
 
@@ -88,7 +89,7 @@ func TestIsFaucetReq(t *testing.T) {
 		0,
 		ed25519.EmptySignature,
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 
 	dataMsg := tangle.NewMessage(
@@ -104,7 +105,7 @@ func TestIsFaucetReq(t *testing.T) {
 		0,
 		ed25519.EmptySignature,
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetMsg))
