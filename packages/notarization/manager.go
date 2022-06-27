@@ -182,7 +182,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
 		return
 	}
@@ -198,7 +198,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
 		return
 	}
@@ -228,7 +228,7 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
-	if m.isEpochAlreadyComitted(txEpoch) {
+	if m.isEpochAlreadyCommitted(txEpoch) {
 		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
 		return
 	}
@@ -250,7 +250,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 		return
 	}
 
-	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
+	if m.isEpochAlreadyCommitted(oldEpoch) || m.isEpochAlreadyCommitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
 		return
 	}
@@ -277,7 +277,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch confirmed in already committed epoch %d", ei)
 		return
 	}
@@ -292,7 +292,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, false)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch created in already committed epoch %d", ei)
 		return
 	}
@@ -307,7 +307,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch rejected in already committed epoch %d", ei)
 		return
 	}
@@ -411,7 +411,7 @@ func (m *Manager) updateCommitmentsToLatestCommittableEpoch() (ecRecord *epoch.E
 	return ecRecord, nil
 }
 
-func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
+func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
 	lastCommitted, _, err := m.latestCommittableEpoch()
 	if err != nil {
 		m.log.Errorf("could not determine latest committed epoch: %v", err)
@@ -445,23 +445,6 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 		})
 	}
 
-	return
-}
-
-func (m *Manager) outputIDsToOutputs(outputIDs utxo.OutputIDs) (outputsVm devnetvm.Outputs) {
-	for it := outputIDs.Iterator(); it.HasNext(); {
-		outputID := it.Next()
-		m.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(out utxo.Output) {
-			outputsVm = append(outputsVm, out.(devnetvm.Output))
-		})
-	}
-	return
-}
-
-func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.OutputIDs) {
-	for _, o := range outputs {
-		createdIDs.Add(o.ID())
-	}
 	return
 }
 

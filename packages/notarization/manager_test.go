@@ -103,6 +103,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
+		fmt.Println("message 1")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -213,6 +214,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
+		fmt.Println("message 1")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -344,12 +346,14 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
+
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
+		fmt.Println("message 1")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -504,6 +508,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
+		fmt.Println("message 1")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -828,7 +833,6 @@ func TestManager_DiffUTXOs(t *testing.T) {
 
 func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle.Option) (testFramework *tangle.MessageTestFramework, eventMock *EventMock, m *Manager) {
 	minCommittable := 2 * epochInterval
-	genesisTime := time.Now()
 
 	testTangle := tangle.NewTestTangle(append([]tangle.Option{tangle.StartSynced(true)}, options...)...)
 	testTangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 0
@@ -845,8 +849,6 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	epoch.GenesisTime = genesisTime.Unix()
-	epoch.Duration = int64(epochInterval.Seconds())
 	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
@@ -863,6 +865,9 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 	loadSnapshot(m, testFramework)
 
 	eventMock = NewEventMock(t, m, ecFactory)
+
+	epoch.Duration = int64(epochInterval.Seconds())
+	epoch.GenesisTime = time.Now().Unix()
 
 	return testFramework, eventMock, m
 }
