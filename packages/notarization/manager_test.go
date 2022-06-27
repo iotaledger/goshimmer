@@ -21,13 +21,13 @@ import (
 
 func TestNewManager(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
+	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
 	assert.NotNil(t, m)
 }
 
 func TestManager_pendingConflictsCounters(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
+	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
 	m.pendingConflictsCounters[3] = 3
 	assert.Equal(t, uint64(3), m.pendingConflictsCounters[3])
 }
