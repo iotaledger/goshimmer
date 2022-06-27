@@ -63,12 +63,22 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		genesis2Wallet = createGenesisWallet(node2)
 	)
 
+	// merge partitions
+	err = n.DoManualPeering(ctx)
+	require.NoError(t, err)
+
+	tests.SendDataMessages(t, n.Peers(), 50)
+
+	// split partitions
+	err = n.CreatePartitionsManualPeering(ctx, []*framework.Node{node1}, []*framework.Node{node2})
+	require.NoError(t, err)
+
 	// check consensus mana
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
 
-	txs1 := []*devnetvm.Transaction{}
-	txs2 := []*devnetvm.Transaction{}
+	var txs1 []*devnetvm.Transaction
+	var txs2 []*devnetvm.Transaction
 	// send transactions on the seperate partitions
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		t.Logf("issuing conflict %d", i+1)

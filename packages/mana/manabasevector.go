@@ -386,7 +386,7 @@ func (m *ManaBaseVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	}
 	m.Lock()
 	defer m.Unlock()
-	m.M.Vector[p.NodeID()] = model.NewMutable[ManaBase](&ManaBaseModel{BaseMana1: p.BaseValues()[0]})
+	m.M.Vector[p.NodeID()] = model.NewMutable[ManaBase](&manaBaseModel{Value: p.BaseValues()[0]})
 	return
 }
 

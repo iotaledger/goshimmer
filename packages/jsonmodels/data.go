@@ -8,5 +8,6 @@ type DataResponse struct {
 
 // DataRequest contains the data of the message to send.
 type DataRequest struct {
-	Data []byte `json:"data"`
+	Data        []byte `json:"data"`
+	MaxEstimate int64  `json:"maxEstimate"`
 }

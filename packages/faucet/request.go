@@ -98,6 +98,16 @@ func (p *Payload) ConsensusManaPledgeID() identity.ID {
 	return p.M.ConsensusManaPledgeID
 }
 
+// SetAccessManaPledgeID sets the access mana pledge ID of the faucet request.
+func (p *Payload) SetAccessManaPledgeID(id identity.ID) {
+	p.M.AccessManaPledgeID = id
+}
+
+// SetConsensusManaPledgeID sets the consensus mana pledge ID of the faucet request.
+func (p *Payload) SetConsensusManaPledgeID(id identity.ID) {
+	p.M.ConsensusManaPledgeID = id
+}
+
 // IsFaucetReq checks if the message is faucet payload.
 func IsFaucetReq(msg *tangle.Message) bool {
 	return msg.Payload().Type() == RequestType

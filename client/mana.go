@@ -129,16 +129,6 @@ func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*jsonmodels.GetNHighes
 	return res, nil
 }
 
-// GetPending returns the mana (bm2) that will be pledged by spending the output specified.
-func (api *GoShimmerAPI) GetPending(outputID string) (*jsonmodels.PendingResponse, error) {
-	res := &jsonmodels.PendingResponse{}
-	if err := api.do(http.MethodGet, routePending,
-		&jsonmodels.PendingRequest{OutputID: outputID}, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // GetPastConsensusManaVector returns the consensus base mana vector of a time in the past.
 func (api *GoShimmerAPI) GetPastConsensusManaVector(t int64) (*jsonmodels.PastConsensusManaVectorResponse, error) {
 	res := &jsonmodels.PastConsensusManaVectorResponse{}

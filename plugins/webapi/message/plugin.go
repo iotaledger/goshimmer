@@ -116,19 +116,17 @@ func GetMessage(c echo.Context) (err error) {
 		ecRecord.SetPrevEC(message.PrevEC())
 
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
-			ID:                      message.ID().Base58(),
-			StrongParents:           message.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParents:             message.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParents:      message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			ShallowDislikeParents:   message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
-			StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).Base58(),
-			WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).Base58(),
-			ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).Base58(),
-			ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowDislikeApprover).Base58(),
-			IssuerPublicKey:         message.IssuerPublicKey().String(),
-			IssuingTime:             message.IssuingTime().Unix(),
-			SequenceNumber:          message.SequenceNumber(),
-			PayloadType:             message.Payload().Type().String(),
+			ID:                   message.ID().Base58(),
+			StrongParents:        message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParents:          message.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParents:   message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			StrongApprovers:      deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).Base58(),
+			WeakApprovers:        deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).Base58(),
+			ShallowLikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).Base58(),
+			IssuerPublicKey:      message.IssuerPublicKey().String(),
+			IssuingTime:          message.IssuingTime().Unix(),
+			SequenceNumber:       message.SequenceNumber(),
+			PayloadType:          message.Payload().Type().String(),
 			TransactionID: func() string {
 				if message.Payload().Type() == devnetvm.TransactionType {
 					return message.Payload().(*devnetvm.Transaction).ID().Base58()

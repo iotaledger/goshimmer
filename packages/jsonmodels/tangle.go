@@ -8,26 +8,24 @@ import (
 
 // Message represents the JSON model of a tangle.Message.
 type Message struct {
-	ID                      string   `json:"id"`
-	StrongParents           []string `json:"strongParents"`
-	WeakParents             []string `json:"weakParents"`
-	ShallowLikeParents      []string `json:"shallowLikeParents"`
-	ShallowDislikeParents   []string `json:"shallowDislikeParents"`
-	StrongApprovers         []string `json:"strongApprovers"`
-	WeakApprovers           []string `json:"weakApprovers"`
-	ShallowLikeApprovers    []string `json:"shallowLikeApprovers"`
-	ShallowDislikeApprovers []string `json:"shallowDislikeApprovers"`
-	IssuerPublicKey         string   `json:"issuerPublicKey"`
-	IssuingTime             int64    `json:"issuingTime"`
-	SequenceNumber          uint64   `json:"sequenceNumber"`
-	PayloadType             string   `json:"payloadType"`
-	TransactionID           string   `json:"transactionID,omitempty"`
-	Payload                 []byte   `json:"payload"`
+	ID                   string   `json:"id"`
+	StrongParents        []string `json:"strongParents"`
+	WeakParents          []string `json:"weakParents"`
+	ShallowLikeParents   []string `json:"shallowLikeParents"`
+	StrongApprovers      []string `json:"strongApprovers"`
+	WeakApprovers        []string `json:"weakApprovers"`
+	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
+	IssuerPublicKey      string   `json:"issuerPublicKey"`
+	IssuingTime          int64    `json:"issuingTime"`
+	SequenceNumber       uint64   `json:"sequenceNumber"`
+	PayloadType          string   `json:"payloadType"`
+	TransactionID        string   `json:"transactionID,omitempty"`
+	Payload              []byte   `json:"payload"`
 	EC                      string   `json:"ec"`
 	EI                      uint64   `json:"ei"`
 	ECR                     string   `json:"ecr"`
 	PrevEC                  string   `json:"prevEC"`
-	Signature               string   `json:"signature"`
+	Signature            string   `json:"signature"`
 	LatestConfirmedEpoch    uint64   `json:"latestConfirmedEpoch"`
 }
 

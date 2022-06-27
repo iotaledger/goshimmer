@@ -13,7 +13,7 @@ type CollectionLogEvents struct {
 	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-func newCollectionLogEvents() (new *CollectionLogEvents) {
+func newCollectionLogEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
 		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
@@ -34,35 +34,41 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// LastConfirmedMessageTime contains time of the last confirmed message
-	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
+	// ATT contains time of the last accepted message
+	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
+	// RATT contains relative time of the last accepted message
+	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
+	// CTT contains time of the last confirmed message
+	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
+	// RCTT contains relative time of the last confirmed message
+	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
+// SchedulerQueryEvent is used to trigger scheduler metric collection for remote metric monitoring.
 type SchedulerQueryEvent struct {
 	Time time.Time
 }
 
 // MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
 type MessageFinalizedMetrics struct {
-	Type                    string    `json:"type" bson:"type"`
-	NodeID                  string    `json:"nodeID" bson:"nodeID"`
-	IssuerID                string    `json:"issuerID" bson:"issuerID"`
-	MetricsLevel            uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID               string    `json:"messageID" bson:"messageID"`
-	TransactionID           string    `json:"transactionID,omitempty" bson:"transactionID"`
-	IssuedTimestamp         time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp          time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp      time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
-	BookedTimestamp         time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	ConfirmedTimestamp      time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-	DeltaSolid              int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
-	DeltaScheduled          int64     `json:"deltaArrival" bson:"deltaArrival"`
-	DeltaBooked             int64     `json:"deltaBooked" bson:"deltaBooked"`
-	DeltaConfirmed          int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
-	StrongEdgeCount         int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
-	WeakEdgeCount           int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
-	ShallowLikeEdgeCount    int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
-	ShallowDislikeEdgeCount int       `json:"shallowDislikeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	Type                 string    `json:"type" bson:"type"`
+	NodeID               string    `json:"nodeID" bson:"nodeID"`
+	IssuerID             string    `json:"issuerID" bson:"issuerID"`
+	MetricsLevel         uint8     `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID            string    `json:"messageID" bson:"messageID"`
+	TransactionID        string    `json:"transactionID,omitempty" bson:"transactionID"`
+	IssuedTimestamp      time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp       time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp   time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	BookedTimestamp      time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	ConfirmedTimestamp   time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaSolid           int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	DeltaScheduled       int64     `json:"deltaArrival" bson:"deltaArrival"`
+	DeltaBooked          int64     `json:"deltaBooked" bson:"deltaBooked"`
+	DeltaConfirmed       int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+	StrongEdgeCount      int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount        int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	ShallowLikeEdgeCount int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
@@ -94,11 +100,11 @@ type MessageScheduledMetrics struct {
 	// ReceivedTimestamp - IssuedTimestamp in nanoseconds
 	DeltaReceivedIssued int64 `json:"DeltaReceivedIssued" bson:"DeltaReceivedIssued"`
 	// ScheduledTimestamp - QueuedTimestamp in nanoseconds
-	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
-	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
-	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
-	WeakEdgeCount   int     `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
-	LikeEdgeCount   int     `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	SchedulingTime  int64 `json:"schedulingTime" bson:"schedulingTime"`
+	AccessMana      int64 `json:"accessMana" bson:"accessMana"`
+	StrongEdgeCount int   `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount   int   `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	LikeEdgeCount   int   `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // MissingMessageMetrics defines message solidification record that is sent to the remote logger.

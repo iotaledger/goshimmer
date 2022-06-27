@@ -16,7 +16,6 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	if !deps.Tangle.Synced() {
 		return
 	}
-
 	var nodeID string
 	if deps.Local != nil {
 		nodeID = deps.Local.Identity.ID().String()
@@ -125,9 +124,6 @@ func onMessageFinalized(message *tangle.Message) {
 	}
 	if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
 		record.ShallowLikeEdgeCount = shallowLikeParentsCount
-	}
-	if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
-		record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
 	}
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()

@@ -1,9 +1,15 @@
 package jsonmodels
 
-// FaucetResponse contains the ID of the message sent.
-type FaucetResponse struct {
+// FaucetRequestResponse contains the ID of the message sent.
+type FaucetRequestResponse struct {
 	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
+}
+
+// FaucetAPIResponse contains the status of facet request through web API.
+type FaucetAPIResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
 }
 
 // FaucetRequest contains the address to request funds from faucet.

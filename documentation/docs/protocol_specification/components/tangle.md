@@ -393,21 +393,25 @@ We define two categories of eligible messages:
 
 We call *strong approver of x* (or *strong child of x*) any strong message *y* approving *x* via a strong reference. Similarly, we call *weak approver of x* (or *weak child of x*) any strong message *y* approving *x* via a weak reference.
 
-### TSA
+### Tip Pool and Time Since Confirmation Check
 
-We define two separate tip types:
-* **Strong tip**:
-    * It is a strong message
-    * It is not directly referenced by any strong message via strong parent
-* **Weak tip**:
-    * It is a weak message
-    * It is not directly referenced by any strong message via weak parent
+When a message is scheduled, it is gossiped to the node's neighbors and, normally, added to the local tip pool 
+except in the following situations:
 
-Consequently, a node keeps track of the tips by using two distinct tips sets:
-* **Strong tips set**: contains the strong tips
-* **Weak tips set**: contains the weak tips
+* A confirmed message shall not be added to the tip pool (it shall be skipped by the scheduler).
+* A message that has confirmed or scheduled approvers shall not be added to the tip pool.
 
-Tips of both sets must be managed according to the local perception of the node. Hence, a strong tip loses its tip status if it gets referenced (via strong parent) by a strong message. Similarly, a weak tip loses its tip status if it gets referenced (via weak parent) by a strong message. This means that weak messages approving via either strong or weak parents, do not have an impact on the tip status of the messages they reference.
+Additionally, strong parents of a message are removed from the tip pool, when the message is added and unused tips are removed from the tip pool after a certain amount of time.
+
+When selecting tips from the tip pool an additional check is performed to make sure that the timestamp and the
+past cone of a selected message is valid. For the selected tip, the algorithm needs to find a timestamp of the oldest parent of the oldest
+unconfirmed message in the past cone of the tip (`TS_oum`). If the difference between current Confirmed Tangle Time `now` and the
+timestamp of the oldest confirmed message is greater than a certain threshold (`now - TS_oum > TSC_threshold`), then
+the tip cannot be selected and another one needs to be found. The tip stays in the tip pool until it is
+automatically removed because of its age.
+
+The Time Since Confirmation check solves the mention problem of [false positive schedule](congestion_control.md#false-positive-schedule)
+by eventually orphaning messages that were dropped by the network.
 
 ### Branch Management
 

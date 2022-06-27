@@ -188,7 +188,10 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet, splitNum int
 func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID utxo.OutputID, err error) {
 	addr := wallet.Address()
 	clt := e.connector.GetClient()
-	err = clt.SendFaucetRequest(addr.Base58())
+	if err = RateSetterSleep(clt, true); err != nil {
+		return
+	}
+	err = clt.BroadcastFaucetRequest(addr.Base58())
 	if err != nil {
 		return
 	}
@@ -252,6 +255,9 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 				}
 
 				clt := e.connector.GetClient()
+				if err = RateSetterSleep(clt, true); err != nil {
+					return
+				}
 				txID, err := clt.PostTransaction(tx)
 				if err != nil {
 					return
@@ -334,6 +340,9 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 			wg.Add(1)
 			go func(clt Client, tx *devnetvm.Transaction) {
 				defer wg.Done()
+				if err = RateSetterSleep(clt, true); err != nil {
+					return
+				}
 				_, _ = clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}

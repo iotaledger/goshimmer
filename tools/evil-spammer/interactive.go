@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/iotaledger/hive.go/types"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/evilspammer"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/hive.go/types"
-	"go.uber.org/atomic"
 )
 
 const (
@@ -41,6 +42,7 @@ type InteractiveConfig struct {
 	Scenario             string   `json:"scenario"`
 	AutoRequesting       bool     `json:"autoRequestingEnabled"`
 	AutoRequestingAmount string   `json:"autoRequestingAmount"`
+	UseRateSetter        bool     `json:"useRateSetter"`
 
 	duration   time.Duration
 	timeUnit   time.Duration
@@ -56,7 +58,9 @@ var configJSON = `{
 	"reuseEnabled": true,
 	"scenario": "tx",
 	"autoRequestingEnabled": false,
-	"autoRequestingAmount": "100"
+	"autoRequestingAmount": "100",
+	"useRateSetter": true
+
 }`
 
 var defaultConfig = InteractiveConfig{
@@ -72,6 +76,7 @@ var defaultConfig = InteractiveConfig{
 	Scenario:             "tx",
 	AutoRequesting:       false,
 	AutoRequestingAmount: "100",
+	UseRateSetter:        true,
 }
 
 const (
@@ -106,12 +111,13 @@ const (
 var spamMenuOptions = []string{startSpam, spamScenario, spamDetails, spamType, back}
 
 const (
-	settingPreparation = "Auto funds requesting"
-	settingAddUrls     = "Add client API url"
-	settingRemoveUrls  = "Remove client API urls"
+	settingPreparation   = "Auto funds requesting"
+	settingAddUrls       = "Add client API url"
+	settingRemoveUrls    = "Remove client API urls"
+	settingUseRateSetter = "Enable/disable rate setter"
 )
 
-var settingsMenuOptions = []string{settingPreparation, settingAddUrls, settingRemoveUrls, back}
+var settingsMenuOptions = []string{settingPreparation, settingAddUrls, settingRemoveUrls, settingUseRateSetter, back}
 
 const (
 	currentSpamRemove = "Cancel spam"
@@ -440,21 +446,20 @@ func (m *Mode) startSpam() {
 
 	var spammer *evilspammer.Spammer
 	if m.Config.Scenario == "msg" {
-		spammer = SpamMessages(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0)
+		spammer = SpamMessages(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0, m.Config.UseRateSetter)
 	} else {
 		s, _ := evilwallet.GetScenario(m.Config.Scenario)
-		spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
+		spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse, m.Config.UseRateSetter)
 		if spammer == nil {
 			return
 		}
-
 	}
-	spamId := m.spammerLog.AddSpam(m.Config)
-	m.activeSpammers[spamId] = spammer
+	spamID := m.spammerLog.AddSpam(m.Config)
+	m.activeSpammers[spamID] = spammer
 	go func(id int) {
 		spammer.Spam()
 		m.spamFinished <- id
-	}(spamId)
+	}(spamID)
 	printer.SpammerStartedMessage()
 }
 
@@ -505,6 +510,16 @@ func (m *Mode) settingsSubMenu(menuType string) {
 		}
 		m.removeUrls(answer)
 
+	case settingUseRateSetter:
+		answer := ""
+		err := survey.AskOne(enableRateSetterQuestion, &answer)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.onEnableRateSetter(answer)
+
 	case back:
 		m.mainMenu <- types.Void
 		return
@@ -537,15 +552,12 @@ func (m *Mode) onFundsCreation(answer string) {
 	}
 }
 
-func (m *Mode) settings() {
-	m.stdOutMutex.Lock()
-	defer m.stdOutMutex.Unlock()
-
-	answer := ""
-	err := survey.AskOne(settingsQuestion, &answer)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
+func (m *Mode) onEnableRateSetter(answer string) {
+	if answer == "enable" {
+		m.Config.UseRateSetter = true
+		printer.RateSetterEnabled()
+	} else {
+		m.Config.UseRateSetter = false
 	}
 }
 

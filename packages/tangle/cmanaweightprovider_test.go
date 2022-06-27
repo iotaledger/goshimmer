@@ -67,16 +67,16 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Add node2 and node3 activity at tangleTime+20 -> only node1 is active.
 	{
-		weightProvider.Update(tangleTime.Add(20*time.Minute), nodes["2"])
-		weightProvider.Update(tangleTime.Add(20*time.Minute), nodes["3"])
+		weightProvider.Update(tangleTime.Add(3*time.Minute), nodes["2"])
+		weightProvider.Update(tangleTime.Add(3*time.Minute), nodes["3"])
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 		})
 	}
 
-	// Advance TangleTime by 25min -> all nodes are active.
+	// Advance TangleTime by 4min -> all nodes are active.
 	{
-		tangleTime = tangleTime.Add(25 * time.Minute)
+		tangleTime = tangleTime.Add(4 * time.Minute)
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 			"2": 50,
@@ -86,7 +86,7 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Advance TangleTime by 10min -> node1 and node2 are active.
 	{
-		tangleTime = tangleTime.Add(25 * time.Minute)
+		tangleTime = tangleTime.Add(2 * time.Minute)
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"2": 50,
 			"3": 30,
@@ -95,7 +95,7 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Advance tangleTime by 25min -> no node is active anymore.
 	{
-		tangleTime = tangleTime.Add(25 * time.Minute)
+		tangleTime = tangleTime.Add(4 * time.Minute)
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{})
 	}
 }
