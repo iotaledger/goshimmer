@@ -12,7 +12,7 @@ export default class Version extends React.Component<Props, any> {
     render() {
         return (
             <React.Fragment>
-                Version {this.props.nodeStore.status.version}
+                Version: {this.props.nodeStore.status.version}
             </React.Fragment>
         );
     }

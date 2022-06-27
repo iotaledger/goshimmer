@@ -85,6 +85,9 @@ func PeerConfig() config.GoShimmer {
 	c.MessageLayer.Enabled = true
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
+	c.RateSetter.Enabled = true
+	c.RateSetter.RateSetterParametersDefinition.Enable = false
+
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
 	c.Faucet.PowDifficulty = 1
@@ -109,9 +112,9 @@ func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
-		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
-		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall",
-		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization")
+		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIMessageEndpoint",
+		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
+		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization", "ManaInitializer")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true

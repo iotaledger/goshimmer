@@ -202,8 +202,8 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := node.SendFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
-	require.NoErrorf(t, err, "node=%s, address=%s, SendFaucetRequest failed", node, addr.Base58())
+	resp, err := node.BroadcastFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
+	require.NoErrorf(t, err, "node=%s, address=%s, BroadcastFaucetRequest failed", node, addr.Base58())
 
 	sent := DataMessageSent{
 		id:              resp.ID,
@@ -273,7 +273,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
 	id, err := node.Data(data)
-	require.NoErrorf(t, err, "node=%s, 'Data' failed", node)
+	require.NoErrorf(t, err, "node=%s, 'Data' failed with error %s", node, err)
 
 	sent := DataMessageSent{
 		number: number,

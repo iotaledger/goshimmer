@@ -34,7 +34,6 @@ export class Message {
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     shallowLikeApprovers: Array<string>;
-    shallowDislikeApprovers: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;
@@ -108,7 +107,8 @@ class Branch {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number
+    gradeOfFinality: number;
+    inclusionState: string;
 }
 
 class BranchChildren {

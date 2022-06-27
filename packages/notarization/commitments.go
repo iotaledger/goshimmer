@@ -168,7 +168,6 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
-	fmt.Println("insert tx", txID, ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting state mutation leaf")
@@ -182,7 +181,6 @@ func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID ut
 
 // RemoveStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
-	fmt.Println("remove tx", ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
@@ -196,7 +194,6 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
-	fmt.Println("insert", msgID, ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
@@ -210,7 +207,6 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.M
 
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
-	fmt.Println("remove", ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
@@ -348,13 +344,18 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	// We advance the LedgerState to the next epoch.
 	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
-	return &CommitmentRoots{
+	commitmentRoots = &CommitmentRoots{
 		EI:                ei,
 		stateRoot:         epoch.NewMerkleRoot(stateRoot),
 		manaRoot:          epoch.NewMerkleRoot(manaRoot),
 		tangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
 		stateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
-	}, nil
+	}
+
+	// We are never going to use this epoch's commitment trees again.
+	delete(f.commitmentTrees, ei)
+
+	return commitmentRoots, nil
 }
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
@@ -374,6 +375,13 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
+	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
+	}
+	if ei <= lastCommittedEpoch {
+		return nil, errors.Errorf("cannot get commitment trees for epoch %d, because it is already committed", ei)
+	}
 	commitmentTrees, ok := f.commitmentTrees[ei]
 	if !ok {
 		commitmentTrees = f.newCommitmentTrees(ei)

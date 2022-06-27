@@ -54,7 +54,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
 
-	return value
+	return value.Clone()
 }
 
 // SetBranchIDs creates a mapping between the given marker Index and the given BranchID.

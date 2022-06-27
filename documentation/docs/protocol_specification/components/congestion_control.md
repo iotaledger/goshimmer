@@ -1,7 +1,8 @@
 ---
 description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays.
-image: /img/protocol_specification/congestion_control_algorithm_infographic.png
+image: /img/protocol_specification/congestion_control_algorithm_infographic_new.png
 keywords:
+
 - node
 - congestion control algorithm
 - honest node
@@ -9,79 +10,155 @@ keywords:
 - access mana
 - malicious nde
 - scheduling
+
 ---
 
 # Congestion Control
 
-Every network has to deal with its intrinsic limited resources in terms of bandwidth and node capabilities (CPU and storage). In this document, we present a congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays. Furthermore, the following requirements must be satisfied:
+Every network has to deal with its limited intrinsic resources in bandwidth and node capabilities (CPU and
+storage). In this document, we present a congestion control algorithm to regulate the influx of messages in the
+network to maximize throughput (messages/bytes per second) and minimize delays. Furthermore, the
+following requirements must be satisfied:
 
-*   _Consistency_. If a message is written by one honest node, it shall be written by all honest nodes within some delay bound.
-*   _Fairness_. Nodes can obtain a share of the available throughput depending on their access Mana. Throughput is shared in such a way that an attempt to increase the allocation of any node necessarily results in the decrease in the allocation of some other node with an equal or smaller allocation (max-min fairness).
-*   _Security_. Malicious nodes shall be unable to interfere with either of the above requirements.
+* __Consistency__: If an honest node writes a message, it should be written by all honest nodes within some
+  delay bound.
+* __Fairness__: Nodes can obtain a share of the available throughput depending on their access Mana. Throughput is
+  shared in a way that an attempt to increase the allocation of any node necessarily results in the decrease
+  in the allocation of some other node with an equal or smaller allocation (max-min fairness).
+* __Security__: Malicious nodes shall be unable to interfere with either of the above requirements.
 
-[![Congestion Control](/img/protocol_specification/congestion_control_algorithm_infographic.png)](/img/protocol_specification/congestion_control_algorithm_infographic.png)
+[![Congestion Control](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)
 
-Further information can be found in the paper [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
+You can find more information in the following papers:
+
+* [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
+* [Secure Access Control for DAG-based Distributed Ledgers](https://arxiv.org/abs/2107.10238).
 
 ## Detailed Design
 
-Our algorithm has three core components: 
-*   A scheduling algorithm which ensures fair access for all nodes according to their access Mana.
-*   A TCP-inspired algorithm for decentralized rate setting to efficiently utilize the available bandwidth while preventing large delays.
-*   A blacklisting policy to ban malicious nodes.
+The algorithm has three core components:
+
+* A scheduling algorithm that ensures fair access for all nodes according to their access Mana.
+* A TCP-inspired algorithm for decentralized rate setting to utilize the available bandwidth efficiently while
+  preventing large delays.
+* A buffer management policy to deal with malicious flows.
 
 ### Prerequirements
 
-* _Node identity_. We require node accountability where each message is associated with the node ID of its issuing node.
+* __Node identity__: The congestion control module requires node accountability. Each message is associated with the node ID of its issuing
+  node.
 
-* _Access mana_. The congestion control module has knowledge of the access Mana of the nodes in the network in order to fairly share the available throughput. Without access Mana the network would be subject to Sybil attacks, which would incentivise even honest actors to artificially increase its own number of nodes.
+* __Access mana__: The congestion control module knows the access Mana of the network nodes to share the available
+  throughput fairly. Without access Mana, the network would be subject to Sybil attacks, which would incentivize actors
+  to artificially split (or aggregate) onto multiple identities.
 
-* _Timestamp_. Before scheduling a new message, the scheduler verifies whether the message timestamp is valid or not.
+* __Message weight__. The weight of a message is used to prioritize messages over the others, and it is calculated
+  based on the type and length of a message.
 
-* _Message weight_. Weight of a message is used to priority messages over the others and it is calculated depending on the type of message and of the message length.
+### Outbox Buffer Management
 
-
-### Outbox Management
-
-Once the message has successfully passed the message parser checks and is solid, it is enqueued into the outbox for scheduling. The outbox is logically split into several queues, each one corresponding to a different node issuing messages. In this section, we describe the operations of message enqueuing (and dequeuing) into (from) the outbox.
+Once a message has successfully passed the message parser checks, is solid and booked, it is enqueued into the outbox
+buffer for scheduling. The outbox is split into several queues, each corresponding to a different node issuing
+messages. The total outbox buffer size is limited, but individual queues do not have a size limit. This section
+describes the operations of message enqueuing and dequeuing into and from the outbox buffer.
 
 The enqueuing mechanism includes the following components:
 
-*   _Classification_. The mechanism identifies the queue where the message belongs to according to the node ID of the message issuer.
-*   _Message enqueuing_. The message is actually enqueued, queue is sorted by message timestamps in increasing order and counters are updated (e.g., counters for the total number of bytes in the queue).
-*   _Message drop_. In some circumstances, due to network congestion or to ongoing attacks, some messages shall be dropped to guarantee bounded delays and isolate attacker's messages. Specifically, a node shall drop messages in two situations:
-    - since buffers are of a limited size, if the total number of bytes in all queues exceeds a certain threshold, new incoming messages are dropped;
-    - to guarantee the security of the network, if a certain queue exceeds a given threshold, new incoming packets from that specific node ID will be dropped.
+* __Classification__: The mechanism identifies the queue where the message belongs according to the node ID of
+  the message issuer.
+* __Message enqueuing__: The message is actually enqueued, the queue is sorted by message timestamps in increasing order
+  and counters are updated (e.g., counters for the total number of messages in the queue).
 
-The dequeue mechanism includes the following components:
+The dequeuing mechanism includes the following components:
 
-*   _Queue selection_. A queue is selected according to round robin scheduling algorithm. In particular, we use a modified version of the deficit round robin (DRR) algorithm.
-*   _Message dequeuing_. The first message of the queue is dequeued, and list of active nodes is updated.
-*   _Scheduler management_. Scheduler counters and pointers are updated.
+* __Queue selection__: A queue is selected according to a round-robin scheduling algorithm. In particular, the 
+mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
+* __Message dequeuing__. The first (oldest) message of the queue, that satisfies certain conditions is dequeued. A 
+  message must satisfy the following conditions:
+    * The message has a ready flag assigned. A ready flag is assigned to a message when all of its parents are eligible (the parents have been scheduled or confirmed).
+    * The message timestamp is not in the future.
+* __Message skipping__. Once a message in the outbox is confirmed by another message approving it, it will get removed from the outbox buffer. Since the message already has approvers and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
+* __Message drop__: Due to the node's bootstrapping, network congestion, or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and isolate the attacker's spam, a node shall drop some messages if the total number of messages in all queues exceeds the maximum buffer size. Particularly, the node will drop messages from the queue with the largest mana-scaled length, computed by dividing the number of messages in the queue by the amount of access Mana of the corresponding node.
+  - `Mana-scaled queue size = queue size / node aMana`;
+* __Scheduler management__: The scheduler counters and pointers are updated.
+
+#### False positive drop
+
+During an attack or congestion, a node may drop a message already scheduled by the rest of the network, causing a  
+_false positive drop_. This means that the message’s future cone will not be marked as _ready_ as its past cone is not
+eligible. This is not a problem because messages dropped from the outbox are already booked and confirmation comes 
+eventually due to messages received from the rest of the network which approve the dropped ones.
+
+#### False positive schedule
+
+Another possible problem is that a node schedules a message that the rest of the network drops, causing a _false
+positive_. The message is gossiped and added to the tip pool. However, it will never accumulate enough approval
+weight to be _Confirmed_. Eventually, the node will orphan this part of tangle as the messages in the future-cone 
+will not pass the [Time Since Confirmation check](tangle.md#tip-pool-and-time-since-confirmation-check) during tip 
+selection.
 
 ### Scheduler
 
-The most critical task is the scheduling algorithm which must guarantee that, for an honest node `node`, the following requirements will be met:
-* `node`'s messages will not accumulate indefinitely at any node (i.e., starvation is avoided), so the _consistency_ requirement will be ensured.
-* `node`'s fair share (according to its access Mana) of the network resources are allocated to it, guaranteeing the _fairness_ requirement.
-* Malicious nodes sending above their allowed rate will not interrupt `node`'s throughput, fulfilling the _security_ requirement.
+Scheduling is the most critical task in the congestion control component. The scheduling algorithm must guarantee that
+an honest node `node` meets the following requirements:
 
-Although nodes in our setting are capable of more complex and customised behaviour than a typical router in a packet-switched network, our scheduler must still be lightweight and scalable due to the potentially large number of nodes requiring differentiated treatment. It is estimated that over 10,000 nodes operate on the Bitcoin network, and we expect that an even greater number of nodes are likely to be present in the IoT setting. For this reason, we adopt a scheduler based on [Deficit Round Robin](https://ieeexplore.ieee.org/document/502236) (DRR) (the Linux implementation of the [FQ-CoDel packet scheduler](https://tools.ietf.org/html/rfc8290), which is based on DRR, supports anywhere up to 65535 separate queues).
+* __Consistency__: The node's messages will not accumulate indefinitely at any node, and so, starvation is avoided.
+* __Fairness__: The node's fair share of the network resources are allocated to it according to its access Mana.
+* __Security__: Malicious nodes sending above their allowed rate will not interrupt a node's throughput requirement.
 
-The DRR scans all non-empty queues in sequence. When a non-empty queue is selected, its priority counter (called _deficit_) is incremented by a certain value (called _quantum_). Then, the value of the deficit counter is a maximal amount of bytes that can be sent at this turn: if the deficit counter is greater than the weight of the message at the head of the queue, this message can be scheduled and the value of the counter is decremented by this weight. In our implementation, the quantum is proportional to node's access Mana and we add a cap on the maximum deficit that a node can achieve to keep the network latency low. It is also important to mention that the weight of the message can be assigned in such a way that specific messages can be prioritized (low weight) or penalized (large weight); by default, in our mechanism the weight is proportional to the message size measured in bytes. The weight of a message is set by the function `WorkCalculator()`.
+Although nodes in our setting are capable of more complex and customised behaviour than a typical router in a
+packet-switched network, our scheduler must still be lightweight and scalable due to the potentially large number of
+nodes requiring differentiated treatment. It is estimated that over 10,000 nodes operate on the Bitcoin network, and
+we expect that an even greater number of nodes are likely to be present in the IoT setting. For this reason, we
+adopt a scheduler based on [Deficit Round Robin](https://ieeexplore.ieee.org/document/502236) (DRR) (the Linux
+implementation of the [FQ-CoDel packet scheduler](https://tools.ietf.org/html/rfc8290), which is based on DRR,
+supports anywhere up to 65535 separate queues).
 
-Here a fundamental remark: _the network manager sets up a desired maximum (fixed) rate_ `SCHEDULING_RATE` _at which messages will be scheduled_, computed in weight (see above) per second. This implies that every message is scheduled after a delay which is equal to the weight (size as default) of the latest scheduled message times the parameter `SCHEDULING_RATE`. This rate mostly depends on the degree of decentralization desired: e.g., a larger rate leads to higher throughput but would leave behind slower devices which will fall out of sync.
+The DRR scans all non-empty queues in sequence. When it selects a non-empty queue, the DDR will increment the queue's
+priority counter (_deficit_) by a specific value (_quantum_). Then, the value of the deficit counter is a maximal amount
+of bytes that can be sent this turn. If the deficit counter is greater than the weight of the message at the head of the
+queue, the DRR can schedule this message, and this weight decrements the value of the counter. In our implementation,
+the quantum is proportional to the node's access Mana, and we add a cap on the maximum deficit that a node can achieve
+to keep the network latency low. It is also important to mention that the DRR can assign the weight of the message so
+that specific messages can be prioritized (low weight) or penalized (large weight); by default, in our mechanism, the
+weight is proportional to the message size measured in bytes. The weight of a message is set by the
+function `WorkCalculator()`.
+
+:::note
+
+The network manager sets up the desired maximum (fixed) rate `SCHEDULING_RATE` at which it will schedule messages,
+computed in weight per second. This implies that every message is scheduled after a delay which is equal to the weight (
+size as default) of the latest scheduled message times the parameter
+`SCHEDULING_RATE`. This rate mainly depends on the degree of decentralization you desire: a larger rate leads to
+higher throughput but will leave behind slower devices that will fall out of sync.
+
+:::
 
 ### Rate Setting
 
-If all nodes always had messages to issue, i.e., if nodes were continuously willing to issue new messages, the problem of rate setting would be very straightforward: nodes could simply operate at a fixed, assured rate, sharing the total throughput according to the percentage of access Mana owned. The scheduling algorithm would ensure that this rate is enforceable, and that increasing delays or dropped messages are only experienced by misbehaving node. However, it is unrealistic that all nodes will always have messages to issue, and we would like nodes to better utilise network resources, without causing excessive congestion and violating any requirement.
+If nodes were continuously willing to issue new messages,rate-setting would not be a problem. Nodes could simply operate
+at a fixed, assured rate and share the total throughput according to the percentage of access Mana they own. The
+scheduling algorithm would ensure that this rate is enforceable, and only misbehaving nodes would experience increasing
+delays or dropped messages. However, it is unrealistic to expect all nodes always to have messages to issue. We would
+like nodes to better utilize network resources without causing excessive congestion and violating any requirement.
 
-We propose a rate setting algorithm inspired by TCP — each node employs [additive increase, multiplicative decrease](https://https://epubs.siam.org/doi/book/10.1137/1.9781611974225) (AIMD) rules to update their issuance rate in response to congestion events. In the case of distributed ledgers, all message traffic passes through all nodes, contrary to the case of traffic typically found in packet switched networks and other traditional network architectures. Under these conditions, local congestion at a node is all that is required to indicate congestion elsewhere in the network. This observation is crucial, as it presents an opportunity for a congestion control algorithm based entirely on local traffic.
+We propose a rate-setting algorithm inspired by TCP — each node employs [additive increase, multiplicative decrease]
+(https://https://epubs.siam.org/doi/book/10.1137/1.9781611974225) (AIMD) rules to update their issuance rate in response
+to congestion events. In the case of distributed ledgers, all message traffic passes through all nodes, contrary to the
+case of traffic typically found in packet-switched networks and other traditional network architectures. Under these
+conditions, local congestion at a node is all that is required to indicate congestion elsewhere in the network. This
+observation is crucial as it presents an opportunity for a congestion control algorithm based entirely on local traffic.
 
-Our rate setting algorithm outlines the AIMD rules employed by each node to set their issuance rate. Rate updates for a node `node` take place each time a new message is scheduled if the `node` has a non-empty set of its own messages not yet scheduled. Node `node` sets its own local additive-increase variable `localIncrease(node)` based on its access Mana and on a global increase rate parameter `RATE_SETTING_INCREASE`. An appropriate choice of `RATE_SETTING_INCREASE` ensures a conservative global increase rate which does not cause problems even when many nodes increase their rate simultaneously. Nodes wait `RATE_SETTING_PAUSE` seconds after a global multiplicative decrease parameter `RATE_SETTING_DECREASE`, during which there are no further updates made, to allow the reduced rate to take effect and prevent multiple successive decreases. At each update, `node` checks how many of its own messages are in its outbox queue, and responds with a multiplicative decrease if this number is above a threshold, `backoff(node)`, which is proportional to `node`'s access Mana. If the number of `node`'s messages in the outbox is below the threshold, `node`'s issuance rate is incremented by its local increase variable `localIncrease(node)`.
+Our rate-setting algorithm outlines the AIMD rules employed by each node to set their issuance rate. Rate updates for a
+node occur each time a new message is scheduled if the node has a non-empty set of its own messages that are not yet
+scheduled. The node sets its own local additive-increase variable `localIncrease(node)` based on its access Mana and a
+global increase rate parameter `RATE_SETTING_INCREASE`. An appropriate choice of
+`RATE_SETTING_INCREASE` ensures a conservative global increase rate that does not cause problems even when many nodes
+simultaneously increase their rate.
 
-### Message Blocking and Blacklisting
-
-If an incoming message made the outbox total buffer size to exceed its maximum capacity `MAX_BUFFER`, the same message would be dropped. In our analysis, we set buffers to be large enough to accommodate traffic from all honest nodes.
-
-Furthermore, to mitigate spamming actions from malicious nodes, we add an additional constraint: if `node`'s access Mana-scaled queue length (i.e., queue length divided by node's access Mana) exceeds a given threshold `MAX_QUEUE`, any new incoming packet from `node` will be dropped, hence the node is blacklisted. The attacker is blacklisted for a certain time `BLACKLIST_TIME` during which no messages issued by `node` can be added to the outbox. Please note that it is still possible to receive message from the attacker through solidification requests, which is important in order to guarantee the consistency requirement. Finally, when a node is blacklisted, the blacklister does not increase its own rate for a time `RATE_SETTING_QUARANTINE`, to avoid errors in the perception of the current congestion level.
+Nodes wait `RATE_SETTING_PAUSE` seconds after a global multiplicative decrease parameter `RATE_SETTING_DECREASE`, during
+which no further updates are made, to allow the reduced rate to take effect and prevent multiple successive decreases.
+At each update, the node checks how many of its own messages are in its outbox queue and responds with a multiplicative
+decrease if this number is above a threshold,
+`backoff(node)`, which is proportional to the node's access Mana. If the number of the node's messages in the outbox is
+below the threshold, the node's issuance rate is incremented by its local increase variable, `localIncrease(node)`.

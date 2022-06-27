@@ -25,7 +25,6 @@ const (
 // Manager is the notarization manager.
 type Manager struct {
 	tangle                      *tangle.Tangle
-	epochManager                *EpochManager
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
@@ -35,7 +34,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
+func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
@@ -47,7 +46,6 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 
 	new = &Manager{
 		tangle:                   t,
-		epochManager:             epochManager,
 		epochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: make(map[epoch.Index]uint64),
 		log:                      options.Log,
@@ -57,35 +55,44 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		},
 	}
 
-	new.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	new.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageConfirmedEvent) {
 		new.OnMessageConfirmed(event.Message)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageConfirmedEvent) {
 		new.OnMessageOrphaned(event.Message)
 	}))
 
-	new.tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	new.tangle.Ledger.Events.TransactionConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionConfirmedEvent) {
 		new.OnTransactionConfirmed(event)
 	}))
 
-	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
+	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionInclusionUpdatedEvent) {
 		new.OnTransactionInclusionUpdated(event)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	new.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		new.OnBranchConfirmed(event.ID)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		new.OnBranchCreated(event.ID)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+	new.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
 		new.OnBranchRejected(event.ID)
 	}))
 
 	return new
+}
+
+func onlyIfBootstrapped[E any](timeManager *tangle.TimeManager, handler func(event E)) *event.Closure[E] {
+	return event.NewClosure(func(event E) {
+		if !timeManager.Bootstrapped() {
+			return
+		}
+		handler(event)
+	})
 }
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
@@ -114,7 +121,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 			}
 			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
 			if err != nil {
-				m.log.Error(err)
+				panic("could not delete leaf from state root tree")
 			}
 		}
 
@@ -123,28 +130,28 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
 			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
 			if err != nil {
-				m.log.Error(err)
+				panic("could not update leaf of state root tree")
 			}
 		}
 	}
 
 	// Our ledgerstate is aligned with the last committed epoch, which is the same as the last epoch in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetFullEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
+		panic("could not set full epoch index")
 	}
 
 	if err := m.epochCommitmentFactory.storage.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
+		panic("could not set diff epoch index")
 	}
 
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
+		panic("could not set last committed epoch index")
 	}
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
+		panic("could not set last confirmed epoch index")
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
@@ -157,8 +164,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 
 	ecRecord, updateErr := m.updateCommitmentsToLatestCommittableEpoch()
 	if updateErr != nil {
-		err = errors.Wrap(updateErr, "could not update commitments up to latest committable epoch")
-		return nil, err
+		return nil, errors.Wrap(updateErr, "could not update commitments up to latest committable epoch")
 	}
 
 	return
@@ -176,9 +182,10 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
+		return
 	}
 	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
@@ -191,9 +198,10 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
+		return
 	}
 	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
@@ -219,8 +227,12 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 
 	var txEpoch epoch.Index
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
-		txEpoch = m.epochManager.TimeToEI(txMeta.InclusionTime())
+		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
+	if m.isEpochAlreadyComitted(txEpoch) {
+		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
+		return
+	}
 
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
 		m.log.Error(err)
@@ -232,13 +244,12 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
-	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
+	oldEpoch := epoch.IndexFromTime(event.PreviousInclusionTime)
+	newEpoch := epoch.IndexFromTime(event.InclusionTime)
 
 	if oldEpoch == 0 || oldEpoch == newEpoch {
 		return
 	}
-	fmt.Println(event.TransactionID)
 
 	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
@@ -265,8 +276,13 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-	fmt.Println("confirmed", branchID)
 	ei := m.getBranchEI(branchID, true)
+
+	if m.isEpochAlreadyComitted(ei) {
+		m.log.Errorf("branch confirmed in already committed epoch %d", ei)
+		return
+	}
+
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -274,9 +290,14 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-	fmt.Println("created", branchID)
 
 	ei := m.getBranchEI(branchID, false)
+
+	if m.isEpochAlreadyComitted(ei) {
+		m.log.Errorf("branch created in already committed epoch %d", ei)
+		return
+	}
+
 	m.pendingConflictsCounters[ei]++
 }
 
@@ -284,9 +305,14 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-	fmt.Println("rejected", branchID)
 
 	ei := m.getBranchEI(branchID, true)
+
+	if m.isEpochAlreadyComitted(ei) {
+		m.log.Errorf("branch rejected in already committed epoch %d", ei)
+		return
+	}
+
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -318,7 +344,7 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
-	currentEpoch := m.epochManager.TimeToEI(time.Now())
+	currentEpoch := epoch.IndexFromTime(time.Now())
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -344,14 +370,14 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
-	t := m.epochManager.EIToEndTime(ei)
+	t := ei.EndTime()
 	diff := time.Since(t)
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
 	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
-	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
+	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
 	return
 }
 
@@ -390,6 +416,7 @@ func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
 	lastCommitted, _, err := m.latestCommittableEpoch()
 	if err != nil {
 		m.log.Errorf("could not determine latest committed epoch: %v", err)
+		return false
 	}
 	return ei <= lastCommitted
 }
