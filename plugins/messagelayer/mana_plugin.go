@@ -105,7 +105,6 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	notarizationManager.Events.ManaVectorToUpdate.Attach(onManaVectorToUpdateClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
