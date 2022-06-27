@@ -1,6 +1,11 @@
 package mana
 
 import (
+	"fmt"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/types"
 	"testing"
 	"time"
 
@@ -71,10 +76,47 @@ var (
 			},
 		},
 	}
+	epochCreatedBalances    = []uint64{1, 1, 2, 2, 1}
+	epochSpentBalances      = []uint64{2, 2, 2, 1}
+	epochCreatedPledgeIDs   = []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID2, inputPledgeID3, inputPledgeID3}
+	epochSpentPledgeIDs     = []identity.ID{inputPledgeID1, inputPledgeID1, inputPledgeID2, inputPledgeID3}
+	afterBookingEpochAmount = map[identity.ID]float64{
+		inputPledgeID1: 2.0,
+		inputPledgeID2: 4.0,
+		inputPledgeID3: 4.0,
+	}
 )
 
 func randNodeID() identity.ID {
 	return identity.GenerateIdentity().ID()
+}
+
+func prepareEpochDiffs() (created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
+	for i, amount := range epochCreatedBalances {
+		outWithMeta := createOutputWithMetadata(amount, epochCreatedPledgeIDs[i])
+		created = append(created, outWithMeta)
+	}
+	for i, amount := range epochSpentBalances {
+		outWithMeta := createOutputWithMetadata(amount, epochSpentPledgeIDs[i])
+		spent = append(spent, outWithMeta)
+	}
+
+	return
+}
+
+func createOutputWithMetadata(amount uint64, createdPledgeID identity.ID) *ledger.OutputWithMetadata {
+	now := time.Now()
+	addr := seed.NewSeed().Address(0).Address()
+	out := devnetvm.NewSigLockedSingleOutput(amount, addr)
+	meta := ledger.NewOutputMetadata(out.ID())
+	meta.SetConsensusManaPledgeID(createdPledgeID)
+	meta.SetCreationTime(now)
+	meta.SetID(out.ID())
+	outWithMeta := ledger.NewOutputWithMetadata(out.ID(), out, meta)
+	outWithMeta.SetID(out.ID())
+	outWithMeta.SetOutput(out)
+	outWithMeta.SetOutputMetadata(meta)
+	return outWithMeta
 }
 
 func TestNewBaseManaVector_Consensus(t *testing.T) {
@@ -189,6 +231,78 @@ func TestConsensusBaseManaVector_Book(t *testing.T) {
 		delete(revokedNodeIds, ev.NodeID)
 	}
 	assert.Empty(t, revokedNodeIds)
+}
+
+func TestConsensusBaseManaVector_BookEpoch(t *testing.T) {
+	// hold information about which events triggered
+	var (
+		updateEvents []*UpdatedEvent
+		revokeEvents []*RevokedEvent
+		pledgeEvents []*PledgedEvent
+	)
+	nodeIds := map[identity.ID]types.Empty{
+		inputPledgeID1: types.Void,
+		inputPledgeID2: types.Void,
+		inputPledgeID3: types.Void,
+	}
+
+	fmt.Println("all ids: ", inputPledgeID1.String(), ' ', inputPledgeID2.String(), ' ', inputPledgeID3.String())
+	created, spent := prepareEpochDiffs()
+	// when an event triggers, add it to the log
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
+		updateEvents = append(updateEvents, ev)
+	}))
+	Events.Revoked.Hook(event.NewClosure(func(ev *RevokedEvent) {
+		revokeEvents = append(revokeEvents, ev)
+	}))
+	Events.Pledged.Hook(event.NewClosure(func(ev *PledgedEvent) {
+		pledgeEvents = append(pledgeEvents, ev)
+	}))
+	bmv := NewBaseManaVector()
+
+	// init vector to inputTime with pledged beforeBookingAmount
+	bmv.SetMana(inputPledgeID1, NewManaBase(beforeBookingAmount[inputPledgeID1]))
+	bmv.SetMana(inputPledgeID2, NewManaBase(beforeBookingAmount[inputPledgeID2]))
+	bmv.SetMana(inputPledgeID3, NewManaBase(beforeBookingAmount[inputPledgeID3]))
+	bmv.BookEpoch(created, spent)
+
+	// update triggered for the 3 nodes that mana was revoked from, and once for the pledged
+	assert.Equal(t, 9, len(updateEvents))
+	assert.Equal(t, 5, len(pledgeEvents))
+	assert.Equal(t, 4, len(revokeEvents))
+
+	latestUpdateEvent := make(map[identity.ID]*UpdatedEvent)
+	for _, ev := range updateEvents {
+		latestUpdateEvent[ev.NodeID] = ev
+	}
+	// check only the latest update event for each nodeID
+	for _, ev := range latestUpdateEvent {
+		// has the right type
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		// base mana values are expected
+		assert.Equal(t, afterBookingEpochAmount[ev.NodeID], ev.NewMana.BaseValue())
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+
+	afterEventsAmount := make(map[identity.ID]float64)
+	afterEventsAmount[inputPledgeID1] = beforeBookingAmount[inputPledgeID1]
+	afterEventsAmount[inputPledgeID2] = beforeBookingAmount[inputPledgeID2]
+	afterEventsAmount[inputPledgeID3] = beforeBookingAmount[inputPledgeID3]
+
+	for i, ev := range revokeEvents {
+		afterEventsAmount[epochSpentPledgeIDs[i]] -= ev.Amount
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+	for i, ev := range pledgeEvents {
+		afterEventsAmount[epochCreatedPledgeIDs[i]] += ev.Amount
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+	// make sure pledge and revoke events balance changes are as expected
+	for id := range afterBookingAmount {
+		assert.Equal(t, afterEventsAmount[id], afterBookingEpochAmount[id])
+	}
 }
 
 func TestConsensusBaseManaVector_GetMana(t *testing.T) {
