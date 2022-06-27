@@ -51,7 +51,7 @@ func TestManager_IsCommittable(t *testing.T) {
 func TestManager_GetLatestEC(t *testing.T) {
 	m := testNotarizationManager()
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
-	for i := 0; i <= 5; i++ {
+	for i := 1; i <= 5; i++ {
 		m.pendingConflictsCounters[epoch.Index(i)] = uint64(i)
 		err := m.epochCommitmentFactory.insertTangleLeaf(epoch.Index(i), tangle.EmptyMessageID)
 		require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	}
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
@@ -125,6 +125,11 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		msg := testFramework.Message("Message2")
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message1": true,
+	})
+
 	// Message3, issuing time epoch 3
 	{
 		time.Sleep(epochInterval)
@@ -139,6 +144,11 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		msg := testFramework.Message("Message3")
 		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message2": true,
+	})
+
 	// Message4, issuing time epoch 4
 	{
 		time.Sleep(epochInterval)
@@ -153,6 +163,11 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		msg := testFramework.Message("Message4")
 		assert.Equal(t, epoch.Index(2), msg.EI())
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message3": true,
+	})
+
 	// Message5, issuing time epoch 5
 	{
 		time.Sleep(epochInterval)
@@ -166,12 +181,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		msg := testFramework.Message("Message5")
 		assert.Equal(t, epoch.Index(3), msg.EI())
-		assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
-			"Message1": true,
-			"Message2": true,
-			"Message3": true,
-		})
 	}
+
 	eventHandlerMock.AssertExpectations(t)
 }
 
@@ -197,7 +208,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		}
 	}
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
-	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
@@ -334,7 +345,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		}
 	}
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
-	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
@@ -409,6 +420,14 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		msg := testFramework.Message("Message6")
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message1": true,
+		"Message2": true,
+		"Message3": true,
+		"Message4": true,
+	})
+
 	// Message7, issuing time epoch 3
 	{
 		time.Sleep(epochInterval)
@@ -423,6 +442,16 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		msg := testFramework.Message("Message7")
 		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message5": true,
+		"Message6": false,
+	})
+	assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
+		"Message5": true,
+		"Message6": false,
+	})
+
 	// Message8, issuing time epoch 4
 	{
 		time.Sleep(epochInterval)
@@ -436,21 +465,14 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 		msg := testFramework.Message("Message8")
 		assert.Equal(t, epoch.Index(2), msg.EI())
-		assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
-			"Message1": true,
-			"Message2": true,
-			"Message3": true,
-			"Message4": true,
-			"Message5": true,
-			"Message7": true,
-			"Message6": false,
-		})
-		assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
-			"Message5": true,
-			"Message7": true,
-			"Message6": false,
-		})
 	}
+
+	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
+		"Message7": true,
+	})
+	assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
+		"Message7": true,
+	})
 
 	eventHandlerMock.AssertExpectations(t)
 }
@@ -477,7 +499,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		}
 	}
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
-	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
@@ -638,7 +660,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		}
 	}
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
-	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, []tangle.Option{tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false))}...)
+	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// Message1, issuing time epoch 1
 	{
@@ -808,7 +830,7 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 	minCommittable := 2 * epochInterval
 	genesisTime := time.Now()
 
-	testTangle := tangle.NewTestTangle(options...)
+	testTangle := tangle.NewTestTangle(append([]tangle.Option{tangle.StartSynced(true)}, options...)...)
 	testTangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 0
 
 	testFramework = tangle.NewMessageTestFramework(testTangle, tangle.WithGenesisOutput("A", 500), tangle.WithGenesisOutput("B", 500))

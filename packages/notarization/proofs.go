@@ -64,7 +64,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.Outpu
 func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return nil, errors.Newf("cannot get commitment trees for epoch %d", ei)
+		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
 	}
 
 	key := txID.Bytes()
@@ -80,7 +80,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.MessageID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return nil, errors.Newf("cannot get commitment trees for epoch %d", ei)
+		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
 	}
 
 	key := blockID.Bytes()
