@@ -65,7 +65,7 @@ func (i Index) StartTime() time.Time {
 	return time.Unix(startUnix, 0)
 }
 
-// EIToEndTime calculates the end time of the given epoch.
+// EndTime calculates the end time of the given epoch.
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
