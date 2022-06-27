@@ -601,6 +601,15 @@ func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 	return err
 }
 
+// FromBytes unmarshals an OutputWithMetadata from a sequence of bytes.
+func (o *OutputWithMetadata) FromBytes(data []byte) error {
+	err := o.Storable.FromBytes(data)
+	o.M.Output.SetID(o.ID())
+	o.M.OutputMetadata.SetID(o.ID())
+
+	return err
+}
+
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
 	defer o.RUnlock()
