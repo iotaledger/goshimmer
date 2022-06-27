@@ -77,7 +77,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 }
 
 func TestManager_UpdateTangleTree(t *testing.T) {
-	var epochInterval = 1 * time.Second
+	epochInterval := 1 * time.Second
 
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -805,7 +805,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 }
 
 func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle.Option) (testFramework *tangle.MessageTestFramework, eventMock *EventMock, m *Manager) {
-	var minCommittable time.Duration = 2 * epochInterval
+	minCommittable := 2 * epochInterval
 	genesisTime := time.Now()
 
 	testTangle := tangle.NewTestTangle(options...)
@@ -823,8 +823,9 @@ func setupFramework(t *testing.T, epochInterval time.Duration, options ...tangle
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	epochMgr := NewEpochManager(Duration(epochInterval), GenesisTime(genesisTime.Unix()))
-	m = NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
+	epoch.GenesisTime = genesisTime.Unix()
+	epoch.Duration = int64(epochInterval.Seconds())
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()
@@ -852,7 +853,7 @@ func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFrame
 		var ei epoch.Index
 		m.tangle.Storage.Message(msgID).Consume(func(block *tangle.Message) {
 			t := block.IssuingTime()
-			ei = m.epochManager.TimeToEI(t)
+			ei = epoch.IndexFromTime(t)
 		})
 		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, msgID)
 		assert.Equal(t, result, valid, "block %s not included in epoch %s", alias, ei)
@@ -867,7 +868,7 @@ func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTes
 		var ei epoch.Index
 		m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 			t := tx.(*devnetvm.Transaction).Essence().Timestamp()
-			ei = m.epochManager.TimeToEI(t)
+			ei = epoch.IndexFromTime(t)
 		})
 		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
 		assert.Equal(t, result, valid, "transaction %s not included in epoch %s", alias, ei)
@@ -905,7 +906,9 @@ func testNotarizationManager() (m *Manager) {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	testTangle := tangle.NewTestTangle()
 	interval := 5 * time.Minute
-	m = NewManager(NewEpochManager(GenesisTime(t), Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
+	epoch.GenesisTime = t
+	epoch.Duration = int64(interval.Seconds())
+	m = NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
 
 	m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0)
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(epoch.NewECRecord(0)).Release()

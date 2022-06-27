@@ -10,7 +10,7 @@ import (
 func TestEpochManager(t *testing.T) {
 	genesisTime := time.Now()
 	GenesisTime = genesisTime.Unix()
-	Duration = 10 * time.Second
+	Duration = 10
 
 	{
 		// ei = 0
