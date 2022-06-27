@@ -343,7 +343,7 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
-	currentEpoch := epoch.IndexFromTime(time.Now())
+	currentEpoch := epoch.CurrentIndex()
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {

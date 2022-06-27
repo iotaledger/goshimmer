@@ -25,15 +25,8 @@ func TestNewManager(t *testing.T) {
 	assert.NotNil(t, m)
 }
 
-func TestManager_pendingConflictsCounters(t *testing.T) {
-	testTangle := tangle.NewTestTangle()
-	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
-	m.pendingConflictsCounters[3] = 3
-	assert.Equal(t, uint64(3), m.pendingConflictsCounters[3])
-}
-
 func TestManager_IsCommittable(t *testing.T) {
-	m := testNotarizationManager()
+	m := testNotarizationManager(t)
 	Index := epoch.Index(5)
 	m.pendingConflictsCounters[Index] = 0
 	// not old enough
@@ -49,7 +42,7 @@ func TestManager_IsCommittable(t *testing.T) {
 }
 
 func TestManager_GetLatestEC(t *testing.T) {
-	m := testNotarizationManager()
+	m := testNotarizationManager(t)
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
 	for i := 1; i <= 5; i++ {
 		m.pendingConflictsCounters[epoch.Index(i)] = uint64(i)
@@ -100,6 +93,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, epochInterval, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
+	var EC0, EC1, EC2 epoch.EC
+
 	// Message1, issuing time epoch 1
 	{
 		time.Sleep(epochInterval)
@@ -107,12 +102,14 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+		EC0 = EC(ecRecord)
 		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message1")
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
+
 	// Message2, issuing time epoch 2
 	{
 		time.Sleep(epochInterval)
@@ -120,6 +117,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+		assert.Equal(t, EC0, EC(ecRecord))
 		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Message1"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 
@@ -139,6 +137,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+		EC1 = EC(ecRecord)
+		assert.Equal(t, EC0, ecRecord.PrevEC())
 		testFramework.CreateMessage("Message3", tangle.WithStrongParents("Message2"), tangle.WithIssuer(nodes["C"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 
@@ -158,6 +158,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+		EC2 = EC(ecRecord)
+		assert.Equal(t, EC1, ecRecord.PrevEC())
 		testFramework.CreateMessage("Message4", tangle.WithStrongParents("Message3", "Message2"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 
@@ -177,6 +179,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+		assert.Equal(t, EC2, ecRecord.PrevEC())
 		testFramework.CreateMessage("Message5", tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 
@@ -929,7 +932,7 @@ func assertEpochDiff(t *testing.T, testFramework *tangle.MessageTestFramework, m
 	assert.True(t, expectedCreatedIDs.Equal(actualCreatedIDs), "created outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedCreatedIDs, actualCreatedIDs)
 }
 
-func testNotarizationManager() (m *Manager) {
+func testNotarizationManager(testing *testing.T) (m *Manager) {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	testTangle := tangle.NewTestTangle()
 	interval := 5 * time.Minute
@@ -937,7 +940,7 @@ func testNotarizationManager() (m *Manager) {
 	epoch.Duration = int64(interval.Seconds())
 	m = NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
 
-	m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0)
+	require.NoError(testing, m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0))
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(epoch.NewECRecord(0)).Release()
 	return
 }
