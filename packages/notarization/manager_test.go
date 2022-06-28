@@ -967,7 +967,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 	registerToTangleEvents(sfg, testTangle)
 	loadSnapshot(m, testFramework)
 
-	eventMock = NewEventMock(t, m, ecFactory)
+	eventMock = NewEventMock(t, m)
 
 	epoch.Duration = int64(epochInterval.Seconds())
 	epoch.GenesisTime = genesisTime.Unix()
@@ -1053,7 +1053,7 @@ func testNotarizationManager(testing *testing.T) (m *Manager) {
 	epoch.Duration = int64(duration.Seconds())
 	m = NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
 
-	require.NoError(testing, m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0))
+	require.NoError(testing, m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(0))
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(epoch.NewECRecord(0)).Release()
 	return
 }

@@ -222,14 +222,10 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 
 // ecRecord retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, isNew bool, err error) {
-	ecRecord = epoch.NewECRecord(ei)
-	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
-		ecRecord.SetECR(record.ECR())
-		ecRecord.SetPrevEC(record.PrevEC())
-	}) {
-		return ecRecord, false, nil
+	ecRecord, err = f.loadEcRecord(ei)
+	if err != nil {
+		return nil, false, err
 	}
-
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
@@ -249,6 +245,16 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	})
 
 	return ecRecord, true, nil
+}
+
+func (f *EpochCommitmentFactory) loadEcRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
+		ecRecord.SetECR(record.ECR())
+		ecRecord.SetPrevEC(record.PrevEC())
+	}) {
+		return ecRecord, nil
+	}
+	return nil, errors.Errorf("commitment not found for ei %d", ei)
 }
 
 // storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
@@ -374,7 +380,7 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
-	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LastCommittedEpochIndex()
+	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LatestCommittableEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
 	}

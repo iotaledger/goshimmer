@@ -78,12 +78,12 @@ func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentC
 	return s.ecRecordStorage.Load(ei.Bytes())
 }
 
-func (s *EpochCommitmentStorage) SetLastCommittedEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("lastCommittedEpochIndex", ei)
+func (s *EpochCommitmentStorage) SetLatestCommittableEpochIndex(ei epoch.Index) error {
+	return s.setIndexFlag("latestCommittableEpochIndex", ei)
 }
 
-func (s *EpochCommitmentStorage) LastCommittedEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("lastCommittedEpochIndex")
+func (s *EpochCommitmentStorage) LatestCommittableEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("latestCommittableEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) SetLastConfirmedEpochIndex(ei epoch.Index) error {

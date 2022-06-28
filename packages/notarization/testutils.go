@@ -62,17 +62,18 @@ type EventMock struct {
 }
 
 // NewEventMock creates a new EventMock.
-func NewEventMock(t *testing.T, notarizationManager *Manager, ecFactory *EpochCommitmentFactory) *EventMock {
+func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	e := &EventMock{
 		test: t,
 	}
 
 	// attach all events
 	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommitted))
+	notarizationManager.Events.ManaVectorToUpdate.Hook(event.NewClosure(e.ManaVectorToUpdate))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+1, numEvents, "not all events in notarizationManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
 
 	return e
 }
@@ -109,8 +110,14 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// EpochCommitted is the mocked BranchWeightChanged function.
+// EpochCommitted is the mocked EpochCommitted event.
 func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
 	e.Called(event.EI)
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// ManaVectorToUpdate is the mocked ManaVectorToUpdate event.
+func (e *EventMock) ManaVectorToUpdate(event *ManaVectorToUpdateEvent) {
+	e.Called(event)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
