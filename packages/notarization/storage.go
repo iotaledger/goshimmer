@@ -36,8 +36,8 @@ type EpochCommitmentStorage struct {
 }
 
 type EpochDiffStorage struct {
-	Spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
-	Created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+	spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
+	created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 }
 
 // newEpochCommitmentStorage returns a new storage instance for the given Ledger.
@@ -116,8 +116,8 @@ func (s *EpochCommitmentStorage) Shutdown() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()
 		for _, epochDiffStorage := range s.epochDiffStorages {
-			epochDiffStorage.Spent.Shutdown()
-			epochDiffStorage.Created.Shutdown()
+			epochDiffStorage.spent.Shutdown()
+			epochDiffStorage.created.Shutdown()
 		}
 	})
 }
@@ -145,8 +145,8 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
 	// TODO: properly drop (delete epoch bucketed) storage
 	diffStorage := s.getEpochDiffStorage(ei)
-	diffStorage.Spent.Shutdown()
-	diffStorage.Created.Shutdown()
+	diffStorage.spent.Shutdown()
+	diffStorage.created.Shutdown()
 	delete(s.epochDiffStorages, ei)
 }
 
@@ -165,14 +165,14 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 	}
 
 	diffStorage = &EpochDiffStorage{
-		Spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+		spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			spentDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 
-		Created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
+		created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			createdDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
