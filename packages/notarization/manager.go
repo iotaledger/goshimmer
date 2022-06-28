@@ -446,8 +446,10 @@ func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
 		if !m.isCommittable(ei) {
 			return
 		}
-		m.triggerManaVectorUpdate(ei)
-		m.moveLatestCommittableEpoch(ei)
+		// calculate first old enough epoch index
+		oldEnoughEpochTime := ei.StartTime().Add(-m.options.MinCommittableEpochAge)
+		oldEnoughEI := epoch.IndexFromTime(oldEnoughEpochTime) - 1
+		m.moveLatestCommittableEpoch(oldEnoughEI)
 	}
 }
 
@@ -455,7 +457,6 @@ func (m *Manager) onPendingConflictCounterIsZero(ei epoch.Index) {
 	if !m.isCommittable(ei) {
 		return
 	}
-	m.triggerManaVectorUpdate(ei)
 	m.moveLatestCommittableEpoch(ei)
 }
 
@@ -490,6 +491,7 @@ func (m *Manager) moveLatestCommittableEpoch(newCommittableEpoch epoch.Index) {
 			m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: ei})
 		}
 	}
+	m.triggerManaVectorUpdate(newCommittableEpoch)
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
