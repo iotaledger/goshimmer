@@ -145,11 +145,6 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		panic("could not set last confirmed epoch index")
 	}
 
-	// We set it to the last committed ei. It will be updated upon first confirmed message will arrive.
-	if err := m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		panic("could not set latest committable epoch index")
-	}
-
 	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
 	if err := m.epochCommitmentFactory.storage.SetCurrentEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
 		panic("could not set current epoch index")
@@ -392,12 +387,12 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 	if diff < m.options.MinCommittableEpochAge {
 		return false
 	}
-	latestEI, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	lastEI, err := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if err != nil {
 		return false
 	}
 	// epoch is not committable if there are any not resolved conflicts in this and past epochs
-	for index := latestEI; index <= ei; index++ {
+	for index := lastEI; index <= ei; index++ {
 		if m.pendingConflictsCounters[index] != 0 {
 			return false
 		}
@@ -505,10 +500,6 @@ func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
 			return
 		}
 		if !m.isCommittable(ei) {
-			return
-		}
-		if err = m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(ei); err != nil {
-			m.log.Error(errors.Wrap(err, "could not set latest committable epoch index"))
 			return
 		}
 		m.triggerManaVectorUpdate(ei)

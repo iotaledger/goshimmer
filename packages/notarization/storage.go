@@ -86,14 +86,6 @@ func (s *EpochCommitmentStorage) LastCommittedEpochIndex() (ei epoch.Index, err 
 	return s.getIndexFlag("lastCommittedEpochIndex")
 }
 
-func (s *EpochCommitmentStorage) SetLatestCommittableEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("latestCommittableEpochIndex", ei)
-}
-
-func (s *EpochCommitmentStorage) LatestCommittableEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("latestCommittableEpochIndex")
-}
-
 func (s *EpochCommitmentStorage) SetLastConfirmedEpochIndex(ei epoch.Index) error {
 	return s.setIndexFlag("lastConfirmedEpochIndex", ei)
 }
