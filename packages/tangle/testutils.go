@@ -502,13 +502,13 @@ type MessageTestFrameworkMessageOptions struct {
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:             make(map[string]types.Empty),
-		outputs:            make(map[string]uint64),
-		strongParents:      make(map[string]types.Empty),
-		weakParents:        make(map[string]types.Empty),
-		shallowLikeParents: make(map[string]types.Empty),
-		ecRecord:              epoch.NewECRecord(0),
-		latestConfirmedEpoch:  0,
+		inputs:               make(map[string]types.Empty),
+		outputs:              make(map[string]uint64),
+		strongParents:        make(map[string]types.Empty),
+		weakParents:          make(map[string]types.Empty),
+		shallowLikeParents:   make(map[string]types.Empty),
+		ecRecord:             epoch.NewECRecord(0),
+		latestConfirmedEpoch: 0,
 	}
 
 	for _, option := range options {
@@ -651,7 +651,7 @@ func randomConflictID() (randomConflictID utxo.OutputID) {
 
 func newTestNonceMessage(nonce uint64) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, nil)
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -661,7 +661,7 @@ func newTestNonceMessage(nonce uint64) *Message {
 
 func newTestDataMessage(payloadString string) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -671,7 +671,7 @@ func newTestDataMessage(payloadString string) *Message {
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -680,7 +680,7 @@ func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicK
 }
 
 func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
-	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -873,7 +873,7 @@ func NewTestTangle(options ...Option) *Tangle {
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
 	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, epoch.Index, error) {
-		return nil, 0, nil
+		return epoch.NewECRecord(0), 0, nil
 	}))
 
 	t := New(options...)
