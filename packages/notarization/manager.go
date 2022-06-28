@@ -152,7 +152,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
 	if err := m.epochCommitmentFactory.storage.SetCurrentEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
-		panic("could not set latest committable epoch index")
+		panic("could not set current epoch index")
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
@@ -392,12 +392,12 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 	if diff < m.options.MinCommittableEpochAge {
 		return false
 	}
-	latestEi, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	latestEI, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
 	if err != nil {
 		return false
 	}
 	// epoch is not committable if there are any not resolved conflicts in this and past epochs
-	for index := latestEi; index <= ei; index++ {
+	for index := latestEI; index <= ei; index++ {
 		if m.pendingConflictsCounters[index] != 0 {
 			return false
 		}
@@ -512,8 +512,6 @@ func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
 			return
 		}
 		m.triggerManaVectorUpdate(ei)
-		// todo move commitments trees to the latest committable epoch
-
 	}
 }
 

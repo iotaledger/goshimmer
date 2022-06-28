@@ -111,11 +111,7 @@ func createOutputWithMetadata(amount uint64, createdPledgeID identity.ID) *ledge
 	meta := ledger.NewOutputMetadata(out.ID())
 	meta.SetConsensusManaPledgeID(createdPledgeID)
 	meta.SetCreationTime(now)
-	meta.SetID(out.ID())
 	outWithMeta := ledger.NewOutputWithMetadata(out.ID(), out, meta)
-	outWithMeta.SetID(out.ID())
-	outWithMeta.SetOutput(out)
-	outWithMeta.SetOutputMetadata(meta)
 	return outWithMeta
 }
 
