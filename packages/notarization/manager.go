@@ -384,7 +384,7 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	return lastCommittedEpoch, latestCommittableEpoch, nil
 }
 
-// IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
+// isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
 	t := ei.EndTime()
 	currentATT := m.tangle.TimeManager.ATT()
