@@ -4,8 +4,8 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"golang.org/x/crypto/blake2b"
@@ -34,9 +34,8 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
-		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
-		ei = epoch.IndexFromTime(t)
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
+		ei = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
 	if err != nil {

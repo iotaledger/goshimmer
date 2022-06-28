@@ -41,11 +41,6 @@ func IndexFromTime(t time.Time) Index {
 	return Index(elapsedSeconds / Duration)
 }
 
-// CurrentEI returns the EI at the current synced time.
-func CurrentIndex() Index {
-	return IndexFromTime(clock.SyncedTime())
-}
-
 func (i Index) Bytes() []byte {
 	bytes, err := serix.DefaultAPI.Encode(context.Background(), i, serix.WithValidation())
 	if err != nil {
@@ -69,6 +64,11 @@ func (i Index) StartTime() time.Time {
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
+}
+
+// CurrentEpochIndex returns the EI at the current RATT time.
+func CurrentEpochIndex() Index {
+	return IndexFromTime(clock.SyncedTime())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

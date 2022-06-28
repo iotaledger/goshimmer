@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -181,6 +182,8 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
+	fmt.Println(">> insert", message.ID())
+
 	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
@@ -217,21 +220,23 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	var spent, created []*ledger.OutputWithMetadata
-	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
-		spent, created = m.resolveOutputs(tx)
-	})
-
 	txID := event.TransactionID
 
 	var txEpoch epoch.Index
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
+		fmt.Println("InclusionTime:", txMeta.InclusionTime(), "GenesisTime:", epoch.GenesisTime)
 	})
 	if m.isEpochAlreadyCommitted(txEpoch) {
+		fmt.Println(txID)
 		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
 		return
 	}
+
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
 
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
 		m.log.Error(err)
@@ -343,7 +348,8 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
-	currentEpoch := epoch.CurrentIndex()
+	currentEpoch := epoch.CurrentEpochIndex()
+	fmt.Println("Current epoch", currentEpoch)
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -351,7 +357,8 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 		return
 	}
 
-	for ei := lastCommittedEpoch; ei < currentEpoch; ei++ {
+	latestCommittableEpoch = lastCommittedEpoch
+	for ei := lastCommittedEpoch + 1; ei < currentEpoch; ei++ {
 		if m.isCommittable(ei) {
 			latestCommittableEpoch = ei
 			continue
@@ -370,7 +377,8 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
 	t := ei.EndTime()
-	diff := time.Since(t)
+	diff := m.tangle.TimeManager.ATT().Sub(t)
+	fmt.Println("isCommittable", ei, diff, m.options.MinCommittableEpochAge)
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
@@ -387,6 +395,7 @@ func (m *Manager) updateCommitmentsToLatestCommittableEpoch() (ecRecord *epoch.E
 		return nil, errors.Wrap(lastCommittableEpochErr, "could not get last committable epoch")
 	}
 
+	fmt.Println("updateCommitmentsToLatestCommittableEpoch", lastCommitted, latestCommittable)
 	for ei := lastCommitted; ei <= latestCommittable; ei++ {
 		var isNew bool
 		var ecRecordErr error
