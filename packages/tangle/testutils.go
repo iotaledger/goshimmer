@@ -169,6 +169,11 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 	return m
 }
 
+// LatestCommitment gets the latest commitment.
+func (m *MessageTestFramework) LatestCommitment(messageAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+	return m.tangle.Options.CommitmentFunc()
+}
+
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	for _, messageAlias := range messageAliases {
@@ -224,6 +229,15 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.Transacti
 	}
 
 	return tx.ID()
+}
+
+// Output retrieves the Output that is associated with the given alias.
+func (m *MessageTestFramework) Output(alias string) (output devnetvm.Output) {
+	output, ok := m.outputsByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Output alias %s not registered", alias))
+	}
+	return
 }
 
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.

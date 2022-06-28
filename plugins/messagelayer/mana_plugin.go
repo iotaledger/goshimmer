@@ -797,6 +797,9 @@ func loadSnapshot(snapshot *ledger.Snapshot) error {
 	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
 
 	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+	if cManaTargetEpoch < 0 {
+		cManaTargetEpoch = 0
+	}
 
 	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
 	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
