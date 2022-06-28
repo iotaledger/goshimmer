@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -200,8 +199,6 @@ func (t *TimeManager) updateTime(message *Message) {
 		MessageTime: message.IssuingTime(),
 		UpdateTime:  time.Now(),
 	}
-
-	fmt.Println("ATT updated", message.ID())
 
 	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
 		NewTime: t.lastAcceptedMessage.UpdateTime,

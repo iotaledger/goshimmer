@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -221,7 +220,6 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	var txEpoch epoch.Index
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
-		fmt.Println("InclusionTime:", txMeta.InclusionTime(), "GenesisTime:", epoch.GenesisTime)
 	})
 	if m.isEpochAlreadyCommitted(txEpoch) {
 		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
@@ -344,7 +342,6 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
 	currentEpoch := epoch.CurrentEpochIndex()
-	fmt.Println("Current epoch", currentEpoch)
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -403,7 +400,6 @@ func (m *Manager) updateCommitmentsToLatestCommittableEpoch() (ecRecord *epoch.E
 		return nil, errors.Wrap(lastCommittableEpochErr, "could not get last committable epoch")
 	}
 
-	fmt.Println("updateCommitmentsToLatestCommittableEpoch", lastCommitted, latestCommittable)
 	for ei := lastCommitted; ei <= latestCommittable; ei++ {
 		var isNew bool
 		var ecRecordErr error
