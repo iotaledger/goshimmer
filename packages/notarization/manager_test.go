@@ -793,7 +793,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
-		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Message1"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithInputs("B"), tangle.WithOutput("D2", 500), tangle.WithECRecord(ecRecord))
+		testFramework.CreateMessage("Message2", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message1"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithInputs("B"), tangle.WithOutput("D2", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message2")
@@ -832,6 +832,8 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
 
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"E3"})
+
 	issuingTime = issuingTime.Add(epochInterval)
 
 	// Message5, issuing time epoch 3
@@ -849,10 +851,8 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
 
-	/*
-		assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A", "B"}, []string{"C1", "C1+", "D2"})
-		assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"E3"})
-	*/
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A", "B"}, []string{"C1", "C1+", "D2"})
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
 
 	// Message6, issuing time epoch 3
 	{
@@ -869,26 +869,20 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		assert.Equal(t, epoch.Index(0), msg.EI())
 	}
 
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-	//assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"F4"})
-
-	// Message7, issuing time epoch 3, confirming Message 5 and 6, if we loaded the diff we should just have F4 and H6 as spent and created
+	// Message7, issuing time epoch 3, if we loaded the diff we should just have F4 and H6 as spent and created
 	{
 		fmt.Println("message 7")
 
+		eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		require.Equal(t, epoch.Index(1), ecRecord.EI())
 
 		testFramework.CreateMessage("Message7", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message6"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message7")
-		assert.Equal(t, epoch.Index(0), msg.EI())
+		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
 
 	// Message8, issuing time epoch 2, reattaches Message6's TX from epoch 3 to epoch 2
@@ -897,49 +891,47 @@ func TestManager_DiffUTXOs(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		require.Equal(t, epoch.Index(1), ecRecord.EI())
 
-		testFramework.CreateMessage("Message8", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithReattachment("Message6"), tangle.WithIssuingTime(time.Now().Add(-epochInterval)), tangle.WithECRecord(ecRecord))
+		testFramework.CreateMessage("Message8", tangle.WithIssuingTime(issuingTime.Add(-epochInterval)), tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithReattachment("Message6"), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message8")
-		assert.Equal(t, epoch.Index(0), msg.EI())
+		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
 
-	// Message9, issuing time epoch 3, confirms reattachment of Message 6
+	// Message9, issuing time epoch 3, confirms Message8 (reattachment of Message 6)
 	{
 		fmt.Println("message 9")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		require.Equal(t, epoch.Index(1), ecRecord.EI())
 
-		testFramework.CreateMessage("Message9", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message8"), tangle.WithIssuer(nodes["C"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.CreateMessage("Message9", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message8"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message9").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message9")
-		assert.Equal(t, epoch.Index(0), msg.EI())
+		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
 
-	// Message9, issuing time epoch 3, confirms Message9 and reattachment of Message 6
+	// Message10, issuing time epoch 3, confirms Message9 and reattachment of Message 6
 	{
 		fmt.Println("message 10")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		require.Equal(t, epoch.Index(0), ecRecord.EI())
+		require.Equal(t, epoch.Index(1), ecRecord.EI())
 
-		testFramework.CreateMessage("Message10", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message9"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.CreateMessage("Message10", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message9"), tangle.WithIssuer(nodes["C"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message10").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message10")
-		assert.Equal(t, epoch.Index(0), msg.EI())
+		assert.Equal(t, epoch.Index(1), msg.EI())
 	}
 
-	/*
-		assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(3), []string{"F4"}, []string{"G5"})
-		assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"G5", "D2"}, []string{"F4", "H6"})
-	*/
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"G5", "D2"}, []string{"F4", "H6"})
+	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(3), []string{"F4"}, []string{"G5"})
 
 	eventHandlerMock.AssertExpectations(t)
 }
