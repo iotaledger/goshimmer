@@ -575,6 +575,8 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message8", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message7"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 
