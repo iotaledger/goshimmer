@@ -54,7 +54,6 @@ type EventMock struct {
 	calledEvents   uint64
 	test           *testing.T
 
-	// TODO: what is this for, do we need this?
 	attached []struct {
 		*event.Event[*EpochCommittableEvent]
 		*event.Closure[*EpochCommittableEvent]

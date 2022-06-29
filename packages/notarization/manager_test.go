@@ -881,6 +881,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message6", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message5"), tangle.WithIssuer(nodes["E"].PublicKey()), tangle.WithInputs("G5"), tangle.WithOutput("H6", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 
@@ -892,7 +893,6 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	{
 		fmt.Println("message 7")
 
-		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(1), ecRecord.EI())
