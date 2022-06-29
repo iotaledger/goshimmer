@@ -56,8 +56,8 @@ type EventMock struct {
 
 	// TODO: what is this for, do we need this?
 	attached []struct {
-		*event.Event[*EpochCommittedEvent]
-		*event.Closure[*EpochCommittedEvent]
+		*event.Event[*EpochCommittableEvent]
+		*event.Closure[*EpochCommittableEvent]
 	}
 }
 
@@ -68,8 +68,8 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	}
 
 	// attach all events
-	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommitted))
-	notarizationManager.Events.ManaVectorToUpdate.Hook(event.NewClosure(e.ManaVectorToUpdate))
+	notarizationManager.Events.EpochCommittable.Hook(event.NewClosure(e.EpochCommittable))
+	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
@@ -110,14 +110,14 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// EpochCommitted is the mocked EpochCommitted event.
-func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
+// EpochCommittable is the mocked EpochCommittable event.
+func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
-// ManaVectorToUpdate is the mocked ManaVectorToUpdate event.
-func (e *EventMock) ManaVectorToUpdate(event *ManaVectorToUpdateEvent) {
-	e.Called(event)
+// ManaVectorUpdate is the mocked ManaVectorUpdate event.
+func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
+	e.Called(event.EI, event.EpochDiffCreated, event.EpochDiffSpent)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
