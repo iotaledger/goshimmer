@@ -221,40 +221,38 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 }
 
 // ecRecord retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, isNew bool, err error) {
-	ecRecord, err = f.loadEcRecord(ei)
-	if err != nil {
-		return nil, false, err
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+	ecRecord = f.loadEcRecord(ei)
+	if ecRecord != nil {
+		return ecRecord, nil
 	}
 	// We never committed this epoch before, create and roll to a new epoch.
-	ecr, err := f.ECR(ei)
-	if err != nil {
-		return nil, false, err
+	ecr, ecrErr := f.ECR(ei)
+	if ecrErr != nil {
+		return nil, ecrErr
 	}
-	prevECRecord, _, err := f.ecRecord(ei - 1)
-	if err != nil {
-		return nil, false, err
+	prevECRecord, ecrRecordErr := f.ecRecord(ei - 1)
+	if ecrRecordErr != nil {
+		return nil, ecrRecordErr
 	}
-	prevEC := EC(prevECRecord)
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
-		e.SetPrevEC(prevEC)
+		e.SetPrevEC(EC(prevECRecord))
 		ecRecord = e
 	})
 
-	return ecRecord, true, nil
+	return ecRecord, nil
 }
 
-func (f *EpochCommitmentFactory) loadEcRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
-	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
+func (f *EpochCommitmentFactory) loadEcRecord(ei epoch.Index) (ecRecord *epoch.ECRecord) {
+	f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
+		ecRecord = epoch.NewECRecord(ei)
 		ecRecord.SetECR(record.ECR())
 		ecRecord.SetPrevEC(record.PrevEC())
-	}) {
-		return ecRecord, nil
-	}
-	return nil, errors.Errorf("commitment not found for ei %d", ei)
+	})
+	return
 }
 
 // storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a

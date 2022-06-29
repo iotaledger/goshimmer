@@ -46,7 +46,7 @@ var (
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
 	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
-	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorToUpdateEvent]
+	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -66,7 +66,7 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
-	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorToUpdateEvent) {
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		onManaVectorToUpdate(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
@@ -238,7 +238,7 @@ func runManaPlugin(_ *node.Plugin) {
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
 				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
-				notarizationManager.Events.ManaVectorToUpdate.Detach(onManaVectorToUpdateClosure)
+				notarizationManager.Events.ManaVectorUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

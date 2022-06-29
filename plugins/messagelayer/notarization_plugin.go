@@ -50,7 +50,7 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 	// attach mana plugin event after notarization manager has been initialized
-	notarizationManager.Events.ManaVectorToUpdate.Attach(onManaVectorToUpdateClosure)
+	notarizationManager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
 }
 
 func runNotarizationPlugin(*node.Plugin) {
