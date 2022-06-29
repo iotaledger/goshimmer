@@ -146,7 +146,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 		})
 
 		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == conflictdag.Confirmed {
-			l.triggerConfirmedEvent(txMetadata)
+			l.triggerConfirmedEvent(txMetadata, false)
 		}
 	})
 }
@@ -198,8 +198,8 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 }
 
 // triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
-func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata) (triggered bool) {
-	if txMetadata.InclusionTime().IsZero() {
+func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) (triggered bool) {
+	if checkInclusion && txMetadata.InclusionTime().IsZero() {
 		return false
 	}
 
@@ -243,7 +243,7 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 // Transaction.
 func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.TransactionID) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		if !l.triggerConfirmedEvent(txMetadata) {
+		if !l.triggerConfirmedEvent(txMetadata, false) {
 			return
 		}
 
@@ -252,7 +252,7 @@ func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.Transact
 				return
 			}
 
-			if !l.triggerConfirmedEvent(consumingTxMetadata) {
+			if !l.triggerConfirmedEvent(consumingTxMetadata, true) {
 				return
 			}
 

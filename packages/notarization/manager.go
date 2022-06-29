@@ -218,9 +218,20 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	txID := event.TransactionID
 
 	var txEpoch epoch.Index
+	var zeroInclusion bool
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+		if txMeta.InclusionTime().IsZero() {
+			zeroInclusion = true
+			return
+		}
 		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
+
+	if zeroInclusion {
+		m.log.Error("transaction confirmed with zero inclusion time")
+		return
+	}
+
 	if m.isEpochAlreadyCommitted(txEpoch) {
 		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
 		return

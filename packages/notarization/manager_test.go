@@ -1014,7 +1014,7 @@ func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTes
 		require.NoError(t, err)
 
 		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
-		assert.Equal(t, result, valid, "transaction %s not inclusion differs in epoch %s", alias, ei)
+		assert.Equal(t, result, valid, "transaction %s inclusion differs in epoch %s", alias, ei)
 	}
 }
 
