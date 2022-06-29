@@ -204,10 +204,11 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{CommittedEpoch: ecRecord})
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
 	return
 }
 
+// TODO: double check if we need this function.
 func (m *Manager) LastCommittedEpoch() (*epoch.ECRecord, error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
@@ -322,27 +323,6 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if err := m.includeTransactionInEpoch(txID, newEpoch, spent, created); err != nil {
 		m.log.Error(err)
 	}
-}
-
-func (m *Manager) GetEpochMessages(ei epoch.Index) ([]tangle.MessageID, error) {
-	return m.epochCommitmentFactory.getEpochMessageIDs(ei)
-}
-
-func (m *Manager) GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
-	return m.epochCommitmentFactory.getEpochTransactionIDs(ei)
-}
-
-func (m *Manager) GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
-	so, co := m.epochCommitmentFactory.loadDiffUTXOs(ei)
-	spent = make([]utxo.OutputID, len(so))
-	created = make([]utxo.OutputID, len(co))
-	for i, o := range so {
-		spent[i] = o.ID()
-	}
-	for i, o := range co {
-		created[i] = o.ID()
-	}
-	return spent, created
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -569,6 +549,6 @@ type Events struct {
 
 // EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
 type EpochCommittedEvent struct {
-	// CommittedEpoch is the committed epoch.
-	CommittedEpoch *epoch.ECRecord
+	// EI is the index of committable epoch.
+	EI epoch.Index
 }

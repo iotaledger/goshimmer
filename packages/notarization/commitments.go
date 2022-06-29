@@ -33,11 +33,9 @@ type CommitmentRoots struct {
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type CommitmentTrees struct {
-	EI                  epoch.Index
-	messageIDsStore     kvstore.KVStore
-	tangleTree          *smt.SparseMerkleTree
-	transactionIDsStore kvstore.KVStore
-	stateMutationTree   *smt.SparseMerkleTree
+	EI                epoch.Index
+	tangleTree        *smt.SparseMerkleTree
+	stateMutationTree *smt.SparseMerkleTree
 }
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
@@ -178,10 +176,6 @@ func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID ut
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
 	}
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	if err := epochContentStorage.TransactionIDs.Set(txID.Bytes(), txID.Bytes()); err != nil {
-		return errors.WithStack(err)
-	}
 	return nil
 }
 
@@ -195,27 +189,7 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 	if err != nil {
 		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
 	}
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	if err := epochContentStorage.TransactionIDs.Delete(txID.Bytes()); err != nil {
-		return errors.WithStack(err)
-	}
 	return nil
-}
-
-func (f *EpochCommitmentFactory) getEpochTransactionIDs(ei epoch.Index) ([]utxo.TransactionID, error) {
-
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	var transactionIDs []utxo.TransactionID
-	_ = epochContentStorage.TransactionIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
-
-		var txID utxo.TransactionID
-		if _, err := txID.Decode(key); err != nil {
-			panic("TransactionID could not be parsed!")
-		}
-		transactionIDs = append(transactionIDs, txID)
-		return true
-	})
-	return transactionIDs, nil
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
@@ -228,11 +202,6 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.M
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	if err := epochContentStorage.MessageIDs.Set(msgID.Bytes(), msgID.Bytes()); err != nil {
-		return errors.WithStack(err)
-	}
-
 	return nil
 }
 
@@ -249,26 +218,7 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
 	}
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	if err := epochContentStorage.MessageIDs.Delete(msgID.Bytes()); err != nil {
-		return errors.WithStack(err)
-	}
 	return nil
-}
-
-func (f *EpochCommitmentFactory) getEpochMessageIDs(ei epoch.Index) ([]tangle.MessageID, error) {
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
-	var messageIDs []tangle.MessageID
-	_ = epochContentStorage.MessageIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
-
-		var msgID tangle.MessageID
-		if _, err := msgID.Decode(key); err != nil {
-			panic("MessageID could not be parsed!")
-		}
-		messageIDs = append(messageIDs, msgID)
-		return true
-	})
-	return messageIDs, nil
 }
 
 // ecRecord retrieves the epoch commitment.
@@ -306,46 +256,46 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 // single epoch. This is because, as UTXOs can be stored out-of-order, we cannot reliably remove intermediate UTXOs
 // before an epoch is committable.
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) {
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
+	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochContentStorage.spentOutputs.Store(spentOutputWithMetadata).Release()
+		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochContentStorage.createdOutputs.Store(createdOutputWithMetadata).Release()
+		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
 	}
 }
 
 func (f *EpochCommitmentFactory) deleteDiffUTXOs(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) {
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
+	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochContentStorage.spentOutputs.Delete(spentOutputWithMetadata.ID().Bytes())
+		epochDiffStorage.spent.Delete(spentOutputWithMetadata.ID().Bytes())
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochContentStorage.createdOutputs.Delete(createdOutputWithMetadata.ID().Bytes())
+		epochDiffStorage.created.Delete(createdOutputWithMetadata.ID().Bytes())
 	}
 }
 
 // loadDiffUTXOs loads the diff UTXOs occurred on an epoch by removing UTXOs created and spent in the span of the same epoch,
 // as by the time we load a diff we assume the epoch is being committed and cannot be altered anymore.
 func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created []*ledger.OutputWithMetadata) {
-	epochContentStorage := f.storage.getEpochContentStorage(ei)
+	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	spent = make([]*ledger.OutputWithMetadata, 0)
-	epochContentStorage.spentOutputs.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutput.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
 			// We remove spent UTXOs from the created storage before loading them.
-			epochContentStorage.createdOutputs.Delete(outputWithMetadata.ID().Bytes())
+			epochDiffStorage.created.Delete(outputWithMetadata.ID().Bytes())
 			spent = append(spent, outputWithMetadata)
 		})
 		return true
 	})
 
 	created = make([]*ledger.OutputWithMetadata, 0)
-	epochContentStorage.createdOutputs.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
 			created = append(created, outputWithMetadata)
 		})
@@ -363,12 +313,11 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 	messageValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
+
 	commitmentTrees := &CommitmentTrees{
-		EI:                  ei,
-		messageIDsStore:     messageIDStore,
-		tangleTree:          smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		transactionIDsStore: stateMutationIDStore,
-		stateMutationTree:   smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		EI:                ei,
+		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 
 	return commitmentTrees
@@ -416,7 +365,7 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 		f.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
 	}
 
-	f.storage.dropEpochContentStorage(ei)
+	f.storage.dropEpochDiffStorage(ei)
 
 	return
 }

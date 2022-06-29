@@ -112,6 +112,6 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 
 // EpochCommitted is the mocked BranchWeightChanged function.
 func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
-	e.Called(event.CommittedEpoch.EI())
+	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
