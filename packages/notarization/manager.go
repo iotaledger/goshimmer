@@ -52,7 +52,13 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		log:                      options.Log,
 		options:                  options,
 		Events: &Events{
-			EpochCommitted: event.New[*EpochCommittedEvent](),
+			EpochCommitted:        event.New[*EpochCommittedEvent](),
+			TangleTreeInserted:    event.New[*TangleTreeUpdatedEvent](),
+			TangleTreeRemoved:     event.New[*TangleTreeUpdatedEvent](),
+			StateMutationInserted: event.New[*StateMutationTreeUpdatedEvent](),
+			StateMutationRemoved:  event.New[*StateMutationTreeUpdatedEvent](),
+			UTXOInserted:          event.New[*UTXOUpdatedEvent](),
+			UTXORemoved:           event.New[*UTXOUpdatedEvent](),
 		},
 	}
 
@@ -243,7 +249,9 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
+		return
 	}
+	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{MessageID: message.ID()})
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
@@ -260,10 +268,13 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
+	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{MessageID: message.ID()})
+
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
+		m.Events.UTXORemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 	}
 }
 
@@ -386,8 +397,10 @@ func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.In
 	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
+	m.Events.StateMutationInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
+	m.Events.UTXOInserted.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
 }
@@ -396,8 +409,10 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
+	m.Events.StateMutationRemoved.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 
 	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
+	m.Events.UTXORemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
 }
@@ -545,10 +560,44 @@ func Log(log *logger.Logger) ManagerOption {
 type Events struct {
 	// EpochCommitted is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommitted *event.Event[*EpochCommittedEvent]
+	// TangleTreeInserted is an event that gets triggered when a Message is inserted to Tangle smt.
+	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
+	// TangleTreeRemoved is an event that gets triggered when a Message is removed to Tangle smt.
+	TangleTreeRemoved *event.Event[*TangleTreeUpdatedEvent]
+	// StateMutationInserted is an event that gets triggered when a transaction is inserted to state mutation smt.
+	StateMutationInserted *event.Event[*StateMutationTreeUpdatedEvent]
+	// StateMutationRemoved is an event that gets triggered when a transaction is removed to state mutation smt.
+	StateMutationRemoved *event.Event[*StateMutationTreeUpdatedEvent]
+	// UTXOInserted is an event that gets triggered when UTXOs are stored.
+	UTXOInserted *event.Event[*UTXOUpdatedEvent]
+	// UTXORemoved is an event that gets triggered when UTXOs are removed.
+	UTXORemoved *event.Event[*UTXOUpdatedEvent]
 }
 
 // EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
 type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
+}
+
+// TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
+type TangleTreeUpdatedEvent struct {
+	// MessageID is the messageID that inserted/removed to/from the tangle smt.
+	MessageID tangle.MessageID
+}
+
+// StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
+type StateMutationTreeUpdatedEvent struct {
+	// TransactionID is the transaction ID that inserted/removed to/from the state mutation smt.
+	TransactionID utxo.TransactionID
+}
+
+// UTXOUpdatedEvent is a container that acts as a dictionary for the UTXO update event related parameters.
+type UTXOUpdatedEvent struct {
+	// EI is the index of updated UTXO.
+	EI epoch.Index
+	// Created are the outputs created in a transaction.
+	Created []*ledger.OutputWithMetadata
+	// Spent are outputs that is spent in a transaction.
+	Spent []*ledger.OutputWithMetadata
 }
