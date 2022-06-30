@@ -23,7 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -53,13 +52,12 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle              *tangle.Tangle
-	Indexer             *indexer.Indexer
-	Local               *peer.Local
-	Discover            *discover.Protocol `optional:"true"`
-	Storage             kvstore.KVStore
-	RemoteLoggerConn    *remotelog.RemoteLoggerConn `optional:"true"`
-	NotarizationManager *notarization.Manager
+	Tangle           *tangle.Tangle
+	Indexer          *indexer.Indexer
+	Local            *peer.Local
+	Discover         *discover.Protocol `optional:"true"`
+	Storage          kvstore.KVStore
+	RemoteLoggerConn *remotelog.RemoteLoggerConn `optional:"true"`
 }
 
 type tangledeps struct {
