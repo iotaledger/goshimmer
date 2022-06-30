@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"go.uber.org/dig"
 
@@ -29,8 +30,11 @@ var (
 	Plugin             *node.Plugin
 	lastCommittedEpoch = epoch.Index(0)
 	deps               = new(dependencies)
-	epochContents      = make(map[epoch.Index]*epochContentStorages, 0)
-	committedEpochs    = make(map[epoch.Index]*epoch.ECRecord)
+
+	epochContentsMutex   sync.RWMutex
+	epochContents        = make(map[epoch.Index]*epochContentStorages, 0)
+	committedEpochsMutex sync.RWMutex
+	committedEpochs      = make(map[epoch.Index]*epoch.ECRecord, 0)
 )
 
 type epochContentStorages struct {
@@ -98,6 +102,8 @@ func configure(plugin *node.Plugin) {
 		}
 	}))
 	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
+		committedEpochsMutex.Lock()
+		defer committedEpochsMutex.Unlock()
 		lastCommittedEpoch = event.EI
 		committedEpochs[event.EI] = event.ECRecord
 	}))
@@ -113,11 +119,23 @@ func run(*node.Plugin) {
 }
 
 func GetLastCommittedEpoch() *epoch.ECRecord {
-	return committedEpochs[lastCommittedEpoch]
+	committedEpochsMutex.RLock()
+	ecRecord := committedEpochs[lastCommittedEpoch]
+	committedEpochsMutex.RUnlock()
+
+	return ecRecord
 }
 
 func GetCommittedEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
-	return committedEpochs
+	ecRecords = make(map[epoch.Index]*epoch.ECRecord, 0)
+
+	committedEpochsMutex.RLock()
+	for ei, record := range committedEpochs {
+		ecRecords[ei] = record
+	}
+	committedEpochsMutex.RUnlock()
+
+	return
 }
 
 func GetPendingBranchCount() map[epoch.Index]uint64 {
@@ -185,10 +203,15 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 }
 
 func getEpochContentStorage(ei epoch.Index) *epochContentStorages {
+	epochContentsMutex.RLock()
 	stores, ok := epochContents[ei]
+	epochContentsMutex.RUnlock()
+
 	if !ok {
 		stores = newEpochContentStorage()
+		epochContentsMutex.Lock()
 		epochContents[ei] = stores
+		epochContentsMutex.Unlock()
 	}
 
 	return stores
