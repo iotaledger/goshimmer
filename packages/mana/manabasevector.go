@@ -200,7 +200,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 		for _, output := range created {
 			idToPledge := m.getIDBasedOnManaType(output)
 			outputIOTAs, existed := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
-			if existed {
+			if !existed {
 				continue
 			}
 			oldMana := m.getOldManaAndPledge(idToPledge, float64(outputIOTAs))
