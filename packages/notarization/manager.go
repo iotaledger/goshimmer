@@ -479,7 +479,7 @@ func (m *Manager) updateCommitmentsToLatestCommittableEpoch() (ecRecord *epoch.E
 				return nil, errors.Wrap(err, "could not set last committed epoch")
 			}
 
-			m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: ei})
+			m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: ei, ECRecord: ecRecord})
 		}
 	}
 
