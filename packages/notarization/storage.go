@@ -78,8 +78,8 @@ func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentC
 	return s.ecRecordStorage.Load(ei.Bytes())
 }
 
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) Shutdown() {
+// shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()

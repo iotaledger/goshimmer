@@ -283,6 +283,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	ei := m.getBranchEI(branchID, true)
 
 	if m.isEpochAlreadyCommitted(ei) {
@@ -322,6 +323,9 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 // OnAcceptanceTimeUpdated is the handler for time updated event.
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
 	ei := epoch.IndexFromTime(newTime)
 	currentEpochIndex, err := m.epochCommitmentFactory.storage.acceptanceEpochIndex()
@@ -344,7 +348,7 @@ func (m *Manager) Shutdown() {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	m.epochCommitmentFactory.storage.Shutdown()
+	m.epochCommitmentFactory.storage.shutdown()
 }
 
 func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) {
