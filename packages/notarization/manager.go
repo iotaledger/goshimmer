@@ -162,8 +162,8 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
-	m.epochCommitmentFactoryMutex.Lock()
-	defer m.epochCommitmentFactoryMutex.Unlock()
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
 
 	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	fmt.Println("GetLatestEC LatestCommittableEpochIndex ", latestCommittableEpoch)
