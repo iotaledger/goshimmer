@@ -571,7 +571,7 @@ func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.T
 		0,
 		ed25519.Signature{},
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 	if err := message.DetermineID(); err != nil {
 		panic(err)
