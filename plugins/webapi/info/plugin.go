@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
@@ -148,7 +149,7 @@ func getInfo(c echo.Context) error {
 			NodeQueueSizes:    nodeQueueSizes,
 		},
 
-		LastCommittedEpoch: *jsonmodels.EpochInfoFromRecord(metrics.GetLastCommittedEpoch()),
+		LastCommittedEpoch: *jsonmodels.EpochInfoFromRecord(epochstorage.GetLastCommittedEpoch()),
 		RateSetter: jsonmodels.RateSetter{
 			Rate:     deps.Tangle.RateSetter.Rate(),
 			Size:     deps.Tangle.RateSetter.Size(),

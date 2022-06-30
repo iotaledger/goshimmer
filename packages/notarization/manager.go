@@ -210,7 +210,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch, ECRecord: ecRecord})
 	return
 }
 
@@ -251,7 +251,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 		m.log.Error(err)
 		return
 	}
-	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{MessageID: message.ID()})
+	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
@@ -268,7 +268,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{MessageID: message.ID()})
+	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
 
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
@@ -578,16 +578,22 @@ type Events struct {
 type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
+	// ECRecord is the ecrecord of committed epoch.
+	ECRecord *epoch.ECRecord
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
 type TangleTreeUpdatedEvent struct {
+	// EI is the index of the message.
+	EI epoch.Index
 	// MessageID is the messageID that inserted/removed to/from the tangle smt.
 	MessageID tangle.MessageID
 }
 
 // StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
 type StateMutationTreeUpdatedEvent struct {
+	// EI is the index of the transaction.
+	EI epoch.Index
 	// TransactionID is the transaction ID that inserted/removed to/from the state mutation smt.
 	TransactionID utxo.TransactionID
 }

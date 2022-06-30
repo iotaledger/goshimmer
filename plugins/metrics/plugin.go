@@ -41,27 +41,13 @@ type dependencies struct {
 
 	Tangle          *tangle.Tangle
 	NotarizationMgr *notarization.Manager
-	EpochMetrics    *EpochCommitmentsMetrics
 	GossipMgr       *gossip.Manager     `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
 }
 
-func newEpochMetrics() *EpochCommitmentsMetrics {
-	ecm, err := NewEpochCommitmentsMetrics()
-	if err != nil {
-		Plugin.Panic(err)
-	}
-	return ecm
-}
-
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(newEpochMetrics); err != nil {
-			Plugin.Panic(err)
-		}
-	}))
 }
 
 func configure(_ *node.Plugin) {
@@ -332,12 +318,5 @@ func registerLocalMetrics() {
 	// mana pledge events
 	mana.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
-	}))
-	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedEvent) {
-		deps.EpochMetrics.saveCommittedEpoch(e.CommittedEpoch)
-	}))
-	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		message := event.Message
-		deps.EpochMetrics.saveEpochVotersWeight(message)
 	}))
 }

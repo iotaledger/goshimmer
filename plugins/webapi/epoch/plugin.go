@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
 // PluginName is the name of the web API epoch endpoint plugin.
@@ -27,8 +27,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server  *echo.Echo
-	Metrics *metrics.EpochCommitmentsMetrics
+	Server *echo.Echo
 }
 
 func init() {
@@ -38,7 +37,6 @@ func init() {
 func configure(_ *node.Plugin) {
 	deps.Server.GET("epochs", getAllCommittedEpochs)
 	deps.Server.GET("epoch/:ei", getCommittedEpoch)
-	deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
 	deps.Server.GET("epoch/:ei/utxos", getUTXOs)
 	deps.Server.GET("epoch/:ei/messages", getMessages)
 	deps.Server.GET("epoch/:ei/transactions", getTransactions)
@@ -46,7 +44,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getAllCommittedEpochs(c echo.Context) error {
-	allEpochs := deps.Metrics.GetCommittedEpochs()
+	allEpochs := epochstorage.GetCommittedEpochs()
 	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
 	for _, ecr := range allEpochs {
 		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
@@ -57,35 +55,15 @@ func getAllCommittedEpochs(c echo.Context) error {
 	return c.JSON(http.StatusOK, allEpochsInfos)
 }
 
-func getEI(c echo.Context) (epoch.Index, error) {
-	eiText := c.Param("ei")
-	eiNumber, err := strconv.Atoi(eiText)
-	if err != nil {
-		return 0, errors.Wrap(err, "can't parse EI from URL param")
-	}
-	return epoch.Index(uint64(eiNumber)), nil
-}
-
 func getCommittedEpoch(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := deps.Metrics.GetCommittedEpochs()
+	allEpochs := epochstorage.GetCommittedEpochs()
 	epochInfo := jsonmodels.EpochInfoFromRecord(allEpochs[ei])
 
 	return c.JSON(http.StatusOK, epochInfo)
-}
-
-func getVotersWeight(c echo.Context) error {
-	ei, err := getEI(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-	allEpochs := deps.Metrics.GetEpochVotersWeight()
-	resp := jsonmodels.EpochVotersWeightResponse{VotersWeight: allEpochs[ei]}
-
-	return c.JSON(http.StatusOK, resp)
 }
 
 func getUTXOs(c echo.Context) error {
@@ -93,7 +71,7 @@ func getUTXOs(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	spentIDs, createdIDs := metrics.GetEpochUTXOs(ei)
+	spentIDs, createdIDs := epochstorage.GetEpochUTXOs(ei)
 	spent := make([]string, len(spentIDs))
 	for i, o := range spentIDs {
 		spent[i] = o.String()
@@ -113,10 +91,7 @@ func getMessages(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	messageIDs, err := metrics.GetEpochMessages(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	messageIDs := epochstorage.GetEpochMessages(ei)
 	messages := make([]string, len(messageIDs))
 	for i, m := range messageIDs {
 		messages[i] = m.String()
@@ -131,10 +106,7 @@ func getTransactions(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	transactionIDs, err := metrics.GetEpochTransactions(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	transactionIDs := epochstorage.GetEpochTransactions(ei)
 
 	transactions := make([]string, len(transactionIDs))
 	for i, t := range transactionIDs {
@@ -150,8 +122,17 @@ func getPendingBranchesCount(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := metrics.GetPendingBranchCount()
+	allEpochs := epochstorage.GetPendingBranchCount()
 	resp := jsonmodels.EpochPendingBranchCountResponse{PendingBranchCount: allEpochs[ei]}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+func getEI(c echo.Context) (epoch.Index, error) {
+	eiText := c.Param("ei")
+	eiNumber, err := strconv.Atoi(eiText)
+	if err != nil {
+		return 0, errors.Wrap(err, "can't parse EI from URL param")
+	}
+	return epoch.Index(uint64(eiNumber)), nil
 }
