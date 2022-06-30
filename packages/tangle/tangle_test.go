@@ -129,7 +129,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{}, 0, nil)
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
 		if err := message.DetermineID(); err != nil {
 			panic(err)
@@ -137,7 +137,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return message
 	}
 	newYoungParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{}, 0, nil)
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
 		if err := message.DetermineID(); err != nil {
 			panic(err)
@@ -145,7 +145,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return message
 	}
 	newValidMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{}, 0, nil)
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
 		if err := message.DetermineID(); err != nil {
 			panic(err)
