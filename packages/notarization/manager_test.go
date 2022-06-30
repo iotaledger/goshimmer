@@ -92,23 +92,19 @@ func TestManager_GetLatestEC(t *testing.T) {
 	require.NoError(t, err)
 
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
-	fmt.Println("PCC before", m.pendingConflictsCounters)
 	for i := 1; i <= 5; i++ {
 		m.increasePendingConflictCounter(epoch.Index(i))
 	}
-	fmt.Println("PCC after", m.pendingConflictsCounters)
 	// Make all epochs committable by advancing ATT
 	testFramework.CreateMessage("Message7", tangle.WithIssuingTime(genesisTime.Add(epochDuration*6)), tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 	testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 
-	fmt.Println("Get Latest 1")
 	commitment, err := m.GetLatestEC()
 	assert.NoError(t, err)
 	// only epoch 0 has pbc = 0
 	assert.Equal(t, epoch.Index(0), commitment.EI())
 
 	m.decreasePendingConflictCounter(4)
-	fmt.Println("Get Latest 2")
 
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)

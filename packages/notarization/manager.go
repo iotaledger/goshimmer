@@ -84,6 +84,10 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		new.OnBranchRejected(event.ID)
 	}))
 
+	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.TimeUpdate) {
+		new.OnAcceptanceTimeUpdated(event.NewTime)
+	}))
+
 	return new
 }
 
@@ -180,7 +184,6 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	m.CheckIfEpochChanged(message.IssuingTime())
 	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
@@ -366,10 +369,7 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) isCommittable(ei epoch.Index, issuingTime ...time.Time) bool {
-	if len(issuingTime) > 0 {
-		return m.isOldEnough(ei, issuingTime[0]) && m.allPastConflictsAreResolved(ei)
-	}
+func (m *Manager) isCommittable(ei epoch.Index) bool {
 	return m.isOldEnough(ei) && m.allPastConflictsAreResolved(ei)
 }
 
@@ -446,24 +446,6 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	return
 }
 
-// CheckIfEpochChanged check if next epoch started and trigger the event.
-func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
-	ei := epoch.IndexFromTime(issuingTime)
-	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
-	if err != nil {
-		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
-		return
-	}
-	if ei > currentEpochIndex {
-		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
-		if err != nil {
-			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
-			return
-		}
-		m.moveLatestCommittableEpoch(ei, issuingTime)
-	}
-}
-
 func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 	epochForManaVector := ei - epoch.Index(m.options.ManaEpochDelay)
 	if epochForManaVector < 1 {
@@ -477,20 +459,14 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 	})
 }
 
-func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index, issuingTime ...time.Time) {
+func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 	latestCommittable, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
 	if err != nil {
 		err = errors.Wrap(err, "could not obtain last committed epoch index")
 	}
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
 		fmt.Println("moveLatestCommittableEpoch for ei ", ei)
-		var isCommittable bool
-		if len(issuingTime) > 0 {
-			isCommittable = m.isCommittable(ei, issuingTime[0])
-		} else {
-			isCommittable = m.isCommittable(ei)
-		}
-		if !isCommittable {
+		if !m.isCommittable(ei) {
 			break
 		}
 		fmt.Println("isCommittable for ei ", ei)
@@ -511,6 +487,24 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index, issuingTi
 		fmt.Printf("Trigger EPOCHCommitable %d\n", ei)
 		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
 		m.triggerManaVectorUpdate(ei)
+	}
+}
+
+func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
+	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
+	ei := epoch.IndexFromTime(newTime)
+	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
+	if err != nil {
+		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
+		return
+	}
+	if ei > currentEpochIndex {
+		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
+		if err != nil {
+			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
+			return
+		}
+		m.moveLatestCommittableEpoch(ei)
 	}
 }
 
