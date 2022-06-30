@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -39,11 +38,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangle.Tangle
-	NotarizationMgr *notarization.Manager
-	GossipMgr       *gossip.Manager     `optional:"true"`
-	Selection       *selection.Protocol `optional:"true"`
-	Local           *peer.Local
+	Tangle    *tangle.Tangle
+	GossipMgr *gossip.Manager     `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
+	Local     *peer.Local
 }
 
 func init() {

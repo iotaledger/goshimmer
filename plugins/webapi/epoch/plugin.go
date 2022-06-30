@@ -27,7 +27,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
+	Server       *echo.Echo
+	EpochStorage *node.Plugin `name:"epochstorage"`
 }
 
 func init() {
