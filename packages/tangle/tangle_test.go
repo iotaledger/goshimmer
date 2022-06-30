@@ -647,7 +647,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		nonce,
 		signature,
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 	if err != nil {
 		err = fmt.Errorf("problem with message syntax: %w", err)
