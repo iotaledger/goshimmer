@@ -194,23 +194,11 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	lastCommittedEpoch, latestCommittableEpoch, lastCommittableEpochErr := m.latestCommittableEpoch()
-	if lastCommittableEpochErr != nil {
-		return nil, errors.Wrap(lastCommittableEpochErr, "could not get last committable epoch")
-	}
-
-	if updateErr := m.updateCommitmentsUpToLatestCommittableEpoch(lastCommittedEpoch, latestCommittableEpoch); updateErr != nil {
+	ecRecord, updateErr := m.updateCommitmentsToLatestCommittableEpoch()
+	if updateErr != nil {
 		return nil, errors.Wrap(updateErr, "could not update commitments up to latest committable epoch")
 	}
 
-	if ecRecord, err = m.epochCommitmentFactory.ecRecord(latestCommittableEpoch); err != nil {
-		return nil, errors.Wrap(err, "could not get latest epoch commitment")
-	}
-
-	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
-		return nil, errors.Wrap(err, "could not set last committed epoch")
-	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch, ECRecord: ecRecord})
 	return
 }
 
@@ -222,7 +210,7 @@ func (m *Manager) LastCommittedEpoch() (*epoch.ECRecord, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	ecr, err := m.epochCommitmentFactory.ecRecord(ei)
+	ecr, _, err := m.epochCommitmentFactory.ecRecord(ei)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -242,7 +230,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
 		return
 	}
@@ -260,7 +248,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
 		return
 	}
@@ -282,21 +270,32 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	var spent, created []*ledger.OutputWithMetadata
-	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
-		spent, created = m.resolveOutputs(tx)
-	})
-
 	txID := event.TransactionID
 
 	var txEpoch epoch.Index
+	var zeroInclusion bool
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+		if txMeta.InclusionTime().IsZero() {
+			zeroInclusion = true
+			return
+		}
 		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
-	if m.isEpochAlreadyComitted(txEpoch) {
+
+	if zeroInclusion {
+		m.log.Error("transaction confirmed with zero inclusion time")
+		return
+	}
+
+	if m.isEpochAlreadyCommitted(txEpoch) {
 		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
 		return
 	}
+
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
 
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
 		m.log.Error(err)
@@ -315,7 +314,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 		return
 	}
 
-	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
+	if m.isEpochAlreadyCommitted(oldEpoch) || m.isEpochAlreadyCommitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
 		return
 	}
@@ -342,7 +341,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch confirmed in already committed epoch %d", ei)
 		return
 	}
@@ -359,7 +358,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, false)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch created in already committed epoch %d", ei)
 		return
 	}
@@ -376,7 +375,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID, true)
 
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("branch rejected in already committed epoch %d", ei)
 		return
 	}
@@ -418,7 +417,7 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
-	currentEpoch := epoch.IndexFromTime(time.Now())
+	currentEpoch := epoch.CurrentEpochIndex()
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -426,7 +425,8 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 		return
 	}
 
-	for ei := lastCommittedEpoch; ei < currentEpoch; ei++ {
+	latestCommittableEpoch = lastCommittedEpoch
+	for ei := lastCommittedEpoch + 1; ei < currentEpoch; ei++ {
 		if m.isCommittable(ei) {
 			latestCommittableEpoch = ei
 			continue
@@ -445,10 +445,7 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
 	t := ei.EndTime()
-	diff := time.Since(t)
-
-	m.pccMutex.RLock()
-	defer m.pccMutex.RUnlock()
+	diff := m.tangle.TimeManager.ATT().Sub(t)
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
@@ -458,28 +455,38 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMus
 	return
 }
 
-// updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
-func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.Index) (err error) {
-	var ei epoch.Index
-	for ei = lastCommitted + 1; ei < latestCommittable; ei++ {
-		// read the roots and store the ec
-		// roll the state trees
-		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
+// updateCommitmentsToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
+func (m *Manager) updateCommitmentsToLatestCommittableEpoch() (ecRecord *epoch.ECRecord, err error) {
+	lastCommitted, latestCommittable, lastCommittableEpochErr := m.latestCommittableEpoch()
+	if lastCommittableEpochErr != nil {
+		return nil, errors.Wrap(lastCommittableEpochErr, "could not get last committable epoch")
+	}
+
+	for ei := lastCommitted; ei <= latestCommittable; ei++ {
+		var isNew bool
+		var ecRecordErr error
+
+		// reads the roots and store the ec
+		// rolls the state trees
+		ecRecord, isNew, ecRecordErr = m.epochCommitmentFactory.ecRecord(ei)
+		if ecRecordErr != nil {
 			err = errors.Wrapf(ecRecordErr, "could not update commitments for epoch %d", ei)
-			return
+			return nil, err
 		}
 
-		// update last committed index
-		if setLastCommittedEpochIndexErr := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(ei); setLastCommittedEpochIndexErr != nil {
-			err = errors.Wrap(setLastCommittedEpochIndexErr, "could not set last committed epoch")
-			return
+		if isNew {
+			if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(ei); err != nil {
+				return nil, errors.Wrap(err, "could not set last committed epoch")
+			}
+
+			m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: ei})
 		}
 	}
 
-	return
+	return ecRecord, nil
 }
 
-func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
+func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
 	lastCommitted, _, err := m.latestCommittableEpoch()
 	if err != nil {
 		m.log.Errorf("could not determine latest committed epoch: %v", err)
@@ -513,23 +520,6 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 		})
 	}
 
-	return
-}
-
-func (m *Manager) outputIDsToOutputs(outputIDs utxo.OutputIDs) (outputsVm devnetvm.Outputs) {
-	for it := outputIDs.Iterator(); it.HasNext(); {
-		outputID := it.Next()
-		m.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(out utxo.Output) {
-			outputsVm = append(outputsVm, out.(devnetvm.Output))
-		})
-	}
-	return
-}
-
-func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.OutputIDs) {
-	for _, o := range outputs {
-		createdIDs.Add(o.ID())
-	}
 	return
 }
 

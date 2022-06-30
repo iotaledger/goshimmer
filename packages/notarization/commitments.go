@@ -222,23 +222,23 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 }
 
 // ecRecord retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, isNew bool, err error) {
 	ecRecord = epoch.NewECRecord(ei)
 	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
 		ecRecord.SetECR(record.ECR())
 		ecRecord.SetPrevEC(record.PrevEC())
 	}) {
-		return ecRecord, nil
+		return ecRecord, false, nil
 	}
 
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	prevECRecord, err := f.ecRecord(ei - 1)
+	prevECRecord, _, err := f.ecRecord(ei - 1)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	prevEC := EC(prevECRecord)
 
@@ -249,7 +249,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		ecRecord = e
 	})
 
-	return
+	return ecRecord, true, nil
 }
 
 // storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
@@ -285,10 +285,14 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	spent = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		cachedOutput.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			// We remove spent UTXOs from the created storage before loading them.
-			epochDiffStorage.created.Delete(outputWithMetadata.ID().Bytes())
+	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
+			// We remove spent and created UTXOs happened in the same epoch, as we assume that by the time we
+			// load the epoch diff, the epoch is being committed and cannot be altered anymore.
+			if epochDiffStorage.created.DeleteIfPresent(outputWithMetadata.ID().Bytes()) {
+				epochDiffStorage.spent.Delete(outputWithMetadata.ID().Bytes())
+				return
+			}
 			spent = append(spent, outputWithMetadata)
 		})
 		return true

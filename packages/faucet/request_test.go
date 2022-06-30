@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -88,7 +89,7 @@ func TestIsFaucetReq(t *testing.T) {
 		0,
 		ed25519.EmptySignature,
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 
 	dataMsg := tangle.NewMessage(
@@ -104,7 +105,7 @@ func TestIsFaucetReq(t *testing.T) {
 		0,
 		ed25519.EmptySignature,
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetMsg))
