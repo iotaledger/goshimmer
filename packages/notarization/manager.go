@@ -85,7 +85,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 	}))
 
 	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.TimeUpdate) {
-		new.OnAcceptanceTimeUpdated(event.NewTime)
+		new.OnAcceptanceTimeUpdated(event.ATT)
 	}))
 
 	return new

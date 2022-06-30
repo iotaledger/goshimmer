@@ -2,7 +2,6 @@ package faucet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
 
