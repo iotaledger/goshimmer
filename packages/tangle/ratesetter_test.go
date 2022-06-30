@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
 
@@ -74,8 +75,8 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
 			0,
 			ed25519.Signature{},
-		0,
-		nil,
+			0,
+			epoch.NewECRecord(0),
 		)
 		assert.NoError(t, msg.DetermineID())
 		assert.NoError(t, rateSetter.Issue(msg))
