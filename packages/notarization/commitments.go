@@ -21,6 +21,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+// region Committment types ////////////////////////////////////////////////////////////////////////////////////////////
+
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	EI                epoch.Index
@@ -36,6 +38,10 @@ type CommitmentTrees struct {
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EpochCommitmentFactory ///////////////////////////////////////////////////////////////////////////////////////
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
 type EpochCommitmentFactory struct {
@@ -57,11 +63,11 @@ type EpochCommitmentFactory struct {
 func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
-	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeNodes)
-	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeValues)
+	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
+	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeValues)
 
-	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixManaTreeNodes)
-	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixManaTreeValues)
+	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeNodes)
+	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
@@ -222,7 +228,7 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 
 // ecRecord retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
-	ecRecord = f.loadEcRecord(ei)
+	ecRecord = f.loadECRecord(ei)
 	if ecRecord != nil {
 		return ecRecord, nil
 	}
@@ -246,7 +252,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	return ecRecord, nil
 }
 
-func (f *EpochCommitmentFactory) loadEcRecord(ei epoch.Index) (ecRecord *epoch.ECRecord) {
+func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *epoch.ECRecord) {
 	f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
 		ecRecord = epoch.NewECRecord(ei)
 		ecRecord.SetECR(record.ECR())
@@ -378,7 +384,7 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
-	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LatestCommittableEpochIndex()
+	lastCommittedEpoch, lastCommittedEpochErr := f.storage.latestCommittableEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
 	}
@@ -424,6 +430,11 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	return f.StateRoot(), f.ManaRoot(), nil
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region extra functions //////////////////////////////////////////////////////////////////////////////////////////////
+
+// EC calculates the epoch commitment hash from the given ECRecord.
 func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 	concatenated := make([]byte, 0)
 	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
@@ -434,3 +445,5 @@ func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 
 	return epoch.NewMerkleRoot(ecHash[:])
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

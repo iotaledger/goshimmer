@@ -22,6 +22,8 @@ const (
 	defaultMinEpochCommittableAge = 1 * time.Minute
 )
 
+// region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Manager is the notarization manager.
 type Manager struct {
 	tangle                      *tangle.Tangle
@@ -141,17 +143,17 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	}
 
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		panic("could not set last committed epoch index")
 	}
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		panic("could not set last confirmed epoch index")
 	}
 
 	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
-	if err := m.epochCommitmentFactory.storage.SetCurrentEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
+	if err := m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
 		panic("could not set current epoch index")
 	}
 
@@ -163,9 +165,9 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	fmt.Println("GetLatestEC LatestCommittableEpochIndex ", latestCommittableEpoch)
-	ecRecord = m.epochCommitmentFactory.loadEcRecord(latestCommittableEpoch)
+	ecRecord = m.epochCommitmentFactory.loadECRecord(latestCommittableEpoch)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
 	}
@@ -177,7 +179,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
-	return m.epochCommitmentFactory.storage.LastConfirmedEpochIndex()
+	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -322,13 +324,13 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
 	ei := epoch.IndexFromTime(newTime)
-	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
+	currentEpochIndex, err := m.epochCommitmentFactory.storage.acceptanceEpochIndex()
 	if err != nil {
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
 		return
 	}
 	if ei > currentEpochIndex {
-		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
+		err = m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
 		if err != nil {
 			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
 			return
@@ -382,7 +384,7 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 }
 
 func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved bool) {
-	lastEI, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	lastEI, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		return false
 	}
@@ -418,7 +420,7 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMus
 }
 
 func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
-	latestCommittable, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		m.log.Errorf("could not get the latest committed epoch: %v", err)
 		return false
@@ -468,7 +470,7 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
-	latestCommittable, err := m.epochCommitmentFactory.storage.LatestCommittableEpochIndex()
+	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		err = errors.Wrap(err, "could not obtain last committed epoch index")
 	}
@@ -487,7 +489,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		}
 		fmt.Println("ecRecord for ei ", ei)
 
-		if err = m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(ei); err != nil {
+		if err = m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return
 		}
@@ -497,6 +499,10 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		m.triggerManaVectorUpdate(ei)
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
 type ManagerOption func(options *ManagerOptions)
@@ -529,6 +535,10 @@ func Log(log *logger.Logger) ManagerOption {
 	}
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Events is a container that acts as a dictionary for the existing events of a notarization manager.
 type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
@@ -549,3 +559,5 @@ type ManaVectorUpdateEvent struct {
 	EpochDiffCreated []*ledger.OutputWithMetadata
 	EpochDiffSpent   []*ledger.OutputWithMetadata
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,6 +20,7 @@ const (
 )
 
 var (
+	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
 	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
@@ -33,6 +34,7 @@ var (
 		}
 	}
 
+	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
 	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
