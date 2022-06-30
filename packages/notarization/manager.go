@@ -172,6 +172,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	return
 }
 
+// LatestConfirmedEpochIndex returns the latest epoch index that has been confirmed.
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
@@ -216,6 +217,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	}
 }
 
+// OnTransactionConfirmed is the handler for transaction confirmed event.
 func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -316,12 +318,26 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.decreasePendingConflictCounter(ei)
 }
 
-func (m *Manager) checkAnyPendingConflictsLeft(ei epoch.Index) {
-	if m.pendingConflictsCounters[ei] == 0 {
+// OnAcceptanceTimeUpdated is the handler for time updated event.
+func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
+	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
+	ei := epoch.IndexFromTime(newTime)
+	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
+	if err != nil {
+		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
+		return
+	}
+	if ei > currentEpochIndex {
+		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
+		if err != nil {
+			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
+			return
+		}
 		m.moveLatestCommittableEpoch(ei)
 	}
 }
 
+// Shutdown shuts down the manager's permanent storagee.
 func (m *Manager) Shutdown() {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -331,7 +347,9 @@ func (m *Manager) Shutdown() {
 
 func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) {
 	m.pendingConflictsCounters[ei]--
-	m.checkAnyPendingConflictsLeft(ei)
+	if m.pendingConflictsCounters[ei] == 0 {
+		m.moveLatestCommittableEpoch(ei)
+	}
 }
 
 func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
@@ -477,24 +495,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		fmt.Printf("Trigger EPOCHCommitable %d\n", ei)
 		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
 		m.triggerManaVectorUpdate(ei)
-	}
-}
-
-func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
-	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
-	ei := epoch.IndexFromTime(newTime)
-	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
-	if err != nil {
-		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
-		return
-	}
-	if ei > currentEpochIndex {
-		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
-		if err != nil {
-			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
-			return
-		}
-		m.moveLatestCommittableEpoch(ei)
 	}
 }
 
