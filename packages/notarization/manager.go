@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -166,7 +165,6 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
 	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	fmt.Println("GetLatestEC LatestCommittableEpochIndex ", latestCommittableEpoch)
 	ecRecord = m.epochCommitmentFactory.loadECRecord(latestCommittableEpoch)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
@@ -326,7 +324,6 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	fmt.Println("OnAcceptanceTimeUpdated ", newTime.String())
 	ei := epoch.IndexFromTime(newTime)
 	currentEpochIndex, err := m.epochCommitmentFactory.storage.acceptanceEpochIndex()
 	if err != nil {
@@ -392,10 +389,8 @@ func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved
 	if err != nil {
 		return false
 	}
-	fmt.Println("allPastConflictsAreResolved lastEI ", lastEI)
 	// epoch is not committable if there are any not resolved conflicts in this and past epochs
 	for index := lastEI; index <= ei; index++ {
-		fmt.Printf("m.pendingConflictsCounters[index] %d EI %d\n", m.pendingConflictsCounters[index], index)
 		if m.pendingConflictsCounters[index] != 0 {
 			return false
 		}
@@ -479,11 +474,9 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		err = errors.Wrap(err, "could not obtain last committed epoch index")
 	}
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
-		fmt.Println("moveLatestCommittableEpoch for ei ", ei)
 		if !m.isCommittable(ei) {
 			break
 		}
-		fmt.Println("isCommittable for ei ", ei)
 
 		// reads the roots and store the ec
 		// rolls the state trees
@@ -491,14 +484,12 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
 			return
 		}
-		fmt.Println("ecRecord for ei ", ei)
 
 		if err = m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return
 		}
 
-		fmt.Printf("Trigger EPOCHCommitable %d\n", ei)
 		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
 		m.triggerManaVectorUpdate(ei)
 	}
