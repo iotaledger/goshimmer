@@ -3,7 +3,6 @@ package epochstorage
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sort"
 	"sync"
@@ -84,7 +83,6 @@ func configure(plugin *node.Plugin) {
 
 			if event.EI < minEpochIndex {
 				minEpochIndex = event.EI
-				fmt.Println(minEpochIndex)
 			}
 		}
 		epochOrderMutex.Unlock()
@@ -151,7 +149,7 @@ func checkEpochContentLimit() {
 	sort.Slice(epochOrder, func(i, j int) bool {
 		return epochOrder[i] < epochOrder[j]
 	})
-	fmt.Println(epochOrder)
+
 	var epochToRemove []epoch.Index
 	copy(epochToRemove, epochOrder[:numEpochContentsToRemove])
 	// remove the first numEpochContentsToRemove epoch
@@ -345,7 +343,6 @@ func insertMessageToEpoch(ei epoch.Index, msgID tangle.MessageID) error {
 	if err := epochContentStorage.messageIDs.Set(msgID.Bytes(), msgID.Bytes()); err != nil {
 		return errors.New("Fail to insert Message to epoch store")
 	}
-	fmt.Println(ei, "insert", msgID, "to store")
 	return nil
 }
 
