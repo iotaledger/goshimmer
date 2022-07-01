@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"sync"
 
 	"go.uber.org/dig"
@@ -13,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/epoch"
@@ -35,6 +38,14 @@ var (
 	epochContents        = make(map[epoch.Index]*epochContentStorages, 0)
 	committedEpochsMutex sync.RWMutex
 	committedEpochs      = make(map[epoch.Index]*epoch.ECRecord, 0)
+
+	maxEpochContentsToKeep   = 100
+	numEpochContentsToRemove = 20
+
+	epochOrderMutex sync.RWMutex
+	epochOrderMap   = make(map[epoch.Index]types.Empty, 0)
+	epochOrder      = make([]epoch.Index, 0)
+	minEpochIndex   = epoch.Index(math.MaxInt64)
 )
 
 type epochContentStorages struct {
@@ -66,6 +77,19 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	deps.NotarizationMgr.Events.TangleTreeInserted.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
+		epochOrderMutex.Lock()
+		if _, ok := epochOrderMap[event.EI]; !ok {
+			epochOrderMap[event.EI] = types.Void
+			epochOrder = append(epochOrder, event.EI)
+
+			if event.EI < minEpochIndex {
+				minEpochIndex = event.EI
+				fmt.Println(minEpochIndex)
+			}
+		}
+		epochOrderMutex.Unlock()
+		checkEpochContentLimit()
+
 		err := insertMessageToEpoch(event.EI, event.MessageID)
 		if err != nil {
 			plugin.LogDebug(err)
@@ -103,9 +127,9 @@ func configure(plugin *node.Plugin) {
 	}))
 	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
 		committedEpochsMutex.Lock()
-		defer committedEpochsMutex.Unlock()
 		lastCommittedEpoch = event.EI
 		committedEpochs[event.EI] = event.ECRecord
+		committedEpochsMutex.Unlock()
 	}))
 }
 
@@ -116,6 +140,42 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityNotarization); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
+}
+
+func checkEpochContentLimit() {
+	epochOrderMutex.Lock()
+	if len(epochOrder) <= maxEpochContentsToKeep {
+		epochOrderMutex.Unlock()
+		return
+	}
+	sort.Slice(epochOrder, func(i, j int) bool {
+		return epochOrder[i] < epochOrder[j]
+	})
+	fmt.Println(epochOrder)
+	var epochToRemove []epoch.Index
+	copy(epochToRemove, epochOrder[:numEpochContentsToRemove])
+	// remove the first numEpochContentsToRemove epoch
+	epochOrder = epochOrder[numEpochContentsToRemove:]
+
+	for _, i := range epochToRemove {
+		delete(epochOrderMap, i)
+	}
+	epochOrderMutex.Unlock()
+
+	committedEpochsMutex.Lock()
+	for _, i := range epochToRemove {
+		delete(committedEpochs, i)
+	}
+	committedEpochsMutex.Unlock()
+
+	epochContentsMutex.Lock()
+	for _, i := range epochToRemove {
+		delete(epochContents, i)
+	}
+	epochContentsMutex.Unlock()
+
+	// update minEpochIndex
+	minEpochIndex = epochOrder[0]
 }
 
 func GetLastCommittedEpoch() *epoch.ECRecord {
@@ -142,10 +202,13 @@ func GetPendingBranchCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochMessages(ei epoch.Index) []tangle.MessageID {
-	stores := getEpochContentStorage(ei)
-	var msgIDs []tangle.MessageID
+func GetEpochMessages(ei epoch.Index) ([]tangle.MessageID, error) {
+	stores, err := getEpochContentStorage(ei)
+	if err != nil {
+		return []tangle.MessageID{}, err
+	}
 
+	var msgIDs []tangle.MessageID
 	stores.messageIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var msgID tangle.MessageID
 		if _, err := msgID.Decode(key); err != nil {
@@ -155,13 +218,16 @@ func GetEpochMessages(ei epoch.Index) []tangle.MessageID {
 		return true
 	})
 
-	return msgIDs
+	return msgIDs, nil
 }
 
-func GetEpochTransactions(ei epoch.Index) []utxo.TransactionID {
-	stores := getEpochContentStorage(ei)
-	var txIDs []utxo.TransactionID
+func GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
+	stores, err := getEpochContentStorage(ei)
+	if err != nil {
+		return []utxo.TransactionID{}, err
+	}
 
+	var txIDs []utxo.TransactionID
 	stores.transactionIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var txID utxo.TransactionID
 		if _, err := txID.Decode(key); err != nil {
@@ -171,20 +237,21 @@ func GetEpochTransactions(ei epoch.Index) []utxo.TransactionID {
 		return true
 	})
 
-	return txIDs
+	return txIDs, nil
 }
 
-func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
-	stores := getEpochContentStorage(ei)
-	var createdOutputs []utxo.OutputID
-	var spentOutputs []utxo.OutputID
+func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID, err error) {
+	stores, err := getEpochContentStorage(ei)
+	if err != nil {
+		return []utxo.OutputID{}, []utxo.OutputID{}, err
+	}
 
 	stores.createdOutputs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		outputID, err := outputIDFromBytes(key)
 		if err != nil {
 			panic(err)
 		}
-		createdOutputs = append(createdOutputs, outputID)
+		created = append(created, outputID)
 
 		return true
 	})
@@ -194,15 +261,19 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 		if err != nil {
 			panic(err)
 		}
-		spentOutputs = append(spentOutputs, outputID)
+		spent = append(spent, outputID)
 
 		return true
 	})
 
-	return spentOutputs, createdOutputs
+	return spent, created, nil
 }
 
-func getEpochContentStorage(ei epoch.Index) *epochContentStorages {
+func getEpochContentStorage(ei epoch.Index) (*epochContentStorages, error) {
+	if ei != epoch.Index(math.MaxInt64) && ei < minEpochIndex {
+		return nil, errors.New("Epoch storage is no longer exists")
+	}
+
 	epochContentsMutex.RLock()
 	stores, ok := epochContents[ei]
 	epochContentsMutex.RUnlock()
@@ -214,7 +285,7 @@ func getEpochContentStorage(ei epoch.Index) *epochContentStorages {
 		epochContentsMutex.Unlock()
 	}
 
-	return stores
+	return stores, nil
 }
 
 func newEpochContentStorage() *epochContentStorages {
@@ -230,9 +301,12 @@ func newEpochContentStorage() *epochContentStorages {
 }
 
 func getEpochTransactionIDs(ei epoch.Index) ([]utxo.TransactionID, error) {
-	epochContentStorage := getEpochContentStorage(ei)
-	var transactionIDs []utxo.TransactionID
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return []utxo.TransactionID{}, err
+	}
 
+	var transactionIDs []utxo.TransactionID
 	_ = epochContentStorage.transactionIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var txID utxo.TransactionID
 		if _, err := txID.Decode(key); err != nil {
@@ -245,9 +319,12 @@ func getEpochTransactionIDs(ei epoch.Index) ([]utxo.TransactionID, error) {
 }
 
 func getEpochMessageIDs(ei epoch.Index) ([]tangle.MessageID, error) {
-	epochContentStorage := getEpochContentStorage(ei)
-	var messageIDs []tangle.MessageID
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return []tangle.MessageID{}, err
+	}
 
+	var messageIDs []tangle.MessageID
 	_ = epochContentStorage.messageIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var msgID tangle.MessageID
 		if _, err := msgID.Decode(key); err != nil {
@@ -260,15 +337,24 @@ func getEpochMessageIDs(ei epoch.Index) ([]tangle.MessageID, error) {
 }
 
 func insertMessageToEpoch(ei epoch.Index, msgID tangle.MessageID) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
+
 	if err := epochContentStorage.messageIDs.Set(msgID.Bytes(), msgID.Bytes()); err != nil {
 		return errors.New("Fail to insert Message to epoch store")
 	}
+	fmt.Println(ei, "insert", msgID, "to store")
 	return nil
 }
 
 func removeMessageFromEpoch(ei epoch.Index, msgID tangle.MessageID) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
+
 	if err := epochContentStorage.messageIDs.Delete(msgID.Bytes()); err != nil {
 		return errors.New("Fail to remove Message from epoch store")
 	}
@@ -276,7 +362,11 @@ func removeMessageFromEpoch(ei epoch.Index, msgID tangle.MessageID) error {
 }
 
 func insertTransactionToEpoch(ei epoch.Index, txID utxo.TransactionID) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
+
 	if err := epochContentStorage.transactionIDs.Set(txID.Bytes(), txID.Bytes()); err != nil {
 		return errors.New("Fail to insert Transaction to epoch store")
 	}
@@ -284,7 +374,11 @@ func insertTransactionToEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 }
 
 func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
+
 	if err := epochContentStorage.transactionIDs.Delete(txID.Bytes()); err != nil {
 		return errors.New("Fail to remove Transaction from epoch store")
 	}
@@ -292,7 +386,10 @@ func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 }
 
 func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
 
 	for _, s := range spent {
 		if err := epochContentStorage.spentOutputs.Set(s.ID().Bytes(), s.ID().Bytes()); err != nil {
@@ -310,7 +407,10 @@ func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMet
 }
 
 func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
-	epochContentStorage := getEpochContentStorage(ei)
+	epochContentStorage, err := getEpochContentStorage(ei)
+	if err != nil {
+		return err
+	}
 
 	for _, s := range spent {
 		if err := epochContentStorage.spentOutputs.Delete(s.ID().Bytes()); err != nil {
