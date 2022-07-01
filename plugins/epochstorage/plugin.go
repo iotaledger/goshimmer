@@ -426,9 +426,8 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 
 func outputIDFromBytes(outputBytes []byte) (utxo.OutputID, error) {
 	var outputID utxo.OutputID
-	if _, err := serix.DefaultAPI.Decode(context.Background(), outputBytes, outputID, serix.WithValidation()); err != nil {
+	if _, err := serix.DefaultAPI.Decode(context.Background(), outputBytes, &outputID, serix.WithValidation()); err != nil {
 		return utxo.EmptyOutputID, errors.New("Fail to parse outputID from bytes")
 	}
-	fmt.Println(outputID)
 	return outputID, nil
 }
