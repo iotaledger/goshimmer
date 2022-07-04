@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/notarization"
+
 	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
@@ -45,6 +47,7 @@ var (
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
 	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
+	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -64,6 +67,9 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
+		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
+	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -125,7 +131,7 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
+		totalAmount, inputInfos := gatherInputInfos(devnetTransaction.Essence().Inputs())
 
 		txInfo = &mana.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
@@ -138,27 +144,24 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 			InputInfos: inputInfos,
 		}
 
-		// book in all mana vectors.
-		for _, baseManaVector := range baseManaVectors {
-			baseManaVector.Book(txInfo)
-		}
+		// book in only access mana
+		baseManaVectors[mana.AccessMana].Book(txInfo)
 	})
 }
 
-func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []mana.InputInfo) {
 	inputInfos = make([]mana.InputInfo, 0)
-	for _, input := range transaction.Essence().Inputs() {
+	for _, input := range inputs {
 		var inputInfo mana.InputInfo
 
 		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				inputInfo.Amount += float64(balance)
-				totalAmount += float64(balance)
-				return true
-			})
+			if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
+				inputInfo.Amount = float64(amount)
+				totalAmount += float64(amount)
+			}
 
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID
@@ -222,6 +225,7 @@ func runManaPlugin(_ *node.Plugin) {
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
 				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				notarizationManager.Events.ManaVectorUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return

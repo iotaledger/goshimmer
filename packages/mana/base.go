@@ -9,7 +9,7 @@ import (
 // BaseMana is an interface for a collection of base mana values of a single node.
 type BaseMana interface {
 	revoke(float64) error
-	pledge(*TxInfo) float64
+	pledge(float64)
 	BaseValue() float64
 }
 

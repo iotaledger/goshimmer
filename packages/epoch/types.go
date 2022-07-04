@@ -14,7 +14,7 @@ import (
 
 var (
 	// GenesisTime is the time (Unix in seconds) of the genesis.
-	GenesisTime int64 = 1655985373
+	GenesisTime int64 = 1656588336
 	// Duration is the default epoch duration in seconds.
 	Duration int64 = 10
 )

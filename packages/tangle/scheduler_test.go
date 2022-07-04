@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 )
@@ -547,7 +548,7 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		0,
 		ed25519.Signature{},
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 	timeOffsetMutex.Unlock()
 	if err := message.DetermineID(); err != nil {
@@ -570,7 +571,7 @@ func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.T
 		0,
 		ed25519.Signature{},
 		0,
-		nil,
+		epoch.NewECRecord(0),
 	)
 	if err := message.DetermineID(); err != nil {
 		panic(err)

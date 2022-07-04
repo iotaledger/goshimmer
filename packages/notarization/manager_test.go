@@ -25,44 +25,50 @@ func TestNewManager(t *testing.T) {
 	assert.NotNil(t, m)
 }
 
-func TestManager_IsCommittable(t *testing.T) {
-	nodes := map[string]*identity.Identity{
-		"A": identity.GenerateIdentity(),
-	}
-	var weightProvider *tangle.CManaWeightProvider
-	manaRetrieverMock := func() map[identity.ID]float64 {
-		weightProvider.Update(time.Now(), nodes["A"].ID())
-		return map[identity.ID]float64{
-			nodes["A"].ID(): 100,
-		}
-	}
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
-
-	genesisTime := time.Now().Add(-25 * time.Minute)
-	epochDuration := 5 * time.Minute
-
-	testFramework, _, m := setupFramework(t, genesisTime, epochDuration, epochDuration*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-
-	ecRecord, _, err := testFramework.LatestCommitment()
-	require.NoError(t, err)
-
-	// Make all epochs committable by advancing ATT
-	testFramework.CreateMessage("Message7", tangle.WithIssuingTime(genesisTime.Add(epochDuration*6)), tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
-	testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
-
-	ei := epoch.Index(5)
-	m.pendingConflictsCounters[ei] = 0
-	// not old enough
-	assert.False(t, m.isCommittable(ei))
-
-	ei = epoch.Index(1)
-	m.pendingConflictsCounters[ei] = 1
-	// old enough but pbc > 0
-	assert.False(t, m.isCommittable(ei))
-	m.pendingConflictsCounters[ei] = 0
-	// old enough and pbc > 0
-	assert.True(t, m.isCommittable(ei))
-}
+//
+//func TestManager_IsCommittable(t *testing.T) {
+//	nodes := map[string]*identity.Identity{
+//		"A": identity.GenerateIdentity(),
+//	}
+//	var weightProvider *tangle.CManaWeightProvider
+//	manaRetrieverMock := func() map[identity.ID]float64 {
+//		weightProvider.Update(time.Now(), nodes["A"].ID())
+//		return map[identity.ID]float64{
+//			nodes["A"].ID(): 100,
+//		}
+//	}
+//	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+//
+//	genesisTime := time.Now().Add(-25 * time.Minute)
+//	epochDuration := 5 * time.Minute
+//
+//	testFramework, eventHandlerMock, m := setupFramework(t, genesisTime, epochDuration, epochDuration*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+//
+//	ecRecord, _, err := testFramework.LatestCommitment()
+//	require.NoError(t, err)
+//
+//
+//	for i := 1; i < 5; i++ {
+//		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+//	}
+//
+//	// Make all epochs committable by advancing ATT
+//	testFramework.CreateMessage("Message7", tangle.WithIssuingTime(genesisTime.Add(epochDuration*6)), tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+//	testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
+//
+//	ei := epoch.Index(5)
+//	m.pendingConflictsCounters[ei] = 0
+//	// not old enough
+//	assert.False(t, m.isCommittable(ei))
+//
+//	ei = epoch.Index(1)
+//	m.pendingConflictsCounters[ei] = 1
+//	// old enough but pbc > 0
+//	assert.False(t, m.isCommittable(ei))
+//	m.pendingConflictsCounters[ei] = 0
+//	// old enough and pbc > 0
+//	assert.True(t, m.isCommittable(ei))
+//}
 
 func TestManager_GetLatestEC(t *testing.T) {
 	nodes := map[string]*identity.Identity{
@@ -85,33 +91,32 @@ func TestManager_GetLatestEC(t *testing.T) {
 	ecRecord, _, err := testFramework.LatestCommitment()
 	require.NoError(t, err)
 
+	// epoch ages (in mins) since genesis [25,20,15,10,5]
+	for i := 1; i <= 5; i++ {
+		m.increasePendingConflictCounter(epoch.Index(i))
+	}
 	// Make all epochs committable by advancing ATT
 	testFramework.CreateMessage("Message7", tangle.WithIssuingTime(genesisTime.Add(epochDuration*6)), tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 	testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 
-	// epoch ages (in mins) since genesis [25,20,15,10,5]
-	for i := 1; i <= 5; i++ {
-		m.pendingConflictsCounters[epoch.Index(i)] = uint64(i)
-		err := m.epochCommitmentFactory.insertTangleLeaf(epoch.Index(i), tangle.EmptyMessageID)
-		require.NoError(t, err)
-	}
-
-	eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 	commitment, err := m.GetLatestEC()
 	assert.NoError(t, err)
 	// only epoch 0 has pbc = 0
 	assert.Equal(t, epoch.Index(0), commitment.EI())
 
-	m.pendingConflictsCounters[4] = 0
+	m.decreasePendingConflictCounter(4)
+
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 4 has pbc = 0 but is not old enough and epoch 1 has pbc != 0
 	assert.Equal(t, epoch.Index(0), commitment.EI())
 
-	eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
-	eventHandlerMock.Expect("EpochCommitted", epoch.Index(2))
-	m.pendingConflictsCounters[1] = 0
-	m.pendingConflictsCounters[2] = 0
+	eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+	eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
+	//
+	//eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+	m.decreasePendingConflictCounter(1)
+	m.decreasePendingConflictCounter(2)
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 2 has pbc=0 and is old enough
@@ -192,6 +197,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Message3, issuing time epoch 3
 	{
 		fmt.Println("message 3")
+		fmt.Println("issueing time msg 3 ", issuingTime.String())
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -214,12 +220,14 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Message4, issuing time epoch 4
 	{
 		fmt.Println("message 4")
-
+		fmt.Println("issuing time msg 4 ", issuingTime.String())
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		assert.Equal(t, EC0, EC(ecRecord))
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message4", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message3", "Message2"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 
@@ -235,17 +243,17 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 	// Message5, issuing time epoch 5
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 		fmt.Println("message 5")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, ecRecord.PrevEC())
+		fmt.Println(ecRecord)
 		testFramework.CreateMessage("Message5", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message5")
 		assert.Equal(t, epoch.Index(1), msg.EI())
+		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
 	eventHandlerMock.AssertExpectations(t)
@@ -333,6 +341,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message4", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message3"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 
@@ -344,51 +354,56 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 	// Message5 TX1, issuing time epoch 5
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 		fmt.Println("message 5")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		EC1 = EC(ecRecord)
-		assert.Equal(t, EC0, ecRecord.PrevEC())
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
 		testFramework.CreateMessage("Message5", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message4"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithInputs("A"), tangle.WithOutput("C", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message5")
 		assert.Equal(t, epoch.Index(1), msg.EI())
+		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
 	// Message6 TX2, issuing time epoch 5
 	{
 		fmt.Println("message 6")
 
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(2))
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		EC2 = EC(ecRecord)
-		assert.Equal(t, EC1, ecRecord.PrevEC())
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
 		testFramework.CreateMessage("Message6", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message5"), tangle.WithIssuer(nodes["E"].PublicKey()), tangle.WithInputs("B"), tangle.WithOutput("D", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message6")
 		assert.Equal(t, epoch.Index(2), msg.EI())
+		assert.Equal(t, EC1, ecRecord.PrevEC())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
 
 	// Message7, issuing time epoch 6
 	{
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
+
 		fmt.Println("message 7")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC2, ecRecord.PrevEC())
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(4))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
 		testFramework.CreateMessage("Message7", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message6"), tangle.WithIssuer(nodes["C"].PublicKey()), tangle.WithInputs("C"), tangle.WithOutput("E", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 
 		msg := testFramework.Message("Message7")
 		assert.Equal(t, epoch.Index(3), msg.EI())
+		assert.Equal(t, EC2, ecRecord.PrevEC())
 	}
 
 	// Message8, issuing time epoch 6
@@ -556,6 +571,8 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
+
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message8", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message7"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 
@@ -862,6 +879,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
+		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateMessage("Message6", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Message5"), tangle.WithIssuer(nodes["E"].PublicKey()), tangle.WithInputs("G5"), tangle.WithOutput("H6", 500), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 
@@ -873,7 +891,6 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	{
 		fmt.Println("message 7")
 
-		eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		require.Equal(t, epoch.Index(1), ecRecord.EI())
@@ -952,7 +969,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), Log(logger.NewExampleLogger("test")))
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), ManaDelay(2), Log(logger.NewExampleLogger("test")))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()
@@ -967,7 +984,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 	registerToTangleEvents(sfg, testTangle)
 	loadSnapshot(m, testFramework)
 
-	eventMock = NewEventMock(t, m, ecFactory)
+	eventMock = NewEventMock(t, m)
 
 	epoch.Duration = int64(epochInterval.Seconds())
 	epoch.GenesisTime = genesisTime.Unix()
@@ -1043,19 +1060,6 @@ func assertEpochDiff(t *testing.T, testFramework *tangle.MessageTestFramework, m
 
 	assert.True(t, expectedSpentIDs.Equal(actualSpentIDs), "spent outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedSpentIDs, actualSpentIDs)
 	assert.True(t, expectedCreatedIDs.Equal(actualCreatedIDs), "created outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedCreatedIDs, actualCreatedIDs)
-}
-
-func testNotarizationManager(testing *testing.T) (m *Manager) {
-	t := time.Now().Add(-25 * time.Minute).Unix()
-	testTangle := tangle.NewTestTangle()
-	duration := 5 * time.Minute
-	epoch.GenesisTime = t
-	epoch.Duration = int64(duration.Seconds())
-	m = NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0), testTangle, MinCommittableEpochAge(10*time.Minute))
-
-	require.NoError(testing, m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(0))
-	m.epochCommitmentFactory.storage.ecRecordStorage.Store(epoch.NewECRecord(0)).Release()
-	return
 }
 
 func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {

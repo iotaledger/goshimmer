@@ -49,6 +49,8 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	if nodeSnapshot != nil {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
+	// attach mana plugin event after notarization manager has been initialized
+	notarizationManager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
 }
 
 func runNotarizationPlugin(*node.Plugin) {
@@ -65,6 +67,7 @@ func newNotarizationManager(deps notarizationDependencies) *notarization.Manager
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		notarizationDeps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
+		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))
 }
 

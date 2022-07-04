@@ -406,7 +406,12 @@ type SyncChangedEvent struct {
 
 // TimeUpdate represents an update in Tangle Time.
 type TimeUpdate struct {
-	NewTime time.Time
+	// MessageID is the ID of the message that caused the time update.
+	MessageID  MessageID
+	// ATT is the new Acceptance Tangle Time.
+	ATT        time.Time
+	// UpdateTime is the wall clock time when the update has occurred.
+	UpdateTime time.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
