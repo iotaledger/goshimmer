@@ -2,6 +2,7 @@ package mana
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math"
 	"testing"
@@ -10,135 +11,134 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	faucetplugin "github.com/iotaledger/goshimmer/plugins/faucet"
-	webapiledgerstate "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 var (
 	// minAccessMana is minimal amout of mana required to access the network
-	minAccessMana    = tangle.MinMana
-	minConsensusMana = 0.0
+	minAccessMana      = tangle.MinMana
+	startAccessMana    = 2_500_000_000_000_000.
+	faucetPledgeAmount = 1_000_000.
+	minConsensusMana   = 0.0
 
 	emptyNodeID = identity.ID{}
 )
 
-func TestManaPersistence(t *testing.T) {
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
-	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		Faucet:      true,
-		StartSynced: true,
-		Activity:    true,
-		PeerMaster:  true,
-		Snapshot:    snapshotInfo,
-	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	faucet, peer := n.Peers()[0], n.Peers()[1]
-
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-	tests.SendFaucetRequest(t, peer, peer.Address(0))
-
-	log.Println("Waiting for peer to get access mana...")
-	require.Eventually(t, func() bool {
-		return tests.Mana(t, peer).Access > minAccessMana
-	}, tests.Timeout, tests.Tick)
-	log.Println("Waiting for peer to get consensus mana...")
-	require.Eventually(t, func() bool {
-		return tests.Mana(t, peer).Consensus > 0
-	}, tests.Timeout, tests.Tick)
-	log.Println("Waiting for peer to get mana... done")
-
-	// restart the peer
-	require.NoError(t, peer.Restart(ctx))
-
-	require.Greater(t, tests.Mana(t, peer).Access, minAccessMana)
-	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
-}
-
-func TestManaPledgeFilter(t *testing.T) {
-	const (
-		numPeers         = 3
-		tokensPerRequest = 100
-	)
-	snapshotInfo := tests.EqualSnapshotDetails
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Activity:    true,
-		PeerMaster:  false,
-		Snapshot:    snapshotInfo,
-	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	peers := n.Peers()
-
-	accessPeer := peers[0]
-	accessPeerID := fullID(accessPeer.ID())
-	consensusPeer := peers[1]
-	consensusPeerID := fullID(consensusPeer.ID())
-	seedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
-	require.NoError(t, err)
-
-	faucetConfig := framework.PeerConfig()
-	faucetConfig.MessageLayer.StartSynced = true
-	faucetConfig.Faucet.Enabled = true
-	faucetConfig.Mana.Enabled = true
-	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
-	faucetConfig.Mana.AllowedAccessFilterEnabled = true
-	faucetConfig.Mana.AllowedConsensusPledge = []string{consensusPeerID}
-	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
-	faucetConfig.Activity.Enabled = true
-	faucetConfig.Seed = seedBytes
-	faucetConfig.MessageLayer.Snapshot.File = snapshotInfo.FilePath
-
-	faucet, err := n.CreatePeer(ctx, faucetConfig)
-	require.NoError(t, err)
-
-	err = n.DoManualPeering(ctx)
-	require.NoError(t, err)
-
-	// wait for the faucet to prepare all outputs
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-
-	var faucetStartAddress uint64 = faucetplugin.MaxFaucetOutputsCount + 1
-	// pledge mana to allowed peers
-	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetStartAddress,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    accessPeer.Identity.ID(),
-		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
-	})
-	require.NoError(t, err)
-
-	// pledge consensus mana to forbidden peer
-	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetStartAddress,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    accessPeer.Identity.ID(),
-		ConsensusManaPledgeID: accessPeer.Identity.ID(),
-	})
-	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
-
-	// pledge access mana to forbidden peer
-	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
-		FromAddressIndex:      faucetStartAddress,
-		ToAddressIndex:        0,
-		AccessManaPledgeID:    consensusPeer.Identity.ID(),
-		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
-	})
-	require.ErrorIs(t, err, client.ErrBadRequest)
-	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
-}
+//
+//func TestManaPersistence(t *testing.T) {
+//	ctx, cancel := tests.Context(context.Background(), t)
+//	defer cancel()
+//	snapshotInfo := tests.EqualSnapshotDetails
+//	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
+//		Faucet:      true,
+//		StartSynced: true,
+//		Activity:    true,
+//		PeerMaster:  true,
+//		Snapshot:    snapshotInfo,
+//	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
+//	require.NoError(t, err)
+//	defer tests.ShutdownNetwork(ctx, t, n)
+//
+//	faucet, peer := n.Peers()[0], n.Peers()[1]
+//
+//	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+//	tests.SendFaucetRequest(t, peer, peer.Address(0))
+//
+//	log.Println("Waiting for peer to get access mana...")
+//	require.Eventually(t, func() bool {
+//		return tests.Mana(t, peer).Access > minAccessMana
+//	}, tests.Timeout, tests.Tick)
+//	log.Println("Waiting for peer to get consensus mana...")
+//	require.Eventually(t, func() bool {
+//		return tests.Mana(t, peer).Consensus > 0
+//	}, tests.Timeout, tests.Tick)
+//	log.Println("Waiting for peer to get mana... done")
+//
+//	// restart the peer
+//	require.NoError(t, peer.Restart(ctx))
+//
+//	require.Greater(t, tests.Mana(t, peer).Access, minAccessMana)
+//	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
+//}
+//
+//func TestManaPledgeFilter(t *testing.T) {
+//	const (
+//		numPeers         = 3
+//		tokensPerRequest = 100
+//	)
+//	snapshotInfo := tests.EqualSnapshotDetails
+//	ctx, cancel := tests.Context(context.Background(), t)
+//	defer cancel()
+//	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
+//		StartSynced: true,
+//		Activity:    true,
+//		PeerMaster:  false,
+//		Snapshot:    snapshotInfo,
+//	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
+//	require.NoError(t, err)
+//	defer tests.ShutdownNetwork(ctx, t, n)
+//
+//	peers := n.Peers()
+//
+//	accessPeer := peers[0]
+//	accessPeerID := fullID(accessPeer.ID())
+//	consensusPeer := peers[1]
+//	consensusPeerID := fullID(consensusPeer.ID())
+//	seedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
+//	require.NoError(t, err)
+//
+//	faucetConfig := framework.PeerConfig()
+//	faucetConfig.MessageLayer.StartSynced = true
+//	faucetConfig.Faucet.Enabled = true
+//	faucetConfig.Mana.Enabled = true
+//	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
+//	faucetConfig.Mana.AllowedAccessFilterEnabled = true
+//	faucetConfig.Mana.AllowedConsensusPledge = []string{consensusPeerID}
+//	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
+//	faucetConfig.Activity.Enabled = true
+//	faucetConfig.Seed = seedBytes
+//	faucetConfig.MessageLayer.Snapshot.File = snapshotInfo.FilePath
+//
+//	faucet, err := n.CreatePeer(ctx, faucetConfig)
+//	require.NoError(t, err)
+//
+//	err = n.DoManualPeering(ctx)
+//	require.NoError(t, err)
+//
+//	// wait for the faucet to prepare all outputs
+//	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+//
+//	var faucetStartAddress uint64 = faucetplugin.MaxFaucetOutputsCount + 1
+//	// pledge mana to allowed peers
+//	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+//		FromAddressIndex:      faucetStartAddress,
+//		ToAddressIndex:        0,
+//		AccessManaPledgeID:    accessPeer.Identity.ID(),
+//		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
+//	})
+//	require.NoError(t, err)
+//
+//	// pledge consensus mana to forbidden peer
+//	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+//		FromAddressIndex:      faucetStartAddress,
+//		ToAddressIndex:        0,
+//		AccessManaPledgeID:    accessPeer.Identity.ID(),
+//		ConsensusManaPledgeID: accessPeer.Identity.ID(),
+//	})
+//	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
+//
+//	// pledge access mana to forbidden peer
+//	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+//		FromAddressIndex:      faucetStartAddress,
+//		ToAddressIndex:        0,
+//		AccessManaPledgeID:    consensusPeer.Identity.ID(),
+//		ConsensusManaPledgeID: consensusPeer.Identity.ID(),
+//	})
+//	require.ErrorIs(t, err, client.ErrBadRequest)
+//	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
+//}
 
 func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -159,6 +159,14 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
+	///mana/all
+	resp, err := faucet.GetAllMana()
+	for _, n := range resp.Consensus {
+		fmt.Println("n.NodeID consensus ", n.NodeID, " mana ", n.Mana)
+	}
+	for _, n := range resp.Access {
+		fmt.Println("n.NodeID access full ", n.NodeID, " mana ", n.Mana)
+	}
 
 	log.Println("Request mana from faucet...")
 	// waiting for the faucet to have access mana
@@ -171,30 +179,36 @@ func TestManaApis(t *testing.T) {
 	tests.SendFaucetRequest(t, peers[1], peers[1].Address(1))
 
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, peers[1]).Access > minAccessMana
+		return tests.Mana(t, peers[1]).Access >= startAccessMana+2*faucetPledgeAmount
 	}, tests.Timeout, tests.Tick)
 
 	// request mana for peer #2
 	tests.SendFaucetRequest(t, peers[2], peers[2].Address(0))
 
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, peers[2]).Access > minAccessMana
+		return tests.Mana(t, peers[2]).Access >= startAccessMana+faucetPledgeAmount
 	}, tests.Timeout, tests.Tick)
-	log.Println("Request mana from faucet... done")
+
+	///mana/all
+	resp, err = faucet.GetAllMana()
+	for _, n := range resp.Access {
+		fmt.Println("n.NodeID access full ", n.NodeID, " mana ", n.Mana)
+	}
+	for _, n := range resp.Consensus {
+		fmt.Println("n.NodeID consensus full ", n.NodeID, " mana ", n.Mana)
+	}
 
 	// Test /mana/all
-	t.Run("mana/all", func(t *testing.T) {
-		resp, err := faucet.GetAllMana()
+	t.Run("mana/all access", func(t *testing.T) {
+		respAll, err := faucet.GetAllMana()
 		require.NoError(t, err)
-		t.Logf("/mana/all %+v", resp)
-		require.NotEmpty(t, resp.Access)
-		require.Greater(t, resp.Access[0].Mana, minAccessMana)
-		require.NotEmpty(t, resp.Consensus)
-		require.Greater(t, resp.Consensus[0].Mana, minConsensusMana)
+		t.Logf("/mana/all %+v", respAll)
+		require.NotEmpty(t, respAll.Access)
+		require.Greater(t, respAll.Access[0].Mana, minAccessMana)
 	})
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
-	t.Run("mana/*/nhighest", func(t *testing.T) {
+	t.Run("mana/*/nhighest access", func(t *testing.T) {
 		aResp, err := faucet.GetNHighestAccessMana(3)
 		require.NoError(t, err)
 		t.Logf("/mana/access/nhighest %+v", aResp)
@@ -204,7 +218,72 @@ func TestManaApis(t *testing.T) {
 			require.LessOrEqual(t, aResp.Nodes[i].Mana, prevMana)
 			prevMana = aResp.Nodes[i].Mana
 		}
+	})
 
+	// Test /mana/percentile
+	t.Run("mana/percentile access", func(t *testing.T) {
+		percResp, err := faucet.GetManaPercentile(fullID(faucet.ID()))
+		require.NoError(t, err)
+		t.Logf("/mana/percentile %+v", percResp)
+		require.Equal(t, fullID(faucet.ID()), percResp.NodeID)
+		fmt.Println(percResp.Access)
+		require.InDelta(t, 20.0, percResp.Access, 0.01)
+	})
+
+	// Test /mana/access/online
+	t.Run("mana/*/online access", func(t *testing.T) {
+		// genesis node is not online
+		aResp, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
+		require.NoError(t, err)
+		t.Logf("/mana/access/online %+v", aResp)
+		require.Len(t, aResp.Online, len(n.Peers()))
+		nodeIDs := make([]string, len(aResp.Online))
+		for i := range aResp.Online {
+			nodeIDs[i] = aResp.Online[i].ID
+		}
+		require.Len(t, nodeIDs, len(n.Peers()))
+		for _, peer := range n.Peers() {
+			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
+		}
+	})
+
+	// Test /mana/allowedManaPledge
+	t.Run("mana/allowedManaPledge access", func(t *testing.T) {
+		respAll, err := faucet.GetAllowedManaPledgeNodeIDs()
+		require.NoError(t, err)
+		t.Logf("/mana/allowedManaPledge %+v", respAll)
+		require.Equal(t, false, respAll.Access.IsFilterEnabled)
+		require.Equal(t, []string{fullID(faucet.ID())}, respAll.Access.Allowed)
+	})
+
+	// wait for cMna vector being updated
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, peers[1]).Consensus > tests.Mana(t, peers[2]).Consensus
+	}, tests.Timeout*2, tests.Tick)
+
+	///mana/all
+	resp, err = faucet.GetAllMana()
+	for _, n := range resp.Access {
+		fmt.Println("n.NodeID Access epoch ", n.NodeID, " mana ", n.Mana)
+	}
+	for _, n := range resp.Consensus {
+		fmt.Println("n.NodeID Cons epoch ", n.NodeID, " mana ", n.Mana)
+	}
+
+	// Test /mana/all
+	t.Run("mana/all consensus", func(t *testing.T) {
+		respAll, err := faucet.GetAllMana()
+		require.NoError(t, err)
+		t.Logf("/mana/all %+v", respAll)
+		require.NotEmpty(t, respAll.Consensus)
+		for _, n := range respAll.Consensus {
+			fmt.Println("n.NodeID ", n.NodeID, " mana ", n.Mana)
+		}
+		require.Greater(t, respAll.Consensus[0].Mana, minConsensusMana)
+	})
+
+	// Test /mana/access/nhighest and /mana/consensus/nhighest
+	t.Run("mana/*/nhighest consensus", func(t *testing.T) {
 		cResp, err := faucet.GetNHighestConsensusMana(len(n.Peers()))
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/nhighest %+v", cResp)
@@ -220,40 +299,20 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana/percentile
 	t.Run("mana/percentile", func(t *testing.T) {
-		resp, err := faucet.GetManaPercentile(fullID(peers[0].ID()))
+		respPerc, err := faucet.GetManaPercentile(faucet.ID().EncodeBase58())
 		require.NoError(t, err)
-		t.Logf("/mana/percentile %+v", resp)
-		require.Equal(t, fullID(peers[0].ID()), resp.NodeID)
-		require.InDelta(t, 20.0, resp.Access, 0.01)
-
-		resp, err = faucet.GetManaPercentile(faucet.ID().EncodeBase58())
-		require.NoError(t, err)
-		t.Logf("/mana/percentile %+v", resp)
-		require.Equal(t, faucet.ID().EncodeBase58(), resp.NodeID)
-		require.InDelta(t, 20., resp.Consensus, 0.01)
+		t.Logf("/mana/percentile %+v", respPerc)
+		require.Equal(t, faucet.ID().EncodeBase58(), respPerc.NodeID)
+		require.InDelta(t, 20., respPerc.Consensus, 0.01)
 	})
 
-	// Test /mana/access/online and /mana/consensus/online
-	t.Run("mana/*/online", func(t *testing.T) {
-		// genesis node is not online
-		aResp, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
-		require.NoError(t, err)
-		t.Logf("/mana/access/online %+v", aResp)
-		require.Len(t, aResp.Online, len(n.Peers()))
-		nodeIDs := make([]string, len(aResp.Online))
-		for i := range aResp.Online {
-			nodeIDs[i] = aResp.Online[i].ID
-		}
-		require.Len(t, nodeIDs, len(n.Peers()))
-		for _, peer := range n.Peers() {
-			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
-		}
-
+	// Test /mana/consensus/online
+	t.Run("mana/*/online consensus", func(t *testing.T) {
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/online %+v", cResp)
 		require.Len(t, cResp.Online, len(n.Peers()))
-		nodeIDs = make([]string, len(cResp.Online))
+		nodeIDs := make([]string, len(cResp.Online))
 		for i := range cResp.Online {
 			nodeIDs[i] = cResp.Online[i].ID
 		}
@@ -264,15 +323,14 @@ func TestManaApis(t *testing.T) {
 	})
 
 	// Test /mana/allowedManaPledge
-	t.Run("mana/allowedManaPledge", func(t *testing.T) {
-		resp, err := faucet.GetAllowedManaPledgeNodeIDs()
+	t.Run("mana/allowedManaPledge consensus", func(t *testing.T) {
+		respAll, err := faucet.GetAllowedManaPledgeNodeIDs()
 		require.NoError(t, err)
-		t.Logf("/mana/allowedManaPledge %+v", resp)
-		require.Equal(t, false, resp.Access.IsFilterEnabled)
-		require.Equal(t, []string{fullID(faucet.ID())}, resp.Access.Allowed)
-		require.Equal(t, false, resp.Consensus.IsFilterEnabled)
-		require.Equal(t, []string{fullID(faucet.ID())}, resp.Consensus.Allowed)
+		t.Logf("/mana/allowedManaPledge %+v", respAll)
+		require.Equal(t, false, respAll.Consensus.IsFilterEnabled)
+		require.Equal(t, []string{fullID(faucet.ID())}, respAll.Consensus.Allowed)
 	})
+
 }
 
 func fullID(id identity.ID) string {

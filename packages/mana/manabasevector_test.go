@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -260,6 +261,7 @@ func TestConsensusBaseManaVector_BookEpoch(t *testing.T) {
 	bmv.SetMana(inputPledgeID1, NewManaBase(beforeBookingAmount[inputPledgeID1]))
 	bmv.SetMana(inputPledgeID2, NewManaBase(beforeBookingAmount[inputPledgeID2]))
 	bmv.SetMana(inputPledgeID3, NewManaBase(beforeBookingAmount[inputPledgeID3]))
+
 	bmv.BookEpoch(created, spent)
 
 	// update triggered for the 3 nodes that mana was revoked from, and once for the pledged
@@ -296,8 +298,11 @@ func TestConsensusBaseManaVector_BookEpoch(t *testing.T) {
 		assert.Contains(t, nodeIds, ev.NodeID)
 	}
 	// make sure pledge and revoke events balance changes are as expected
-	for id := range afterBookingAmount {
+	for id := range afterBookingEpochAmount {
 		assert.Equal(t, afterEventsAmount[id], afterBookingEpochAmount[id])
+		m, _, err := bmv.GetMana(id)
+		require.NoError(t, err)
+		assert.Equal(t, afterBookingEpochAmount[id], m)
 	}
 }
 

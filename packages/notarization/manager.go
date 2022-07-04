@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -238,7 +239,9 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		spent, created = m.resolveOutputs(tx)
 	})
-
+	for _, o := range spent {
+		fmt.Println("NotarizationManager diff spent out pledge ID", o.OutputMetadata().ID().String())
+	}
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
 		m.log.Error(err)
 	}
@@ -461,6 +464,12 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 		return
 	}
 	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
+	for _, out := range spent {
+		fmt.Println("triggerManaVectorUpdate spent pledgeI ", out.OutputMetadata().ConsensusManaPledgeID().String())
+	}
+	for _, out := range created {
+		fmt.Println("triggerManaVectorUpdate created pledgeI ", out.OutputMetadata().ConsensusManaPledgeID().String())
+	}
 	m.Events.ManaVectorUpdate.Trigger(&ManaVectorUpdateEvent{
 		EI:               ei,
 		EpochDiffCreated: created,
@@ -489,7 +498,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return
 		}
-
+		fmt.Println("Epoch committable ", ei)
 		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
 		m.triggerManaVectorUpdate(ei)
 	}
