@@ -2,14 +2,13 @@ package ledger
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
@@ -49,23 +48,19 @@ func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 
 // bookTransactionCommand is a ChainedCommand that books a Transaction.
 func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-
-	b.bookTransaction(params.Context, params.Transaction, params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
+	b.bookTransaction(params.Context, params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 
 	return next(params)
 }
 
 // bookTransaction books a Transaction in the Ledger and creates its Outputs.
-func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMetadata *TransactionMetadata, inputsMetadata *OutputsMetadata, consumers []*Consumer, outputs *utxo.Outputs) {
+func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata *OutputsMetadata, consumers []*Consumer, outputs *utxo.Outputs) {
 	branchIDs := b.inheritBranchIDs(ctx, txMetadata.ID(), inputsMetadata)
 
 	txMetadata.SetBranchIDs(branchIDs)
 	txMetadata.SetOutputIDs(outputs.IDs())
 
-	consensusPledgeID := tx.(*devnetvm.Transaction).Essence().ConsensusPledgeID()
-	accessPledgeID := tx.(*devnetvm.Transaction).Essence().AccessPledgeID()
-
-	b.storeOutputs(outputs, branchIDs, consensusPledgeID, accessPledgeID)
+	b.storeOutputs(outputs, branchIDs)
 
 	txMetadata.SetBooked(true)
 
@@ -97,12 +92,10 @@ func (b *booker) inheritBranchIDs(ctx context.Context, txID utxo.TransactionID, 
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs *utxo.Outputs, branchIDs *set.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
+func (b *booker) storeOutputs(outputs *utxo.Outputs, branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
-		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
-		outputMetadata.SetConsensusManaPledgeID(accessPledgeID)
 		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.outputStorage.Store(output).Release()
 
