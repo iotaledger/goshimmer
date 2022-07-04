@@ -68,9 +68,6 @@ func configureManaPlugin(*node.Plugin) {
 
 	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
-		fmt.Println("Book epoch ", event.EI)
-		fmt.Println("Book epoch spent ", len(event.EpochDiffSpent))
-		fmt.Println("Book epoch created ", len(event.EpochDiffCreated))
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
@@ -148,11 +145,7 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		}
 
 		// book in only access mana
-		for _, baseManaVector := range baseManaVectors {
-			if baseManaVector.Type() == mana.AccessMana {
-				baseManaVector.Book(txInfo)
-			}
-		}
+		baseManaVectors[mana.AccessMana].Book(txInfo)
 	})
 }
 
@@ -165,11 +158,10 @@ func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos [
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				inputInfo.Amount += float64(balance)
-				totalAmount += float64(balance)
-				return true
-			})
+			if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
+				inputInfo.Amount = float64(amount)
+				totalAmount += float64(amount)
+			}
 
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID

@@ -159,15 +159,6 @@ func TestManaApis(t *testing.T) {
 	faucet := peers[0]
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-	///mana/all
-	resp, err := faucet.GetAllMana()
-	for _, n := range resp.Consensus {
-		fmt.Println("n.NodeID consensus ", n.NodeID, " mana ", n.Mana)
-	}
-	for _, n := range resp.Access {
-		fmt.Println("n.NodeID access full ", n.NodeID, " mana ", n.Mana)
-	}
-
 	log.Println("Request mana from faucet...")
 	// waiting for the faucet to have access mana
 	require.Eventually(t, func() bool {
@@ -188,15 +179,6 @@ func TestManaApis(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return tests.Mana(t, peers[2]).Access >= startAccessMana+faucetPledgeAmount
 	}, tests.Timeout, tests.Tick)
-
-	///mana/all
-	resp, err = faucet.GetAllMana()
-	for _, n := range resp.Access {
-		fmt.Println("n.NodeID access full ", n.NodeID, " mana ", n.Mana)
-	}
-	for _, n := range resp.Consensus {
-		fmt.Println("n.NodeID consensus full ", n.NodeID, " mana ", n.Mana)
-	}
 
 	// Test /mana/all
 	t.Run("mana/all access", func(t *testing.T) {
@@ -261,24 +243,12 @@ func TestManaApis(t *testing.T) {
 		return tests.Mana(t, peers[1]).Consensus > tests.Mana(t, peers[2]).Consensus
 	}, tests.Timeout*2, tests.Tick)
 
-	///mana/all
-	resp, err = faucet.GetAllMana()
-	for _, n := range resp.Access {
-		fmt.Println("n.NodeID Access epoch ", n.NodeID, " mana ", n.Mana)
-	}
-	for _, n := range resp.Consensus {
-		fmt.Println("n.NodeID Cons epoch ", n.NodeID, " mana ", n.Mana)
-	}
-
 	// Test /mana/all
 	t.Run("mana/all consensus", func(t *testing.T) {
 		respAll, err := faucet.GetAllMana()
 		require.NoError(t, err)
 		t.Logf("/mana/all %+v", respAll)
 		require.NotEmpty(t, respAll.Consensus)
-		for _, n := range respAll.Consensus {
-			fmt.Println("n.NodeID ", n.NodeID, " mana ", n.Mana)
-		}
 		require.Greater(t, respAll.Consensus[0].Mana, minConsensusMana)
 	})
 
@@ -303,7 +273,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", respPerc)
 		require.Equal(t, faucet.ID().EncodeBase58(), respPerc.NodeID)
-		require.InDelta(t, 20., respPerc.Consensus, 0.01)
+		require.InDelta(t, 80., respPerc.Consensus, 0.01)
 	})
 
 	// Test /mana/consensus/online
