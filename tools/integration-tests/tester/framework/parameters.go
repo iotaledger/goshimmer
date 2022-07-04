@@ -33,6 +33,9 @@ var (
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}
+
+	// GenesisTime provides the genesis time for the tests, to start close to epoch 0.
+	GenesisTime = time.Now().Unix()
 )
 
 // CreateNetworkConfig is the config for optional plugins passed through NewNetwork.
@@ -58,6 +61,8 @@ func PeerConfig() config.GoShimmer {
 	c.Image = "iotaledger/goshimmer"
 
 	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
+
+	c.GenesisTime = GenesisTime
 
 	c.Network.Enabled = true
 
