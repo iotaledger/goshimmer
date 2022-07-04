@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -62,8 +63,11 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 	txMetadata.SetBranchIDs(branchIDs)
 	txMetadata.SetOutputIDs(outputs.IDs())
 
-	consensusPledgeID := tx.(*devnetvm.Transaction).Essence().ConsensusPledgeID()
-	accessPledgeID := tx.(*devnetvm.Transaction).Essence().AccessPledgeID()
+	var consensusPledgeID, accessPledgeID identity.ID
+	if devnetTx, ok := tx.(*devnetvm.Transaction); ok {
+		consensusPledgeID = devnetTx.Essence().ConsensusPledgeID()
+		accessPledgeID = devnetTx.Essence().AccessPledgeID()
+	}
 
 	b.storeOutputs(outputs, branchIDs, consensusPledgeID, accessPledgeID)
 
