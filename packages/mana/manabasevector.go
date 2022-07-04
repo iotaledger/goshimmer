@@ -3,10 +3,11 @@ package mana
 import (
 	"bytes"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"sort"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/model"
@@ -126,8 +127,20 @@ func (m *ManaBaseVector) Book(txInfo *TxInfo) {
 			oldPledgeNodeID := inputInfo.PledgeID[m.Type()]
 			oldMana := m.getOldManaAndRevoke(oldPledgeNodeID, inputInfo.Amount)
 			// save events for later triggering
-			revokeEvents = append(revokeEvents, &RevokedEvent{oldPledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, m.Type(), txInfo.TransactionID, inputInfo.InputID})
-			updateEvents = append(updateEvents, &UpdatedEvent{oldPledgeNodeID, &oldMana, m.M.Vector[oldPledgeNodeID], m.Type()})
+			revokeEvents = append(revokeEvents, &RevokedEvent{
+				NodeID:        oldPledgeNodeID,
+				Amount:        inputInfo.Amount,
+				Time:          txInfo.TimeStamp,
+				ManaType:      m.Type(),
+				TransactionID: txInfo.TransactionID,
+				InputID:       inputInfo.InputID,
+			})
+			updateEvents = append(updateEvents, &UpdatedEvent{
+				NodeID:   oldPledgeNodeID,
+				OldMana:  &oldMana,
+				NewMana:  m.M.Vector[oldPledgeNodeID],
+				ManaType: m.Type(),
+			})
 		}
 		// second, pledge mana to new nodes
 		newPledgeNodeID := txInfo.PledgeID[m.Type()]
@@ -176,8 +189,8 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 		// first, revoke mana from previous owners
 		for _, output := range spent {
 			idToRevoke := m.getIDBasedOnManaType(output)
-			outputIOTAs, existed := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
-			if !existed {
+			outputIOTAs, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
+			if !exists {
 				continue
 			}
 			oldMana := m.getOldManaAndRevoke(idToRevoke, float64(outputIOTAs))
@@ -202,8 +215,8 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 		for _, output := range created {
 			idToPledge := m.getIDBasedOnManaType(output)
 
-			outputIOTAs, existed := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
-			if !existed {
+			outputIOTAs, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
+			if !exists {
 				continue
 			}
 			oldMana := m.getOldManaAndPledge(idToPledge, float64(outputIOTAs))
