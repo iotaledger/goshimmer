@@ -1,8 +1,6 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
@@ -25,7 +23,11 @@ type EpochsResponse struct {
 }
 
 type EpochVotersWeightResponse struct {
-	VotersWeight map[identity.ID]float64 `json:"votersWeight"`
+	VotersWeight map[string]*NodeWeight `json:"ecrVoters"`
+}
+
+type NodeWeight struct {
+	Weights map[string]float64 `json:"weights"`
 }
 
 type EpochUTXOsResponse struct {

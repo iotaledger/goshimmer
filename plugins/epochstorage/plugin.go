@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/serix"
@@ -33,10 +34,12 @@ var (
 	lastCommittedEpoch = epoch.Index(0)
 	deps               = new(dependencies)
 
-	epochContentsMutex   sync.RWMutex
-	epochContents        = make(map[epoch.Index]*epochContentStorages, 0)
-	committedEpochsMutex sync.RWMutex
-	committedEpochs      = make(map[epoch.Index]*epoch.ECRecord, 0)
+	epochContentsMutex     sync.RWMutex
+	epochContents          = make(map[epoch.Index]*epochContentStorages, 0)
+	committedEpochsMutex   sync.RWMutex
+	committedEpochs        = make(map[epoch.Index]*epoch.ECRecord, 0)
+	epochVotersWeightMutex sync.RWMutex
+	epochVotersWeight      = make(map[epoch.Index]map[epoch.ECR]map[identity.ID]float64, 0)
 
 	maxEpochContentsToKeep   = 100
 	numEpochContentsToRemove = 20
@@ -129,6 +132,11 @@ func configure(plugin *node.Plugin) {
 		committedEpochs[event.EI] = event.ECRecord
 		committedEpochsMutex.Unlock()
 	}))
+
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		message := event.Message
+		saveEpochVotersWeight(message)
+	}))
 }
 
 func run(*node.Plugin) {
@@ -173,6 +181,12 @@ func checkEpochContentLimit() {
 		delete(epochContents, i)
 	}
 	epochContentsMutex.Unlock()
+
+	epochVotersWeightMutex.Lock()
+	for _, i := range epochToRemove {
+		delete(epochVotersWeight, i)
+	}
+	epochVotersWeightMutex.Unlock()
 
 	// update minEpochIndex
 	minEpochIndex = epochOrder[0]
@@ -267,6 +281,24 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID, err error) {
 	})
 
 	return spent, created, nil
+}
+
+func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID]float64) {
+	epochVotersWeightMutex.RLock()
+	defer epochVotersWeightMutex.RUnlock()
+	if _, ok := epochVotersWeight[ei]; !ok {
+		return
+	}
+
+	duplicate := make(map[epoch.ECR]map[identity.ID]float64, len(epochVotersWeight[ei]))
+	for k, v := range epochVotersWeight[ei] {
+		subDuplicate := make(map[identity.ID]float64, len(v))
+		for subK, subV := range v {
+			subDuplicate[subK] = subV
+		}
+		duplicate[k] = subDuplicate
+	}
+	return duplicate
 }
 
 func getEpochContentStorage(ei epoch.Index) (*epochContentStorages, error) {
@@ -424,6 +456,22 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 	}
 
 	return nil
+}
+
+func saveEpochVotersWeight(message *tangle.Message) {
+	voter := identity.NewID(message.IssuerPublicKey())
+	activeWeights, _ := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
+
+	epochVotersWeightMutex.Lock()
+	defer epochVotersWeightMutex.Unlock()
+	epochIndex := message.M.EI
+	if _, ok := epochVotersWeight[epochIndex]; !ok {
+		epochVotersWeight[epochIndex] = make(map[epoch.ECR]map[identity.ID]float64)
+	}
+	if _, ok := epochVotersWeight[epochIndex][message.M.ECR]; !ok {
+		epochVotersWeight[epochIndex][message.M.ECR] = make(map[identity.ID]float64)
+	}
+	epochVotersWeight[epochIndex][message.M.ECR][voter] = activeWeights[voter]
 }
 
 func outputIDFromBytes(outputBytes []byte) (utxo.OutputID, error) {

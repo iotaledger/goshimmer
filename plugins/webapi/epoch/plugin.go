@@ -42,6 +42,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("epoch/:ei/messages", getMessages)
 	deps.Server.GET("epoch/:ei/transactions", getTransactions)
 	deps.Server.GET("epoch/:ei/pending-branches-count", getPendingBranchesCount)
+	deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
 }
 
 func getAllCommittedEpochs(c echo.Context) error {
@@ -147,4 +148,25 @@ func getEI(c echo.Context) (epoch.Index, error) {
 		return 0, errors.Wrap(err, "can't parse EI from URL param")
 	}
 	return epoch.Index(uint64(eiNumber)), nil
+}
+
+func getVotersWeight(c echo.Context) error {
+	ei, err := getEI(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	weights := epochstorage.GetEpochVotersWeight(ei)
+
+	respMap := make(map[string]*jsonmodels.NodeWeight)
+	for ecr, nw := range weights {
+		ws := make(map[string]float64, 0)
+		for id, w := range nw {
+			ws[id.String()] = w
+		}
+		nodeWeights := &jsonmodels.NodeWeight{Weights: ws}
+		respMap[ecr.Base58()] = nodeWeights
+	}
+	resp := jsonmodels.EpochVotersWeightResponse{VotersWeight: respMap}
+
+	return c.JSON(http.StatusOK, resp)
 }
