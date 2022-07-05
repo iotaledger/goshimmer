@@ -63,7 +63,7 @@ func (t *TipManager) Setup() {
 	}))
 
 	t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
-		t.tipsCleaner.RemoveBefore(event.NewTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
+		t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
 	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {

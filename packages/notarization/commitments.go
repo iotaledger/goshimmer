@@ -7,13 +7,12 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -21,6 +20,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
+
+// region Committment types ////////////////////////////////////////////////////////////////////////////////////////////
 
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
@@ -37,6 +38,10 @@ type CommitmentTrees struct {
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EpochCommitmentFactory ///////////////////////////////////////////////////////////////////////////////////////
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
 type EpochCommitmentFactory struct {
@@ -58,11 +63,11 @@ type EpochCommitmentFactory struct {
 func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
-	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeNodes)
-	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeValues)
+	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
+	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeValues)
 
-	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixManaTreeNodes)
-	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixManaTreeValues)
+	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeNodes)
+	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
@@ -222,34 +227,38 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 }
 
 // ecRecord retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, isNew bool, err error) {
-	ecRecord = epoch.NewECRecord(ei)
-	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
-		ecRecord.SetECR(record.ECR())
-		ecRecord.SetPrevEC(record.PrevEC())
-	}) {
-		return ecRecord, false, nil
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+	ecRecord = f.loadECRecord(ei)
+	if ecRecord != nil {
+		return ecRecord, nil
 	}
-
 	// We never committed this epoch before, create and roll to a new epoch.
-	ecr, err := f.ECR(ei)
-	if err != nil {
-		return nil, false, err
+	ecr, ecrErr := f.ECR(ei)
+	if ecrErr != nil {
+		return nil, ecrErr
 	}
-	prevECRecord, _, err := f.ecRecord(ei - 1)
-	if err != nil {
-		return nil, false, err
+	prevECRecord, ecrRecordErr := f.ecRecord(ei - 1)
+	if ecrRecordErr != nil {
+		return nil, ecrRecordErr
 	}
-	prevEC := EC(prevECRecord)
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
-		e.SetPrevEC(prevEC)
+		e.SetPrevEC(EC(prevECRecord))
 		ecRecord = e
 	})
 
-	return ecRecord, true, nil
+	return ecRecord, nil
+}
+
+func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *epoch.ECRecord) {
+	f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
+		ecRecord = epoch.NewECRecord(ei)
+		ecRecord.SetECR(record.ECR())
+		ecRecord.SetPrevEC(record.PrevEC())
+	})
+	return
 }
 
 // storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
@@ -375,7 +384,7 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
-	lastCommittedEpoch, lastCommittedEpochErr := f.storage.LastCommittedEpochIndex()
+	lastCommittedEpoch, lastCommittedEpochErr := f.storage.latestCommittableEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
 	}
@@ -421,6 +430,11 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	return f.StateRoot(), f.ManaRoot(), nil
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region extra functions //////////////////////////////////////////////////////////////////////////////////////////////
+
+// EC calculates the epoch commitment hash from the given ECRecord.
 func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 	concatenated := make([]byte, 0)
 	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
@@ -431,3 +445,5 @@ func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 
 	return epoch.NewMerkleRoot(ecHash[:])
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

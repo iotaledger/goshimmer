@@ -11,6 +11,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+// region proofs helpers ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// CommitmentProof represents an inclusion proof for a specific epoch.
 type CommitmentProof struct {
 	EI    epoch.Index
 	proof smt.SparseMerkleProof
@@ -102,3 +105,5 @@ func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, 
 	key := transactionID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

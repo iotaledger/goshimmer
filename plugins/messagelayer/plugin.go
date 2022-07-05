@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -165,6 +166,10 @@ func configure(plugin *node.Plugin) {
 		if err != nil {
 			plugin.LogErrorf("could not store snapshot_loaded flag: %v")
 		}
+	}
+
+	if Parameters.GenesisTime > 0 {
+		epoch.GenesisTime = Parameters.GenesisTime
 	}
 
 	configureFinality()

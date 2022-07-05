@@ -25,6 +25,9 @@ type ParametersDefinition struct {
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
+
+	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.
+	GenesisTime int64 `default:"0" usage:"resets the genesis time to the specified value, unix time in seconds"`
 }
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.

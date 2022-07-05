@@ -292,11 +292,11 @@ type MessageModel struct {
 	IssuingTime          time.Time         `serix:"3"`
 	SequenceNumber       uint64            `serix:"4"`
 	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
-	Nonce                uint64            `serix:"6"`
-	EI                   epoch.Index       `serix:"7"`
-	ECR                  epoch.ECR         `serix:"8"`
-	PrevEC               epoch.EC          `serix:"9"`
-	LatestConfirmedEpoch epoch.Index       `serix:"10"`
+	EI                   epoch.Index       `serix:"6"`
+	ECR                  epoch.ECR         `serix:"7"`
+	PrevEC               epoch.EC          `serix:"8"`
+	LatestConfirmedEpoch epoch.Index       `serix:"9"`
+	Nonce                uint64            `serix:"10"`
 	Signature            ed25519.Signature `serix:"11"`
 }
 

@@ -204,7 +204,7 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 
 	resp, err := node.BroadcastFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "node=%s, address=%s, BroadcastFaucetRequest failed", node, addr.Base58())
-
+	fmt.Println("faucet resp ", resp.ID)
 	sent := DataMessageSent{
 		id:              resp.ID,
 		data:            nil,

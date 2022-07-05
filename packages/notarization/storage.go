@@ -49,14 +49,14 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	new.baseStore = new.epochCommitmentStorageOptions.store
 
 	new.ledgerstateStorage = objectstorage.NewStructStorage[ledger.OutputWithMetadata](
-		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, PrefixLedgerState),
+		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixLedgerState),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
 	new.ecRecordStorage = objectstorage.NewStructStorage[epoch.ECRecord](
-		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, PrefixECRecord),
+		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixECRecord),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -78,40 +78,8 @@ func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentC
 	return s.ecRecordStorage.Load(ei.Bytes())
 }
 
-func (s *EpochCommitmentStorage) SetFullEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("fullEpochIndex", ei)
-}
-
-func (s *EpochCommitmentStorage) FullEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("fullEpochIndex")
-}
-
-func (s *EpochCommitmentStorage) SetDiffEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("diffEpochIndex", ei)
-}
-
-func (s *EpochCommitmentStorage) DiffEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("diffEpochIndex")
-}
-
-func (s *EpochCommitmentStorage) SetLastCommittedEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("lastCommittedEpochIndex", ei)
-}
-
-func (s *EpochCommitmentStorage) LastCommittedEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("lastCommittedEpochIndex")
-}
-
-func (s *EpochCommitmentStorage) SetLastConfirmedEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("lastConfirmedEpochIndex", ei)
-}
-
-func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("lastConfirmedEpochIndex")
-}
-
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) Shutdown() {
+// shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()
@@ -120,6 +88,30 @@ func (s *EpochCommitmentStorage) Shutdown() {
 			epochDiffStorage.created.Shutdown()
 		}
 	})
+}
+
+func (s *EpochCommitmentStorage) setLatestCommittableEpochIndex(ei epoch.Index) error {
+	return s.setIndexFlag("latestCommittableEpochIndex", ei)
+}
+
+func (s *EpochCommitmentStorage) latestCommittableEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("latestCommittableEpochIndex")
+}
+
+func (s *EpochCommitmentStorage) setLastConfirmedEpochIndex(ei epoch.Index) error {
+	return s.setIndexFlag("lastConfirmedEpochIndex", ei)
+}
+
+func (s *EpochCommitmentStorage) lastConfirmedEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("lastConfirmedEpochIndex")
+}
+
+func (s *EpochCommitmentStorage) setAcceptanceEpochIndex(ei epoch.Index) error {
+	return s.setIndexFlag("acceptanceEpochIndex", ei)
+}
+
+func (s *EpochCommitmentStorage) acceptanceEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("acceptanceEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
@@ -157,11 +149,11 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		return epochDiffStorage
 	}
 
-	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochDiffSpent}, ei.Bytes()...))
+	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, prefixEpochDiffSpent}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
-	createdDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochDiffCreated}, ei.Bytes()...))
+	createdDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, prefixEpochDiffCreated}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
@@ -192,24 +184,24 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	PrefixLedgerState byte = iota
+	prefixLedgerState byte = iota
 
-	PrefixECRecord
+	prefixECRecord
 
-	PrefixEpochDiffCreated
+	prefixEpochDiffCreated
 
-	PrefixEpochDiffSpent
+	prefixEpochDiffSpent
 
-	PrefixStateTreeNodes
+	prefixStateTreeNodes
 
-	PrefixStateTreeValues
+	prefixStateTreeValues
 
-	PrefixManaTreeNodes
+	prefixManaTreeNodes
 
-	PrefixManaTreeValues
+	prefixManaTreeValues
 )
 
-// region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
 // (the default option is to use a MapDB).
@@ -218,20 +210,6 @@ func WithStore(store kvstore.KVStore) (option Option) {
 		options.store = store
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region WithCacheTimeProvider ////////////////////////////////////////////////////////////////////////////////////////
-
-// WithCacheTimeProvider is an Option for the Ledger that allows to configure which CacheTimeProvider is supposed to
-// be used.
-func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) (option Option) {
-	return func(options *options) {
-		options.cacheTimeProvider = cacheTimeProvider
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // options is a container for all configurable parameters of the Indexer.
 type options struct {
@@ -243,8 +221,6 @@ type options struct {
 
 	epochCommitmentCacheTime time.Duration
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.

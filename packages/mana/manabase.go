@@ -27,12 +27,10 @@ func (m *ManaBase) revoke(amount float64) error {
 	return nil
 }
 
-func (m *ManaBase) pledge(tx *TxInfo) (pledged float64) {
+func (m *ManaBase) pledge(pledgedAmount float64) {
 	m.Lock()
 	defer m.Unlock()
-	pledged = tx.sumInputs()
-	m.M.Value += pledged
-	return pledged
+	m.M.Value += pledgedAmount
 }
 
 // BaseValue returns the base mana value (BM1).

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
+
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -74,8 +76,8 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
 			0,
 			ed25519.Signature{},
-		0,
-		nil,
+			0,
+			epoch.NewECRecord(0),
 		)
 		assert.NoError(t, msg.DetermineID())
 		assert.NoError(t, rateSetter.Issue(msg))

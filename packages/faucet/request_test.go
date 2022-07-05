@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -16,33 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
-
-func ExampleRequest() {
-	keyPair := ed25519.GenerateKeyPair()
-	address := devnetvm.NewED25519Address(keyPair.PublicKey)
-	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
-	emptyID := identity.ID{}
-
-	// 1. create faucet payload
-	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
-
-	// 2. build actual message
-	tx := tangle.NewMessage(map[tangle.ParentsType]tangle.MessageIDs{
-		tangle.StrongParentType: {
-			tangle.EmptyMessageID: types.Void,
-		},
-	},
-		time.Now(),
-		local.PublicKey(),
-		0,
-		faucetRequest,
-		0,
-		ed25519.EmptySignature,
-		0,
-		nil,
-	)
-	fmt.Println(tx.String())
-}
 
 func TestRequest(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()

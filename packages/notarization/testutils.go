@@ -5,13 +5,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -21,6 +20,7 @@ const (
 )
 
 var (
+	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
 	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
@@ -34,6 +34,7 @@ var (
 		}
 	}
 
+	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
 	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
@@ -55,25 +56,25 @@ type EventMock struct {
 	calledEvents   uint64
 	test           *testing.T
 
-	// TODO: what is this for, do we need this?
 	attached []struct {
-		*event.Event[*EpochCommittedEvent]
-		*event.Closure[*EpochCommittedEvent]
+		*event.Event[*EpochCommittableEvent]
+		*event.Closure[*EpochCommittableEvent]
 	}
 }
 
 // NewEventMock creates a new EventMock.
-func NewEventMock(t *testing.T, notarizationManager *Manager, ecFactory *EpochCommitmentFactory) *EventMock {
+func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	e := &EventMock{
 		test: t,
 	}
 
 	// attach all events
-	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommitted))
+	notarizationManager.Events.EpochCommittable.Hook(event.NewClosure(e.EpochCommittable))
+	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+1, numEvents, "not all events in notarizationManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
 
 	return e
 }
@@ -110,8 +111,14 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// EpochCommitted is the mocked BranchWeightChanged function.
-func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
+// EpochCommittable is the mocked EpochCommittable event.
+func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 	e.Called(event.EI)
+	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// ManaVectorUpdate is the mocked ManaVectorUpdate event.
+func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
+	e.Called(event.EI, event.EpochDiffCreated, event.EpochDiffSpent)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
