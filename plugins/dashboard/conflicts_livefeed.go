@@ -197,11 +197,11 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 	}
 
 	b.AW = math.Round(e.Weight*precision) / precision
-	b.GoF, _ = deps.Tangle.Ledger.Utils.BranchConfirmationState(b.BranchID)
+	b.GoF = deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(b.BranchID))
 	b.UpdatedTime = clock.SyncedTime()
 	conflicts.addBranch(b)
 
-	if messagelayer.FinalityGadget().IsBranchConfirmed(b.BranchID) {
+	if messagelayer.AcceptanceGadget().IsBranchConfirmed(b.BranchID) {
 		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts.resolveConflict(conflictID)

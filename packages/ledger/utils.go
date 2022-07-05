@@ -33,7 +33,7 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs utxo.TransactionIDs) (branchIDsI
 
 		branchIDsInFutureCone.Add(branchID)
 
-		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(branchID)) >= confirmation.Accepted {
+		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(branchID)).IsAccepted() {
 			u.ledger.Storage.CachedTransactionMetadata(branchID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
@@ -157,21 +157,6 @@ func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmat
 		confirmationState = txMetadata.ConfirmationState()
 	}) {
 		return confirmation.Pending, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
-	}
-
-	return
-}
-
-// BranchConfirmationState returns the ConfirmationState of the Conflict with the given BranchID.
-func (u *Utils) BranchConfirmationState(branchID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	if branchID == utxo.EmptyTransactionID {
-		return confirmation.Confirmed, nil
-	}
-
-	if !u.ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		confirmationState = branch.ConfirmationState()
-	}) {
-		return confirmation.Pending, errors.Errorf("failed to load Conflict with %s: %w", branchID, cerrors.ErrFatal)
 	}
 
 	return

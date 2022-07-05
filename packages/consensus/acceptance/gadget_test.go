@@ -1,4 +1,4 @@
-package finality
+package acceptance
 
 import (
 	"fmt"
@@ -56,8 +56,8 @@ func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
-func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
-	fg.Events().MessageAccepted.Hook(event.NewClosure(func(event *tangle.MessageAcceptedEvent) { handler.MessageAccepted(event.Message.ID()) }))
+func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance *tangle.Tangle) {
+	ag.Events().MessageAccepted.Hook(event.NewClosure(func(event *tangle.MessageAcceptedEvent) { handler.MessageAccepted(event.Message.ID()) }))
 	tangleInstance.Ledger.ConflictDAG.Events.BranchAccepted.Hook(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		handler.BranchAccepted(event.ID)
 	}))
@@ -340,14 +340,14 @@ func assertBranchesConfirmationState(t *testing.T, testFramework *tangle.Message
 	}
 }
 
-func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
+func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, ag *Gadget) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
-		if err := fg.HandleMarker(e.Marker, e.Weight); err != nil {
+		if err := ag.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
 	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
+		if err := ag.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))

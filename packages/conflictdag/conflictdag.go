@@ -187,14 +187,10 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(branc
 	b.RLock()
 	defer b.RUnlock()
 
-	// TODO: this does only return confirmation.Accepted as the highest state even if all branches are confirmed.
-	confirmationState = confirmation.Accepted
+	confirmationState = confirmation.Confirmed
 	for it := branchIDs.Iterator(); it.HasNext(); {
-		switch b.confirmationState(it.Next()) {
-		case confirmation.Rejected:
+		if confirmationState = confirmationState.Aggregate(b.confirmationState(it.Next())); confirmationState.IsRejected() {
 			return confirmation.Rejected
-		case confirmation.Pending:
-			confirmationState = confirmation.Pending
 		}
 	}
 
@@ -236,7 +232,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchRefere
 // anyParentRejected checks if any of a Branches parents is Rejected.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(branch *Conflict[ConflictID, ConflictingResourceID]) (rejected bool) {
 	for it := branch.Parents().Iterator(); it.HasNext(); {
-		if b.confirmationState(it.Next()) == confirmation.Rejected {
+		if b.confirmationState(it.Next()).IsRejected() {
 			return true
 		}
 	}
@@ -247,7 +243,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(branc
 // anyConflictingBranchAccepted checks if any conflicting Conflict is Accepted/Confirmed.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchAccepted(branch *Conflict[ConflictID, ConflictingResourceID]) (anyConfirmed bool) {
 	b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID ConflictID) bool {
-		anyConfirmed = b.confirmationState(conflictingBranchID) >= confirmation.Accepted
+		anyConfirmed = b.confirmationState(conflictingBranchID).IsAccepted()
 		return !anyConfirmed
 	})
 

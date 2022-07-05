@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -52,7 +51,7 @@ func main() {
 		for _, v := range resp.UnspentOutputs {
 			if len(v.Outputs) > 0 {
 				myOutputID = v.Outputs[0].Output.OutputID.Base58
-				confirmed = v.Outputs[0].ConfirmationState >= confirmation.Accepted
+				confirmed = v.Outputs[0].ConfirmationState.IsAccepted()
 				break
 			}
 		}

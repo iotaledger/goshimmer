@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/types/confirmation"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -1825,7 +1824,7 @@ func (wallet *Wallet) WaitForTxConfirmation(txID utxo.TransactionID) (err error)
 		if fetchErr != nil {
 			return fetchErr
 		}
-		if confirmationState >= confirmation.Accepted {
+		if confirmationState.IsAccepted() {
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {

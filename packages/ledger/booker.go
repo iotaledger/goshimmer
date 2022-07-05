@@ -11,9 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // booker is a Ledger component that bundles the booking related API.

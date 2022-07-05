@@ -145,7 +145,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.BranchIDs()) >= confirmation.Accepted {
+		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.BranchIDs()).IsAccepted() {
 			l.triggerAcceptedEvent(txMetadata)
 		}
 	})
@@ -248,7 +248,7 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.BranchIDs()) >= confirmation.Accepted {
+			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.BranchIDs()).IsAccepted() {
 				return
 			}
 

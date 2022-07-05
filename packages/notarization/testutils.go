@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -20,7 +20,7 @@ const (
 
 var (
 	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
-	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	TestBranchGoFTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -29,7 +29,7 @@ var (
 	}
 
 	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
-	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) confirmation.State {
+	TestMessageGoFTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

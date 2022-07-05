@@ -6,7 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -49,7 +48,7 @@ func (c *TipsConflictTracker) AddTip(messageID MessageID) {
 	for it := messageConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
-		if c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)) != confirmation.Pending {
+		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
 			continue
 		}
 
@@ -75,7 +74,7 @@ func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
 			continue
 		}
 
-		if c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)) != confirmation.Pending {
+		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
 			continue
 		}
 
@@ -93,7 +92,7 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 	missingConflicts = utxo.NewTransactionIDs()
 	_ = c.missingConflicts.ForEach(func(conflictID utxo.TransactionID) (err error) {
 		// TODO: this should not be necessary if BranchAccepted/BranchRejected events are fired appropriately
-		if c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)) != confirmation.Pending {
+		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
 			c.missingConflicts.Delete(conflictID)
 			delete(c.tipsConflictCount, conflictID)
 			return

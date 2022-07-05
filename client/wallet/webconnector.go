@@ -85,7 +85,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			walletOutput := &Output{
 				Address:                  addr,
 				Object:                   lOutput,
-				ConfirmationStateReached: output.ConfirmationState >= confirmation.Accepted,
+				ConfirmationStateReached: output.ConfirmationState.IsAccepted(),
 				Spent:                    false,
 				Metadata: OutputMetadata{
 					Timestamp: output.Metadata.Timestamp,

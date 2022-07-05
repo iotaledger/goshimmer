@@ -114,7 +114,7 @@ func registerTangleEvents() {
 			Type: MsgTypeTangleTxGoF,
 			Data: &tangleTxGoFChanged{
 				ID:          msgID.Base58(),
-				IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(event.TransactionID),
+				IsConfirmed: deps.AcceptanceGadget.IsTransactionConfirmed(event.TransactionID),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -123,7 +123,7 @@ func registerTangleEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().MessageAccepted.Attach(msgConfirmedClosure)
+	deps.AcceptanceGadget.Events().MessageAccepted.Attach(msgConfirmedClosure)
 	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txGoFChangedClosure)
 }
 
@@ -169,7 +169,7 @@ func registerUTXOEvents() {
 					ID:          txID.Base58(),
 					GoF:         txMetadata.ConfirmationState().String(),
 					GoFTime:     txMetadata.ConfirmationStateTime().UnixNano(),
-					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
+					IsConfirmed: deps.AcceptanceGadget.IsTransactionConfirmed(txID),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -219,7 +219,7 @@ func registerBranchEvents() {
 	})
 
 	branchWeightChangedClosure := event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchConfirmationState(e.BranchID)
+		branchGoF := deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.BranchID))
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
@@ -352,7 +352,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			BranchIDs:            lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 			IsMarker:             msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                 message.Payload().Type() == devnetvm.TransactionType,
-			IsConfirmed:          deps.FinalityGadget.IsMessageConfirmed(message.ID()),
+			IsConfirmed:          deps.AcceptanceGadget.IsMessageConfirmed(message.ID()),
 			ConfirmedTime:        msgMetadata.ConfirmationStateTime().UnixNano(),
 			GoF:                  msgMetadata.ConfirmationState().String(),
 		}
@@ -389,7 +389,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 		ID:          tx.ID().Base58(),
 		Inputs:      inputs,
 		Outputs:     outputs,
-		IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
+		IsConfirmed: deps.AcceptanceGadget.IsTransactionConfirmed(tx.ID()),
 		BranchIDs:   branchIDs,
 		GoF:         gof,
 		GoFTime:     confirmedTime,
@@ -410,12 +410,12 @@ func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
 			})
 		}
 
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchConfirmationState(branchID)
+		branchGoF := deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branchID))
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
 			Parents:     lo.Map(branch.Parents().Slice(), utxo.TransactionID.Base58),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
-			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+			IsConfirmed: deps.AcceptanceGadget.IsBranchConfirmed(branchID),
 			GoF:         branchGoF.String(),
 			AW:          deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID),
 		}
