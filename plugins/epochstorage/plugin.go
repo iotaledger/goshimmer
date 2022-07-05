@@ -146,13 +146,15 @@ func checkEpochContentLimit() {
 		epochOrderMutex.Unlock()
 		return
 	}
+
+	// sort the order list to remove the oldest ones.
 	sort.Slice(epochOrder, func(i, j int) bool {
 		return epochOrder[i] < epochOrder[j]
 	})
 
 	var epochToRemove []epoch.Index
 	copy(epochToRemove, epochOrder[:numEpochContentsToRemove])
-	// remove the first numEpochContentsToRemove epoch
+	// remove the first numEpochContentsToRemove epochs
 	epochOrder = epochOrder[numEpochContentsToRemove:]
 
 	for _, i := range epochToRemove {
