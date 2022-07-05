@@ -508,7 +508,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 
 		// reads the roots and store the ec
 		// rolls the state trees
-		ecRecord := epoch.NewECRecord(epoch.Index(0))
 		ecRecord, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei)
 		if ecRecordErr != nil {
 			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
