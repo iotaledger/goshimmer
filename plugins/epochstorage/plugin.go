@@ -142,7 +142,6 @@ func configure(plugin *node.Plugin) {
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("EpochStorage", func(ctx context.Context) {
 		<-ctx.Done()
-		deps.Tangle.Shutdown()
 	}, shutdown.PriorityNotarization); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
