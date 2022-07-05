@@ -56,8 +56,8 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                     </ListGroup>
                     <ListGroup.Item>Booked: {txMetadata.booked.toString()}</ListGroup.Item>
                     <ListGroup.Item>Booked time: {new Date(txMetadata.bookedTime * 1000).toLocaleString()}</ListGroup.Item>
-                    <ListGroup.Item>Grade of Finality: {txMetadata.gradeOfFinality}</ListGroup.Item>
-                    <ListGroup.Item>Grade of Finality Time: {new Date(txMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality: {txMetadata.confirmationState}</ListGroup.Item>
+                    <ListGroup.Item>Grade of Finality Time: {new Date(txMetadata.confirmationStateTime * 1000).toLocaleString()}</ListGroup.Item>
                 </ListGroup>}
             </div>
         )

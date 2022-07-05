@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -88,15 +88,15 @@ func registerTangleEvents() {
 		})
 	})
 
-	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
 		messageID := event.Message.ID()
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
 				Data: &tangleConfirmed{
 					ID:            messageID.Base58(),
-					GoF:           msgMetadata.GradeOfFinality().String(),
-					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
+					GoF:           msgMetadata.ConfirmationState().String(),
+					ConfirmedTime: msgMetadata.ConfirmationStateTime().UnixNano(),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -104,7 +104,7 @@ func registerTangleEvents() {
 		})
 	})
 
-	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 		var msgID tangle.MessageID
 		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
 			msgID = a.MessageID()
@@ -123,8 +123,8 @@ func registerTangleEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
+	deps.FinalityGadget.Events().MessageAccepted.Attach(msgConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
@@ -160,15 +160,15 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 		txID := event.TransactionID
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOGoFChanged,
 				Data: &utxoGoFChanged{
 					ID:          txID.Base58(),
-					GoF:         txMetadata.GradeOfFinality().String(),
-					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
+					GoF:         txMetadata.ConfirmationState().String(),
+					GoFTime:     txMetadata.ConfirmationStateTime().UnixNano(),
 					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
 				},
 			}
@@ -179,7 +179,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
@@ -205,13 +205,13 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchGoFChanged,
-			Data: &branchGoFChanged{
-				ID:          event.ID.Base58(),
-				GoF:         gof.High.String(),
-				IsConfirmed: true,
+			Data: &branchConfirmationStateChanged{
+				ID:                event.ID.Base58(),
+				ConfirmationState: confirmation.Accepted.String(),
+				IsConfirmed:       true,
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -219,7 +219,7 @@ func registerBranchEvents() {
 	})
 
 	branchWeightChangedClosure := event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(e.BranchID)
+		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchConfirmationState(e.BranchID)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
@@ -233,7 +233,7 @@ func registerBranchEvents() {
 	})
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(branchConfirmedClosure)
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
@@ -353,8 +353,8 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			IsMarker:             msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                 message.Payload().Type() == devnetvm.TransactionType,
 			IsConfirmed:          deps.FinalityGadget.IsMessageConfirmed(message.ID()),
-			ConfirmedTime:        msgMetadata.GradeOfFinalityTime().UnixNano(),
-			GoF:                  msgMetadata.GradeOfFinality().String(),
+			ConfirmedTime:        msgMetadata.ConfirmationStateTime().UnixNano(),
+			GoF:                  msgMetadata.ConfirmationState().String(),
 		}
 	})
 
@@ -379,8 +379,8 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	var confirmedTime int64
 	var branchIDs []string
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
-		gof = txMetadata.GradeOfFinality().String()
-		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
+		gof = txMetadata.ConfirmationState().String()
+		confirmedTime = txMetadata.ConfirmationStateTime().UnixNano()
 		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58)
 	})
 
@@ -410,7 +410,7 @@ func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
 			})
 		}
 
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
+		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchConfirmationState(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
 			Parents:     lo.Map(branch.Parents().Slice(), utxo.TransactionID.Base58),

@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -89,7 +88,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
 
-	t.Logf("Sending data %d messages to confirm Conflicts and make GoF converge on all nodes", dataMessagesAmount*2)
+	t.Logf("Sending data %d messages to confirm Conflicts and make ConfirmationState converge on all nodes", dataMessagesAmount*2)
 	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount*2, delayBetweenDataMessages)
 
 	t.Logf("number of txs to verify is %d", len(txs))
@@ -113,7 +112,7 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 	const unknownGoF = 10
 	for _, tx := range txs {
 		// current value signifies that we don't know what is the previous gof
-		var prevGoF gof.GradeOfFinality = unknownGoF
+		var prevGoF confirmation.State = unknownGoF
 		for i, peer := range peers {
 			var metadata *jsonmodels.TransactionMetadata
 			var err error
@@ -122,14 +121,14 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 				return err == nil && metadata != nil
 			}, 10*time.Second, 10*time.Millisecond, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
 				peer.Name(), tx.ID().Base58(), metadata, err)
-			t.Logf("GoF is %d for tx %s in peer %s", metadata.GradeOfFinality, tx.ID().Base58(), peer.Name())
+			t.Logf("ConfirmationState is %d for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
 			if prevGoF != unknownGoF {
 				require.Eventually(t,
-					func() bool { return prevGoF == metadata.GradeOfFinality },
-					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
-					peers[i-1].Name(), prevGoF, peer.Name(), metadata.GradeOfFinality)
+					func() bool { return prevGoF == metadata.ConfirmationState },
+					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (ConfirmationState=%d) and %s (ConfirmationState=%d)", tx.ID().Base58(),
+					peers[i-1].Name(), prevGoF, peer.Name(), metadata.ConfirmationState)
 			}
-			prevGoF = metadata.GradeOfFinality
+			prevGoF = metadata.ConfirmationState
 		}
 	}
 }

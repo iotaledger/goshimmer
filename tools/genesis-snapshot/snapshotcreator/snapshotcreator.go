@@ -5,9 +5,9 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -93,7 +93,7 @@ func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identit
 	outputCounter++
 
 	outputMetadata = ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetGradeOfFinality(gof.High)
+	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetCreationTime(creationTime)

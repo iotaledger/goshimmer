@@ -241,7 +241,7 @@ func (o *OutputManager) AwaitOutputToBeConfirmed(outputID utxo.OutputID, waitFor
 	clt := o.connector.GetClient()
 	confirmed = false
 	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
-		gof := clt.GetOutputGoF(outputID)
+		gof := clt.GetOutputConfirmationState(outputID)
 		if gof == GoFConfirmed {
 			confirmed = true
 			break
@@ -279,7 +279,7 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 	clt := o.connector.GetClient()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
-		if gof := clt.GetTransactionGoF(txID); gof == GoFConfirmed {
+		if gof := clt.GetTransactionConfirmationState(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
 		}

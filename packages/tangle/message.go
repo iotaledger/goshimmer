@@ -16,10 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -618,22 +618,22 @@ type MessageMetadata struct {
 }
 
 type messageMetadataModel struct {
-	ReceivedTime        time.Time                 `serix:"1"`
-	SolidificationTime  time.Time                 `serix:"2"`
-	Solid               bool                      `serix:"3"`
-	StructureDetails    *markers.StructureDetails `serix:"4,optional"`
-	AddedBranchIDs      utxo.TransactionIDs       `serix:"5"`
-	SubtractedBranchIDs utxo.TransactionIDs       `serix:"6"`
-	Scheduled           bool                      `serix:"7"`
-	ScheduledTime       time.Time                 `serix:"8"`
-	Booked              bool                      `serix:"9"`
-	BookedTime          time.Time                 `serix:"10"`
-	ObjectivelyInvalid  bool                      `serix:"11"`
-	GradeOfFinality     gof.GradeOfFinality       `serix:"12"`
-	GradeOfFinalityTime time.Time                 `serix:"13"`
-	DiscardedTime       time.Time                 `serix:"14"`
-	QueuedTime          time.Time                 `serix:"15"`
-	SubjectivelyInvalid bool                      `serix:"16"`
+	ReceivedTime          time.Time                 `serix:"1"`
+	SolidificationTime    time.Time                 `serix:"2"`
+	Solid                 bool                      `serix:"3"`
+	StructureDetails      *markers.StructureDetails `serix:"4,optional"`
+	AddedBranchIDs        utxo.TransactionIDs       `serix:"5"`
+	SubtractedBranchIDs   utxo.TransactionIDs       `serix:"6"`
+	Scheduled             bool                      `serix:"7"`
+	ScheduledTime         time.Time                 `serix:"8"`
+	Booked                bool                      `serix:"9"`
+	BookedTime            time.Time                 `serix:"10"`
+	ObjectivelyInvalid    bool                      `serix:"11"`
+	ConfirmationState     confirmation.State        `serix:"12"`
+	ConfirmationStateTime time.Time                 `serix:"13"`
+	DiscardedTime         time.Time                 `serix:"14"`
+	QueuedTime            time.Time                 `serix:"15"`
+	SubjectivelyInvalid   bool                      `serix:"16"`
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -913,36 +913,36 @@ func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
 	return true
 }
 
-// SetGradeOfFinality sets the grade of finality associated with this metadata.
+// SetConfirmationState sets the grade of finality associated with this metadata.
 // It returns true if the grade of finality is modified. False otherwise.
-func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+func (m *MessageMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.M.GradeOfFinality == gradeOfFinality {
+	if m.M.ConfirmationState == confirmationState {
 		return false
 	}
 
-	m.M.GradeOfFinality = gradeOfFinality
-	m.M.GradeOfFinalityTime = clock.SyncedTime()
+	m.M.ConfirmationState = confirmationState
+	m.M.ConfirmationStateTime = clock.SyncedTime()
 	m.SetModified()
 	return true
 }
 
-// GradeOfFinality returns the grade of finality.
-func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
+// ConfirmationState returns the grade of finality.
+func (m *MessageMetadata) ConfirmationState() (result confirmation.State) {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.M.GradeOfFinality
+	return m.M.ConfirmationState
 }
 
-// GradeOfFinalityTime returns the time the grade of finality was set.
-func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
+// ConfirmationStateTime returns the time the grade of finality was set.
+func (m *MessageMetadata) ConfirmationStateTime() time.Time {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.M.GradeOfFinalityTime
+	return m.M.ConfirmationStateTime
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -46,7 +46,7 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
-	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
+	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
 	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
@@ -66,7 +66,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionConfirmed(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
@@ -105,7 +105,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -224,7 +224,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionConfirmedClosure)
 				notarizationManager.Events.ManaVectorUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()

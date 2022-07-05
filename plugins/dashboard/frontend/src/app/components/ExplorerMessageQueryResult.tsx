@@ -190,10 +190,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Subjectively Invalid: {msg.subjectivelyInvalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Grade of Finality: {msg.gradeOfFinality}
+                                        Grade of Finality: {msg.confirmationState}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Grade of Finality Time: {dateformat(new Date(msg.gradeOfFinalityTime * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                        Grade of Finality Time: {dateformat(new Date(msg.confirmationStateTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>

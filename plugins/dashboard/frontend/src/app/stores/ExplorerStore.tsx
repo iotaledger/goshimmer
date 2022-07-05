@@ -42,8 +42,8 @@ export class Message {
     booked: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
-    gradeOfFinality: number;
-    gradeOfFinalityTime: number;
+    confirmationState: number;
+    confirmationStateTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -82,8 +82,8 @@ export class OutputMetadata {
     branchIDs: Array<string>;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
-    gradeOfFinality: number
-    gradeOfFinalityTime: number
+    confirmationState: number
+    confirmationStateTime: number
 }
 
 class OutputConsumer {
@@ -107,8 +107,8 @@ class Branch {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number;
-    inclusionState: string;
+    confirmationState: number;
+    confirmationState: string;
 }
 
 class BranchChildren {

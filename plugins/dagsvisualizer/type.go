@@ -9,7 +9,7 @@ const (
 	MsgTypeTangleBooked
 	// MsgTypeTangleConfirmed is the type of the Tangle DAG confirmed message.
 	MsgTypeTangleConfirmed
-	// MsgTypeTangleTxGoF is the type of the Tangle DAG transaction GoF.
+	// MsgTypeTangleTxGoF is the type of the Tangle DAG transaction ConfirmationState.
 	MsgTypeTangleTxGoF
 	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
 	MsgTypeUTXOVertex
@@ -100,10 +100,10 @@ type branchParentUpdate struct {
 	Parents []string `json:"parents"`
 }
 
-type branchGoFChanged struct {
-	ID          string `json:"ID"`
-	GoF         string `json:"gof"`
-	IsConfirmed bool   `json:"isConfirmed"`
+type branchConfirmationStateChanged struct {
+	ID                string `json:"ID"`
+	ConfirmationState string `json:"confirmationState"`
+	IsConfirmed       bool   `json:"isConfirmed"`
 }
 
 type branchWeightChanged struct {

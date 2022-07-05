@@ -1,13 +1,13 @@
 package finality
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -22,45 +22,33 @@ type Gadget interface {
 	tangle.ConfirmationOracle
 }
 
-// MessageThresholdTranslation is a function which translates approval weight to a gof.GradeOfFinality.
-type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
+// MessageThresholdTranslation is a function which translates approval weight to a confirmation.State.
+type MessageThresholdTranslation func(aw float64) confirmation.State
 
-// BranchThresholdTranslation is a function which translates approval weight to a gof.GradeOfFinality.
-type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality
+// BranchThresholdTranslation is a function which translates approval weight to a confirmation.State.
+type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) confirmation.State
 
 const (
-	lowLowerBound    = 0.25
-	mediumLowerBound = 0.45
-	highLowerBound   = 0.67
+	acceptanceThreshold = 0.67
 )
 
 var (
-	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
-	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= lowLowerBound && aw < mediumLowerBound:
-			return gof.Low
-		case aw >= mediumLowerBound && aw < highLowerBound:
-			return gof.Medium
-		case aw >= highLowerBound:
-			return gof.High
-		default:
-			return gof.None
+	// DefaultBranchGoFTranslation is the default function to translate the approval weight to confirmation.State of a branch.
+	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+		if aw >= acceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 
-	// DefaultMessageGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a message.
-	DefaultMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= lowLowerBound && aw < mediumLowerBound:
-			return gof.Low
-		case aw >= mediumLowerBound && aw < highLowerBound:
-			return gof.Medium
-		case aw >= highLowerBound:
-			return gof.High
-		default:
-			return gof.None
+	// DefaultMessageGoFTranslation is the default function to translate the approval weight to confirmation.State of a message.
+	DefaultMessageGoFTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
+		if aw >= acceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 )
 
@@ -69,17 +57,13 @@ type Option func(*Options)
 
 // Options defines the options for a SimpleFinalityGadget.
 type Options struct {
-	BranchTransFunc        BranchThresholdTranslation
-	MessageTransFunc       MessageThresholdTranslation
-	BranchGoFReachedLevel  gof.GradeOfFinality
-	MessageGoFReachedLevel gof.GradeOfFinality
+	BranchTransFunc  BranchThresholdTranslation
+	MessageTransFunc MessageThresholdTranslation
 }
 
 var defaultOpts = []Option{
 	WithBranchThresholdTranslation(DefaultBranchGoFTranslation),
 	WithMessageThresholdTranslation(DefaultMessageGoFTranslation),
-	WithBranchGoFReachedLevel(gof.High),
-	WithMessageGoFReachedLevel(gof.High),
 }
 
 // WithMessageThresholdTranslation returns an Option setting the MessageThresholdTranslation.
@@ -96,21 +80,7 @@ func WithBranchThresholdTranslation(f BranchThresholdTranslation) Option {
 	}
 }
 
-// WithBranchGoFReachedLevel returns an Option setting the branch reached grade of finality level.
-func WithBranchGoFReachedLevel(branchGradeOfFinality gof.GradeOfFinality) Option {
-	return func(opts *Options) {
-		opts.BranchGoFReachedLevel = branchGradeOfFinality
-	}
-}
-
-// WithMessageGoFReachedLevel returns an Option setting the message reached grade of finality level.
-func WithMessageGoFReachedLevel(msgGradeOfFinality gof.GradeOfFinality) Option {
-	return func(opts *Options) {
-		opts.MessageGoFReachedLevel = msgGradeOfFinality
-	}
-}
-
-// SimpleFinalityGadget is a Gadget which simply translates approval weight down to gof.GradeOfFinality
+// SimpleFinalityGadget is a Gadget which simply translates approval weight down to confirmation.State
 // and then applies it to messages, branches, transactions and outputs.
 type SimpleFinalityGadget struct {
 	tangle                    *tangle.Tangle
@@ -152,7 +122,7 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker markers.Marker) (confirm
 	}
 
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if messageMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
+		if messageMetadata.ConfirmationState() >= confirmation.Accepted {
 			confirmed = true
 		}
 	})
@@ -162,7 +132,7 @@ func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker markers.Marker) (confirm
 // IsMessageConfirmed returns whether the given message is confirmed.
 func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confirmed bool) {
 	s.tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if messageMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
+		if messageMetadata.ConfirmationState() >= confirmation.Accepted {
 			confirmed = true
 		}
 	})
@@ -201,13 +171,13 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID utxo.TransactionID) (confirmed bool) {
-	return s.tangle.Ledger.ConflictDAG.InclusionState(utxo.NewTransactionIDs(branchID)) == conflictdag.Confirmed
+	return s.tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branchID)) >= confirmation.Accepted
 }
 
 // IsTransactionConfirmed returns whether the given transaction is confirmed.
 func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID utxo.TransactionID) (confirmed bool) {
 	s.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-		if transactionMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
+		if transactionMetadata.ConfirmationState() >= confirmation.Accepted {
 			confirmed = true
 		}
 	})
@@ -217,32 +187,32 @@ func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID utxo.Transac
 // IsOutputConfirmed returns whether the given output is confirmed.
 func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID utxo.OutputID) (confirmed bool) {
 	s.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-		if outputMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
+		if outputMetadata.ConfirmationState() >= confirmation.Accepted {
 			confirmed = true
 		}
 	})
 	return
 }
 
-// HandleMarker receives a marker and its current approval weight. It propagates the GoF according to AW to its past cone.
+// HandleMarker receives a marker and its current approval weight. It propagates the ConfirmationState according to AW to its past cone.
 func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
-	gradeOfFinality := s.opts.MessageTransFunc(aw)
-	if gradeOfFinality == gof.None {
+	confirmationState := s.opts.MessageTransFunc(aw)
+	if confirmationState == confirmation.Pending {
 		return nil
 	}
 
 	// get message ID of marker
 	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if gradeOfFinality <= messageMetadata.GradeOfFinality() {
+		if confirmationState <= messageMetadata.ConfirmationState() {
 			return
 		}
 
-		if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
+		if confirmationState >= confirmation.Accepted {
 			s.setMarkerConfirmed(marker)
 		}
 
-		s.propagateGoFToMessagePastCone(messageID, gradeOfFinality)
+		s.propagateGoFToMessagePastCone(messageID, confirmationState)
 	})
 
 	return err
@@ -262,8 +232,8 @@ func (s *SimpleFinalityGadget) setMarkerConfirmed(marker markers.Marker) (update
 	return true
 }
 
-// propagateGoFToMessagePastCone propagates the given GradeOfFinality to the past cone of the Message.
-func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
+// propagateGoFToMessagePastCone propagates the given ConfirmationState to the past cone of the Message.
+func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, confirmationState confirmation.State) {
 	strongParentWalker := walker.New[tangle.MessageID](false).Push(messageID)
 	weakParentsSet := set.New[tangle.MessageID]()
 
@@ -274,12 +244,12 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 		}
 
 		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
+			if messageMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
 			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
-				if !s.setMessageGoF(message, messageMetadata, gradeOfFinality) {
+				if !s.setMessageGoF(message, messageMetadata, confirmationState) {
 					return
 				}
 
@@ -299,39 +269,41 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 			return
 		}
 		s.tangle.Storage.MessageMetadata(weakParent).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
+			if messageMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
 			s.tangle.Storage.Message(weakParent).Consume(func(message *tangle.Message) {
-				s.setMessageGoF(message, messageMetadata, gradeOfFinality)
+				s.setMessageGoF(message, messageMetadata, confirmationState)
 			})
 		})
 	})
 }
 
-// HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
+// HandleBranch receives a branchID and its approval weight. It propagates the ConfirmationState according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
 func (s *SimpleFinalityGadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
-	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
-		s.tangle.Ledger.ConflictDAG.SetBranchConfirmed(branchID)
+	fmt.Println("HandleBranch", branchID, aw)
+	if s.opts.BranchTransFunc(branchID, aw) >= confirmation.Accepted {
+		fmt.Println("HandleBranch", branchID, aw, "confirmed", confirmation.Accepted)
+		s.tangle.Ledger.ConflictDAG.SetBranchAccepted(branchID)
 	}
 
 	return nil
 }
 
-func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	// abort if message has GoF already set
-	if modified = messageMetadata.SetGradeOfFinality(gradeOfFinality); !modified {
+func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMetadata *tangle.MessageMetadata, confirmationState confirmation.State) (modified bool) {
+	// abort if message has ConfirmationState already set
+	if modified = messageMetadata.SetConfirmationState(confirmationState); !modified {
 		return
 	}
 
-	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
-		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
+	if confirmationState >= confirmation.Accepted {
+		s.Events().MessageAccepted.Trigger(&tangle.MessageAcceptedEvent{
 			Message: message,
 		})
 
-		// set GoF of payload (applicable only to transactions)
+		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := message.Payload().(*devnetvm.Transaction); ok {
 			s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
 		}
@@ -340,16 +312,16 @@ func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMet
 	return modified
 }
 
-func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledger.TransactionMetadata) (lowestBranchGoF gof.GradeOfFinality) {
-	lowestBranchGoF = gof.High
+func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledger.TransactionMetadata) (lowestBranchConfirmationState confirmation.State) {
+	lowestBranchConfirmationState = confirmation.Pending
 	for it := transactionMetadata.BranchIDs().Iterator(); it.HasNext(); {
-		branchGoF, err := s.tangle.Ledger.Utils.BranchGradeOfFinality(it.Next())
+		branchConfirmationState, err := s.tangle.Ledger.Utils.BranchConfirmationState(it.Next())
 		if err != nil {
 			// TODO: properly handle error
 			panic(err)
 		}
-		if branchGoF < lowestBranchGoF {
-			lowestBranchGoF = branchGoF
+		if branchConfirmationState < lowestBranchConfirmationState {
+			lowestBranchConfirmationState = branchConfirmationState
 		}
 	}
 	return

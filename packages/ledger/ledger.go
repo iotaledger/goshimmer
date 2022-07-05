@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -66,8 +66,8 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		ledger.propagatedConfirmationToIncludedTransactions(event.ID)
+	ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
+		ledger.propagateAcceptanceToIncludedTransactions(event.ID)
 	}))
 
 	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
@@ -115,7 +115,7 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 	snapshot = NewSnapshot([]*OutputWithMetadata{})
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
+			if outputMetadata.IsSpent() || outputMetadata.ConfirmationState() < confirmation.Accepted {
 				return
 			}
 
@@ -145,8 +145,8 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == conflictdag.Confirmed {
-			l.triggerConfirmedEvent(txMetadata)
+		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.BranchIDs()) >= confirmation.Accepted {
+			l.triggerAcceptedEvent(txMetadata)
 		}
 	})
 }
@@ -197,38 +197,38 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	}
 }
 
-// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
-func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+// triggerAcceptedEvent triggers the TransactionAccepted event if the Transaction was accepted.
+func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggered bool) {
 	if txMetadata.InclusionTime().IsZero() {
 		return false
 	}
 
-	if !txMetadata.SetGradeOfFinality(gof.High) {
+	if !txMetadata.SetConfirmationState(confirmation.Accepted) {
 		return false
 	}
 
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-			outputMetadata.SetGradeOfFinality(gof.High)
+			outputMetadata.SetConfirmationState(confirmation.Accepted)
 		})
 	}
 
-	l.Events.TransactionConfirmed.Trigger(&TransactionConfirmedEvent{
+	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
 		TransactionID: txMetadata.ID(),
 	})
 
 	return true
 }
 
-// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
+// triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.
 func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggered bool) {
-	if !txMetadata.SetGradeOfFinality(gof.None) {
+	if !txMetadata.SetConfirmationState(confirmation.Rejected) {
 		return false
 	}
 
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
-			outputMetadata.SetGradeOfFinality(gof.None)
+			outputMetadata.SetConfirmationState(confirmation.Rejected)
 		})
 	}
 
@@ -239,20 +239,20 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 	return true
 }
 
-// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// propagateAcceptanceToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
-func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.TransactionID) {
+func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.TransactionID) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		if !l.triggerConfirmedEvent(txMetadata) {
+		if !l.triggerAcceptedEvent(txMetadata) {
 			return
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.InclusionState(consumingTxMetadata.BranchIDs()) != conflictdag.Confirmed {
+			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.BranchIDs()) >= confirmation.Accepted {
 				return
 			}
 
-			if !l.triggerConfirmedEvent(consumingTxMetadata) {
+			if !l.triggerAcceptedEvent(consumingTxMetadata) {
 				return
 			}
 

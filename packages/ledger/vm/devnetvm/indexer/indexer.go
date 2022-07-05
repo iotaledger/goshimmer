@@ -43,7 +43,7 @@ func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
-	ledger.Events.TransactionConfirmed.Attach(event.NewClosure(new.onTransactionConfirmed))
+	ledger.Events.TransactionAccepted.Attach(event.NewClosure(new.onTransactionConfirmed))
 	ledger.Events.TransactionRejected.Attach(event.NewClosure(new.onTransactionRejected))
 
 	return new
@@ -103,7 +103,7 @@ func (i *Indexer) onTransactionBooked(event *ledger.TransactionBookedEvent) {
 }
 
 // onTransactionBooked removes Transaction inputs' from the indexer upon transaction confirmation.
-func (i *Indexer) onTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
+func (i *Indexer) onTransactionConfirmed(event *ledger.TransactionAcceptedEvent) {
 	i.ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
 		i.removeOutputs(i.ledger.Utils.ResolveInputs(tx.Inputs()))
 	})

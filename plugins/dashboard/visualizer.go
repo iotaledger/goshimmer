@@ -90,7 +90,7 @@ func runVisualizer() {
 		processMessage(event.Message)
 	})
 
-	notifyNewMsgConfirmed := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	notifyNewMsgConfirmed := event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
 		processMessage(event.Message)
 	})
 
@@ -105,8 +105,8 @@ func runVisualizer() {
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
 		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsgStored)
 		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsgStored)
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsgConfirmed)
-		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsgConfirmed)
+		deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(notifyNewMsgConfirmed)
+		defer deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Detach(notifyNewMsgConfirmed)
 		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)

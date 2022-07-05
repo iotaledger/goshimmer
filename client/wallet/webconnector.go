@@ -2,10 +2,10 @@ package wallet
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -83,10 +83,10 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 			}
 			// build output
 			walletOutput := &Output{
-				Address:                addr,
-				Object:                 lOutput,
-				GradeOfFinalityReached: output.GradeOfFinality == gof.High,
-				Spent:                  false,
+				Address:                  addr,
+				Object:                   lOutput,
+				ConfirmationStateReached: output.ConfirmationState >= confirmation.Accepted,
+				Spent:                    false,
 				Metadata: OutputMetadata{
 					Timestamp: output.Metadata.Timestamp,
 				},
@@ -118,14 +118,13 @@ func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err 
 	return
 }
 
-// GetTransactionGoF fetches the GoF of the transaction.
-func (webConnector WebConnector) GetTransactionGoF(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+// GetTransactionConfirmationState fetches the ConfirmationState of the transaction.
+func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
 	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {
 		return
 	}
-	gradeOfFinality = txmeta.GradeOfFinality
-	return
+	return txmeta.ConfirmationState, nil
 }
 
 // GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.

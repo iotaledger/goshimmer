@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -20,7 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
@@ -62,7 +62,7 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 
 	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
-	genesisOutputMetadata.SetGradeOfFinality(gof.High)
+	genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
 
 	genesisOutput.ID().RegisterAlias("Genesis")
 	new.outputIDsByAlias["Genesis"] = genesisOutput.ID()

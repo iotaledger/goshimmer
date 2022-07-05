@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -23,57 +23,45 @@ type EventHandlerMock struct {
 }
 
 const (
-	testingLowBound    = 0.2
-	testingMediumBound = 0.3
-	testingHighBound   = 0.5
+	testingAcceptanceThreshold = 0.5
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 
-	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 )
 
-func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
+func (handler *EventHandlerMock) MessageAccepted(msgID tangle.MessageID) {
 	handler.Called(msgID)
 }
 
-func (handler *EventHandlerMock) BranchConfirmed(branchID utxo.TransactionID) {
+func (handler *EventHandlerMock) BranchAccepted(branchID utxo.TransactionID) {
 	handler.Called(branchID)
 }
 
-func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
+func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
-	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
-	tangleInstance.Ledger.ConflictDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		handler.BranchConfirmed(event.ID)
+	fg.Events().MessageAccepted.Hook(event.NewClosure(func(event *tangle.MessageAcceptedEvent) { handler.MessageAccepted(event.Message.ID()) }))
+	tangleInstance.Ledger.ConflictDAG.Events.BranchAccepted.Hook(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
+		handler.BranchAccepted(event.ID)
 	}))
-	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
+	tangleInstance.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { handler.TransactionAccepted(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
@@ -105,8 +93,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message1
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message1"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message1"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -114,9 +102,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message2
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message1"},
-					gof.None:   {"Message2"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message1", "Message2"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -124,13 +111,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message3
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message1").ID())
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message1").ID())
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1"},
-					gof.Medium: {"Message2"},
-					gof.Low:    {"Message3"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1"},
+					confirmation.Pending:  {"Message2", "Message3"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -138,13 +124,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message4
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message2").ID())
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message2").ID())
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2"},
-					gof.Medium: {"Message3"},
-					gof.Low:    {"Message4"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2"},
+					confirmation.Pending:  {"Message3", "Message4"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -152,13 +137,13 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message3").ID())
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message4").ID())
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message3").ID())
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message4").ID())
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
-					gof.Medium: {"Message5"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
+					confirmation.Pending:  {"Message5"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -166,39 +151,38 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message6
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
-					gof.Medium: {"Message5"},
-					gof.None:   {"Message6"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
+					confirmation.Pending:  {"Message5", "Message6"},
 				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6"},
+				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message5", "Message6"},
 				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6"},
+				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message5", "Message6"},
 				})
 			},
 		},
 		// Message7
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message5").ID())
-				eventHandlerMock.On("TransactionConfirmed", testFramework.TransactionID("Message5"))
-				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message5"))
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message5").ID())
+				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Message5"))
+				eventHandlerMock.On("BranchAccepted", testFramework.BranchIDFromMessage("Message5"))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message1", "Message2", "Message3", "Message4", "Message5"},
-					gof.Low:  {"Message7"},
-					gof.None: {"Message6"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5"},
+					confirmation.Pending:  {"Message7", "Message6"},
 				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6"},
+				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5"},
+					confirmation.Rejected: {"Message6"},
 				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7"},
+				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5"},
+					confirmation.Rejected: {"Message6"},
+					confirmation.Pending:  {"Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -206,22 +190,21 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message7.1
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageConfirmed", testFramework.Message("Message7").ID())
-				eventHandlerMock.On("TransactionConfirmed", testFramework.TransactionID("Message7"))
+				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message7").ID())
+				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Message7"))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1"},
-					gof.None:   {"Message6"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
+					confirmation.Pending:  {"Message7.1", "Message6"},
 				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6"},
+				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5"},
+					confirmation.Rejected: {"Message6"},
 				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message7"},
-					gof.None: {"Message6"},
+				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5", "Message7"},
+					confirmation.Rejected: {"Message6"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -229,138 +212,17 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message8
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1"},
-					gof.Low:    {},
-					gof.None:   {"Message6", "Message8"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
+					confirmation.Pending:  {"Message7.1", "Message6", "Message8"},
 				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6"},
+				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5"},
+					confirmation.Rejected: {"Message6"},
 				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message7"},
-					gof.None: {"Message6"},
-				})
-			},
-		},
-		// Message9
-		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message6"))
-			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {},
-					gof.None:   {},
-				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6", "Message7"},
-				})
-				eventHandlerMock.AssertExpectations(t)
-			},
-		},
-		// Message10
-		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {},
-					gof.None:   {"Message10"},
-				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message5", "Message6", "Message7"},
-				})
-			},
-		},
-		// Message11
-		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {},
-					gof.None:   {"Message10", "Message11"},
-				})
-				// AW swaps back from msg6's branch to 5's, msg 7/11 (pun intended) new conflict set
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
-				})
-			},
-		},
-		// Message12
-		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message11"))
-			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {},
-					gof.None:   {"Message10", "Message11", "Message12"},
-				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message7", "Message6", "Message11"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message7", "Message6", "Message11"},
-				})
-				eventHandlerMock.AssertExpectations(t)
-			},
-		},
-		// Message13
-		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {},
-					gof.None:   {"Message10", "Message11", "Message12", "Message13"},
-				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
-				})
-			},
-		},
-		// Message14
-		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					gof.Medium: {"Message7.1", "Message9", "Message6", "Message8"},
-					gof.Low:    {"Message13", "Message11", "Message12"},
-					gof.None:   {"Message10", "Message14"},
-				})
-				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
-				})
-				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5"},
-					gof.None: {"Message6", "Message7", "Message11"},
+				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message5", "Message7"},
+					confirmation.Rejected: {"Message6"},
 				})
 			},
 		},
@@ -394,46 +256,42 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		// Message0
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message0"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message0"},
 				})
 			},
 		},
 		// Message1
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.None: {"Message1"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message1"},
 				})
 			},
 		},
 		// Message2
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {},
-					gof.None:   {"Message1", "Message2"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Message1", "Message2"},
 				})
 			},
 		},
 		// Message3
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {},
-					gof.Medium: {},
-					gof.None:   {"Message1", "Message2", "Message3"},
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {},
+					confirmation.Pending:  {"Message1", "Message2", "Message3"},
 				})
 			},
 		},
 		// Message4
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				sfg.propagateGoFToMessagePastCone(testFramework.Message("Message4").ID(), gof.High)
-				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
-					gof.Medium: {},
-					gof.Low:    {},
+				sfg.propagateGoFToMessagePastCone(testFramework.Message("Message4").ID(), confirmation.Accepted)
+				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
 				})
 			},
 		},
@@ -448,36 +306,36 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 	}
 }
 
-func assertMsgsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[gof.GradeOfFinality][]string) {
+func assertMsgsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
 	for expectedGoF, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
-			actualGradeOfFinality := testFramework.MessageMetadata(msgAlias).GradeOfFinality()
-			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected msg %s GoF to be %s but is %s", msgAlias, expectedGoF, actualGradeOfFinality)
+			actualConfirmationState := testFramework.MessageMetadata(msgAlias).ConfirmationState()
+			assert.Equal(t, expectedGoF, actualConfirmationState, "expected msg %s ConfirmationState to be %s but is %s", msgAlias, expectedGoF, actualConfirmationState)
 		}
 	}
 }
 
-func assertTxsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[gof.GradeOfFinality][]string) {
+func assertTxsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
 	for expectedGoF, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
 			txMeta := testFramework.TransactionMetadata(msgAlias)
-			actualGradeOfFinality := txMeta.GradeOfFinality()
-			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected tx %s (via msg %s) GoF to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
+			actualConfirmationState := txMeta.ConfirmationState()
+			assert.Equal(t, expectedGoF, actualConfirmationState, "expected tx %s (via msg %s) ConfirmationState to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualConfirmationState)
 			// auto. also check outputs
 			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
-				outputGoF := testFramework.OutputMetadata(output.ID()).GradeOfFinality()
-				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) GoF to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
+				outputGoF := testFramework.OutputMetadata(output.ID()).ConfirmationState()
+				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) ConfirmationState to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
 			}
 		}
 	}
 }
 
-func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[gof.GradeOfFinality][]string) {
-	for expectedGoF, msgAliases := range expected {
+func assertBranchesConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
+	for expectedConfirmationState, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
 			branch := testFramework.Branch(msgAlias)
-			actualGradeOfFinality := testFramework.TransactionMetadata(msgAlias).GradeOfFinality()
-			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected branch %s (via msg %s) GoF to be %s but is %s", branch.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
+			actualConfirmationState := testFramework.TransactionMetadata(msgAlias).ConfirmationState()
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected branch %s (via msg %s) ConfirmationState to be %s but is %s", branch.ID(), msgAlias, expectedConfirmationState, actualConfirmationState)
 		}
 	}
 }

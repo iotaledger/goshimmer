@@ -1,10 +1,9 @@
 package conflictdag
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/types/confirmation"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,21 +14,21 @@ type Conflict[ConflictID, ConflictSetID comparable] struct {
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
-	// parents contains the parent BranchIDs that this Conflict depends on.
+	// Parents contains the parent BranchIDs that this Conflict depends on.
 	Parents *set.AdvancedSet[ConflictID] `serix:"0"`
 
-	// conflictIDs contains the identifiers of the conflicts that this Conflict is part of.
+	// ConflictIDs contains the identifiers of the conflicts that this Conflict is part of.
 	ConflictIDs *set.AdvancedSet[ConflictSetID] `serix:"1"`
 
-	// inclusionState contains the InclusionState of the Conflict.
-	InclusionState InclusionState `serix:"2"`
+	// ConfirmationState contains the ConfirmationState of the Conflict.
+	ConfirmationState confirmation.State `serix:"2"`
 }
 
 func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
 	new = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
-		Parents:        parents,
-		ConflictIDs:    conflicts,
-		InclusionState: Pending,
+		Parents:           parents,
+		ConflictIDs:       conflicts,
+		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(id)
 
@@ -63,12 +62,12 @@ func (b *Conflict[ConflictID, ConflictSetID]) ConflictIDs() (conflictIDs *set.Ad
 	return b.M.ConflictIDs.Clone()
 }
 
-// InclusionState returns the InclusionState of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) InclusionState() (inclusionState InclusionState) {
+// ConfirmationState returns the ConfirmationState of the Conflict.
+func (b *Conflict[ConflictID, ConflictSetID]) ConfirmationState() (confirmationState confirmation.State) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.M.InclusionState
+	return b.M.ConfirmationState
 }
 
 // addConflict registers the membership of the Conflict in the given Conflict.
@@ -83,16 +82,16 @@ func (b *Conflict[ConflictID, ConflictSetID]) addConflict(conflictID ConflictSet
 	return added
 }
 
-// setInclusionState sets the InclusionState of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) setInclusionState(inclusionState InclusionState) (modified bool) {
+// setConfirmationState sets the ConfirmationState of the Conflict.
+func (b *Conflict[ConflictID, ConflictSetID]) setConfirmationState(confirmationState confirmation.State) (modified bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if modified = b.M.InclusionState != inclusionState; !modified {
+	if modified = b.M.ConfirmationState != confirmationState; !modified {
 		return
 	}
 
-	b.M.InclusionState = inclusionState
+	b.M.ConfirmationState = confirmationState
 	b.SetModified()
 
 	return
@@ -144,38 +143,6 @@ func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictSetID() (conflictID 
 // ConflictID returns the identifier of the Conflict.
 func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictID() (branchID ConflictID) {
 	return c.TargetID()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// InclusionState represents the confirmation status of branches in the ConflictDAG.
-type InclusionState uint8
-
-const (
-	// Pending represents elements that have neither been confirmed nor rejected.
-	Pending InclusionState = iota
-
-	// Confirmed represents elements that have been confirmed and will stay part of the ledger state forever.
-	Confirmed
-
-	// Rejected represents elements that have been rejected and will not be included in the ledger state.
-	Rejected
-)
-
-// String returns a human-readable representation of the InclusionState.
-func (i InclusionState) String() string {
-	switch i {
-	case Pending:
-		return "InclusionState(Pending)"
-	case Confirmed:
-		return "InclusionState(Confirmed)"
-	case Rejected:
-		return "InclusionState(Rejected)"
-	default:
-		return fmt.Sprintf("InclusionState(%X)", uint8(i))
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

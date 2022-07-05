@@ -82,16 +82,16 @@ type MessageScheduledMetrics struct {
 	// Time where the message was created by the issuing node
 	IssuedTimestamp time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	// Time where the message was first seen by the node
-	ReceivedTimestamp        time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
-	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
-	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	QueuedTimestamp          time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
-	DroppedTimestamp         time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
-	GradeOfFinalityTimestamp time.Time `json:"gradeOfFinalityTimestamp,omitempty" bson:"GradeOfFinalityTimestamp"`
-	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
-	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
-	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	ReceivedTimestamp          time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+	SolidTimestamp             time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp         time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
+	BookedTimestamp            time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	QueuedTimestamp            time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
+	DroppedTimestamp           time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
+	ConfirmationStateTimestamp time.Time `json:"confirmationStateTimestamp,omitempty" bson:"ConfirmationStateTimestamp"`
+	ConfirmationState          uint8     `json:"confirmationState" bson:"ConfirmationState"`
+	DeltaConfirmationStateTime int64     `json:"deltaConfirmationStateTime" bson:"deltaConfirmationStateTime"`
+	DeltaSolid                 int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
 	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
 	DeltaScheduledIssued int64 `json:"deltaScheduledIssued" bson:"deltaScheduledIssued"`
 	DeltaBooked          int64 `json:"deltaBooked" bson:"deltaBooked"`

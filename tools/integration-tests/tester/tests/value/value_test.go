@@ -82,21 +82,21 @@ func TestValueTransactionPersistence(t *testing.T) {
 	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
+		expectedStates[txID] = tests.ExpectedState{ConfirmationState: tests.GoFPointer(gof.High)}
 	}
 
 	// check ledger state
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	// send colored tokens from every peer
 	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
+		expectedStates[txID] = tests.ExpectedState{ConfirmationState: tests.GoFPointer(gof.High)}
 	}
 
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 
 	log.Printf("Restarting %d peers...", len(nonFaucetPeers))
@@ -108,7 +108,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
+	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
 	tests.RequireBalancesEqual(t, n.Peers(), addrBalance)
 }
 
@@ -160,10 +160,10 @@ func TestValueAliasPersistence(t *testing.T) {
 
 	expectedState := map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			GradeOfFinality: tests.GoFPointer(gof.High),
+			ConfirmationState: tests.GoFPointer(gof.High),
 		},
 	}
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
+	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	aliasOutputID := checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 
@@ -177,7 +177,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if nodes still have the outputs and transaction
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
+	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)
 
 	checkAliasOutputOnAllPeers(t, n.Peers(), aliasID)
 

@@ -19,8 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -154,7 +155,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)
 				if len(resp.UnspentOutputs[0].Outputs) != 0 {
-					if resp.UnspentOutputs[0].Outputs[0].GradeOfFinality == gof.High {
+					if resp.UnspentOutputs[0].Outputs[0].ConfirmationState == gof.High {
 						confirmed[fundingIndex] = types.Void
 					}
 				}
@@ -388,8 +389,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 }
 
 // RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-// Optionally, a GradeOfFinality can be specified, which then requires the messages to reach this GradeOfFinality.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, gradeOfFinality ...gof.GradeOfFinality) {
+// Optionally, a ConfirmationState can be specified, which then requires the messages to reach this ConfirmationState.
+func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
@@ -408,10 +409,10 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
 					continue
 				}
-				// retry, if the message has not yet reached the specified GoF
-				if len(gradeOfFinality) > 0 {
-					if msg.GradeOfFinality < gradeOfFinality[0] {
-						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+				// retry, if the message has not yet reached the specified ConfirmationState
+				if len(confirmationState) > 0 {
+					if msg.ConfirmationState < confirmationState[0] {
+						log.Printf("node=%s, messageID=%s, expected ConfirmationState=%s, actual ConfirmationState=%s; ConfirmationState not reached", node, messageID, confirmationState[0], msg.ConfirmationState)
 						continue
 					}
 				}
@@ -499,7 +500,7 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 // All fields are optional.
 type ExpectedState struct {
 	// The optional grade of finality state to check against.
-	GradeOfFinality *gof.GradeOfFinality
+	ConfirmationState *confirmation.State
 	// The optional solid state to check against.
 	Solid *bool
 }
@@ -517,8 +518,8 @@ func False() *bool {
 }
 
 // GoFPointer returns a pointer to the given grade of finality value.
-func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
-	return &gradeOfFinality
+func GoFPointer(confirmationState confirmation.State) *confirmation.State {
+	return &confirmationState
 }
 
 // ExpectedTransaction defines the expected data of a transaction.
@@ -556,9 +557,9 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 // ExpectedTxsStates is a map of base58 encoded transactionIDs to their ExpectedState(s).
 type ExpectedTxsStates map[string]ExpectedState
 
-// RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
+// RequireConfirmationStateEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
+func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
@@ -604,15 +605,15 @@ func OutputIndex(transaction *devnetvm.Transaction, address devnetvm.Address) in
 	panic("invalid address")
 }
 
-func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, gof.GradeOfFinality) {
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, confirmation.State) {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
-	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
+	if (expInclState.ConfirmationState != nil && *expInclState.ConfirmationState != metadata.ConfirmationState) ||
 		(expInclState.Solid != nil && *expInclState.Solid != metadata.Booked) {
-		return false, metadata.GradeOfFinality
+		return false, metadata.ConfirmationState
 	}
-	return true, metadata.GradeOfFinality
+	return true, metadata.ConfirmationState
 }
 
 // ConfirmedOnAllPeers checks if the msg is confirmed on all supplied peers.
@@ -622,7 +623,7 @@ func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
 		if err != nil {
 			return false
 		}
-		if metadata.GradeOfFinality != gof.High {
+		if metadata.ConfirmationState != gof.High {
 			return false
 		}
 	}
@@ -666,7 +667,7 @@ func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool 
 		if err != nil {
 			return false
 		}
-		if branch.GradeOfFinality != gof.High {
+		if branch.ConfirmationState != gof.High {
 			return false
 		}
 	}

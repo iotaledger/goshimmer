@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
@@ -23,7 +24,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// options is a dictionary for configuration parameters of the ConflictDAG.
 	options *options
 
-	// RWMutex is a mutex that prevents that two processes simultaneously update the InclusionState.
+	// RWMutex is a mutex that prevents that two processes simultaneously update the ConfirmationState.
 	sync.RWMutex
 }
 
@@ -48,8 +49,8 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 		b.addConflictMembers(conflict, conflictingResources)
 		b.createChildBranchReferences(parents, id)
 
-		if b.anyParentRejected(conflict) || b.anyConflictingBranchConfirmed(conflict) {
-			conflict.setInclusionState(Rejected)
+		if b.anyParentRejected(conflict) || b.anyConflictingBranchAccepted(conflict) {
+			conflict.setConfirmationState(confirmation.Rejected)
 		}
 
 		created = true
@@ -119,8 +120,8 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 	return updated
 }
 
-// UnconfirmedConflicts takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
-// rejected ones behind).
+// UnconfirmedConflicts takes a set of BranchIDs and removes all the Accepted/Confirmed Branches (leaving only the
+// pending or rejected ones behind).
 func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflicts(branchIDs *set.AdvancedSet[ConflictIDType]) (pendingBranchIDs *set.AdvancedSet[ConflictIDType]) {
 	if !b.options.mergeToMaster {
 		return branchIDs.Clone()
@@ -128,7 +129,7 @@ func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflict
 
 	pendingBranchIDs = set.NewAdvancedSet[ConflictIDType]()
 	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
-		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
+		if currentBranchID := branchWalker.Next(); b.confirmationState(currentBranchID) < confirmation.Accepted {
 			pendingBranchIDs.Add(currentBranchID)
 		}
 	}
@@ -136,20 +137,20 @@ func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflict
 	return pendingBranchIDs
 }
 
-// SetBranchConfirmed sets the InclusionState of the given Conflict to be Confirmed - it automatically sets also the
+// SetBranchAccepted sets the ConfirmationState of the given Conflict to be Accepted - it automatically sets also the
 // conflicting branches to be rejected.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(branchID ConflictID) (modified bool) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchAccepted(branchID ConflictID) (modified bool) {
 	b.Lock()
 	defer b.Unlock()
 
 	rejectionWalker := walker.New[ConflictID]()
 	for confirmationWalker := set.NewAdvancedSet(branchID).Iterator(); confirmationWalker.HasNext(); {
 		b.Storage.CachedConflict(confirmationWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
-			if modified = branch.setInclusionState(Confirmed); !modified {
+			if modified = branch.setConfirmationState(confirmation.Accepted); !modified {
 				return
 			}
 
-			b.Events.BranchConfirmed.Trigger(&BranchConfirmedEvent[ConflictID]{
+			b.Events.BranchAccepted.Trigger(&BranchAcceptedEvent[ConflictID]{
 				ID: branchID,
 			})
 
@@ -164,7 +165,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(bran
 
 	for rejectionWalker.HasNext() {
 		b.Storage.CachedConflict(rejectionWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
-			if modified = branch.setInclusionState(Rejected); !modified {
+			if modified = branch.setConfirmationState(confirmation.Rejected); !modified {
 				return
 			}
 
@@ -181,22 +182,23 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(bran
 	return modified
 }
 
-// InclusionState returns the InclusionState of the given BranchIDs.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) InclusionState(branchIDs *set.AdvancedSet[ConflictID]) (inclusionState InclusionState) {
+// ConfirmationState returns the ConfirmationState of the given BranchIDs.
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(branchIDs *set.AdvancedSet[ConflictID]) (confirmationState confirmation.State) {
 	b.RLock()
 	defer b.RUnlock()
 
-	inclusionState = Confirmed
+	// TODO: this does only return confirmation.Accepted as the highest state even if all branches are confirmed.
+	confirmationState = confirmation.Accepted
 	for it := branchIDs.Iterator(); it.HasNext(); {
-		switch b.inclusionState(it.Next()) {
-		case Rejected:
-			return Rejected
-		case Pending:
-			inclusionState = Pending
+		switch b.confirmationState(it.Next()) {
+		case confirmation.Rejected:
+			return confirmation.Rejected
+		case confirmation.Pending:
+			confirmationState = confirmation.Pending
 		}
 	}
 
-	return inclusionState
+	return confirmationState
 }
 
 // Shutdown shuts down the stateful elements of the ConflictDAG (the Storage).
@@ -234,7 +236,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchRefere
 // anyParentRejected checks if any of a Branches parents is Rejected.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(branch *Conflict[ConflictID, ConflictingResourceID]) (rejected bool) {
 	for it := branch.Parents().Iterator(); it.HasNext(); {
-		if b.inclusionState(it.Next()) == Rejected {
+		if b.confirmationState(it.Next()) == confirmation.Rejected {
 			return true
 		}
 	}
@@ -242,10 +244,10 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(branc
 	return false
 }
 
-// anyConflictingBranchConfirmed checks if any conflicting Conflict is Confirmed.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchConfirmed(branch *Conflict[ConflictID, ConflictingResourceID]) (anyConfirmed bool) {
+// anyConflictingBranchAccepted checks if any conflicting Conflict is Accepted/Confirmed.
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchAccepted(branch *Conflict[ConflictID, ConflictingResourceID]) (anyConfirmed bool) {
 	b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID ConflictID) bool {
-		anyConfirmed = b.inclusionState(conflictingBranchID) == Confirmed
+		anyConfirmed = b.confirmationState(conflictingBranchID) >= confirmation.Accepted
 		return !anyConfirmed
 	})
 
@@ -258,11 +260,11 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) registerConflictMember(
 	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictingResourceID, ConflictID]).Release()
 }
 
-// inclusionState returns the InclusionState of the Conflict with the given ConflictID.
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) inclusionState(branchID ConflictID) (inclusionState InclusionState) {
+// confirmationState returns the ConfirmationState of the Conflict with the given ConflictID.
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) confirmationState(branchID ConflictID) (confirmationState confirmation.State) {
 	b.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
-		inclusionState = branch.InclusionState()
+		confirmationState = branch.ConfirmationState()
 	})
 
-	return inclusionState
+	return confirmationState
 }

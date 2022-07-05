@@ -50,7 +50,7 @@ If we use a wallet, this information will be available along with the wallet bal
 ```Go
 resp, _ := goshimAPI.PostAddressUnspentOutputs([]string{myAddr.Base58()}) // ignoring error
 for _, output := range resp.UnspentOutputs[0].Outputs {
-		fmt.Println("outputID:", output.Output.OutputID.Base58, "confirmed:", output.InclusionState.Confirmed)
+		fmt.Println("outputID:", output.Output.OutputID.Base58, "confirmed:", output.ConfirmationState.Confirmed)
 }
 ```
 

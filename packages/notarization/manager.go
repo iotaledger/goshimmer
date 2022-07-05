@@ -57,15 +57,15 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		},
 	}
 
-	new.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageConfirmedEvent) {
+	new.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageAcceptedEvent) {
 		new.OnMessageConfirmed(event.Message)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageConfirmedEvent) {
+	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageAcceptedEvent) {
 		new.OnMessageOrphaned(event.Message)
 	}))
 
-	new.tangle.Ledger.Events.TransactionConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionConfirmedEvent) {
+	new.tangle.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionAcceptedEvent) {
 		new.OnTransactionConfirmed(event)
 	}))
 
@@ -73,7 +73,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		new.OnTransactionInclusionUpdated(event)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	new.tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		new.OnBranchConfirmed(event.ID)
 	}))
 
@@ -218,7 +218,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
+func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionAcceptedEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 

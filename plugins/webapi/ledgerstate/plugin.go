@@ -61,7 +61,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmed *event.Closure[*ledger.TransactionConfirmedEvent]
+	onTransactionConfirmed *event.Closure[*ledger.TransactionAcceptedEvent]
 
 	log *logger.Logger
 )
@@ -105,11 +105,11 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -153,7 +153,7 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionConfirmed)
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
@@ -250,9 +250,9 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 							timestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 						})
 						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
-							Output:          *jsonmodels.NewOutput(output),
-							GradeOfFinality: outputMetadata.GradeOfFinality(),
-							Metadata:        jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+							Output:            *jsonmodels.NewOutput(output),
+							ConfirmationState: outputMetadata.ConfirmationState(),
+							Metadata:          jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
 						})
 					})
 				}
@@ -275,9 +275,7 @@ func GetBranch(c echo.Context) (err error) {
 	}
 
 	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
-
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID), branch.InclusionState()))
+		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branch.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
 	}) {
 		return
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -24,7 +25,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -1412,7 +1412,7 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 		for _, output := range outputsOnAddress {
 			// determine target map
 			var targetMap map[devnetvm.Color]uint64
-			if output.GradeOfFinalityReached {
+			if output.ConfirmationStateReached {
 				targetMap = confirmedBalance
 			} else {
 				targetMap = pendingBalance
@@ -1503,7 +1503,7 @@ func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendi
 		for _, output := range outputsOnAddress {
 			// determine target map
 			var targetMap map[devnetvm.Color]uint64
-			if output.GradeOfFinalityReached {
+			if output.ConfirmationStateReached {
 				targetMap = confirmedBalance
 			} else {
 				targetMap = pendingBalance
@@ -1571,7 +1571,7 @@ func (wallet *Wallet) TimelockedBalances(refresh ...bool) (confirmed, pending Ti
 					Balance: casted.Balances().Map(),
 					Time:    casted.TimeLock(),
 				}
-				if output.GradeOfFinalityReached {
+				if output.ConfirmationStateReached {
 					confirmed = append(confirmed, tBal)
 				} else {
 					pending = append(pending, tBal)
@@ -1618,7 +1618,7 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 					Balance: casted.Balances().Map(),
 					Time:    fallbackDeadline,
 				}
-				if output.GradeOfFinalityReached {
+				if output.ConfirmationStateReached {
 					confirmed = append(confirmed, cBal)
 				} else {
 					pending = append(pending, cBal)
@@ -1666,7 +1666,7 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 			}
 			// target maps
 			var governedAliases, stateControlledAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput
-			if output.GradeOfFinalityReached {
+			if output.ConfirmationStateReached {
 				governedAliases = confirmedGovernedAliases
 				stateControlledAliases = confirmedStateControlledAliases
 			} else {
@@ -1764,7 +1764,7 @@ func (wallet *Wallet) DelegatedAliasBalance(refresh ...bool) (
 			}
 			// target maps
 			var delegatedAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput
-			if output.GradeOfFinalityReached {
+			if output.ConfirmationStateReached {
 				delegatedAliases = confirmedDelegatedAliases
 			} else {
 				delegatedAliases = pendingDelegatedAliases
@@ -1821,11 +1821,11 @@ func (wallet *Wallet) WaitForTxConfirmation(txID utxo.TransactionID) (err error)
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
 		timeoutCounter += wallet.ConfirmationPollInterval
-		finality, fetchErr := wallet.connector.GetTransactionGoF(txID)
+		confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
 		if fetchErr != nil {
 			return fetchErr
 		}
-		if finality == gof.High {
+		if confirmationState >= confirmation.Accepted {
 			return
 		}
 		if timeoutCounter > wallet.ConfirmationTimeout {

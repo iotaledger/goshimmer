@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
@@ -38,11 +38,11 @@ type transactionMetadata struct {
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
 	OutputIDs utxo.OutputIDs `serix:"4"`
 
-	// GradeOfFinality contains the confirmation status of the Transaction.
-	GradeOfFinality gof.GradeOfFinality `serix:"5"`
+	// ConfirmationState contains the confirmation status of the Transaction.
+	ConfirmationState confirmation.State `serix:"5"`
 
-	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"6"`
+	// ConfirmationStateTime contains the last time the ConfirmationState was updated.
+	ConfirmationStateTime time.Time `serix:"6"`
 }
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
@@ -161,36 +161,36 @@ func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified b
 	return true
 }
 
-// GradeOfFinality returns the confirmation status of the Transaction.
-func (t *TransactionMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
+// ConfirmationState returns the confirmation status of the Transaction.
+func (t *TransactionMetadata) ConfirmationState() (confirmationState confirmation.State) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.GradeOfFinality
+	return t.M.ConfirmationState
 }
 
-// SetGradeOfFinality sets the confirmation status of the Transaction.
-func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+// SetConfirmationState sets the confirmation status of the Transaction.
+func (t *TransactionMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.M.GradeOfFinality == gradeOfFinality {
+	if t.M.ConfirmationState == confirmationState {
 		return
 	}
 
-	t.M.GradeOfFinality = gradeOfFinality
-	t.M.GradeOfFinalityTime = clock.SyncedTime()
+	t.M.ConfirmationState = confirmationState
+	t.M.ConfirmationStateTime = clock.SyncedTime()
 	t.SetModified()
 
 	return true
 }
 
-// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
-func (t *TransactionMetadata) GradeOfFinalityTime() (gradeOfFinalityTime time.Time) {
+// ConfirmationStateTime returns the last time the ConfirmationState was updated.
+func (t *TransactionMetadata) ConfirmationStateTime() (confirmationStateTime time.Time) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.GradeOfFinalityTime
+	return t.M.ConfirmationStateTime
 }
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Branch).
@@ -226,11 +226,11 @@ type outputMetadata struct {
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
 	FirstConsumerForked bool `serix:"5"`
 
-	// GradeOfFinality contains the confirmation status of the Output.
-	GradeOfFinality gof.GradeOfFinality `serix:"6"`
+	// ConfirmationState contains the confirmation status of the Output.
+	ConfirmationState confirmation.State `serix:"6"`
 
-	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"7"`
+	// ConfirmationStateTime contains the last time the ConfirmationState was updated.
+	ConfirmationStateTime time.Time `serix:"7"`
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
@@ -363,36 +363,36 @@ func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (is
 	return true, o.M.FirstConsumer
 }
 
-// GradeOfFinality returns the confirmation status of the Output.
-func (o *OutputMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
+// ConfirmationState returns the confirmation status of the Output.
+func (o *OutputMetadata) ConfirmationState() (confirmationState confirmation.State) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.GradeOfFinality
+	return o.M.ConfirmationState
 }
 
-// SetGradeOfFinality sets the confirmation status of the Output.
-func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+// SetConfirmationState sets the confirmation status of the Output.
+func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.GradeOfFinality == gradeOfFinality {
+	if o.M.ConfirmationState == confirmationState {
 		return false
 	}
 
-	o.M.GradeOfFinality = gradeOfFinality
-	o.M.GradeOfFinalityTime = clock.SyncedTime()
+	o.M.ConfirmationState = confirmationState
+	o.M.ConfirmationStateTime = clock.SyncedTime()
 	o.SetModified()
 
 	return true
 }
 
-// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
-func (o *OutputMetadata) GradeOfFinalityTime() (gradeOfFinality time.Time) {
+// ConfirmationStateTime returns the last time the ConfirmationState was updated.
+func (o *OutputMetadata) ConfirmationStateTime() (confirmationState time.Time) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.GradeOfFinalityTime
+	return o.M.ConfirmationStateTime
 }
 
 // IsSpent returns true if the Output has been spent.
