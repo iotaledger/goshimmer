@@ -110,10 +110,10 @@ func determineOutputSlice(outputs devnetvm.Outputs, i int, size int) devnetvm.Ou
 }
 
 func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*devnetvm.Transaction) {
-	const unknownGoF = 10
+	const unknownConfirmationState = 10
 	for _, tx := range txs {
 		// current value signifies that we don't know what is the previous gof
-		var prevGoF confirmation.State = unknownGoF
+		var prevConfirmationState confirmation.State = unknownConfirmationState
 		for i, peer := range peers {
 			var metadata *jsonmodels.TransactionMetadata
 			var err error
@@ -122,14 +122,14 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 				return err == nil && metadata != nil
 			}, 10*time.Second, 10*time.Millisecond, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
 				peer.Name(), tx.ID().Base58(), metadata, err)
-			t.Logf("ConfirmationState is %d for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
-			if prevGoF != unknownGoF {
+			t.Logf("ConfirmationState is %s for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
+			if prevConfirmationState != unknownConfirmationState {
 				require.Eventually(t,
-					func() bool { return prevGoF == metadata.ConfirmationState },
-					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (ConfirmationState=%d) and %s (ConfirmationState=%d)", tx.ID().Base58(),
-					peers[i-1].Name(), prevGoF, peer.Name(), metadata.ConfirmationState)
+					func() bool { return prevConfirmationState == metadata.ConfirmationState },
+					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (ConfirmationState=%s) and %s (ConfirmationState=%s)", tx.ID().Base58(),
+					peers[i-1].Name(), prevConfirmationState, peer.Name(), metadata.ConfirmationState)
 			}
-			prevGoF = metadata.ConfirmationState
+			prevConfirmationState = metadata.ConfirmationState
 		}
 	}
 }

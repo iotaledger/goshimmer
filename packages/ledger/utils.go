@@ -161,5 +161,8 @@ func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmat
 
 // OutputConfirmationState returns the ConfirmationState of the Output.
 func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
-	return u.TransactionConfirmationState(outputID.TransactionID)
+	u.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+		confirmationState = outputMetadata.ConfirmationState()
+	})
+	return
 }

@@ -208,8 +208,8 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 
-	// Make sure the message is available on the peer itself and has gof.Low.
-	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, confirmation.Accepted)
+	// Make sure the message is available on the peer itself and has confirmation.State Pending.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, confirmation.Pending)
 
 	return resp.ID, sent
 }
@@ -562,21 +562,21 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
 				// the grade of finality can change, so we should check all transactions every time
-				stateEqual, gof := txMetadataStateEqual(t, node, txID, expInclState)
+				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 					return false
 				}
-				t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 
 			}
 		}
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct ConfirmationState...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for grade of finality... done")
+	log.Println("Waiting for ConfirmationState... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.

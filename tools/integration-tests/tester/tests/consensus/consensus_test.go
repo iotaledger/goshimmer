@@ -116,7 +116,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 				Solid:             tests.True(),
 			},
 			txs2[i].ID().Base58(): {
-				ConfirmationState: confirmation.Accepted,
+				ConfirmationState: confirmation.Rejected,
 				Solid:             tests.True(),
 			},
 		}, time.Minute, tests.Tick)
