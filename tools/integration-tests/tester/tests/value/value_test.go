@@ -8,13 +8,13 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -82,7 +82,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedState{ConfirmationState: tests.GoFPointer(gof.High)}
+		expectedStates[txID] = tests.ExpectedState{ConfirmationState: confirmation.Accepted}
 	}
 
 	// check ledger state
@@ -93,7 +93,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	for _, peer := range nonFaucetPeers {
 		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
-		expectedStates[txID] = tests.ExpectedState{ConfirmationState: tests.GoFPointer(gof.High)}
+		expectedStates[txID] = tests.ExpectedState{ConfirmationState: confirmation.Accepted}
 	}
 
 	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedStates, tests.Timeout, tests.Tick)
@@ -160,7 +160,7 @@ func TestValueAliasPersistence(t *testing.T) {
 
 	expectedState := map[string]tests.ExpectedState{
 		tx.ID().Base58(): {
-			ConfirmationState: tests.GoFPointer(gof.High),
+			ConfirmationState: confirmation.Accepted,
 		},
 	}
 	tests.RequireConfirmationStateEqual(t, n.Peers(), expectedState, tests.Timeout, tests.Tick)

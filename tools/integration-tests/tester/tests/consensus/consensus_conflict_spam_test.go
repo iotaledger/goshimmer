@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
