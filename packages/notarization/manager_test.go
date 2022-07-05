@@ -390,6 +390,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 	// Message7, issuing time epoch 6
 	{
+
 		fmt.Println("message 7")
 
 		ecRecord, _, err := testFramework.LatestCommitment()
