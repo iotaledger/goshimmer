@@ -150,7 +150,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(bran
 			}
 
 			b.Events.BranchConfirmed.Trigger(&BranchConfirmedEvent[ConflictID]{
-				BranchID: branchID,
+				ID: branchID,
 			})
 
 			confirmationWalker.PushAll(branch.Parents().Slice()...)
@@ -169,7 +169,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(bran
 			}
 
 			b.Events.BranchRejected.Trigger(&BranchRejectedEvent[ConflictID]{
-				BranchID: branch.ID(),
+				ID: branch.ID(),
 			})
 
 			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch[ConflictID]) {

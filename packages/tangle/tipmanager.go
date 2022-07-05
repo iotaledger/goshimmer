@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -52,7 +54,6 @@ func (t *TipManager) Setup() {
 		t.removeStrongParents(event.Message)
 	}))
 
-	// TODO: should the orphanage events be blocking? It seems like otherwise when orphaning a whole part of the tangle it might run into some inconsistent state when we first try to remove the tip and then remove it?
 	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
 		t.Lock()
 		defer t.Unlock()
@@ -358,7 +359,7 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 
 func (t *TipManager) getMarkerMessage(marker markers.Marker) (markerMessageID MessageID, markerMessageIssuingTime time.Time) {
 	if marker.SequenceID() == 0 && marker.Index() == 0 {
-		return EmptyMessageID, time.Unix(DefaultGenesisTime, 0)
+		return EmptyMessageID, time.Unix(epoch.GenesisTime, 0)
 	}
 	messageID := t.tangle.Booker.MarkersManager.MessageID(marker)
 	if messageID == EmptyMessageID {

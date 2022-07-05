@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -44,8 +45,9 @@ var (
 
 var (
 	// Plugin is the plugin instance of the messagelayer plugin.
-	Plugin *node.Plugin
-	deps   = new(dependencies)
+	Plugin       *node.Plugin
+	deps         = new(dependencies)
+	nodeSnapshot *snapshot.Snapshot
 )
 
 type dependencies struct {
@@ -138,7 +140,7 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		nodeSnapshot := new(snapshot.Snapshot)
+		nodeSnapshot = new(snapshot.Snapshot)
 		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
@@ -147,10 +149,16 @@ func configure(plugin *node.Plugin) {
 		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 
 		// Add outputs to Indexer.
-		_ = nodeSnapshot.LedgerSnapshot.Outputs.ForEach(func(output utxo.Output) error {
-			deps.Indexer.IndexOutput(output.(devnetvm.Output))
-			return nil
-		})
+		for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
+			deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
+		}
+
+		for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
+			for _, outputWithMetadata := range epochDiff.Created() {
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
+			}
+		}
+
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 
 		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.
@@ -158,6 +166,10 @@ func configure(plugin *node.Plugin) {
 		if err != nil {
 			plugin.LogErrorf("could not store snapshot_loaded flag: %v")
 		}
+	}
+
+	if Parameters.GenesisTime > 0 {
+		epoch.GenesisTime = Parameters.GenesisTime
 	}
 
 	configureFinality()
@@ -202,6 +214,7 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),
+		tangle.CommitmentFunc(GetLatestEC),
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)

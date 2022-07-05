@@ -59,7 +59,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 4. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
-	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
+	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	require.True(t, tests.Synced(t, newPeer))
 
 	// 5. shut down newly added peer
@@ -91,7 +91,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 9. check whether all issued messages are available on to the new peer
 	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
-	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
+	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 
 	// check that the new node is synced
 	require.Eventuallyf(t,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -210,23 +211,26 @@ type outputMetadata struct {
 	// ConsensusManaPledgeID contains the identifier of the node that received the consensus mana pledge.
 	ConsensusManaPledgeID identity.ID `serix:"0"`
 
+	// AccessManaPledgeID contains the identifier of the node that received the access mana pledge.
+	AccessManaPledgeID identity.ID `serix:"1"`
+
 	// CreationTime contains the time when the Output was created.
-	CreationTime time.Time `serix:"1"`
+	CreationTime time.Time `serix:"2"`
 
 	// BranchIDs contains the conflicting BranchIDs that this Output depends on.
-	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"2"`
+	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
-	FirstConsumer utxo.TransactionID `serix:"3"`
+	FirstConsumer utxo.TransactionID `serix:"4"`
 
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
-	FirstConsumerForked bool `serix:"4"`
+	FirstConsumerForked bool `serix:"5"`
 
 	// GradeOfFinality contains the confirmation status of the Output.
-	GradeOfFinality gof.GradeOfFinality `serix:"5"`
+	GradeOfFinality gof.GradeOfFinality `serix:"6"`
 
 	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"6"`
+	GradeOfFinalityTime time.Time `serix:"7"`
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
@@ -257,6 +261,29 @@ func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool)
 	}
 
 	o.M.ConsensusManaPledgeID = id
+	o.SetModified()
+
+	return true
+}
+
+// AccessManaPledgeID returns the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) AccessManaPledgeID() (id identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.AccessManaPledgeID
+}
+
+// SetAccessManaPledgeID sets the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
+	o.Lock()
+	defer o.Unlock()
+
+	if o.M.AccessManaPledgeID == id {
+		return false
+	}
+
+	o.M.AccessManaPledgeID = id
 	o.SetModified()
 
 	return true
@@ -516,6 +543,129 @@ func (c *Consumer) SetBooked() (updated bool) {
 	updated = true
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EpochDiffs struct {
+	orderedmap.OrderedMap[epoch.Index, *OutputWithMetadata] `serix:"0"`
+}
+
+func (e *EpochDiffs) String() string {
+	structBuilder := stringify.StructBuilder("EpochDiffs")
+	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *OutputWithMetadata) bool {
+		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
+		return true
+	})
+
+	return structBuilder.String()
+}
+
+type OutputWithMetadata struct {
+	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
+}
+
+type outputWithMetadataModel struct {
+	OutputID       utxo.OutputID   `serix:"0"`
+	Output         utxo.Output     `serix:"1"`
+	OutputMetadata *OutputMetadata `serix:"2"`
+}
+
+func (o *OutputWithMetadata) String() string {
+	structBuilder := stringify.StructBuilder("OutputWithMetadata")
+	structBuilder.AddField(stringify.StructField("OutputID", o.ID()))
+	structBuilder.AddField(stringify.StructField("Output", o.Output()))
+	structBuilder.AddField(stringify.StructField("OutputMetadata", o.OutputMetadata()))
+
+	return structBuilder.String()
+}
+
+func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata) (new *OutputWithMetadata) {
+	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
+		OutputID:       outputID,
+		Output:         output,
+		OutputMetadata: outputMetadata,
+	})
+	new.SetID(outputID)
+	return
+}
+
+// FromObjectStorage creates an OutputWithMetadata from sequences of key and bytes.
+func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
+	err := o.Storable.FromObjectStorage(key, value)
+	o.M.Output.SetID(o.ID())
+	o.M.OutputMetadata.SetID(o.ID())
+
+	return err
+}
+
+// FromBytes unmarshals an OutputWithMetadata from a sequence of bytes.
+func (o *OutputWithMetadata) FromBytes(data []byte) error {
+	err := o.Storable.FromBytes(data)
+	o.M.Output.SetID(o.ID())
+	o.M.OutputMetadata.SetID(o.ID())
+
+	return err
+}
+
+func (o *OutputWithMetadata) Output() (output utxo.Output) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.Output
+}
+
+func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.Output = output
+	o.SetModified()
+
+	return
+}
+
+func (o *OutputWithMetadata) OutputMetadata() (outputMetadata *OutputMetadata) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.OutputMetadata
+}
+
+func (o *OutputWithMetadata) SetOutputMetadata(outputMetadata *OutputMetadata) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.OutputMetadata = outputMetadata
+	o.SetModified()
+
+	return
+}
+
+type EpochDiff struct {
+	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
+}
+
+type epochDiffModel struct {
+	Spent   []*OutputWithMetadata `serix:"0"`
+	Created []*OutputWithMetadata `serix:"1"`
+}
+
+func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
+	return model.NewImmutable[EpochDiff](&epochDiffModel{
+		Spent:   spent,
+		Created: created,
+	})
+}
+
+func (e *EpochDiff) Spent() []*OutputWithMetadata {
+	return e.M.Spent
+}
+
+func (e *EpochDiff) Created() []*OutputWithMetadata {
+	return e.M.Spent
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -63,7 +64,7 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 		len(strongParents) < MinStrongParentsCount {
 		return ErrNoStrongParents
 	}
-	for parentsType, _ := range parents {
+	for parentsType := range parents {
 		if parentsType > LastValidBlockType {
 			return ErrBlockTypeIsUnknown
 		}
@@ -99,7 +100,7 @@ const (
 	MessageVersion uint8 = 1
 
 	// MaxMessageSize defines the maximum size of a message.
-	MaxMessageSize = 64 * 1024
+	MaxMessageSize = 64*1024 + 80
 
 	// MessageIDLength defines the length of an MessageID.
 	MessageIDLength = types.IdentifierLength
@@ -285,32 +286,41 @@ type Message struct {
 }
 type MessageModel struct {
 	// core properties (get sent over the wire)
-	Version         uint8             `serix:"0"`
-	Parents         ParentMessageIDs  `serix:"1"`
-	IssuerPublicKey ed25519.PublicKey `serix:"2"`
-	IssuingTime     time.Time         `serix:"3"`
-	SequenceNumber  uint64            `serix:"4"`
-	PayloadBytes    []byte            `serix:"5,lengthPrefixType=uint32"`
-	Nonce           uint64            `serix:"6"`
-	Signature       ed25519.Signature `serix:"7"`
+	Version              uint8             `serix:"0"`
+	Parents              ParentMessageIDs  `serix:"1"`
+	IssuerPublicKey      ed25519.PublicKey `serix:"2"`
+	IssuingTime          time.Time         `serix:"3"`
+	SequenceNumber       uint64            `serix:"4"`
+	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
+	EI                   epoch.Index       `serix:"6"`
+	ECR                  epoch.ECR         `serix:"7"`
+	PrevEC               epoch.EC          `serix:"8"`
+	LatestConfirmedEpoch epoch.Index       `serix:"9"`
+	Nonce                uint64            `serix:"10"`
+	Signature            ed25519.Signature `serix:"11"`
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) *Message {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature,
+	latestConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, versionOpt ...uint8) *Message {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
 	msg := model.NewStorable[MessageID, Message](&MessageModel{
-		Version:         version,
-		Parents:         references,
-		IssuerPublicKey: issuerPublicKey,
-		IssuingTime:     issuingTime,
-		SequenceNumber:  sequenceNumber,
-		PayloadBytes:    lo.PanicOnErr(msgPayload.Bytes()),
-		Nonce:           nonce,
-		Signature:       signature,
+		Version:              version,
+		Parents:              references,
+		IssuerPublicKey:      issuerPublicKey,
+		IssuingTime:          issuingTime,
+		SequenceNumber:       sequenceNumber,
+		PayloadBytes:         lo.PanicOnErr(msgPayload.Bytes()),
+		EI:                   ecRecord.EI(),
+		ECR:                  ecRecord.ECR(),
+		PrevEC:               ecRecord.PrevEC(),
+		LatestConfirmedEpoch: latestConfirmedEpoch,
+		Nonce:                nonce,
+		Signature:            signature,
 	})
 	msg.payload = msgPayload
 
@@ -326,8 +336,8 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 7. Blocks should be ordered by type in ascending order.
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 func NewMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, version ...uint8) (result *Message, err error) {
-	msg := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord, version ...uint8) (result *Message, err error) {
+	msg := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
 
 	if _, err = msg.Bytes(); err != nil {
 		return nil, errors.Errorf("failed to create message: %w", err)
@@ -440,6 +450,26 @@ func (m *Message) Payload() payload.Payload {
 // Nonce returns the Nonce of the message.
 func (m *Message) Nonce() uint64 {
 	return m.M.Nonce
+}
+
+// EI returns the EI of the message.
+func (m *Message) EI() epoch.Index {
+	return m.M.EI
+}
+
+// ECR returns the ECR of the message.
+func (m *Message) ECR() epoch.ECR {
+	return m.M.ECR
+}
+
+// PrevEC returns the PrevEC of the message.
+func (m *Message) PrevEC() epoch.EC {
+	return m.M.PrevEC
+}
+
+// LatestConfirmedEpoch returns the LatestConfirmedEpoch of the message.
+func (m *Message) LatestConfirmedEpoch() epoch.Index {
+	return m.M.LatestConfirmedEpoch
 }
 
 // Signature returns the Signature of the message.

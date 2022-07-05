@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -68,11 +67,11 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.Utils = newUtils(ledger)
 
 	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID)
+		ledger.propagatedConfirmationToIncludedTransactions(event.ID)
 	}))
 
 	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		ledger.propagatedRejectionToTransactions(event.BranchID)
+		ledger.propagatedRejectionToTransactions(event.ID)
 	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
@@ -88,22 +87,32 @@ func New(options ...Option) (ledger *Ledger) {
 
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
-	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		meta, exists := snapshot.OutputsMetadata.Get(output.ID())
+	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
+		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
+		l.Storage.outputMetadataStorage.Store(outputWithMetadata.OutputMetadata()).Release()
+	}
+
+	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
+		epochdiff, exists := snapshot.EpochDiffs[ei]
 		if !exists {
-			panic(fmt.Sprintf("missing OutputMetadata for Output with %s", output.ID()))
+			panic("epoch diff not found for epoch")
 		}
 
-		l.Storage.outputStorage.Store(output).Release()
-		l.Storage.outputMetadataStorage.Store(meta).Release()
+		for _, spent := range epochdiff.Spent() {
+			l.Storage.outputStorage.Delete(spent.ID().Bytes())
+			l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
+		}
 
-		return nil
-	})
+		for _, created := range epochdiff.Created() {
+			l.Storage.outputStorage.Store(created.Output()).Release()
+			l.Storage.outputMetadataStorage.Store(created.OutputMetadata()).Release()
+		}
+	}
 }
 
 // TakeSnapshot returns a snapshot of the Ledger state.
 func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
-	snapshot = NewSnapshot(utxo.NewOutputs(), NewOutputsMetadata())
+	snapshot = NewSnapshot([]*OutputWithMetadata{})
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
 			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
@@ -111,9 +120,9 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 			}
 
 			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				snapshot.Outputs.Set(outputMetadata.ID(), output)
+				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata)
+				snapshot.OutputsWithMetadata = append(snapshot.OutputsWithMetadata, outputWithMetadata)
 			})
-			snapshot.OutputsMetadata.Set(outputMetadata.ID(), outputMetadata)
 		})
 
 		return true
@@ -137,7 +146,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 		})
 
 		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == conflictdag.Confirmed {
-			l.triggerConfirmedEvent(txMetadata, false)
+			l.triggerConfirmedEvent(txMetadata)
 		}
 	})
 }
@@ -189,8 +198,8 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 }
 
 // triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
-func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) (triggered bool) {
-	if checkInclusion && txMetadata.InclusionTime().IsZero() {
+func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+	if txMetadata.InclusionTime().IsZero() {
 		return false
 	}
 
@@ -234,7 +243,7 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 // Transaction.
 func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.TransactionID) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		if !l.triggerConfirmedEvent(txMetadata, false) {
+		if !l.triggerConfirmedEvent(txMetadata) {
 			return
 		}
 
@@ -243,7 +252,7 @@ func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.Transact
 				return
 			}
 
-			if !l.triggerConfirmedEvent(consumingTxMetadata, true) {
+			if !l.triggerConfirmedEvent(consumingTxMetadata) {
 				return
 			}
 

@@ -25,6 +25,6 @@ const (
 	// PrefixMana defines the storage prefix for the mana package.
 	PrefixMana
 
-	// PrefixEpochs defines the storage prefix for the epochs package.
-	PrefixEpochs
+	// PrefixNotarization defines the storage prefix for the epochs package.
+	PrefixNotarization
 )

@@ -267,7 +267,7 @@ func registerLocalMetrics() {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 
-		branchID := event.BranchID
+		branchID := event.ID
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}

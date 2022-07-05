@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -23,8 +24,6 @@ import (
 )
 
 const (
-	// DefaultGenesisTime is the default time (Unix in seconds) of the genesis, i.e., the start of the epochs at 2021-03-19 9:00:00 UTC.
-	DefaultGenesisTime int64 = 1616144400
 	// DefaultSyncTimeWindow is the default sync time window.
 	DefaultSyncTimeWindow = 2 * time.Minute
 )
@@ -214,6 +213,7 @@ type Options struct {
 	TimeSinceConfirmationThreshold time.Duration
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
+	CommitmentFunc                 func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -314,6 +314,13 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) Option {
 	return func(o *Options) {
 		o.ConflictDAGOptions = branchDAGOptions
+	}
+}
+
+// CommitmentFunc is an Option for the Tangle that retrieves epoch commitments for blocks.
+func CommitmentFunc(commitmentRetrieverFunc func() (*epoch.ECRecord, epoch.Index, error)) Option {
+	return func(o *Options) {
+		o.CommitmentFunc = commitmentRetrieverFunc
 	}
 }
 

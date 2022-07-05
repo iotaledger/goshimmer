@@ -45,6 +45,7 @@ var Core = node.Plugins(
 	gossip.Plugin,
 	firewall.Plugin,
 	messagelayer.ManaPlugin,
+	messagelayer.NotarizationPlugin,
 	faucet.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,

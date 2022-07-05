@@ -71,7 +71,7 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
 	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
 	tangleInstance.Ledger.ConflictDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		handler.BranchConfirmed(event.BranchID)
+		handler.BranchConfirmed(event.ID)
 	}))
 	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
@@ -248,7 +248,6 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message9
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("TransactionConfirmed", testFramework.TransactionID("Message6"))
 				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message6"))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
@@ -259,12 +258,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message6"},
-					gof.None: {"Message5"},
+					gof.None: {"Message5", "Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message6"},
-					gof.None: {"Message5", "Message7"},
+					gof.None: {"Message5", "Message6", "Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -279,12 +276,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message6"},
-					gof.None: {"Message5"},
+					gof.None: {"Message5", "Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message6"},
-					gof.None: {"Message5", "Message7"},
+					gof.None: {"Message5", "Message6", "Message7"},
 				})
 			},
 		},
@@ -311,7 +306,6 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		// Message12
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("TransactionConfirmed", testFramework.TransactionID("Message11"))
 				eventHandlerMock.On("BranchConfirmed", testFramework.BranchIDFromMessage("Message11"))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
@@ -322,12 +316,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message11", "Message12"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message7", "Message6"},
+					gof.High: {"Message5"},
+					gof.None: {"Message7", "Message6", "Message11"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message7", "Message6"},
+					gof.High: {"Message5"},
+					gof.None: {"Message7", "Message6", "Message11"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -342,12 +336,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message11", "Message12", "Message13"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message6", "Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message6", "Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 			},
 		},
@@ -361,12 +355,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message14"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message6", "Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High: {"Message5", "Message11"},
-					gof.None: {"Message6", "Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 			},
 		},

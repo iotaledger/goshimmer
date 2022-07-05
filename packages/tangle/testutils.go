@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -42,6 +43,8 @@ type MessageTestFramework struct {
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	snapshot                 *ledger.Snapshot
+	outputCounter            uint16
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -61,6 +64,11 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	messageTestFramework.createGenesisOutputs()
 
 	return
+}
+
+// Snapshot returns the Snapshot of the test framework.
+func (m *MessageTestFramework) Snapshot() (snapshot *ledger.Snapshot) {
+	return m.snapshot
 }
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
@@ -161,6 +169,11 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 	return m
 }
 
+// LatestCommitment gets the latest commitment.
+func (m *MessageTestFramework) LatestCommitment(messageAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+	return m.tangle.Options.CommitmentFunc()
+}
+
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
 	for _, messageAlias := range messageAliases {
@@ -216,6 +229,15 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.Transacti
 	}
 
 	return tx.ID()
+}
+
+// Output retrieves the Output that is associated with the given alias.
+func (m *MessageTestFramework) Output(alias string) (output devnetvm.Output) {
+	output, ok := m.outputsByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Output alias %s not registered", alias))
+	}
+	return
 }
 
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
@@ -277,38 +299,42 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 	manaPledgeTime := time.Now()
 
-	outputs := utxo.NewOutputs()
-	outputsMetadata := ledger.NewOutputsMetadata()
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	for alias, balance := range m.options.genesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
+	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet
 
 	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
-	outputs.Add(output)
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
+	m.outputCounter++
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetGradeOfFinality(gof.High)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
-	outputsMetadata.Add(outputMetadata)
 
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
+
+	return outputWithMetadata
 }
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
@@ -469,16 +495,20 @@ type MessageTestFrameworkMessageOptions struct {
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
 	overrideSequenceNumber   bool
+	ecRecord                 *epoch.ECRecord
+	latestConfirmedEpoch     epoch.Index
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:             make(map[string]types.Empty),
-		outputs:            make(map[string]uint64),
-		strongParents:      make(map[string]types.Empty),
-		weakParents:        make(map[string]types.Empty),
-		shallowLikeParents: make(map[string]types.Empty),
+		inputs:               make(map[string]types.Empty),
+		outputs:              make(map[string]uint64),
+		strongParents:        make(map[string]types.Empty),
+		weakParents:          make(map[string]types.Empty),
+		shallowLikeParents:   make(map[string]types.Empty),
+		ecRecord:             epoch.NewECRecord(0),
+		latestConfirmedEpoch: 0,
 	}
 
 	for _, option := range options {
@@ -571,6 +601,20 @@ func WithSequenceNumber(sequenceNumber uint64) MessageOption {
 	}
 }
 
+// WithECRecord returns a MessageOption that is used to define the ecr of the Message.
+func WithECRecord(ecRecord *epoch.ECRecord) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.ecRecord = ecRecord
+	}
+}
+
+// WithLatestConfirmedEpoch returns a MessageOption that is used to define the latestConfirmedEpoch of the Message.
+func WithLatestConfirmedEpoch(ei epoch.Index) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.latestConfirmedEpoch = ei
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -607,7 +651,7 @@ func randomConflictID() (randomConflictID utxo.OutputID) {
 
 func newTestNonceMessage(nonce uint64) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -617,7 +661,7 @@ func newTestNonceMessage(nonce uint64) *Message {
 
 func newTestDataMessage(payloadString string) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -627,7 +671,7 @@ func newTestDataMessage(payloadString string) *Message {
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
 	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -636,7 +680,7 @@ func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicK
 }
 
 func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
-	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -652,9 +696,9 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 
 	if err := message.DetermineID(); err != nil {
@@ -664,7 +708,7 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 }
 
 func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
-	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 
 	if err := message.DetermineID(); err != nil {
 		panic(err)
@@ -681,9 +725,9 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message, err = NewMessageWithValidation(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message, err = NewMessageWithValidation(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 	if err != nil {
 		panic(err)
@@ -695,7 +739,7 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 }
 
 func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
-	message := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 	if err := message.DetermineID(); err != nil {
 		panic(err)
 	}
@@ -828,6 +872,9 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
+	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, epoch.Index, error) {
+		return epoch.NewECRecord(0), 0, nil
+	}))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
