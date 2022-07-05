@@ -100,16 +100,16 @@ func (o *OrphanageManager) orphanBlockFutureCone(blockID MessageID, reason error
 }
 
 func (o *OrphanageManager) orphanBlock(blockID MessageID, reason error) {
+	o.Events.BlockOrphaned.Trigger(&BlockOrphanedEvent{
+		BlockID: blockID,
+		Reason:  reason,
+	})
+
 	// remove blockID from unconfirmed block heap and from childStrongCounters map
 	o.removeElementFromHeap(blockID)
 	delete(o.strongChildCounters, blockID)
 
 	o.tangle.Storage.Message(blockID).Consume(func(block *Message) {
-		o.Events.BlockOrphaned.Trigger(&BlockOrphanedEvent{
-			BlockID: block.ID(),
-			Reason:  reason,
-		})
-
 		for strongParent := range block.ParentsByType(StrongParentType) {
 			if strongParent != EmptyMessageID {
 				o.decreaseStrongChildCounter(strongParent)
