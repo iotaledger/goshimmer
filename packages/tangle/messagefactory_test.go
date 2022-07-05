@@ -367,7 +367,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
-		fmt.Println(event.Block.ID())
+		fmt.Println(event.BlockID)
 	}))
 
 	references, err := tangle.MessageFactory.ReferenceProvider.References(nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now())

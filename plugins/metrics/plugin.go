@@ -258,6 +258,11 @@ func registerLocalMetrics() {
 		}
 	}))
 
+	// fired when a message gets added to missing message storage
+	deps.Tangle.OrphanageManager.Events.BlockOrphaned.Attach(event.NewClosure(func(evt *tangle.BlockOrphanedEvent) {
+		orphanedBlocks.Inc()
+	}))
+
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()

@@ -200,11 +200,11 @@ func (t *TimeManager) updateTime(message *Message) {
 	}
 
 	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		NewTime: t.lastAcceptedMessage.MessageTime,
 	})
 
 	t.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		NewTime: t.lastAcceptedMessage.MessageTime,
 	})
 }
 

@@ -108,6 +108,9 @@ var (
 	// sum of time messages spend in the queue (since start of the node).
 	sumSchedulerBookedTime time.Duration
 	schedulerTimeMutex     syncutils.RWMutex
+
+	// orphanedBlocks number of orphaned blocks.
+	orphanedBlocks atomic.Uint32
 )
 
 // other metrics stored since the start of a node.
@@ -339,6 +342,10 @@ func ParentCountPerType() map[tangle.ParentsType]uint64 {
 	}
 
 	return clone
+}
+
+func OrphanedBlocks() uint32 {
+	return orphanedBlocks.Load()
 }
 
 // //// Handling data updates and measuring.

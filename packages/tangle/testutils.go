@@ -844,6 +844,7 @@ func NewTestTangle(options ...Option) *Tangle {
 
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct {
+	events *ConfirmationEvents
 	sync.RWMutex
 }
 
@@ -881,7 +882,11 @@ func (m *MockConfirmationOracle) IsOutputConfirmed(outputID utxo.OutputID) bool 
 
 // Events mocks its interface function.
 func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
-	return NewConfirmationEvents()
+	if m.events == nil {
+		m.events = NewConfirmationEvents()
+	}
+
+	return m.events
 }
 
 // MockWeightProvider is a mock of a WeightProvider.

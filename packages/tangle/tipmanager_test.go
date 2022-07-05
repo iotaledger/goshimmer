@@ -822,7 +822,6 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
 		testFramework.CreateMessage(alias, WithIssuer(identity.GenerateIdentity().PublicKey()), WithStrongParents(msgAlias), WithSequenceNumber(uint64(i)), WithIssuingTime(time.Now().Add(-timestampOffset)))
 		testFramework.IssueMessages(alias).WaitUntilAllTasksProcessed()
-		fmt.Println("issuing message", testFramework.Message(alias).ID())
 		msgAlias = alias
 	}
 	return msgAlias

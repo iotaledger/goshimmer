@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"container/heap"
 	"fmt"
 	"sync"
 	"time"
@@ -10,22 +9,19 @@ import (
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
-
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle              *Tangle
 	tips                *randommap.RandomMap[MessageID, MessageID]
-	tipsCleaner         *TipsCleaner
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
+	sync.RWMutex
 }
 
 // NewTipManager creates a new tip-selector.
@@ -35,10 +31,6 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tips:                randommap.New[MessageID, MessageID](),
 		tipsConflictTracker: NewTipsConflictTracker(tangle),
 		Events:              newTipManagerEvents(),
-	}
-	tipManager.tipsCleaner = &TipsCleaner{
-		heap:       make([]*QueueElement, 0),
-		tipManager: tipManager,
 	}
 	if tips != nil {
 		tipManager.set(tips...)
@@ -54,21 +46,26 @@ func (t *TipManager) Setup() {
 	}))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		t.Lock()
+		defer t.Unlock()
+
 		t.removeStrongParents(event.Message)
 	}))
 
+	// TODO: should the orphanage events be blocking? It seems like otherwise when orphaning a whole part of the tangle it might run into some inconsistent state when we first try to remove the tip and then remove it?
 	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
-		t.deleteTip(event.Block.ID())
-	}))
+		t.Lock()
+		defer t.Unlock()
 
-	t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
-		t.tipsCleaner.RemoveBefore(event.NewTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
+		t.deleteTip(event.BlockID)
 	}))
 
 	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {
-		if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+		if block.IssuingTime().Before(t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)) {
 			return
 		}
+		t.Lock()
+		defer t.Unlock()
 
 		t.addTip(block)
 	}))
@@ -86,9 +83,13 @@ func (t *TipManager) set(tips ...MessageID) {
 // AddTip adds the message to the tip pool if its issuing time is within the tipLifeGracePeriod.
 // Parents of a message that are currently tip lose the tip status and are removed.
 func (t *TipManager) AddTip(message *Message) {
+	t.Lock()
+	defer t.Unlock()
+
 	messageID := message.ID()
 
-	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+	// do not add tips older than TSC threshold
+	if message.IssuingTime().Before(t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)) {
 		return
 	}
 
@@ -127,8 +128,6 @@ func (t *TipManager) addTip(message *Message) (added bool) {
 		t.Events.TipAdded.Trigger(&TipEvent{
 			MessageID: messageID,
 		})
-
-		t.tipsCleaner.Add(message.IssuingTime(), messageID)
 		return true
 	}
 
@@ -178,6 +177,9 @@ func (t *TipManager) removeStrongParents(message *Message) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs) {
+	t.RLock()
+	defer t.RUnlock()
+
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -260,6 +262,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID Messag
 	// marker before minSupportedTimestamp
 	if messageIssuingTime.Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
+		// FIXME: could remove this
 		if !t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
 			// if unconfirmed, then incorrect
 			markerWalker.StopWalk()
@@ -318,6 +321,7 @@ func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minS
 	return false
 }
 
+// FIXME: could remove this
 func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
 	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
@@ -418,8 +422,12 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 	// at least one tip is returned
 	for _, tip := range tips {
 		messageID := tip
-		if !parents.Contains(messageID) && t.isPastConeTimestampCorrect(messageID) {
-			parents.Add(messageID)
+		if !parents.Contains(messageID) {
+			if t.isPastConeTimestampCorrect(messageID) {
+				parents.Add(messageID)
+			} else {
+				t.deleteTip(messageID)
+			}
 		}
 	}
 	return
@@ -463,83 +471,5 @@ type QueueElement struct {
 
 	index int
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type TipsCleaner struct {
-	heap       TimedHeap
-	tipManager *TipManager
-	heapMutex  sync.RWMutex
-}
-
-// Add adds a new element to the heap.
-func (t *TipsCleaner) Add(key time.Time, value MessageID) {
-	t.heapMutex.Lock()
-	defer t.heapMutex.Unlock()
-	heap.Push(&t.heap, &QueueElement{Value: value, Key: key})
-}
-
-// RemoveBefore removes the elements with key time earlier than the given time.
-func (t *TipsCleaner) RemoveBefore(minAllowedTime time.Time) {
-	t.heapMutex.Lock()
-	defer t.heapMutex.Unlock()
-	popCounter := 0
-	for i := 0; i < t.heap.Len(); i++ {
-		if t.heap[i].Key.After(minAllowedTime) {
-			break
-		}
-		popCounter++
-
-	}
-	for i := 0; i < popCounter; i++ {
-		message := heap.Pop(&t.heap)
-		t.tipManager.deleteTip(message.(*QueueElement).Value)
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimedHeap defines a heap based on times.
-type TimedHeap []*QueueElement
-
-// Len is the number of elements in the collection.
-func (h TimedHeap) Len() int {
-	return len(h)
-}
-
-// Less reports whether the element with index i should sort before the element with index j.
-func (h TimedHeap) Less(i, j int) bool {
-	return h[i].Key.Before(h[j].Key)
-}
-
-// Swap swaps the elements with indexes i and j.
-func (h TimedHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].index, h[j].index = i, j
-}
-
-// Push adds x as the last element to the heap.
-func (h *TimedHeap) Push(x interface{}) {
-	data := x.(*QueueElement)
-	*h = append(*h, data)
-	data.index = len(*h) - 1
-}
-
-// Pop removes and returns the last element of the heap.
-func (h *TimedHeap) Pop() interface{} {
-	n := len(*h)
-	data := (*h)[n-1]
-	(*h)[n-1] = nil // avoid memory leak
-	*h = (*h)[:n-1]
-	data.index = -1
-	return data
-}
-
-// interface contract (allow the compiler to check if the implementation has all the required methods).
-var _ heap.Interface = &TimedHeap{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

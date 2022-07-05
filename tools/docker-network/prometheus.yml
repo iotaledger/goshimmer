@@ -6,3 +6,4 @@ scrape_configs:
           - peer_master:9311
           - faucet:9311
           - peer_master2:9311
+          - peer_nomana:9311
