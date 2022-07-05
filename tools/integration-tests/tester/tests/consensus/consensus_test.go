@@ -32,7 +32,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	)
 
 	snapshotInfo := tests.ConsensusSnapshotDetails
-	expectedCManaNode1AfterTxConf := float64(snapshotInfo.PeersAmountsPledged[0]) + float64(snapshotInfo.GenesisTokenAmount)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -122,9 +121,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			},
 		}, time.Minute, tests.Tick)
 	}
-	require.Eventually(t, func() bool {
-		return expectedCManaNode1AfterTxConf == tests.Mana(t, node1).Consensus
-	}, tests.Timeout, tests.Tick)
 }
 
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *devnetvm.Transaction {

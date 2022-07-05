@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -124,14 +125,22 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
+	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
+
 	// select tips, perform PoW and prepare references
-	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, issuerPublicKey, sequenceNumber)
+	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, issuerPublicKey, sequenceNumber, lastConfirmedEpochIndex, epochCommitment)
+	if epochCommitmentErr != nil {
+		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, errors.Errorf("could not select tips and perform PoW: %w", err)
 	}
 
 	// create the signature
-	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce, lastConfirmedEpochIndex, epochCommitment)
 	if err != nil {
 		return nil, errors.Errorf("signing failed: %w", err)
 	}
@@ -144,6 +153,8 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		p,
 		nonce,
 		signature,
+		lastConfirmedEpochIndex,
+		epochCommitment,
 	)
 	if err != nil {
 		return nil, errors.Errorf("there is a problem with the message syntax: %w", err)
@@ -153,11 +164,11 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	return msg, nil
 }
 
-func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences ParentMessageIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64) (references ParentMessageIDs, nonce uint64, issuingTime time.Time, err error) {
+func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences ParentMessageIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, lastConfirmedEpoch epoch.Index, epochCommittment *epoch.ECRecord) (references ParentMessageIDs, nonce uint64, issuingTime time.Time, err error) {
 	// Perform PoW with given information if there are references provided.
 	if !providedReferences.IsEmpty() {
 		issuingTime = f.getIssuingTime(providedReferences[StrongParentType])
-		nonce, err = f.doPOW(providedReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, err = f.doPOW(providedReferences, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
 		if err != nil {
 			return providedReferences, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
 		}
@@ -192,7 +203,7 @@ func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefe
 			delete(references, WeakParentType)
 		}
 
-		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
 	}
 
 	if err != nil {
@@ -237,13 +248,14 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	return parents
 }
 
-func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
-	earliestIssuingTime := time.Now()
+func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs, earliestAttachmentMustBeBooked ...bool) (earliestAttachment *Message) {
+	var earliestIssuingTime time.Time
 	for it := transactionIDs.Iterator(); it.HasNext(); {
 		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
 			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
-					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
+					if ((len(earliestAttachmentMustBeBooked) > 0 && !earliestAttachmentMustBeBooked[0]) || messageMetadata.IsBooked()) &&
+						(earliestAttachment == nil || message.IssuingTime().Before(earliestIssuingTime)) {
 						earliestAttachment = message
 						earliestIssuingTime = message.IssuingTime()
 					}
@@ -279,9 +291,9 @@ func (f *MessageFactory) Shutdown() {
 }
 
 // doPOW performs pow on the message and returns a nonce.
-func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummy, err := message.Bytes()
 	if err != nil {
 		return 0, err
@@ -292,9 +304,9 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummyBytes, err := dummy.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err

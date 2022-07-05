@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -122,14 +123,14 @@ func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte("test"))
 
-	unsigned := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	unsigned := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 	assert.False(t, lo.PanicOnErr(unsigned.VerifySignature()))
 
 	unsignedBytes, err := unsigned.Bytes()
 	require.NoError(t, err)
 	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
 
-	signed := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
+	signed := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, signature, 0, epoch.NewECRecord(0))
 	assert.True(t, lo.PanicOnErr(signed.VerifySignature()))
 }
 
@@ -148,7 +149,7 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 		0,
 		randomTransaction(),
 		0,
-		ed25519.Signature{})
+		ed25519.Signature{}, 0, epoch.NewECRecord(0))
 	assert.NoError(t, err)
 	assert.NoError(t, testMessage.DetermineID())
 
@@ -201,7 +202,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion)
+			0, epoch.NewECRecord(0), MessageVersion)
 		assert.Error(t, err)
 	})
 
@@ -214,6 +215,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.Error(t, err)
@@ -228,6 +231,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.Error(t, err)
@@ -248,6 +253,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.NoError(t, err)
@@ -278,6 +285,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.NoError(t, msg.DetermineID())
@@ -306,6 +315,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.Error(t, err)
@@ -325,6 +336,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.NoError(t, msg.DetermineID())
@@ -349,6 +362,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
+			0, epoch.NewECRecord(0),
 			MessageVersion,
 		)
 		assert.NoError(t, msg.DetermineID())
@@ -380,6 +394,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 				payload.NewGenericDataPayload([]byte("")),
 				0,
 				ed25519.Signature{},
+				0,
+				epoch.NewECRecord(0),
 				MessageVersion,
 			)
 			assert.NoError(t, err, "strong and like parents may have duplicate parents")
@@ -398,6 +414,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 				payload.NewGenericDataPayload([]byte("")),
 				0,
 				ed25519.Signature{},
+				0,
+				epoch.NewECRecord(0),
 				MessageVersion,
 			)
 			assert.Error(t, err, "messages in weak references may allow to overlap with strong references")
@@ -420,6 +438,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 				payload.NewGenericDataPayload([]byte("")),
 				0,
 				ed25519.Signature{},
+				0,
+				epoch.NewECRecord(0),
 				MessageVersion)
 			assert.Error(t, err)
 		}
@@ -435,7 +455,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
@@ -448,7 +468,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		// should pass since EmptyMessageId is a valid MessageId
 		assert.NoError(t, err)
@@ -464,7 +484,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 	})
@@ -482,7 +502,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 	})
@@ -498,7 +518,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 	})
@@ -516,7 +536,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 
@@ -545,7 +565,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload(data),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 
@@ -564,7 +584,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload(nil),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 
@@ -586,7 +606,7 @@ func TestMessageFromBytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("This is a test message.")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err)
 		assert.NoError(t, msg.DetermineID())
@@ -622,7 +642,7 @@ func TestMessageFromBytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("This is a test message.")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, epoch.NewECRecord(0),
 		)
 		assert.NoError(t, err, "Syntactically invalid message created")
 		msgBytes := lo.PanicOnErr(msg.Bytes())

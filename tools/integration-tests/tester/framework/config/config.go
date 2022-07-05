@@ -3,14 +3,13 @@ package config
 import (
 	"reflect"
 
-	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -53,6 +52,7 @@ type GoShimmer struct {
 	Profiling
 	Dashboard
 	Dagsvisualizer
+	Notarization
 	RateSetter
 }
 
@@ -169,6 +169,11 @@ type Dagsvisualizer struct {
 	Enabled bool
 
 	dagsvisualizer.ParametersDefinition
+}
+
+// Notarization defines the parameters of the Notarization plugin.
+type Notarization struct {
+	Enabled bool
 }
 
 // CreateIdentity returns an identity based on the config.

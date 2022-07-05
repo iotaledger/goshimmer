@@ -11,10 +11,12 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -108,6 +110,11 @@ func GetMessage(c echo.Context) (err error) {
 	if deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		var payloadBytes []byte
 		payloadBytes, err = message.Payload().Bytes()
+
+		ecRecord := epoch.NewECRecord(message.EI())
+		ecRecord.SetECR(message.ECR())
+		ecRecord.SetPrevEC(message.PrevEC())
+
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
 			ID:                   message.ID().Base58(),
 			StrongParents:        message.ParentsByType(tangle.StrongParentType).Base58(),
@@ -127,8 +134,13 @@ func GetMessage(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			Payload:   payloadBytes,
-			Signature: message.Signature().String(),
+			EC:                   notarization.EC(ecRecord).Base58(),
+			EI:                   uint64(message.EI()),
+			ECR:                  message.ECR().Base58(),
+			PrevEC:               message.PrevEC().Base58(),
+			Payload:              payloadBytes,
+			Signature:            message.Signature().String(),
+			LatestConfirmedEpoch: uint64(message.LatestConfirmedEpoch()),
 		})
 	}) {
 		return

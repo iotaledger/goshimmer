@@ -25,7 +25,7 @@ type TestScenario struct {
 	stepIndex     int
 	t             *testing.T
 	nodes         NodeIdentities
-	testFramework *MessageTestFramework
+	TestFramework *MessageTestFramework
 	testEventMock *EventMock
 }
 
@@ -56,13 +56,13 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 	step := s.Steps[s.stepIndex]
 
 	if prePostStepTuple != nil && prePostStepTuple.Pre != nil {
-		prePostStepTuple.Pre(s.t, s.testFramework, s.testEventMock, s.nodes)
+		prePostStepTuple.Pre(s.t, s.TestFramework, s.testEventMock, s.nodes)
 	}
 
-	step(s.t, s.testFramework, s.testEventMock, s.nodes)
+	step(s.t, s.TestFramework, s.testEventMock, s.nodes)
 
 	if prePostStepTuple != nil && prePostStepTuple.Post != nil {
-		prePostStepTuple.Post(s.t, s.testFramework, s.testEventMock, s.nodes)
+		prePostStepTuple.Post(s.t, s.TestFramework, s.testEventMock, s.nodes)
 	}
 	s.stepIndex++
 }
@@ -99,7 +99,7 @@ func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
 
 	s.testEventMock = NewEventMock(t, s.Tangle.ApprovalWeightManager)
-	s.testFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
+	s.TestFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
 	s.Steps = []TestStep{
 		// ISSUE Message1
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
@@ -455,7 +455,7 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 	s.Tangle.Setup()
 
 	s.testEventMock = NewEventMock(t, s.Tangle.ApprovalWeightManager)
-	s.testFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
+	s.TestFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
 	s.Steps = []TestStep{
 		// ISSUE Message0
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {

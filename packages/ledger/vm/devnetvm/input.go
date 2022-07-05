@@ -133,7 +133,7 @@ func (i Inputs) Clone() (clonedInputs Inputs) {
 	return
 }
 
-// String returns a human readable version of the Inputs.
+// String returns a human-readable version of the Inputs.
 func (i Inputs) String() string {
 	structBuilder := stringify.StructBuilder("Inputs")
 	for i, input := range i {

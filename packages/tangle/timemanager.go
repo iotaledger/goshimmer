@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
 const (
@@ -53,8 +54,8 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	// initialize with Genesis
 	t.lastAcceptedMessage = LastMessage{
 		MessageID:   EmptyMessageID,
-		MessageTime: time.Unix(DefaultGenesisTime, 0),
-		UpdateTime:  time.Unix(DefaultGenesisTime, 0),
+		MessageTime: time.Unix(epoch.GenesisTime, 0),
+		UpdateTime:  time.Unix(epoch.GenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -162,7 +163,7 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.CTT().Unix() == DefaultGenesisTime {
+	if t.startSynced && t.CTT().Unix() == epoch.GenesisTime {
 		return true
 	}
 
@@ -200,11 +201,15 @@ func (t *TimeManager) updateTime(message *Message) {
 	}
 
 	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		MessageID:  t.lastAcceptedMessage.MessageID,
+		ATT:        t.lastAcceptedMessage.MessageTime,
+		UpdateTime: t.lastAcceptedMessage.UpdateTime,
 	})
 
 	t.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		MessageID:  t.lastAcceptedMessage.MessageID,
+		ATT:        t.lastAcceptedMessage.MessageTime,
+		UpdateTime: t.lastAcceptedMessage.UpdateTime,
 	})
 }
 

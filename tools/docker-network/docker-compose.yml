@@ -108,7 +108,6 @@ services:
       --node.disablePlugins=portcheck,clock,Firewall
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --mana.snapshotResetTime=true
       --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json

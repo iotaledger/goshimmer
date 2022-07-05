@@ -51,6 +51,11 @@ export class Message {
     isPastMarker: boolean;
     pastMarkerGap: number;
     pastMarkers: string;
+    ec: string;
+    ei: number;
+    ecr: string;
+    prevEC: string;
+    latestConfirmedEpoch: number;
 }
 
 export class AddressResult {

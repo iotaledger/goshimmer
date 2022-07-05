@@ -25,6 +25,9 @@ type ParametersDefinition struct {
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
+
+	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.
+	GenesisTime int64 `default:"0" usage:"resets the genesis time to the specified value, unix time in seconds"`
 }
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
@@ -46,8 +49,8 @@ type ManaParametersDefinition struct {
 	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
 	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
-	// SnapshotResetTime defines if the aMana Snapshot should be reset to the current Time.
-	SnapshotResetTime bool `default:"false" usage:"when loading snapshot reset to current time when true"`
+	// Number of epochs past the latest committable epoch for which the base mana vector becomes effective.
+	EpochDelay uint `default:"2" usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
 }
 
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
@@ -70,6 +73,14 @@ type SchedulerParametersDefinition struct {
 	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }
 
+// NotarizationParameterDefinition contains the definition of the parameters used by the notarization plugin.
+type NotarizationParameterDefinition struct {
+	// MinEpochCommitableAge defines the min age of a commitable epoch.
+	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
+	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
+	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
+}
+
 // Parameters contains the general configuration used by the messagelayer plugin.
 var Parameters = &ParametersDefinition{}
 
@@ -82,9 +93,13 @@ var RateSetterParameters = &RateSetterParametersDefinition{}
 // SchedulerParameters contains the scheduler configuration used by the messagelayer plugin.
 var SchedulerParameters = &SchedulerParametersDefinition{}
 
+// NotarizationParameters contains the configuration used by the notarization plugin.
+var NotarizationParameters = &NotarizationParameterDefinition{}
+
 func init() {
 	configuration.BindParameters(Parameters, "messageLayer")
 	configuration.BindParameters(ManaParameters, "mana")
 	configuration.BindParameters(RateSetterParameters, "rateSetter")
 	configuration.BindParameters(SchedulerParameters, "scheduler")
+	configuration.BindParameters(NotarizationParameters, "notarization")
 }

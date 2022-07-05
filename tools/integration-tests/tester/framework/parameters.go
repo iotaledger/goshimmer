@@ -33,6 +33,9 @@ var (
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}
+
+	// GenesisTime provides the genesis time for the tests, to start close to epoch 0.
+	GenesisTime = time.Now().Unix()
 )
 
 // CreateNetworkConfig is the config for optional plugins passed through NewNetwork.
@@ -58,6 +61,8 @@ func PeerConfig() config.GoShimmer {
 	c.Image = "iotaledger/goshimmer"
 
 	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
+
+	c.GenesisTime = GenesisTime
 
 	c.Network.Enabled = true
 
@@ -96,12 +101,13 @@ func PeerConfig() config.GoShimmer {
 	c.Faucet.GenesisTokenAmount = 2500000000000000
 
 	c.Mana.Enabled = true
-	c.Mana.SnapshotResetTime = true
 
 	c.Consensus.Enabled = false
 
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
+
+	c.Notarization.Enabled = true
 
 	return c
 }
@@ -113,7 +119,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIMessageEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
-		"WebAPILedgerstateEndpoint", "Firewall", "remotelog", "remotelogmetrics", "DAGsVisualizer", "ManaInitializer")
+		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization", "ManaInitializer", "Firewall", "WebAPILedgerstateEndpoint")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
@@ -124,6 +130,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Activity.Enabled = false
 	c.Dashboard.Enabled = false
 	c.Dagsvisualizer.Enabled = false
+	c.Notarization.Enabled = false
 
 	return c
 }

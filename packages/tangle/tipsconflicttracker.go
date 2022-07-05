@@ -29,10 +29,10 @@ func NewTipsConflictTracker(tangle *Tangle) *TipsConflictTracker {
 
 func (c *TipsConflictTracker) Setup() {
 	c.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		c.deleteConflict(event.BranchID)
+		c.deleteConflict(event.ID)
 	}))
 	c.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		c.deleteConflict(event.BranchID)
+		c.deleteConflict(event.ID)
 	}))
 }
 

@@ -6,6 +6,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/notarization"
+
+	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -17,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -24,7 +28,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -44,6 +47,7 @@ var (
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
 	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
+	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -63,6 +67,9 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
+		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
+	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -124,7 +131,7 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
+		totalAmount, inputInfos := gatherInputInfos(devnetTransaction.Essence().Inputs())
 
 		txInfo = &mana.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
@@ -137,27 +144,24 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 			InputInfos: inputInfos,
 		}
 
-		// book in all mana vectors.
-		for _, baseManaVector := range baseManaVectors {
-			baseManaVector.Book(txInfo)
-		}
+		// book in only access mana
+		baseManaVectors[mana.AccessMana].Book(txInfo)
 	})
 }
 
-func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []mana.InputInfo) {
 	inputInfos = make([]mana.InputInfo, 0)
-	for _, input := range transaction.Essence().Inputs() {
+	for _, input := range inputs {
 		var inputInfo mana.InputInfo
 
 		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				inputInfo.Amount += float64(balance)
-				totalAmount += float64(balance)
-				return true
-			})
+			if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
+				inputInfo.Amount = float64(amount)
+				totalAmount += float64(amount)
+			}
 
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID
@@ -196,10 +200,12 @@ func runManaPlugin(_ *node.Plugin) {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 
-				loadSnapshot(nodeSnapshot.ManaSnapshot)
+				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
+					Plugin.Panicf("Couldn't load snapshot: %s", err)
+				}
 
 				// initialize cMana WeightProvider with snapshot
-				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				t := time.Unix(epoch.GenesisTime, 0)
 				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
 					if nodeID == genesisNodeID {
@@ -219,6 +225,7 @@ func runManaPlugin(_ *node.Plugin) {
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
 				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				notarizationManager.Events.ManaVectorUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -752,11 +759,59 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *mana.Snapshot) {
-	if ManaParameters.SnapshotResetTime {
-		snapshot.ResetTime()
+func loadSnapshot(snapshot *ledger.Snapshot) error {
+	consensusManaByNode := map[identity.ID]float64{}
+	accessManaByNode := map[identity.ID]float64{}
+	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
+		for _, outputWithMetadata := range outputsWithMetadata {
+			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+			balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+			if !exists {
+				continue
+			}
+			outputMetadata := outputWithMetadata.OutputMetadata()
+			if areCreated {
+				baseVector[outputMetadata.ConsensusManaPledgeID()] += float64(balance)
+			} else {
+				baseVector[outputMetadata.ConsensusManaPledgeID()] -= float64(balance)
+			}
+		}
+
+		return
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshot.ByNodeID)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshot.ByNodeID)
+	processOutputs(snapshot.OutputsWithMetadata, consensusManaByNode, true /* areCreated */)
+	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
+
+	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+	if cManaTargetEpoch < 0 {
+		cManaTargetEpoch = 0
+	}
+
+	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
+		diff, exists := snapshot.EpochDiffs[ei]
+		if !exists {
+			return errors.Errorf("diff with index %d missing from snapshot", ei)
+		}
+		processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+		processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+	}
+
+	// Only the aMana will be loaded until the latest snapshot's epoch
+	for ei := cManaTargetEpoch + 1; ei <= snapshot.DiffEpochIndex; ei++ {
+		diff, exists := snapshot.EpochDiffs[ei]
+		if !exists {
+			return errors.Errorf("diff with index %d missing from snapshot", ei)
+		}
+		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+	}
+
+	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
+
+	return nil
 }
