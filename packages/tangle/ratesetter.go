@@ -250,7 +250,7 @@ func (r *RateSetter) initializeInitialRate() {
 	} else {
 		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
 		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 0.001))
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
 	}
 }
 
