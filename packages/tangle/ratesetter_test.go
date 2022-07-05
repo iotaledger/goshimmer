@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/epoch"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
@@ -108,6 +109,8 @@ func TestRateSetter_SkipOlderThanTSC(t *testing.T) {
 		payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
 		0,
 		ed25519.Signature{},
+		0,
+		epoch.NewECRecord(0),
 	)
 	assert.NoError(t, msg.DetermineID())
 	assert.NoError(t, rateSetter.Issue(msg))
@@ -126,6 +129,8 @@ func TestRateSetter_SkipOlderThanTSC(t *testing.T) {
 			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
 			0,
 			ed25519.Signature{},
+			0,
+			epoch.NewECRecord(0),
 		)
 		assert.NoError(t, msg.DetermineID())
 		assert.NoError(t, rateSetter.Issue(msg))

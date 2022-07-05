@@ -56,7 +56,7 @@ func (o *OrphanageManager) Setup() {
 	o.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
 		o.Lock()
 		defer o.Unlock()
-		o.orphanBeforeTSC(event.NewTime.Add(-o.tangle.Options.TimeSinceConfirmationThreshold))
+		o.orphanBeforeTSC(event.ATT.Add(-o.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
 }

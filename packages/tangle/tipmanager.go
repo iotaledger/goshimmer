@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
