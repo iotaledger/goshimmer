@@ -323,7 +323,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if !outputMetadata.IsSpent() && deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+				if !outputMetadata.IsSpent() && deps.Tangle.Ledger.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
 					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
@@ -369,7 +369,7 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 					return
 				}
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
-					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+					deps.Tangle.Ledger.Utils.OutputConfirmationState(output.ID()).IsAccepted() {
 					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)

@@ -115,7 +115,7 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 	snapshot = NewSnapshot([]*OutputWithMetadata{})
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || outputMetadata.ConfirmationState() < confirmation.Accepted {
+			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
 				return
 			}
 

@@ -48,8 +48,9 @@ type transactionMetadata struct {
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
 func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
 	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
-		BranchIDs: utxo.NewTransactionIDs(),
-		OutputIDs: utxo.NewOutputIDs(),
+		BranchIDs:         utxo.NewTransactionIDs(),
+		OutputIDs:         utxo.NewOutputIDs(),
+		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(txID)
 
@@ -236,7 +237,8 @@ type outputMetadata struct {
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
-		BranchIDs: utxo.NewTransactionIDs(),
+		BranchIDs:         utxo.NewTransactionIDs(),
+		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(outputID)
 

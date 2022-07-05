@@ -177,16 +177,6 @@ func (s *Gadget) IsTransactionConfirmed(transactionID utxo.TransactionID) (confi
 	return
 }
 
-// IsOutputConfirmed returns whether the given output is confirmed.
-func (s *Gadget) IsOutputConfirmed(outputID utxo.OutputID) (confirmed bool) {
-	s.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-		if outputMetadata.ConfirmationState().IsAccepted() {
-			confirmed = true
-		}
-	})
-	return
-}
-
 // HandleMarker receives a marker and its current approval weight. It propagates the ConfirmationState according to AW to its past cone.
 func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 	confirmationState := s.opts.MessageTransFunc(aw)

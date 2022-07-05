@@ -642,6 +642,7 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 		ReceivedTime:        clock.SyncedTime(),
 		AddedBranchIDs:      utxo.NewTransactionIDs(),
 		SubtractedBranchIDs: utxo.NewTransactionIDs(),
+		ConfirmationState:   confirmation.Pending,
 	})
 	metadata.SetID(messageID)
 

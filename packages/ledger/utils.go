@@ -152,12 +152,14 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 }
 
 // TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
-func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
+	u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState()
-	}) {
-		return confirmation.Pending, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
-	}
-
+	})
 	return
+}
+
+// OutputConfirmationState returns the ConfirmationState of the Output.
+func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
+	return u.TransactionConfirmationState(outputID.TransactionID)
 }
