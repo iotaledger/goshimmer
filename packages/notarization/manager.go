@@ -349,6 +349,20 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	}
 }
 
+// PendingConflictsCount returns the current value of pendingConflictsCount.
+func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
+	return m.pendingConflictsCounters[ei]
+}
+
+// PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
+func (m *Manager) PendingConflictsCountAll() map[epoch.Index]uint64 {
+	duplicate := make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
+	for k, v := range m.pendingConflictsCounters {
+		duplicate[k] = v
+	}
+	return duplicate
+}
+
 // Shutdown shuts down the manager's permanent storagee.
 func (m *Manager) Shutdown() {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -494,7 +508,9 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 
 		// reads the roots and store the ec
 		// rolls the state trees
-		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
+		ecRecord := epoch.NewECRecord(epoch.Index(0))
+		ecRecord, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei)
+		if ecRecordErr != nil {
 			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
 			return
 		}
@@ -504,7 +520,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 			return
 		}
 
-		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
+		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
 		m.triggerManaVectorUpdate(ei)
 	}
 }
@@ -597,6 +613,8 @@ type UTXOUpdatedEvent struct {
 type EpochCommittableEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
+	// ECRecord is the ec root of committable epoch.
+	ECRecord *epoch.ECRecord
 }
 
 // ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.

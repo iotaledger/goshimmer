@@ -126,7 +126,7 @@ func configure(plugin *node.Plugin) {
 			plugin.LogDebug(err)
 		}
 	}))
-	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
+	deps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		committedEpochsMutex.Lock()
 		lastCommittedEpoch = event.EI
 		committedEpochs[event.EI] = event.ECRecord
