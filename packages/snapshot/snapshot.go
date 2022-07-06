@@ -46,19 +46,16 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
 		output.SetID(output.M.OutputID)
 		output.Output().SetID(output.M.OutputID)
-		output.OutputMetadata().SetID(output.M.OutputID)
 	}
 
 	for _, epochdiff := range s.LedgerSnapshot.EpochDiffs {
 		for _, spentOutput := range epochdiff.Spent() {
 			spentOutput.SetID(spentOutput.M.OutputID)
 			spentOutput.Output().SetID(spentOutput.M.OutputID)
-			spentOutput.OutputMetadata().SetID(spentOutput.M.OutputID)
 		}
 		for _, createdOutput := range epochdiff.Created() {
 			createdOutput.SetID(createdOutput.M.OutputID)
 			createdOutput.Output().SetID(createdOutput.M.OutputID)
-			createdOutput.OutputMetadata().SetID(createdOutput.M.OutputID)
 		}
 	}
 

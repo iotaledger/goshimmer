@@ -201,7 +201,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 			revokeEvents = append(revokeEvents, &RevokedEvent{
 				NodeID:        idToRevoke,
 				Amount:        float64(outputIOTAs),
-				Time:          output.OutputMetadata().CreationTime(),
+				Time:          output.CreationTime(),
 				ManaType:      m.Type(),
 				TransactionID: output.ID().TransactionID,
 				InputID:       output.ID(),
@@ -225,7 +225,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 			pledgeEvents = append(pledgeEvents, &PledgedEvent{
 				NodeID:        idToPledge,
 				Amount:        float64(outputIOTAs),
-				Time:          output.OutputMetadata().CreationTime(),
+				Time:          output.CreationTime(),
 				ManaType:      m.Type(),
 				TransactionID: output.Output().ID().TransactionID,
 			})
@@ -243,9 +243,9 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 
 func (m *ManaBaseVector) getIDBasedOnManaType(output *ledger.OutputWithMetadata) (pledgeID identity.ID) {
 	if m.Type() == ConsensusMana {
-		pledgeID = output.OutputMetadata().ConsensusManaPledgeID()
+		pledgeID = output.ConsensusManaPledgeID()
 	} else {
-		pledgeID = output.OutputMetadata().AccessManaPledgeID()
+		pledgeID = output.AccessManaPledgeID()
 	}
 	return
 }

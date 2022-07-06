@@ -88,8 +88,13 @@ func New(options ...Option) (ledger *Ledger) {
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
+		outputMetadata := NewOutputMetadata(outputWithMetadata.ID())
+		outputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
+		outputMetadata.SetConsensusManaPledgeID(outputMetadata.ConsensusManaPledgeID())
+		outputMetadata.SetConfirmationState(confirmation.Confirmed)
+
 		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(outputWithMetadata.OutputMetadata()).Release()
+		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 	}
 
 	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
@@ -104,8 +109,13 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 		}
 
 		for _, created := range epochdiff.Created() {
+			outputMetadata := NewOutputMetadata(created.ID())
+			outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
+			outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
+			outputMetadata.SetConfirmationState(confirmation.Confirmed)
+
 			l.Storage.outputStorage.Store(created.Output()).Release()
-			l.Storage.outputMetadataStorage.Store(created.OutputMetadata()).Release()
+			l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		}
 	}
 }
@@ -120,7 +130,7 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 			}
 
 			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata)
+				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
 				snapshot.OutputsWithMetadata = append(snapshot.OutputsWithMetadata, outputWithMetadata)
 			})
 		})

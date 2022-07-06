@@ -135,7 +135,7 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 		return nil
 	}
 
-	accountBytes := outputWithMetadata.OutputMetadata().ConsensusManaPledgeID().Bytes()
+	accountBytes := outputWithMetadata.ConsensusManaPledgeID().Bytes()
 
 	var currentBalance uint64
 	if balanceBytes, getLeafErr := f.manaRootTree.Get(accountBytes); getLeafErr != nil && len(balanceBytes) > 0 {

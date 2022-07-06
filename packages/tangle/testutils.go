@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -323,14 +322,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
 	m.outputCounter++
 
-	outputMetadata := ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetConfirmationState(confirmation.Confirmed)
-	outputMetadata.SetAccessManaPledgeID(manaPledgeID)
-	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
-	outputMetadata.SetCreationTime(manaPledgeTime)
-	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
-
-	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata)
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, manaPledgeTime, manaPledgeID, manaPledgeID)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())

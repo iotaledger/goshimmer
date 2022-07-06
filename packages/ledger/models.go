@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -551,44 +550,70 @@ func (c *Consumer) SetBooked() (updated bool) {
 
 // region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type EpochDiffs struct {
-	orderedmap.OrderedMap[epoch.Index, *OutputWithMetadata] `serix:"0"`
+// EpochDiff represents the collection of OutputWithMetadata objects that have been included in an epoch.
+type EpochDiff struct {
+	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
 }
 
-func (e *EpochDiffs) String() string {
-	structBuilder := stringify.StructBuilder("EpochDiffs")
-	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *OutputWithMetadata) bool {
-		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
-		return true
+type epochDiffModel struct {
+	Spent   []*OutputWithMetadata `serix:"0"`
+	Created []*OutputWithMetadata `serix:"1"`
+}
+
+// NewEpochDiff returns a new EpochDiff object.
+func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
+	return model.NewImmutable[EpochDiff](&epochDiffModel{
+		Spent:   spent,
+		Created: created,
 	})
-
-	return structBuilder.String()
 }
 
+// Spent returns the outputs spent for this epoch diff.
+func (e *EpochDiff) Spent() []*OutputWithMetadata {
+	return e.M.Spent
+}
+
+// Created returns the outputs created for this epoch diff.
+func (e *EpochDiff) Created() []*OutputWithMetadata {
+	return e.M.Spent
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputWithMetadata ///////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
 type OutputWithMetadata struct {
 	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
 }
 
 type outputWithMetadataModel struct {
-	OutputID       utxo.OutputID   `serix:"0"`
-	Output         utxo.Output     `serix:"1"`
-	OutputMetadata *OutputMetadata `serix:"2"`
+	OutputID              utxo.OutputID `serix:"0"`
+	Output                utxo.Output   `serix:"1"`
+	CreationTime          time.Time     `serix:"2"`
+	ConsensusManaPledgeID identity.ID   `serix:"3"`
+	AccessManaPledgeID    identity.ID   `serix:"4"`
 }
 
+// String returns a human-readable version of the OutputWithMetadata.
 func (o *OutputWithMetadata) String() string {
 	structBuilder := stringify.StructBuilder("OutputWithMetadata")
 	structBuilder.AddField(stringify.StructField("OutputID", o.ID()))
 	structBuilder.AddField(stringify.StructField("Output", o.Output()))
-	structBuilder.AddField(stringify.StructField("OutputMetadata", o.OutputMetadata()))
+	structBuilder.AddField(stringify.StructField("CreationTime", o.CreationTime()))
+	structBuilder.AddField(stringify.StructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
+	structBuilder.AddField(stringify.StructField("AccessPledgeID", o.AccessManaPledgeID()))
 
 	return structBuilder.String()
 }
 
-func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata) (new *OutputWithMetadata) {
+// NewOutputWithMetadata returns a new OutputWithMetadata object.
+func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
-		OutputID:       outputID,
-		Output:         output,
-		OutputMetadata: outputMetadata,
+		OutputID:              outputID,
+		Output:                output,
+		ConsensusManaPledgeID: consensusManaPledgeID,
+		AccessManaPledgeID:    accessManaPledgeID,
 	})
 	new.SetID(outputID)
 	return
@@ -598,7 +623,6 @@ func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMet
 func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 	err := o.Storable.FromObjectStorage(key, value)
 	o.M.Output.SetID(o.ID())
-	o.M.OutputMetadata.SetID(o.ID())
 
 	return err
 }
@@ -607,11 +631,11 @@ func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 func (o *OutputWithMetadata) FromBytes(data []byte) error {
 	err := o.Storable.FromBytes(data)
 	o.M.Output.SetID(o.ID())
-	o.M.OutputMetadata.SetID(o.ID())
 
 	return err
 }
 
+// Output returns the Output field.
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
 	defer o.RUnlock()
@@ -619,6 +643,7 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	return o.M.Output
 }
 
+// SetOutput sets the Output field.
 func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 	o.Lock()
 	defer o.Unlock()
@@ -629,45 +654,52 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 	return
 }
 
-func (o *OutputWithMetadata) OutputMetadata() (outputMetadata *OutputMetadata) {
+// CreationTime returns the CreationTime field.
+func (o *OutputWithMetadata) CreationTime() (creationTime time.Time) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.OutputMetadata
+	return o.M.CreationTime
 }
 
-func (o *OutputWithMetadata) SetOutputMetadata(outputMetadata *OutputMetadata) {
+// SetCreationTime sets the CreationTime field.
+func (o *OutputWithMetadata) SetCreationTime(creationTime time.Time) {
 	o.Lock()
 	defer o.Unlock()
 
-	o.M.OutputMetadata = outputMetadata
-	o.SetModified()
-
-	return
+	o.M.CreationTime = creationTime
 }
 
-type EpochDiff struct {
-	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
+// ConsensusManaPledgeID returns the consensus pledge id of the output.
+func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensuPledgeID identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.ConsensusManaPledgeID
 }
 
-type epochDiffModel struct {
-	Spent   []*OutputWithMetadata `serix:"0"`
-	Created []*OutputWithMetadata `serix:"1"`
+// SetConsensusManaPledgeID sets the consensus pledge id of the output.
+func (o *OutputWithMetadata) SetConsensusManaPledgeID(consensusPledgeID identity.ID) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.ConsensusManaPledgeID = consensusPledgeID
 }
 
-func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
-	return model.NewImmutable[EpochDiff](&epochDiffModel{
-		Spent:   spent,
-		Created: created,
-	})
+// AccessManaPledgeID returns the access pledge id of the output.
+func (o *OutputWithMetadata) AccessManaPledgeID() (consensuPledgeID identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.AccessManaPledgeID
 }
 
-func (e *EpochDiff) Spent() []*OutputWithMetadata {
-	return e.M.Spent
-}
+// SetAccessManaPledgeID sets the access pledge id of the output.
+func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
+	o.Lock()
+	defer o.Unlock()
 
-func (e *EpochDiff) Created() []*OutputWithMetadata {
-	return e.M.Spent
+	o.M.AccessManaPledgeID = accessPledgeID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -103,11 +103,7 @@ func createOutputWithMetadata(amount uint64, createdPledgeID identity.ID) *ledge
 	now := time.Now()
 	addr := seed.NewSeed().Address(0).Address()
 	out := devnetvm.NewSigLockedSingleOutput(amount, addr)
-	meta := ledger.NewOutputMetadata(out.ID())
-	meta.SetAccessManaPledgeID(createdPledgeID)
-	meta.SetConsensusManaPledgeID(createdPledgeID)
-	meta.SetCreationTime(now)
-	outWithMeta := ledger.NewOutputWithMetadata(out.ID(), out, meta)
+	outWithMeta := ledger.NewOutputWithMetadata(out.ID(), out, now, createdPledgeID, createdPledgeID)
 	return outWithMeta
 }
 

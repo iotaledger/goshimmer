@@ -767,11 +767,11 @@ func loadSnapshot(snapshot *ledger.Snapshot) error {
 			if !exists {
 				continue
 			}
-			outputMetadata := outputWithMetadata.OutputMetadata()
+			consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
 			if areCreated {
-				baseVector[outputMetadata.ConsensusManaPledgeID()] += float64(balance)
+				baseVector[consensusManaPledgeID] += float64(balance)
 			} else {
-				baseVector[outputMetadata.ConsensusManaPledgeID()] -= float64(balance)
+				baseVector[consensusManaPledgeID] -= float64(balance)
 			}
 		}
 
