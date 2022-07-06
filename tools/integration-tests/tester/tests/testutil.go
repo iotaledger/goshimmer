@@ -495,7 +495,7 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 // ExpectedState is an expected state.
 // All fields are optional.
 type ExpectedState struct {
-	// The optional grade of finality state to check against.
+	// The optional confirmation state to check against.
 	ConfirmationState confirmation.State
 	// The optional solid state to check against.
 	Solid *bool
@@ -561,7 +561,7 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the grade of finality can change, so we should check all transactions every time
+				// the confirmation state can change, so we should check all transactions every time
 				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
 					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)

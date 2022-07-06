@@ -914,8 +914,8 @@ func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
 	return true
 }
 
-// SetConfirmationState sets the grade of finality associated with this metadata.
-// It returns true if the grade of finality is modified. False otherwise.
+// SetConfirmationState sets the confirmation state associated with this metadata.
+// It returns true if the confirmation state is modified. False otherwise.
 func (m *MessageMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
@@ -930,7 +930,7 @@ func (m *MessageMetadata) SetConfirmationState(confirmationState confirmation.St
 	return true
 }
 
-// ConfirmationState returns the grade of finality.
+// ConfirmationState returns the confirmation state.
 func (m *MessageMetadata) ConfirmationState() (result confirmation.State) {
 	m.RLock()
 	defer m.RUnlock()
@@ -938,7 +938,7 @@ func (m *MessageMetadata) ConfirmationState() (result confirmation.State) {
 	return m.M.ConfirmationState
 }
 
-// ConfirmationStateTime returns the time the grade of finality was set.
+// ConfirmationStateTime returns the time the confirmation state was set.
 func (m *MessageMetadata) ConfirmationStateTime() time.Time {
 	m.RLock()
 	defer m.RUnlock()

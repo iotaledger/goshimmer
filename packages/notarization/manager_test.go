@@ -961,8 +961,8 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up finality gadget
 	testOpts := []acceptance.Option{
-		acceptance.WithBranchThresholdTranslation(TestBranchGoFTranslation),
-		acceptance.WithMessageThresholdTranslation(TestMessageGoFTranslation),
+		acceptance.WithBranchThresholdTranslation(TestBranchConfirmationStateTranslation),
+		acceptance.WithMessageThresholdTranslation(TestMessageConfirmationStateTranslation),
 	}
 	sfg := acceptance.NewSimpleFinalityGadget(testTangle, testOpts...)
 	testTangle.ConfirmationOracle = sfg

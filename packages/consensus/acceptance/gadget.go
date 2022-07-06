@@ -194,7 +194,7 @@ func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 			s.setMarkerConfirmed(marker)
 		}
 
-		s.propagateGoFToMessagePastCone(messageID, confirmationState)
+		s.propagateConfirmationStateToMessagePastCone(messageID, confirmationState)
 	})
 
 	return err
@@ -214,8 +214,8 @@ func (s *Gadget) setMarkerConfirmed(marker markers.Marker) (updated bool) {
 	return true
 }
 
-// propagateGoFToMessagePastCone propagates the given ConfirmationState to the past cone of the Message.
-func (s *Gadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, confirmationState confirmation.State) {
+// propagateConfirmationStateToMessagePastCone propagates the given ConfirmationState to the past cone of the Message.
+func (s *Gadget) propagateConfirmationStateToMessagePastCone(messageID tangle.MessageID, confirmationState confirmation.State) {
 	strongParentWalker := walker.New[tangle.MessageID](false).Push(messageID)
 	weakParentsSet := set.New[tangle.MessageID]()
 
@@ -231,7 +231,7 @@ func (s *Gadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, confi
 			}
 
 			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
-				if !s.setMessageGoF(message, messageMetadata, confirmationState) {
+				if !s.setMessageConfirmationState(message, messageMetadata, confirmationState) {
 					return
 				}
 
@@ -256,7 +256,7 @@ func (s *Gadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, confi
 			}
 
 			s.tangle.Storage.Message(weakParent).Consume(func(message *tangle.Message) {
-				s.setMessageGoF(message, messageMetadata, confirmationState)
+				s.setMessageConfirmationState(message, messageMetadata, confirmationState)
 			})
 		})
 	})
@@ -272,7 +272,7 @@ func (s *Gadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err erro
 	return nil
 }
 
-func (s *Gadget) setMessageGoF(message *tangle.Message, messageMetadata *tangle.MessageMetadata, confirmationState confirmation.State) (modified bool) {
+func (s *Gadget) setMessageConfirmationState(message *tangle.Message, messageMetadata *tangle.MessageMetadata, confirmationState confirmation.State) (modified bool) {
 	// abort if message has ConfirmationState already set
 	if modified = messageMetadata.SetConfirmationState(confirmationState); !modified {
 		return

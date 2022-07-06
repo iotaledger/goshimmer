@@ -19,8 +19,8 @@ const (
 )
 
 var (
-	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
-	TestBranchGoFTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	// TestBranchConfirmationStateTranslation translates a branch's AW into a confirmation state.
+	TestBranchConfirmationStateTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -28,8 +28,8 @@ var (
 		return confirmation.Pending
 	}
 
-	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
-	TestMessageGoFTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
+	// TestMessageConfirmationStateTranslation translates a message's AW into a confirmation state.
+	TestMessageConfirmationStateTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

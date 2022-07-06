@@ -119,7 +119,7 @@ func (o *OutputManager) Track(outputIDs []utxo.OutputID) (allConfirmed bool) {
 		wg.Add(1)
 		go func(id utxo.OutputID, allConfirmed bool) {
 			defer wg.Done()
-			ok := o.AwaitOutputToBeConfirmed(id, awaitOutputToBeConfirmed)
+			ok := o.AwaitOutputToBeAccepted(id, awaitOutputToBeConfirmed)
 			if !ok {
 				allConfirmed = false
 				return
@@ -234,21 +234,21 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 	wg.Wait()
 }
 
-// AwaitOutputToBeConfirmed awaits for output from a provided outputID is confirmed. Timeout is waitFor.
+// AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func (o *OutputManager) AwaitOutputToBeConfirmed(outputID utxo.OutputID, waitFor time.Duration) (confirmed bool) {
+func (o *OutputManager) AwaitOutputToBeAccepted(outputID utxo.OutputID, waitFor time.Duration) (accepted bool) {
 	s := time.Now()
 	clt := o.connector.GetClient()
-	confirmed = false
+	accepted = false
 	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
-		gof := clt.GetOutputConfirmationState(outputID)
-		if gof == GoFConfirmed {
-			confirmed = true
+		confirmationState := clt.GetOutputConfirmationState(outputID)
+		if confirmationState.IsAccepted() {
+			accepted = true
 			break
 		}
 	}
 
-	return confirmed
+	return accepted
 }
 
 // AwaitTransactionsConfirmation awaits for transaction confirmation and updates wallet with outputIDs.
@@ -264,7 +264,7 @@ func (o *OutputManager) AwaitTransactionsConfirmation(txIDs []string, maxGorouti
 			defer func() {
 				<-semaphore
 			}()
-			err := o.AwaitTransactionToBeConfirmed(txID, waitForConfirmation)
+			err := o.AwaitTransactionToBeAccepted(txID, waitForConfirmation)
 			if err != nil {
 				return
 			}
@@ -273,19 +273,19 @@ func (o *OutputManager) AwaitTransactionsConfirmation(txIDs []string, maxGorouti
 	wg.Wait()
 }
 
-// AwaitTransactionToBeConfirmed awaits for confirmation of a single transaction.
-func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.Duration) error {
+// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
+func (o *OutputManager) AwaitTransactionToBeAccepted(txID string, waitFor time.Duration) error {
 	s := time.Now()
 	clt := o.connector.GetClient()
-	var confirmed bool
+	var accepted bool
 	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
-		if gof := clt.GetTransactionConfirmationState(txID); gof == GoFConfirmed {
-			confirmed = true
+		if confirmationState := clt.GetTransactionConfirmationState(txID); confirmationState.IsAccepted() {
+			accepted = true
 			break
 		}
 	}
-	if !confirmed {
-		return fmt.Errorf("transaction %s not confirmed in time", txID)
+	if !accepted {
+		return fmt.Errorf("transaction %s not accepted in time", txID)
 	}
 	return nil
 }

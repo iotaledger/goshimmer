@@ -31,7 +31,7 @@ const (
 	splits = conflictRepetitions * numberOfConflictingOutputs * 2
 )
 
-// TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the GoFs are the same across the network
+// TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the confirmation states are the same across the network
 // and verifies that the Tangle converged to Master
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -112,7 +112,7 @@ func determineOutputSlice(outputs devnetvm.Outputs, i int, size int) devnetvm.Ou
 func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*devnetvm.Transaction) {
 	const unknownConfirmationState = 10
 	for _, tx := range txs {
-		// current value signifies that we don't know what is the previous gof
+		// current value signifies that we don't know what is the previous confirmation state
 		var prevConfirmationState confirmation.State = unknownConfirmationState
 		for i, peer := range peers {
 			var metadata *jsonmodels.TransactionMetadata
@@ -126,7 +126,7 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 			if prevConfirmationState != unknownConfirmationState {
 				require.Eventually(t,
 					func() bool { return prevConfirmationState == metadata.ConfirmationState },
-					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (ConfirmationState=%s) and %s (ConfirmationState=%s)", tx.ID().Base58(),
+					10*time.Second, 10*time.Millisecond, "Different confirmation states on tx %s between peers %s (ConfirmationState=%s) and %s (ConfirmationState=%s)", tx.ID().Base58(),
 					peers[i-1].Name(), prevConfirmationState, peer.Name(), metadata.ConfirmationState)
 			}
 			prevConfirmationState = metadata.ConfirmationState

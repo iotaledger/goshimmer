@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	TestBranchTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -35,7 +35,7 @@ var (
 		return confirmation.Pending
 	}
 
-	TestMessageGoFTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
+	TestMessageTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -79,8 +79,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	}(processMsgScenario, t)
 
 	testOpts := []Option{
-		WithBranchThresholdTranslation(TestBranchGoFTranslation),
-		WithMessageThresholdTranslation(TestMessageGoFTranslation),
+		WithBranchThresholdTranslation(TestBranchTranslation),
+		WithMessageThresholdTranslation(TestMessageTranslation),
 	}
 
 	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
@@ -245,8 +245,8 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 	}(processMsgScenario, t)
 
 	testOpts := []Option{
-		WithBranchThresholdTranslation(TestBranchGoFTranslation),
-		WithMessageThresholdTranslation(TestMessageGoFTranslation),
+		WithBranchThresholdTranslation(TestBranchTranslation),
+		WithMessageThresholdTranslation(TestMessageTranslation),
 	}
 
 	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
@@ -289,7 +289,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		// Message4
 		{
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				sfg.propagateGoFToMessagePastCone(testFramework.Message("Message4").ID(), confirmation.Accepted)
+				sfg.propagateConfirmationStateToMessagePastCone(testFramework.Message("Message4").ID(), confirmation.Accepted)
 				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
 				})
@@ -307,24 +307,24 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 }
 
 func assertMsgsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
-	for expectedGoF, msgAliases := range expected {
+	for expectedConfirmationState, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
 			actualConfirmationState := testFramework.MessageMetadata(msgAlias).ConfirmationState()
-			assert.Equal(t, expectedGoF, actualConfirmationState, "expected msg %s ConfirmationState to be %s but is %s", msgAlias, expectedGoF, actualConfirmationState)
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected msg %s ConfirmationState to be %s but is %s", msgAlias, expectedConfirmationState, actualConfirmationState)
 		}
 	}
 }
 
 func assertTxsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
-	for expectedGoF, msgAliases := range expected {
+	for expectedConfirmationState, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
 			txMeta := testFramework.TransactionMetadata(msgAlias)
 			actualConfirmationState := txMeta.ConfirmationState()
-			assert.Equal(t, expectedGoF, actualConfirmationState, "expected tx %s (via msg %s) ConfirmationState to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualConfirmationState)
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected tx %s (via msg %s) ConfirmationState to be %s but is %s", txMeta.ID(), msgAlias, expectedConfirmationState, actualConfirmationState)
 			// auto. also check outputs
 			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
-				outputGoF := testFramework.OutputMetadata(output.ID()).ConfirmationState()
-				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) ConfirmationState to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
+				outputConfirmationState := testFramework.OutputMetadata(output.ID()).ConfirmationState()
+				assert.Equal(t, expectedConfirmationState, outputConfirmationState, "expected also tx output %s (via msg %s) ConfirmationState to be %s but is %s", output.ID(), msgAlias, expectedConfirmationState, outputConfirmationState)
 			}
 		}
 	}

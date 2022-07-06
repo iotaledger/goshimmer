@@ -169,7 +169,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 		return nil, err
 	}
 	if sendOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -254,7 +254,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		}
 		txs = append(txs, tx)
 		if consolidateOptions.WaitForConfirmation {
-			err = wallet.WaitForTxConfirmation(tx.ID())
+			err = wallet.WaitForTxAcceptance(tx.ID())
 			if err != nil {
 				return txs, err
 			}
@@ -336,7 +336,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return nil, err
 	}
 	if claimOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 	return
 }
@@ -507,7 +507,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 		return nil, nil, err
 	}
 	if createNFTOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, nftID, err
@@ -627,7 +627,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	}
 
 	if transferOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -727,7 +727,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	}
 
 	if destroyOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -843,7 +843,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	}
 
 	if withdrawOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -959,7 +959,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	}
 
 	if depositOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -1105,7 +1105,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	}
 
 	if sweepOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 
 	return tx, err
@@ -1261,7 +1261,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 
 	if sweepOptions.WaitForConfirmation {
-		err = wallet.WaitForTxConfirmation(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID())
 	}
 	return tx, sweptNFTs, err
 }
@@ -1812,10 +1812,10 @@ func (wallet *Wallet) ExportState() []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region WaitForTxConfirmation ////////////////////////////////////////////////////////////////////////////////////////
+// region WaitForTxAcceptance //////////////////////////////////////////////////////////////////////////////////////////
 
-// WaitForTxConfirmation waits for the given tx to reach a high grade of finalty.
-func (wallet *Wallet) WaitForTxConfirmation(txID utxo.TransactionID) (err error) {
+// WaitForTxAcceptance waits for the given tx to be accepted.
+func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID) (err error) {
 	timeoutCounter := time.Duration(0)
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)

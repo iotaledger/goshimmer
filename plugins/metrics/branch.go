@@ -70,8 +70,7 @@ func measureInitialBranchStats() {
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
-			branchGoF := deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branch.ID()))
-			if branchGoF.IsAccepted() {
+			if deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branch.ID())).IsAccepted() {
 				deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID utxo.TransactionID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
