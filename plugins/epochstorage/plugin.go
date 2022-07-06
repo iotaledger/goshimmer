@@ -30,9 +30,8 @@ import (
 
 var (
 	// Plugin is the plugin instance of the messagelayer plugin.
-	Plugin             *node.Plugin
-	lastCommittedEpoch = epoch.Index(0)
-	deps               = new(dependencies)
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 
 	epochContentsMutex     sync.RWMutex
 	epochContents          = make(map[epoch.Index]*epochContentStorages, 0)
@@ -128,9 +127,8 @@ func configure(plugin *node.Plugin) {
 	}))
 	deps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		committedEpochsMutex.Lock()
-		lastCommittedEpoch = event.EI
+		defer committedEpochsMutex.Unlock()
 		committedEpochs[event.EI] = event.ECRecord
-		committedEpochsMutex.Unlock()
 	}))
 
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
@@ -189,14 +187,6 @@ func checkEpochContentLimit() {
 
 	// update minEpochIndex
 	minEpochIndex = epochOrder[0]
-}
-
-func GetLastCommittedEpoch() *epoch.ECRecord {
-	committedEpochsMutex.RLock()
-	ecRecord := committedEpochs[lastCommittedEpoch]
-	committedEpochsMutex.RUnlock()
-
-	return ecRecord
 }
 
 func GetCommittedEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
