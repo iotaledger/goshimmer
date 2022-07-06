@@ -10,8 +10,8 @@ export class tangleVertex {
     isTip: boolean;
     isConfirmed: boolean;
     isTxConfirmed: boolean;
-    gof: string;
-    confirmedTime: number;
+    confirmationState: string;
+    confirmationStateTime: number;
 }
 
 export class tangleBooked {
@@ -22,11 +22,11 @@ export class tangleBooked {
 
 export class tangleConfirmed {
     ID: string;
-    gof: string;
-    confirmedTime: number;
+    confirmationState: string;
+    confirmationStateTime: number;
 }
 
-export class tangleTxGoFChanged {
+export class tangleTxConfirmationStateChanged {
     ID: string;
     isConfirmed: boolean;
 }

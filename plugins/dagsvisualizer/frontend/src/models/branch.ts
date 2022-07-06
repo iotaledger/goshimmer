@@ -3,7 +3,7 @@ export class branchVertex {
     parents: Array<string>;
     isConfirmed: boolean;
     conflicts: conflictBranches;
-    gof: string;
+    confirmationState: string;
     aw: number;
 }
 
@@ -21,14 +21,14 @@ export class branchParentUpdate {
     parents: Array<string>;
 }
 
-export class branchGoFChanged {
+export class branchConfirmationStateChanged {
     ID: string;
-    gof: string;
+    confirmationState: string;
     isConfirmed: boolean;
 }
 
 export class branchWeightChanged {
     ID: string;
     weight: number;
-    gof: string;
+    confirmationState: string;
 }

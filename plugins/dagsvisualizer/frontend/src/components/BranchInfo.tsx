@@ -54,7 +54,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                     {selectedBranch.isConfirmed.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF: {selectedBranch.gof}
+                                    ConfirmationState: {selectedBranch.confirmationState}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     AW: {selectedBranch.aw}

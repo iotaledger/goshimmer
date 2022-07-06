@@ -104,7 +104,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                     isMarker: {selectedMsg.isMarker.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF: {selectedMsg.gof}
+                                    ConfirmationState: {selectedMsg.confirmationState}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Confirmed:{' '}
@@ -114,7 +114,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                     Confirmed Time:{' '}
                                     {dateformat(
                                         new Date(
-                                            selectedMsg.confirmedTime / 1000000
+                                            selectedMsg.confirmationStateTime / 1000000
                                         ),
                                         'dd.mm.yyyy HH:MM:ss'
                                     )}
