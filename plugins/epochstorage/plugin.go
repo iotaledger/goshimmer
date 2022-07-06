@@ -101,25 +101,25 @@ func configure(plugin *node.Plugin) {
 			plugin.LogDebug(err)
 		}
 	}))
-	deps.NotarizationMgr.Events.StateMutationInserted.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
+	deps.NotarizationMgr.Events.StateMutationTreeInserted.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
 		err := insertTransactionToEpoch(event.EI, event.TransactionID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
-	deps.NotarizationMgr.Events.StateMutationRemoved.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
+	deps.NotarizationMgr.Events.StateMutationTreeRemoved.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
 		err := removeTransactionFromEpoch(event.EI, event.TransactionID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
-	deps.NotarizationMgr.Events.UTXOInserted.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
+	deps.NotarizationMgr.Events.UTXOTreeInserted.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
 		err := insertOutputsToEpoch(event.EI, event.Spent, event.Created)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
-	deps.NotarizationMgr.Events.UTXORemoved.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
+	deps.NotarizationMgr.Events.UTXOTreeRemoved.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
 		err := removeOutputsFromEpoch(event.EI, event.Spent, event.Created)
 		if err != nil {
 			plugin.LogDebug(err)

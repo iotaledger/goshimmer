@@ -52,14 +52,14 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		log:                      options.Log,
 		options:                  options,
 		Events: &Events{
-			TangleTreeInserted:    event.New[*TangleTreeUpdatedEvent](),
-			TangleTreeRemoved:     event.New[*TangleTreeUpdatedEvent](),
-			StateMutationInserted: event.New[*StateMutationTreeUpdatedEvent](),
-			StateMutationRemoved:  event.New[*StateMutationTreeUpdatedEvent](),
-			UTXOInserted:          event.New[*UTXOUpdatedEvent](),
-			UTXORemoved:           event.New[*UTXOUpdatedEvent](),
-			EpochCommittable:      event.New[*EpochCommittableEvent](),
-			ManaVectorUpdate:      event.New[*ManaVectorUpdateEvent](),
+			TangleTreeInserted:        event.New[*TangleTreeUpdatedEvent](),
+			TangleTreeRemoved:         event.New[*TangleTreeUpdatedEvent](),
+			StateMutationTreeInserted: event.New[*StateMutationTreeUpdatedEvent](),
+			StateMutationTreeRemoved:  event.New[*StateMutationTreeUpdatedEvent](),
+			UTXOTreeInserted:          event.New[*UTXOUpdatedEvent](),
+			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
+			EpochCommittable:          event.New[*EpochCommittableEvent](),
+			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
 		},
 	}
 
@@ -224,7 +224,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
-		m.Events.UTXORemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
+		m.Events.UTXOTreeRemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 	}
 }
 
@@ -386,10 +386,10 @@ func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.In
 	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
-	m.Events.StateMutationInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
+	m.Events.StateMutationTreeInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
-	m.Events.UTXOInserted.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
+	m.Events.UTXOTreeInserted.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
 }
@@ -398,10 +398,10 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
-	m.Events.StateMutationRemoved.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
+	m.Events.StateMutationTreeRemoved.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 
 	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
-	m.Events.UTXORemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
+	m.Events.UTXOTreeRemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
 }
@@ -572,14 +572,14 @@ type Events struct {
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
 	// TangleTreeRemoved is an event that gets triggered when a Message is removed to Tangle smt.
 	TangleTreeRemoved *event.Event[*TangleTreeUpdatedEvent]
-	// StateMutationInserted is an event that gets triggered when a transaction is inserted to state mutation smt.
-	StateMutationInserted *event.Event[*StateMutationTreeUpdatedEvent]
-	// StateMutationRemoved is an event that gets triggered when a transaction is removed to state mutation smt.
-	StateMutationRemoved *event.Event[*StateMutationTreeUpdatedEvent]
-	// UTXOInserted is an event that gets triggered when UTXOs are stored.
-	UTXOInserted *event.Event[*UTXOUpdatedEvent]
-	// UTXORemoved is an event that gets triggered when UTXOs are removed.
-	UTXORemoved *event.Event[*UTXOUpdatedEvent]
+	// StateMutationTreeInserted is an event that gets triggered when a transaction is inserted to state mutation smt.
+	StateMutationTreeInserted *event.Event[*StateMutationTreeUpdatedEvent]
+	// StateMutationTreeRemoved is an event that gets triggered when a transaction is removed to state mutation smt.
+	StateMutationTreeRemoved *event.Event[*StateMutationTreeUpdatedEvent]
+	// UTXOTreeInserted is an event that gets triggered when UTXOs are stored.
+	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
+	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed.
+	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
