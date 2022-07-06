@@ -3,7 +3,6 @@ package dashboard
 import (
 	"container/heap"
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -20,10 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
-
-const precision float64 = 1000
 
 var (
 	mu                               sync.RWMutex
@@ -33,7 +29,7 @@ var (
 	conflictsLiveFeedWorkerQueueSize = 50
 )
 
-type conflict struct {
+type conflictSet struct {
 	ConflictID    utxo.OutputID `json:"conflictID"`
 	ArrivalTime   time.Time     `json:"arrivalTime"`
 	Resolved      bool          `json:"resolved"`
@@ -48,7 +44,7 @@ type conflictJSON struct {
 	TimeToResolve time.Duration `json:"timeToResolve"`
 }
 
-func (c *conflict) ToJSON() *conflictJSON {
+func (c *conflictSet) ToJSON() *conflictJSON {
 	return &conflictJSON{
 		ConflictID:    c.ConflictID.Base58(),
 		ArrivalTime:   c.ArrivalTime.Unix(),
@@ -58,22 +54,20 @@ func (c *conflict) ToJSON() *conflictJSON {
 }
 
 type branch struct {
-	BranchID     utxo.TransactionID              `json:"branchID"`
-	ConflictIDs  *set.AdvancedSet[utxo.OutputID] `json:"conflictIDs"`
-	AW           float64                         `json:"aw"`
-	GoF          confirmation.State              `json:"gof"`
-	IssuingTime  time.Time                       `json:"issuingTime"`
-	IssuerNodeID identity.ID                     `json:"issuerNodeID"`
-	UpdatedTime  time.Time                       `json:"updatedTime"`
+	BranchID          utxo.TransactionID              `json:"branchID"`
+	ConflictIDs       *set.AdvancedSet[utxo.OutputID] `json:"conflictIDs"`
+	ConfirmationState confirmation.State              `json:"confirmationState"`
+	IssuingTime       time.Time                       `json:"issuingTime"`
+	IssuerNodeID      identity.ID                     `json:"issuerNodeID"`
+	UpdatedTime       time.Time                       `json:"updatedTime"`
 }
 
 type branchJSON struct {
-	BranchID     string             `json:"branchID"`
-	ConflictIDs  []string           `json:"conflictIDs"`
-	AW           float64            `json:"aw"`
-	GoF          confirmation.State `json:"gof"`
-	IssuingTime  int64              `json:"issuingTime"`
-	IssuerNodeID string             `json:"issuerNodeID"`
+	BranchID          string             `json:"branchID"`
+	ConflictIDs       []string           `json:"conflictIDs"`
+	ConfirmationState confirmation.State `json:"confirmationState"`
+	IssuingTime       int64              `json:"issuingTime"`
+	IssuerNodeID      string             `json:"issuerNodeID"`
 }
 
 func (b *branch) ToJSON() *branchJSON {
@@ -86,14 +80,13 @@ func (b *branch) ToJSON() *branchJSON {
 			}
 			return
 		}(),
-		IssuingTime:  b.IssuingTime.Unix(),
-		IssuerNodeID: b.IssuerNodeID.String(),
-		AW:           b.AW,
-		GoF:          b.GoF,
+		IssuingTime:       b.IssuingTime.Unix(),
+		IssuerNodeID:      b.IssuerNodeID.String(),
+		ConfirmationState: b.ConfirmationState,
 	}
 }
 
-func sendConflictUpdate(c *conflict) {
+func sendConflictUpdate(c *conflictSet) {
 	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
 }
 
@@ -113,21 +106,24 @@ func runConflictLiveFeed() {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
 		conflicts = &boundedConflictMap{
-			conflicts:    make(map[utxo.OutputID]*conflict),
+			conflicts:    make(map[utxo.OutputID]*conflictSet),
 			branches:     make(map[utxo.TransactionID]*branch),
 			conflictHeap: &timeHeap{},
 		}
 
 		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
-		onBranchWeightChangedClosure := event.NewClosure(onBranchWeightChanged)
+		onBranchAcceptedClosure := event.NewClosure(onBranchAccepted)
+		onBranchRejectedClosure := event.NewClosure(onBranchRejected)
 		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onBranchCreatedClosure)
-		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(onBranchWeightChangedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(onBranchAcceptedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(onBranchRejectedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
 		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Detach(onBranchCreatedClosure)
-		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Detach(onBranchAcceptedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Detach(onBranchRejectedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
@@ -147,7 +143,7 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 		}
 	})
 
-	// get the issuer of the oldest attachment of transaction that introduced the conflict
+	// get the issuer of the oldest attachment of transaction that introduced the conflictSet
 	b.IssuerNodeID = issuerOfOldestAttachment(branchID)
 
 	// now we update the shared data structure
@@ -161,9 +157,9 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 		_, exists := conflicts.conflict(conflictID)
-		// if this is the first conflict of this conflict set we add it to the map
+		// if this is the first conflictSet of this conflictSet set we add it to the map
 		if !exists {
-			c := &conflict{
+			c := &conflictSet{
 				ConflictID:  conflictID,
 				ArrivalTime: clock.SyncedTime(),
 				UpdatedTime: clock.SyncedTime(),
@@ -171,7 +167,7 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 			conflicts.addConflict(c)
 		}
 
-		// update all existing branches with a possible new conflict membership
+		// update all existing branches with a possible new conflictSet membership
 		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
@@ -180,33 +176,51 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 	conflicts.addBranch(b)
 }
 
-func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
+func onBranchAccepted(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.branch(e.BranchID)
+	b, exists := conflicts.branch(event.ID)
 	if !exists {
-		log.Warnf("branch %s did not yet exist", e.BranchID)
+		log.Warnf("branch %s did not yet exist", event.ID)
 		return
 	}
 
-	var id identity.ID
 	// if issuer is not yet set, set it now
+	var id identity.ID
 	if b.IssuerNodeID == id {
 		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
 	}
 
-	b.AW = math.Round(e.Weight*precision) / precision
-	b.GoF = deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(b.BranchID))
+	b.ConfirmationState = confirmation.Accepted
 	b.UpdatedTime = clock.SyncedTime()
 	conflicts.addBranch(b)
 
-	if messagelayer.AcceptanceGadget().IsBranchConfirmed(b.BranchID) {
-		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
-			conflictID := it.Next()
-			conflicts.resolveConflict(conflictID)
-		}
+	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+		conflicts.resolveConflict(conflictID)
 	}
+}
+
+func onBranchRejected(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	b, exists := conflicts.branch(event.ID)
+	if !exists {
+		log.Warnf("branch %s did not yet exist", event.ID)
+		return
+	}
+
+	// if issuer is not yet set, set it now
+	var id identity.ID
+	if b.IssuerNodeID == id {
+		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
+	}
+
+	b.ConfirmationState = confirmation.Rejected
+	b.UpdatedTime = clock.SyncedTime()
+	conflicts.addBranch(b)
 }
 
 // sendAllConflicts sends all conflicts and branches to the websocket.
@@ -231,7 +245,7 @@ func issuerOfOldestAttachment(branchID utxo.TransactionID) (id identity.ID) {
 
 type timeHeapElement struct {
 	conflictID  utxo.OutputID
-	updatedTime time.Time
+	arrivalTime time.Time
 }
 
 type timeHeap []*timeHeapElement
@@ -241,7 +255,7 @@ func (h timeHeap) Len() int {
 }
 
 func (h timeHeap) Less(i, j int) bool {
-	return h[i].updatedTime.Before(h[j].updatedTime)
+	return h[i].arrivalTime.Before(h[j].arrivalTime)
 }
 
 func (h timeHeap) Swap(i, j int) {
@@ -263,17 +277,17 @@ func (h *timeHeap) Pop() interface{} {
 var _ heap.Interface = &timeHeap{}
 
 type boundedConflictMap struct {
-	conflicts    map[utxo.OutputID]*conflict
+	conflicts    map[utxo.OutputID]*conflictSet
 	branches     map[utxo.TransactionID]*branch
 	conflictHeap *timeHeap
 }
 
-func (b *boundedConflictMap) conflict(conflictID utxo.OutputID) (conflict *conflict, exists bool) {
+func (b *boundedConflictMap) conflict(conflictID utxo.OutputID) (conflict *conflictSet, exists bool) {
 	conflict, exists = b.conflicts[conflictID]
 	return
 }
 
-func (b *boundedConflictMap) addConflict(c *conflict) {
+func (b *boundedConflictMap) addConflict(c *conflictSet) {
 	if len(b.conflicts) >= Parameters.Conflicts.MaxCount {
 		element := heap.Pop(b.conflictHeap).(*timeHeapElement)
 		delete(b.conflicts, element.conflictID)
@@ -289,7 +303,7 @@ func (b *boundedConflictMap) addConflict(c *conflict) {
 	b.conflicts[c.ConflictID] = c
 	heap.Push(b.conflictHeap, &timeHeapElement{
 		conflictID:  c.ConflictID,
-		updatedTime: c.UpdatedTime,
+		arrivalTime: c.ArrivalTime,
 	})
 	sendConflictUpdate(c)
 }

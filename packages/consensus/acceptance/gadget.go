@@ -1,7 +1,6 @@
 package acceptance
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/generics/set"
@@ -266,9 +265,7 @@ func (s *Gadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, confi
 // HandleBranch receives a branchID and its approval weight. It propagates the ConfirmationState according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
 func (s *Gadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
-	fmt.Println("HandleBranch", branchID, aw)
 	if s.opts.BranchTransFunc(branchID, aw).IsAccepted() {
-		fmt.Println("HandleBranch", branchID, aw, "confirmed", confirmation.Accepted)
 		s.tangle.Ledger.ConflictDAG.SetBranchAccepted(branchID)
 	}
 

@@ -16,6 +16,7 @@ import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveConfirmationState} from "app/utils/confirmation_state";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -190,10 +191,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Subjectively Invalid: {msg.subjectivelyInvalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Grade of Finality: {msg.confirmationState}
+                                        Confirmation State: {resolveConfirmationState(msg.confirmationState)}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Grade of Finality Time: {dateformat(new Date(msg.confirmationStateTime * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                        Confirmation State Time: {dateformat(new Date(msg.confirmationStateTime * 1000), "dd.mm.yyyy HH:MM:ss")}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>

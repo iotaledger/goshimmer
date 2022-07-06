@@ -15,13 +15,6 @@ import {RouterStore} from "mobx-react-router";
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
 export const GenesisTransactionID = "11111111111111111111111111111111";
 
-export enum GoF {
-    None = 0,
-    Low,
-    Medium,
-    High,
-}
-
 export class Message {
     id: string;
     solidification_timestamp: number;
@@ -108,7 +101,6 @@ class Branch {
     parents: Array<string>;
     conflictIDs: Array<string>;
     confirmationState: number;
-    confirmationState: string;
 }
 
 class BranchChildren {

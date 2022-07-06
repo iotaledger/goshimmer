@@ -5,6 +5,7 @@ import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import ListGroup from "react-bootstrap/ListGroup";
 import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveConfirmationState} from "app/utils/confirmation_state";
 
 
 interface Props {
@@ -58,8 +59,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                             {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
                     </ListGroup.Item>}
-                    <ListGroup.Item>Grade of Finality: {branch.confirmationState}</ListGroup.Item>
-                    <ListGroup.Item>ConfirmationState: {branch.confirmationState}</ListGroup.Item>
+                    <ListGroup.Item>ConfirmationState: {resolveConfirmationState(branch.confirmationState)}</ListGroup.Item>
                     <ListGroup.Item> Children:
                         {branchChildren && <ListGroup>
                             {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}

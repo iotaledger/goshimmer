@@ -259,7 +259,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
-		// get output metadata + grade of finality status from branch of the output
+		// get output metadata + confirmation status from branch of the output
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
