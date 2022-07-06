@@ -607,7 +607,7 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	return true, metadata.ConfirmationState
 }
 
-// AcceptedOnAllPeers checks if the msg is confirmed on all supplied peers.
+// AcceptedOnAllPeers checks if the msg is accepted on all supplied peers.
 func AcceptedOnAllPeers(msgID string, peers []*framework.Node) bool {
 	for _, peer := range peers {
 		metadata, err := peer.GetMessageMetadata(msgID)

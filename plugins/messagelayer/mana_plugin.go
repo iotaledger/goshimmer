@@ -46,8 +46,8 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
-	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
-	onManaVectorToUpdateClosure   *event.Closure[*notarization.ManaVectorUpdateEvent]
+	onTransactionAcceptedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
+	onManaVectorToUpdateClosure  *event.Closure[*notarization.ManaVectorUpdateEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -66,7 +66,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionConfirmed(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
@@ -105,7 +105,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionAcceptedClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -224,7 +224,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionConfirmedClosure)
+				deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionAcceptedClosure)
 				notarizationManager.Events.ManaVectorUpdate.Detach(onManaVectorToUpdateClosure)
 				storeManaVectors()
 				shutdownStorages()

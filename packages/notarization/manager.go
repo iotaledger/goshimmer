@@ -66,7 +66,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 	}))
 
 	new.tangle.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionAcceptedEvent) {
-		new.OnTransactionConfirmed(event)
+		new.OnTransactionAccepted(event)
 	}))
 
 	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionInclusionUpdatedEvent) {
@@ -217,8 +217,8 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	}
 }
 
-// OnTransactionConfirmed is the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionAcceptedEvent) {
+// OnTransactionAccepted is the handler for transaction accepted event.
+func (m *Manager) OnTransactionAccepted(event *ledger.TransactionAcceptedEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 

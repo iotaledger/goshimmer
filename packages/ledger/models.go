@@ -38,7 +38,7 @@ type transactionMetadata struct {
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
 	OutputIDs utxo.OutputIDs `serix:"4"`
 
-	// ConfirmationState contains the confirmation status of the Transaction.
+	// ConfirmationState contains the confirmation state of the Transaction.
 	ConfirmationState confirmation.State `serix:"5"`
 
 	// ConfirmationStateTime contains the last time the ConfirmationState was updated.
@@ -365,7 +365,7 @@ func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (is
 	return true, o.M.FirstConsumer
 }
 
-// ConfirmationState returns the confirmation status of the Output.
+// ConfirmationState returns the confirmation state of the Output.
 func (o *OutputMetadata) ConfirmationState() (confirmationState confirmation.State) {
 	o.RLock()
 	defer o.RUnlock()
@@ -373,7 +373,7 @@ func (o *OutputMetadata) ConfirmationState() (confirmationState confirmation.Sta
 	return o.M.ConfirmationState
 }
 
-// SetConfirmationState sets the confirmation status of the Output.
+// SetConfirmationState sets the confirmation state of the Output.
 func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	o.Lock()
 	defer o.Unlock()

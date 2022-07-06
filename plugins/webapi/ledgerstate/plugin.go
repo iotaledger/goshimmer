@@ -61,7 +61,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmed *event.Closure[*ledger.TransactionAcceptedEvent]
+	onTransactionAccepted *event.Closure[*ledger.TransactionAcceptedEvent]
 
 	log *logger.Logger
 )
@@ -105,11 +105,11 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
-	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionAccepted)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -153,7 +153,7 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {

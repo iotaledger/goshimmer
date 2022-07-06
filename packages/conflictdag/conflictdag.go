@@ -129,7 +129,7 @@ func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflict
 
 	pendingBranchIDs = set.NewAdvancedSet[ConflictIDType]()
 	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
-		if currentBranchID := branchWalker.Next(); b.confirmationState(currentBranchID) < confirmation.Accepted {
+		if currentBranchID := branchWalker.Next(); !b.confirmationState(currentBranchID).IsAccepted() {
 			pendingBranchIDs.Add(currentBranchID)
 		}
 	}

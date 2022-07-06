@@ -295,16 +295,16 @@ fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp
 ```
 
 ### Results
-|Return field | Type | Description|
-|:-----|:------|:------|
-| `id`  | string | The branch identifier encoded with base58.   |
-| `type`        | string | The type of the branch.  |
-| `parents`     | []string | The list of parent branches IDs.   |
-| `conflictIDs` | []string | The list of conflicts identifiers.  |
-| `liked`       | bool | The boolean indicator if branch is liked.   |
-| `monotonicallyLiked`   | bool | The boolean indicator if branch is monotonically liked.   |
-| `finalized`   | bool | The boolean indicator if branch is finalized.   |
-| `confirmationState`   | string | Inclusion state of a branch.   |
+|Return field | Type | Description                                             |
+|:-----|:------|:--------------------------------------------------------|
+| `id`  | string | The branch identifier encoded with base58.              |
+| `type`        | string | The type of the branch.                                 |
+| `parents`     | []string | The list of parent branches IDs.                        |
+| `conflictIDs` | []string | The list of conflicts identifiers.                      |
+| `liked`       | bool | The boolean indicator if branch is liked.               |
+| `monotonicallyLiked`   | bool | The boolean indicator if branch is monotonically liked. |
+| `finalized`   | bool | The boolean indicator if branch is finalized.           |
+| `confirmationState`   | string | Confirmation state of a branch.                         |
 
 
 

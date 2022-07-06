@@ -43,7 +43,7 @@ func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
-	ledger.Events.TransactionAccepted.Attach(event.NewClosure(new.onTransactionConfirmed))
+	ledger.Events.TransactionAccepted.Attach(event.NewClosure(new.onTransactionAccepted))
 	ledger.Events.TransactionRejected.Attach(event.NewClosure(new.onTransactionRejected))
 
 	return new
@@ -61,7 +61,7 @@ func (i *Indexer) StoreAddressOutputMapping(address devnetvm.Address, outputID u
 	}
 }
 
-// StoreAddressOutputMapping stores the address-output mapping.
+// RemoveAddressOutputMapping removes the address-output mapping.
 func (i *Indexer) RemoveAddressOutputMapping(address devnetvm.Address, outputID utxo.OutputID) {
 	i.addressOutputMappingStorage.Delete(NewAddressOutputMapping(address, outputID).ObjectStorageKey())
 }
@@ -94,7 +94,7 @@ func (i *Indexer) Shutdown() {
 	i.addressOutputMappingStorage.Shutdown()
 }
 
-// onTransactionBooked adds Transaction outputs' to the indexer upon booking.
+// onTransactionBooked adds Transaction outputs to the indexer upon booking.
 func (i *Indexer) onTransactionBooked(event *ledger.TransactionBookedEvent) {
 	_ = event.Outputs.ForEach(func(output utxo.Output) error {
 		i.IndexOutput(output.(devnetvm.Output))
@@ -102,14 +102,14 @@ func (i *Indexer) onTransactionBooked(event *ledger.TransactionBookedEvent) {
 	})
 }
 
-// onTransactionBooked removes Transaction inputs' from the indexer upon transaction confirmation.
-func (i *Indexer) onTransactionConfirmed(event *ledger.TransactionAcceptedEvent) {
+// onTransactionAccepted removes Transaction inputs from the indexer upon transaction acceptance.
+func (i *Indexer) onTransactionAccepted(event *ledger.TransactionAcceptedEvent) {
 	i.ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
 		i.removeOutputs(i.ledger.Utils.ResolveInputs(tx.Inputs()))
 	})
 }
 
-// onTransactionRejected removes Transaction outputs' from the indexer upon transaction rejection.
+// onTransactionRejected removes Transaction outputs from the indexer upon transaction rejection.
 func (i *Indexer) onTransactionRejected(event *ledger.TransactionRejectedEvent) {
 	i.ledger.Storage.CachedTransactionMetadata(event.TransactionID).Consume(func(tm *ledger.TransactionMetadata) {
 		i.removeOutputs(tm.OutputIDs())
