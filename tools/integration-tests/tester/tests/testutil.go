@@ -48,7 +48,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	},
-	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
+	PeersAmountsPledged: []uint64{3_000_000_000_000_000, 3_000_000_000_000_000, 3_000_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot
