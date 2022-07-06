@@ -325,6 +325,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
+	outputMetadata.SetAccessManaPledgeID(manaPledgeID)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())

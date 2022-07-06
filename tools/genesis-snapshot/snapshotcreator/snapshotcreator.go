@@ -61,7 +61,9 @@ func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, genesisSeedByte
 	now := time.Now()
 	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
-	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
+	// This is the same seed used to derive the faucet ID.
+	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
+	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata))
 
 	for nodeSeedBytes, value := range nodesToPledge {
@@ -94,8 +96,8 @@ func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identit
 
 	outputMetadata = ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
-	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
+	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetCreationTime(creationTime)
 
 	return output, outputMetadata

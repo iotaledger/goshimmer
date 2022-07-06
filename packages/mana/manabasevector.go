@@ -20,17 +20,20 @@ type ManaBaseVector struct {
 }
 
 type manaBaseVectorModel struct {
-	Vector map[identity.ID]*ManaBase `serix:"0"`
+	Type   Type                      `serix:"0"`
+	Vector map[identity.ID]*ManaBase `serix:"1"`
 }
 
 // Vector returns the ConsensusBaseMana vector.
 func (m *ManaBaseVector) Vector() map[identity.ID]*ManaBase {
+	m.RLock()
+	defer m.RUnlock()
 	return m.M.Vector
 }
 
 // Type returns the type of this mana vector.
 func (m *ManaBaseVector) Type() Type {
-	return ConsensusMana
+	return m.M.Type
 }
 
 // Size returns the size of this mana vector.
@@ -92,8 +95,7 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 		},
 		InputInfos: []InputInfo{
 			{
-				TimeStamp: ev.Time,
-				Amount:    ev.Amount,
+				Amount: ev.Amount,
 				PledgeID: map[Type]identity.ID{
 					ConsensusMana: ev.NodeID,
 				},

@@ -187,7 +187,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("message confirmed in already committed epoch %d", ei)
+		m.log.Errorf("message %s confirmed with issuing time %s in already committed epoch %d", message.ID(), message.IssuingTime(), ei)
 		return
 	}
 	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
@@ -203,7 +203,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 
 	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("message orphaned in already committed epoch %d", ei)
+		m.log.Errorf("message %s orphaned with issuing time %s in already committed epoch %d", message.ID(), message.IssuingTime(), ei)
 		return
 	}
 	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
@@ -224,13 +224,14 @@ func (m *Manager) OnTransactionAccepted(event *ledger.TransactionAcceptedEvent) 
 
 	txID := event.TransactionID
 
-	var txEpoch epoch.Index
+	var txInclusionTime time.Time
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
-		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
+		txInclusionTime = txMeta.InclusionTime()
 	})
+	txEpoch := epoch.IndexFromTime(txInclusionTime)
 
 	if m.isEpochAlreadyCommitted(txEpoch) {
-		m.log.Errorf("transaction confirmed in already committed epoch %d", txEpoch)
+		m.log.Errorf("transaction %s confirmed with issuing time %s in already committed epoch %d", event.TransactionID, txInclusionTime, txEpoch)
 		return
 	}
 

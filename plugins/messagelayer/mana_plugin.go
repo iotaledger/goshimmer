@@ -66,7 +66,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionAccepted(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
@@ -75,8 +75,8 @@ func configureManaPlugin(*node.Plugin) {
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
-	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector()
-	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector()
+	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector(mana.AccessMana)
+	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector(mana.ConsensusMana)
 
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
@@ -123,7 +123,7 @@ func configureEvents() {
 //	}
 // }
 
-func onTransactionConfirmed(transactionID utxo.TransactionID) {
+func onTransactionAccepted(transactionID utxo.TransactionID) {
 	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
@@ -144,6 +144,8 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 			InputInfos: inputInfos,
 		}
 
+		fmt.Println(">> onTransactionAccepted", txInfo)
+
 		// book in only access mana
 		baseManaVectors[mana.AccessMana].Book(txInfo)
 	})
@@ -154,7 +156,8 @@ func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos [
 	for _, input := range inputs {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
+		outputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
+		deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -163,16 +166,11 @@ func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos [
 				totalAmount += float64(amount)
 			}
 
-			// derive the transaction that created this input
-			inputTxID := o.ID().TransactionID
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction utxo.Transaction) {
-				transactionEssence := transaction.(*devnetvm.Transaction).Essence()
-
-				inputInfo.TimeStamp = transactionEssence.Timestamp()
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
 				inputInfo.PledgeID = map[mana.Type]identity.ID{
-					mana.AccessMana:    transactionEssence.AccessPledgeID(),
-					mana.ConsensusMana: transactionEssence.ConsensusPledgeID(),
+					mana.AccessMana:    metadata.AccessManaPledgeID(),
+					mana.ConsensusMana: metadata.ConsensusManaPledgeID(),
 				}
 			})
 		})
