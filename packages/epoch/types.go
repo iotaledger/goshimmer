@@ -34,7 +34,7 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 // IndexFromTime calculates the EI for the given time.
 func IndexFromTime(t time.Time) Index {
 	elapsedSeconds := t.Unix() - GenesisTime
-	if elapsedSeconds <= 0 {
+	if elapsedSeconds < 0 {
 		return 0
 	}
 

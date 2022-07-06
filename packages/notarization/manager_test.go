@@ -152,7 +152,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 	var EC0 epoch.EC
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -288,7 +288,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	var EC0, EC1, EC2 epoch.EC
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 	// Message1, issuing time epoch 1
 	{
 		fmt.Println("message 1")
@@ -454,7 +454,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -618,7 +618,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -787,7 +787,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
