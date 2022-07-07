@@ -15,8 +15,8 @@ export class ConflictBlock {
     shown: boolean;
 }
 
-export class ConflictBlock {
-    conflictID: string;
+export class BranchBlock {
+    branchID: string;
     conflictIDs: Array<string>;
     confirmationState: number;
     issuingTime: number;
@@ -28,7 +28,7 @@ export class ConflictBlock {
 export class ConflictsStore {
     // live feed
     @observable conflicts: Map<String, ConflictBlock>;
-    @observable conflicts: Map<String, ConflictBlock>;
+    @observable branches: Map<String, BranchBlock>;
     
     routerStore: RouterStore;
     nodeStore: NodeStore;
@@ -37,9 +37,9 @@ export class ConflictsStore {
         this.routerStore = routerStore;
         this.nodeStore = nodeStore;
         this.conflicts = new Map;
-        this.conflicts = new Map;
+        this.branches = new Map;
         registerHandler(WSBlkType.Conflict, this.updateConflicts);
-        registerHandler(WSBlkType.Conflict, this.updateConflicts);
+        registerHandler(WSBlkType.Conflict, this.updateBranches);
     }
 
     @action
@@ -48,13 +48,13 @@ export class ConflictsStore {
     };
 
     @action
-    updateConflicts = (blk: ConflictBlock) => {
-        this.conflicts.set(blk.conflictID, blk);
+    updateBranches = (blk: BranchBlock) => {
+        this.branches.set(blk.branchID, blk);
     };
    
     @computed
     get conflictsLiveFeed() {
-        // sort conflicts by time and ID to prevent "jumping"
+        // sort branches by time and ID to prevent "jumping"
         let conflictsArr = Array.from(this.conflicts.values());
         conflictsArr.sort((x: ConflictBlock, y: ConflictBlock): number => {
                 return y.arrivalTime - x.arrivalTime || x.conflictID.localeCompare(y.conflictID);
@@ -82,51 +82,51 @@ export class ConflictsStore {
                 </tr>
             );
 
-            // only render and show conflicts if it has been clicked
+            // only render and show branches if it has been clicked
             if (!conflict.shown) {
                 continue
             }
 
-            // sort conflicts by time and ID to prevent "jumping"
-            let conflictsArr = Array.from(this.conflicts.values());
-            conflictsArr.sort((x: ConflictBlock, y: ConflictBlock): number => {
-                   return x.issuingTime - y.issuingTime || x.conflictID.localeCompare(y.conflictID)
+            // sort branches by time and ID to prevent "jumping"
+            let branchesArr = Array.from(this.branches.values());
+            branchesArr.sort((x: BranchBlock, y: BranchBlock): number => {
+                   return x.issuingTime - y.issuingTime || x.branchID.localeCompare(y.branchID)
                 }
             )
 
-            let conflicts = [];
-            for (let conflict of conflictsArr) {
-                for(let conflictID of conflict.conflictIDs){
+            let branches = [];
+            for (let branch of branchesArr) {
+                for(let conflictID of branch.conflictIDs){
                     if (conflictID === conflict.conflictID) {
-                        conflicts.push(
-                                    <tr key={conflict.conflictID} className={conflict.confirmationState > ConfirmationState.Accepted ? "table-success" : ""}>
+                        branches.push(
+                                    <tr key={branch.branchID} className={branch.confirmationState > ConfirmationState.Accepted ? "table-success" : ""}>
                                         <td>
-                                            <Link to={`/explorer/conflict/${conflict.conflictID}`}>
-                                                {conflict.conflictID}
+                                            <Link to={`/explorer/branch/${branch.branchID}`}>
+                                                {branch.branchID}
                                             </Link>
                                         </td>
-                                        <td>{resolveConfirmationState(conflict.confirmationState)}</td>
-                                        <td> {new Date(conflict.issuingTime * 1000).toLocaleString()}</td>
-                                        <td>{conflict.issuerNodeID}</td>
+                                        <td>{resolveConfirmationState(branch.confirmationState)}</td>
+                                        <td> {new Date(branch.issuingTime * 1000).toLocaleString()}</td>
+                                        <td>{branch.issuerNodeID}</td>
                                     </tr>
                         );
                     }
                 }
             }
             feed.push(
-                <tr key={conflict.conflictID+"_conflicts"}>
+                <tr key={conflict.conflictID+"_branches"}>
                     <td colSpan={4}>
                         <Table size="sm">
                             <thead>
                             <tr>
-                                <th>ConflictID</th>
+                                <th>BranchID</th>
                                 <th>ConfirmationState</th>
                                 <th>IssuingTime</th>
                                 <th>Issuer NodeID</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {conflicts}
+                            {branches}
                             </tbody>
                         </Table>
                     </td>
