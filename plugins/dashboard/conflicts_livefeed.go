@@ -86,7 +86,7 @@ func (b *branch) ToJSON() *branchJSON {
 	}
 }
 
-func sendConflictUpdate(c *conflictSet) {
+func sendConflictSetUpdate(c *conflictSet) {
 	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsConflict, c.ToJSON())
 }
 
@@ -151,7 +151,7 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 	defer mu.Unlock()
 
 	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		b.ConflictIDs = conflict.ConflictIDs()
+		b.ConflictIDs = conflict.ConflictSetIDs()
 	})
 
 	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
@@ -164,7 +164,7 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 				ArrivalTime: clock.SyncedTime(),
 				UpdatedTime: clock.SyncedTime(),
 			}
-			conflicts.addConflict(c)
+			conflicts.addConflictSet(c)
 		}
 
 		// update all existing branches with a possible new conflictSet membership
@@ -287,7 +287,7 @@ func (b *boundedConflictMap) conflict(conflictID utxo.OutputID) (conflict *confl
 	return
 }
 
-func (b *boundedConflictMap) addConflict(c *conflictSet) {
+func (b *boundedConflictMap) addConflictSet(c *conflictSet) {
 	if len(b.conflicts) >= Parameters.Conflicts.MaxCount {
 		element := heap.Pop(b.conflictHeap).(*timeHeapElement)
 		delete(b.conflicts, element.conflictID)
@@ -305,7 +305,7 @@ func (b *boundedConflictMap) addConflict(c *conflictSet) {
 		conflictID:  c.ConflictID,
 		arrivalTime: c.ArrivalTime,
 	})
-	sendConflictUpdate(c)
+	sendConflictSetUpdate(c)
 }
 
 func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
@@ -314,13 +314,13 @@ func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
 		c.TimeToResolve = clock.Since(c.ArrivalTime)
 		c.UpdatedTime = clock.SyncedTime()
 		b.conflicts[conflictID] = c
-		sendConflictUpdate(c)
+		sendConflictSetUpdate(c)
 	}
 }
 
 func (b *boundedConflictMap) sendAllConflicts() {
 	for _, c := range b.conflicts {
-		sendConflictUpdate(c)
+		sendConflictSetUpdate(c)
 	}
 	for _, b := range b.branches {
 		sendBranchUpdate(b)

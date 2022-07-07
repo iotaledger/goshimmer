@@ -17,17 +17,17 @@ type conflict[ConflictID, ConflictSetID comparable] struct {
 	// Parents contains the parent BranchIDs that this Conflict depends on.
 	Parents *set.AdvancedSet[ConflictID] `serix:"0"`
 
-	// ConflictIDs contains the identifiers of the conflicts that this Conflict is part of.
-	ConflictIDs *set.AdvancedSet[ConflictSetID] `serix:"1"`
+	// ConflictSetIDs contains the identifiers of the conflictsets that this Conflict is part of.
+	ConflictSetIDs *set.AdvancedSet[ConflictSetID] `serix:"1"`
 
 	// ConfirmationState contains the ConfirmationState of the Conflict.
 	ConfirmationState confirmation.State `serix:"2"`
 }
 
-func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
+func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflictSetIDs *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
 	new = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
 		Parents:           parents,
-		ConflictIDs:       conflicts,
+		ConflictSetIDs:    conflictSetIDs,
 		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(id)
@@ -36,63 +36,63 @@ func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID,
 }
 
 // Parents returns the parent BranchIDs that this Conflict depends on.
-func (b *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
-	b.RLock()
-	defer b.RUnlock()
+func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
+	c.RLock()
+	defer c.RUnlock()
 
-	return b.M.Parents.Clone()
+	return c.M.Parents.Clone()
 }
 
 // SetParents updates the parent BranchIDs that this Conflict depends on. It returns true if the Conflict was modified.
-func (b *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) {
-	b.Lock()
-	defer b.Unlock()
+func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) {
+	c.Lock()
+	defer c.Unlock()
 
-	b.M.Parents = parents
-	b.SetModified()
+	c.M.Parents = parents
+	c.SetModified()
 
 	return
 }
 
-// ConflictIDs returns the identifiers of the conflicts that this Conflict is part of.
-func (b *Conflict[ConflictID, ConflictSetID]) ConflictIDs() (conflictIDs *set.AdvancedSet[ConflictSetID]) {
-	b.RLock()
-	defer b.RUnlock()
+// ConflictSetIDs returns the identifiers of the conflict sets that this Conflict is part of.
+func (c *Conflict[ConflictID, ConflictSetID]) ConflictSetIDs() (conflictSetIDs *set.AdvancedSet[ConflictSetID]) {
+	c.RLock()
+	defer c.RUnlock()
 
-	return b.M.ConflictIDs.Clone()
+	return c.M.ConflictSetIDs.Clone()
 }
 
 // ConfirmationState returns the ConfirmationState of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) ConfirmationState() (confirmationState confirmation.State) {
-	b.RLock()
-	defer b.RUnlock()
+func (c *Conflict[ConflictID, ConflictSetID]) ConfirmationState() (confirmationState confirmation.State) {
+	c.RLock()
+	defer c.RUnlock()
 
-	return b.M.ConfirmationState
+	return c.M.ConfirmationState
 }
 
-// addConflict registers the membership of the Conflict in the given Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) addConflict(conflictID ConflictSetID) (added bool) {
-	b.Lock()
-	defer b.Unlock()
+// addConflict registers the membership of the Conflict in the given conflict set.
+func (c *Conflict[ConflictID, ConflictSetID]) addConflict(conflictSetID ConflictSetID) (added bool) {
+	c.Lock()
+	defer c.Unlock()
 
-	if added = b.M.ConflictIDs.Add(conflictID); added {
-		b.SetModified()
+	if added = c.M.ConflictSetIDs.Add(conflictSetID); added {
+		c.SetModified()
 	}
 
 	return added
 }
 
 // setConfirmationState sets the ConfirmationState of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) setConfirmationState(confirmationState confirmation.State) (modified bool) {
-	b.Lock()
-	defer b.Unlock()
+func (c *Conflict[ConflictID, ConflictSetID]) setConfirmationState(confirmationState confirmation.State) (modified bool) {
+	c.Lock()
+	defer c.Unlock()
 
-	if modified = b.M.ConfirmationState != confirmationState; !modified {
+	if modified = c.M.ConfirmationState != confirmationState; !modified {
 		return
 	}
 
-	b.M.ConfirmationState = confirmationState
-	b.SetModified()
+	c.M.ConfirmationState = confirmationState
+	c.SetModified()
 
 	return
 }
@@ -135,8 +135,8 @@ func NewConflictMember[ConflictSetID comparable, ConflictID comparable](conflict
 	return model.NewStorableReference[ConflictMember[ConflictSetID, ConflictID]](conflictSetID, conflictID)
 }
 
-// ConflictSetID returns the identifier of the Conflict.
-func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictSetID() (conflictID ConflictSetID) {
+// ConflictSetID returns the identifier of Conflict set.
+func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictSetID() (conflictSetID ConflictSetID) {
 	return c.SourceID()
 }
 

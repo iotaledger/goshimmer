@@ -237,7 +237,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 	// Make sure that all branches have all specified conflictIDs (reverse mapping).
 	for branchID, expectedConflicts := range branchConflicts {
 		t.ConsumeBranch(branchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictIDs())
+			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictSetIDs())
 		})
 	}
 }

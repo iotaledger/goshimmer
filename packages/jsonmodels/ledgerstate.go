@@ -544,7 +544,7 @@ func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+			for it := branch.ConflictSetIDs().Iterator(); it.HasNext(); {
 				conflictIDs = append(conflictIDs, it.Next().Base58())
 			}
 

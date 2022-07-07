@@ -59,8 +59,8 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 		}
 
 		u.branchDAG.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
-			_ = branch.ConflictIDs().ForEach(func(conflictID ConflictSetID) (err error) {
-				conflictSetsWalker.Push(conflictID)
+			_ = branch.ConflictSetIDs().ForEach(func(conflictSetID ConflictSetID) (err error) {
+				conflictSetsWalker.Push(conflictSetID)
 				return nil
 			})
 		})
@@ -79,7 +79,7 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 
 // forEachConflictingBranchID executes the callback for each Conflict that is conflicting with the named Conflict.
 func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingBranchID(branch *Conflict[ConflictID, ConflictSetID], callback func(conflictingBranchID ConflictID) bool) {
-	for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+	for it := branch.ConflictSetIDs().Iterator(); it.HasNext(); {
 		abort := false
 		u.branchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember[ConflictSetID, ConflictID]) {
 			if abort || conflictMember.ConflictID() == branch.ID() {

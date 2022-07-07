@@ -38,7 +38,7 @@ func TestConflictDAG_RetrieveBranch(t *testing.T) {
 	Branch2, exists := cachedBranch2.Unwrap()
 	require.True(t, exists)
 	assert.Equal(t, set.NewAdvancedSet(types.Identifier{}), Branch2.Parents())
-	assert.True(t, set.NewAdvancedSet(conflictID0, conflictID1).Equal(Branch2.ConflictIDs()))
+	assert.True(t, set.NewAdvancedSet(conflictID0, conflictID1).Equal(Branch2.ConflictSetIDs()))
 
 	assert.True(t, branchDAG.CreateConflict(branchID3, set.NewAdvancedSet(Branch2.ID()), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	cachedBranch3 := branchDAG.Storage.CachedConflict(branchID3)
@@ -47,7 +47,7 @@ func TestConflictDAG_RetrieveBranch(t *testing.T) {
 	require.True(t, exists)
 
 	assert.Equal(t, set.NewAdvancedSet(Branch2.ID()), Branch3.Parents())
-	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch3.ConflictIDs())
+	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch3.ConflictSetIDs())
 
 	assert.False(t, branchDAG.CreateConflict(branchID2, set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	assert.True(t, branchDAG.UpdateConflictingResources(branchID2, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
@@ -56,14 +56,14 @@ func TestConflictDAG_RetrieveBranch(t *testing.T) {
 	Branch2, exists = cachedBranch2.Unwrap()
 	require.True(t, exists)
 
-	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch2.ConflictIDs())
+	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch2.ConflictSetIDs())
 
 	assert.True(t, branchDAG.CreateConflict(branchID4, set.NewAdvancedSet(Branch3.ID(), Branch3.ID()), set.NewAdvancedSet(conflictID3)))
 	cachedBranch4 := branchDAG.Storage.CachedConflict(branchID4)
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
 	require.True(t, exists)
-	assert.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictIDs())
+	assert.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictSetIDs())
 }
 
 func TestConflictDAG_ConflictMembers(t *testing.T) {
