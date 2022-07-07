@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/lo"
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // booker is a Ledger component that bundles the booking related API.
@@ -105,8 +105,8 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, branchIDs *set.AdvancedSet[
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
+		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
 		outputMetadata.SetConsensusManaPledgeID(consensusPledgeID)
-		outputMetadata.SetConsensusManaPledgeID(accessPledgeID)
 		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.outputStorage.Store(output).Release()
 

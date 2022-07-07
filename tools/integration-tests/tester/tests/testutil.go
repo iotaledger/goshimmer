@@ -7,20 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/generics/lo"
-
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -54,7 +51,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
-// ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
+// ConsensusSnapshotDetails defines info for consensus integration test snapshot
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
 	// node ID: 2GtxMQD9
@@ -143,26 +140,26 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
 	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
 
-	confirmed := make(map[int]types.Empty)
+	accepted := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		if len(confirmed) == supplyOutputsCount*splittingMultiplier {
+		if len(accepted) == supplyOutputsCount*splittingMultiplier {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
 		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
-			if _, ok := confirmed[fundingIndex]; !ok {
+			if _, ok := accepted[fundingIndex]; !ok {
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)
 				if len(resp.UnspentOutputs[0].Outputs) != 0 {
-					if resp.UnspentOutputs[0].Outputs[0].GradeOfFinality == gof.High {
-						confirmed[fundingIndex] = types.Void
+					if resp.UnspentOutputs[0].Outputs[0].ConfirmationState.IsAccepted() {
+						accepted[fundingIndex] = types.Void
 					}
 				}
 			}
 		}
 		return false
 	}, time.Minute, Tick)
-	// give the faucet time to save the latest confirmed output
+	// give the faucet time to save the latest accepted output
 	time.Sleep(3 * time.Second)
 }
 
@@ -211,8 +208,8 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 
-	// Make sure the message is available on the peer itself and has gof.Low.
-	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.Low)
+	// Make sure the message is available on the peer itself and has confirmation.State Pending.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, confirmation.Pending)
 
 	return resp.ID, sent
 }
@@ -388,8 +385,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 }
 
 // RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-// Optionally, a GradeOfFinality can be specified, which then requires the messages to reach this GradeOfFinality.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, gradeOfFinality ...gof.GradeOfFinality) {
+// Optionally, a ConfirmationState can be specified, which then requires the messages to reach this ConfirmationState.
+func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
@@ -408,10 +405,10 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
 					continue
 				}
-				// retry, if the message has not yet reached the specified GoF
-				if len(gradeOfFinality) > 0 {
-					if msg.GradeOfFinality < gradeOfFinality[0] {
-						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+				// retry, if the message has not yet reached the specified ConfirmationState
+				if len(confirmationState) > 0 {
+					if msg.ConfirmationState < confirmationState[0] {
+						log.Printf("node=%s, messageID=%s, expected ConfirmationState=%s, actual ConfirmationState=%s; ConfirmationState not reached", node, messageID, confirmationState[0], msg.ConfirmationState)
 						continue
 					}
 				}
@@ -498,8 +495,8 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 // ExpectedState is an expected state.
 // All fields are optional.
 type ExpectedState struct {
-	// The optional grade of finality state to check against.
-	GradeOfFinality *gof.GradeOfFinality
+	// The optional confirmation state to check against.
+	ConfirmationState confirmation.State
 	// The optional solid state to check against.
 	Solid *bool
 }
@@ -514,11 +511,6 @@ func True() *bool {
 func False() *bool {
 	x := false
 	return &x
-}
-
-// GoFPointer returns a pointer to the given grade of finality value.
-func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
-	return &gradeOfFinality
 }
 
 // ExpectedTransaction defines the expected data of a transaction.
@@ -556,9 +548,9 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 // ExpectedTxsStates is a map of base58 encoded transactionIDs to their ExpectedState(s).
 type ExpectedTxsStates map[string]ExpectedState
 
-// RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
+// RequireConfirmationStateEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
+func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
@@ -569,22 +561,22 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedSt
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the grade of finality can change, so we should check all transactions every time
-				stateEqual, gof := txMetadataStateEqual(t, node, txID, expInclState)
+				// the confirmation state can change, so we should check all transactions every time
+				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 					return false
 				}
-				t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 
 			}
 		}
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct ConfirmationState...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for grade of finality... done")
+	log.Println("Waiting for ConfirmationState... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
@@ -604,25 +596,25 @@ func OutputIndex(transaction *devnetvm.Transaction, address devnetvm.Address) in
 	panic("invalid address")
 }
 
-func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, gof.GradeOfFinality) {
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, confirmation.State) {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
-	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
+	if (expInclState.ConfirmationState != confirmation.Undefined && metadata.ConfirmationState < expInclState.ConfirmationState) ||
 		(expInclState.Solid != nil && *expInclState.Solid != metadata.Booked) {
-		return false, metadata.GradeOfFinality
+		return false, metadata.ConfirmationState
 	}
-	return true, metadata.GradeOfFinality
+	return true, metadata.ConfirmationState
 }
 
-// ConfirmedOnAllPeers checks if the msg is confirmed on all supplied peers.
-func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
+// AcceptedOnAllPeers checks if the msg is accepted on all supplied peers.
+func AcceptedOnAllPeers(msgID string, peers []*framework.Node) bool {
 	for _, peer := range peers {
 		metadata, err := peer.GetMessageMetadata(msgID)
 		if err != nil {
 			return false
 		}
-		if metadata.GradeOfFinality != gof.High {
+		if !metadata.ConfirmationState.IsAccepted() {
 			return false
 		}
 	}
@@ -651,72 +643,10 @@ func TryConfirmMessage(t *testing.T, peers []*framework.Node, msgID string, wait
 				log.Printf("send message %s on node %s", id, peer.ID())
 			}
 
-			if ConfirmedOnAllPeers(msgID, peers) {
+			if AcceptedOnAllPeers(msgID, peers) {
 				log.Printf("msg %s is confirmed on all peers", msgID)
 				return
 			}
 		}
 	}
-}
-
-// IsBranchConfirmedOnAllPeers returns true if the branch is confirmed on all supplied nodes.
-func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool {
-	for _, peer := range peers {
-		branch, err := peer.GetBranch(branchID)
-		if err != nil {
-			return false
-		}
-		if branch.GradeOfFinality != gof.High {
-			return false
-		}
-	}
-	return true
-}
-
-func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.Message, err error) {
-	branch, err := peer.GetBranch(branchID)
-	if err != nil {
-		return
-	}
-	attachments, err := peer.GetTransactionAttachments(branchID)
-	if err != nil {
-		return
-	}
-	approversWalker := walker.New(false)
-	for _, msgID := range attachments.MessageIDs {
-		approversWalker.Push(msgID)
-	}
-	for approversWalker.HasNext() {
-		tip, err = peer.GetMessage(approversWalker.Next().(string))
-		if err != nil {
-			return
-		}
-		for _, approverMsgID := range tip.StrongApprovers {
-			var (
-				approverMsg *jsonmodels.Message
-				metadata    *jsonmodels.MessageMetadata
-			)
-			if approverMsg, err = peer.GetMessage(approverMsgID); err == nil {
-				if metadata, err = peer.GetMessageMetadata(approverMsgID); err == nil {
-					if metadata.BranchIDs[0] == branch.ID {
-						approversWalker.Push(approverMsgID)
-						continue
-					}
-
-					approverLikes := false
-					for _, like := range approverMsg.ShallowLikeParents {
-						if like == tip.ID {
-							approverLikes = true
-							break
-						}
-					}
-					if approverLikes {
-						approversWalker.Push(approverMsgID)
-						continue
-					}
-				}
-			}
-		}
-	}
-	return
 }

@@ -234,7 +234,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	msgUnreadyConfirmedNew := newMessage(peerNode.PublicKey())
 	tangle.Storage.StoreMessage(msgUnreadyConfirmedNew)
 	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedNew.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedNew})
+	tangle.ConfirmationOracle.Events().MessageAccepted.Trigger(&MessageAcceptedEvent{msgUnreadyConfirmedNew})
 	// make sure that the message was not unsubmitted
 	assert.Equal(t, NewMessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
 	assert.NoError(t, tangle.Scheduler.Ready(msgUnreadyConfirmedNew.ID()))
@@ -265,7 +265,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	msgUnreadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
 	tangle.Storage.StoreMessage(msgUnreadyConfirmedOld)
 	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedOld.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedOld})
+	tangle.ConfirmationOracle.Events().MessageAccepted.Trigger(&MessageAcceptedEvent{msgUnreadyConfirmedOld})
 
 	assert.Eventually(t, func() bool {
 		select {

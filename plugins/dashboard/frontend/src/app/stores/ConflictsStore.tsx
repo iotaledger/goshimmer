@@ -5,7 +5,7 @@ import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
 import NodeStore from './NodeStore';
 import {Table} from "react-bootstrap";
-import {GoF} from "app/stores/ExplorerStore";
+import {ConfirmationState, resolveConfirmationState} from "app/utils/confirmation_state";
 
 export class ConflictMessage {
     conflictID: string;
@@ -18,8 +18,7 @@ export class ConflictMessage {
 export class BranchMessage {
     branchID: string;
     conflictIDs: Array<string>;
-    aw: number;
-    gof: number;
+    confirmationState: number;
     issuingTime: number;
     issuerNodeID: string;
 }
@@ -55,8 +54,15 @@ export class ConflictsStore {
    
     @computed
     get conflictsLiveFeed() {
+        // sort branches by time and ID to prevent "jumping"
+        let conflictsArr = Array.from(this.conflicts.values());
+        conflictsArr.sort((x: ConflictMessage, y: ConflictMessage): number => {
+                return y.arrivalTime - x.arrivalTime || x.conflictID.localeCompare(y.conflictID);
+            }
+        )
+
         let feed = [];
-        for (let [key, conflict] of this.conflicts) {
+        for (let conflict of conflictsArr) {
             feed.push(
                 <tr key={conflict.conflictID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
                     <td>
@@ -91,16 +97,15 @@ export class ConflictsStore {
             let branches = [];
             for (let branch of branchesArr) {
                 for(let conflictID of branch.conflictIDs){
-                    if (conflictID === key) {
+                    if (conflictID === conflict.conflictID) {
                         branches.push(
-                                    <tr key={branch.branchID} className={branch.gof == GoF.High ? "table-success" : ""}>
+                                    <tr key={branch.branchID} className={branch.confirmationState > ConfirmationState.Accepted ? "table-success" : ""}>
                                         <td>
                                             <Link to={`/explorer/branch/${branch.branchID}`}>
                                                 {branch.branchID}
                                             </Link>
                                         </td>
-                                        <td>{branch.aw}</td>
-                                        <td>{branch.gof}</td>
+                                        <td>{resolveConfirmationState(branch.confirmationState)}</td>
                                         <td> {new Date(branch.issuingTime * 1000).toLocaleString()}</td>
                                         <td>{branch.issuerNodeID}</td>
                                     </tr>
@@ -115,8 +120,7 @@ export class ConflictsStore {
                             <thead>
                             <tr>
                                 <th>BranchID</th>
-                                <th>AW</th>
-                                <th>GoF</th>
+                                <th>ConfirmationState</th>
                                 <th>IssuingTime</th>
                                 <th>Issuer NodeID</th>
                             </tr>

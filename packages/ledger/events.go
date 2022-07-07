@@ -23,8 +23,8 @@ type Events struct {
 	// TransactionInclusionUpdated is an event that gets triggered whenever the inclusion time of a Transaction changes.
 	TransactionInclusionUpdated *event.Event[*TransactionInclusionUpdatedEvent]
 
-	// TransactionConfirmed is an event that gets triggered whenever a Transaction is confirmed.
-	TransactionConfirmed *event.Event[*TransactionConfirmedEvent]
+	// TransactionAccepted is an event that gets triggered whenever a Transaction is confirmed.
+	TransactionAccepted *event.Event[*TransactionAcceptedEvent]
 
 	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
 	TransactionRejected *event.Event[*TransactionRejectedEvent]
@@ -48,7 +48,7 @@ func newEvents() (new *Events) {
 		TransactionStored:           event.New[*TransactionStoredEvent](),
 		TransactionBooked:           event.New[*TransactionBookedEvent](),
 		TransactionInclusionUpdated: event.New[*TransactionInclusionUpdatedEvent](),
-		TransactionConfirmed:        event.New[*TransactionConfirmedEvent](),
+		TransactionAccepted:         event.New[*TransactionAcceptedEvent](),
 		TransactionRejected:         event.New[*TransactionRejectedEvent](),
 		TransactionForked:           event.New[*TransactionForkedEvent](),
 		TransactionBranchIDUpdated:  event.New[*TransactionBranchIDUpdatedEvent](),
@@ -102,11 +102,11 @@ type TransactionInclusionUpdatedEvent struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TransactionConfirmedEvent ////////////////////////////////////////////////////////////////////////////////////
+// region TransactionAcceptedEvent /////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionConfirmedEvent is a container that acts as a dictionary for the TransactionConfirmed event related
+// TransactionAcceptedEvent is a container that acts as a dictionary for the TransactionAccepted event related
 // parameters.
-type TransactionConfirmedEvent struct {
+type TransactionAcceptedEvent struct {
 	// TransactionID contains the identifier of the confirmed Transaction.
 	TransactionID utxo.TransactionID
 }

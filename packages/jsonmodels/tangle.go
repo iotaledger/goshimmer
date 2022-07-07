@@ -1,8 +1,6 @@
 package jsonmodels
 
-import (
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-)
+import "github.com/iotaledger/hive.go/types/confirmation"
 
 // region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -21,12 +19,12 @@ type Message struct {
 	PayloadType          string   `json:"payloadType"`
 	TransactionID        string   `json:"transactionID,omitempty"`
 	Payload              []byte   `json:"payload"`
-	EC                      string   `json:"ec"`
-	EI                      uint64   `json:"ei"`
-	ECR                     string   `json:"ecr"`
-	PrevEC                  string   `json:"prevEC"`
+	EC                   string   `json:"ec"`
+	EI                   uint64   `json:"ei"`
+	ECR                  string   `json:"ecr"`
+	PrevEC               string   `json:"prevEC"`
 	Signature            string   `json:"signature"`
-	LatestConfirmedEpoch    uint64   `json:"latestConfirmedEpoch"`
+	LatestConfirmedEpoch uint64   `json:"latestConfirmedEpoch"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,22 +33,22 @@ type Message struct {
 
 // MessageMetadata represents the JSON model of the tangle.MessageMetadata.
 type MessageMetadata struct {
-	ID                  string              `json:"id"`
-	ReceivedTime        int64               `json:"receivedTime"`
-	Solid               bool                `json:"solid"`
-	SolidificationTime  int64               `json:"solidificationTime"`
-	StructureDetails    *StructureDetails   `json:"structureDetails,omitempty"`
-	BranchIDs           []string            `json:"branchIDs"`
-	AddedBranchIDs      []string            `json:"addedBranchIDs"`
-	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
-	Scheduled           bool                `json:"scheduled"`
-	ScheduledTime       int64               `json:"scheduledTime"`
-	Booked              bool                `json:"booked"`
-	BookedTime          int64               `json:"bookedTime"`
-	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
-	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	ID                    string             `json:"id"`
+	ReceivedTime          int64              `json:"receivedTime"`
+	Solid                 bool               `json:"solid"`
+	SolidificationTime    int64              `json:"solidificationTime"`
+	StructureDetails      *StructureDetails  `json:"structureDetails,omitempty"`
+	BranchIDs             []string           `json:"branchIDs"`
+	AddedBranchIDs        []string           `json:"addedBranchIDs"`
+	SubtractedBranchIDs   []string           `json:"subtractedBranchIDs"`
+	Scheduled             bool               `json:"scheduled"`
+	ScheduledTime         int64              `json:"scheduledTime"`
+	Booked                bool               `json:"booked"`
+	BookedTime            int64              `json:"bookedTime"`
+	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
+	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

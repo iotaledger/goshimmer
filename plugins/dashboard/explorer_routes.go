@@ -6,10 +6,10 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -47,16 +47,16 @@ type ExplorerMessage struct {
 	// ShallowLikeApprovers are the shallow like approvers of the message.
 	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
 	// Solid defines the solid status of the message.
-	Solid               bool                `json:"solid"`
-	BranchIDs           []string            `json:"branchIDs"`
-	AddedBranchIDs      []string            `json:"addedBranchIDs"`
-	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
-	Scheduled           bool                `json:"scheduled"`
-	Booked              bool                `json:"booked"`
-	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
-	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	Solid                 bool               `json:"solid"`
+	BranchIDs             []string           `json:"branchIDs"`
+	AddedBranchIDs        []string           `json:"addedBranchIDs"`
+	SubtractedBranchIDs   []string           `json:"subtractedBranchIDs"`
+	Scheduled             bool               `json:"scheduled"`
+	Booked                bool               `json:"booked"`
+	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
+	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -108,11 +108,11 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
 		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
-		GradeOfFinality:         messageMetadata.GradeOfFinality(),
-		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
+		ConfirmationState:       messageMetadata.ConfirmationState(),
+		ConfirmationStateTime:   messageMetadata.ConfirmationStateTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
-		EC:                   	 notarization.EC(ecRecord).Base58(),
+		EC:                      notarization.EC(ecRecord).Base58(),
 		EI:                      uint64(msg.EI()),
 		ECR:                     msg.ECR().Base58(),
 		PrevEC:                  msg.PrevEC().Base58(),
@@ -148,11 +148,11 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID              *jsonmodels.OutputID       `json:"id"`
-	Output          *jsonmodels.Output         `json:"output"`
-	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
-	TxTimestamp     int                        `json:"txTimestamp"`
-	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
+	ID                *jsonmodels.OutputID       `json:"id"`
+	Output            *jsonmodels.Output         `json:"output"`
+	Metadata          *jsonmodels.OutputMetadata `json:"metadata"`
+	TxTimestamp       int                        `json:"txTimestamp"`
+	ConfirmationState confirmation.State         `json:"confirmationState"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -259,7 +259,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
-		// get output metadata + grade of finality status from branch of the output
+		// get output metadata + confirmation status from branch of the output
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
@@ -281,11 +281,11 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
-					ID:              jsonmodels.NewOutputID(output.ID()),
-					Output:          jsonmodels.NewOutput(output),
-					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
-					TxTimestamp:     int(timestamp),
-					GradeOfFinality: metaData.GradeOfFinality(),
+					ID:                jsonmodels.NewOutputID(output.ID()),
+					Output:            jsonmodels.NewOutput(output),
+					Metadata:          jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
+					TxTimestamp:       int(timestamp),
+					ConfirmationState: metaData.ConfirmationState(),
 				})
 			}
 

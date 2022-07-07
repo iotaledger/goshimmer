@@ -1141,7 +1141,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 	// ISSUE Message6
 	{
 
-		tg.Ledger.ConflictDAG.SetBranchConfirmed(testFramework.BranchID("red"))
+		tg.Ledger.ConflictDAG.SetBranchAccepted(testFramework.BranchID("red"))
 
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"))
 

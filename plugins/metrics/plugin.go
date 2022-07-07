@@ -235,7 +235,7 @@ func registerLocalMetrics() {
 		})
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
 		messageType := DataMessage
 		message := event.Message
 		messageID := message.ID()
@@ -258,7 +258,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 

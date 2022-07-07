@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -26,7 +26,7 @@ func TestNewManager(t *testing.T) {
 }
 
 //
-//func TestManager_IsCommittable(t *testing.T) {
+// func TestManager_IsCommittable(t *testing.T) {
 //	nodes := map[string]*identity.Identity{
 //		"A": identity.GenerateIdentity(),
 //	}
@@ -68,7 +68,7 @@ func TestNewManager(t *testing.T) {
 //	m.pendingConflictsCounters[ei] = 0
 //	// old enough and pbc > 0
 //	assert.True(t, m.isCommittable(ei))
-//}
+// }
 
 func TestManager_GetLatestEC(t *testing.T) {
 	nodes := map[string]*identity.Identity{
@@ -114,7 +114,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 	eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 	eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
 	//
-	//eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+	// eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
 	m.decreasePendingConflictCounter(1)
 	m.decreasePendingConflictCounter(2)
 	commitment, err = m.GetLatestEC()
@@ -152,7 +152,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 	var EC0 epoch.EC
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -288,7 +288,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	var EC0, EC1, EC2 epoch.EC
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 	// Message1, issuing time epoch 1
 	{
 		fmt.Println("message 1")
@@ -454,7 +454,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -618,7 +618,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -787,7 +787,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
-	issuingTime := genesisTime.Add(epochInterval)
+	issuingTime := genesisTime
 
 	// Message1, issuing time epoch 1
 	{
@@ -960,11 +960,11 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 	testFramework = tangle.NewMessageTestFramework(testTangle, tangle.WithGenesisOutput("A", 500), tangle.WithGenesisOutput("B", 500))
 
 	// set up finality gadget
-	testOpts := []finality.Option{
-		finality.WithBranchThresholdTranslation(TestBranchGoFTranslation),
-		finality.WithMessageThresholdTranslation(TestMessageGoFTranslation),
+	testOpts := []acceptance.Option{
+		acceptance.WithBranchThresholdTranslation(TestBranchConfirmationStateTranslation),
+		acceptance.WithMessageThresholdTranslation(TestMessageConfirmationStateTranslation),
 	}
-	sfg := finality.NewSimpleFinalityGadget(testTangle, testOpts...)
+	sfg := acceptance.NewSimpleFinalityGadget(testTangle, testOpts...)
 	testTangle.ConfirmationOracle = sfg
 
 	// set up notarization manager
@@ -1082,7 +1082,7 @@ func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {
 	m.LoadSnapshot(snapshot)
 }
 
-func registerToTangleEvents(sfg *finality.SimpleFinalityGadget, testTangle *tangle.Tangle) {
+func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangle.Tangle) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		sfg.HandleMarker(e.Marker, e.Weight)
 	}))

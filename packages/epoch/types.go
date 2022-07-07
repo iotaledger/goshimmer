@@ -34,11 +34,11 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 // IndexFromTime calculates the EI for the given time.
 func IndexFromTime(t time.Time) Index {
 	elapsedSeconds := t.Unix() - GenesisTime
-	if elapsedSeconds <= 0 {
+	if elapsedSeconds < 0 {
 		return 0
 	}
 
-	return Index(elapsedSeconds / Duration)
+	return Index(elapsedSeconds / Duration + 1)
 }
 
 func (i Index) Bytes() []byte {
@@ -56,13 +56,13 @@ func (i Index) String() string {
 
 // StartTime calculates the start time of the given epoch.
 func (i Index) StartTime() time.Time {
-	startUnix := GenesisTime + int64(i)*Duration
+	startUnix := GenesisTime + int64(i - 1)*Duration
 	return time.Unix(startUnix, 0)
 }
 
 // EndTime calculates the end time of the given epoch.
 func (i Index) EndTime() time.Time {
-	endUnix := GenesisTime + int64(i)*Duration + Duration - 1
+	endUnix := GenesisTime + int64(i - 1)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
 }
 

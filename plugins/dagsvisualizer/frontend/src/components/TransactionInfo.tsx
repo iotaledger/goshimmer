@@ -65,17 +65,17 @@ export class TransactionInfo extends React.Component<Props, any> {
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF: {selectedTx.gof}
+                                    ConfirmationState: {selectedTx.confirmationState}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Confirmed:{' '}
                                     {selectedTx.isConfirmed.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF updated Time: {' '}
+                                    ConfirmationStateTime: {' '}
                                     {dateformat(
                                         new Date(
-                                            selectedTx.gofTime / 1000000
+                                            selectedTx.confirmationStateTime / 1000000
                                         ),
                                         'dd.mm.yyyy HH:MM:ss'
                                     )}

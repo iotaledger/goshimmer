@@ -6,6 +6,7 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import {Link} from 'react-router-dom';
 import ListGroup from "react-bootstrap/ListGroup";
 import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveConfirmationState} from "app/utils/confirmation_state";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -56,8 +57,8 @@ export class ExplorerTransactionMetadata extends React.Component<Props, any> {
                     </ListGroup>
                     <ListGroup.Item>Booked: {txMetadata.booked.toString()}</ListGroup.Item>
                     <ListGroup.Item>Booked time: {new Date(txMetadata.bookedTime * 1000).toLocaleString()}</ListGroup.Item>
-                    <ListGroup.Item>Grade of Finality: {txMetadata.gradeOfFinality}</ListGroup.Item>
-                    <ListGroup.Item>Grade of Finality Time: {new Date(txMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
+                    <ListGroup.Item>Confirmation State: {resolveConfirmationState(txMetadata.confirmationState)}</ListGroup.Item>
+                    <ListGroup.Item>Confirmation State Time: {new Date(txMetadata.confirmationStateTime * 1000).toLocaleString()}</ListGroup.Item>
                 </ListGroup>}
             </div>
         )

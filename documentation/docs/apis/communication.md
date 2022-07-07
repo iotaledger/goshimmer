@@ -163,8 +163,8 @@ fmt.Println(string(message.Finalized))
     "scheduled": false,
     "booked": true,
     "invalid": false,
-    "gradeOfFinality": 3,
-    "gradeOfFinalityTime": 1621873310
+    "confirmationState": 3,
+    "confirmationStateTime": 1621873310
 }
 ```
 

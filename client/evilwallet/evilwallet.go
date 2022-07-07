@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	// GoFConfirmed defines the grade of finality that is considered confirmed.
-	GoFConfirmed = 3
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber = 100
 	faucetTokensPerRequest   = 1000000

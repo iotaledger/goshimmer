@@ -118,7 +118,7 @@ func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		onBranchConfirmed(event.ID)
 	}))
 
@@ -139,11 +139,11 @@ func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		deps.Tangle.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
 			onMessageFinalized(event.Message)
 		}))
 	}

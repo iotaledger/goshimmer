@@ -15,13 +15,6 @@ import {RouterStore} from "mobx-react-router";
 export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
 export const GenesisTransactionID = "11111111111111111111111111111111";
 
-export enum GoF {
-    None = 0,
-    Low,
-    Medium,
-    High,
-}
-
 export class Message {
     id: string;
     solidification_timestamp: number;
@@ -42,8 +35,8 @@ export class Message {
     booked: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
-    gradeOfFinality: number;
-    gradeOfFinalityTime: number;
+    confirmationState: number;
+    confirmationStateTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -82,8 +75,8 @@ export class OutputMetadata {
     branchIDs: Array<string>;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
-    gradeOfFinality: number
-    gradeOfFinalityTime: number
+    confirmationState: number
+    confirmationStateTime: number
 }
 
 class OutputConsumer {
@@ -107,8 +100,7 @@ class Branch {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number;
-    inclusionState: string;
+    confirmationState: number;
 }
 
 class BranchChildren {
