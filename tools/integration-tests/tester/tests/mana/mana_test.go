@@ -2,7 +2,6 @@ package mana
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math"
 	"testing"
@@ -206,7 +205,6 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", percResp)
 		require.Equal(t, fullID(faucet.ID()), percResp.NodeID)
-		fmt.Println(percResp.Access)
 		require.InDelta(t, 0, percResp.Access, 0.01)
 	})
 

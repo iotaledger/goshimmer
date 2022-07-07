@@ -507,15 +507,6 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 		assert.Equal(t, 10.0, bmValue.BaseValue())
 	})
 
-	t.Run("CASE: Wrong type", func(t *testing.T) {
-		p := NewPersistableBaseMana(randNodeID(), AccessMana, []float64{0}, []float64{0}, baseTime)
-		bmv := NewBaseManaVector(AccessMana)
-
-		err := bmv.FromPersistable(p)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "has type Access instead of Consensus")
-	})
-
 	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
 		p := NewPersistableBaseMana(randNodeID(), ConsensusMana, []float64{0, 0}, []float64{0}, baseTime)
 

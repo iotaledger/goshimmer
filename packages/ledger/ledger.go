@@ -88,13 +88,13 @@ func New(options ...Option) (ledger *Ledger) {
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
-		outputMetadata := NewOutputMetadata(outputWithMetadata.ID())
-		outputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
-		outputMetadata.SetConsensusManaPledgeID(outputMetadata.ConsensusManaPledgeID())
-		outputMetadata.SetConfirmationState(confirmation.Confirmed)
+		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
+		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
 
 		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
 	}
 
 	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {

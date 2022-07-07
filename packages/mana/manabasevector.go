@@ -160,6 +160,7 @@ func (m *ManaBaseVector) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeE
 	}
 }
 
+// BookEpoch takes care of the booking of consensus mana for the given committed epoch.
 func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
 	var revokeEvents []*RevokedEvent
 	var pledgeEvents []*PledgedEvent
