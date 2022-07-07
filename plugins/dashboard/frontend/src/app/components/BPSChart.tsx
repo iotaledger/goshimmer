@@ -49,14 +49,14 @@ const lineChartOptions = Object.assign({
 
 @inject("nodeStore")
 @observer
-export default class MPSChart extends React.Component<Props, any> {
+export default class BPSChart extends React.Component<Props, any> {
     render() {
         return (
             <Card>
                 <Card.Body>
                     <Card.Title>Blocks Per Second</Card.Title>
                     <small>
-                        MPS: {this.props.nodeStore.last_mps_metric.mps}.
+                        BPS: {this.props.nodeStore.last_mps_metric.mps}.
                     </small>
 
                     <Line height={50} data={this.props.nodeStore.mpsSeries} options={lineChartOptions}/>

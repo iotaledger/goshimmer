@@ -1,6 +1,6 @@
 export enum WSBlkType {
     Status,
-    MPSMetrics,
+    BPSMetrics,
     Block,
     NeighborStats,
     ComponentCounterMetrics,

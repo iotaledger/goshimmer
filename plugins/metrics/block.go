@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-// BlockType defines the component for the different MPS metrics.
+// BlockType defines the component for the different BPS metrics.
 type BlockType byte
 
 const (
@@ -32,7 +32,7 @@ func (c BlockType) String() string {
 	}
 }
 
-// ComponentType defines the component for the different MPS metrics.
+// ComponentType defines the component for the different BPS metrics.
 type ComponentType byte
 
 const (
@@ -140,7 +140,7 @@ var (
 	// number of blocks being requested by the block layer.
 	solidificationRequests atomic.Uint64
 
-	// counter for the received MPS (for dashboard).
+	// counter for the received BPS (for dashboard).
 	mpsReceivedSinceLastMeasurement atomic.Uint64
 )
 
@@ -369,7 +369,7 @@ func increasePerParentType(c tangle.ParentsType) {
 
 // measures the Component Counter value per second.
 func measurePerComponentCounter() {
-	// sample the current counter value into a measured MPS value
+	// sample the current counter value into a measured BPS value
 	componentCounters := BlockCountSinceStartPerComponentDashboard()
 
 	// reset the counter
@@ -387,21 +387,21 @@ func measureBlockTips() {
 	blockTips.Store(uint64(deps.Tangle.TipManager.TipCount()))
 }
 
-// increases the received MPS counter
-func increaseReceivedMPSCounter() {
+// increases the received BPS counter
+func increaseReceivedBPSCounter() {
 	mpsReceivedSinceLastMeasurement.Inc()
 }
 
-// measures the received MPS value
-func measureReceivedMPS() {
-	// sample the current counter value into a measured MPS value
-	sampledMPS := mpsReceivedSinceLastMeasurement.Load()
+// measures the received BPS value
+func measureReceivedBPS() {
+	// sample the current counter value into a measured BPS value
+	sampledBPS := mpsReceivedSinceLastMeasurement.Load()
 
 	// reset the counter
 	mpsReceivedSinceLastMeasurement.Store(0)
 
 	// trigger events for outside listeners
-	Events.ReceivedMPSUpdated.Trigger(&ReceivedMPSUpdatedEvent{MPS: sampledMPS})
+	Events.ReceivedBPSUpdated.Trigger(&ReceivedBPSUpdatedEvent{BPS: sampledBPS})
 }
 
 func measureRequestQueueSize() {

@@ -154,7 +154,7 @@ export class Visualizer extends React.Component<Props, any> {
                             <br/>
                             Vertices: {vertices.size}, Tips: {tips_count},
                             Confirmed/UnConfirmed: {finalized_count}/{vertices.size - finalized_count},{' '}
-                            MPS: {last_mps_metric.mps}
+                            BPS: {last_mps_metric.mps}
                             <br/>
                             Selected: {selected ?
                             <Link to={`/explorer/block/${selected.id}`}>

@@ -294,7 +294,7 @@ docker logs -f --since=1m goshimmer
 When the node starts for the first time, it must synchronize its state with the rest of the network. GoShimmer currently uses the Tangle Time to help nodes determine their synced status.
 
 #### Dashboard
-The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of MPS.
+The dashboard of your GoShimmer node should be accessible via `http://<your-ip>:8081`. If your node is still synchronizing, you might see a higher inflow of BPS.
 
 [![GoShimmer Dashboard](/img/tutorials/setup/dashboard.png)](/img/tutorials/setup/dashboard.png)
 

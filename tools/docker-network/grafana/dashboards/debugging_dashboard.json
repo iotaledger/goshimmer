@@ -35,7 +35,7 @@
       },
       "id": 55,
       "panels": [],
-      "title": "MPS, Autopeering, Traffic, Resources",
+      "title": "BPS, Autopeering, Traffic, Resources",
       "type": "row"
     },
     {
@@ -87,7 +87,7 @@
               }
             ]
           },
-          "unit": "MPS"
+          "unit": "BPS"
         },
         "overrides": []
       },
@@ -212,7 +212,7 @@
           "exemplar": true,
           "expr": "sum(irate(tangle_blocks_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
-          "legendFormat": "MPS {{instance}} ",
+          "legendFormat": "BPS {{instance}} ",
           "refId": "A"
         }
       ],
@@ -237,7 +237,7 @@
       "yaxes": [
         {
           "$$hashKey": "object:136",
-          "format": "MPS",
+          "format": "BPS",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -310,7 +310,7 @@
           "exemplar": true,
           "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
-          "legendFormat": "MPS {{instance}} ",
+          "legendFormat": "BPS {{instance}} ",
           "refId": "A"
         }
       ],
@@ -335,7 +335,7 @@
       "yaxes": [
         {
           "$$hashKey": "object:136",
-          "format": "MPS",
+          "format": "BPS",
           "label": null,
           "logBase": 1,
           "max": null,

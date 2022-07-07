@@ -313,7 +313,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Aggregated MPS for all block types in the communication layer.",
+      "description": "Aggregated BPS for all block types in the communication layer.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -330,7 +330,7 @@
               }
             ]
           },
-          "unit": "MPS"
+          "unit": "BPS"
         },
         "overrides": []
       },
@@ -362,11 +362,11 @@
           "exemplar": true,
           "expr": "irate(tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
           "interval": "",
-          "legendFormat": "Total MPS",
+          "legendFormat": "Total BPS",
           "refId": "A"
         }
       ],
-      "title": "Total MPS",
+      "title": "Total BPS",
       "type": "stat"
     },
     {
@@ -814,7 +814,7 @@
           },
           "yaxes": [
             {
-              "format": "MPS",
+              "format": "BPS",
               "logBase": 1,
               "min": "0",
               "show": true
@@ -883,7 +883,7 @@
               "exemplar": true,
               "expr": "irate(tangle_blocks_per_component_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "{{component}} MPS",
+              "legendFormat": "{{component}} BPS",
               "refId": "A"
             }
           ],
@@ -903,7 +903,7 @@
           },
           "yaxes": [
             {
-              "format": "MPS",
+              "format": "BPS",
               "logBase": 1,
               "min": "0",
               "show": true
@@ -2468,7 +2468,7 @@
           "type": "stat"
         }
       ],
-      "title": "MPS, Autopeering, Traffic, Resources",
+      "title": "BPS, Autopeering, Traffic, Resources",
       "type": "row"
     },
     {

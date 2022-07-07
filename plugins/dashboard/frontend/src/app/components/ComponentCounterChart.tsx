@@ -61,7 +61,7 @@ export default class StoreChart extends React.Component<Props, any> {
                     <Card.Title>Component Counter Blocks Per Second</Card.Title>
                     <div style={infoStyle as React.CSSProperties}>
                         <small>
-                            MPS: {this.props.nodeStore.last_component_counter_metric.store}.
+                            BPS: {this.props.nodeStore.last_component_counter_metric.store}.
                         </small>
                         <small>
                             Rate Setter - Estimate: {this.props.nodeStore.last_rate_setter_metric.estimate}

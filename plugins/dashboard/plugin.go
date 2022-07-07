@@ -123,9 +123,9 @@ func worker(ctx context.Context) {
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
-	notifyStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.MPS) })
-	metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
-	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
+	notifyStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.BPS) })
+	metrics.Events.ReceivedBPSUpdated.Attach(notifyStatus)
+	defer metrics.Events.ReceivedBPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
 	go func() {
@@ -155,8 +155,8 @@ func worker(ctx context.Context) {
 const (
 	// BlkTypeNodeStatus is the type of the NodeStatus block.
 	BlkTypeNodeStatus byte = iota
-	// BlkTypeMPSMetric is the type of the block per second (MPS) metric block.
-	BlkTypeMPSMetric
+	// BlkTypeBPSMetric is the type of the block per second (BPS) metric block.
+	BlkTypeBPSMetric
 	// BlkTypeBlock is the type of the block.
 	BlkTypeBlock
 	// BlkTypeNeighborMetric is the type of the NeighborMetric block.

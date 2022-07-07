@@ -75,7 +75,7 @@ func run(_ *node.Plugin) {
 				measureMemUsage()
 				measureSynced()
 				measureBlockTips()
-				measureReceivedMPS()
+				measureReceivedBPS()
 				measureRequestQueueSize()
 				measureGossipTraffic()
 				measurePerComponentCounter()
@@ -132,11 +132,11 @@ func run(_ *node.Plugin) {
 func registerLocalMetrics() {
 	// // Events declared in other packages which we want to listen to here ////
 
-	// increase received MPS counter whenever we attached a block
+	// increase received BPS counter whenever we attached a block
 	deps.Tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
-		increaseReceivedMPSCounter()
+		increaseReceivedBPSCounter()
 		increasePerPayloadCounter(event.Block.Payload().Type())
 
 		deps.Tangle.Storage.BlockMetadata(event.Block.ID()).Consume(func(blkMetaData *tangle.BlockMetadata) {

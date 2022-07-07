@@ -11,7 +11,7 @@ var Events *EventsStruct
 
 type EventsStruct struct {
 	// Fired when the blocks per second metric is updated.
-	ReceivedMPSUpdated *event.Event[*ReceivedMPSUpdatedEvent]
+	ReceivedBPSUpdated *event.Event[*ReceivedBPSUpdatedEvent]
 	// Fired when the transactions per second metric is updated.
 	ReceivedTPSUpdated *event.Event[*ReceivedTPSUpdatedEvent]
 	// Fired when the component counter per second metric is updated.
@@ -22,7 +22,7 @@ type EventsStruct struct {
 
 func newEvents() (new *EventsStruct) {
 	return &EventsStruct{
-		ReceivedMPSUpdated:      event.New[*ReceivedMPSUpdatedEvent](),
+		ReceivedBPSUpdated:      event.New[*ReceivedBPSUpdatedEvent](),
 		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),
 		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
 		RateSetterUpdated:       event.New[*RateSetterMetric](),
@@ -33,8 +33,8 @@ func init() {
 	Events = newEvents()
 }
 
-type ReceivedMPSUpdatedEvent struct {
-	MPS uint64
+type ReceivedBPSUpdatedEvent struct {
+	BPS uint64
 }
 
 // RateSetterMetric is the metric for the rate setter.

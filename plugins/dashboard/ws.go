@@ -48,7 +48,7 @@ func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case uint64:
-			broadcastWsBlock(&wsblk{BlkTypeMPSMetric, x})
+			broadcastWsBlock(&wsblk{BlkTypeBPSMetric, x})
 			broadcastWsBlock(&wsblk{BlkTypeNodeStatus, currentNodeStatus()})
 			broadcastWsBlock(&wsblk{BlkTypeNeighborMetric, neighborMetrics()})
 			broadcastWsBlock(&wsblk{BlkTypeTipsMetric, &tipsInfo{
@@ -64,8 +64,8 @@ func configureWebSocketWorkerPool() {
 }
 
 func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) {
-		wsSendWorkerPool.TrySubmit(event.MPS)
+	updateStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) {
+		wsSendWorkerPool.TrySubmit(event.BPS)
 	})
 	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
@@ -86,12 +86,12 @@ func runWebSocketStreams() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
+		metrics.Events.ReceivedBPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
+		metrics.Events.ReceivedBPSUpdated.Detach(updateStatus)
 		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
