@@ -46,7 +46,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getAllCommittedEpochs(c echo.Context) error {
-	allEpochs := epochstorage.GetCommittedEpochs()
+	allEpochs := epochstorage.GetCommittableEpochs()
 	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
 	for _, ecr := range allEpochs {
 		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
@@ -62,7 +62,7 @@ func getCommittedEpoch(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := epochstorage.GetCommittedEpochs()
+	allEpochs := epochstorage.GetCommittableEpochs()
 	epochInfo := jsonmodels.EpochInfoFromRecord(allEpochs[ei])
 
 	return c.JSON(http.StatusOK, epochInfo)

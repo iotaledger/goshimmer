@@ -351,17 +351,17 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
+func (m *Manager) PendingConflictsCount(ei epoch.Index) (pendingConflictsCount uint64) {
 	return m.pendingConflictsCounters[ei]
 }
 
 // PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
-func (m *Manager) PendingConflictsCountAll() map[epoch.Index]uint64 {
-	duplicate := make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
+func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]uint64) {
+	pendingConflicts = make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
 	for k, v := range m.pendingConflictsCounters {
-		duplicate[k] = v
+		pendingConflicts[k] = v
 	}
-	return duplicate
+	return pendingConflicts
 }
 
 // Shutdown shuts down the manager's permanent storagee.
@@ -387,9 +387,9 @@ func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.In
 	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
-	m.Events.StateMutationTreeInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
-
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
+
+	m.Events.StateMutationTreeInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 	m.Events.UTXOTreeInserted.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
@@ -399,9 +399,9 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
-	m.Events.StateMutationTreeRemoved.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
-
 	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
+
+	m.Events.StateMutationTreeRemoved.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
 	m.Events.UTXOTreeRemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
@@ -569,17 +569,17 @@ type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommittable *event.Event[*EpochCommittableEvent]
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
-	// TangleTreeInserted is an event that gets triggered when a Message is inserted to Tangle smt.
+	// TangleTreeInserted is an event that gets triggered when a Message is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
-	// TangleTreeRemoved is an event that gets triggered when a Message is removed to Tangle smt.
+	// TangleTreeRemoved is an event that gets triggered when a Message is removed from Tangle smt.
 	TangleTreeRemoved *event.Event[*TangleTreeUpdatedEvent]
-	// StateMutationTreeInserted is an event that gets triggered when a transaction is inserted to state mutation smt.
+	// StateMutationTreeInserted is an event that gets triggered when a transaction is inserted into the state mutation smt.
 	StateMutationTreeInserted *event.Event[*StateMutationTreeUpdatedEvent]
-	// StateMutationTreeRemoved is an event that gets triggered when a transaction is removed to state mutation smt.
+	// StateMutationTreeRemoved is an event that gets triggered when a transaction is removed from state mutation smt.
 	StateMutationTreeRemoved *event.Event[*StateMutationTreeUpdatedEvent]
-	// UTXOTreeInserted is an event that gets triggered when UTXOs are stored.
+	// UTXOTreeInserted is an event that gets triggered when UTXOs are stored into the UTXO smt.
 	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
-	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed.
+	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed from the UTXO smt.
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
 }
 
