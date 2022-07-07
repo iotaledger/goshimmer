@@ -37,7 +37,7 @@ func (o *OrphanageManager) Setup() {
 		}
 	}))
 
-	o.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+	o.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *MessageAcceptedEvent) {
 		o.Lock()
 		defer o.Unlock()
 

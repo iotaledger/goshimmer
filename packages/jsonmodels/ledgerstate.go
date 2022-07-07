@@ -6,11 +6,11 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -479,23 +479,23 @@ func NewOutputID(outputID utxo.OutputID) *OutputID {
 
 // OutputMetadata represents the JSON model of the ledger.OutputMetadata.
 type OutputMetadata struct {
-	OutputID            *OutputID           `json:"outputID"`
-	BranchIDs           []string            `json:"branchIDs"`
-	FirstConsumer       string              `json:"firstCount"`
-	ConfirmedConsumer   string              `json:"confirmedConsumer,omitempty"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	OutputID              *OutputID          `json:"outputID"`
+	BranchIDs             []string           `json:"branchIDs"`
+	FirstConsumer         string             `json:"firstCount"`
+	ConfirmedConsumer     string             `json:"confirmedConsumer,omitempty"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
-		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchIDs:           lo.Map(lo.Map(outputMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		FirstConsumer:       outputMetadata.FirstConsumer().Base58(),
-		ConfirmedConsumer:   confirmedConsumerID.Base58(),
-		GradeOfFinality:     outputMetadata.GradeOfFinality(),
-		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
+		OutputID:              NewOutputID(outputMetadata.ID()),
+		BranchIDs:             lo.Map(lo.Map(outputMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		FirstConsumer:         outputMetadata.FirstConsumer().Base58(),
+		ConfirmedConsumer:     confirmedConsumerID.Base58(),
+		ConfirmationState:     outputMetadata.ConfirmationState(),
+		ConfirmationStateTime: outputMetadata.ConfirmationStateTime().Unix(),
 	}
 }
 
@@ -523,16 +523,15 @@ func NewConsumer(consumer *ledger.Consumer) *Consumer {
 
 // Branch represents the JSON model of a ledger.Conflict.
 type Branch struct {
-	ID              string              `json:"id"`
-	Parents         []string            `json:"parents"`
-	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
-	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
-	ApprovalWeight  float64             `json:"approvalWeight"`
-	InclusionState  string              `json:"inclusionState"`
+	ID                string             `json:"id"`
+	Parents           []string           `json:"parents"`
+	ConflictIDs       []string           `json:"conflictIDs,omitempty"`
+	ConfirmationState confirmation.State `json:"confirmationState"`
+	ApprovalWeight    float64            `json:"approvalWeight"`
 }
 
 // NewBranch returns a Branch from the given ledger.Conflict.
-func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64, inclusionState conflictdag.InclusionState) Branch {
+func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
 		Parents: func() []string {
@@ -551,9 +550,8 @@ func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 
 
 			return conflictIDs
 		}(),
-		GradeOfFinality: gradeOfFinality,
-		ApprovalWeight:  aw,
-		InclusionState:  inclusionState.String(),
+		ConfirmationState: confirmationState,
+		ApprovalWeight:    aw,
 	}
 }
 
@@ -729,23 +727,23 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledger.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID       string              `json:"transactionID"`
-	BranchIDs           []string            `json:"branchIDs"`
-	Booked              bool                `json:"booked"`
-	BookedTime          int64               `json:"bookedTime"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	TransactionID         string             `json:"transactionID"`
+	BranchIDs             []string           `json:"branchIDs"`
+	Booked                bool               `json:"booked"`
+	BookedTime            int64              `json:"bookedTime"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledger.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
-		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchIDs:           lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		Booked:              transactionMetadata.IsBooked(),
-		BookedTime:          transactionMetadata.BookingTime().Unix(),
-		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
-		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
+		TransactionID:         transactionMetadata.ID().Base58(),
+		BranchIDs:             lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		Booked:                transactionMetadata.IsBooked(),
+		BookedTime:            transactionMetadata.BookingTime().Unix(),
+		ConfirmationState:     transactionMetadata.ConfirmationState(),
+		ConfirmationStateTime: transactionMetadata.ConfirmationStateTime().Unix(),
 	}
 }
 

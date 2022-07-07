@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -84,7 +84,7 @@ func init() {
 			Plugin.Panic(err)
 		}
 
-		if err := event.Container.Provide(FinalityGadget); err != nil {
+		if err := event.Container.Provide(AcceptanceGadget); err != nil {
 			Plugin.Panic(err)
 		}
 
@@ -223,8 +223,8 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RATT, tangleDeps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
-	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
-	tangleInstance.ConfirmationOracle = finalityGadget
+	acceptanceGadget = acceptance.NewSimpleFinalityGadget(tangleInstance)
+	tangleInstance.ConfirmationOracle = acceptanceGadget
 
 	tangleInstance.Setup()
 	return tangleInstance

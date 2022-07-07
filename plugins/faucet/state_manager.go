@@ -37,8 +37,8 @@ const (
 	// MaxFaucetOutputsCount defines the max outputs count for the Faucet as the ledgerstate.MaxOutputCount -1 remainder output.
 	MaxFaucetOutputsCount = devnetvm.MaxOutputCount - 1
 
-	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
-	WaitForConfirmation = 10 * time.Second
+	// WaitForAcceptance defines the wait time before considering a transaction confirmed.
+	WaitForAcceptance = 10 * time.Second
 
 	// MaxWaitAttempts defines the number of attempts taken while waiting for confirmation during funds preparation.
 	MaxWaitAttempts = 50
@@ -323,7 +323,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if !outputMetadata.IsSpent() && deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+				if !outputMetadata.IsSpent() && deps.Tangle.Ledger.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
 					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
@@ -369,7 +369,7 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 					return
 				}
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
-					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+					deps.Tangle.Ledger.Utils.OutputConfirmationState(output.ID()).IsAccepted() {
 					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
@@ -506,7 +506,7 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan utxo.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
 
-	monitorTxConfirmation := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	monitorTxAcceptance := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 		txID := event.TransactionID
 		if s.splittingEnv.WasIssuedInThisPreparation(txID) {
 			txConfirmed <- txID
@@ -514,10 +514,10 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	})
 
 	// listen on confirmation
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(monitorTxAcceptance)
+	defer deps.Tangle.Ledger.Events.TransactionAccepted.Detach(monitorTxAcceptance)
 
-	ticker := time.NewTicker(WaitForConfirmation)
+	ticker := time.NewTicker(WaitForAcceptance)
 	defer ticker.Stop()
 
 	listenerAttached <- types.Empty{}

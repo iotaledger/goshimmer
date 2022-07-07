@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -121,7 +122,7 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
-func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
+func TestConflictDAG_SetBranchAccepted(t *testing.T) {
 	branchDAG := New[types.Identifier, types.Identifier]()
 	defer branchDAG.Shutdown()
 
@@ -145,77 +146,77 @@ func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch7"] = createBranch(t, branchDAG, "Branch7", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
 	branchIDs["Branch8"] = createBranch(t, branchDAG, "Branch8", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
 
-	assert.True(t, branchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
+	assert.True(t, branchDAG.SetBranchAccepted(branchIDs["Branch4"]))
 
-	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
-		"Branch2":         Confirmed,
-		"Branch3":         Rejected,
-		"Branch4":         Confirmed,
-		"Branch5":         Rejected,
-		"Branch6":         Pending,
-		"Branch7":         Pending,
-		"Branch8":         Pending,
-		"Branch5+Branch7": Rejected,
-		"Branch2+Branch7": Pending,
-		"Branch5+Branch8": Rejected,
+	assertConfirmationStates(t, branchDAG, branchIDs, map[string]confirmation.State{
+		"Branch2":         confirmation.Accepted,
+		"Branch3":         confirmation.Rejected,
+		"Branch4":         confirmation.Accepted,
+		"Branch5":         confirmation.Rejected,
+		"Branch6":         confirmation.Pending,
+		"Branch7":         confirmation.Pending,
+		"Branch8":         confirmation.Pending,
+		"Branch5+Branch7": confirmation.Rejected,
+		"Branch2+Branch7": confirmation.Pending,
+		"Branch5+Branch8": confirmation.Rejected,
 	})
 
-	assert.True(t, branchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
+	assert.True(t, branchDAG.SetBranchAccepted(branchIDs["Branch8"]))
 
 	// Create a new Conflict in an already-decided Conflict Set results in straight Reject
 	branchIDs["Branch9"] = createBranch(t, branchDAG, "Branch9", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID2))
 
-	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
-		"Branch2":         Confirmed,
-		"Branch3":         Rejected,
-		"Branch4":         Confirmed,
-		"Branch5":         Rejected,
-		"Branch6":         Rejected,
-		"Branch7":         Rejected,
-		"Branch8":         Confirmed,
-		"Branch5+Branch7": Rejected,
-		"Branch2+Branch7": Rejected,
-		"Branch5+Branch8": Rejected,
-		// Spawning a new aggregated branch with Confirmed parents results in Confirmed
-		"Branch4+Branch8": Confirmed,
-		// Spawning a new aggregated branch with any Rejected parent results in Rejected
-		"Branch3+Branch8": Rejected,
-		"Branch9":         Rejected,
+	assertConfirmationStates(t, branchDAG, branchIDs, map[string]confirmation.State{
+		"Branch2":         confirmation.Accepted,
+		"Branch3":         confirmation.Rejected,
+		"Branch4":         confirmation.Accepted,
+		"Branch5":         confirmation.Rejected,
+		"Branch6":         confirmation.Rejected,
+		"Branch7":         confirmation.Rejected,
+		"Branch8":         confirmation.Accepted,
+		"Branch5+Branch7": confirmation.Rejected,
+		"Branch2+Branch7": confirmation.Rejected,
+		"Branch5+Branch8": confirmation.Rejected,
+		// Spawning a new aggregated branch with confirmation.Accepted parents results in confirmation.Accepted
+		"Branch4+Branch8": confirmation.Accepted,
+		// Spawning a new aggregated branch with any confirmation.Rejected parent results in confirmation.Rejected
+		"Branch3+Branch8": confirmation.Rejected,
+		"Branch9":         confirmation.Rejected,
 	})
 
 	branchIDs["Branch10"] = createBranch(t, branchDAG, "Branch10", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID3))
 	branchIDs["Branch11"] = createBranch(t, branchDAG, "Branch11", set.NewAdvancedSet(types.Identifier{}), set.NewAdvancedSet(conflictID3))
 
-	branchDAG.SetBranchConfirmed(branchIDs["Branch10"])
+	branchDAG.SetBranchAccepted(branchIDs["Branch10"])
 
-	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
-		"Branch2":                  Confirmed,
-		"Branch3":                  Rejected,
-		"Branch4":                  Confirmed,
-		"Branch5":                  Rejected,
-		"Branch6":                  Rejected,
-		"Branch7":                  Rejected,
-		"Branch8":                  Confirmed,
-		"Branch5+Branch7":          Rejected,
-		"Branch2+Branch7":          Rejected,
-		"Branch5+Branch8":          Rejected,
-		"Branch4+Branch8":          Confirmed,
-		"Branch3+Branch8":          Rejected,
-		"Branch9":                  Rejected,
-		"Branch10":                 Confirmed,
-		"Branch11":                 Rejected,
-		"Branch2+Branch7+Branch11": Rejected,
+	assertConfirmationStates(t, branchDAG, branchIDs, map[string]confirmation.State{
+		"Branch2":                  confirmation.Accepted,
+		"Branch3":                  confirmation.Rejected,
+		"Branch4":                  confirmation.Accepted,
+		"Branch5":                  confirmation.Rejected,
+		"Branch6":                  confirmation.Rejected,
+		"Branch7":                  confirmation.Rejected,
+		"Branch8":                  confirmation.Accepted,
+		"Branch5+Branch7":          confirmation.Rejected,
+		"Branch2+Branch7":          confirmation.Rejected,
+		"Branch5+Branch8":          confirmation.Rejected,
+		"Branch4+Branch8":          confirmation.Accepted,
+		"Branch3+Branch8":          confirmation.Rejected,
+		"Branch9":                  confirmation.Rejected,
+		"Branch10":                 confirmation.Accepted,
+		"Branch11":                 confirmation.Rejected,
+		"Branch2+Branch7+Branch11": confirmation.Rejected,
 	})
 }
 
-func assertInclusionStates[ConflictT, ConflictSetT comparable](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
-	for branchIDStrings, expectedInclusionState := range expectedInclusionStates {
+func assertConfirmationStates[ConflictT, ConflictSetT comparable](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedConfirmationStates map[string]confirmation.State) {
+	for branchIDStrings, expectedConfirmationState := range expectedConfirmationStates {
 		branchIDs := set.NewAdvancedSet[ConflictT]()
 		for _, branchString := range strings.Split(branchIDStrings, "+") {
 			branchIDs.Add(branchIDsMapping[branchString])
 		}
 
-		assert.Equal(t, expectedInclusionState, branchDAG.InclusionState(branchIDs), "%s inclustionState is not %s", branchIDs, expectedInclusionState)
+		assert.Equal(t, expectedConfirmationState, branchDAG.ConfirmationState(branchIDs), "%s inclustionState is not %s", branchIDs, expectedConfirmationState)
 	}
 }
 

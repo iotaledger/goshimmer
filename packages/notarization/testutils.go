@@ -4,46 +4,35 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 const (
-	testingLowBound    = 0.2
-	testingMediumBound = 0.3
-	testingHighBound   = 0.4
+	testingAcceptanceThreshold = 0.4
 )
 
 var (
-	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
-	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	// TestBranchConfirmationStateTranslation translates a branch's AW into a confirmation state.
+	TestBranchConfirmationStateTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 
-	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
-	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	// TestMessageConfirmationStateTranslation translates a message's AW into a confirmation state.
+	TestMessageConfirmationStateTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 )
 

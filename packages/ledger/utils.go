@@ -6,9 +6,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -33,7 +33,7 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs utxo.TransactionIDs) (branchIDsI
 
 		branchIDsInFutureCone.Add(branchID)
 
-		if u.ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(branchID)) == conflictdag.Confirmed {
+		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(branchID)).IsAccepted() {
 			u.ledger.Storage.CachedTransactionMetadata(branchID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
@@ -151,27 +151,18 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 	return
 }
 
-// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
-func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		gradeOfFinality = txMetadata.GradeOfFinality()
-	}) {
-		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
-	}
-
+// TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
+func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
+	u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		confirmationState = txMetadata.ConfirmationState()
+	})
 	return
 }
 
-// BranchGradeOfFinality returns the GradeOfFinality of the Conflict with the given BranchID.
-func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == utxo.EmptyTransactionID {
-		return gof.High, nil
-	}
-
-	branchGof, gofErr := u.TransactionGradeOfFinality(utxo.TransactionID{branchID.Identifier})
-	if gofErr != nil {
-		return gof.None, errors.Errorf("failed to retrieve GoF of branch %s: %w", branchID, err)
-	}
-
-	return branchGof, nil
+// OutputConfirmationState returns the ConfirmationState of the Output.
+func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
+	u.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+		confirmationState = outputMetadata.ConfirmationState()
+	})
+	return
 }

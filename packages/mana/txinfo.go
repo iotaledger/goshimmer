@@ -35,8 +35,6 @@ func (t *TxInfo) sumInputs() float64 {
 
 // InputInfo holds mana related info about an input within a transaction.
 type InputInfo struct {
-	// Timestamp is the timestamp of the transaction that created this output (input).
-	TimeStamp time.Time
 	// Amount is the balance of the input.
 	Amount float64
 	// PledgeID is a map of mana types and the node to which the transaction that created the output pledges its mana type to.

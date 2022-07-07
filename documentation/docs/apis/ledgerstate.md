@@ -271,7 +271,7 @@ if err != nil {
 }
 fmt.Println("branch ID: ", resp.ID)
 fmt.Println("branch type: ", resp.Type)
-fmt.Println("branch inclusion state: ", resp.InclusionState)
+fmt.Println("branch inclusion state: ", resp.ConfirmationState)
 fmt.Println("branch parents IDs: ", resp.Parents)
 fmt.Println("branch conflicts IDs: ", resp.ConflictIDs)
 fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp.Finalized, resp.MonotonicallyLiked)
@@ -290,21 +290,21 @@ fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp
     "liked": false,
     "monotonicallyLiked": false,
     "finalized": false,
-    "inclusionState": "InclusionState(Pending)"
+    "confirmationState": "ConfirmationState(Pending)"
 }
 ```
 
 ### Results
-|Return field | Type | Description|
-|:-----|:------|:------|
-| `id`  | string | The branch identifier encoded with base58.   |
-| `type`        | string | The type of the branch.  |
-| `parents`     | []string | The list of parent branches IDs.   |
-| `conflictIDs` | []string | The list of conflicts identifiers.  |
-| `liked`       | bool | The boolean indicator if branch is liked.   |
-| `monotonicallyLiked`   | bool | The boolean indicator if branch is monotonically liked.   |
-| `finalized`   | bool | The boolean indicator if branch is finalized.   |
-| `inclusionState`   | string | Inclusion state of a branch.   |
+|Return field | Type | Description                                             |
+|:-----|:------|:--------------------------------------------------------|
+| `id`  | string | The branch identifier encoded with base58.              |
+| `type`        | string | The type of the branch.                                 |
+| `parents`     | []string | The list of parent branches IDs.                        |
+| `conflictIDs` | []string | The list of conflicts identifiers.                      |
+| `liked`       | bool | The boolean indicator if branch is liked.               |
+| `monotonicallyLiked`   | bool | The boolean indicator if branch is monotonically liked. |
+| `finalized`   | bool | The boolean indicator if branch is finalized.           |
+| `confirmationState`   | string | Confirmation state of a branch.                         |
 
 
 
@@ -1066,7 +1066,7 @@ for _, outputs := range resp.UnspentOutputs {
                             "address": "1Z4t5KEKU65fbeQCbNdztYTB1B4Cdxys1XRzTFrmvAf3"
                         }
                     },
-                    "inclusionState": {
+                    "confirmationState": {
                         "confirmed": true,
                         "rejected": false,
                         "conflicting": false
@@ -1105,7 +1105,7 @@ for _, outputs := range resp.UnspentOutputs {
 |Field | Type | Description|
 |:-----|:------|:------|
 | `output`  | Output | The unspent output.   |
-| `inclusionState`| InclusionState   | The inclusion state of the transaction containing the output.  |
+| `confirmationState`| ConfirmationState   | The inclusion state of the transaction containing the output.  |
 | `metadata`| WalletOutputMetadata   | The metadata of the output for the wallet lib.  |
 
 #### Type `Output`
@@ -1124,7 +1124,7 @@ for _, outputs := range resp.UnspentOutputs {
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
 
-#### Type `InclusionState`
+#### Type `ConfirmationState`
 
 |Field | Type | Description|
 |:-----|:------|:------|

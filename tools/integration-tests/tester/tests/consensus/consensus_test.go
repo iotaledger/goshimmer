@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -23,8 +23,8 @@ import (
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
 // We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
 // let them both issue conflicting transactions, and assert that the transaction
-// issued by the 40% node gains a high GoF while the other one gets "none" GoF over time as the 20% consensus mana
-// node puts its weight to the 40% issued tx making it reach 60% AW and hence high GoF.
+// issued by the 40% node gains a high ConfirmationState while the other one gets "none" ConfirmationState over time as the 20% consensus mana
+// node puts its weight to the 40% issued tx making it reach 60% AW and hence high ConfirmationState.
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
 	const (
@@ -83,17 +83,17 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		t.Logf("issuing conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the first partition.
 		// Funds move from address 1 -> address 2 -> address 3...
-		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node1, gof.Medium))
+		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node1))
 		t.Logf("issuing other conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the second partition
-		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node2, gof.Low))
+		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node2))
 	}
 
 	// merge partitions
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	t.Logf("Sending %d data messages to make GoF converge", dataMessagesAmount)
+	t.Logf("Sending %d data messages to make ConfirmationState converge", dataMessagesAmount)
 	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
 
 	// conflicting txs should have spawned branches
@@ -105,25 +105,25 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		return len(res1.BranchIDs) > 0 && len(res2.BranchIDs) > 0
 	}, tests.Timeout, tests.Tick)
 
-	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
-	// attachments' GoF. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
+	// we issue msgs on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
+	// attachments' ConfirmationState. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataMessages(t, n.Peers(), 50)
 
 	for i := 0; i < numberOfConflictingTxs; i++ {
-		tests.RequireGradeOfFinalityEqual(t, n.Peers(), tests.ExpectedTxsStates{
+		tests.RequireConfirmationStateEqual(t, n.Peers(), tests.ExpectedTxsStates{
 			txs1[i].ID().Base58(): {
-				GradeOfFinality: tests.GoFPointer(gof.High),
-				Solid:           tests.True(),
+				ConfirmationState: confirmation.Accepted,
+				Solid:             tests.True(),
 			},
 			txs2[i].ID().Base58(): {
-				GradeOfFinality: tests.GoFPointer(gof.None),
-				Solid:           tests.True(),
+				ConfirmationState: confirmation.Rejected,
+				Solid:             tests.True(),
 			},
 		}, time.Minute, tests.Tick)
 	}
 }
 
-func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *devnetvm.Transaction {
+func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node) *devnetvm.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
 		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),

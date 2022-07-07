@@ -193,9 +193,9 @@ const (
 	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
 	MsgTypeRateSetterMetric
-	// MsgTypeConflictsConflict defines a message that contains a conflict update for the conflict tab.
+	// MsgTypeConflictsConflict defines a message that contains a conflictSet update for the conflictSet tab.
 	MsgTypeConflictsConflict
-	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflict tab.
+	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflictSet tab.
 	MsgTypeConflictsBranch
 )
 

@@ -11,7 +11,7 @@ import {
     updateConfirmedBranch
 } from 'graph/cytoscape';
 import {
-    branchGoFChanged,
+    branchConfirmationStateChanged,
     branchParentUpdate,
     branchVertex,
     branchWeightChanged
@@ -41,7 +41,7 @@ export class BranchStore {
         makeObservable(this);
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
-        registerHandler(WSMsgType.BranchGoFChanged, this.branchGoFChanged);
+        registerHandler(WSMsgType.BranchConfirmationStateChanged, this.branchConfirmationStateChanged);
         registerHandler(
             WSMsgType.BranchWeightChanged,
             this.branchWeightChanged
@@ -51,7 +51,7 @@ export class BranchStore {
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Branch);
         unregisterHandler(WSMsgType.BranchParentsUpdate);
-        unregisterHandler(WSMsgType.BranchGoFChanged);
+        unregisterHandler(WSMsgType.BranchConfirmationStateChanged);
         unregisterHandler(WSMsgType.BranchWeightChanged);
     }
 
@@ -103,7 +103,7 @@ export class BranchStore {
     };
 
     @action
-    branchGoFChanged = (branch: branchGoFChanged) => {
+    branchConfirmationStateChanged = (branch: branchConfirmationStateChanged) => {
         const b = this.branches.get(branch.ID);
         if (!b) {
             return;
@@ -115,7 +115,7 @@ export class BranchStore {
             b.isConfirmed = false;
         }
 
-        b.gof = branch.gof;
+        b.confirmationState = branch.confirmationState;
         this.branches.set(branch.ID, b);
         updateConfirmedBranch(b, this.graph);
     };
@@ -127,7 +127,7 @@ export class BranchStore {
             return;
         }
         b.aw = branch.weight;
-        b.gof = branch.gof;
+        b.confirmationState = branch.confirmationState;
         this.branches.set(branch.ID, b);
     };
 
@@ -303,7 +303,7 @@ export class BranchStore {
             parents: [],
             isConfirmed: true,
             conflicts: null,
-            gof: 'GoF(High)',
+            confirmationState: 'Confirmed',
             aw: 0
         };
         this.branches.set(

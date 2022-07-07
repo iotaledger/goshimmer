@@ -38,19 +38,19 @@ type MessageInvalidEvent struct {
 
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
-	MessageConfirmed *event.Event[*MessageConfirmedEvent]
-	MessageOrphaned  *event.Event[*MessageConfirmedEvent]
+	MessageAccepted *event.Event[*MessageAcceptedEvent]
+	MessageOrphaned *event.Event[*MessageAcceptedEvent]
 }
 
 // NewConfirmationEvents returns a new ConfirmationEvents object.
 func NewConfirmationEvents() (new *ConfirmationEvents) {
 	return &ConfirmationEvents{
-		MessageConfirmed: event.New[*MessageConfirmedEvent](),
-		MessageOrphaned:  event.New[*MessageConfirmedEvent](),
+		MessageAccepted: event.New[*MessageAcceptedEvent](),
+		MessageOrphaned: event.New[*MessageAcceptedEvent](),
 	}
 }
 
-type MessageConfirmedEvent struct {
+type MessageAcceptedEvent struct {
 	Message *Message
 }
 
@@ -407,9 +407,9 @@ type SyncChangedEvent struct {
 // TimeUpdate represents an update in Tangle Time.
 type TimeUpdate struct {
 	// MessageID is the ID of the message that caused the time update.
-	MessageID  MessageID
+	MessageID MessageID
 	// ATT is the new Acceptance Tangle Time.
-	ATT        time.Time
+	ATT time.Time
 	// UpdateTime is the wall clock time when the update has occurred.
 	UpdateTime time.Time
 }

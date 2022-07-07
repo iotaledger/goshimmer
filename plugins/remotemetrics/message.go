@@ -51,10 +51,10 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			record.DeltaSolid = messageMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 			record.QueuedTimestamp = messageMetadata.QueuedTime()
 			record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
-			record.GradeOfFinality = uint8(messageMetadata.GradeOfFinality())
-			record.GradeOfFinalityTimestamp = messageMetadata.GradeOfFinalityTime()
-			if !messageMetadata.GradeOfFinalityTime().IsZero() {
-				record.DeltaGradeOfFinalityTime = messageMetadata.GradeOfFinalityTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.ConfirmationState = uint8(messageMetadata.ConfirmationState())
+			record.ConfirmationStateTimestamp = messageMetadata.ConfirmationStateTime()
+			if !messageMetadata.ConfirmationStateTime().IsZero() {
+				record.DeltaConfirmationStateTime = messageMetadata.ConfirmationStateTime().Sub(record.IssuedTimestamp).Nanoseconds()
 			}
 
 			var scheduleDoneTime time.Time

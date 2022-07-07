@@ -54,7 +54,7 @@ func (t *TipManager) Setup() {
 		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+	t.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *MessageAcceptedEvent) {
 		t.removeStrongParents(event.Message)
 	}))
 

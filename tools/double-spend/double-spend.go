@@ -7,15 +7,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/lo"
-
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func main() {
@@ -54,7 +51,7 @@ func main() {
 		for _, v := range resp.UnspentOutputs {
 			if len(v.Outputs) > 0 {
 				myOutputID = v.Outputs[0].Output.OutputID.Base58
-				confirmed = v.Outputs[0].GradeOfFinality == gof.High
+				confirmed = v.Outputs[0].ConfirmationState.IsAccepted()
 				break
 			}
 		}

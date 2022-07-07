@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -323,13 +322,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
 	m.outputCounter++
 
-	outputMetadata := ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetGradeOfFinality(gof.High)
-	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
-	outputMetadata.SetCreationTime(manaPledgeTime)
-	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
-
-	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata)
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, manaPledgeTime, manaPledgeID, manaPledgeID)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())

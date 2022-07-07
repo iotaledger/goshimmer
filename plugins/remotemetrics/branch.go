@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -133,11 +132,7 @@ func measureInitialBranchCounts() {
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
-			branchGoF, err := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
-			if err != nil {
-				return
-			}
-			if branchGoF == gof.High {
+			if deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branch.ID())).IsAccepted() {
 				deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID utxo.TransactionID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++

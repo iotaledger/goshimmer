@@ -5,8 +5,8 @@ export class utxoVertex {
     outputs: Array<string>;
     branchID: string;
     isConfirmed: boolean;
-    gof: string;
-    gofTime: number;
+    confirmationState: string;
+    confirmationStateTime: number;
 }
 
 export class input {
@@ -19,9 +19,9 @@ export class utxoBooked {
     branchID: string;
 }
 
-export class utxoGoFChanged {
+export class utxoConfirmationStateChanged {
     ID: string;
-    gof: string;
+    confirmationState: string;
     isConfirmed: boolean;
-    gofTime: number;
+    confirmationStateTime: number;
 }

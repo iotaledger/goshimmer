@@ -174,22 +174,22 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(metadata.ID())
 
 	return jsonmodels.MessageMetadata{
-		ID:                  metadata.ID().Base58(),
-		ReceivedTime:        metadata.ReceivedTime().Unix(),
-		Solid:               metadata.IsSolid(),
-		SolidificationTime:  metadata.SolidificationTime().Unix(),
-		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchIDs:           lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-		AddedBranchIDs:      lo.Map(metadata.AddedBranchIDs().Slice(), utxo.TransactionID.Base58),
-		SubtractedBranchIDs: lo.Map(metadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Base58),
-		Scheduled:           metadata.Scheduled(),
-		ScheduledTime:       metadata.ScheduledTime().Unix(),
-		Booked:              metadata.IsBooked(),
-		BookedTime:          metadata.BookedTime().Unix(),
-		ObjectivelyInvalid:  metadata.IsObjectivelyInvalid(),
-		SubjectivelyInvalid: metadata.IsSubjectivelyInvalid(),
-		GradeOfFinality:     metadata.GradeOfFinality(),
-		GradeOfFinalityTime: metadata.GradeOfFinalityTime().Unix(),
+		ID:                    metadata.ID().Base58(),
+		ReceivedTime:          metadata.ReceivedTime().Unix(),
+		Solid:                 metadata.IsSolid(),
+		SolidificationTime:    metadata.SolidificationTime().Unix(),
+		StructureDetails:      jsonmodels.NewStructureDetails(metadata.StructureDetails()),
+		BranchIDs:             lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+		AddedBranchIDs:        lo.Map(metadata.AddedBranchIDs().Slice(), utxo.TransactionID.Base58),
+		SubtractedBranchIDs:   lo.Map(metadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Base58),
+		Scheduled:             metadata.Scheduled(),
+		ScheduledTime:         metadata.ScheduledTime().Unix(),
+		Booked:                metadata.IsBooked(),
+		BookedTime:            metadata.BookedTime().Unix(),
+		ObjectivelyInvalid:    metadata.IsObjectivelyInvalid(),
+		SubjectivelyInvalid:   metadata.IsSubjectivelyInvalid(),
+		ConfirmationState:     metadata.ConfirmationState(),
+		ConfirmationStateTime: metadata.ConfirmationStateTime().Unix(),
 	}
 }
 

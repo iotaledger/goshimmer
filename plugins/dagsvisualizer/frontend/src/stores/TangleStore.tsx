@@ -4,7 +4,7 @@ import { MAX_VERTICES } from 'utils/constants';
 import {
     tangleBooked,
     tangleConfirmed,
-    tangleTxGoFChanged,
+    tangleTxConfirmationStateChanged,
     tangleVertex
 } from 'models/tangle';
 import {
@@ -44,14 +44,14 @@ export class TangleStore {
             WSMsgType.MessageConfirmed,
             this.setMessageConfirmedTime
         );
-        registerHandler(WSMsgType.MessageTxGoFChanged, this.updateMessageTxGoF);
+        registerHandler(WSMsgType.MessageTxConfirmationStateChanged, this.updateMessageTxConfirmationState);
     }
 
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Message);
         unregisterHandler(WSMsgType.MessageBooked);
         unregisterHandler(WSMsgType.MessageConfirmed);
-        unregisterHandler(WSMsgType.MessageTxGoFChanged);
+        unregisterHandler(WSMsgType.MessageTxConfirmationStateChanged);
     }
 
     @action
@@ -113,13 +113,13 @@ export class TangleStore {
     };
 
     @action
-    updateMessageTxGoF = (txGoF: tangleTxGoFChanged) => {
-        const msg = this.messages.get(txGoF.ID);
+    updateMessageTxConfirmationState = (txConfirmationState: tangleTxConfirmationStateChanged) => {
+        const msg = this.messages.get(txConfirmationState.ID);
         if (!msg) {
             return;
         }
 
-        if (txGoF.isConfirmed) {
+        if (txConfirmationState.isConfirmed) {
             msg.isTxConfirmed = true;
         } else {
             msg.isTxConfirmed = false;
@@ -138,9 +138,9 @@ export class TangleStore {
             return;
         }
 
-        msg.gof = info.gof;
+        msg.confirmationState = info.confirmationState;
         msg.isConfirmed = true;
-        msg.confirmedTime = info.confirmedTime;
+        msg.confirmationStateTime = info.confirmationStateTime;
         this.messages.set(msg.ID, msg);
         if (this.draw) {
             this.updateIfNotPaused(msg);

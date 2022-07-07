@@ -18,8 +18,8 @@ type Events[ConflictID, ConflictingResourceID comparable] struct {
 	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Conflict are updated.
 	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID]]
 
-	// BranchConfirmed is an event that gets triggered whenever a Conflict is confirmed.
-	BranchConfirmed *event.Event[*BranchConfirmedEvent[ConflictID]]
+	// BranchAccepted is an event that gets triggered whenever a Conflict is confirmed.
+	BranchAccepted *event.Event[*BranchAcceptedEvent[ConflictID]]
 
 	// BranchRejected is an event that gets triggered whenever a Conflict is rejected.
 	BranchRejected *event.Event[*BranchRejectedEvent[ConflictID]]
@@ -31,7 +31,7 @@ func newEvents[ConflictID, ConflictingResourceID comparable]() *Events[ConflictI
 		ConflictCreated:        event.New[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]](),
 		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent[ConflictID, ConflictingResourceID]](),
 		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID]](),
-		BranchConfirmed:        event.New[*BranchConfirmedEvent[ConflictID]](),
+		BranchAccepted:         event.New[*BranchAcceptedEvent[ConflictID]](),
 		BranchRejected:         event.New[*BranchRejectedEvent[ConflictID]](),
 	}
 }
@@ -88,10 +88,10 @@ type BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID comparable] str
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchConfirmedEvent /////////////////////////////////////////////////////////////////////////////////////////
+// region BranchAcceptedEvent /////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related parameters.
-type BranchConfirmedEvent[ConflictID comparable] struct {
+// BranchAcceptedEvent is a container that acts as a dictionary for the BranchAccepted event related parameters.
+type BranchAcceptedEvent[ConflictID comparable] struct {
 	// ID contains the identifier of the confirmed Conflict.
 	ID ConflictID
 }

@@ -70,17 +70,6 @@ type OnlineNodeStr struct {
 	Mana       float64 `json:"mana"`
 }
 
-// PastConsensusVectorMetadataResponse is the response.
-type PastConsensusVectorMetadataResponse struct {
-	Metadata *mana.ConsensusBasePastManaVectorMetadata `json:"metadata,omitempty"`
-	Error    string                                    `json:"error,omitempty"`
-}
-
-// PastConsensusManaVectorRequest is the request.
-type PastConsensusManaVectorRequest struct {
-	Timestamp int64 `json:"timestamp"`
-}
-
 // PastConsensusManaVectorResponse is the response.
 type PastConsensusManaVectorResponse struct {
 	Consensus []mana.NodeStr `json:"consensus"`

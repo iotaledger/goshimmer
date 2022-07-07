@@ -9,6 +9,7 @@ import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
 import {resolveBase58BranchID} from "app/utils/branch";
 import {outputToComponent} from "app/utils/output";
+import {resolveConfirmationState} from "app/utils/confirmation_state";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -91,8 +92,8 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                         </ListGroup>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>
                         <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${outputMetadata.confirmedConsumer}`}>{outputMetadata.confirmedConsumer}</a> </ListGroup.Item>
-                        <ListGroup.Item>Grade of Finality: {outputMetadata.gradeOfFinality}</ListGroup.Item>
-                        <ListGroup.Item>Grade of Finality Time: {new Date(outputMetadata.gradeOfFinalityTime * 1000).toLocaleString()}</ListGroup.Item>
+                        <ListGroup.Item>Confirmation State: {resolveConfirmationState(outputMetadata.confirmationState)}</ListGroup.Item>
+                        <ListGroup.Item>Confirmation State Time: {new Date(outputMetadata.confirmationStateTime * 1000).toLocaleString()}</ListGroup.Item>
                     </ListGroup>
                 </div>}
 

@@ -42,7 +42,7 @@ type Essence struct {
 	Data              string               `json:"data"`
 }
 
-// Conflict is a JSON serializable conflict.
+// Conflict is a JSON serializable conflictSet.
 type Conflict struct {
 	ID      string `json:"tx_id"`
 	Opinion `json:"opinion"`
