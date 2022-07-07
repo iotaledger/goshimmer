@@ -1,9 +1,10 @@
 package gossip
 
 import (
-	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/event"
+
+	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 )
 
 // Events defines all the events related to the gossip protocol.
@@ -49,7 +50,7 @@ type NeighborAddedEvent struct {
 	Neighbor *Neighbor
 }
 
-// NeighborAddedEvent holds data about the removed neighbor.
+// NeighborRemovedEvent holds data about the removed neighbor.
 type NeighborRemovedEvent struct {
 	Neighbor *Neighbor
 }
@@ -63,7 +64,7 @@ type NeighborEvents struct {
 	PacketReceived *event.Event[*NeighborPacketReceivedEvent]
 }
 
-// NewNeighborsEvents returns a new instance of NeighborsEvents.
+// NewNeighborEvents returns a new instance of NeighborsEvents.
 func NewNeighborEvents() (new *NeighborEvents) {
 	return &NeighborEvents{
 		Disconnected:   event.New[*NeighborDisconnectedEvent](),
@@ -74,7 +75,7 @@ func NewNeighborEvents() (new *NeighborEvents) {
 // NeighborDisconnectedEvent holds data about the disconnected neighbor.
 type NeighborDisconnectedEvent struct{}
 
-// NeighborDisconnectedEvent holds data about the disconnected neighbor.
+// NeighborPacketReceivedEvent holds data about the disconnected neighbor.
 type NeighborPacketReceivedEvent struct {
 	Packet *pb.Packet
 }

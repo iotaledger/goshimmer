@@ -21,12 +21,12 @@ type Message struct {
 	PayloadType          string   `json:"payloadType"`
 	TransactionID        string   `json:"transactionID,omitempty"`
 	Payload              []byte   `json:"payload"`
-	EC                      string   `json:"ec"`
-	EI                      uint64   `json:"ei"`
-	ECR                     string   `json:"ecr"`
-	PrevEC                  string   `json:"prevEC"`
+	EC                   string   `json:"ec"`
+	EI                   uint64   `json:"ei"`
+	ECR                  string   `json:"ecr"`
+	PrevEC               string   `json:"prevEC"`
 	Signature            string   `json:"signature"`
-	LatestConfirmedEpoch    uint64   `json:"latestConfirmedEpoch"`
+	LatestConfirmedEpoch uint64   `json:"latestConfirmedEpoch"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,6 +51,8 @@ type MessageMetadata struct {
 	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	Orphaned            bool                `json:"orphaned"`
+	OrphanedTime        int64               `json:"orphanedTime"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

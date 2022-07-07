@@ -534,7 +534,7 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	}
 
 	for marker, expectedWeight := range expectedMarkerWeights {
-		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(marker, testFramework.Message(messageAlias).IssuingTime())
+		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(marker)
 		if expectedWeight != actualWeight {
 			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
 		}

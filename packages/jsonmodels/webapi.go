@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -115,6 +116,39 @@ type GetBranchVotersResponse struct {
 func NewGetBranchVotersResponse(branchID utxo.TransactionID, voters *tangle.Voters) *GetBranchVotersResponse {
 	return &GetBranchVotersResponse{
 		BranchID: branchID.Base58(),
+		Voters: func() (votersStr []string) {
+			votersStr = make([]string, 0)
+			voters.ForEach(func(voter tangle.Voter) {
+				votersStr = append(votersStr, voter.String())
+			})
+			return
+		}(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchVotersResponse //////////////////////////////////////////////////////////////////////////////////////
+
+// MarkerWeightResponse represents the JSON model of a response from the GetMarkerVoters endpoint.
+type MarkerWeightResponse struct {
+	MarkerSequence string  `json:"markerSequence"`
+	MarkerIndex    string  `json:"markerIndex"`
+	Weight         float64 `json:"voters"`
+}
+
+// MarkerVotersResponse represents the JSON model of a response from the GetMarkerVoters endpoint.
+type MarkerVotersResponse struct {
+	MarkerSequence string   `json:"markerSequence"`
+	MarkerIndex    string   `json:"markerIndex"`
+	Voters         []string `json:"voters"`
+}
+
+// NewMarkerVotersResponse returns a GetMarkerVotersResponse from the given details.
+func NewMarkerVotersResponse(marker markers.Marker, voters *tangle.Voters) *MarkerVotersResponse {
+	return &MarkerVotersResponse{
+		MarkerIndex:    marker.Index().String(),
+		MarkerSequence: marker.SequenceID().String(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
 			voters.ForEach(func(voter tangle.Voter) {

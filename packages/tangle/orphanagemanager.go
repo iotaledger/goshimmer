@@ -8,8 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/pkg/errors"
-
-	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region OrphanageManager /////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +44,10 @@ func (o *OrphanageManager) Setup() {
 		})
 	}))
 
-	o.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+	// Handle this event synchronously to guarantee that confirmed block is removed from orphanage manager before
+	// acceptance time is updated for this block as this could lead to some inconsistencies and manager trying to
+	// orphan confirmed messages.
+	o.tangle.ConfirmationOracle.Events().MessageConfirmed.Hook(event.NewClosure(func(event *MessageConfirmedEvent) {
 		o.Lock()
 		defer o.Unlock()
 		delete(o.strongChildCounters, event.Message.ID())
@@ -76,14 +77,6 @@ func (o *OrphanageManager) OrphanBlock(blockID MessageID, reason error) {
 	o.orphanBlockFutureCone(blockID, reason)
 }
 func (o *OrphanageManager) orphanBlockFutureCone(blockID MessageID, reason error) {
-	// TODO: what if marker block is confirmed first, and before confirmation is propagated to its past cone, acceptance time is updated and blocks in the marker's past cone are orphaned?
-	// without knowing future markers there is no obvious way to check if the future marker is confirmed
-	// a possible solution could be to only rely on markers for orphanage like we do for confirmation. WDYT?
-
-	//if o.isBlockConfirmed(blockID) {
-	//	return
-	//}
-
 	futureConeWalker := walker.New[MessageID](false).Push(blockID)
 	for futureConeWalker.HasNext() {
 		blockID = futureConeWalker.Next()
@@ -103,6 +96,10 @@ func (o *OrphanageManager) orphanBlock(blockID MessageID, reason error) {
 	o.Events.BlockOrphaned.Trigger(&BlockOrphanedEvent{
 		BlockID: blockID,
 		Reason:  reason,
+	})
+
+	o.tangle.Storage.MessageMetadata(blockID).Consume(func(metadata *MessageMetadata) {
+		metadata.SetOrphaned(true)
 	})
 
 	// remove blockID from unconfirmed block heap and from childStrongCounters map
@@ -154,21 +151,6 @@ func (o *OrphanageManager) removeElementFromHeap(blockID MessageID) {
 			break
 		}
 	}
-}
-
-func (o *OrphanageManager) getNextIndex(sequence *markers.Sequence, markerIndex markers.Index) markers.Index {
-	// skip any gaps in marker indices
-	markerIndex++
-	for ; markerIndex < sequence.HighestIndex(); markerIndex++ {
-		currentMarker := markers.NewMarker(sequence.ID(), markerIndex)
-
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if msgID := o.tangle.Booker.MarkersManager.MessageID(currentMarker); msgID == EmptyMessageID {
-			continue
-		}
-		break
-	}
-	return markerIndex
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

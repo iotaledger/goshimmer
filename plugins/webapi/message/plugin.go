@@ -190,6 +190,8 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		SubjectivelyInvalid: metadata.IsSubjectivelyInvalid(),
 		GradeOfFinality:     metadata.GradeOfFinality(),
 		GradeOfFinalityTime: metadata.GradeOfFinalityTime().Unix(),
+		Orphaned:            metadata.IsOrphaned(),
+		OrphanedTime:        metadata.OrphanedTime().Unix(),
 	}
 }
 

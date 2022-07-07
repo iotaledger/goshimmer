@@ -41,6 +41,20 @@ const (
 	FaucetFundingOutputsAddrStart = 127
 )
 
+// OrphanageSnapshotDetails defines info for orphanage test scenario.
+var OrphanageSnapshotDetails = framework.SnapshotInfo{
+	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
+	GenesisTokenAmount: 0,
+	PeersSeedBase58: []string{
+		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+	},
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10},
+}
+
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
 	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
@@ -411,6 +425,16 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 				// retry, if the message has not yet reached the specified GoF
 				if len(gradeOfFinality) > 0 {
 					if msg.GradeOfFinality < gradeOfFinality[0] {
+						for sequenceID, markerIndex := range msg.StructureDetails.PastMarkers.Markers {
+							voters, err := node.GoShimmerAPI.GetMarkerVoters(sequenceID, markerIndex)
+							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerVoters' failed", node, messageID)
+							log.Printf("node=%s, messageID=%s, pastMarkerVoters=%+v; GoF not reached", node, messageID, voters)
+
+							weight, err := node.GoShimmerAPI.GetMarkerWeight(sequenceID, markerIndex)
+							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerWeight' failed", node, messageID)
+							log.Printf("node=%s, messageID=%s, pastMarkerWeight=%+v; GoF not reached", node, messageID, weight)
+
+						}
 						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
 						continue
 					}
@@ -430,6 +454,45 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
 	require.Eventuallyf(t, condition, waitFor, tick,
 		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
+	log.Println("Waiting for messages... done")
+}
+
+// RequireMessagesOrphaned asserts that all nodes have received MessageIDs and marked them as orphaned in waitFor time, periodically checking each tick.
+func RequireMessagesOrphaned(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
+	for _, node := range nodes {
+		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
+		for messageID := range messageIDs {
+			missing[node.ID()][messageID] = struct{}{}
+		}
+	}
+
+	condition := func() bool {
+		for _, node := range nodes {
+			nodeMissing := missing[node.ID()]
+			for messageID := range nodeMissing {
+				msg, err := node.GetMessageMetadata(messageID)
+				// retry, when the message could not be found
+				if errors.Is(err, client.ErrNotFound) {
+					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
+					continue
+				}
+
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
+				require.Equal(t, messageID, msg.ID)
+				require.True(t, msg.Orphaned, "node=%s, messageID=%s, not marked as orphaned", node, messageID)
+				delete(nodeMissing, messageID)
+				if len(nodeMissing) == 0 {
+					delete(missing, node.ID())
+				}
+			}
+		}
+		return len(missing) == 0
+	}
+
+	log.Printf("Waiting for %d messages to become orphaned...", len(messageIDs))
+	require.Eventuallyf(t, condition, waitFor, tick,
+		"%d out of %d nodes did not orphan all messages", len(missing), len(nodes))
 	log.Println("Waiting for messages... done")
 }
 

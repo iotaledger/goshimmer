@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
@@ -71,7 +69,7 @@ func (a *ApprovalWeightManager) WeightOfBranch(branchID utxo.TransactionID) (wei
 }
 
 // WeightOfMarker returns the weight of the given marker based on the anchorTime.
-func (a *ApprovalWeightManager) WeightOfMarker(marker markers.Marker, anchorTime time.Time) (weight float64) {
+func (a *ApprovalWeightManager) WeightOfMarker(marker markers.Marker) (weight float64) {
 	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	voterWeight := float64(0)
@@ -99,6 +97,15 @@ func (a *ApprovalWeightManager) VotersOfBranch(branchID utxo.TransactionID) (vot
 		voters = NewVoters()
 	}
 	return
+}
+
+// VotersOfMarker returns the Voters of the given marker markers.Marker.
+func (a *ApprovalWeightManager) VotersOfMarker(marker markers.Marker) *Voters {
+	voters := NewVoters()
+	for voter := range a.markerVotes(marker) {
+		voters.Add(voter)
+	}
+	return voters
 }
 
 // markerVotes returns a map containing Voters associated to their respective SequenceNumbers.

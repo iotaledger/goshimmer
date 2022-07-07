@@ -2,11 +2,14 @@ package weightprovider
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -30,6 +33,8 @@ func init() {
 func configure(_ *node.Plugin) {
 	deps.Server.GET("weightprovider/activenodes", getNodesHandler)
 	deps.Server.GET("weightprovider/weights", getWeightsHandler)
+	deps.Server.GET("weightprovider/markers/:sequenceID/:markerIndex/voters", getMarkerVoters)
+	deps.Server.GET("weightprovider/markers/:sequenceID/:markerIndex/weight", getMarkerWeight)
 }
 
 func getNodesHandler(c echo.Context) (err error) {
@@ -56,6 +61,48 @@ func getWeightsHandler(c echo.Context) (err error) {
 	}
 
 	return c.JSON(http.StatusOK, resp)
+}
+
+// getMarkerVoters is the handler for the /weightprovider/marker/:sequenceID/:markerIndex/voters endpoint.
+func getMarkerVoters(c echo.Context) (err error) {
+	marker, err := markerFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	voters := tangle.NewVoters()
+	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfMarker(marker))
+
+	return c.JSON(http.StatusOK, jsonmodels.NewMarkerVotersResponse(marker, voters))
+}
+
+// getMarkerWeight is the handler for the /weightprovider/marker/:sequenceID/:markerIndex/weight endpoint.
+func getMarkerWeight(c echo.Context) (err error) {
+	marker, err := markerFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.MarkerWeightResponse{
+		MarkerIndex:    marker.Index().String(),
+		MarkerSequence: marker.SequenceID().String(),
+		Weight:         deps.Tangle.ApprovalWeightManager.WeightOfMarker(marker),
+	})
+}
+
+func markerFromContext(c echo.Context) (marker markers.Marker, err error) {
+	sequenceIDString := c.Param("sequenceID")
+	markerIndexString := c.Param("markerIndex")
+	sequenceID, err := strconv.Atoi(sequenceIDString)
+	if err != nil {
+		return
+	}
+	markerIndex, err := strconv.Atoi(markerIndexString)
+	if err != nil {
+		return
+	}
+
+	return markers.NewMarker(markers.SequenceID(uint64(sequenceID)), markers.Index(uint64(markerIndex))), nil
 }
 
 // Weights defines the weights associated to the nodes.
