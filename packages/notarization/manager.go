@@ -471,7 +471,8 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
-		err = errors.Wrap(err, "could not obtain last committed epoch index")
+		m.log.Errorf("could not obtain last committed epoch index: %v", err)
+		return
 	}
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
 		if !m.isCommittable(ei) {
