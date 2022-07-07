@@ -24,7 +24,7 @@ type manaBaseVectorModel struct {
 	Vector map[identity.ID]*ManaBase `serix:"1"`
 }
 
-// Vector returns the ConsensusBaseMana vector.
+// Vector returns the ManaBase vector.
 func (m *ManaBaseVector) Vector() map[identity.ID]*ManaBase {
 	m.RLock()
 	defer m.RUnlock()
@@ -84,25 +84,6 @@ func (m *ManaBaseVector) Has(nodeID identity.ID) bool {
 //	}
 //	return nil
 // }
-
-func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
-	return &TxInfo{
-		TimeStamp:     ev.Time,
-		TransactionID: ev.TransactionID,
-		TotalBalance:  ev.Amount,
-		PledgeID: map[Type]identity.ID{
-			ConsensusMana: ev.NodeID,
-		},
-		InputInfos: []InputInfo{
-			{
-				Amount: ev.Amount,
-				PledgeID: map[Type]identity.ID{
-					ConsensusMana: ev.NodeID,
-				},
-			},
-		},
-	}
-}
 
 // InitializeWithData initializes the mana vector data.
 func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) {
@@ -243,11 +224,9 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 
 func (m *ManaBaseVector) getIDBasedOnManaType(output *ledger.OutputWithMetadata) (pledgeID identity.ID) {
 	if m.Type() == ConsensusMana {
-		pledgeID = output.ConsensusManaPledgeID()
-	} else {
-		pledgeID = output.AccessManaPledgeID()
+		return output.ConsensusManaPledgeID()
 	}
-	return
+	return output.AccessManaPledgeID()
 }
 
 func (m *ManaBaseVector) getOldManaAndRevoke(oldPledgeNodeID identity.ID, amount float64) (oldMana ManaBase) {
@@ -419,12 +398,8 @@ func (m *ManaBaseVector) ToPersistables() []*PersistableBaseMana {
 	return result
 }
 
-// FromPersistable fills the ConsensusBaseManaVector from persistable mana objects.
+// FromPersistable fills the BaseManaVector from persistable mana objects.
 func (m *ManaBaseVector) FromPersistable(p *PersistableBaseMana) (err error) {
-	if p.ManaType() != ConsensusMana {
-		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType().String(), ConsensusMana.String())
-		return
-	}
 	if len(p.BaseValues()) != 1 {
 		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues()))
 		return
