@@ -36,7 +36,7 @@ var (
 	epochContentsMutex     sync.RWMutex
 	epochContents          = make(map[epoch.Index]*epochContentStorages, 0)
 	committedEpochsMutex   sync.RWMutex
-	committedEpochs        = make(map[epoch.Index]*epoch.ECRecord, 0)
+	committableEpochs      = make([]*epoch.ECRecord, 0)
 	epochVotersWeightMutex sync.RWMutex
 	epochVotersWeight      = make(map[epoch.Index]map[epoch.ECR]map[identity.ID]float64, 0)
 
@@ -128,7 +128,7 @@ func configure(plugin *node.Plugin) {
 	deps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		committedEpochsMutex.Lock()
 		defer committedEpochsMutex.Unlock()
-		committedEpochs[event.EI] = event.ECRecord
+		committableEpochs = append(committableEpochs, event.ECRecord)
 	}))
 
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
@@ -167,12 +167,6 @@ func checkEpochContentLimit() {
 	}
 	epochOrderMutex.Unlock()
 
-	committedEpochsMutex.Lock()
-	for _, i := range epochToRemove {
-		delete(committedEpochs, i)
-	}
-	committedEpochsMutex.Unlock()
-
 	epochContentsMutex.Lock()
 	for _, i := range epochToRemove {
 		delete(epochContents, i)
@@ -187,14 +181,22 @@ func checkEpochContentLimit() {
 
 	// update minEpochIndex
 	minEpochIndex = epochOrder[0]
+
+	committedEpochsMutex.Lock()
+	if len(committableEpochs) < maxEpochContentsToKeep {
+		committedEpochsMutex.Unlock()
+		return
+	}
+	committableEpochs = committableEpochs[len(committableEpochs)-maxEpochContentsToKeep:]
+	committedEpochsMutex.Unlock()
 }
 
 func GetCommittedEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
 	ecRecords = make(map[epoch.Index]*epoch.ECRecord, 0)
 
 	committedEpochsMutex.RLock()
-	for ei, record := range committedEpochs {
-		ecRecords[ei] = record
+	for _, record := range committableEpochs {
+		ecRecords[record.EI()] = record
 	}
 	committedEpochsMutex.RUnlock()
 
