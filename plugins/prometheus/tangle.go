@@ -21,10 +21,10 @@ var (
 	initialMissingBlocksCountDB             prometheus.Gauge
 	blockMissingCountDB                     prometheus.Gauge
 	blockRequestCount                       prometheus.Gauge
-	confirmedBranchCount                    prometheus.Gauge
-	branchConfirmationTotalTime             prometheus.Gauge
-	totalBranchCountDB                      prometheus.Gauge
-	finalizedBranchCountDB                  prometheus.Gauge
+	confirmedConflictCount                  prometheus.Gauge
+	conflictConfirmationTotalTime           prometheus.Gauge
+	totalConflictCountDB                    prometheus.Gauge
+	finalizedConflictCountDB                prometheus.Gauge
 	finalizedBlockCount                     *prometheus.GaugeVec
 	blockFinalizationTotalTimeSinceReceived *prometheus.GaugeVec
 	blockFinalizationTotalTimeSinceIssued   *prometheus.GaugeVec
@@ -144,23 +144,23 @@ func registerTangleMetrics() {
 			"blockType",
 		})
 
-	branchConfirmationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_branch_confirmation_time",
-		Help: "total number of milliseconds taken for branch to finalize",
+	conflictConfirmationTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_conflict_confirmation_time",
+		Help: "total number of milliseconds taken for conflict to finalize",
 	})
 
-	totalBranchCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_branch_total_count_db",
-		Help: "total number branches stored in database",
+	totalConflictCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_conflict_total_count_db",
+		Help: "total number conflicts stored in database",
 	})
 
-	finalizedBranchCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_branch_finalized_count_db",
-		Help: "number of finalized branches stored in database",
+	finalizedConflictCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_conflict_finalized_count_db",
+		Help: "number of finalized conflicts stored in database",
 	})
-	confirmedBranchCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_branch_confirmed_count",
-		Help: "current number of confirmed branches",
+	confirmedConflictCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_conflict_confirmed_count",
+		Help: "current number of confirmed conflicts",
 	})
 
 	registry.MustRegister(blockTips)
@@ -180,10 +180,10 @@ func registerTangleMetrics() {
 	registry.MustRegister(blockFinalizationTotalTimeSinceReceived)
 	registry.MustRegister(blockFinalizationTotalTimeSinceIssued)
 	registry.MustRegister(finalizedBlockCount)
-	registry.MustRegister(branchConfirmationTotalTime)
-	registry.MustRegister(confirmedBranchCount)
-	registry.MustRegister(totalBranchCountDB)
-	registry.MustRegister(finalizedBranchCountDB)
+	registry.MustRegister(conflictConfirmationTotalTime)
+	registry.MustRegister(confirmedConflictCount)
+	registry.MustRegister(totalConflictCountDB)
+	registry.MustRegister(finalizedConflictCountDB)
 
 	addCollect(collectTangleMetrics)
 }
@@ -225,10 +225,10 @@ func collectTangleMetrics() {
 	initialMissingBlocksCountDB.Set(float64(metrics.InitialBlockMissingCountDB()))
 	blockMissingCountDB.Set(float64(metrics.BlockMissingCountDB()))
 	blockRequestCount.Set(float64(metrics.BlockRequestQueueSize()))
-	confirmedBranchCount.Set(float64(metrics.ConfirmedBranchCount()))
-	branchConfirmationTotalTime.Set(float64(metrics.BranchConfirmationTotalTime()))
-	totalBranchCountDB.Set(float64(metrics.TotalBranchCountDB()))
-	finalizedBranchCountDB.Set(float64(metrics.FinalizedBranchCountDB()))
+	confirmedConflictCount.Set(float64(metrics.ConfirmedConflictCount()))
+	conflictConfirmationTotalTime.Set(float64(metrics.ConflictConfirmationTotalTime()))
+	totalConflictCountDB.Set(float64(metrics.TotalConflictCountDB()))
+	finalizedConflictCountDB.Set(float64(metrics.FinalizedConflictCountDB()))
 
 	finalizedBlockCountPerType := metrics.FinalizedBlockCountPerType()
 	for blockType, count := range finalizedBlockCountPerType {

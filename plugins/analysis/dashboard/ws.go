@@ -105,7 +105,7 @@ func websocketRoute(c echo.Context) error {
 	// send mana dashboard address info
 	manaDashboardHostAddress := Parameters.ManaDashboardAddress
 	err = sendJSON(ws, &wsblk{
-		Type: dashboard.BlkManaDashboardAddress,
+		Type: dashboard.MsgManaDashboardAddress,
 		Data: manaDashboardHostAddress,
 	})
 	if err != nil {

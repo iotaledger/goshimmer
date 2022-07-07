@@ -30,7 +30,7 @@ func (r *RemoteLoggerConn) SendLogBlk(level logger.Level, name, blk string) {
 	m := logBlock{
 		banner.AppVersion,
 		myGitHead,
-		myGitBranch,
+		myGitConflict,
 		myID,
 		level.CapitalString(),
 		name,

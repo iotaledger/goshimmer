@@ -64,7 +64,7 @@ var spamTypeQuestions = func(defaultDeep, defaultReuse string) []*survey.Questio
 				Message: "Deep spam",
 				Options: confirms,
 				Default: defaultDeep,
-				Help:    "Uses outputs generated during the spam, to create deep UTXO and branch structures.",
+				Help:    "Uses outputs generated during the spam, to create deep UTXO and conflict structures.",
 			},
 		},
 		{

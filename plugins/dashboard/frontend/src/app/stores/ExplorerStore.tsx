@@ -28,9 +28,9 @@ export class Block {
     weakChilds: Array<string>;
     shallowLikeChilds: Array<string>;
     solid: boolean;
-    branchIDs: Array<string>;
-    addedBranchIDs: Array<string>;
-    subtractedBranchIDs: Array<string>;
+    conflictIDs: Array<string>;
+    addedConflictIDs: Array<string>;
+    subtractedConflictIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
     objectivelyInvalid: boolean;
@@ -72,7 +72,7 @@ class OutputID {
 
 export class OutputMetadata {
     outputID: OutputID;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
     confirmationState: number
@@ -96,35 +96,35 @@ class PendingMana {
     timestamp: number;
 }
 
-class Branch {
+class Conflict {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
     confirmationState: number;
 }
 
-class BranchChildren {
-    branchID: string;
-    childBranches: Array<BranchChild>
+class ConflictChildren {
+    conflictID: string;
+    childConflicts: Array<ConflictChild>
 }
 
-class BranchChild {
-    branchID: string;
+class ConflictChild {
+    conflictID: string;
     type: string;
 }
 
-class BranchConflict {
+class ConflictConflict {
     outputID: OutputID;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
 }
 
-class BranchConflicts {
-    branchID: string;
-    conflicts: Array<BranchConflict>
+class ConflictConflicts {
+    conflictID: string;
+    conflicts: Array<ConflictConflict>
 }
 
-class BranchVoters {
-    branchID: string;
+class ConflictVoters {
+    conflictID: string;
     voters: Array<string>
 }
 
@@ -159,10 +159,10 @@ export class ExplorerStore {
     @observable outputMetadata: OutputMetadata = null;
     @observable outputConsumers: OutputConsumers = null;
     @observable pendingMana: PendingMana = null;
-    @observable branch: Branch = null;
-    @observable branchChildren: BranchChildren = null;
-    @observable branchConflicts: BranchConflicts = null;
-    @observable branchVoters: BranchVoters = null;
+    @observable conflict: Conflict = null;
+    @observable conflictChildren: ConflictChildren = null;
+    @observable conflictConflicts: ConflictConflicts = null;
+    @observable conflictVoters: ConflictVoters = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -386,9 +386,9 @@ export class ExplorerStore {
         }
     }
 
-    getBranch = async (id: string) => {
+    getConflict = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}`)
+            let res = await fetch(`/api/conflict/${id}`)
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
@@ -397,47 +397,47 @@ export class ExplorerStore {
                 this.updateQueryError(QueryError.BadRequest);
                 return;
             }
-            let branch: Branch = await res.json()
-            this.updateBranch(branch)
+            let conflict: Conflict = await res.json()
+            this.updateConflict(conflict)
         } catch (err) {
             this.updateQueryError(err);
         }
     }
 
-    getBranchChildren = async (id: string) => {
+    getConflictChildren = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/children`)
+            let res = await fetch(`/api/conflict/${id}/children`)
             if (res.status === 404) {
                 return;
             }
-            let children: BranchChildren = await res.json()
-            this.updateBranchChildren(children)
+            let children: ConflictChildren = await res.json()
+            this.updateConflictChildren(children)
         } catch (err) {
             // ignore
         }
     }
 
-    getBranchConflicts = async (id: string) => {
+    getConflictConflicts = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/conflicts`)
+            let res = await fetch(`/api/conflict/${id}/conflicts`)
             if (res.status === 404) {
                 return;
             }
-            let conflicts: BranchConflicts = await res.json()
-            this.updateBranchConflicts(conflicts)
+            let conflicts: ConflictConflicts = await res.json()
+            this.updateConflictConflicts(conflicts)
         } catch (err) {
             // ignore
         }
     }
 
-    getBranchVoters = async (id: string) => {
+    getConflictVoters = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/voters`)
+            let res = await fetch(`/api/conflict/${id}/voters`)
             if (res.status === 404) {
                 return;
             }
-            let branchVoters: BranchVoters = await res.json()
-            this.updateBranchVoters(branchVoters)
+            let conflictVoters: ConflictVoters = await res.json()
+            this.updateConflictVoters(conflictVoters)
         } catch (err) {
             // ignore
         }
@@ -455,9 +455,9 @@ export class ExplorerStore {
         this.outputMetadata = null;
         this.outputConsumers = null;
         this.pendingMana = null;
-        this.branch = null;
-        this.branchChildren = null;
-        this.branchConflicts = null;
+        this.conflict = null;
+        this.conflictChildren = null;
+        this.conflictConflicts = null;
     };
 
     @action
@@ -503,23 +503,23 @@ export class ExplorerStore {
     }
 
     @action
-    updateBranch = (branch: Branch) => {
-        this.branch = branch;
+    updateConflict = (conflict: Conflict) => {
+        this.conflict = conflict;
     }
 
     @action
-    updateBranchChildren = (children: BranchChildren) => {
-        this.branchChildren = children;
+    updateConflictChildren = (children: ConflictChildren) => {
+        this.conflictChildren = children;
     }
 
     @action
-    updateBranchConflicts = (conflicts: BranchConflicts) => {
-        this.branchConflicts = conflicts;
+    updateConflictConflicts = (conflicts: ConflictConflicts) => {
+        this.conflictConflicts = conflicts;
     }
 
     @action
-    updateBranchVoters = (branchVoters: BranchVoters) => {
-        this.branchVoters = branchVoters;
+    updateConflictVoters = (conflictVoters: ConflictVoters) => {
+        this.conflictVoters = conflictVoters;
     }
 
     @action

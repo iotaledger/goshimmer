@@ -59,7 +59,7 @@ type Tangle struct {
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker markers.Marker) bool
 	IsBlockConfirmed(blkID BlockID) bool
-	IsBranchConfirmed(branchID utxo.TransactionID) bool
+	IsConflictConfirmed(conflictID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
 	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
@@ -310,9 +310,9 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 }
 
 // WithConflictDAGOptions is an Option for the Tangle that allows to set the ConflictDAG options.
-func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) Option {
+func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) Option {
 	return func(o *Options) {
-		o.ConflictDAGOptions = branchDAGOptions
+		o.ConflictDAGOptions = conflictDAGOptions
 	}
 }
 

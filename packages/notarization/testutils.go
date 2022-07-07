@@ -19,8 +19,8 @@ const (
 )
 
 var (
-	// TestBranchConfirmationStateTranslation translates a branch's AW into a confirmation state.
-	TestBranchConfirmationStateTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	// TestConflictConfirmationStateTranslation translates a conflict's AW into a confirmation state.
+	TestConflictConfirmationStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

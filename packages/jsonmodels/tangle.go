@@ -38,9 +38,9 @@ type BlockMetadata struct {
 	Solid                 bool               `json:"solid"`
 	SolidificationTime    int64              `json:"solidificationTime"`
 	StructureDetails      *StructureDetails  `json:"structureDetails,omitempty"`
-	BranchIDs             []string           `json:"branchIDs"`
-	AddedBranchIDs        []string           `json:"addedBranchIDs"`
-	SubtractedBranchIDs   []string           `json:"subtractedBranchIDs"`
+	ConflictIDs           []string           `json:"conflictIDs"`
+	AddedConflictIDs      []string           `json:"addedConflictIDs"`
+	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
 	Scheduled             bool               `json:"scheduled"`
 	ScheduledTime         int64              `json:"scheduledTime"`
 	Booked                bool               `json:"booked"`

@@ -67,9 +67,9 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 }
 
 func TestBranchWeightMarshalling(t *testing.T) {
-	branchWeight := NewBranchWeight(randomBranchID())
+	branchWeight := NewConflictWeight(randomConflictID())
 	branchWeight.SetWeight(5.1234)
-	branchWeightDecoded := new(BranchWeight)
+	branchWeightDecoded := new(ConflictWeight)
 	err := branchWeightDecoded.FromBytes(lo.PanicOnErr(branchWeight.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, lo.PanicOnErr(branchWeight.Bytes()), lo.PanicOnErr(branchWeightDecoded.Bytes()))
@@ -77,12 +77,12 @@ func TestBranchWeightMarshalling(t *testing.T) {
 }
 
 func TestBranchVotersMarshalling(t *testing.T) {
-	branchVoters := NewBranchVoters(randomBranchID())
+	branchVoters := NewConflictVoters(randomConflictID())
 
 	for i := 0; i < 100; i++ {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
-	branchVotersFromBytes := new(BranchVoters)
+	branchVotersFromBytes := new(ConflictVoters)
 	err := branchVotersFromBytes.FromBytes(lo.PanicOnErr(branchVoters.Bytes()))
 	require.NoError(t, err)
 
@@ -113,25 +113,25 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	approvalWeightManager := tangle.ApprovalWeightManager
 
 	conflictIDs := map[string]utxo.OutputID{
-		"Conflict 1": randomConflictID(),
-		"Conflict 2": randomConflictID(),
-		"Conflict 3": randomConflictID(),
-		"Conflict 4": randomConflictID(),
-		"Conflict 5": randomConflictID(),
+		"Conflict 1": randomResourceID(),
+		"Conflict 2": randomResourceID(),
+		"Conflict 3": randomResourceID(),
+		"Conflict 4": randomResourceID(),
+		"Conflict 5": randomResourceID(),
 	}
 
 	branchIDs := map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Conflict 1":     set.NewAdvancedSet(randomBranchID()),
-		"Conflict 1.1":   set.NewAdvancedSet(randomBranchID()),
-		"Conflict 1.2":   set.NewAdvancedSet(randomBranchID()),
-		"Conflict 1.3":   set.NewAdvancedSet(randomBranchID()),
-		"Conflict 2":     set.NewAdvancedSet(randomBranchID()),
-		"Conflict 3":     set.NewAdvancedSet(randomBranchID()),
-		"Conflict 4":     set.NewAdvancedSet(randomBranchID()),
-		"Conflict 4.1":   set.NewAdvancedSet(randomBranchID()),
-		"Conflict 4.1.1": set.NewAdvancedSet(randomBranchID()),
-		"Conflict 4.1.2": set.NewAdvancedSet(randomBranchID()),
-		"Conflict 4.2":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 1":     set.NewAdvancedSet(randomConflictID()),
+		"Conflict 1.1":   set.NewAdvancedSet(randomConflictID()),
+		"Conflict 1.2":   set.NewAdvancedSet(randomConflictID()),
+		"Conflict 1.3":   set.NewAdvancedSet(randomConflictID()),
+		"Conflict 2":     set.NewAdvancedSet(randomConflictID()),
+		"Conflict 3":     set.NewAdvancedSet(randomConflictID()),
+		"Conflict 4":     set.NewAdvancedSet(randomConflictID()),
+		"Conflict 4.1":   set.NewAdvancedSet(randomConflictID()),
+		"Conflict 4.1.1": set.NewAdvancedSet(randomConflictID()),
+		"Conflict 4.1.2": set.NewAdvancedSet(randomConflictID()),
+		"Conflict 4.2":   set.NewAdvancedSet(randomConflictID()),
 	}
 
 	createBranch(t, tangle, "Conflict 1", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
@@ -163,10 +163,10 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement2")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
+			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 4.1.2"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(block)
+		approvalWeightManager.updateConflictVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     false,
@@ -190,10 +190,10 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement1")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
+			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(block)
+		approvalWeightManager.updateConflictVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     true,
@@ -217,10 +217,10 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement3")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
+			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 2"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(block)
+		approvalWeightManager.updateConflictVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     false,
@@ -461,7 +461,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 		testFramework.TransactionID("Block6").RegisterAlias("Branch6")
 
-		_, err := tangle.Booker.BlockBranchIDs(testFramework.Block("Block6").ID())
+		_, err := tangle.Booker.BlockConflictIDs(testFramework.Block("Block6").ID())
 		require.NoError(t, err)
 	}
 
@@ -477,7 +477,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateBlock("Block8", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 		testFramework.TransactionID("Block8").RegisterAlias("Branch8")
-		_, err := tangle.Booker.BlockBranchIDs(testFramework.Block("Block8").ID())
+		_, err := tangle.Booker.BlockConflictIDs(testFramework.Block("Block8").ID())
 		require.NoError(t, err)
 	}
 }
@@ -567,7 +567,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 	// ISSUE Block5
 	{
 		testFramework.CreateBlock("Block5", WithStrongParents("Block4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
-		testFramework.RegisterBranchID("A", "Block5")
+		testFramework.RegisterConflictID("A", "Block5")
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
@@ -586,15 +586,15 @@ func TestOutOfOrderStatements(t *testing.T) {
 	// ISSUE Block6
 	{
 		testFramework.CreateBlock("Block6", WithStrongParents("Block4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
-		testFramework.RegisterBranchID("B", "Block6")
+		testFramework.RegisterConflictID("B", "Block6")
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.85)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.60)
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.30)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.10)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("A"), 0.30)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.10)
 
 		IssueAndValidateBlockApproval(t, "Block6", testEventMock, testFramework, map[string]float64{
 			"A": 0.3,
@@ -628,11 +628,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 	// ISSUE Block8
 	{
 		testFramework.CreateBlock("Block8", WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()), WithInputs("B"), WithOutput("B8", 500))
-		testFramework.RegisterBranchID("C", "Block7")
-		testFramework.RegisterBranchID("D", "Block8")
+		testFramework.RegisterConflictID("C", "Block7")
+		testFramework.RegisterConflictID("D", "Block8")
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.15)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("D"), 0.20)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("C"), 0.15)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("D"), 0.20)
 
 		IssueAndValidateBlockApproval(t, "Block8", testEventMock, testFramework, map[string]float64{
 			"A": 0.30,
@@ -652,9 +652,9 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block9", WithStrongParents("Block6", "Block7"), WithIssuer(nodes["A"].PublicKey()))
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.0)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.40)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.45)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("A"), 0.0)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.40)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("C"), 0.45)
 
 		IssueAndValidateBlockApproval(t, "Block9", testEventMock, testFramework, map[string]float64{
 			"A": 0,
@@ -676,7 +676,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.15)
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.55)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.55)
 
 		IssueAndValidateBlockApproval(t, "Block10", testEventMock, testFramework, map[string]float64{
 			"A": 0,
@@ -701,8 +701,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.40)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.10)
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.10)
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.45)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("A"), 0.10)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.45)
 
 		IssueAndValidateBlockApproval(t, "Block11", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
@@ -728,7 +728,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.25)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.55)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("C"), 0.55)
 
 		IssueAndValidateBlockApproval(t, "Block12", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
@@ -753,10 +753,10 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		// We simulate an "old" vote
 		testFramework.CreateBlock("Block13", WithStrongParents("Block2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A13", 500))
-		testFramework.RegisterBranchID("X", "Block3")
-		testFramework.RegisterBranchID("Y", "Block13")
+		testFramework.RegisterConflictID("X", "Block3")
+		testFramework.RegisterConflictID("Y", "Block13")
 
-		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
+		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("X"), 1.0)
 
 		IssueAndValidateBlockApproval(t, "Block13", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
@@ -894,7 +894,7 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for it := branchIDs[branchIDString].Iterator(); it.HasNext(); {
-			voters := approvalWeightManager.VotersOfBranch(it.Next())
+			voters := approvalWeightManager.VotersOfConflict(it.Next())
 			if voters != nil {
 				actualResult = voters.Set.Has(voter)
 			}

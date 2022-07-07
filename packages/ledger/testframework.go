@@ -105,27 +105,27 @@ func (t *TestFramework) OutputID(alias string) (outputID utxo.OutputID) {
 // Panics if an alias doesn't exist.
 func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.TransactionIDs) {
 	txIDs = utxo.NewTransactionIDs()
-	for _, expectedBranchAlias := range txAliases {
-		txIDs.Add(t.Transaction(expectedBranchAlias).ID())
+	for _, expectedConflictAlias := range txAliases {
+		txIDs.Add(t.Transaction(expectedConflictAlias).ID())
 	}
 
 	return txIDs
 }
 
-// BranchIDs gets all conflictdag.BranchIDs given by txAliases.
+// ConflictIDs gets all conflictdag.ConflictIDs given by txAliases.
 // Panics if an alias doesn't exist.
-func (t *TestFramework) BranchIDs(txAliases ...string) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	for _, expectedBranchAlias := range txAliases {
-		if expectedBranchAlias == "MasterBranch" {
-			branchIDs.Add(utxo.TransactionID{})
+func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	for _, expectedConflictAlias := range txAliases {
+		if expectedConflictAlias == "MasterConflict" {
+			conflictIDs.Add(utxo.TransactionID{})
 			continue
 		}
 
-		branchIDs.Add(t.Transaction(expectedBranchAlias).ID())
+		conflictIDs.Add(t.Transaction(expectedConflictAlias).ID())
 	}
 
-	return branchIDs
+	return conflictIDs
 }
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
@@ -170,53 +170,53 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 	return utxo.NewOutputID(tx.ID(), outputIndex)
 }
 
-// AssertConflictDAG asserts the structure of the branch DAG as specified in expectedParents.
-// "branch3": {"branch1","branch2"} asserts that "branch3" should have "branch1" and "branch2" as parents.
-// It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildBranch)
-// from "branch1"->"branch3" and "branch2"->"branch3".
+// AssertConflictDAG asserts the structure of the conflict DAG as specified in expectedParents.
+// "conflict3": {"conflict1","conflict2"} asserts that "conflict3" should have "conflict1" and "conflict2" as parents.
+// It also verifies the reverse mapping, that there is a child reference (conflictdag.ChildConflict)
+// from "conflict1"->"conflict3" and "conflict2"->"conflict3".
 func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 	// Parent -> child references.
-	childBranches := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
+	childConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
 
-	for branchAlias, expectedParentAliases := range expectedParents {
-		currentBranchID := t.Transaction(branchAlias).ID()
-		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
+	for conflictAlias, expectedParentAliases := range expectedParents {
+		currentConflictID := t.Transaction(conflictAlias).ID()
+		expectedConflictIDs := t.ConflictIDs(expectedParentAliases...)
 
 		// Verify child -> parent references.
-		t.ConsumeBranch(currentBranchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
+		t.ConsumeConflict(currentConflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			assert.Truef(t.t, expectedConflictIDs.Equal(conflict.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentConflictID, expectedConflictIDs, conflict.Parents())
 		})
 
-		for _, parentBranchID := range expectedBranchIDs.Slice() {
-			if _, exists := childBranches[parentBranchID]; !exists {
-				childBranches[parentBranchID] = set.NewAdvancedSet[utxo.TransactionID]()
+		for _, parentConflictID := range expectedConflictIDs.Slice() {
+			if _, exists := childConflicts[parentConflictID]; !exists {
+				childConflicts[parentConflictID] = set.NewAdvancedSet[utxo.TransactionID]()
 			}
-			childBranches[parentBranchID].Add(currentBranchID)
+			childConflicts[parentConflictID].Add(currentConflictID)
 		}
 	}
 
 	// Verify parent -> child references.
-	for parentBranchID, childBranchIDs := range childBranches {
-		cachedChildBranches := t.ledger.ConflictDAG.Storage.CachedChildBranches(parentBranchID)
-		assert.Equalf(t.t, childBranchIDs.Size(), len(cachedChildBranches), "child branches count does not match for parent branch %s, expected=%s, actual=%s", parentBranchID, childBranchIDs, cachedChildBranches.Unwrap())
-		cachedChildBranches.Release()
+	for parentConflictID, childConflictIDs := range childConflicts {
+		cachedChildConflicts := t.ledger.ConflictDAG.Storage.CachedChildConflicts(parentConflictID)
+		assert.Equalf(t.t, childConflictIDs.Size(), len(cachedChildConflicts), "child conflicts count does not match for parent conflict %s, expected=%s, actual=%s", parentConflictID, childConflictIDs, cachedChildConflicts.Unwrap())
+		cachedChildConflicts.Release()
 
-		for _, childBranchID := range childBranchIDs.Slice() {
-			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
+		for _, childConflictID := range childConflictIDs.Slice() {
+			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedChildConflict(parentConflictID, childConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {}), "could not load ChildConflict %s,%s", parentConflictID, childConflictID)
 		}
 	}
 }
 
-// AssertConflicts asserts conflict membership from conflictID -> branches but also the reverse mapping branch -> conflictIDs.
+// AssertConflicts asserts conflict membership from conflictID -> conflicts but also the reverse mapping conflict -> conflictIDs.
 // expectedConflictAliases should be specified as
-// "output.0": {"branch1", "branch2"}
+// "output.0": {"conflict1", "conflict2"}
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
 	branchConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
 
 	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
 		conflictID := t.OutputID(outputAlias)
-		expectedConflictMembers := t.BranchIDs(expectedConflictMembersAliases...)
+		expectedConflictMembers := t.ConflictIDs(expectedConflictMembersAliases...)
 
 		// Check count of conflict members for this conflictID.
 		cachedConflictMembers := t.ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID)
@@ -236,25 +236,25 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 	// Make sure that all branches have all specified conflictIDs (reverse mapping).
 	for branchID, expectedConflicts := range branchConflicts {
-		t.ConsumeBranch(branchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		t.ConsumeConflict(branchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictSetIDs())
 		})
 	}
 }
 
-// AssertBranchIDs asserts that the given transactions and their outputs are booked into the specified branches.
-func (t *TestFramework) AssertBranchIDs(expectedBranches map[string][]string) {
-	for txAlias, expectedBranchAliases := range expectedBranches {
+// AssertConflictIDs asserts that the given transactions and their outputs are booked into the specified conflicts.
+func (t *TestFramework) AssertConflictIDs(expectedConflicts map[string][]string) {
+	for txAlias, expectedConflictAliases := range expectedConflicts {
 		currentTx := t.Transaction(txAlias)
 
-		expectedBranchIDs := t.BranchIDs(expectedBranchAliases...)
+		expectedConflictIDs := t.ConflictIDs(expectedConflictAliases...)
 
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Truef(t.t, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())
+			assert.Truef(t.t, expectedConflictIDs.Equal(txMetadata.ConflictIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedConflictIDs, txMetadata.ConflictIDs())
 		})
 
 		t.ConsumeTransactionOutputs(currentTx, func(outputMetadata *OutputMetadata) {
-			assert.Truef(t.t, expectedBranchIDs.Equal(outputMetadata.BranchIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedBranchIDs, outputMetadata.BranchIDs())
+			assert.Truef(t.t, expectedConflictIDs.Equal(outputMetadata.ConflictIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedConflictIDs, outputMetadata.ConflictIDs())
 		})
 	}
 }
@@ -291,9 +291,9 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 	return
 }
 
-// ConsumeBranch loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
-	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(consumer), "failed to load branch %s", branchID)
+// ConsumeConflict loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
+func (t *TestFramework) ConsumeConflict(conflictID utxo.TransactionID, consumer func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
+	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(consumer), "failed to load conflict %s", conflictID)
 }
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.

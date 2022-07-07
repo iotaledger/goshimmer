@@ -153,50 +153,48 @@ func worker(ctx context.Context) {
 }
 
 const (
-	// BlkTypeNodeStatus is the type of the NodeStatus block.
-	BlkTypeNodeStatus byte = iota
-	// BlkTypeBPSMetric is the type of the block per second (BPS) metric block.
-	BlkTypeBPSMetric
-	// BlkTypeBlock is the type of the block.
-	BlkTypeBlock
-	// BlkTypeNeighborMetric is the type of the NeighborMetric block.
-	BlkTypeNeighborMetric
-	// BlkTypeComponentCounterMetric is the type of the component counter triggered per second.
-	BlkTypeComponentCounterMetric
-	// BlkTypeTipsMetric is the type of the TipsMetric block.
-	BlkTypeTipsMetric
-	// BlkTypeVertex defines a vertex block.
-	BlkTypeVertex
-	// BlkTypeTipInfo defines a tip info block.
-	BlkTypeTipInfo
-	// BlkTypeManaValue defines a mana value block.
-	BlkTypeManaValue
-	// BlkTypeManaMapOverall defines a block containing overall mana map.
-	BlkTypeManaMapOverall
-	// BlkTypeManaMapOnline defines a block containing online mana map.
-	BlkTypeManaMapOnline
-	// BlkTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
-	BlkTypeManaAllowedPledge
-	// BlkTypeManaPledge defines a block that is sent when mana was pledged to the node.
-	BlkTypeManaPledge
-	// BlkTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
-	BlkTypeManaInitPledge
-	// BlkTypeManaRevoke defines a block that is sent when mana was revoked from a node.
-	BlkTypeManaRevoke
-	// BlkTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
-	BlkTypeManaInitRevoke
-	// BlkTypeManaInitDone defines a block that is sent when all initial values are sent.
-	BlkTypeManaInitDone
-	// BlkManaDashboardAddress is the socket address of the dashboard to stream mana from.
-	BlkManaDashboardAddress
-	// BlkTypeChat defines a chat block.
-	BlkTypeChat
-	// BlkTypeRateSetterMetric defines rate setter metrics.
-	BlkTypeRateSetterMetric
-	// BlkTypeConflictsConflict defines a block that contains a conflictSet update for the conflictSet tab.
+	// MsgTypeNodeStatus is the type of the NodeStatus block.
+	MsgTypeNodeStatus byte = iota
+	// MsgTypeBPSMetric is the type of the block per second (BPS) metric block.
+	MsgTypeBPSMetric
+	// MsgTypeBlock is the type of the block.
+	MsgTypeBlock
+	// MsgTypeNeighborMetric is the type of the NeighborMetric block.
+	MsgTypeNeighborMetric
+	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
+	MsgTypeComponentCounterMetric
+	// MsgTypeTipsMetric is the type of the TipsMetric block.
+	MsgTypeTipsMetric
+	// MsgTypeVertex defines a vertex block.
+	MsgTypeVertex
+	// MsgTypeTipInfo defines a tip info block.
+	MsgTypeTipInfo
+	// MsgTypeManaValue defines a mana value block.
+	MsgTypeManaValue
+	// MsgTypeManaMapOverall defines a block containing overall mana map.
+	MsgTypeManaMapOverall
+	// MsgTypeManaMapOnline defines a block containing online mana map.
+	MsgTypeManaMapOnline
+	// MsgTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
+	MsgTypeManaAllowedPledge
+	// MsgTypeManaPledge defines a block that is sent when mana was pledged to the node.
+	MsgTypeManaPledge
+	// MsgTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
+	MsgTypeManaInitPledge
+	// MsgTypeManaRevoke defines a block that is sent when mana was revoked from a node.
+	MsgTypeManaRevoke
+	// MsgTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
+	MsgTypeManaInitRevoke
+	// MsgTypeManaInitDone defines a block that is sent when all initial values are sent.
+	MsgTypeManaInitDone
+	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
+	MsgManaDashboardAddress
+	// MsgTypeChat defines a chat block.
+	MsgTypeChat
+	// MsgTypeRateSetterMetric defines rate setter metrics.
+	MsgTypeRateSetterMetric
+	// BlkTypeConflictsConflict defines a block that contains a conflict update for the conflictSet tab.
 	BlkTypeConflictsConflict
-	// BlkTypeConflictsBranch defines a block that contains a branch update for the conflictSet tab.
-	BlkTypeConflictsBranch
 )
 
 type wsblk struct {

@@ -15,7 +15,7 @@ import {TransactionPayload} from 'app/components/TransactionPayload'
 import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
-import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveBase58ConflictID} from "app/utils/conflict";
 import {resolveConfirmationState} from "app/utils/confirmation_state";
 
 interface Props {
@@ -128,14 +128,14 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {blk.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        BranchIDs:
+                                        ConflictIDs:
                                         <ListGroup>
                                             {
-                                                blk.branchIDs.map((value, index) => {
+                                                blk.conflictIDs.map((value, index) => {
                                                     return (
-                                                        <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${value}`}>
-                                                                {resolveBase58BranchID(value)}
+                                                        <ListGroup.Item key={"ConflictID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/conflict/${value}`}>
+                                                                {resolveBase58ConflictID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )
@@ -144,14 +144,14 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                         </ListGroup>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        AddedBranchIDs:
+                                        AddedConflictIDs:
                                         <ListGroup>
                                             {
-                                                blk.addedBranchIDs.map((value, index) => {
+                                                blk.addedConflictIDs.map((value, index) => {
                                                     return (
-                                                        <ListGroup.Item key={"AddedBranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${value}`}>
-                                                                {resolveBase58BranchID(value)}
+                                                        <ListGroup.Item key={"AddedConflictID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/conflict/${value}`}>
+                                                                {resolveBase58ConflictID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )
@@ -160,14 +160,14 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                                         </ListGroup>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        SubtractedBranchIDs:
+                                        SubtractedConflictIDs:
                                         <ListGroup>
                                             {
-                                                blk.subtractedBranchIDs.map((value, index) => {
+                                                blk.subtractedConflictIDs.map((value, index) => {
                                                     return (
-                                                        <ListGroup.Item key={"SubtractedBranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${value}`}>
-                                                                {resolveBase58BranchID(value)}
+                                                        <ListGroup.Item key={"SubtractedConflictID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/conflict/${value}`}>
+                                                                {resolveBase58ConflictID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )

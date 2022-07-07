@@ -232,7 +232,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 
 	// create the tangle
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfConflict))
 
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())

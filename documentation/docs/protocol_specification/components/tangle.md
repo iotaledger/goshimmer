@@ -59,7 +59,7 @@ The Tangle represents a growing partially-ordered set of blocks, linked with eac
 - **Solidity**: A block is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
 - **Parents**: A block directly references between 1-8 previous blocks that we call its **parents**. A parent can be either **strong** or **weak** (see [approval switch](#orphanage--approval-switch)).
 - **Childs**: Parents are approved by their referencing blocks called **childs**. It is thus a reverse mapping of parents. As in the parents' definition, an child might be either **strong** or **weak**.
-- **Branch**: A version of the ledger that temporarily coexists with other versions, each spawned by conflicting transactions. 
+- **Conflict**: A version of the ledger that temporarily coexists with other versions, each spawned by conflicting transactions. 
 
 ## Blocks
 
@@ -385,11 +385,11 @@ We define two categories of eligible blocks:
 - **Strong block**:
     * It is eligible
     * Its payload is liked with level of knowledge >=2
-    * Its branch is **liked** with level of knowledge >= 2
+    * Its conflict is **liked** with level of knowledge >= 2
 - **Weak block**:
     * It is eligible
     * Its payload is liked with level of knowledge >=2
-    * Its branch is **not liked** with level of knowledge >= 2
+    * Its conflict is **not liked** with level of knowledge >= 2
 
 We call *strong child of x* (or *strong child of x*) any strong block *y* approving *x* via a strong reference. Similarly, we call *weak child of x* (or *weak child of x*) any strong block *y* approving *x* via a weak reference.
 
@@ -413,9 +413,9 @@ automatically removed because of its age.
 The Time Since Confirmation check solves the mention problem of [false positive schedule](congestion_control.md#false-positive-schedule)
 by eventually orphaning blocks that were dropped by the network.
 
-### Branch Management
+### Conflict Management
 
-A block inherits the branch of its strong parents, while it does not inherit the branch of its weak parents.
+A block inherits the conflict of its strong parents, while it does not inherit the conflict of its weak parents.
 
 #### Approval Weight
 

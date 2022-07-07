@@ -41,41 +41,41 @@ func TestScenario_1(t *testing.T) {
 	testFramework.CreateBlock("Block8", WithStrongParents("Block4", "Block5"), WithInputs("F", "D"), WithOutput("I", 2))
 	testFramework.CreateBlock("Block9", WithStrongParents("Block4", "Block6"), WithInputs("H"), WithOutput("J", 3))
 
-	testFramework.RegisterBranchID("Branch4", "Block4")
-	testFramework.RegisterBranchID("Branch5", "Block5")
+	testFramework.RegisterConflictID("Conflict4", "Block4")
+	testFramework.RegisterConflictID("Conflict5", "Block5")
 
-	testFramework.RegisterBranchID("Branch6", "Block6")
-	testFramework.RegisterBranchID("Branch8", "Block8")
+	testFramework.RegisterConflictID("Conflict6", "Block6")
+	testFramework.RegisterConflictID("Conflict8", "Block8")
 
 	testFramework.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
-	// Block8 combines conflicting branches on UTXO level
+	// Block8 combines conflicting conflicts on UTXO level
 	for _, blockAlias := range []string{"Block7", "Block8", "Block9"} {
 		assert.Truef(t, testFramework.BlockMetadata(blockAlias).IsSubjectivelyInvalid(), "%s not subjectively invalid", blockAlias)
 	}
 
 	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9"} {
-		fmt.Println(alias, lo.PanicOnErr(tangle.Booker.BlockBranchIDs(testFramework.Block(alias).ID())))
+		fmt.Println(alias, lo.PanicOnErr(tangle.Booker.BlockConflictIDs(testFramework.Block(alias).ID())))
 		tangle.Storage.BlockMetadata(testFramework.Block(alias).ID()).Consume(func(blockMetadata *BlockMetadata) {
-			fmt.Println(alias, "added", blockMetadata.AddedBranchIDs(), "subtracted", blockMetadata.SubtractedBranchIDs())
+			fmt.Println(alias, "added", blockMetadata.AddedConflictIDs(), "subtracted", blockMetadata.SubtractedConflictIDs())
 			fmt.Println(alias, "all", blockMetadata.StructureDetails())
 			meta := testFramework.TransactionMetadata(alias)
 			if meta != nil {
-				fmt.Println("UTXO", meta.BranchIDs())
+				fmt.Println("UTXO", meta.ConflictIDs())
 			}
 			fmt.Println("-----------------------------------------------------")
 		})
 	}
 
-	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+	checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 		"Block1": utxo.NewTransactionIDs(),
 		"Block3": utxo.NewTransactionIDs(),
 		"Block2": utxo.NewTransactionIDs(),
-		"Block4": testFramework.BranchIDs("Branch4"),
-		"Block5": testFramework.BranchIDs("Branch5"),
-		"Block6": testFramework.BranchIDs("Branch5", "Branch6"),
-		"Block7": testFramework.BranchIDs("Branch4", "Branch5"),
-		"Block8": testFramework.BranchIDs("Branch4", "Branch5", "Branch8"),
-		"Block9": testFramework.BranchIDs("Branch4", "Branch5", "Branch6"),
+		"Block4": testFramework.ConflictIDs("Conflict4"),
+		"Block5": testFramework.ConflictIDs("Conflict5"),
+		"Block6": testFramework.ConflictIDs("Conflict5", "Conflict6"),
+		"Block7": testFramework.ConflictIDs("Conflict4", "Conflict5"),
+		"Block8": testFramework.ConflictIDs("Conflict4", "Conflict5", "Conflict8"),
+		"Block9": testFramework.ConflictIDs("Conflict4", "Conflict5", "Conflict6"),
 	})
 }
 
@@ -100,11 +100,11 @@ func TestScenario_2(t *testing.T) {
 	testFramework.CreateBlock("Block8", WithStrongParents("Block4", "Block7"), WithInputs("H", "D"), WithOutput("I", 2))
 	testFramework.CreateBlock("Block9", WithStrongParents("Block4", "Block7"), WithInputs("B"), WithOutput("J", 1))
 
-	testFramework.RegisterBranchID("green", "Block5")
-	testFramework.RegisterBranchID("red", "Block4")
-	testFramework.RegisterBranchID("yellow", "Block2")
-	testFramework.RegisterBranchID("black", "Block7")
-	testFramework.RegisterBranchID("blue", "Block9")
+	testFramework.RegisterConflictID("green", "Block5")
+	testFramework.RegisterConflictID("red", "Block4")
+	testFramework.RegisterConflictID("yellow", "Block2")
+	testFramework.RegisterConflictID("black", "Block7")
+	testFramework.RegisterConflictID("blue", "Block9")
 
 	testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 	testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
@@ -115,16 +115,16 @@ func TestScenario_2(t *testing.T) {
 	testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 	testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
-	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+	checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-		"Block2": testFramework.BranchIDs("yellow"),
-		"Block3": testFramework.BranchIDs("yellow"),
-		"Block4": testFramework.BranchIDs("red"),
-		"Block5": testFramework.BranchIDs("yellow", "green"),
-		"Block6": testFramework.BranchIDs("yellow", "green"),
-		"Block7": testFramework.BranchIDs("red", "black"),
-		"Block8": testFramework.BranchIDs("red", "black"),
-		"Block9": testFramework.BranchIDs("red", "black", "blue"),
+		"Block2": testFramework.ConflictIDs("yellow"),
+		"Block3": testFramework.ConflictIDs("yellow"),
+		"Block4": testFramework.ConflictIDs("red"),
+		"Block5": testFramework.ConflictIDs("yellow", "green"),
+		"Block6": testFramework.ConflictIDs("yellow", "green"),
+		"Block7": testFramework.ConflictIDs("red", "black"),
+		"Block8": testFramework.ConflictIDs("red", "black"),
+		"Block9": testFramework.ConflictIDs("red", "black", "blue"),
 	})
 
 	checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -170,23 +170,23 @@ func TestScenario_3(t *testing.T) {
 	testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 	testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
-	testFramework.RegisterBranchID("purple", "Block2")
-	testFramework.RegisterBranchID("red", "Block4")
-	testFramework.RegisterBranchID("yellow", "Block5")
-	testFramework.RegisterBranchID("orange", "Block7")
-	testFramework.RegisterBranchID("blue", "Block9")
-	testFramework.RegisterBranchID("blue", "Block9")
+	testFramework.RegisterConflictID("purple", "Block2")
+	testFramework.RegisterConflictID("red", "Block4")
+	testFramework.RegisterConflictID("yellow", "Block5")
+	testFramework.RegisterConflictID("orange", "Block7")
+	testFramework.RegisterConflictID("blue", "Block9")
+	testFramework.RegisterConflictID("blue", "Block9")
 
-	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+	checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-		"Block2": testFramework.BranchIDs("purple"),
-		"Block3": testFramework.BranchIDs("purple"),
-		"Block4": testFramework.BranchIDs("red"),
-		"Block5": testFramework.BranchIDs("yellow"),
-		"Block6": testFramework.BranchIDs("yellow", "purple"),
-		"Block7": testFramework.BranchIDs("red", "orange"),
-		"Block8": testFramework.BranchIDs("red", "orange"),
-		"Block9": testFramework.BranchIDs("red", "orange", "blue"),
+		"Block2": testFramework.ConflictIDs("purple"),
+		"Block3": testFramework.ConflictIDs("purple"),
+		"Block4": testFramework.ConflictIDs("red"),
+		"Block5": testFramework.ConflictIDs("yellow"),
+		"Block6": testFramework.ConflictIDs("yellow", "purple"),
+		"Block7": testFramework.ConflictIDs("red", "orange"),
+		"Block8": testFramework.ConflictIDs("red", "orange"),
+		"Block9": testFramework.ConflictIDs("red", "orange", "blue"),
 	})
 }
 
@@ -212,10 +212,10 @@ func TestBookerMarkerGap(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -229,11 +229,11 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Block1":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Block1.5": set.NewAdvancedSet[utxo.TransactionID](),
 		})
@@ -250,12 +250,12 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Block2":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Block1.5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Block2":   set.NewAdvancedSet[utxo.TransactionID](),
@@ -265,8 +265,8 @@ func TestBookerMarkerGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block3", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
 
-		testFramework.RegisterBranchID("Block2", "Block2")
-		testFramework.RegisterBranchID("Block3", "Block3")
+		testFramework.RegisterConflictID("Block2", "Block2")
+		testFramework.RegisterConflictID("Block3", "Block3")
 
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
@@ -276,17 +276,17 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Block2":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Block3":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3":   {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3":   {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Block1.5": set.NewAdvancedSet[utxo.TransactionID](),
-			"Block2":   testFramework.BranchIDs("Block2"),
-			"Block3":   testFramework.BranchIDs("Block3"),
+			"Block2":   testFramework.ConflictIDs("Block2"),
+			"Block3":   testFramework.ConflictIDs("Block3"),
 		})
 	}
 
@@ -294,8 +294,8 @@ func TestBookerMarkerGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block4", WithStrongParents("Block3"), WithInputs("A"), WithOutput("X", 500))
 
-		testFramework.RegisterBranchID("Block1", "Block1")
-		testFramework.RegisterBranchID("Block4", "Block4")
+		testFramework.RegisterConflictID("Block1", "Block1")
+		testFramework.RegisterConflictID("Block4", "Block4")
 
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -306,19 +306,19 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Block3":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block4":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3":   {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4":   {testFramework.BranchIDs("Block3", "Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3":   {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4":   {testFramework.ConflictIDs("Block3", "Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1":   testFramework.BranchIDs("Block1"),
-			"Block1.5": testFramework.BranchIDs("Block1"),
-			"Block2":   testFramework.BranchIDs("Block1", "Block2"),
-			"Block3":   testFramework.BranchIDs("Block3"),
-			"Block4":   testFramework.BranchIDs("Block3", "Block4"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1":   testFramework.ConflictIDs("Block1"),
+			"Block1.5": testFramework.ConflictIDs("Block1"),
+			"Block2":   testFramework.ConflictIDs("Block1", "Block2"),
+			"Block3":   testFramework.ConflictIDs("Block3"),
+			"Block4":   testFramework.ConflictIDs("Block3", "Block4"),
 		})
 	}
 }
@@ -344,10 +344,10 @@ func TestBookerMarkerGap2(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -357,20 +357,20 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block2", WithStrongParents("Genesis"), WithInputs("Genesis1"), WithOutput("Block2", 500))
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
-		testFramework.RegisterBranchID("Block1", "Block1")
-		testFramework.RegisterBranchID("Block2", "Block2")
+		testFramework.RegisterConflictID("Block1", "Block1")
+		testFramework.RegisterConflictID("Block2", "Block2")
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
 		})
 	}
 
@@ -384,14 +384,14 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
 			"Block3": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -401,8 +401,8 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block4", WithStrongParents("Genesis"), WithInputs("Genesis2"), WithOutput("Block4", 500))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		testFramework.RegisterBranchID("Block3", "Block3")
-		testFramework.RegisterBranchID("Block4", "Block4")
+		testFramework.RegisterConflictID("Block3", "Block3")
+		testFramework.RegisterConflictID("Block4", "Block4")
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -410,17 +410,17 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
-			"Block3": testFramework.BranchIDs("Block3"),
-			"Block4": testFramework.BranchIDs("Block4"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
+			"Block3": testFramework.ConflictIDs("Block3"),
+			"Block4": testFramework.ConflictIDs("Block4"),
 		})
 	}
 
@@ -436,19 +436,19 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
-			"Block3": testFramework.BranchIDs("Block3"),
-			"Block4": testFramework.BranchIDs("Block4"),
-			"Block5": testFramework.BranchIDs("Block1"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
+			"Block3": testFramework.ConflictIDs("Block3"),
+			"Block4": testFramework.ConflictIDs("Block4"),
+			"Block5": testFramework.ConflictIDs("Block1"),
 		})
 	}
 
@@ -465,21 +465,21 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block6": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block6": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
-			"Block3": testFramework.BranchIDs("Block3"),
-			"Block4": testFramework.BranchIDs("Block4"),
-			"Block5": testFramework.BranchIDs("Block1"),
-			"Block6": testFramework.BranchIDs("Block1", "Block3"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
+			"Block3": testFramework.ConflictIDs("Block3"),
+			"Block4": testFramework.ConflictIDs("Block4"),
+			"Block5": testFramework.ConflictIDs("Block1"),
+			"Block6": testFramework.ConflictIDs("Block1", "Block3"),
 		})
 	}
 
@@ -497,23 +497,23 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block7": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block6": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block6": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
-			"Block3": testFramework.BranchIDs("Block3"),
-			"Block4": testFramework.BranchIDs("Block4"),
-			"Block5": testFramework.BranchIDs("Block1"),
-			"Block6": testFramework.BranchIDs("Block1", "Block3"),
-			"Block7": testFramework.BranchIDs("Block1", "Block3"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
+			"Block3": testFramework.ConflictIDs("Block3"),
+			"Block4": testFramework.ConflictIDs("Block4"),
+			"Block5": testFramework.ConflictIDs("Block1"),
+			"Block6": testFramework.ConflictIDs("Block1", "Block3"),
+			"Block7": testFramework.ConflictIDs("Block1", "Block3"),
 		})
 	}
 
@@ -521,8 +521,8 @@ func TestBookerMarkerGap2(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block8", WithStrongParents("Genesis"), WithInputs("Genesis3"), WithOutput("Block8", 500))
 
-		testFramework.RegisterBranchID("Block5", "Block5")
-		testFramework.RegisterBranchID("Block8", "Block8")
+		testFramework.RegisterConflictID("Block5", "Block5")
+		testFramework.RegisterConflictID("Block8", "Block8")
 
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
@@ -536,25 +536,25 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Block7": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Block8": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("Block2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("Block4"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block6": {testFramework.BranchIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block6": {testFramework.ConflictIDs("Block3"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block8": {testFramework.BranchIDs("Block8"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block8": {testFramework.ConflictIDs("Block8"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("Block1"),
-			"Block2": testFramework.BranchIDs("Block2"),
-			"Block3": testFramework.BranchIDs("Block3"),
-			"Block4": testFramework.BranchIDs("Block4"),
-			"Block5": testFramework.BranchIDs("Block1", "Block5"),
-			"Block6": testFramework.BranchIDs("Block1", "Block3"),
-			"Block7": testFramework.BranchIDs("Block1", "Block3", "Block5"),
-			"Block8": testFramework.BranchIDs("Block8"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("Block1"),
+			"Block2": testFramework.ConflictIDs("Block2"),
+			"Block3": testFramework.ConflictIDs("Block3"),
+			"Block4": testFramework.ConflictIDs("Block4"),
+			"Block5": testFramework.ConflictIDs("Block1", "Block5"),
+			"Block6": testFramework.ConflictIDs("Block1", "Block3"),
+			"Block7": testFramework.ConflictIDs("Block1", "Block3", "Block5"),
+			"Block8": testFramework.ConflictIDs("Block8"),
 		})
 	}
 }
@@ -579,10 +579,10 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -596,11 +596,11 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 			"A2": set.NewAdvancedSet[utxo.TransactionID](),
 		})
@@ -616,12 +616,12 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 			"A2": set.NewAdvancedSet[utxo.TransactionID](),
 			"A3": set.NewAdvancedSet[utxo.TransactionID](),
@@ -639,13 +639,13 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A4": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 			"A2": set.NewAdvancedSet[utxo.TransactionID](),
 			"A3": set.NewAdvancedSet[utxo.TransactionID](),
@@ -657,8 +657,8 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 	{
 		testFramework.CreateBlock("A3*", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("A3*", 500))
 
-		testFramework.RegisterBranchID("A3", "A3")
-		testFramework.RegisterBranchID("A3*", "A3*")
+		testFramework.RegisterConflictID("A3", "A3")
+		testFramework.RegisterConflictID("A3*", "A3*")
 
 		testFramework.IssueBlocks("A3*").WaitUntilAllTasksProcessed()
 
@@ -669,19 +669,19 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 			"A4":  markers.NewMarkers(markers.NewMarker(0, 3)),
 			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A3":  {testFramework.BranchIDs("A3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":  {testFramework.ConflictIDs("A3"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3*": {testFramework.ConflictIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  set.NewAdvancedSet[utxo.TransactionID](),
 			"A2":  set.NewAdvancedSet[utxo.TransactionID](),
-			"A3":  testFramework.BranchIDs("A3"),
-			"A4":  testFramework.BranchIDs("A3"),
-			"A3*": testFramework.BranchIDs("A3*"),
+			"A3":  testFramework.ConflictIDs("A3"),
+			"A4":  testFramework.ConflictIDs("A3"),
+			"A3*": testFramework.ConflictIDs("A3*"),
 		})
 	}
 
@@ -689,8 +689,8 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 	{
 		testFramework.CreateBlock("A1*", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("A1*", 500))
 
-		testFramework.RegisterBranchID("A1", "A1")
-		testFramework.RegisterBranchID("A1*", "A1*")
+		testFramework.RegisterConflictID("A1", "A1")
+		testFramework.RegisterConflictID("A1*", "A1*")
 
 		testFramework.IssueBlocks("A1*").WaitUntilAllTasksProcessed()
 
@@ -702,21 +702,21 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"A1*": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A3":  {testFramework.BranchIDs("A1", "A3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":  {testFramework.ConflictIDs("A1", "A3"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A1*": {testFramework.BranchIDs("A1*"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3*": {testFramework.ConflictIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A1*": {testFramework.ConflictIDs("A1*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1":  testFramework.BranchIDs("A1"),
-			"A2":  testFramework.BranchIDs("A1"),
-			"A3":  testFramework.BranchIDs("A1", "A3"),
-			"A4":  testFramework.BranchIDs("A1", "A3"),
-			"A3*": testFramework.BranchIDs("A3*"),
-			"A1*": testFramework.BranchIDs("A1*"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":  testFramework.ConflictIDs("A1"),
+			"A2":  testFramework.ConflictIDs("A1"),
+			"A3":  testFramework.ConflictIDs("A1", "A3"),
+			"A4":  testFramework.ConflictIDs("A1", "A3"),
+			"A3*": testFramework.ConflictIDs("A3*"),
+			"A1*": testFramework.ConflictIDs("A1*"),
 		})
 	}
 }
@@ -744,10 +744,10 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -756,8 +756,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("B1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("B1", 500))
 
-		testFramework.RegisterBranchID("A", "A1")
-		testFramework.RegisterBranchID("B", "B1")
+		testFramework.RegisterConflictID("A", "A1")
+		testFramework.RegisterConflictID("B", "B1")
 
 		testFramework.IssueBlocks("B1").WaitUntilAllTasksProcessed()
 
@@ -765,13 +765,13 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": testFramework.BranchIDs("A"),
-			"B1": testFramework.BranchIDs("B"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": testFramework.ConflictIDs("A"),
+			"B1": testFramework.ConflictIDs("B"),
 		})
 	}
 
@@ -779,8 +779,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("C1", WithStrongParents("Genesis"), WithInputs("C"), WithOutput("C1", 500))
 
-		testFramework.RegisterBranchID("A", "A1")
-		testFramework.RegisterBranchID("B", "B1")
+		testFramework.RegisterConflictID("A", "A1")
+		testFramework.RegisterConflictID("B", "B1")
 
 		testFramework.IssueBlocks("C1").WaitUntilAllTasksProcessed()
 
@@ -789,14 +789,14 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": testFramework.BranchIDs("A"),
-			"B1": testFramework.BranchIDs("B"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": testFramework.ConflictIDs("A"),
+			"B1": testFramework.ConflictIDs("B"),
 			"C1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -805,8 +805,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("D1", WithStrongParents("Genesis"), WithInputs("C"), WithOutput("D1", 500))
 
-		testFramework.RegisterBranchID("C", "C1")
-		testFramework.RegisterBranchID("D", "D1")
+		testFramework.RegisterConflictID("C", "C1")
+		testFramework.RegisterConflictID("D", "D1")
 
 		testFramework.IssueBlocks("D1").WaitUntilAllTasksProcessed()
 
@@ -816,17 +816,17 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": testFramework.BranchIDs("A"),
-			"B1": testFramework.BranchIDs("B"),
-			"C1": testFramework.BranchIDs("C"),
-			"D1": testFramework.BranchIDs("D"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": testFramework.ConflictIDs("A"),
+			"B1": testFramework.ConflictIDs("B"),
+			"C1": testFramework.ConflictIDs("C"),
+			"D1": testFramework.ConflictIDs("D"),
 		})
 	}
 
@@ -843,19 +843,19 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": testFramework.BranchIDs("A"),
-			"B1": testFramework.BranchIDs("B"),
-			"C1": testFramework.BranchIDs("C"),
-			"D1": testFramework.BranchIDs("D"),
-			"A2": testFramework.BranchIDs("A"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": testFramework.ConflictIDs("A"),
+			"B1": testFramework.ConflictIDs("B"),
+			"C1": testFramework.ConflictIDs("C"),
+			"D1": testFramework.ConflictIDs("D"),
+			"A2": testFramework.ConflictIDs("A"),
 		})
 	}
 
@@ -873,21 +873,21 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A3": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": testFramework.BranchIDs("A"),
-			"B1": testFramework.BranchIDs("B"),
-			"C1": testFramework.BranchIDs("C"),
-			"D1": testFramework.BranchIDs("D"),
-			"A2": testFramework.BranchIDs("A"),
-			"A3": testFramework.BranchIDs("A"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": testFramework.ConflictIDs("A"),
+			"B1": testFramework.ConflictIDs("B"),
+			"C1": testFramework.ConflictIDs("C"),
+			"D1": testFramework.ConflictIDs("D"),
+			"A2": testFramework.ConflictIDs("A"),
+			"A3": testFramework.ConflictIDs("A"),
 		})
 	}
 
@@ -906,23 +906,23 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A3":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1":   testFramework.BranchIDs("A"),
-			"B1":   testFramework.BranchIDs("B"),
-			"C1":   testFramework.BranchIDs("C"),
-			"D1":   testFramework.BranchIDs("D"),
-			"A2":   testFramework.BranchIDs("A"),
-			"A3":   testFramework.BranchIDs("A"),
-			"A+C1": testFramework.BranchIDs("A", "C"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   testFramework.ConflictIDs("A"),
+			"B1":   testFramework.ConflictIDs("B"),
+			"C1":   testFramework.ConflictIDs("C"),
+			"D1":   testFramework.ConflictIDs("D"),
+			"A2":   testFramework.ConflictIDs("A"),
+			"A3":   testFramework.ConflictIDs("A"),
+			"A+C1": testFramework.ConflictIDs("A", "C"),
 		})
 	}
 
@@ -942,25 +942,25 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
 			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A+C2": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C2": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1":   testFramework.BranchIDs("A"),
-			"B1":   testFramework.BranchIDs("B"),
-			"C1":   testFramework.BranchIDs("C"),
-			"D1":   testFramework.BranchIDs("D"),
-			"A2":   testFramework.BranchIDs("A"),
-			"A3":   testFramework.BranchIDs("A"),
-			"A+C1": testFramework.BranchIDs("A", "C"),
-			"A+C2": testFramework.BranchIDs("A", "C"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   testFramework.ConflictIDs("A"),
+			"B1":   testFramework.ConflictIDs("B"),
+			"C1":   testFramework.ConflictIDs("C"),
+			"D1":   testFramework.ConflictIDs("D"),
+			"A2":   testFramework.ConflictIDs("A"),
+			"A3":   testFramework.ConflictIDs("A"),
+			"A+C1": testFramework.ConflictIDs("A", "C"),
+			"A+C2": testFramework.ConflictIDs("A", "C"),
 		})
 	}
 
@@ -968,8 +968,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 	{
 		testFramework.CreateBlock("A2*", WithStrongParents("A1"), WithInputs("A1"), WithOutput("A2*", 500))
 
-		testFramework.RegisterBranchID("A2", "A2")
-		testFramework.RegisterBranchID("A2*", "A2*")
+		testFramework.RegisterConflictID("A2", "A2")
+		testFramework.RegisterConflictID("A2*", "A2*")
 
 		testFramework.IssueBlocks("A2*").WaitUntilAllTasksProcessed()
 
@@ -984,27 +984,27 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
 			"A2*":  markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.ConflictIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A+C2": {testFramework.BranchIDs("A2", "C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A2*":  {testFramework.BranchIDs("A2*"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C2": {testFramework.ConflictIDs("A2", "C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2*":  {testFramework.ConflictIDs("A2*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1":   testFramework.BranchIDs("A"),
-			"B1":   testFramework.BranchIDs("B"),
-			"C1":   testFramework.BranchIDs("C"),
-			"D1":   testFramework.BranchIDs("D"),
-			"A2":   testFramework.BranchIDs("A", "A2"),
-			"A3":   testFramework.BranchIDs("A", "A2"),
-			"A+C1": testFramework.BranchIDs("A", "A2", "C"),
-			"A+C2": testFramework.BranchIDs("A", "A2", "C"),
-			"A2*":  testFramework.BranchIDs("A", "A2*"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   testFramework.ConflictIDs("A"),
+			"B1":   testFramework.ConflictIDs("B"),
+			"C1":   testFramework.ConflictIDs("C"),
+			"D1":   testFramework.ConflictIDs("D"),
+			"A2":   testFramework.ConflictIDs("A", "A2"),
+			"A3":   testFramework.ConflictIDs("A", "A2"),
+			"A+C1": testFramework.ConflictIDs("A", "A2", "C"),
+			"A+C2": testFramework.ConflictIDs("A", "A2", "C"),
+			"A2*":  testFramework.ConflictIDs("A", "A2*"),
 		})
 	}
 }
@@ -1029,10 +1029,10 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -1046,11 +1046,11 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Block2": set.NewAdvancedSet[utxo.TransactionID](),
 		})
@@ -1067,12 +1067,12 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Block2": set.NewAdvancedSet[utxo.TransactionID](),
 			"Block3": set.NewAdvancedSet[utxo.TransactionID](),
@@ -1083,8 +1083,8 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block4", WithStrongParents("Block1"), WithInputs("A"), WithOutput("red", 500))
 
-		testFramework.RegisterBranchID("blue", "Block2")
-		testFramework.RegisterBranchID("red", "Block4")
+		testFramework.RegisterConflictID("blue", "Block2")
+		testFramework.RegisterConflictID("red", "Block4")
 
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -1094,17 +1094,17 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-			"Block2": testFramework.BranchIDs("blue"),
-			"Block3": testFramework.BranchIDs("blue"),
-			"Block4": testFramework.BranchIDs("red"),
+			"Block2": testFramework.ConflictIDs("blue"),
+			"Block3": testFramework.ConflictIDs("blue"),
+			"Block4": testFramework.ConflictIDs("red"),
 		})
 	}
 
@@ -1122,26 +1122,26 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block5": markers.NewMarkers(markers.NewMarker(0, 4)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-			"Block2": testFramework.BranchIDs("blue"),
-			"Block3": testFramework.BranchIDs("blue"),
-			"Block4": testFramework.BranchIDs("red"),
-			"Block5": testFramework.BranchIDs("blue"),
+			"Block2": testFramework.ConflictIDs("blue"),
+			"Block3": testFramework.ConflictIDs("blue"),
+			"Block4": testFramework.ConflictIDs("red"),
+			"Block5": testFramework.ConflictIDs("blue"),
 		})
 	}
 
 	// ISSUE Block6
 	{
 
-		tg.Ledger.ConflictDAG.SetBranchAccepted(testFramework.BranchID("red"))
+		tg.Ledger.ConflictDAG.SetConflictAccepted(testFramework.ConflictID("red"))
 
 		testFramework.CreateBlock("Block6", WithStrongParents("Block4"))
 
@@ -1155,20 +1155,20 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block5": markers.NewMarkers(markers.NewMarker(0, 4)),
 			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-			"Block2": testFramework.BranchIDs("blue"),
-			"Block3": testFramework.BranchIDs("blue"),
-			"Block4": testFramework.BranchIDs("red"),
-			"Block5": testFramework.BranchIDs("blue"),
+			"Block2": testFramework.ConflictIDs("blue"),
+			"Block3": testFramework.ConflictIDs("blue"),
+			"Block4": testFramework.ConflictIDs("red"),
+			"Block5": testFramework.ConflictIDs("blue"),
 			"Block6": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -1189,21 +1189,21 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block7": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Block7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
-			"Block2": testFramework.BranchIDs("blue"),
-			"Block3": testFramework.BranchIDs("blue"),
-			"Block4": testFramework.BranchIDs("red"),
-			"Block5": testFramework.BranchIDs("blue"),
+			"Block2": testFramework.ConflictIDs("blue"),
+			"Block3": testFramework.ConflictIDs("blue"),
+			"Block4": testFramework.ConflictIDs("red"),
+			"Block5": testFramework.ConflictIDs("blue"),
 			"Block6": set.NewAdvancedSet[utxo.TransactionID](),
 			"Block7": set.NewAdvancedSet[utxo.TransactionID](),
 		})
@@ -1232,10 +1232,10 @@ func TestObjectiveInvalidity(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
@@ -1244,8 +1244,8 @@ func TestObjectiveInvalidity(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block2", WithStrongParents("Genesis"), WithInputs("A", "B"), WithOutput("E", 1000))
 
-		testFramework.RegisterBranchID("A", "Block1")
-		testFramework.RegisterBranchID("B", "Block2")
+		testFramework.RegisterConflictID("A", "Block1")
+		testFramework.RegisterConflictID("B", "Block2")
 
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
@@ -1253,13 +1253,13 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("A"),
-			"Block2": testFramework.BranchIDs("B"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("A"),
+			"Block2": testFramework.ConflictIDs("B"),
 		})
 	}
 
@@ -1267,7 +1267,7 @@ func TestObjectiveInvalidity(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block3", WithStrongParents("Genesis"), WithInputs("B"), WithOutput("F", 500))
 
-		testFramework.RegisterBranchID("C", "Block3")
+		testFramework.RegisterConflictID("C", "Block3")
 
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
@@ -1276,15 +1276,15 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("A"),
-			"Block2": testFramework.BranchIDs("B"),
-			"Block3": testFramework.BranchIDs("C"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("A"),
+			"Block2": testFramework.ConflictIDs("B"),
+			"Block3": testFramework.ConflictIDs("C"),
 		})
 	}
 
@@ -1299,17 +1299,17 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("A"),
-			"Block2": testFramework.BranchIDs("B"),
-			"Block3": testFramework.BranchIDs("C"),
-			"Block4": testFramework.BranchIDs("C"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("A"),
+			"Block2": testFramework.ConflictIDs("B"),
+			"Block3": testFramework.ConflictIDs("C"),
+			"Block4": testFramework.ConflictIDs("C"),
 		})
 	}
 
@@ -1328,17 +1328,17 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkBlockMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
-			"Block4": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block2": {testFramework.ConflictIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block3": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Block4": {testFramework.ConflictIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Block1": testFramework.BranchIDs("A"),
-			"Block2": testFramework.BranchIDs("B"),
-			"Block3": testFramework.BranchIDs("C"),
-			"Block4": testFramework.BranchIDs("C"),
+		checkConflictIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Block1": testFramework.ConflictIDs("A"),
+			"Block2": testFramework.ConflictIDs("B"),
+			"Block3": testFramework.ConflictIDs("C"),
+			"Block4": testFramework.ConflictIDs("C"),
 		})
 	}
 }
@@ -1361,10 +1361,10 @@ func TestFutureConeDislike(t *testing.T) {
 	testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithShallowLikeParents("Block1*"))
 	testFramework.CreateBlock("Block4", WithStrongParents("Block2"), WithShallowLikeParents("Block1*"))
 
-	testFramework.RegisterBranchID("A", "Block1")
-	testFramework.RegisterBranchID("A*", "Block1*")
-	testFramework.RegisterBranchID("B", "Block2")
-	testFramework.RegisterBranchID("B*", "Block2*")
+	testFramework.RegisterConflictID("A", "Block1")
+	testFramework.RegisterConflictID("A*", "Block1*")
+	testFramework.RegisterConflictID("B", "Block2")
+	testFramework.RegisterConflictID("B*", "Block2*")
 
 	{
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
@@ -1372,36 +1372,36 @@ func TestFutureConeDislike(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
-			"Block1":  testFramework.BranchIDs("A"),
-			"Block1*": testFramework.BranchIDs("A*"),
-			"Block2":  testFramework.BranchIDs("A"),
-			"Block3":  testFramework.BranchIDs("A*"),
+		checkConflictIDs(t, testFramework, map[string]utxo.TransactionIDs{
+			"Block1":  testFramework.ConflictIDs("A"),
+			"Block1*": testFramework.ConflictIDs("A*"),
+			"Block2":  testFramework.ConflictIDs("A"),
+			"Block3":  testFramework.ConflictIDs("A*"),
 		})
 	}
 
 	{
 		testFramework.IssueBlocks("Block2*").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
-			"Block1":  testFramework.BranchIDs("A"),
-			"Block1*": testFramework.BranchIDs("A*"),
-			"Block2":  testFramework.BranchIDs("A", "B"),
-			"Block2*": testFramework.BranchIDs("A", "B*"),
-			"Block3":  testFramework.BranchIDs("A*"),
+		checkConflictIDs(t, testFramework, map[string]utxo.TransactionIDs{
+			"Block1":  testFramework.ConflictIDs("A"),
+			"Block1*": testFramework.ConflictIDs("A*"),
+			"Block2":  testFramework.ConflictIDs("A", "B"),
+			"Block2*": testFramework.ConflictIDs("A", "B*"),
+			"Block3":  testFramework.ConflictIDs("A*"),
 		})
 	}
 
 	{
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
-			"Block1":  testFramework.BranchIDs("A"),
-			"Block1*": testFramework.BranchIDs("A*"),
-			"Block2":  testFramework.BranchIDs("A", "B"),
-			"Block2*": testFramework.BranchIDs("A", "B*"),
-			"Block3":  testFramework.BranchIDs("A*"),
-			"Block4":  testFramework.BranchIDs("A*"),
+		checkConflictIDs(t, testFramework, map[string]utxo.TransactionIDs{
+			"Block1":  testFramework.ConflictIDs("A"),
+			"Block1*": testFramework.ConflictIDs("A*"),
+			"Block2":  testFramework.ConflictIDs("A", "B"),
+			"Block2*": testFramework.ConflictIDs("A", "B*"),
+			"Block3":  testFramework.ConflictIDs("A*"),
+			"Block4":  testFramework.ConflictIDs("A*"),
 		})
 	}
 }
@@ -1460,7 +1460,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 
 			if input != "" {
 				testFramework.CreateBlock(blkName, WithStrongParents(strongParents...), WithInputs(input), WithOutput(output, 1))
-				testFramework.RegisterBranchID(conflict, blkName)
+				testFramework.RegisterConflictID(conflict, blkName)
 				testFramework.RegisterTransactionID(conflict, blkName)
 			} else {
 				testFramework.CreateBlock(blkName, WithStrongParents(strongParents...))
@@ -1490,16 +1490,16 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	for layer := 0; layer < layersNum; layer++ {
 		for width := 0; width < widthSize; width++ {
 			blkName := fmt.Sprintf("Block.%d.%d", layer, width)
-			branches := make([]string, 0)
+			conflicts := make([]string, 0)
 
 			// Add conflicts of the current layer
 			if width < 2 {
-				branches = append(branches, fmt.Sprintf("C.%d.%d", layer, width))
+				conflicts = append(conflicts, fmt.Sprintf("C.%d.%d", layer, width))
 			}
 
 			for innerLayer := layer - 1; innerLayer >= 0; innerLayer-- {
-				branches = append(branches, fmt.Sprintf("C.%d.%d", innerLayer, 0))
-				branches = append(branches, fmt.Sprintf("C.%d.%d", innerLayer, 1))
+				conflicts = append(conflicts, fmt.Sprintf("C.%d.%d", innerLayer, 0))
+				conflicts = append(conflicts, fmt.Sprintf("C.%d.%d", innerLayer, 1))
 			}
 
 			if layer == 0 && width >= 2 {
@@ -1507,11 +1507,11 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 				continue
 			}
 
-			expectedConflicts[blkName] = testFramework.BranchIDs(branches...)
+			expectedConflicts[blkName] = testFramework.ConflictIDs(conflicts...)
 		}
 	}
 
-	checkBranchIDs(t, testFramework, expectedConflicts)
+	checkConflictIDs(t, testFramework, expectedConflicts)
 }
 
 func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
@@ -1572,7 +1572,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 			conflict = fmt.Sprintf("C.%d.%d", layer, width)
 
 			testFramework.CreateBlock(blkName, WithStrongParents(strongParents...), WithShallowLikeParents(likeParents...), WithInputs(input), WithOutput(output, 1))
-			testFramework.RegisterBranchID(conflict, blkName)
+			testFramework.RegisterConflictID(conflict, blkName)
 			testFramework.RegisterTransactionID(conflict, blkName)
 
 			blks = append(blks, blkName)
@@ -1596,23 +1596,23 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	for layer := 0; layer < layersNum; layer++ {
 		for width := 0; width < widthSize; width++ {
 			blkName := fmt.Sprintf("Block.%d.%d", layer, width)
-			branches := make([]string, 0)
+			conflicts := make([]string, 0)
 
 			// Add conflict of the current layer
-			branches = append(branches, fmt.Sprintf("C.%d.%d", layer, width))
+			conflicts = append(conflicts, fmt.Sprintf("C.%d.%d", layer, width))
 
 			// Add conflicts of the previous layers
 			for innerLayer := layer - 1; innerLayer >= 0; innerLayer-- {
 				for innerWidth := 0; innerWidth < widthSize; innerWidth += 2 {
-					branches = append(branches, fmt.Sprintf("C.%d.%d", innerLayer, innerWidth))
+					conflicts = append(conflicts, fmt.Sprintf("C.%d.%d", innerLayer, innerWidth))
 				}
 			}
 
-			expectedConflicts[blkName] = testFramework.BranchIDs(branches...)
+			expectedConflicts[blkName] = testFramework.ConflictIDs(conflicts...)
 		}
 	}
 
-	checkNormalizedBranchIDsContained(t, testFramework, expectedConflicts)
+	checkNormalizedConflictIDsContained(t, testFramework, expectedConflicts)
 }
 
 func checkMarkers(t *testing.T, testFramework *BlockTestFramework, expectedMarkers map[string]*markers.Markers) {
@@ -1648,48 +1648,48 @@ func checkMarkers(t *testing.T, testFramework *BlockTestFramework, expectedMarke
 	}
 }
 
-func checkBranchIDs(t *testing.T, testFramework *BlockTestFramework, expectedBranchIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
-	for blockID, blockExpectedBranchIDs := range expectedBranchIDs {
+func checkConflictIDs(t *testing.T, testFramework *BlockTestFramework, expectedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
 		// blockMetadata := testFramework.BlockMetadata(blockID)
-		// fmt.Println("Add:", blockMetadata.addedBranchIDs, "Sub:", blockMetadata.subtractedBranchIDs)
+		// fmt.Println("Add:", blockMetadata.addedConflictIDs, "Sub:", blockMetadata.subtractedConflictIDs)
 
-		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.BlockBranchIDs(testFramework.Block(blockID).ID())
+		retrievedConflictIDs, errRetrieve := testFramework.tangle.Booker.BlockConflictIDs(testFramework.Block(blockID).ID())
 		assert.NoError(t, errRetrieve)
 
-		assert.True(t, blockExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", blockID, blockExpectedBranchIDs, retrievedBranchIDs)
+		assert.True(t, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
 	}
 }
 
-func checkNormalizedBranchIDsContained(t *testing.T, testFramework *BlockTestFramework, expectedContainedBranchIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
-	for blockID, blockExpectedBranchIDs := range expectedContainedBranchIDs {
-		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.BlockBranchIDs(testFramework.Block(blockID).ID())
+func checkNormalizedConflictIDsContained(t *testing.T, testFramework *BlockTestFramework, expectedContainedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
+		retrievedConflictIDs, errRetrieve := testFramework.tangle.Booker.BlockConflictIDs(testFramework.Block(blockID).ID())
 		assert.NoError(t, errRetrieve)
 
-		normalizedRetrievedBranchIDs := retrievedBranchIDs.Clone()
-		for it := retrievedBranchIDs.Iterator(); it.HasNext(); {
+		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
+		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
 			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedRetrievedBranchIDs.DeleteAll(b.Parents())
+				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
-		normalizedExpectedBranchIDs := blockExpectedBranchIDs.Clone()
-		for it := blockExpectedBranchIDs.Iterator(); it.HasNext(); {
+		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
+		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
 			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				normalizedExpectedBranchIDs.DeleteAll(b.Parents())
+				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
-		assert.True(t, normalizedExpectedBranchIDs.Intersect(normalizedRetrievedBranchIDs).Size() == normalizedExpectedBranchIDs.Size(), "BranchID of %s should be %s but is %s", blockID, normalizedExpectedBranchIDs, normalizedRetrievedBranchIDs)
+		assert.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
 	}
 }
 
-func checkBlockMetadataDiffBranchIDs(t *testing.T, testFramework *BlockTestFramework, expectedDiffBranchIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
-	for blockID, expectedDiffBranchID := range expectedDiffBranchIDs {
+func checkBlockMetadataDiffConflictIDs(t *testing.T, testFramework *BlockTestFramework, expectedDiffConflictIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
+	for blockID, expectedDiffConflictID := range expectedDiffConflictIDs {
 		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
-			assert.True(t, expectedDiffBranchID[0].Equal(blockMetadata.AddedBranchIDs()), "AddBranchIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffBranchID[0], blockMetadata.AddedBranchIDs())
+			assert.True(t, expectedDiffConflictID[0].Equal(blockMetadata.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[0], blockMetadata.AddedConflictIDs())
 		}))
 		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
-			assert.True(t, expectedDiffBranchID[1].Equal(blockMetadata.SubtractedBranchIDs()), "SubtractedBranchIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffBranchID[1], blockMetadata.SubtractedBranchIDs())
+			assert.True(t, expectedDiffConflictID[1].Equal(blockMetadata.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[1], blockMetadata.SubtractedConflictIDs())
 		}))
 	}
 }

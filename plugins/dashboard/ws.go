@@ -48,16 +48,16 @@ func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case uint64:
-			broadcastWsBlock(&wsblk{BlkTypeBPSMetric, x})
-			broadcastWsBlock(&wsblk{BlkTypeNodeStatus, currentNodeStatus()})
-			broadcastWsBlock(&wsblk{BlkTypeNeighborMetric, neighborMetrics()})
-			broadcastWsBlock(&wsblk{BlkTypeTipsMetric, &tipsInfo{
+			broadcastWsBlock(&wsblk{MsgTypeBPSMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
+			broadcastWsBlock(&wsblk{MsgTypeNeighborMetric, neighborMetrics()})
+			broadcastWsBlock(&wsblk{MsgTypeTipsMetric, &tipsInfo{
 				TotalTips: deps.Tangle.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
-			broadcastWsBlock(&wsblk{BlkTypeComponentCounterMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeComponentCounterMetric, x})
 		case *rateSetterMetric:
-			broadcastWsBlock(&wsblk{BlkTypeRateSetterMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeRateSetterMetric, x})
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))

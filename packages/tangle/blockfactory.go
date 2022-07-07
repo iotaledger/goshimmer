@@ -193,7 +193,7 @@ func (f *BlockFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefere
 			delete(references[WeakParentType], strongParent)
 		}
 
-		// fill up weak references with weak references to liked missing branches
+		// fill up weak references with weak references to liked missing conflicts
 		if _, exists := references[WeakParentType]; !exists {
 			references[WeakParentType] = NewBlockIDs()
 		}

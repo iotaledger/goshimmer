@@ -80,7 +80,7 @@ Unless the attacker controls more than 1/3 of the Consensus Mana in the system, 
 
 Analogously to Bitcoin's [six blocks rule](https://en.bitcoin.it/wiki/Confirmation), our protocol has certain measures of the probability of a certain block being considered valid permanently by all nodes. 
 This is achieved by the use of the [**Approval Weight**](components/consensus_mechanism.md#approval-weight-aw). 
-The Approval weight represents the *weight* of branches (and blocks). 
-Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any block and attaching it in a part of the Tangle it *likes* based on a `Like switch`. Through the like switch, a block can even reference blocks of branches it doesn't like (thereby reduce orphanage), by explicitly expressing which ones it likes instead.
+The Approval weight represents the *weight* of conflicts (and blocks). 
+Different to the classical Nakamoto consensus, instead of selecting a leader based on a puzzle (PoW) or stake (PoS), it allows every node to express its opinion by simply issuing any block and attaching it in a part of the Tangle it *likes* based on a `Like switch`. Through the like switch, a block can even reference blocks of conflicts it doesn't like (thereby reduce orphanage), by explicitly expressing which ones it likes instead.
 This process is known as On-Tangle-Voting.
 

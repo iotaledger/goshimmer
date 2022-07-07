@@ -19,7 +19,7 @@ const (
 	// PrefixIndexer defines the storage prefix for the indexer package.
 	PrefixIndexer
 
-	// PrefixConflictDAG defines the storage prefix for the branchDAG package.
+	// PrefixConflictDAG defines the storage prefix for the conflictDAG package.
 	PrefixConflictDAG
 
 	// PrefixMana defines the storage prefix for the mana package.

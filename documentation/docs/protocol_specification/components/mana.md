@@ -273,7 +273,7 @@ Then, the appropriate node is located in `Base Mana Vector`, and mana is pledged
 `Events` are essential to study what happens within the module from the outside.
 
 Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are
-updated with respect to `t`. Notice the two branches after the condition. When `Base Mana` values had been updated before
+updated with respect to `t`. Notice the two conflicts after the condition. When `Base Mana` values had been updated before
 the transaction's timestamp, a regular update is carried out. However, if `t` is older, than the transaction timestamp,
 an update in the "past" is carried out and values are updated up to `LastUpdated`.
 ```go

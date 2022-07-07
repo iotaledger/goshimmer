@@ -961,7 +961,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up finality gadget
 	testOpts := []acceptance.Option{
-		acceptance.WithBranchThresholdTranslation(TestBranchConfirmationStateTranslation),
+		acceptance.WithConflictThresholdTranslation(TestConflictConfirmationStateTranslation),
 		acceptance.WithBlockThresholdTranslation(TestBlockConfirmationStateTranslation),
 	}
 	sfg := acceptance.NewSimpleFinalityGadget(testTangle, testOpts...)
@@ -1086,7 +1086,7 @@ func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangle.Tangle) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		sfg.HandleMarker(e.Marker, e.Weight)
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		sfg.HandleBranch(e.BranchID, e.Weight)
+	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+		sfg.HandleConflict(e.ConflictID, e.Weight)
 	}))
 }

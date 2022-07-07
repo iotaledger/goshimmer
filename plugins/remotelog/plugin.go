@@ -38,12 +38,12 @@ const (
 
 var (
 	// Plugin is the plugin instance of the remote plugin instance.
-	Plugin      *node.Plugin
-	deps        = new(dependencies)
-	myID        string
-	myGitHead   string
-	myGitBranch string
-	workerPool  *workerpool.NonBlockingQueuedWorkerPool
+	Plugin        *node.Plugin
+	deps          = new(dependencies)
+	myID          string
+	myGitHead     string
+	myGitConflict string
+	workerPool    *workerpool.NonBlockingQueuedWorkerPool
 )
 
 type dependencies struct {
@@ -116,9 +116,9 @@ func getGitInfo() {
 		return
 	}
 
-	// extract git branch and head
+	// extract git conflict and head
 	if h, err := r.Head(); err == nil {
-		myGitBranch = h.Name().String()
+		myGitConflict = h.Name().String()
 		myGitHead = h.Hash().String()
 	}
 }
@@ -148,13 +148,13 @@ func getGitDir() string {
 }
 
 type logBlock struct {
-	Version   string    `json:"version"`
-	GitHead   string    `json:"gitHead,omitempty"`
-	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeID    string    `json:"nodeId"`
-	Level     string    `json:"level"`
-	Name      string    `json:"name"`
-	Blk       string    `json:"blk"`
-	Timestamp time.Time `json:"timestamp"`
-	Type      string    `json:"type"`
+	Version     string    `json:"version"`
+	GitHead     string    `json:"gitHead,omitempty"`
+	GitConflict string    `json:"gitConflict,omitempty"`
+	NodeID      string    `json:"nodeId"`
+	Level       string    `json:"level"`
+	Name        string    `json:"name"`
+	Blk         string    `json:"blk"`
+	Timestamp   time.Time `json:"timestamp"`
+	Type        string    `json:"type"`
 }

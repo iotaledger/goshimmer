@@ -96,13 +96,13 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	t.Logf("Sending %d data blocks to make ConfirmationState converge", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
-	// conflicting txs should have spawned branches
+	// conflicting txs should have spawned conflicts
 	require.Eventually(t, func() bool {
 		res1, err := node1.GetTransactionMetadata(txs1[0].ID().Base58())
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return len(res1.BranchIDs) > 0 && len(res2.BranchIDs) > 0
+		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
 	}, tests.Timeout, tests.Tick)
 
 	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their

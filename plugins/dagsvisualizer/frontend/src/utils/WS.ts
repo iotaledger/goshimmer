@@ -6,10 +6,10 @@ export enum WSBlkType {
     Transaction,
     TransactionBooked,
     TransactionConfirmationStateChanged,
-    Branch,
-    BranchParentsUpdate,
-    BranchConfirmationStateChanged,
-    BranchWeightChanged
+    Conflict,
+    ConflictParentsUpdate,
+    ConflictConfirmationStateChanged,
+    ConflictWeightChanged
 }
 
 export interface WSBlock {

@@ -21,8 +21,8 @@ func configureFinality() {
 			Plugin.LogError(err)
 		}
 	}))
-	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		if err := acceptanceGadget.HandleBranch(e.BranchID, e.Weight); err != nil {
+	deps.Tangle.ApprovalWeightManager.Events.ConflictWeightChanged.Attach(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+		if err := acceptanceGadget.HandleConflict(e.ConflictID, e.Weight); err != nil {
 			Plugin.LogError(err)
 		}
 	}))

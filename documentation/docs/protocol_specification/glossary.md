@@ -141,7 +141,7 @@ The procedure of discovering and connecting to other network nodes.
 A network in which most nodes can be reached from every other node by a few intermediate steps.
 
 ### Splitting Attack
-An attack in which a malicious node attempts to split the Tangle into two branches. As one of the branches grows, the attacker publishes transactions on the other branch to keep both alive. Splitting attacks attempt to slow down the consensus process or conduct a double spend.
+An attack in which a malicious node attempts to split the Tangle into two conflicts. As one of the conflicts grows, the attacker publishes transactions on the other conflict to keep both alive. Splitting attacks attempt to slow down the consensus process or conduct a double spend.
 
 ### Sybil Attack
 An attempt to gain control over a peer-to-peer network by forging multiple fake identities.

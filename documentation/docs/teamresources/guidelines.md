@@ -15,7 +15,7 @@ keywords:
 ## General Guidelines
 
 - Don’t use `log.Fatal()` or `os.Exit()` outside of the main. It immediately terminates the program and all defers are ignored and no graceful shutdown is possible. It can lead to inconsistencies. Propagate the error up to the main and let the main function exit instead. Avoid panics as well, almost always use errors. [Example](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/plugins/autopeering/autopeering.go#L135).
-- Don’t duplicate code, reuse it. In tests too. Example: [duplicate1](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/branch_dag.go#L969) and [duplicate2](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/branch_dag.go#L1053)
+- Don’t duplicate code, reuse it. In tests too. Example: [duplicate1](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/conflict_dag.go#L969) and [duplicate2](https://github.com/iotaledger/goshimmer/blob/f75ce47eeaa3bf930b368754ac24b72f768a5964/packages/ledgerstate/conflict_dag.go#L1053)
 - Unhandled errors can cause bugs and make it harder to diagnose problems. Try to handle all errors: propagate them to the caller or log them. Even if the function call is used with a defer, and it’s inconvenient to handle the error it returns, still handle it. Wrap the function call in an anonymous function assign error to the upper error  like that:
 ```go
     defer func() {

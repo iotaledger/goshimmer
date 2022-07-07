@@ -53,8 +53,8 @@ func (c *conflictSet) ToJSON() *conflictJSON {
 	}
 }
 
-type branch struct {
-	BranchID          utxo.TransactionID              `json:"branchID"`
+type conflict struct {
+	ConflictID        utxo.TransactionID              `json:"conflictID"`
 	ConflictIDs       *set.AdvancedSet[utxo.OutputID] `json:"conflictIDs"`
 	ConfirmationState confirmation.State              `json:"confirmationState"`
 	IssuingTime       time.Time                       `json:"issuingTime"`
@@ -62,27 +62,27 @@ type branch struct {
 	UpdatedTime       time.Time                       `json:"updatedTime"`
 }
 
-type branchJSON struct {
-	BranchID          string             `json:"branchID"`
+type conflictsJSON struct {
+	ConflictID        string             `json:"conflictID"`
 	ConflictIDs       []string           `json:"conflictIDs"`
 	ConfirmationState confirmation.State `json:"confirmationState"`
 	IssuingTime       int64              `json:"issuingTime"`
 	IssuerNodeID      string             `json:"issuerNodeID"`
 }
 
-func (b *branch) ToJSON() *branchJSON {
-	return &branchJSON{
-		BranchID: b.BranchID.Base58(),
+func (c *conflict) ToJSON() *conflictsJSON {
+	return &conflictsJSON{
+		ConflictID: c.ConflictID.Base58(),
 		ConflictIDs: func() (conflictIDsStr []string) {
-			for it := b.ConflictIDs.Iterator(); it.HasNext(); {
+			for it := c.ConflictIDs.Iterator(); it.HasNext(); {
 				conflictID := it.Next()
 				conflictIDsStr = append(conflictIDsStr, conflictID.Base58())
 			}
 			return
 		}(),
-		IssuingTime:       b.IssuingTime.Unix(),
-		IssuerNodeID:      b.IssuerNodeID.String(),
-		ConfirmationState: b.ConfirmationState,
+		IssuingTime:       c.IssuingTime.Unix(),
+		IssuerNodeID:      c.IssuerNodeID.String(),
+		ConfirmationState: c.ConfirmationState,
 	}
 }
 
@@ -90,8 +90,8 @@ func sendConflictSetUpdate(c *conflictSet) {
 	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsConflict, c.ToJSON())
 }
 
-func sendBranchUpdate(b *branch) {
-	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsBranch, b.ToJSON())
+func sendConflictUpdate(b *conflict) {
+	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsConflict, b.ToJSON())
 }
 
 func configureConflictLiveFeed() {
@@ -106,57 +106,57 @@ func runConflictLiveFeed() {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
 		conflicts = &boundedConflictMap{
-			conflicts:    make(map[utxo.OutputID]*conflictSet),
-			branches:     make(map[utxo.TransactionID]*branch),
+			conflictSets: make(map[utxo.OutputID]*conflictSet),
+			conflicts:    make(map[utxo.TransactionID]*conflict),
 			conflictHeap: &timeHeap{},
 		}
 
-		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
-		onBranchAcceptedClosure := event.NewClosure(onBranchAccepted)
-		onBranchRejectedClosure := event.NewClosure(onBranchRejected)
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onBranchCreatedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(onBranchAcceptedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(onBranchRejectedClosure)
+		onConflictCreatedClosure := event.NewClosure(onConflictCreated)
+		onConflictAcceptedClosure := event.NewClosure(onConflictAccepted)
+		onConflictRejectedClosure := event.NewClosure(onConflictRejected)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onConflictCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onConflictAcceptedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onConflictRejectedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Detach(onBranchCreatedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Detach(onBranchAcceptedClosure)
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Detach(onBranchRejectedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Detach(onConflictCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Detach(onConflictAcceptedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictRejected.Detach(onConflictRejectedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
-func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-	branchID := event.ID
-	b := &branch{
-		BranchID:    branchID,
+func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	conflictID := event.ID
+	b := &conflict{
+		ConflictID:  conflictID,
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(transaction utxo.Transaction) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
 	})
 
 	// get the issuer of the oldest attachment of transaction that introduced the conflictSet
-	b.IssuerNodeID = issuerOfOldestAttachment(branchID)
+	b.IssuerNodeID = issuerOfOldestAttachment(conflictID)
 
 	// now we update the shared data structure
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b.ConflictIDs = conflict.ConflictSetIDs()
 	})
 
 	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
-		_, exists := conflicts.conflict(conflictID)
+		_, exists := conflicts.conflictset(conflictID)
 		// if this is the first conflictSet of this conflictSet set we add it to the map
 		if !exists {
 			c := &conflictSet{
@@ -167,34 +167,34 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 			conflicts.addConflictSet(c)
 		}
 
-		// update all existing branches with a possible new conflictSet membership
+		// update all existing conflicts with a possible new conflictSet membership
 		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}
 
-	conflicts.addBranch(b)
+	conflicts.addConflict(b)
 }
 
-func onBranchAccepted(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
+func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.branch(event.ID)
+	b, exists := conflicts.conflict(event.ID)
 	if !exists {
-		log.Warnf("branch %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", event.ID)
 		return
 	}
 
 	// if issuer is not yet set, set it now
 	var id identity.ID
 	if b.IssuerNodeID == id {
-		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
+		b.IssuerNodeID = issuerOfOldestAttachment(b.ConflictID)
 	}
 
 	b.ConfirmationState = confirmation.Accepted
 	b.UpdatedTime = clock.SyncedTime()
-	conflicts.addBranch(b)
+	conflicts.addConflict(b)
 
 	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
@@ -202,37 +202,37 @@ func onBranchAccepted(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]
 	}
 }
 
-func onBranchRejected(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+func onConflictRejected(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.branch(event.ID)
+	b, exists := conflicts.conflict(event.ID)
 	if !exists {
-		log.Warnf("branch %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", event.ID)
 		return
 	}
 
 	// if issuer is not yet set, set it now
 	var id identity.ID
 	if b.IssuerNodeID == id {
-		b.IssuerNodeID = issuerOfOldestAttachment(b.BranchID)
+		b.IssuerNodeID = issuerOfOldestAttachment(b.ConflictID)
 	}
 
 	b.ConfirmationState = confirmation.Rejected
 	b.UpdatedTime = clock.SyncedTime()
-	conflicts.addBranch(b)
+	conflicts.addConflict(b)
 }
 
-// sendAllConflicts sends all conflicts and branches to the websocket.
+// sendAllConflicts sends all conflicts and conflicts to the websocket.
 func sendAllConflicts() {
 	mu.RLock()
 	defer mu.RUnlock()
 	conflicts.sendAllConflicts()
 }
 
-func issuerOfOldestAttachment(branchID utxo.TransactionID) (id identity.ID) {
+func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
-	deps.Tangle.Storage.Attachments(utxo.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
+	deps.Tangle.Storage.Attachments(utxo.TransactionID(conflictID)).Consume(func(attachment *tangle.Attachment) {
 		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangle.Block) {
 			if oldestAttachmentTime.IsZero() || block.IssuingTime().Before(oldestAttachmentTime) {
 				oldestAttachmentTime = block.IssuingTime()
@@ -277,30 +277,30 @@ func (h *timeHeap) Pop() interface{} {
 var _ heap.Interface = &timeHeap{}
 
 type boundedConflictMap struct {
-	conflicts    map[utxo.OutputID]*conflictSet
-	branches     map[utxo.TransactionID]*branch
+	conflictSets map[utxo.OutputID]*conflictSet
+	conflicts    map[utxo.TransactionID]*conflict
 	conflictHeap *timeHeap
 }
 
-func (b *boundedConflictMap) conflict(conflictID utxo.OutputID) (conflict *conflictSet, exists bool) {
-	conflict, exists = b.conflicts[conflictID]
+func (b *boundedConflictMap) conflictset(conflictID utxo.OutputID) (conflict *conflictSet, exists bool) {
+	conflict, exists = b.conflictSets[conflictID]
 	return
 }
 
 func (b *boundedConflictMap) addConflictSet(c *conflictSet) {
-	if len(b.conflicts) >= Parameters.Conflicts.MaxCount {
+	if len(b.conflictSets) >= Parameters.Conflicts.MaxCount {
 		element := heap.Pop(b.conflictHeap).(*timeHeapElement)
-		delete(b.conflicts, element.conflictID)
+		delete(b.conflictSets, element.conflictID)
 
-		// cleanup branches. delete is a no-op if key is not found in map.
-		for _, branch := range b.branches {
-			branch.ConflictIDs.Delete(element.conflictID)
-			if branch.ConflictIDs.IsEmpty() {
-				delete(b.branches, branch.BranchID)
+		// cleanup conflicts. delete is a no-op if key is not found in map.
+		for _, conflict := range b.conflicts {
+			conflict.ConflictIDs.Delete(element.conflictID)
+			if conflict.ConflictIDs.IsEmpty() {
+				delete(b.conflicts, conflict.ConflictID)
 			}
 		}
 	}
-	b.conflicts[c.ConflictID] = c
+	b.conflictSets[c.ConflictID] = c
 	heap.Push(b.conflictHeap, &timeHeapElement{
 		conflictID:  c.ConflictID,
 		arrivalTime: c.ArrivalTime,
@@ -309,38 +309,38 @@ func (b *boundedConflictMap) addConflictSet(c *conflictSet) {
 }
 
 func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
-	if c, exists := b.conflicts[conflictID]; exists && !c.Resolved {
+	if c, exists := b.conflictSets[conflictID]; exists && !c.Resolved {
 		c.Resolved = true
 		c.TimeToResolve = clock.Since(c.ArrivalTime)
 		c.UpdatedTime = clock.SyncedTime()
-		b.conflicts[conflictID] = c
+		b.conflictSets[conflictID] = c
 		sendConflictSetUpdate(c)
 	}
 }
 
 func (b *boundedConflictMap) sendAllConflicts() {
-	for _, c := range b.conflicts {
+	for _, c := range b.conflictSets {
 		sendConflictSetUpdate(c)
 	}
-	for _, b := range b.branches {
-		sendBranchUpdate(b)
+	for _, b := range b.conflicts {
+		sendConflictUpdate(b)
 	}
 }
 
-func (b *boundedConflictMap) addBranch(br *branch) {
-	b.branches[br.BranchID] = br
-	sendBranchUpdate(br)
+func (b *boundedConflictMap) addConflict(br *conflict) {
+	b.conflicts[br.ConflictID] = br
+	sendConflictUpdate(br)
 }
 
-func (b *boundedConflictMap) addConflictMember(branchID utxo.TransactionID, conflictID utxo.OutputID) {
-	if _, exists := b.branches[branchID]; exists {
-		b.branches[branchID].ConflictIDs.Add(conflictID)
-		b.branches[branchID].UpdatedTime = clock.SyncedTime()
-		sendBranchUpdate(b.branches[branchID])
+func (b *boundedConflictMap) addConflictMember(conflictID utxo.TransactionID, resourceID utxo.OutputID) {
+	if _, exists := b.conflicts[conflictID]; exists {
+		b.conflicts[conflictID].ConflictIDs.Add(resourceID)
+		b.conflicts[conflictID].UpdatedTime = clock.SyncedTime()
+		sendConflictUpdate(b.conflicts[conflictID])
 	}
 }
 
-func (b *boundedConflictMap) branch(branchID utxo.TransactionID) (branch *branch, exists bool) {
-	branch, exists = b.branches[branchID]
+func (b *boundedConflictMap) conflict(conflictID utxo.TransactionID) (conflict *conflict, exists bool) {
+	conflict, exists = b.conflicts[conflictID]
 	return
 }

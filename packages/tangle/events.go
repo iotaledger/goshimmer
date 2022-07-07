@@ -83,14 +83,14 @@ type BlockConstructedEvent struct {
 
 // BookerEvents represents events happening in the Booker.
 type BookerEvents struct {
-	// BlockBooked is triggered when a Block was booked (it's Branch, and it's Payload's Branch were determined).
+	// BlockBooked is triggered when a Block was booked (it's Conflict, and it's Payload's Conflict were determined).
 	BlockBooked *event.Event[*BlockBookedEvent]
 
-	// BlockBranchUpdated is triggered when the BranchID of a Block is changed in its BlockMetadata.
-	BlockBranchUpdated *event.Event[*BlockBranchUpdatedEvent]
+	// BlockConflictUpdated is triggered when the ConflictID of a Block is changed in its BlockMetadata.
+	BlockConflictUpdated *event.Event[*BlockConflictUpdatedEvent]
 
-	// MarkerBranchAdded is triggered when a Marker is mapped to a new BranchID.
-	MarkerBranchAdded *event.Event[*MarkerBranchAddedEvent]
+	// MarkerConflictAdded is triggered when a Marker is mapped to a new ConflictID.
+	MarkerConflictAdded *event.Event[*MarkerConflictAddedEvent]
 
 	// Error gets triggered when the Booker faces an unexpected error.
 	Error *event.Event[error]
@@ -98,10 +98,10 @@ type BookerEvents struct {
 
 func NewBookerEvents() (new *BookerEvents) {
 	return &BookerEvents{
-		BlockBooked:        event.New[*BlockBookedEvent](),
-		BlockBranchUpdated: event.New[*BlockBranchUpdatedEvent](),
-		MarkerBranchAdded:  event.New[*MarkerBranchAddedEvent](),
-		Error:              event.New[error](),
+		BlockBooked:          event.New[*BlockBookedEvent](),
+		BlockConflictUpdated: event.New[*BlockConflictUpdatedEvent](),
+		MarkerConflictAdded:  event.New[*MarkerConflictAddedEvent](),
+		Error:                event.New[error](),
 	}
 }
 
@@ -109,14 +109,14 @@ type BlockBookedEvent struct {
 	BlockID BlockID
 }
 
-type BlockBranchUpdatedEvent struct {
-	BlockID  BlockID
-	BranchID utxo.TransactionID
+type BlockConflictUpdatedEvent struct {
+	BlockID    BlockID
+	ConflictID utxo.TransactionID
 }
 
-type MarkerBranchAddedEvent struct {
-	Marker      markers.Marker
-	NewBranchID utxo.TransactionID
+type MarkerConflictAddedEvent struct {
+	Marker        markers.Marker
+	NewConflictID utxo.TransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,17 +169,17 @@ type NodeBlacklistedEvent struct {
 type ApprovalWeightManagerEvents struct {
 	// BlockProcessed is triggered once a block is finished being processed by the ApprovalWeightManager.
 	BlockProcessed *event.Event[*BlockProcessedEvent]
-	// BranchWeightChanged is triggered when a branch's weight changed.
-	BranchWeightChanged *event.Event[*BranchWeightChangedEvent]
+	// ConflictWeightChanged is triggered when a conflict's weight changed.
+	ConflictWeightChanged *event.Event[*ConflictWeightChangedEvent]
 	// MarkerWeightChanged is triggered when a marker's weight changed.
 	MarkerWeightChanged *event.Event[*MarkerWeightChangedEvent]
 }
 
 func newApprovalWeightManagerEvents() (new *ApprovalWeightManagerEvents) {
 	return &ApprovalWeightManagerEvents{
-		BlockProcessed:      event.New[*BlockProcessedEvent](),
-		BranchWeightChanged: event.New[*BranchWeightChangedEvent](),
-		MarkerWeightChanged: event.New[*MarkerWeightChangedEvent](),
+		BlockProcessed:        event.New[*BlockProcessedEvent](),
+		ConflictWeightChanged: event.New[*ConflictWeightChangedEvent](),
+		MarkerWeightChanged:   event.New[*MarkerWeightChangedEvent](),
 	}
 }
 
@@ -194,10 +194,10 @@ type MarkerWeightChangedEvent struct {
 	Weight float64
 }
 
-// BranchWeightChangedEvent holds information about a branch and its updated weight.
-type BranchWeightChangedEvent struct {
-	BranchID utxo.TransactionID
-	Weight   float64
+// ConflictWeightChangedEvent holds information about a conflict and its updated weight.
+type ConflictWeightChangedEvent struct {
+	ConflictID utxo.TransactionID
+	Weight     float64
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

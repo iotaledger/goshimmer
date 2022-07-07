@@ -41,7 +41,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	fmt.Println("send blk1")
 	// Block 1
 	{
-		blocks["1"] = createAndStoreParentsDataBlockInMasterBranch(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
+		blocks["1"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
 		tipManager.AddTip(blocks["1"])
 		tangle.TimeManager.updateTime(blocks["1"])
 		tangle.TimeManager.updateSyncedState()
@@ -56,7 +56,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	fmt.Println("send blk2")
 	// Block 2
 	{
-		blocks["2"] = createAndStoreParentsDataBlockInMasterBranch(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
+		blocks["2"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
 		tipManager.AddTip(blocks["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -69,7 +69,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	fmt.Println("send blk3")
 	// Block 3
 	{
-		blocks["3"] = createAndStoreParentsDataBlockInMasterBranch(tangle, NewBlockIDs(blocks["1"].ID(), blocks["2"].ID()), NewBlockIDs())
+		blocks["3"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID(), blocks["2"].ID()), NewBlockIDs())
 		tipManager.AddTip(blocks["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -86,7 +86,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 		tips.Add(blocks["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			blocks[nString] = createAndStoreParentsDataBlockInMasterBranch(tangle, NewBlockIDs(blocks["1"].ID()), NewBlockIDs())
+			blocks[nString] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID()), NewBlockIDs())
 			tipManager.AddTip(blocks[nString])
 			tips.Add(blocks[nString].ID())
 
@@ -828,7 +828,7 @@ func issueBlocks(testFramework *BlockTestFramework, blkPrefix string, blkCount i
 	return blkAlias
 }
 
-func createAndStoreParentsDataBlockInMasterBranch(tangle *Tangle, strongParents, weakParents BlockIDs) (block *Block) {
+func createAndStoreParentsDataBlockInMasterConflict(tangle *Tangle, strongParents, weakParents BlockIDs) (block *Block) {
 	parents := ParentBlockIDs{
 		StrongParentType: strongParents,
 	}

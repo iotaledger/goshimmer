@@ -124,10 +124,10 @@ func (u *Utils) ApprovingBlockIDs(blockID BlockID, optionalChildType ...ChildTyp
 	return
 }
 
-// AllBranchesLiked returns true if all the passed branches are liked.
-func (u *Utils) AllBranchesLiked(branchIDs *set.AdvancedSet[utxo.TransactionID]) bool {
-	for it := branchIDs.Iterator(); it.HasNext(); {
-		if !u.tangle.OTVConsensusManager.BranchLiked(it.Next()) {
+// AllConflictsLiked returns true if all the passed conflicts are liked.
+func (u *Utils) AllConflictsLiked(conflictIDs *set.AdvancedSet[utxo.TransactionID]) bool {
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		if !u.tangle.OTVConsensusManager.ConflictLiked(it.Next()) {
 			return false
 		}
 	}

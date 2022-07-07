@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	TestBranchTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	TestConflictTranslation ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -48,8 +48,8 @@ func (handler *EventHandlerMock) BlockAccepted(blkID tangle.BlockID) {
 	handler.Called(blkID)
 }
 
-func (handler *EventHandlerMock) BranchAccepted(branchID utxo.TransactionID) {
-	handler.Called(branchID)
+func (handler *EventHandlerMock) ConflictAccepted(conflictID utxo.TransactionID) {
+	handler.Called(conflictID)
 }
 
 func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
@@ -58,8 +58,8 @@ func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance *tangle.Tangle) {
 	ag.Events().BlockAccepted.Hook(event.NewClosure(func(event *tangle.BlockAcceptedEvent) { handler.BlockAccepted(event.Block.ID()) }))
-	tangleInstance.Ledger.ConflictDAG.Events.BranchAccepted.Hook(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
-		handler.BranchAccepted(event.ID)
+	tangleInstance.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		handler.ConflictAccepted(event.ID)
 	}))
 	tangleInstance.Ledger.Events.TransactionAccepted.Hook(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { handler.TransactionAccepted(event.TransactionID) }))
 }
@@ -79,7 +79,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	}(processBlkScenario, t)
 
 	testOpts := []Option{
-		WithBranchThresholdTranslation(TestBranchTranslation),
+		WithConflictThresholdTranslation(TestConflictTranslation),
 		WithBlockThresholdTranslation(TestBlockTranslation),
 	}
 
@@ -155,7 +155,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
 					confirmation.Pending:  {"Block5", "Block6"},
 				})
-				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+				assertConflictsConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block5", "Block6"},
 				})
 				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
@@ -168,14 +168,14 @@ func TestSimpleFinalityGadget(t *testing.T) {
 			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block5").ID())
 				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Block5"))
-				eventHandlerMock.On("BranchAccepted", testFramework.BranchIDFromBlock("Block5"))
+				eventHandlerMock.On("ConflictAccepted", testFramework.ConflictIDFromBlock("Block5"))
 			},
 			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5"},
 					confirmation.Pending:  {"Block7", "Block6"},
 				})
-				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+				assertConflictsConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block5"},
 					confirmation.Rejected: {"Block6"},
 				})
@@ -198,7 +198,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
 					confirmation.Pending:  {"Block7.1", "Block6"},
 				})
-				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+				assertConflictsConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block5"},
 					confirmation.Rejected: {"Block6"},
 				})
@@ -216,7 +216,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
 					confirmation.Pending:  {"Block7.1", "Block6", "Block8"},
 				})
-				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
+				assertConflictsConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block5"},
 					confirmation.Rejected: {"Block6"},
 				})
@@ -245,7 +245,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 	}(processBlkScenario, t)
 
 	testOpts := []Option{
-		WithBranchThresholdTranslation(TestBranchTranslation),
+		WithConflictThresholdTranslation(TestConflictTranslation),
 		WithBlockThresholdTranslation(TestBlockTranslation),
 	}
 
@@ -330,12 +330,12 @@ func assertTxsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFra
 	}
 }
 
-func assertBranchesConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+func assertConflictsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
 	for expectedConfirmationState, blkAliases := range expected {
 		for _, blkAlias := range blkAliases {
-			branch := testFramework.Branch(blkAlias)
+			conflict := testFramework.Conflict(blkAlias)
 			actualConfirmationState := testFramework.TransactionMetadata(blkAlias).ConfirmationState()
-			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected branch %s (via blk %s) ConfirmationState to be %s but is %s", branch.ID(), blkAlias, expectedConfirmationState, actualConfirmationState)
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected conflict %s (via blk %s) ConfirmationState to be %s but is %s", conflict.ID(), blkAlias, expectedConfirmationState, actualConfirmationState)
 		}
 	}
 }
@@ -346,8 +346,8 @@ func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, ag *Gadget) {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		if err := ag.HandleBranch(e.BranchID, e.Weight); err != nil {
+	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+		if err := ag.HandleConflict(e.ConflictID, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))

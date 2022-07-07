@@ -7,7 +7,7 @@ import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
 import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
-import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveBase58ConflictID} from "app/utils/conflict";
 import {outputToComponent} from "app/utils/output";
 import {resolveConfirmationState} from "app/utils/confirmation_state";
 
@@ -76,14 +76,14 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                 {outputMetadata && <div className={"mb-2"}>
                     <ListGroup>
                         <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${outputMetadata.outputID.transactionID}`}>{outputMetadata.outputID.transactionID}</a> </ListGroup.Item>
-                        BranchIDs: 
+                        ConflictIDs: 
                         <ListGroup>
                             {
-                                outputMetadata.branchIDs.map((value, index) => {
+                                outputMetadata.conflictIDs.map((value, index) => {
                                     return (
-                                        <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
-                                            <Link to={`/explorer/branch/${value}`}>
-                                                {resolveBase58BranchID(value)}
+                                        <ListGroup.Item key={"ConflictID" + index + 1} className="text-break">
+                                            <Link to={`/explorer/conflict/${value}`}>
+                                                {resolveBase58ConflictID(value)}
                                             </Link>
                                         </ListGroup.Item>
                                     )

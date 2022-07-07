@@ -31,20 +31,20 @@ const (
 	// PrefixAttachments defines the storage prefix for attachments.
 	PrefixAttachments
 
-	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
-	PrefixMarkerBranchIDMapping
+	// PrefixMarkerConflictIDMapping defines the storage prefix for the PrefixMarkerConflictIDMapping.
+	PrefixMarkerConflictIDMapping
 
-	// PrefixBranchVoters defines the storage prefix for the BranchVoters.
-	PrefixBranchVoters
+	// PrefixConflictVoters defines the storage prefix for the ConflictVoters.
+	PrefixConflictVoters
 
-	// PrefixLatestBranchVotes defines the storage prefix for the LatestBranchVotes.
-	PrefixLatestBranchVotes
+	// PrefixLatestConflictVotes defines the storage prefix for the LatestConflictVotes.
+	PrefixLatestConflictVotes
 
 	// PrefixLatestMarkerVotes defines the storage prefix for the LatestMarkerVotes.
 	PrefixLatestMarkerVotes
 
-	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
-	PrefixBranchWeight
+	// PrefixConflictWeight defines the storage prefix for the ConflictWeight.
+	PrefixConflictWeight
 
 	// PrefixMarkerBlockMapping defines the storage prefix for the MarkerBlockMapping.
 	PrefixMarkerBlockMapping
@@ -63,18 +63,18 @@ const (
 
 // Storage represents the storage of blocks.
 type Storage struct {
-	tangle                            *Tangle
-	blockStorage                      *objectstorage.ObjectStorage[*Block]
-	blockMetadataStorage              *objectstorage.ObjectStorage[*BlockMetadata]
-	childStorage                      *objectstorage.ObjectStorage[*Child]
-	missingBlockStorage               *objectstorage.ObjectStorage[*MissingBlock]
-	attachmentStorage                 *objectstorage.ObjectStorage[*Attachment]
-	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexBranchIDMapping]
-	branchVotersStorage               *objectstorage.ObjectStorage[*BranchVoters]
-	latestBranchVotesStorage          *objectstorage.ObjectStorage[*LatestBranchVotes]
-	latestMarkerVotesStorage          *objectstorage.ObjectStorage[*LatestMarkerVotes]
-	branchWeightStorage               *objectstorage.ObjectStorage[*BranchWeight]
-	markerBlockMappingStorage         *objectstorage.ObjectStorage[*MarkerBlockMapping]
+	tangle                              *Tangle
+	blockStorage                        *objectstorage.ObjectStorage[*Block]
+	blockMetadataStorage                *objectstorage.ObjectStorage[*BlockMetadata]
+	childStorage                        *objectstorage.ObjectStorage[*Child]
+	missingBlockStorage                 *objectstorage.ObjectStorage[*MissingBlock]
+	attachmentStorage                   *objectstorage.ObjectStorage[*Attachment]
+	markerIndexConflictIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexConflictIDMapping]
+	conflictVotersStorage               *objectstorage.ObjectStorage[*ConflictVoters]
+	latestConflictVotesStorage          *objectstorage.ObjectStorage[*LatestConflictVotes]
+	latestMarkerVotesStorage            *objectstorage.ObjectStorage[*LatestMarkerVotes]
+	conflictWeightStorage               *objectstorage.ObjectStorage[*ConflictWeight]
+	markerBlockMappingStorage           *objectstorage.ObjectStorage[*MarkerBlockMapping]
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -85,19 +85,19 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	cacheProvider := tangle.Options.CacheTimeProvider
 
 	storage = &Storage{
-		tangle:                            tangle,
-		shutdown:                          make(chan struct{}),
-		blockStorage:                      objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		blockMetadataStorage:              objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		childStorage:                      objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChilds), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingBlockStorage:               objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestMarkerVotesStorage:          objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               objectstorage.NewStructStorage[BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerBlockMappingStorage:         objectstorage.NewStructStorage[MarkerBlockMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBlockMapping), cacheProvider.CacheTime(cacheTime), MarkerBlockMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		tangle:                              tangle,
+		shutdown:                            make(chan struct{}),
+		blockStorage:                        objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		blockMetadataStorage:                objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		childStorage:                        objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChilds), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingBlockStorage:                 objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                   objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexConflictIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexConflictIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerConflictIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		conflictVotersStorage:               objectstorage.NewStructStorage[ConflictVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixConflictVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestConflictVotesStorage:          objectstorage.NewStructStorage[LatestConflictVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestConflictVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:            objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
+		conflictWeightStorage:               objectstorage.NewStructStorage[ConflictWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixConflictWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerBlockMappingStorage:           objectstorage.NewStructStorage[MarkerBlockMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBlockMapping), cacheProvider.CacheTime(cacheTime), MarkerBlockMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: newStorageEvents(),
 	}
@@ -249,17 +249,17 @@ func (s *Storage) DeleteMissingBlock(blockID BlockID) {
 	s.missingBlockStorage.Delete(blockID.Bytes())
 }
 
-// MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional
-// computeIfAbsent callback that can be used to dynamically create a MarkerIndexBranchIDMapping if it doesn't exist,
+// MarkerIndexConflictIDMapping retrieves the MarkerIndexConflictIDMapping for the given SequenceID. It accepts an optional
+// computeIfAbsent callback that can be used to dynamically create a MarkerIndexConflictIDMapping if it doesn't exist,
 // yet.
-func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *objectstorage.CachedObject[*MarkerIndexBranchIDMapping] {
+func (s *Storage) MarkerIndexConflictIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexConflictIDMapping) *objectstorage.CachedObject[*MarkerIndexConflictIDMapping] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.markerIndexBranchIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) *MarkerIndexBranchIDMapping {
+		return s.markerIndexConflictIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) *MarkerIndexConflictIDMapping {
 			return computeIfAbsentCallback[0](sequenceID)
 		})
 	}
 
-	return s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())
+	return s.markerIndexConflictIDMappingStorage.Load(sequenceID.Bytes())
 }
 
 // StoreMarkerBlockMapping stores a MarkerBlockMapping in the underlying object storage.
@@ -268,8 +268,8 @@ func (s *Storage) StoreMarkerBlockMapping(markerBlockMapping *MarkerBlockMapping
 }
 
 // DeleteMarkerBlockMapping deleted a MarkerBlockMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerBlockMapping(branchID utxo.TransactionID, blockID BlockID) {
-	s.markerBlockMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), blockID.Bytes()))
+func (s *Storage) DeleteMarkerBlockMapping(conflictID utxo.TransactionID, blockID BlockID) {
+	s.markerBlockMappingStorage.Delete(byteutils.ConcatBytes(conflictID.Bytes(), blockID.Bytes()))
 }
 
 // MarkerBlockMapping retrieves the MarkerBlockMapping associated with the given details.
@@ -286,26 +286,26 @@ func (s *Storage) MarkerBlockMappings(sequenceID markers.SequenceID) (cachedMark
 	return
 }
 
-// BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
-func (s *Storage) BranchVoters(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
+// ConflictVoters retrieves the ConflictVoters with the given ledger.ConflictID.
+func (s *Storage) ConflictVoters(conflictID utxo.TransactionID, computeIfAbsentCallback ...func(conflictID utxo.TransactionID) *ConflictVoters) *objectstorage.CachedObject[*ConflictVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
-			return computeIfAbsentCallback[0](branchID)
+		return s.conflictVotersStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *ConflictVoters {
+			return computeIfAbsentCallback[0](conflictID)
 		})
 	}
 
-	return s.branchVotersStorage.Load(branchID.Bytes())
+	return s.conflictVotersStorage.Load(conflictID.Bytes())
 }
 
-// LatestBranchVotes retrieves the LatestBranchVotes of the given Voter.
-func (s *Storage) LatestBranchVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *objectstorage.CachedObject[*LatestBranchVotes] {
+// LatestConflictVotes retrieves the LatestConflictVotes of the given Voter.
+func (s *Storage) LatestConflictVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestConflictVotes) *objectstorage.CachedObject[*LatestConflictVotes] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.latestBranchVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) *LatestBranchVotes {
+		return s.latestConflictVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) *LatestConflictVotes {
 			return computeIfAbsentCallback[0](voter)
 		})
 	}
 
-	return s.latestBranchVotesStorage.Load(byteutils.ConcatBytes(voter.Bytes()))
+	return s.latestConflictVotesStorage.Load(byteutils.ConcatBytes(voter.Bytes()))
 }
 
 // LatestMarkerVotes retrieves the LatestMarkerVotes of the given voter for the named Sequence.
@@ -334,27 +334,27 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 	return cachedLatestMarkerVotesByVoter
 }
 
-// BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
+// ConflictWeight retrieves the ConflictWeight with the given ConflictID.
+func (s *Storage) ConflictWeight(conflictID utxo.TransactionID, computeIfAbsentCallback ...func(conflictID utxo.TransactionID) *ConflictWeight) *objectstorage.CachedObject[*ConflictWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
-			return computeIfAbsentCallback[0](branchID)
+		return s.conflictWeightStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *ConflictWeight {
+			return computeIfAbsentCallback[0](conflictID)
 		})
 	}
 
-	return s.branchWeightStorage.Load(branchID.Bytes())
+	return s.conflictWeightStorage.Load(conflictID.Bytes())
 }
 
 func (s *Storage) storeGenesis() {
 	s.BlockMetadata(EmptyBlockID, func() *BlockMetadata {
 		genesisMetadata := model.NewStorable[BlockID, BlockMetadata](&blockMetadataModel{
-			AddedBranchIDs:      utxo.NewTransactionIDs(),
-			SubtractedBranchIDs: utxo.NewTransactionIDs(),
-			SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-			Solid:               true,
-			StructureDetails:    markers.NewStructureDetails(),
-			Scheduled:           true,
-			Booked:              true,
+			AddedConflictIDs:      utxo.NewTransactionIDs(),
+			SubtractedConflictIDs: utxo.NewTransactionIDs(),
+			SolidificationTime:    clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			Solid:                 true,
+			StructureDetails:      markers.NewStructureDetails(),
+			Scheduled:             true,
+			Booked:                true,
 		})
 		genesisMetadata.SetID(EmptyBlockID)
 		return genesisMetadata
@@ -373,11 +373,11 @@ func (s *Storage) Shutdown() {
 	s.childStorage.Shutdown()
 	s.missingBlockStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
-	s.markerIndexBranchIDMappingStorage.Shutdown()
-	s.branchVotersStorage.Shutdown()
-	s.latestBranchVotesStorage.Shutdown()
+	s.markerIndexConflictIDMappingStorage.Shutdown()
+	s.conflictVotersStorage.Shutdown()
+	s.latestConflictVotesStorage.Shutdown()
 	s.latestMarkerVotesStorage.Shutdown()
-	s.branchWeightStorage.Shutdown()
+	s.conflictWeightStorage.Shutdown()
 	s.markerBlockMappingStorage.Shutdown()
 
 	close(s.shutdown)
@@ -391,11 +391,11 @@ func (s *Storage) Prune() error {
 		s.childStorage.Prune,
 		s.missingBlockStorage.Prune,
 		s.attachmentStorage.Prune,
-		s.markerIndexBranchIDMappingStorage.Prune,
-		s.branchVotersStorage.Prune,
-		s.latestBranchVotesStorage.Prune,
+		s.markerIndexConflictIDMappingStorage.Prune,
+		s.conflictVotersStorage.Prune,
+		s.latestConflictVotesStorage.Prune,
 		s.latestMarkerVotesStorage.Prune,
-		s.branchWeightStorage.Prune,
+		s.conflictWeightStorage.Prune,
 		s.markerBlockMappingStorage.Prune,
 	} {
 		if err := storagePrune(); err != nil {

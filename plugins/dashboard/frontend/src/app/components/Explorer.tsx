@@ -8,7 +8,7 @@ import {ExplorerSearchbar} from "app/components/ExplorerSearchbar";
 import {ExplorerLiveFeed} from "app/components/ExplorerLiveFeed";
 import {ExplorerTransactionSearchbar} from "app/components/ExplorerTransactionSearchbar";
 import {ExplorerOutputSearchbar} from "app/components/ExplorerOutputSearchbar";
-import {ExplorerBranchSearchbar} from "app/components/ExplorerBranchSearchbar";
+import {ExplorerConflictSearchbar} from "app/components/ExplorerConflictSearchbar";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -24,7 +24,7 @@ export class Explorer extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <p>
-                            Search for addresses, blocks, transactions, outputs and branches.
+                            Search for addresses, blocks, transactions, outputs and conflicts.
                         </p>
                     </Col>
                 </Row>
@@ -41,7 +41,7 @@ export class Explorer extends React.Component<Props, any> {
                         <ExplorerOutputSearchbar/>
                     </Col>
                     <Col>
-                        <ExplorerBranchSearchbar/>
+                        <ExplorerConflictSearchbar/>
                     </Col>
                 </Row>
                 <ExplorerLiveFeed/>

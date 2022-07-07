@@ -38,15 +38,15 @@ func ManaBufferInstance() *ManaBuffer {
 func configureManaFeed() {
 	manaFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch task.Param(0).(byte) {
-		case BlkTypeManaValue:
+		case MsgTypeManaValue:
 			sendManaValue()
-		case BlkTypeManaMapOverall:
+		case MsgTypeManaMapOverall:
 			sendManaMapOverall()
-		case BlkTypeManaMapOnline:
+		case MsgTypeManaMapOnline:
 			sendManaMapOnline()
-		case BlkTypeManaPledge:
+		case MsgTypeManaPledge:
 			sendManaPledge(task.Param(1).(*mana.PledgedEvent))
-		case BlkTypeManaRevoke:
+		case MsgTypeManaRevoke:
 			sendManaRevoke(task.Param(1).(*mana.RevokedEvent))
 		}
 		task.Return(nil)
@@ -55,10 +55,10 @@ func configureManaFeed() {
 
 func runManaFeed() {
 	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.TrySubmit(BlkTypeManaPledge, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
 	})
 	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.TrySubmit(BlkTypeManaRevoke, ev)
+		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
 		mana.Events.Pledged.Attach(notifyManaPledge)
@@ -73,9 +73,9 @@ func runManaFeed() {
 				log.Info("Stopping Dashboard[ManaUpdater] ... done")
 				return
 			case <-manaTicker.C:
-				manaFeedWorkerPool.TrySubmit(BlkTypeManaValue)
-				manaFeedWorkerPool.TrySubmit(BlkTypeManaMapOverall)
-				manaFeedWorkerPool.TrySubmit(BlkTypeManaMapOnline)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaValue)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOverall)
+				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOnline)
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {
@@ -103,7 +103,7 @@ func sendManaValue() {
 		Time:      time.Now().Unix(),
 	}
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaValue,
+		Type: MsgTypeManaValue,
 		Data: blkData,
 	})
 	ManaBufferInstance().StoreValueBlk(blkData)
@@ -122,7 +122,7 @@ func sendManaMapOverall() {
 	}
 	accessPayload.TotalMana = totalAccessMana
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaMapOverall,
+		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
 	consensusManaList, _, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0)
@@ -137,7 +137,7 @@ func sendManaMapOverall() {
 	}
 	consensusPayload.TotalMana = totalConsensusMana
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaMapOverall,
+		Type: MsgTypeManaMapOverall,
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOverall(accessPayload, consensusPayload)
@@ -156,7 +156,7 @@ func sendManaMapOnline() {
 	}
 	accessPayload.TotalMana = totalAccessMana
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaMapOnline,
+		Type: MsgTypeManaMapOnline,
 		Data: accessPayload,
 	})
 
@@ -176,7 +176,7 @@ func sendManaMapOnline() {
 
 	consensusPayload.TotalMana = totalWeight
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaMapOnline,
+		Type: MsgTypeManaMapOnline,
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
@@ -185,7 +185,7 @@ func sendManaMapOnline() {
 func sendManaPledge(ev *mana.PledgedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaPledge,
+		Type: MsgTypeManaPledge,
 		Data: ev.ToJSONSerializable(),
 	})
 }
@@ -193,7 +193,7 @@ func sendManaPledge(ev *mana.PledgedEvent) {
 func sendManaRevoke(ev *mana.RevokedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsBlock(&wsblk{
-		Type: BlkTypeManaRevoke,
+		Type: MsgTypeManaRevoke,
 		Data: ev.ToJSONSerializable(),
 	})
 }
@@ -222,7 +222,7 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 	})
 
 	if err := sendJSON(ws, &wsblk{
-		Type: BlkTypeManaAllowedPledge,
+		Type: MsgTypeManaAllowedPledge,
 		Data: wsblkData,
 	}); err != nil {
 		return err

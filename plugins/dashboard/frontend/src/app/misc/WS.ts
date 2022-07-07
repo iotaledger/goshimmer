@@ -20,7 +20,7 @@ export enum WSBlkType {
     Chat,
     RateSetter,
     Conflict,
-    Branch
+    Conflict
 }
 
 export interface WSBlock {

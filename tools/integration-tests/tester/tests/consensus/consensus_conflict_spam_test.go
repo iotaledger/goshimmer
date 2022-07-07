@@ -97,10 +97,10 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 
 	blkID, _ := tests.SendDataBlock(t, peer1, []byte("Gimme Master!"), 1)
 
-	t.Logf("Verifying that %s is on MasterBranch", blkID)
+	t.Logf("Verifying that %s is on MasterConflict", blkID)
 	blockMetadata, err := peer1.GetBlockMetadata(blkID)
 	require.NoError(t, err)
-	require.Empty(t, blockMetadata.BranchIDs)
+	require.Empty(t, blockMetadata.ConflictIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.

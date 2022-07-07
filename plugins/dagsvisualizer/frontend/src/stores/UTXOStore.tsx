@@ -37,7 +37,7 @@ export class UTXOStore {
     constructor() {
         makeObservable(this);
         registerHandler(WSBlkType.Transaction, this.addTransaction);
-        registerHandler(WSBlkType.TransactionBooked, this.setTxBranch);
+        registerHandler(WSBlkType.TransactionBooked, this.setTxConflict);
         registerHandler(
             WSBlkType.TransactionConfirmationStateChanged,
             this.transactionConfirmationStateChanged
@@ -102,13 +102,13 @@ export class UTXOStore {
     };
 
     @action
-    setTxBranch = (bookedTx: utxoBooked) => {
+    setTxConflict = (bookedTx: utxoBooked) => {
         const tx = this.transactions.get(bookedTx.ID);
         if (!tx) {
             return;
         }
 
-        tx.branchID = bookedTx.branchID;
+        tx.conflictID = bookedTx.conflictID;
         this.transactions.set(bookedTx.ID, tx);
     };
 
@@ -191,12 +191,12 @@ export class UTXOStore {
         this.updateSelected(txID);
     };
 
-    getTxsFromBranch = (branchID: string, searchMode: boolean) => {
+    getTxsFromConflict = (conflictID: string, searchMode: boolean) => {
         const txs = [];
 
         if (searchMode) {
             this.foundTxs.forEach((tx: utxoVertex) => {
-                if (tx.branchID === branchID) {
+                if (tx.conflictID === conflictID) {
                     txs.push(tx.ID);
                 }
             });
@@ -205,7 +205,7 @@ export class UTXOStore {
         }
 
         this.transactions.forEach((tx: utxoVertex) => {
-            if (tx.branchID === branchID) {
+            if (tx.conflictID === conflictID) {
                 txs.push(tx.ID);
             }
         });

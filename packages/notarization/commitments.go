@@ -97,12 +97,12 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 	}
 
 	root := make([]byte, 0)
-	branch1 := make([]byte, 0)
-	branch2 := make([]byte, 0)
+	conflict1 := make([]byte, 0)
+	conflict2 := make([]byte, 0)
 
-	branch1Hashed := blake2b.Sum256(append(append(branch1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	branch2Hashed := blake2b.Sum256(append(append(branch2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
+	conflict1Hashed := blake2b.Sum256(append(append(conflict1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
+	conflict2Hashed := blake2b.Sum256(append(append(conflict2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
+	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
 }

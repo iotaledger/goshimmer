@@ -159,7 +159,7 @@ fmt.Println(string(block.Finalized))
             "lowestIndex": 21904
         }
     },
-    "branchID": "BranchID(MasterBranchID)",
+    "conflictID": "ConflictID(MasterConflictID)",
     "scheduled": false,
     "booked": true,
     "invalid": false,
@@ -177,7 +177,7 @@ fmt.Println(string(block.Finalized))
 | `solid`  | `bool` | Flag indicating whether the block is solid. |
 | `solidificationTime`  | `int64` | Time when block was solidified by the node. |
 | `structureDetails`  | `StructureDetails` | List of weak childs' block IDs. |
-| `branchID`  | `string` | Name of branch that the block is part of. |
+| `conflictID`  | `string` | Name of conflict that the block is part of. |
 | `scheduled`  | `bool` | Flag indicating whether the block is scheduled. |
 | `booked`  | `bool` | Flag indicating whether the block is booked. |
 | `eligible`  | `bool` | Flag indicating whether the block is eligible. |

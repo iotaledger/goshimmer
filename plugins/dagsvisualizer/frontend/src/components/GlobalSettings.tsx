@@ -78,8 +78,8 @@ export default class GlobalSettings extends React.Component<Props, any> {
         this.props.globalStore.syncWithTx();
     };
 
-    syncWithBranch = () => {
-        this.props.globalStore.syncWithBranch();
+    syncWithConflict = () => {
+        this.props.globalStore.syncWithConflict();
     };
 
     clearSync = () => {
@@ -282,7 +282,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                                 <p>
                                     {' '}
-                                    Select a block/transaction/branch and
+                                    Select a block/transaction/conflict and
                                     click the corresponding button to sync.{' '}
                                 </p>
                             </div>
@@ -309,10 +309,10 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     <Col xs="auto">
                                         <Button
                                             className={'button'}
-                                            onClick={this.syncWithBranch}
+                                            onClick={this.syncWithConflict}
                                             variant="outline-secondary"
                                         >
-                                            Sync with branch
+                                            Sync with conflict
                                         </Button>
                                     </Col>
                                     <Col xs="auto">

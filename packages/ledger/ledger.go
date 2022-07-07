@@ -58,7 +58,7 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
 		conflictdag.WithStore(ledger.options.store),
 		conflictdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
-	}, ledger.options.branchDAGOptions...)...)
+	}, ledger.options.conflictDAGOptions...)...)
 
 	ledger.Storage = newStorage(ledger)
 	ledger.validator = newValidator(ledger)
@@ -66,11 +66,11 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		ledger.propagateAcceptanceToIncludedTransactions(event.ID)
 	}))
 
-	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 		ledger.propagatedRejectionToTransactions(event.ID)
 	}))
 
@@ -155,7 +155,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.BranchIDs()).IsAccepted() {
+		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
 			l.triggerAcceptedEvent(txMetadata)
 		}
 	})
@@ -258,7 +258,7 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.BranchIDs()).IsAccepted() {
+			if l.ConflictDAG.ConfirmationState(consumingTxMetadata.ConflictIDs()).IsAccepted() {
 				return
 			}
 
@@ -271,7 +271,7 @@ func (l *Ledger) propagateAcceptanceToIncludedTransactions(txID utxo.Transaction
 	})
 }
 
-// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// propagateConfirmedConflictToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
 func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {

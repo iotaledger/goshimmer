@@ -10,7 +10,7 @@ import (
 const (
 	// basic routes.
 	routeGetAddresses     = "ledgerstate/addresses/"
-	routeGetBranches      = "ledgerstate/branches/"
+	routeGetConflicts     = "ledgerstate/conflicts/"
 	routeGetOutputs       = "ledgerstate/outputs/"
 	routeGetTransactions  = "ledgerstate/transactions/"
 	routePostTransactions = "ledgerstate/transactions"
@@ -58,44 +58,44 @@ func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []stri
 	return res, nil
 }
 
-// GetBranch gets the branch information.
-func (api *GoShimmerAPI) GetBranch(base58EncodedBranchID string) (*jsonmodels.Branch, error) {
-	res := &jsonmodels.Branch{}
+// GetConflict gets the conflict information.
+func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodels.Conflict, error) {
+	res := &jsonmodels.Conflict{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetBranches, base58EncodedBranchID}, "")
+		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetBranchChildren gets the children of a branch.
-func (api *GoShimmerAPI) GetBranchChildren(base58EncodedBranchID string) (*jsonmodels.GetBranchChildrenResponse, error) {
-	res := &jsonmodels.GetBranchChildrenResponse{}
+// GetConflictChildren gets the children of a conflict.
+func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*jsonmodels.GetConflictChildrenResponse, error) {
+	res := &jsonmodels.GetConflictChildrenResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathChildren}, "")
+		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathChildren}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetBranchConflicts gets the conflict branches of a branch.
-func (api *GoShimmerAPI) GetBranchConflicts(base58EncodedBranchID string) (*jsonmodels.GetBranchConflictsResponse, error) {
-	res := &jsonmodels.GetBranchConflictsResponse{}
+// GetConflictConflicts gets the conflict conflicts of a conflict.
+func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*jsonmodels.GetConflictConflictsResponse, error) {
+	res := &jsonmodels.GetConflictConflictsResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathConflicts}, "")
+		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathConflicts}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetBranchVoters gets the Voters of a branch.
-func (api *GoShimmerAPI) GetBranchVoters(base58EncodedBranchID string) (*jsonmodels.GetBranchVotersResponse, error) {
-	res := &jsonmodels.GetBranchVotersResponse{}
+// GetConflictVoters gets the Voters of a conflict.
+func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jsonmodels.GetConflictVotersResponse, error) {
+	res := &jsonmodels.GetConflictVotersResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathVoters}, "")
+		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathVoters}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}

@@ -39,7 +39,7 @@ export class TangleStore {
         makeObservable(this);
 
         registerHandler(WSBlkType.Block, this.addBlock);
-        registerHandler(WSBlkType.BlockBooked, this.setBlockBranch);
+        registerHandler(WSBlkType.BlockBooked, this.setBlockConflict);
         registerHandler(
             WSBlkType.BlockConfirmed,
             this.setBlockConfirmedTime
@@ -97,14 +97,14 @@ export class TangleStore {
     };
 
     @action
-    setBlockBranch = (branch: tangleBooked) => {
-        const blk = this.blocks.get(branch.ID);
+    setBlockConflict = (conflict: tangleBooked) => {
+        const blk = this.blocks.get(conflict.ID);
         if (!blk) {
             return;
         }
 
-        blk.branchIDs = branch.branchIDs;
-        blk.isMarker = branch.isMarker;
+        blk.conflictIDs = conflict.conflictIDs;
+        blk.isMarker = conflict.isMarker;
 
         this.blocks.set(blk.ID, blk);
         if (this.draw) {
@@ -292,12 +292,12 @@ export class TangleStore {
         unselectBlock(blkID, color, this.graph);
     };
 
-    getBlksFromBranch = (branchID: string, searchedMode: boolean) => {
+    getBlksFromConflict = (conflictID: string, searchedMode: boolean) => {
         const blks = [];
 
         if (searchedMode) {
             this.foundBlks.forEach((blk: tangleVertex) => {
-                if (blk.branchIDs.includes(branchID)) {
+                if (blk.conflictIDs.includes(conflictID)) {
                     blks.push(blk.ID);
                 }
             });
@@ -305,7 +305,7 @@ export class TangleStore {
         }
 
         this.blocks.forEach((blk: tangleVertex) => {
-            if (blk.branchIDs.includes(branchID)) {
+            if (blk.conflictIDs.includes(conflictID)) {
                 blks.push(blk.ID);
             }
         });

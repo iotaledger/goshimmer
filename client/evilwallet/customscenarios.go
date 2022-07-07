@@ -137,7 +137,7 @@ func Scenario3() EvilBatch {
 	}
 }
 
-// Scenario4 is a reflection of ledgerstate unit test for branch confirmation - packages/ledgerstate/ledgerstate_test_SetBranchConfirmed.png
+// Scenario4 is a reflection of ledgerstate unit test for conflict confirmation - packages/ledgerstate/ledgerstate_test_SetConflictConfirmed.png
 func Scenario4() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{

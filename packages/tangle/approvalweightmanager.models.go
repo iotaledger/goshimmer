@@ -18,36 +18,36 @@ import (
 
 // region ApprovalWeightManager Models /////////////////////////////////////////////////////////////////////////////////
 
-// region BranchWeight /////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConflictWeight /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchWeight is a data structure that tracks the weight of a BranchID.
-type BranchWeight struct {
-	model.Storable[utxo.TransactionID, BranchWeight, *BranchWeight, float64] `serix:"0"`
+// ConflictWeight is a data structure that tracks the weight of a ConflictID.
+type ConflictWeight struct {
+	model.Storable[utxo.TransactionID, ConflictWeight, *ConflictWeight, float64] `serix:"0"`
 }
 
-// NewBranchWeight creates a new BranchWeight.
-func NewBranchWeight(branchID utxo.TransactionID) (branchWeight *BranchWeight) {
+// NewConflictWeight creates a new ConflictWeight.
+func NewConflictWeight(conflictID utxo.TransactionID) (conflictWeight *ConflictWeight) {
 	weight := 0.0
-	branchWeight = model.NewStorable[utxo.TransactionID, BranchWeight](&weight)
-	branchWeight.SetID(branchID)
+	conflictWeight = model.NewStorable[utxo.TransactionID, ConflictWeight](&weight)
+	conflictWeight.SetID(conflictID)
 	return
 }
 
-// BranchID returns the BranchID that is being tracked.
-func (b *BranchWeight) BranchID() (branchID utxo.TransactionID) {
+// ConflictID returns the ConflictID that is being tracked.
+func (b *ConflictWeight) ConflictID() (conflictID utxo.TransactionID) {
 	return b.ID()
 }
 
-// Weight returns the weight of the BranchID.
-func (b *BranchWeight) Weight() (weight float64) {
+// Weight returns the weight of the ConflictID.
+func (b *ConflictWeight) Weight() (weight float64) {
 	b.RLock()
 	defer b.RUnlock()
 
 	return b.M
 }
 
-// SetWeight sets the weight for the BranchID and returns true if it was modified.
-func (b *BranchWeight) SetWeight(weight float64) bool {
+// SetWeight sets the weight for the ConflictID and returns true if it was modified.
+func (b *ConflictWeight) SetWeight(weight float64) bool {
 	b.Lock()
 	defer b.Unlock()
 
@@ -64,14 +64,14 @@ func (b *BranchWeight) SetWeight(weight float64) bool {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // region SerializableSet ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
+// Voter is a type wrapper for identity.ID and defines a node that supports a conflict or marker.
 type Voter = identity.ID
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Voters ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Voters is a set of node identities that votes for a particular Branch.
+// Voters is a set of node identities that votes for a particular Conflict.
 type Voters struct {
 	set.Set[Voter]
 }
@@ -132,35 +132,35 @@ func (v *Voters) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchVoters /////////////////////////////////////////////////////////////////////////////////////////////////
+// region ConflictVoters /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchVoters is a data structure that tracks which nodes support a branch.
-type BranchVoters struct {
-	model.Storable[utxo.TransactionID, BranchVoters, *BranchVoters, Voters] `serix:"0"`
+// ConflictVoters is a data structure that tracks which nodes support a conflict.
+type ConflictVoters struct {
+	model.Storable[utxo.TransactionID, ConflictVoters, *ConflictVoters, Voters] `serix:"0"`
 }
 
-// NewBranchVoters is the constructor for the BranchVoters object.
-func NewBranchVoters(branchID utxo.TransactionID) (branchVoters *BranchVoters) {
-	branchVoters = model.NewStorable[utxo.TransactionID, BranchVoters](NewVoters())
-	branchVoters.SetID(branchID)
+// NewConflictVoters is the constructor for the ConflictVoters object.
+func NewConflictVoters(conflictID utxo.TransactionID) (conflictVoters *ConflictVoters) {
+	conflictVoters = model.NewStorable[utxo.TransactionID, ConflictVoters](NewVoters())
+	conflictVoters.SetID(conflictID)
 	return
 }
 
-// BranchID returns the BranchID that is being tracked.
-func (b *BranchVoters) BranchID() (branchID utxo.TransactionID) {
+// ConflictID returns the ConflictID that is being tracked.
+func (b *ConflictVoters) ConflictID() (conflictID utxo.TransactionID) {
 	return b.ID()
 }
 
-// Has returns true if the given Voter is currently supporting this Branch.
-func (b *BranchVoters) Has(voter Voter) bool {
+// Has returns true if the given Voter is currently supporting this Conflict.
+func (b *ConflictVoters) Has(voter Voter) bool {
 	b.RLock()
 	defer b.RUnlock()
 
 	return b.M.Set.Has(voter)
 }
 
-// AddVoter adds a new Voter to the tracked BranchID.
-func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
+// AddVoter adds a new Voter to the tracked ConflictID.
+func (b *ConflictVoters) AddVoter(voter Voter) (added bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -172,8 +172,8 @@ func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
 	return
 }
 
-// AddVoters adds the Voters set to the tracked BranchID.
-func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
+// AddVoters adds the Voters set to the tracked ConflictID.
+func (b *ConflictVoters) AddVoters(voters *Voters) (added bool) {
 	voters.Set.ForEach(func(voter Voter) {
 		if b.AddVoter(voter) {
 			added = true
@@ -187,8 +187,8 @@ func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
 	return
 }
 
-// DeleteVoter deletes a Voter from the tracked BranchID.
-func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
+// DeleteVoter deletes a Voter from the tracked ConflictID.
+func (b *ConflictVoters) DeleteVoter(voter Voter) (deleted bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -200,8 +200,8 @@ func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
 	return
 }
 
-// Voters returns the set of Voters that are supporting the given BranchID.
-func (b *BranchVoters) Voters() (voters *Voters) {
+// Voters returns the set of Voters that are supporting the given ConflictID.
+func (b *ConflictVoters) Voters() (voters *Voters) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -212,17 +212,17 @@ func (b *BranchVoters) Voters() (voters *Voters) {
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Opinion is a type that represents the Opinion of a node on a certain Branch.
+// Opinion is a type that represents the Opinion of a node on a certain Conflict.
 type Opinion uint8
 
 const (
 	// UndefinedOpinion represents the zero value of the Opinion type.
 	UndefinedOpinion Opinion = iota
 
-	// Confirmed represents the Opinion that a given Branch is the winning one.
+	// Confirmed represents the Opinion that a given Conflict is the winning one.
 	Confirmed
 
-	// Rejected represents the Opinion that a given Branch is the loosing one.
+	// Rejected represents the Opinion that a given Conflict is the loosing one.
 	Rejected
 )
 
@@ -327,48 +327,48 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LatestBranchVotes ////////////////////////////////////////////////////////////////////////////////////////////
+// region LatestConflictVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
-// LatestBranchVotes represents the branch supported from an Issuer.
-type LatestBranchVotes struct {
-	model.Storable[Voter, LatestBranchVotes, *LatestBranchVotes, latestBranchVotesModel] `serix:"0"`
+// LatestConflictVotes represents the conflict supported from an Issuer.
+type LatestConflictVotes struct {
+	model.Storable[Voter, LatestConflictVotes, *LatestConflictVotes, latestConflictVotesModel] `serix:"0"`
 }
 
-type latestBranchVotesModel struct {
-	LatestBranchVotes map[utxo.TransactionID]*BranchVote `serix:"0,lengthPrefixType=uint32"`
+type latestConflictVotesModel struct {
+	LatestConflictVotes map[utxo.TransactionID]*ConflictVote `serix:"0,lengthPrefixType=uint32"`
 }
 
-// NewLatestBranchVotes creates a new LatestBranchVotes.
-func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
-	latestBranchVotes = model.NewStorable[Voter, LatestBranchVotes](
-		&latestBranchVotesModel{
-			LatestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
+// NewLatestConflictVotes creates a new LatestConflictVotes.
+func NewLatestConflictVotes(voter Voter) (latestConflictVotes *LatestConflictVotes) {
+	latestConflictVotes = model.NewStorable[Voter, LatestConflictVotes](
+		&latestConflictVotesModel{
+			LatestConflictVotes: make(map[utxo.TransactionID]*ConflictVote),
 		},
 	)
-	latestBranchVotes.SetID(voter)
+	latestConflictVotes.SetID(voter)
 	return
 }
 
-// Vote returns the Vote for the LatestBranchVotes.
-func (l *LatestBranchVotes) Vote(branchID utxo.TransactionID) (vote *BranchVote, exists bool) {
+// Vote returns the Vote for the LatestConflictVotes.
+func (l *LatestConflictVotes) Vote(conflictID utxo.TransactionID) (vote *ConflictVote, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
-	vote, exists = l.M.LatestBranchVotes[branchID]
+	vote, exists = l.M.LatestConflictVotes[conflictID]
 
 	return
 }
 
-// Store stores the vote for the LatestBranchVotes.
-func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
+// Store stores the vote for the LatestConflictVotes.
+func (l *LatestConflictVotes) Store(vote *ConflictVote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
-	if currentVote, exists := l.M.LatestBranchVotes[vote.M.BranchID]; exists && currentVote.M.VotePower >= vote.M.VotePower {
+	if currentVote, exists := l.M.LatestConflictVotes[vote.M.ConflictID]; exists && currentVote.M.VotePower >= vote.M.VotePower {
 		return false
 	}
 
-	l.M.LatestBranchVotes[vote.M.BranchID] = vote
+	l.M.LatestConflictVotes[vote.M.ConflictID] = vote
 	l.SetModified()
 
 	return true
@@ -378,77 +378,77 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 
 // region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
-type BranchVote struct {
-	model.Mutable[BranchVote, *BranchVote, branchVoteModel] `serix:"0"`
+// ConflictVote represents a struct that holds information about what Opinion a certain Voter has on a Conflict.
+type ConflictVote struct {
+	model.Mutable[ConflictVote, *ConflictVote, conflictVoteModel] `serix:"0"`
 }
 
-type branchVoteModel struct {
-	Voter     Voter              `serix:"0"`
-	BranchID  utxo.TransactionID `serix:"1"`
-	Opinion   Opinion            `serix:"2"`
-	VotePower VotePower          `serix:"3"`
+type conflictVoteModel struct {
+	Voter      Voter              `serix:"0"`
+	ConflictID utxo.TransactionID `serix:"1"`
+	Opinion    Opinion            `serix:"2"`
+	VotePower  VotePower          `serix:"3"`
 }
 
-// NewBranchVote derives a vote for th.
-func NewBranchVote(voter Voter, votePower VotePower, branchID utxo.TransactionID, opinion Opinion) (voteWithOpinion *BranchVote) {
-	return model.NewMutable[BranchVote](
-		&branchVoteModel{
-			Voter:     voter,
-			VotePower: votePower,
-			BranchID:  branchID,
-			Opinion:   opinion,
+// NewConflictVote derives a vote for th.
+func NewConflictVote(voter Voter, votePower VotePower, conflictID utxo.TransactionID, opinion Opinion) (voteWithOpinion *ConflictVote) {
+	return model.NewMutable[ConflictVote](
+		&conflictVoteModel{
+			Voter:      voter,
+			VotePower:  votePower,
+			ConflictID: conflictID,
+			Opinion:    opinion,
 		},
 	)
 }
 
 // WithOpinion derives a vote for the given Opinion.
-func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
+func (v *ConflictVote) WithOpinion(opinion Opinion) (voteWithOpinion *ConflictVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return model.NewMutable[BranchVote](
-		&branchVoteModel{
-			Voter:     v.M.Voter,
-			BranchID:  v.M.BranchID,
-			Opinion:   opinion,
-			VotePower: v.M.VotePower,
+	return model.NewMutable[ConflictVote](
+		&conflictVoteModel{
+			Voter:      v.M.Voter,
+			ConflictID: v.M.ConflictID,
+			Opinion:    opinion,
+			VotePower:  v.M.VotePower,
 		},
 	)
 }
 
-// WithBranchID derives a vote for the given BranchID.
-func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
+// WithConflictID derives a vote for the given ConflictID.
+func (v *ConflictVote) WithConflictID(conflictID utxo.TransactionID) (rejectedVote *ConflictVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return model.NewMutable[BranchVote](
-		&branchVoteModel{
-			Voter:     v.M.Voter,
-			BranchID:  branchID,
-			Opinion:   v.M.Opinion,
-			VotePower: v.M.VotePower,
+	return model.NewMutable[ConflictVote](
+		&conflictVoteModel{
+			Voter:      v.M.Voter,
+			ConflictID: conflictID,
+			Opinion:    v.M.Opinion,
+			VotePower:  v.M.VotePower,
 		},
 	)
 }
 
-func (v *BranchVote) Voter() Voter {
+func (v *ConflictVote) Voter() Voter {
 	v.RLock()
 	defer v.RUnlock()
 	return v.M.Voter
 }
 
-func (v *BranchVote) BranchID() utxo.TransactionID {
+func (v *ConflictVote) ConflictID() utxo.TransactionID {
 	v.RLock()
 	defer v.RUnlock()
-	return v.M.BranchID
+	return v.M.ConflictID
 }
 
-func (v *BranchVote) Opinion() Opinion {
+func (v *ConflictVote) Opinion() Opinion {
 	v.RLock()
 	defer v.RUnlock()
 	return v.M.Opinion
 }
 
-func (v *BranchVote) VotePower() VotePower {
+func (v *ConflictVote) VotePower() VotePower {
 	v.RLock()
 	defer v.RUnlock()
 	return v.M.VotePower

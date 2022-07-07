@@ -10,16 +10,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-func TestMarkerIndexBranchIDMapping_Serialization(t *testing.T) {
-	m := NewMarkerIndexBranchIDMapping(1)
+func TestMarkerIndexConflictIDMapping_Serialization(t *testing.T) {
+	m := NewMarkerIndexConflictIDMapping(1)
 	txID := utxo.NewTransactionID([]byte("1"))
 	txID.RegisterAlias("txID")
-	m.SetBranchIDs(10, utxo.NewTransactionIDs(txID))
+	m.SetConflictIDs(10, utxo.NewTransactionIDs(txID))
 
-	restored := new(MarkerIndexBranchIDMapping)
+	restored := new(MarkerIndexConflictIDMapping)
 	err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
 	assert.NoError(t, err)
-	assert.Equal(t, m.BranchIDs(11), restored.BranchIDs(11))
+	assert.Equal(t, m.ConflictIDs(11), restored.ConflictIDs(11))
 }
 
 func TestStorage_StoreAttachment(t *testing.T) {

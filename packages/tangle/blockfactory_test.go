@@ -187,19 +187,19 @@ func TestBlockFactory_PrepareLikedReferences_1(t *testing.T) {
 	testFramework.CreateBlock("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
 	testFramework.IssueBlocks("1", "2", "3").WaitUntilAllTasksProcessed()
 
-	testFramework.RegisterBranchID("1", "1")
-	testFramework.RegisterBranchID("2", "2")
-	testFramework.RegisterBranchID("3", "3")
+	testFramework.RegisterConflictID("1", "1")
+	testFramework.RegisterConflictID("2", "2")
+	testFramework.RegisterConflictID("3", "3")
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[utxo.TransactionID]LikedConflictMembers{
-			testFramework.BranchID("3"): {
-				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("1"), testFramework.BranchID("2")),
+			testFramework.ConflictID("3"): {
+				likedConflict:   testFramework.ConflictID("2"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("1"), testFramework.ConflictID("2")),
 			},
-			testFramework.BranchID("2"): {
-				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("1"), testFramework.BranchID("3")),
+			testFramework.ConflictID("2"): {
+				likedConflict:   testFramework.ConflictID("2"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("1"), testFramework.ConflictID("3")),
 			},
 		},
 	}
@@ -242,28 +242,28 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.CreateBlock("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
 	testFramework.IssueBlocks("1", "2", "3", "4").WaitUntilAllTasksProcessed()
 
-	testFramework.RegisterBranchID("1", "1")
-	testFramework.RegisterBranchID("2", "2")
-	testFramework.RegisterBranchID("3", "3")
-	testFramework.RegisterBranchID("4", "4")
+	testFramework.RegisterConflictID("1", "1")
+	testFramework.RegisterConflictID("2", "2")
+	testFramework.RegisterConflictID("3", "3")
+	testFramework.RegisterConflictID("4", "4")
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[utxo.TransactionID]LikedConflictMembers{
-			testFramework.BranchID("1"): {
-				likedBranch:     testFramework.BranchID("1"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("4")),
+			testFramework.ConflictID("1"): {
+				likedConflict:   testFramework.ConflictID("1"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("4")),
 			},
-			testFramework.BranchID("2"): {
-				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("3")),
+			testFramework.ConflictID("2"): {
+				likedConflict:   testFramework.ConflictID("2"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("3")),
 			},
-			testFramework.BranchID("3"): {
-				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("2")),
+			testFramework.ConflictID("3"): {
+				likedConflict:   testFramework.ConflictID("2"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("2")),
 			},
-			testFramework.BranchID("4"): {
-				likedBranch:     testFramework.BranchID("1"),
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("1")),
+			testFramework.ConflictID("4"): {
+				likedConflict:   testFramework.ConflictID("1"),
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("1")),
 			},
 		},
 	}
@@ -345,21 +345,21 @@ func TestBlockFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.CreateBlock("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
 	testFramework.IssueBlocks("1", "2", "3").WaitUntilAllTasksProcessed()
 
-	testFramework.RegisterBranchID("1", "1")
-	testFramework.RegisterBranchID("2", "2")
-	testFramework.RegisterBranchID("3", "3")
+	testFramework.RegisterConflictID("1", "1")
+	testFramework.RegisterConflictID("2", "2")
+	testFramework.RegisterConflictID("3", "3")
 
-	nonExistingBranchID := randomBranchID()
+	nonExistingConflictID := randomConflictID()
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[utxo.TransactionID]LikedConflictMembers{
-			testFramework.BranchID("2"): {
-				likedBranch:     nonExistingBranchID,
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("3"), nonExistingBranchID),
+			testFramework.ConflictID("2"): {
+				likedConflict:   nonExistingConflictID,
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("3"), nonExistingConflictID),
 			},
-			testFramework.BranchID("3"): {
-				likedBranch:     nonExistingBranchID,
-				conflictMembers: set.NewAdvancedSet(testFramework.BranchID("2"), nonExistingBranchID),
+			testFramework.ConflictID("3"): {
+				likedConflict:   nonExistingConflictID,
+				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("2"), nonExistingConflictID),
 			},
 		},
 	}

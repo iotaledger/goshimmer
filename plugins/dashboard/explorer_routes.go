@@ -48,9 +48,9 @@ type ExplorerBlock struct {
 	ShallowLikeChilds []string `json:"shallowLikeChilds"`
 	// Solid defines the solid status of the block.
 	Solid                 bool               `json:"solid"`
-	BranchIDs             []string           `json:"branchIDs"`
-	AddedBranchIDs        []string           `json:"addedBranchIDs"`
-	SubtractedBranchIDs   []string           `json:"subtractedBranchIDs"`
+	ConflictIDs           []string           `json:"conflictIDs"`
+	AddedConflictIDs      []string           `json:"addedConflictIDs"`
+	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
 	Scheduled             bool               `json:"scheduled"`
 	Booked                bool               `json:"booked"`
 	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
@@ -82,7 +82,7 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 	defer cachedBlockMetadata.Release()
 	blockMetadata, _ := cachedBlockMetadata.Unwrap()
 
-	branchIDs, _ := deps.Tangle.Booker.BlockBranchIDs(blockID)
+	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)
 
 	ecRecord := epoch.NewECRecord(blk.EI())
 	ecRecord.SetECR(blk.ECR())
@@ -101,9 +101,9 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 		WeakChilds:              deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.WeakChild).Base58(),
 		ShallowLikeChilds:       deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.ShallowLikeChild).Base58(),
 		Solid:                   blockMetadata.IsSolid(),
-		BranchIDs:               lo.Map(lo.Map(branchIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		AddedBranchIDs:          lo.Map(lo.Map(blockMetadata.AddedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		SubtractedBranchIDs:     lo.Map(lo.Map(blockMetadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		Scheduled:               blockMetadata.Scheduled(),
 		Booked:                  blockMetadata.IsBooked(),
 		ObjectivelyInvalid:      blockMetadata.IsObjectivelyInvalid(),
@@ -193,10 +193,10 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
 	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
 	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
-	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
-	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
-	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
-	routeGroup.GET("/branch/:branchID/voters", ledgerstateAPI.GetBranchVoters)
+	routeGroup.GET("/conflict/:conflictID", ledgerstateAPI.GetConflict)
+	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
+	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
+	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
 	routeGroup.POST("/chat", chat.SendChatBlock)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
@@ -259,7 +259,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
-		// get output metadata + confirmation status from branch of the output
+		// get output metadata + confirmation status from conflict of the output
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})

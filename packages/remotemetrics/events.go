@@ -116,14 +116,14 @@ type MissingBlockMetrics struct {
 	IssuerID     string `json:"issuerID"  bson:"issuerID"`
 }
 
-// BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
-type BranchConfirmationMetrics struct {
+// ConflictConfirmationMetrics defines the conflict confirmation metrics record that is sent to remote logger.
+type ConflictConfirmationMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
 	IssuerID           string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	BlockID            string    `json:"blockID" bson:"blockID"`
-	BranchID           string    `json:"transactionID" bson:"transactionID"`
+	ConflictID         string    `json:"transactionID" bson:"transactionID"`
 	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
@@ -143,18 +143,18 @@ type SchedulerMetrics struct {
 	Timestamp                    time.Time          `json:"timestamp" bson:"timestamp"`
 }
 
-// BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.
-type BranchCountUpdate struct {
-	Type                           string `json:"type" bson:"type"`
-	NodeID                         string `json:"nodeID" bson:"nodeID"`
-	MetricsLevel                   uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	TotalBranchCount               uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
-	FinalizedBranchCount           uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
-	ConfirmedBranchCount           uint64 `json:"confirmedBranchCount" bson:"confirmedBranchCount"`
-	InitialTotalBranchCount        uint64 `json:"initialTotalBranchCount" bson:"initialTotalBranchCount"`
-	TotalBranchCountSinceStart     uint64 `json:"totalBranchCountSinceStart" bson:"totalBranchCountSinceStart"`
-	InitialConfirmedBranchCount    uint64 `json:"initialConfirmedBranchCount" bson:"initialConfirmedBranchCount"`
-	ConfirmedBranchCountSinceStart uint64 `json:"confirmedBranchCountSinceStart" bson:"confirmedBranchCountSinceStart"`
-	InitialFinalizedBranchCount    uint64 `json:"initialFinalizedBranchCount" bson:"initialFinalizedBranchCount"`
-	FinalizedBranchCountSinceStart uint64 `json:"finalizedBranchCountSinceStart" bson:"finalizedBranchCountSinceStart"`
+// ConflictCountUpdate defines the conflict confirmation metrics record that is sent to remote logger.
+type ConflictCountUpdate struct {
+	Type                             string `json:"type" bson:"type"`
+	NodeID                           string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel                     uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	TotalConflictCount               uint64 `json:"totalConflictCount" bson:"totalConflictCount"`
+	FinalizedConflictCount           uint64 `json:"finalizedConflictCount" bson:"finalizedConflictCount"`
+	ConfirmedConflictCount           uint64 `json:"confirmedConflictCount" bson:"confirmedConflictCount"`
+	InitialTotalConflictCount        uint64 `json:"initialTotalConflictCount" bson:"initialTotalConflictCount"`
+	TotalConflictCountSinceStart     uint64 `json:"totalConflictCountSinceStart" bson:"totalConflictCountSinceStart"`
+	InitialConfirmedConflictCount    uint64 `json:"initialConfirmedConflictCount" bson:"initialConfirmedConflictCount"`
+	ConfirmedConflictCountSinceStart uint64 `json:"confirmedConflictCountSinceStart" bson:"confirmedConflictCountSinceStart"`
+	InitialFinalizedConflictCount    uint64 `json:"initialFinalizedConflictCount" bson:"initialFinalizedConflictCount"`
+	FinalizedConflictCountSinceStart uint64 `json:"finalizedConflictCountSinceStart" bson:"finalizedConflictCountSinceStart"`
 }

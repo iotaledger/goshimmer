@@ -14,7 +14,7 @@ type Conflict[ConflictID, ConflictSetID comparable] struct {
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
-	// Parents contains the parent BranchIDs that this Conflict depends on.
+	// Parents contains the parent ConflictIDs that this Conflict depends on.
 	Parents *set.AdvancedSet[ConflictID] `serix:"0"`
 
 	// ConflictSetIDs contains the identifiers of the conflictsets that this Conflict is part of.
@@ -35,7 +35,7 @@ func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID,
 	return new
 }
 
-// Parents returns the parent BranchIDs that this Conflict depends on.
+// Parents returns the parent ConflictIDs that this Conflict depends on.
 func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
 	c.RLock()
 	defer c.RUnlock()
@@ -43,7 +43,7 @@ func (c *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSe
 	return c.M.Parents.Clone()
 }
 
-// SetParents updates the parent BranchIDs that this Conflict depends on. It returns true if the Conflict was modified.
+// SetParents updates the parent ConflictIDs that this Conflict depends on. It returns true if the Conflict was modified.
 func (c *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) {
 	c.Lock()
 	defer c.Unlock()
@@ -99,25 +99,25 @@ func (c *Conflict[ConflictID, ConflictSetID]) setConfirmationState(confirmationS
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
+// region ChildConflict //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ChildBranch represents the reference between a Conflict and its children.
-type ChildBranch[ConflictID comparable] struct {
-	model.StorableReference[ChildBranch[ConflictID], *ChildBranch[ConflictID], ConflictID, ConflictID] `serix:"0"`
+// ChildConflict represents the reference between a Conflict and its children.
+type ChildConflict[ConflictID comparable] struct {
+	model.StorableReference[ChildConflict[ConflictID], *ChildConflict[ConflictID], ConflictID, ConflictID] `serix:"0"`
 }
 
-// NewChildBranch return a new ChildBranch reference from the named parent to the named child.
-func NewChildBranch[ConflictID comparable](parentBranchID, childBranchID ConflictID) *ChildBranch[ConflictID] {
-	return model.NewStorableReference[ChildBranch[ConflictID]](parentBranchID, childBranchID)
+// NewChildConflict return a new ChildConflict reference from the named parent to the named child.
+func NewChildConflict[ConflictID comparable](parentConflictID, childConflictID ConflictID) *ChildConflict[ConflictID] {
+	return model.NewStorableReference[ChildConflict[ConflictID]](parentConflictID, childConflictID)
 }
 
-// ParentBranchID returns the identifier of the parent Conflict.
-func (c *ChildBranch[ConflictID]) ParentBranchID() (parentBranchID ConflictID) {
+// ParentConflictID returns the identifier of the parent Conflict.
+func (c *ChildConflict[ConflictID]) ParentConflictID() (parentConflictID ConflictID) {
 	return c.SourceID()
 }
 
-// ChildBranchID returns the identifier of the child Conflict.
-func (c *ChildBranch[ConflictID]) ChildBranchID() (childBranchID ConflictID) {
+// ChildConflictID returns the identifier of the child Conflict.
+func (c *ChildConflict[ConflictID]) ChildConflictID() (childConflictID ConflictID) {
 	return c.TargetID()
 }
 
@@ -141,7 +141,7 @@ func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictSetID() (conflictSet
 }
 
 // ConflictID returns the identifier of the Conflict.
-func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictID() (branchID ConflictID) {
+func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictID() (conflictID ConflictID) {
 	return c.TargetID()
 }
 

@@ -19,7 +19,7 @@ const (
 
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
-// ApprovalWeightManager is a Tangle component to keep track of relative weights of branches and markers so that
+// ApprovalWeightManager is a Tangle component to keep track of relative weights of conflicts and markers so that
 // consensus can be based on the heaviest perception on the tangle as a data structure.
 type ApprovalWeightManager struct {
 	Events *ApprovalWeightManagerEvents
@@ -41,30 +41,30 @@ func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
 		a.processBookedBlock(event.BlockID)
 	}))
-	a.tangle.Booker.Events.BlockBranchUpdated.Hook(event.NewClosure(func(event *BlockBranchUpdatedEvent) {
-		a.processForkedBlock(event.BlockID, event.BranchID)
+	a.tangle.Booker.Events.BlockConflictUpdated.Hook(event.NewClosure(func(event *BlockConflictUpdatedEvent) {
+		a.processForkedBlock(event.BlockID, event.ConflictID)
 	}))
-	a.tangle.Booker.Events.MarkerBranchAdded.Hook(event.NewClosure(func(event *MarkerBranchAddedEvent) {
-		a.processForkedMarker(event.Marker, event.NewBranchID)
+	a.tangle.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *MarkerConflictAddedEvent) {
+		a.processForkedMarker(event.Marker, event.NewConflictID)
 	}))
 }
 
 // processBookedBlock is the main entry point for the ApprovalWeightManager. It takes the Block's issuer, adds it to the
 // voters of the Block's ledger.Conflict and approved markers.Marker and eventually triggers events when
-// approval weights for branch and markers are reached.
+// approval weights for conflict and markers are reached.
 func (a *ApprovalWeightManager) processBookedBlock(blockID BlockID) {
 	a.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		a.updateBranchVoters(block)
+		a.updateConflictVoters(block)
 		a.updateSequenceVoters(block)
 
 		a.Events.BlockProcessed.Trigger(&BlockProcessedEvent{blockID})
 	})
 }
 
-// WeightOfBranch returns the weight of the given Conflict that was added by Voters of the given epoch.
-func (a *ApprovalWeightManager) WeightOfBranch(branchID utxo.TransactionID) (weight float64) {
-	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
-		weight = branchWeight.Weight()
+// WeightOfConflict returns the weight of the given Conflict that was added by Voters of the given epoch.
+func (a *ApprovalWeightManager) WeightOfConflict(conflictID utxo.TransactionID) (weight float64) {
+	a.tangle.Storage.ConflictWeight(conflictID).Consume(func(conflictWeight *ConflictWeight) {
+		weight = conflictWeight.Weight()
 	})
 
 	return
@@ -91,10 +91,10 @@ func (a *ApprovalWeightManager) isRelevantVoter(block *Block) bool {
 	return voterWeight/totalWeight >= minVoterWeight
 }
 
-// VotersOfBranch returns the Voters of the given branch ledger.BranchID.
-func (a *ApprovalWeightManager) VotersOfBranch(branchID utxo.TransactionID) (voters *Voters) {
-	if !a.tangle.Storage.BranchVoters(branchID).Consume(func(branchVoters *BranchVoters) {
-		voters = branchVoters.Voters()
+// VotersOfConflict returns the Voters of the given conflict ledger.ConflictID.
+func (a *ApprovalWeightManager) VotersOfConflict(conflictID utxo.TransactionID) (voters *Voters) {
+	if !a.tangle.Storage.ConflictVoters(conflictID).Consume(func(conflictVoters *ConflictVoters) {
+		voters = conflictVoters.Voters()
 	}) {
 		voters = NewVoters()
 	}
@@ -116,18 +116,18 @@ func (a *ApprovalWeightManager) markerVotes(marker markers.Marker) (markerVotes 
 	return markerVotes
 }
 
-func (a *ApprovalWeightManager) updateBranchVoters(block *Block) {
-	branchesOfBlock, err := a.tangle.Booker.BlockBranchIDs(block.ID())
+func (a *ApprovalWeightManager) updateConflictVoters(block *Block) {
+	conflictsOfBlock, err := a.tangle.Booker.BlockConflictIDs(block.ID())
 	if err != nil {
 		panic(err)
 	}
 
 	voter := identity.NewID(block.IssuerPublicKey())
 
-	// create vote with default BranchID and Opinion values that will be filled later
-	vote := NewBranchVote(voter, block.SequenceNumber(), utxo.TransactionID{}, UndefinedOpinion)
+	// create vote with default ConflictID and Opinion values that will be filled later
+	vote := NewConflictVote(voter, block.SequenceNumber(), utxo.TransactionID{}, UndefinedOpinion)
 
-	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfBlock, vote)
+	addedConflictIDs, revokedConflictIDs, isInvalid := a.determineVotes(conflictsOfBlock, vote)
 	if isInvalid {
 		a.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 			blockMetadata.SetSubjectivelyInvalid(true)
@@ -140,142 +140,142 @@ func (a *ApprovalWeightManager) updateBranchVoters(block *Block) {
 	}
 
 	addedVote := vote.WithOpinion(Confirmed)
-	for it := addedBranchIDs.Iterator(); it.HasNext(); {
-		addBranchID := it.Next()
-		a.addVoterToBranch(addBranchID, addedVote.WithBranchID(addBranchID))
+	for it := addedConflictIDs.Iterator(); it.HasNext(); {
+		addConflictID := it.Next()
+		a.addVoterToConflict(addConflictID, addedVote.WithConflictID(addConflictID))
 	}
 
 	revokedVote := vote.WithOpinion(Rejected)
-	for it := revokedBranchIDs.Iterator(); it.HasNext(); {
-		revokedBranchID := it.Next()
-		a.revokeVoterFromBranch(revokedBranchID, revokedVote.WithBranchID(revokedBranchID))
+	for it := revokedConflictIDs.Iterator(); it.HasNext(); {
+		revokedConflictID := it.Next()
+		a.revokeVoterFromConflict(revokedConflictID, revokedVote.WithConflictID(revokedConflictID))
 	}
 }
 
-// determineVotes iterates over a set of branches and, taking into account the opinion a Voter expressed previously,
-// computes the branches that will receive additional weight, the ones that will see their weight revoked, and if the
+// determineVotes iterates over a set of conflicts and, taking into account the opinion a Voter expressed previously,
+// computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overrall valid state transition.
-func (a *ApprovalWeightManager) determineVotes(votedBranchIDs *set.AdvancedSet[utxo.TransactionID], vote *BranchVote) (addedBranches, revokedBranches *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
-	addedBranches = utxo.NewTransactionIDs()
-	for it := votedBranchIDs.Iterator(); it.HasNext(); {
-		votedBranchID := it.Next()
+func (a *ApprovalWeightManager) determineVotes(votedConflictIDs *set.AdvancedSet[utxo.TransactionID], vote *ConflictVote) (addedConflicts, revokedConflicts *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+	addedConflicts = utxo.NewTransactionIDs()
+	for it := votedConflictIDs.Iterator(); it.HasNext(); {
+		votedConflictID := it.Next()
 
-		conflictingBranchWithHigherVoteExists := false
-		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
-			conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
+		conflictingConflictWithHigherVoteExists := false
+		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(votedConflictID, func(conflictingConflictID utxo.TransactionID) bool {
+			conflictingConflictWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithConflictID(conflictingConflictID).WithOpinion(Confirmed))
 
-			return !conflictingBranchWithHigherVoteExists
+			return !conflictingConflictWithHigherVoteExists
 		})
 
-		if conflictingBranchWithHigherVoteExists {
+		if conflictingConflictWithHigherVoteExists {
 			continue
 		}
 
-		// The starting branches should not be considered as having common Parents, hence we treat them separately.
-		conflictAddedBranches, _ := a.determineBranchesToAdd(set.NewAdvancedSet(votedBranchID), vote.WithOpinion(Confirmed))
-		addedBranches.AddAll(conflictAddedBranches)
+		// The starting conflicts should not be considered as having common Parents, hence we treat them separately.
+		conflictAddedConflicts, _ := a.determineConflictsToAdd(set.NewAdvancedSet(votedConflictID), vote.WithOpinion(Confirmed))
+		addedConflicts.AddAll(conflictAddedConflicts)
 	}
-	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, votedBranchIDs, vote.WithOpinion(Rejected))
+	revokedConflicts, isInvalid = a.determineConflictsToRevoke(addedConflicts, votedConflictIDs, vote.WithOpinion(Rejected))
 
 	return
 }
 
-// determineBranchesToAdd iterates through the past cone of the given Branches and determines the BranchIDs that
+// determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
 // are affected by the Vote.
-func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSet[utxo.TransactionID], branchVote *BranchVote) (addedBranches *set.AdvancedSet[utxo.TransactionID], allParentsAdded bool) {
-	addedBranches = set.NewAdvancedSet[utxo.TransactionID]()
+func (a *ApprovalWeightManager) determineConflictsToAdd(conflictIDs *set.AdvancedSet[utxo.TransactionID], conflictVote *ConflictVote) (addedConflicts *set.AdvancedSet[utxo.TransactionID], allParentsAdded bool) {
+	addedConflicts = set.NewAdvancedSet[utxo.TransactionID]()
 
-	for it := branchIDs.Iterator(); it.HasNext(); {
-		currentBranchID := it.Next()
-		// currentVote := branchVote.WithBranchID(currentBranchID)
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		currentConflictID := it.Next()
+		// currentVote := conflictVote.WithConflictID(currentConflictID)
 
-		// Do not queue parents if a newer vote exists for this branch for this voter.
+		// Do not queue parents if a newer vote exists for this conflict for this voter.
 		// TODO: do not exit earlier to always determine subjectively invalid blocks correctly
 		// if a.identicalVoteWithHigherPowerExists(currentVote) {
 		// 	continue
 		// }
 
-		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(currentBranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
-			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
+		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			addedConflictsOfCurrentConflict, allParentsOfCurrentConflictAdded := a.determineConflictsToAdd(conflict.Parents(), conflictVote)
+			allParentsAdded = allParentsAdded && allParentsOfCurrentConflictAdded
 
-			addedBranches.AddAll(addedBranchesOfCurrentBranch)
+			addedConflicts.AddAll(addedConflictsOfCurrentConflict)
 		})
 
-		addedBranches.Add(currentBranchID)
+		addedConflicts.Add(currentConflictID)
 	}
 
 	return
 }
 
-// determineBranchesToRevoke determines which Branches of the conflicting future cone of the added Branches are affected
-// by the vote and if the vote is valid (not voting for conflicting Branches).
-func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBranches *set.AdvancedSet[utxo.TransactionID], vote *BranchVote) (revokedBranches *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
-	revokedBranches = set.NewAdvancedSet[utxo.TransactionID]()
+// determineConflictsToRevoke determines which Conflicts of the conflicting future cone of the added Conflicts are affected
+// by the vote and if the vote is valid (not voting for conflicting Conflicts).
+func (a *ApprovalWeightManager) determineConflictsToRevoke(addedConflicts, votedConflicts *set.AdvancedSet[utxo.TransactionID], vote *ConflictVote) (revokedConflicts *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+	revokedConflicts = set.NewAdvancedSet[utxo.TransactionID]()
 	subTractionWalker := walker.New[utxo.TransactionID]()
-	for it := addedBranches.Iterator(); it.HasNext(); {
-		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(it.Next(), func(conflictingBranchID utxo.TransactionID) bool {
-			subTractionWalker.Push(conflictingBranchID)
+	for it := addedConflicts.Iterator(); it.HasNext(); {
+		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(it.Next(), func(conflictingConflictID utxo.TransactionID) bool {
+			subTractionWalker.Push(conflictingConflictID)
 
 			return true
 		})
 	}
 
 	for subTractionWalker.HasNext() {
-		currentVote := vote.WithBranchID(subTractionWalker.Next())
+		currentVote := vote.WithConflictID(subTractionWalker.Next())
 
-		if isInvalid = addedBranches.Has(currentVote.BranchID()) || votedBranches.Has(currentVote.BranchID()); isInvalid {
+		if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
 			return
 		}
 
-		revokedBranches.Add(currentVote.BranchID())
+		revokedConflicts.Add(currentVote.ConflictID())
 
-		a.tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(currentVote.BranchID()).Consume(func(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) {
-			subTractionWalker.Push(childBranch.ChildBranchID())
+		a.tangle.Ledger.ConflictDAG.Storage.CachedChildConflicts(currentVote.ConflictID()).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {
+			subTractionWalker.Push(childConflict.ChildConflictID())
 		})
 	}
 
 	return
 }
 
-func (a *ApprovalWeightManager) identicalVoteWithHigherPowerExists(vote *BranchVote) (exists bool) {
+func (a *ApprovalWeightManager) identicalVoteWithHigherPowerExists(vote *ConflictVote) (exists bool) {
 	existingVote, exists := a.voteWithHigherPower(vote)
 
 	return exists && vote.Opinion() == existingVote.Opinion()
 }
 
-func (a *ApprovalWeightManager) voteWithHigherPower(vote *BranchVote) (existingVote *BranchVote, exists bool) {
-	a.tangle.Storage.LatestBranchVotes(vote.Voter()).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		existingVote, exists = latestBranchVotes.Vote(vote.BranchID())
+func (a *ApprovalWeightManager) voteWithHigherPower(vote *ConflictVote) (existingVote *ConflictVote, exists bool) {
+	a.tangle.Storage.LatestConflictVotes(vote.Voter()).Consume(func(latestConflictVotes *LatestConflictVotes) {
+		existingVote, exists = latestConflictVotes.Vote(vote.ConflictID())
 	})
 
 	return existingVote, exists && existingVote.VotePower() > vote.VotePower()
 }
 
-func (a *ApprovalWeightManager) addVoterToBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
-	a.tangle.Storage.LatestBranchVotes(branchVote.Voter(), NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		if existingVote, exists := latestBranchVotes.Vote(branchID); !exists || existingVote.VotePower() < branchVote.VotePower() {
-			latestBranchVotes.Store(branchVote)
+func (a *ApprovalWeightManager) addVoterToConflict(conflictID utxo.TransactionID, conflictVote *ConflictVote) {
+	a.tangle.Storage.LatestConflictVotes(conflictVote.Voter(), NewLatestConflictVotes).Consume(func(latestConflictVotes *LatestConflictVotes) {
+		if existingVote, exists := latestConflictVotes.Vote(conflictID); !exists || existingVote.VotePower() < conflictVote.VotePower() {
+			latestConflictVotes.Store(conflictVote)
 
-			a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-				branchVoters.AddVoter(branchVote.Voter())
+			a.tangle.Storage.ConflictVoters(conflictID, NewConflictVoters).Consume(func(conflictVoters *ConflictVoters) {
+				conflictVoters.AddVoter(conflictVote.Voter())
 			})
 
-			a.updateBranchWeight(branchID)
+			a.updateConflictWeight(conflictID)
 		}
 	})
 }
 
-func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
-	a.tangle.Storage.LatestBranchVotes(branchVote.Voter(), NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		if existingVote, exists := latestBranchVotes.Vote(branchID); !exists || existingVote.VotePower() < branchVote.VotePower() {
-			latestBranchVotes.Store(branchVote)
+func (a *ApprovalWeightManager) revokeVoterFromConflict(conflictID utxo.TransactionID, conflictVote *ConflictVote) {
+	a.tangle.Storage.LatestConflictVotes(conflictVote.Voter(), NewLatestConflictVotes).Consume(func(latestConflictVotes *LatestConflictVotes) {
+		if existingVote, exists := latestConflictVotes.Vote(conflictID); !exists || existingVote.VotePower() < conflictVote.VotePower() {
+			latestConflictVotes.Store(conflictVote)
 
-			a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-				branchVoters.DeleteVoter(branchVote.Voter())
+			a.tangle.Storage.ConflictVoters(conflictID, NewConflictVoters).Consume(func(conflictVoters *ConflictVoters) {
+				conflictVoters.DeleteVoter(conflictVote.Voter())
 			})
 
-			a.updateBranchWeight(branchID)
+			a.updateConflictWeight(conflictID)
 		}
 	})
 }
@@ -304,8 +304,8 @@ func (a *ApprovalWeightManager) updateSequenceVoters(block *Block) {
 
 func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, block *Block, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
-	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
-	// voters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.
+	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the
+	// voters of the marker to the conflict. Since the marker is already seen as confirmed it should not matter too much though.
 	if a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(marker.SequenceID()) >= marker.Index() {
 		return
 	}
@@ -354,92 +354,92 @@ func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceI
 	}
 }
 
-func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) {
+func (a *ApprovalWeightManager) updateConflictWeight(conflictID utxo.TransactionID) {
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	var voterWeight float64
-	a.VotersOfBranch(branchID).Set.ForEach(func(voter Voter) {
+	a.VotersOfConflict(conflictID).Set.ForEach(func(voter Voter) {
 		voterWeight += activeWeights[voter]
 	})
 
-	newBranchWeight := voterWeight / totalWeight
+	newConflictWeight := voterWeight / totalWeight
 
-	a.tangle.Storage.BranchWeight(branchID, NewBranchWeight).Consume(func(branchWeight *BranchWeight) {
-		if !branchWeight.SetWeight(newBranchWeight) {
+	a.tangle.Storage.ConflictWeight(conflictID, NewConflictWeight).Consume(func(conflictWeight *ConflictWeight) {
+		if !conflictWeight.SetWeight(newConflictWeight) {
 			return
 		}
 
-		a.Events.BranchWeightChanged.Trigger(&BranchWeightChangedEvent{branchID, newBranchWeight})
+		a.Events.ConflictWeightChanged.Trigger(&ConflictWeightChangedEvent{conflictID, newConflictWeight})
 	})
 }
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (a *ApprovalWeightManager) processForkedBlock(blockID BlockID, forkedBranchID utxo.TransactionID) {
+func (a *ApprovalWeightManager) processForkedBlock(blockID BlockID, forkedConflictID utxo.TransactionID) {
 	a.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
-			a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedBranchID).Consume(func(forkedBranch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				if !a.addSupportToForkedBranchVoters(identity.NewID(block.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), block.SequenceNumber()) {
+		a.tangle.Storage.ConflictVoters(forkedConflictID, NewConflictVoters).Consume(func(forkedConflictVoters *ConflictVoters) {
+			a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedConflictID).Consume(func(forkedConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+				if !a.addSupportToForkedConflictVoters(identity.NewID(block.IssuerPublicKey()), forkedConflictVoters, forkedConflict.Parents(), block.SequenceNumber()) {
 					return
 				}
 
-				a.updateBranchWeight(forkedBranchID)
+				a.updateConflictWeight(forkedConflictID)
 			})
 		})
 	})
 }
 
-// take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) processForkedMarker(marker markers.Marker, forkedBranchID utxo.TransactionID) {
-	branchVotesUpdated := false
-	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedBranchID).Consume(func(forkedBranch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
-			// voters of the marker we are forking also voted for all parents of the branch the marker is
+// take everything in future cone because it was not conflicting before and move to new conflict.
+func (a *ApprovalWeightManager) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID) {
+	conflictVotesUpdated := false
+	a.tangle.Storage.ConflictVoters(forkedConflictID, NewConflictVoters).Consume(func(conflictVoters *ConflictVoters) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedConflictID).Consume(func(forkedConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			// If we want to add the conflictVoters to the newly-forker conflict, we have to make sure the
+			// voters of the marker we are forking also voted for all parents of the conflict the marker is
 			// being forked into.
-			parentBranchIDs := forkedBranch.Parents()
+			parentConflictIDs := forkedConflict.Parents()
 
 			for voter, sequenceNumber := range a.markerVotes(marker) {
-				if !a.addSupportToForkedBranchVoters(voter, branchVoters, parentBranchIDs, sequenceNumber) {
+				if !a.addSupportToForkedConflictVoters(voter, conflictVoters, parentConflictIDs, sequenceNumber) {
 					continue
 				}
 
-				branchVotesUpdated = true
+				conflictVotesUpdated = true
 			}
 		})
 	})
 
-	if !branchVotesUpdated {
+	if !conflictVotesUpdated {
 		return
 	}
 
-	a.updateBranchWeight(forkedBranchID)
+	a.updateConflictWeight(forkedConflictID)
 }
 
-func (a *ApprovalWeightManager) addSupportToForkedBranchVoters(voter Voter, forkedBranchVoters *BranchVoters, parentBranchIDs *set.AdvancedSet[utxo.TransactionID], sequenceNumber uint64) (supportAdded bool) {
-	if !a.voterSupportsAllBranches(voter, parentBranchIDs) {
+func (a *ApprovalWeightManager) addSupportToForkedConflictVoters(voter Voter, forkedConflictVoters *ConflictVoters, parentConflictIDs *set.AdvancedSet[utxo.TransactionID], sequenceNumber uint64) (supportAdded bool) {
+	if !a.voterSupportsAllConflicts(voter, parentConflictIDs) {
 		return false
 	}
 
-	a.tangle.Storage.LatestBranchVotes(voter, NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		supportAdded = latestBranchVotes.Store(NewBranchVote(voter, sequenceNumber, forkedBranchVoters.BranchID(), Confirmed))
+	a.tangle.Storage.LatestConflictVotes(voter, NewLatestConflictVotes).Consume(func(latestConflictVotes *LatestConflictVotes) {
+		supportAdded = latestConflictVotes.Store(NewConflictVote(voter, sequenceNumber, forkedConflictVoters.ConflictID(), Confirmed))
 	})
 
-	return supportAdded && forkedBranchVoters.AddVoter(voter)
+	return supportAdded && forkedConflictVoters.AddVoter(voter)
 }
 
-func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs *set.AdvancedSet[utxo.TransactionID]) (allBranchesSupported bool) {
-	allBranchesSupported = true
-	for it := branchIDs.Iterator(); it.HasNext(); {
-		a.tangle.Storage.BranchVoters(it.Next()).Consume(func(branchVoters *BranchVoters) {
-			allBranchesSupported = branchVoters.Has(voter)
+func (a *ApprovalWeightManager) voterSupportsAllConflicts(voter Voter, conflictIDs *set.AdvancedSet[utxo.TransactionID]) (allConflictsSupported bool) {
+	allConflictsSupported = true
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		a.tangle.Storage.ConflictVoters(it.Next()).Consume(func(conflictVoters *ConflictVoters) {
+			allConflictsSupported = conflictVoters.Has(voter)
 		})
 
-		if !allBranchesSupported {
+		if !allConflictsSupported {
 			return false
 		}
 	}
 
-	return allBranchesSupported
+	return allConflictsSupported
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -623,8 +623,8 @@ type blockMetadataModel struct {
 	SolidificationTime    time.Time                 `serix:"2"`
 	Solid                 bool                      `serix:"3"`
 	StructureDetails      *markers.StructureDetails `serix:"4,optional"`
-	AddedBranchIDs        utxo.TransactionIDs       `serix:"5"`
-	SubtractedBranchIDs   utxo.TransactionIDs       `serix:"6"`
+	AddedConflictIDs      utxo.TransactionIDs       `serix:"5"`
+	SubtractedConflictIDs utxo.TransactionIDs       `serix:"6"`
 	Scheduled             bool                      `serix:"7"`
 	ScheduledTime         time.Time                 `serix:"8"`
 	Booked                bool                      `serix:"9"`
@@ -640,10 +640,10 @@ type blockMetadataModel struct {
 // NewBlockMetadata creates a new BlockMetadata from the specified blockID.
 func NewBlockMetadata(blockID BlockID) *BlockMetadata {
 	metadata := model.NewStorable[BlockID, BlockMetadata](&blockMetadataModel{
-		ReceivedTime:        clock.SyncedTime(),
-		AddedBranchIDs:      utxo.NewTransactionIDs(),
-		SubtractedBranchIDs: utxo.NewTransactionIDs(),
-		ConfirmationState:   confirmation.Pending,
+		ReceivedTime:          clock.SyncedTime(),
+		AddedConflictIDs:      utxo.NewTransactionIDs(),
+		SubtractedConflictIDs: utxo.NewTransactionIDs(),
+		ConfirmationState:     confirmation.Pending,
 	})
 	metadata.SetID(blockID)
 
@@ -713,62 +713,62 @@ func (m *BlockMetadata) StructureDetails() *markers.StructureDetails {
 	return m.M.StructureDetails
 }
 
-// SetAddedBranchIDs sets the BranchIDs of the added Branches.
-func (m *BlockMetadata) SetAddedBranchIDs(addedBranchIDs utxo.TransactionIDs) (modified bool) {
+// SetAddedConflictIDs sets the ConflictIDs of the added Conflicts.
+func (m *BlockMetadata) SetAddedConflictIDs(addedConflictIDs utxo.TransactionIDs) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.M.AddedBranchIDs.Equal(addedBranchIDs) {
+	if m.M.AddedConflictIDs.Equal(addedConflictIDs) {
 		return false
 	}
 
-	m.M.AddedBranchIDs = addedBranchIDs.Clone()
+	m.M.AddedConflictIDs = addedConflictIDs.Clone()
 	m.SetModified()
 	return true
 }
 
-// AddBranchID sets the BranchIDs of the added Branches.
-func (m *BlockMetadata) AddBranchID(branchID utxo.TransactionID) (modified bool) {
+// AddConflictID sets the ConflictIDs of the added Conflicts.
+func (m *BlockMetadata) AddConflictID(conflictID utxo.TransactionID) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.M.AddedBranchIDs.Has(branchID) {
+	if m.M.AddedConflictIDs.Has(conflictID) {
 		return
 	}
 
-	m.M.AddedBranchIDs.Add(branchID)
+	m.M.AddedConflictIDs.Add(conflictID)
 	m.SetModified()
 	return true
 }
 
-// AddedBranchIDs returns the BranchIDs of the added Branches of the Block.
-func (m *BlockMetadata) AddedBranchIDs() utxo.TransactionIDs {
+// AddedConflictIDs returns the ConflictIDs of the added Conflicts of the Block.
+func (m *BlockMetadata) AddedConflictIDs() utxo.TransactionIDs {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.M.AddedBranchIDs.Clone()
+	return m.M.AddedConflictIDs.Clone()
 }
 
-// SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
-func (m *BlockMetadata) SetSubtractedBranchIDs(subtractedBranchIDs utxo.TransactionIDs) (modified bool) {
+// SetSubtractedConflictIDs sets the ConflictIDs of the subtracted Conflicts.
+func (m *BlockMetadata) SetSubtractedConflictIDs(subtractedConflictIDs utxo.TransactionIDs) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
-	if m.M.SubtractedBranchIDs.Equal(subtractedBranchIDs) {
+	if m.M.SubtractedConflictIDs.Equal(subtractedConflictIDs) {
 		return false
 	}
 
-	m.M.SubtractedBranchIDs = subtractedBranchIDs.Clone()
+	m.M.SubtractedConflictIDs = subtractedConflictIDs.Clone()
 	m.SetModified()
 	return true
 }
 
-// SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Block.
-func (m *BlockMetadata) SubtractedBranchIDs() utxo.TransactionIDs {
+// SubtractedConflictIDs returns the ConflictIDs of the subtracted Conflicts of the Block.
+func (m *BlockMetadata) SubtractedConflictIDs() utxo.TransactionIDs {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.M.SubtractedBranchIDs.Clone()
+	return m.M.SubtractedConflictIDs.Clone()
 }
 
 // SetScheduled sets the block associated with this metadata as scheduled.

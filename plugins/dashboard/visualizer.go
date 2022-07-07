@@ -64,7 +64,7 @@ func configureVisualizer() {
 }
 
 func sendVertex(blk *tangle.Block, finalized bool) {
-	broadcastWsBlock(&wsblk{BlkTypeVertex, &vertex{
+	broadcastWsBlock(&wsblk{MsgTypeVertex, &vertex{
 		ID:              blk.ID().Base58(),
 		ParentIDsByType: prepareParentReferences(blk),
 		IsFinalized:     finalized,
@@ -73,7 +73,7 @@ func sendVertex(blk *tangle.Block, finalized bool) {
 }
 
 func sendTipInfo(blockID tangle.BlockID, isTip bool) {
-	broadcastWsBlock(&wsblk{BlkTypeTipInfo, &tipinfo{
+	broadcastWsBlock(&wsblk{MsgTypeTipInfo, &tipinfo{
 		ID:    blockID.Base58(),
 		IsTip: isTip,
 	}}, true)

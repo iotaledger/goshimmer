@@ -17,14 +17,14 @@ const (
 	BlkTypeUTXOBooked
 	// BlkTypeUTXOConfirmationStateChanged is the type of the UTXO DAG vertex confirmation state block.
 	BlkTypeUTXOConfirmationStateChanged
-	// BlkTypeBranchVertex is the type of the branch DAG vertex.
-	BlkTypeBranchVertex
-	// BlkTypeBranchParentsUpdate is the type of the branch DAG vertex parents updated block.
-	BlkTypeBranchParentsUpdate
-	// BlkTypeBranchConfirmationStateChanged is the type of the branch DAG vertex confirmed block.
-	BlkTypeBranchConfirmationStateChanged
-	// BlkTypeBranchWeightChanged is the type of the branch DAG vertex weight changed block.
-	BlkTypeBranchWeightChanged
+	// BlkTypeConflictVertex is the type of the conflict DAG vertex.
+	BlkTypeConflictVertex
+	// BlkTypeConflictParentsUpdate is the type of the conflict DAG vertex parents updated block.
+	BlkTypeConflictParentsUpdate
+	// BlkTypeConflictConfirmationStateChanged is the type of the conflict DAG vertex confirmed block.
+	BlkTypeConflictConfirmationStateChanged
+	// BlkTypeConflictWeightChanged is the type of the conflict DAG vertex weight changed block.
+	BlkTypeConflictWeightChanged
 )
 
 type wsBlock struct {
@@ -37,7 +37,7 @@ type tangleVertex struct {
 	StrongParentIDs       []string `json:"strongParentIDs"`
 	WeakParentIDs         []string `json:"weakParentIDs"`
 	ShallowLikeParentIDs  []string `json:"shallowLikeParentIDs"`
-	BranchIDs             []string `json:"branchIDs"`
+	ConflictIDs           []string `json:"conflictIDs"`
 	IsMarker              bool     `json:"isMarker"`
 	IsTx                  bool     `json:"isTx"`
 	TxID                  string   `json:"txID,omitempty"`
@@ -47,9 +47,9 @@ type tangleVertex struct {
 }
 
 type tangleBooked struct {
-	ID        string   `json:"ID"`
-	IsMarker  bool     `json:"isMarker"`
-	BranchIDs []string `json:"branchIDs"`
+	ID          string   `json:"ID"`
+	IsMarker    bool     `json:"isMarker"`
+	ConflictIDs []string `json:"conflictIDs"`
 }
 
 type tangleConfirmed struct {
@@ -70,13 +70,13 @@ type utxoVertex struct {
 	Outputs               []string            `json:"outputs"`
 	IsConfirmed           bool                `json:"isConfirmed"`
 	ConfirmationState     string              `json:"confirmationState"`
-	BranchIDs             []string            `json:"branchIDs"`
+	ConflictIDs           []string            `json:"conflictIDs"`
 	ConfirmationStateTime int64               `json:"confirmationStateTime"`
 }
 
 type utxoBooked struct {
-	ID        string   `json:"ID"`
-	BranchIDs []string `json:"branchIDs"`
+	ID          string   `json:"ID"`
+	ConflictIDs []string `json:"conflictIDs"`
 }
 
 type utxoConfirmationStateChanged struct {
@@ -86,35 +86,35 @@ type utxoConfirmationStateChanged struct {
 	IsConfirmed           bool   `json:"isConfirmed"`
 }
 
-type branchVertex struct {
-	ID                string                                 `json:"ID"`
-	Parents           []string                               `json:"parents"`
-	IsConfirmed       bool                                   `json:"isConfirmed"`
-	Conflicts         *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`
-	ConfirmationState string                                 `json:"confirmationState"`
-	AW                float64                                `json:"aw"`
+type conflictVertex struct {
+	ID                string                                   `json:"ID"`
+	Parents           []string                                 `json:"parents"`
+	IsConfirmed       bool                                     `json:"isConfirmed"`
+	Conflicts         *jsonmodels.GetConflictConflictsResponse `json:"conflicts"`
+	ConfirmationState string                                   `json:"confirmationState"`
+	AW                float64                                  `json:"aw"`
 }
 
-type branchParentUpdate struct {
+type conflictParentUpdate struct {
 	ID      string   `json:"ID"`
 	Parents []string `json:"parents"`
 }
 
-type branchConfirmationStateChanged struct {
+type conflictConfirmationStateChanged struct {
 	ID                string `json:"ID"`
 	ConfirmationState string `json:"confirmationState"`
 	IsConfirmed       bool   `json:"isConfirmed"`
 }
 
-type branchWeightChanged struct {
+type conflictWeightChanged struct {
 	ID                string  `json:"ID"`
 	Weight            float64 `json:"weight"`
 	ConfirmationState string  `json:"confirmationState"`
 }
 
 type searchResult struct {
-	Blocks   []*tangleVertex `json:"blocks"`
-	Txs      []*utxoVertex   `json:"txs"`
-	Branches []*branchVertex `json:"branches"`
-	Error    string          `json:"error,omitempty"`
+	Blocks    []*tangleVertex   `json:"blocks"`
+	Txs       []*utxoVertex     `json:"txs"`
+	Conflicts []*conflictVertex `json:"conflicts"`
+	Error     string            `json:"error,omitempty"`
 }

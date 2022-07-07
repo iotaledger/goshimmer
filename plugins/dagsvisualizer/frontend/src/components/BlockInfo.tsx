@@ -3,7 +3,7 @@ import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
 import { inject, observer } from 'mobx-react';
 import TangleStore from 'stores/TangleStore';
-import { resolveBase58BranchID } from 'utils/BranchIDResolver';
+import { resolveBase58ConflictID } from 'utils/ConflictIDResolver';
 import * as dateformat from 'dateformat';
 import LinkToDashboard from 'components/LinkToDashboard';
 
@@ -84,14 +84,14 @@ export class BlockInfo extends React.Component<Props, any> {
                                     </ListGroup.Item>
                                 )}
                                 <ListGroup.Item>
-                                    BranchIDs:{' '}
+                                    ConflictIDs:{' '}
                                     <ListGroup>
-                                        {selectedBlk.branchIDs.map(
+                                        {selectedBlk.conflictIDs.map(
                                             (b, i) => (
                                                 <ListGroup.Item key={i}>
                                                     <LinkToDashboard
-                                                        route={`explorer/branch/${b}`}
-                                                        title={resolveBase58BranchID(
+                                                        route={`explorer/conflict/${b}`}
+                                                        title={resolveBase58ConflictID(
                                                             b
                                                         )}
                                                     />

@@ -73,16 +73,16 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		new.OnTransactionInclusionUpdated(event)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
-		new.OnBranchConfirmed(event.ID)
+	new.tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		new.OnConflictConfirmed(event.ID)
 	}))
 
 	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		new.OnBranchCreated(event.ID)
+		new.OnConflictCreated(event.ID)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		new.OnBranchRejected(event.ID)
+	new.tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+		new.OnConflictRejected(event.ID)
 	}))
 
 	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.TimeUpdate) {
@@ -277,43 +277,43 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	}
 }
 
-// OnBranchConfirmed is the handler for branch confirmed event.
-func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
+// OnConflictConfirmed is the handler for conflict confirmed event.
+func (m *Manager) OnConflictConfirmed(conflictID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID, true)
+	ei := m.getConflictEI(conflictID, true)
 
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("branch confirmed in already committed epoch %d", ei)
+		m.log.Errorf("conflict confirmed in already committed epoch %d", ei)
 		return
 	}
 	m.decreasePendingConflictCounter(ei)
 }
 
-// OnBranchCreated is the handler for branch created event.
-func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
+// OnConflictCreated is the handler for conflict created event.
+func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID, false)
+	ei := m.getConflictEI(conflictID, false)
 
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("branch created in already committed epoch %d", ei)
+		m.log.Errorf("conflict created in already committed epoch %d", ei)
 		return
 	}
 	m.increasePendingConflictCounter(ei)
 }
 
-// OnBranchRejected is the handler for branch created event.
-func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
+// OnConflictRejected is the handler for conflict created event.
+func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID, true)
+	ei := m.getConflictEI(conflictID, true)
 
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("branch rejected in already committed epoch %d", ei)
+		m.log.Errorf("conflict rejected in already committed epoch %d", ei)
 		return
 	}
 	m.decreasePendingConflictCounter(ei)
@@ -412,8 +412,8 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 	return true
 }
 
-func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
-	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
+func (m *Manager) getConflictEI(conflictID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
+	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(conflictID), earliestAttachmentMustBeBooked)
 	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
 	return
 }

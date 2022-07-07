@@ -17,16 +17,16 @@ import (
 // BlockThresholdTranslation is a function which translates approval weight to a confirmation.State.
 type BlockThresholdTranslation func(aw float64) confirmation.State
 
-// BranchThresholdTranslation is a function which translates approval weight to a confirmation.State.
-type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) confirmation.State
+// ConflictThresholdTranslation is a function which translates approval weight to a confirmation.State.
+type ConflictThresholdTranslation func(conflictID utxo.TransactionID, aw float64) confirmation.State
 
 const (
 	acceptanceThreshold = 0.67
 )
 
 var (
-	// DefaultBranchTranslation is the default function to translate the approval weight to confirmation.State of a branch.
-	DefaultBranchTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	// DefaultConflictTranslation is the default function to translate the approval weight to confirmation.State of a conflict.
+	DefaultConflictTranslation ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= acceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -49,12 +49,12 @@ type Option func(*Options)
 
 // Options defines the options for a Gadget.
 type Options struct {
-	BranchTransFunc BranchThresholdTranslation
-	BlockTransFunc  BlockThresholdTranslation
+	ConflictTransFunc ConflictThresholdTranslation
+	BlockTransFunc    BlockThresholdTranslation
 }
 
 var defaultOpts = []Option{
-	WithBranchThresholdTranslation(DefaultBranchTranslation),
+	WithConflictThresholdTranslation(DefaultConflictTranslation),
 	WithBlockThresholdTranslation(DefaultBlockTranslation),
 }
 
@@ -65,15 +65,15 @@ func WithBlockThresholdTranslation(f BlockThresholdTranslation) Option {
 	}
 }
 
-// WithBranchThresholdTranslation returns an Option setting the BranchThresholdTranslation.
-func WithBranchThresholdTranslation(f BranchThresholdTranslation) Option {
+// WithConflictThresholdTranslation returns an Option setting the ConflictThresholdTranslation.
+func WithConflictThresholdTranslation(f ConflictThresholdTranslation) Option {
 	return func(opts *Options) {
-		opts.BranchTransFunc = f
+		opts.ConflictTransFunc = f
 	}
 }
 
 // Gadget is a GadgetInterface which simply translates approval weight down to confirmation.State
-// and then applies it to blocks, branches, transactions and outputs.
+// and then applies it to blocks, conflicts, transactions and outputs.
 type Gadget struct {
 	tangle                    *tangle.Tangle
 	opts                      *Options
@@ -161,9 +161,9 @@ func (s *Gadget) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (ind
 	return index
 }
 
-// IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *Gadget) IsBranchConfirmed(branchID utxo.TransactionID) (confirmed bool) {
-	return s.tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(branchID)).IsAccepted()
+// IsConflictConfirmed returns whether the given conflict is confirmed.
+func (s *Gadget) IsConflictConfirmed(conflictID utxo.TransactionID) (confirmed bool) {
+	return s.tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID)).IsAccepted()
 }
 
 // IsTransactionConfirmed returns whether the given transaction is confirmed.
@@ -262,11 +262,11 @@ func (s *Gadget) propagateConfirmationStateToBlockPastCone(blockID tangle.BlockI
 	})
 }
 
-// HandleBranch receives a branchID and its approval weight. It propagates the ConfirmationState according to AW to transactions
-// in the branch (UTXO future cone) and their outputs.
-func (s *Gadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
-	if s.opts.BranchTransFunc(branchID, aw).IsAccepted() {
-		s.tangle.Ledger.ConflictDAG.SetBranchAccepted(branchID)
+// HandleConflict receives a conflictID and its approval weight. It propagates the ConfirmationState according to AW to transactions
+// in the conflict (UTXO future cone) and their outputs.
+func (s *Gadget) HandleConflict(conflictID utxo.TransactionID, aw float64) (err error) {
+	if s.opts.ConflictTransFunc(conflictID, aw).IsAccepted() {
+		s.tangle.Ledger.ConflictDAG.SetConflictAccepted(conflictID)
 	}
 
 	return nil

@@ -11,63 +11,63 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-// region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
+// region markerIndexConflictIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
-type markerIndexBranchIDMap struct {
+type markerIndexConflictIDMap struct {
 	T *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
-func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
+func newMarkerIndexConflictIDMap() *markerIndexConflictIDMap {
+	return &markerIndexConflictIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MarkerIndexBranchIDMapping ///////////////////////////////////////////////////////////////////////////////////
+// region MarkerIndexConflictIDMapping ///////////////////////////////////////////////////////////////////////////////////
 
-// MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
-type MarkerIndexBranchIDMapping struct {
-	model.Storable[markers.SequenceID, MarkerIndexBranchIDMapping, *MarkerIndexBranchIDMapping, markerIndexBranchIDMap] `serix:"0"`
+// MarkerIndexConflictIDMapping is a data structure that allows to map marker Indexes to a ConflictID.
+type MarkerIndexConflictIDMapping struct {
+	model.Storable[markers.SequenceID, MarkerIndexConflictIDMapping, *MarkerIndexConflictIDMapping, markerIndexConflictIDMap] `serix:"0"`
 }
 
-// NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
-func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
-	markerBranchMapping = model.NewStorable[markers.SequenceID, MarkerIndexBranchIDMapping](
-		newMarkerIndexBranchIDMap(),
+// NewMarkerIndexConflictIDMapping creates a new MarkerIndexConflictIDMapping for the given SequenceID.
+func NewMarkerIndexConflictIDMapping(sequenceID markers.SequenceID) (markerConflictMapping *MarkerIndexConflictIDMapping) {
+	markerConflictMapping = model.NewStorable[markers.SequenceID, MarkerIndexConflictIDMapping](
+		newMarkerIndexConflictIDMap(),
 	)
-	markerBranchMapping.SetID(sequenceID)
+	markerConflictMapping.SetID(sequenceID)
 	return
 }
 
-// SequenceID returns the SequenceID that this MarkerIndexBranchIDMapping represents.
-func (m *MarkerIndexBranchIDMapping) SequenceID() markers.SequenceID {
+// SequenceID returns the SequenceID that this MarkerIndexConflictIDMapping represents.
+func (m *MarkerIndexConflictIDMapping) SequenceID() markers.SequenceID {
 	return m.ID()
 }
 
-// BranchIDs returns the BranchID that is associated to the given marker Index.
-func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs utxo.TransactionIDs) {
+// ConflictIDs returns the ConflictID that is associated to the given marker Index.
+func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markers.Index) (conflictIDs utxo.TransactionIDs) {
 	m.RLock()
 	defer m.RUnlock()
 
 	value, exists := m.M.T.Get(markerIndex)
 	if !exists {
-		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
+		panic(fmt.Sprintf("tried to retrieve the ConflictID of unknown marker.%s", markerIndex))
 	}
 
 	return value.Clone()
 }
 
-// SetBranchIDs creates a mapping between the given marker Index and the given BranchID.
-func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs utxo.TransactionIDs) {
+// SetConflictIDs creates a mapping between the given marker Index and the given ConflictID.
+func (m *MarkerIndexConflictIDMapping) SetConflictIDs(index markers.Index, conflictIDs utxo.TransactionIDs) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.M.T.Set(index, branchIDs)
+	m.M.T.Set(index, conflictIDs)
 	m.SetModified()
 }
 
-// DeleteBranchID deletes a mapping between the given marker Index and the stored BranchID.
-func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
+// DeleteConflictID deletes a mapping between the given marker Index and the stored ConflictID.
+func (m *MarkerIndexConflictIDMapping) DeleteConflictID(index markers.Index) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -75,27 +75,27 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.SetModified()
 }
 
-// Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
+// Floor returns the largest Index that is <= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerIndexConflictIDMapping) Floor(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.T.Floor(index); exists {
-		return untypedIndex, untypedBranchIDs, true
+	if untypedIndex, untypedConflictIDs, exists := m.M.T.Floor(index); exists {
+		return untypedIndex, untypedConflictIDs, true
 	}
 
 	return 0, utxo.NewTransactionIDs(), false
 }
 
-// Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
+// Ceiling returns the smallest Index that is >= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerIndexConflictIDMapping) Ceiling(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.T.Ceiling(index); exists {
-		return untypedIndex, untypedBranchIDs, true
+	if untypedIndex, untypedConflictIDs, exists := m.M.T.Ceiling(index); exists {
+		return untypedIndex, untypedConflictIDs, true
 	}
 
 	return 0, utxo.NewTransactionIDs(), false

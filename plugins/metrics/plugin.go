@@ -57,7 +57,7 @@ func run(_ *node.Plugin) {
 	if Parameters.Local {
 		// initial measurement, since we have to know how many blocks are there in the db
 		measureInitialDBStats()
-		measureInitialBranchStats()
+		measureInitialConflictStats()
 		registerLocalMetrics()
 	}
 	// Events from analysis server
@@ -258,40 +258,40 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
-		activeBranchesMutex.Lock()
-		defer activeBranchesMutex.Unlock()
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		activeConflictsMutex.Lock()
+		defer activeConflictsMutex.Unlock()
 
-		branchID := event.ID
-		if _, exists := activeBranches[branchID]; !exists {
+		conflictID := event.ID
+		if _, exists := activeConflicts[conflictID]; !exists {
 			return
 		}
-		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID)
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(conflictID)
 		if err != nil {
 			return
 		}
-		deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
-			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
-				finalizedBranchCountDB.Inc()
-				delete(activeBranches, conflictingBranchID)
+		deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+			if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
+				finalizedConflictCountDB.Inc()
+				delete(activeConflicts, conflictingConflictID)
 			}
 			return true
 		})
-		finalizedBranchCountDB.Inc()
-		confirmedBranchCount.Inc()
-		branchConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
+		finalizedConflictCountDB.Inc()
+		confirmedConflictCount.Inc()
+		conflictConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
 
-		delete(activeBranches, branchID)
+		delete(activeConflicts, conflictID)
 	}))
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		activeBranchesMutex.Lock()
-		defer activeBranchesMutex.Unlock()
+		activeConflictsMutex.Lock()
+		defer activeConflictsMutex.Unlock()
 
-		branchID := event.ID
-		if _, exists := activeBranches[branchID]; !exists {
-			branchTotalCountDB.Inc()
-			activeBranches[branchID] = types.Void
+		conflictID := event.ID
+		if _, exists := activeConflicts[conflictID]; !exists {
+			conflictTotalCountDB.Inc()
+			activeConflicts[conflictID] = types.Void
 		}
 	}))
 

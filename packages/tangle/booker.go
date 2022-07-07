@@ -18,12 +18,12 @@ import (
 // region booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Booker is a Tangle component that takes care of booking Blocks and Transactions by assigning them to the
-// corresponding Branch of the ledger state.
+// corresponding Conflict of the ledger state.
 type Booker struct {
 	// Events is a dictionary for the Booker related Events.
 	Events *BookerEvents
 
-	MarkersManager *BranchMarkersMapper
+	MarkersManager *ConflictMarkersMapper
 
 	tangle              *Tangle
 	payloadBookingMutex *syncutils.DAGMutex[BlockID]
@@ -36,7 +36,7 @@ func NewBooker(tangle *Tangle) (blockBooker *Booker) {
 	blockBooker = &Booker{
 		Events:              NewBookerEvents(),
 		tangle:              tangle,
-		MarkersManager:      NewBranchMarkersMapper(tangle),
+		MarkersManager:      NewConflictMarkersMapper(tangle),
 		payloadBookingMutex: syncutils.NewDAGMutex[BlockID](),
 		bookingMutex:        syncutils.NewDAGMutex[BlockID](),
 		sequenceMutex:       syncutils.NewDAGMutex[markers.SequenceID](),
@@ -51,9 +51,9 @@ func (b *Booker) Setup() {
 		b.book(event.Block)
 	}))
 
-	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionBranchIDUpdatedEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
+	b.tangle.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
 
@@ -66,22 +66,22 @@ func (b *Booker) Setup() {
 	}))
 }
 
-// BlockBranchIDs returns the BranchIDs of the given Block.
-func (b *Booker) BlockBranchIDs(blockID BlockID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+// BlockConflictIDs returns the ConflictIDs of the given Block.
+func (b *Booker) BlockConflictIDs(blockID BlockID) (conflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	if blockID == EmptyBlockID {
 		return set.NewAdvancedSet[utxo.TransactionID](), nil
 	}
 
-	if _, _, branchIDs, err = b.blockBookingDetails(blockID); err != nil {
+	if _, _, conflictIDs, err = b.blockBookingDetails(blockID); err != nil {
 		err = errors.Errorf("failed to retrieve booking details of Block with %s: %w", blockID, err)
 	}
 
 	return
 }
 
-// PayloadBranchIDs returns the BranchIDs of the payload contained in the given Block.
-func (b *Booker) PayloadBranchIDs(blockID BlockID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
+func (b *Booker) PayloadConflictIDs(blockID BlockID) (conflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	b.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		transaction, isTransaction := block.Payload().(utxo.Transaction)
@@ -90,8 +90,8 @@ func (b *Booker) PayloadBranchIDs(blockID BlockID) (branchIDs *set.AdvancedSet[u
 		}
 
 		b.tangle.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-			resolvedBranchIDs := b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(transactionMetadata.BranchIDs())
-			branchIDs.AddAll(resolvedBranchIDs)
+			resolvedConflictIDs := b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(transactionMetadata.ConflictIDs())
+			conflictIDs.AddAll(resolvedConflictIDs)
 		})
 	})
 
@@ -202,18 +202,18 @@ func (b *Booker) readyForBooking(block *Block, blockMetadata *BlockMetadata) (re
 
 // BookBlock tries to book the given Block (and potentially its contained Transaction) into the ledger and the Tangle.
 // It fires a BlockBooked event if it succeeds. If the Block is invalid it fires a BlockInvalid event.
-// Booking a block essentially means that parents are examined, the branch of the block determined based on the
-// branch inheritance rules of the like switch and markers are inherited. If everything is valid, the block is marked
-// as booked. Following, the block branch is set, and it can continue in the dataflow to add support to the determined
-// branches and markers.
+// Booking a block essentially means that parents are examined, the conflict of the block determined based on the
+// conflict inheritance rules of the like switch and markers are inherited. If everything is valid, the block is marked
+// as booked. Following, the block conflict is set, and it can continue in the dataflow to add support to the determined
+// conflicts and markers.
 func (b *Booker) BookBlock(block *Block, blockMetadata *BlockMetadata) (err error) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
-	if err = b.inheritBranchIDs(block, blockMetadata); err != nil {
-		err = errors.Errorf("failed to inherit BranchIDs of Block with %s: %w", blockMetadata.ID(), err)
+	if err = b.inheritConflictIDs(block, blockMetadata); err != nil {
+		err = errors.Errorf("failed to inherit ConflictIDs of Block with %s: %w", blockMetadata.ID(), err)
 		return
 	}
 
@@ -224,8 +224,8 @@ func (b *Booker) BookBlock(block *Block, blockMetadata *BlockMetadata) (err erro
 	return
 }
 
-func (b *Booker) inheritBranchIDs(block *Block, blockMetadata *BlockMetadata) (err error) {
-	structureDetails, _, inheritedBranchIDs, bookingDetailsErr := b.determineBookingDetails(block)
+func (b *Booker) inheritConflictIDs(block *Block, blockMetadata *BlockMetadata) (err error) {
+	structureDetails, _, inheritedConflictIDs, bookingDetailsErr := b.determineBookingDetails(block)
 	if bookingDetailsErr != nil {
 		return errors.Errorf("failed to determine booking details of Block with %s: %w", block.ID(), bookingDetailsErr)
 	}
@@ -234,127 +234,127 @@ func (b *Booker) inheritBranchIDs(block *Block, blockMetadata *BlockMetadata) (e
 	blockMetadata.SetStructureDetails(inheritedStructureDetails)
 
 	if newSequenceCreated {
-		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedBranchIDs)
+		b.MarkersManager.SetConflictIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedConflictIDs)
 		return nil
 	}
 
-	// TODO: do not retrieve markers branches once again, determineBookingDetails already does it
-	pastMarkersBranchIDs, inheritedStructureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(inheritedStructureDetails)
-	if inheritedStructureDetailsBranchIDsErr != nil {
-		return errors.Errorf("failed to determine BranchIDs of inherited StructureDetails of Block with %s: %w", block.ID(), inheritedStructureDetailsBranchIDsErr)
+	// TODO: do not retrieve markers conflicts once again, determineBookingDetails already does it
+	pastMarkersConflictIDs, inheritedStructureDetailsConflictIDsErr := b.conflictIDsFromStructureDetails(inheritedStructureDetails)
+	if inheritedStructureDetailsConflictIDsErr != nil {
+		return errors.Errorf("failed to determine ConflictIDs of inherited StructureDetails of Block with %s: %w", block.ID(), inheritedStructureDetailsConflictIDsErr)
 	}
 
-	addedBranchIDs := inheritedBranchIDs.Clone()
-	addedBranchIDs.DeleteAll(pastMarkersBranchIDs)
+	addedConflictIDs := inheritedConflictIDs.Clone()
+	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
 
-	subtractedBranchIDs := pastMarkersBranchIDs.Clone()
-	subtractedBranchIDs.DeleteAll(inheritedBranchIDs)
+	subtractedConflictIDs := pastMarkersConflictIDs.Clone()
+	subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 
-	if addedBranchIDs.Size()+subtractedBranchIDs.Size() == 0 {
+	if addedConflictIDs.Size()+subtractedConflictIDs.Size() == 0 {
 		return nil
 	}
 
 	if inheritedStructureDetails.IsPastMarker() {
-		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedBranchIDs)
+		b.MarkersManager.SetConflictIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedConflictIDs)
 		return nil
 	}
 
-	if addedBranchIDs.Size() != 0 {
-		blockMetadata.SetAddedBranchIDs(addedBranchIDs)
+	if addedConflictIDs.Size() != 0 {
+		blockMetadata.SetAddedConflictIDs(addedConflictIDs)
 	}
 
-	if subtractedBranchIDs.Size() != 0 {
-		blockMetadata.SetSubtractedBranchIDs(subtractedBranchIDs)
+	if subtractedConflictIDs.Size() != 0 {
+		blockMetadata.SetSubtractedConflictIDs(subtractedConflictIDs)
 	}
 
 	return nil
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
-func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	inheritedBranchIDs, err = b.PayloadBranchIDs(block.ID())
+func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	inheritedConflictIDs, err = b.PayloadConflictIDs(block.ID())
 	if err != nil {
 		return
 	}
 
-	parentsStructureDetails, parentsPastMarkersBranchIDs, strongParentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(block)
+	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(block)
 	if bookingDetailsErr != nil {
 		err = errors.Errorf("failed to retrieve booking details of parents of Block with %s: %w", block.ID(), bookingDetailsErr)
 		return
 	}
 
-	weakPayloadBranchIDs, weakParentsErr := b.collectWeakParentsBranchIDs(block)
+	weakPayloadConflictIDs, weakParentsErr := b.collectWeakParentsConflictIDs(block)
 	if weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", block.ID(), weakParentsErr)
 	}
 
-	likedBranchIDs, dislikedBranchIDs, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(block)
+	likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
 	if shallowLikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", block.ID(), shallowLikeErr)
 	}
 
-	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
-	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
-	inheritedBranchIDs.AddAll(likedBranchIDs)
-	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
+	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
+	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
+	inheritedConflictIDs.AddAll(likedConflictIDs)
+	inheritedConflictIDs.DeleteAll(b.tangle.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
-	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedBranchIDs), nil
+	return parentsStructureDetails, parentsPastMarkersConflictIDs, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
 
-// blockBookingDetails returns the Branch and Marker related details of the given Block.
-func (b *Booker) blockBookingDetails(blockID BlockID) (structureDetails *markers.StructureDetails, pastMarkersBranchIDs, blockBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	pastMarkersBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	blockBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// blockBookingDetails returns the Conflict and Marker related details of the given Block.
+func (b *Booker) blockBookingDetails(blockID BlockID) (structureDetails *markers.StructureDetails, pastMarkersConflictIDs, blockConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	pastMarkersConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	blockConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	if !b.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
 		structureDetails = blockMetadata.StructureDetails()
-		if pastMarkersBranchIDs, err = b.branchIDsFromStructureDetails(structureDetails); err != nil {
-			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s of block with %s: %w", structureDetails, blockMetadata.ID(), err)
+		if pastMarkersConflictIDs, err = b.conflictIDsFromStructureDetails(structureDetails); err != nil {
+			err = errors.Errorf("failed to retrieve ConflictIDs from Structure Details %s of block with %s: %w", structureDetails, blockMetadata.ID(), err)
 			return
 		}
-		blockBranchIDs.AddAll(pastMarkersBranchIDs)
+		blockConflictIDs.AddAll(pastMarkersConflictIDs)
 
-		if addedBranchIDs := blockMetadata.AddedBranchIDs(); !addedBranchIDs.IsEmpty() {
-			blockBranchIDs.AddAll(addedBranchIDs)
+		if addedConflictIDs := blockMetadata.AddedConflictIDs(); !addedConflictIDs.IsEmpty() {
+			blockConflictIDs.AddAll(addedConflictIDs)
 		}
 
-		if subtractedBranchIDs := blockMetadata.SubtractedBranchIDs(); !subtractedBranchIDs.IsEmpty() {
-			blockBranchIDs.DeleteAll(subtractedBranchIDs)
+		if subtractedConflictIDs := blockMetadata.SubtractedConflictIDs(); !subtractedConflictIDs.IsEmpty() {
+			blockConflictIDs.DeleteAll(subtractedConflictIDs)
 		}
 	}) {
 		err = errors.Errorf("failed to retrieve BlockMetadata with %s: %w", blockID, cerrors.ErrFatal)
 	}
 
-	return structureDetails, pastMarkersBranchIDs, blockBranchIDs, err
+	return structureDetails, pastMarkersConflictIDs, blockConflictIDs, err
 }
 
-func (b *Booker) branchIDsFromMetadata(meta *BlockMetadata) (branchIDs utxo.TransactionIDs, err error) {
-	if branchIDs, err = b.branchIDsFromStructureDetails(meta.StructureDetails()); err != nil {
-		return nil, errors.Errorf("failed to retrieve BranchIDs from Structure Details %s of block with %s: %w", meta.StructureDetails(), meta.ID(), err)
+func (b *Booker) conflictIDsFromMetadata(meta *BlockMetadata) (conflictIDs utxo.TransactionIDs, err error) {
+	if conflictIDs, err = b.conflictIDsFromStructureDetails(meta.StructureDetails()); err != nil {
+		return nil, errors.Errorf("failed to retrieve ConflictIDs from Structure Details %s of block with %s: %w", meta.StructureDetails(), meta.ID(), err)
 	}
 
-	if addedBranchIDs := meta.AddedBranchIDs(); !addedBranchIDs.IsEmpty() {
-		branchIDs.AddAll(addedBranchIDs)
+	if addedConflictIDs := meta.AddedConflictIDs(); !addedConflictIDs.IsEmpty() {
+		conflictIDs.AddAll(addedConflictIDs)
 	}
 
-	if subtractedBranchIDs := meta.SubtractedBranchIDs(); !subtractedBranchIDs.IsEmpty() {
-		branchIDs.DeleteAll(subtractedBranchIDs)
+	if subtractedConflictIDs := meta.SubtractedConflictIDs(); !subtractedConflictIDs.IsEmpty() {
+		conflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
-	return branchIDs, nil
+	return conflictIDs, nil
 }
 
-// branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
-func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs utxo.TransactionIDs, err error) {
+// conflictIDsFromStructureDetails returns the ConflictIDs from StructureDetails.
+func (b *Booker) conflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs, err error) {
 	if structureDetails == nil {
 		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
 	}
 
-	structureDetailsBranchIDs = utxo.NewTransactionIDs()
+	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 	// obtain all the Markers
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchIDs := b.MarkersManager.BranchIDs(markers.NewMarker(sequenceID, index))
-		structureDetailsBranchIDs.AddAll(branchIDs)
+		conflictIDs := b.MarkersManager.ConflictIDs(markers.NewMarker(sequenceID, index))
+		structureDetailsConflictIDs.AddAll(conflictIDs)
 		return true
 	})
 
@@ -362,21 +362,21 @@ func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.Structu
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	parentsStructureDetails = make([]*markers.StructureDetails, 0)
-	parentsPastMarkersBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	parentsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	parentsPastMarkersConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	parentsConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	block.ForEachParentByType(StrongParentType, func(parentBlockID BlockID) bool {
-		parentStructureDetails, parentPastMarkersBranchIDs, parentBranchIDs, parentErr := b.blockBookingDetails(parentBlockID)
+		parentStructureDetails, parentPastMarkersConflictIDs, parentConflictIDs, parentErr := b.blockBookingDetails(parentBlockID)
 		if parentErr != nil {
 			err = errors.Errorf("failed to retrieve booking details of Block with %s: %w", parentBlockID, parentErr)
 			return false
 		}
 
 		parentsStructureDetails = append(parentsStructureDetails, parentStructureDetails)
-		parentsPastMarkersBranchIDs.AddAll(parentPastMarkersBranchIDs)
-		parentsBranchIDs.AddAll(parentBranchIDs)
+		parentsPastMarkersConflictIDs.AddAll(parentPastMarkersConflictIDs)
+		parentsConflictIDs.AddAll(parentConflictIDs)
 
 		return true
 	})
@@ -384,11 +384,11 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	return
 }
 
-// collectShallowLikedParentsBranchIDs adds the BranchIDs of the shallow like reference and removes all its conflicts from
-// the supplied ArithmeticBranchIDs.
-func (b *Booker) collectShallowLikedParentsBranchIDs(block *Block) (collectedLikedBranchIDs, collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	collectedLikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// collectShallowLikedParentsConflictIDs adds the ConflictIDs of the shallow like reference and removes all its conflicts from
+// the supplied ArithmeticConflictIDs.
+func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedLikedConflictIDs, collectedDislikedConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	collectedLikedConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	collectedDislikedConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	block.ForEachParentByType(ShallowLikeParentType, func(parentBlockID BlockID) bool {
 		if !b.tangle.Storage.Block(parentBlockID).Consume(func(block *Block) {
 			transaction, isTransaction := block.Payload().(utxo.Transaction)
@@ -397,21 +397,21 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(block *Block) (collectedLik
 				return
 			}
 
-			likedBranchIDs, likedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
-			if likedBranchesErr != nil {
-				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentBlockID, block.ID(), likedBranchesErr)
+			likedConflictIDs, likedConflictsErr := b.tangle.Ledger.Utils.TransactionConflictIDs(transaction.ID())
+			if likedConflictsErr != nil {
+				err = errors.Errorf("failed to retrieve liked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentBlockID, block.ID(), likedConflictsErr)
 				return
 			}
-			collectedLikedBranchIDs.AddAll(likedBranchIDs)
+			collectedLikedConflictIDs.AddAll(likedConflictIDs)
 
 			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 				conflictingTransactionID := it.Next()
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
-				if dislikedBranchesErr != nil {
-					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentBlockID, block.ID(), dislikedBranchesErr)
+				dislikedConflicts, dislikedConflictsErr := b.tangle.Ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
+				if dislikedConflictsErr != nil {
+					err = errors.Errorf("failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentBlockID, block.ID(), dislikedConflictsErr)
 					return
 				}
-				collectedDislikedBranchIDs.AddAll(dislikedBranches)
+				collectedDislikedConflictIDs.AddAll(dislikedConflicts)
 			}
 		}) {
 			err = errors.Errorf("failed to load BlockMetadata of shallow like with %s: %w", parentBlockID, cerrors.ErrFatal)
@@ -420,28 +420,28 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(block *Block) (collectedLik
 		return err == nil
 	})
 
-	return collectedLikedBranchIDs, collectedDislikedBranchIDs, err
+	return collectedLikedConflictIDs, collectedDislikedConflictIDs, err
 }
 
-// collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
-// the supplied ArithmeticBranchIDs.
-func (b *Booker) collectWeakParentsBranchIDs(block *Block) (payloadBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	payloadBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// collectShallowDislikedParentsConflictIDs removes the ConflictIDs of the shallow dislike reference and all its conflicts from
+// the supplied ArithmeticConflictIDs.
+func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	payloadConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	block.ForEachParentByType(WeakParentType, func(parentBlockID BlockID) bool {
 		if !b.tangle.Storage.Block(parentBlockID).Consume(func(block *Block) {
 			transaction, isTransaction := block.Payload().(utxo.Transaction)
-			// Payloads other than Transactions are MasterBranch
+			// Payloads other than Transactions are MasterConflict
 			if !isTransaction {
 				return
 			}
 
-			weakReferencePayloadBranch, weakReferenceErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
+			weakReferencePayloadConflict, weakReferenceErr := b.tangle.Ledger.Utils.TransactionConflictIDs(transaction.ID())
 			if weakReferenceErr != nil {
-				err = errors.Errorf("failed to retrieve BranchIDs of Transaction with %s contained in %s weakly referenced by %s: %w", transaction.ID(), parentBlockID, block.ID(), weakReferenceErr)
+				err = errors.Errorf("failed to retrieve ConflictIDs of Transaction with %s contained in %s weakly referenced by %s: %w", transaction.ID(), parentBlockID, block.ID(), weakReferenceErr)
 				return
 			}
 
-			payloadBranchIDs.AddAll(weakReferencePayloadBranch)
+			payloadConflictIDs.AddAll(weakReferencePayloadConflict)
 		}) {
 			err = errors.Errorf("failed to load BlockMetadata of %s weakly referenced by %s: %w", parentBlockID, block.ID(), cerrors.ErrFatal)
 		}
@@ -449,29 +449,29 @@ func (b *Booker) collectWeakParentsBranchIDs(block *Block) (payloadBranchIDs *se
 		return err == nil
 	})
 
-	return payloadBranchIDs, err
+	return payloadConflictIDs, err
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
+// PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
+func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
 	b.tangle.Utils.WalkBlockMetadata(func(blockMetadata *BlockMetadata, blockWalker *walker.Walker[BlockID]) {
-		updated, forkErr := b.propagateForkedBranch(blockMetadata, addedBranchID, removedBranchIDs)
+		updated, forkErr := b.propagateForkedConflict(blockMetadata, addedConflictID, removedConflictIDs)
 		if forkErr != nil {
 			blockWalker.StopWalk()
-			err = errors.Errorf("failed to propagate forked BranchID %s to future cone of %s: %w", addedBranchID, blockMetadata.ID(), forkErr)
+			err = errors.Errorf("failed to propagate forked ConflictID %s to future cone of %s: %w", addedConflictID, blockMetadata.ID(), forkErr)
 			return
 		}
 		if !updated {
 			return
 		}
 
-		b.Events.BlockBranchUpdated.Trigger(&BlockBranchUpdatedEvent{
-			BlockID:  blockMetadata.ID(),
-			BranchID: addedBranchID,
+		b.Events.BlockConflictUpdated.Trigger(&BlockConflictUpdatedEvent{
+			BlockID:    blockMetadata.ID(),
+			ConflictID: addedConflictID,
 		})
 
 		for approvingBlockID := range b.tangle.Utils.ApprovingBlockIDs(blockMetadata.ID(), StrongChild) {
@@ -482,7 +482,7 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 	return
 }
 
-func (b *Booker) propagateForkedBranch(blockMetadata *BlockMetadata, addedBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
+func (b *Booker) propagateForkedConflict(blockMetadata *BlockMetadata, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
 	b.bookingMutex.Lock(blockMetadata.ID())
 	defer b.bookingMutex.Unlock(blockMetadata.ID())
 
@@ -491,16 +491,16 @@ func (b *Booker) propagateForkedBranch(blockMetadata *BlockMetadata, addedBranch
 	}
 
 	if structureDetails := blockMetadata.StructureDetails(); structureDetails.IsPastMarker() {
-		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedBranchID, removedBranchIDs); err != nil {
-			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers().Marker(), err)
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
+			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedConflictID, structureDetails.PastMarkers().Marker(), err)
 		}
 		return true, nil
 	}
 
-	return b.updateBlockBranches(blockMetadata, addedBranchID, removedBranchIDs)
+	return b.updateBlockConflicts(blockMetadata, addedConflictID, removedConflictIDs)
 }
 
-func (b *Booker) updateBlockBranches(blockMetadata *BlockMetadata, addedBranch utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool, err error) {
+func (b *Booker) updateBlockConflicts(blockMetadata *BlockMetadata, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool, err error) {
 	blockMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
 		b.sequenceMutex.RLock(sequenceID)
 		return true
@@ -513,32 +513,32 @@ func (b *Booker) updateBlockBranches(blockMetadata *BlockMetadata, addedBranch u
 		})
 	}()
 
-	branchIDs, err := b.branchIDsFromMetadata(blockMetadata)
+	conflictIDs, err := b.conflictIDsFromMetadata(blockMetadata)
 	if err != nil {
-		return false, errors.Errorf("failed to retrieve BranchIDs of %s: %w", blockMetadata.ID(), err)
+		return false, errors.Errorf("failed to retrieve ConflictIDs of %s: %w", blockMetadata.ID(), err)
 	}
 
-	if !branchIDs.HasAll(parentConflicts) {
+	if !conflictIDs.HasAll(parentConflicts) {
 		return false, nil
 	}
 
-	if !blockMetadata.AddBranchID(addedBranch) {
+	if !blockMetadata.AddConflictID(addedConflict) {
 		return false, nil
 	}
 
 	return true, nil
 }
 
-// propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Marker, branchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
+// propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Marker, conflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
 	markerWalker := walker.New[markers.Marker](false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
 		currentMarker := markerWalker.Next()
 
-		if err = b.forkSingleMarker(currentMarker, branchID, removedBranchIDs, markerWalker); err != nil {
-			err = errors.Errorf("failed to propagate Conflict%s to Blocks approving %s: %w", branchID, currentMarker, err)
+		if err = b.forkSingleMarker(currentMarker, conflictID, removedConflictIDs, markerWalker); err != nil {
+			err = errors.Errorf("failed to propagate Conflict%s to Blocks approving %s: %w", conflictID, currentMarker, err)
 			return
 		}
 	}
@@ -546,34 +546,34 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 	return
 }
 
-// forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
+// forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markers.Marker]) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markers.Marker]) (err error) {
 	b.sequenceMutex.Lock(currentMarker.SequenceID())
 	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
 
-	// update BranchID mapping
-	newBranchIDs := b.MarkersManager.BranchIDs(currentMarker)
-	if !newBranchIDs.HasAll(removedBranchIDs) {
+	// update ConflictID mapping
+	newConflictIDs := b.MarkersManager.ConflictIDs(currentMarker)
+	if !newConflictIDs.HasAll(removedConflictIDs) {
 		return nil
 	}
 
-	if !newBranchIDs.Add(newBranchID) {
+	if !newConflictIDs.Add(newConflictID) {
 		return nil
 	}
 
-	if !b.MarkersManager.SetBranchIDs(currentMarker, newBranchIDs) {
+	if !b.MarkersManager.SetConflictIDs(currentMarker, newConflictIDs) {
 		return nil
 	}
 
 	// trigger event
-	b.Events.MarkerBranchAdded.Trigger(&MarkerBranchAddedEvent{
-		Marker:      currentMarker,
-		NewBranchID: newBranchID,
+	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{
+		Marker:        currentMarker,
+		NewConflictID: newConflictID,
 	})
 
-	// propagate updates to later BranchID mappings of the same sequence.
-	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ *set.AdvancedSet[utxo.TransactionID]) {
+	// propagate updates to later ConflictID mappings of the same sequence.
+	b.MarkersManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ *set.AdvancedSet[utxo.TransactionID]) {
 		markerWalker.Push(mappedMarker)
 	})
 

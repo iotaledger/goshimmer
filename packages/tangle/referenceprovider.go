@@ -101,7 +101,7 @@ func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, 
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
 func (r *ReferenceProvider) addedReferencesForBlock(blkID BlockID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (addedReferences ParentBlockIDs, success bool) {
-	blkConflictIDs, err := r.tangle.Booker.BlockBranchIDs(blkID)
+	blkConflictIDs, err := r.tangle.Booker.BlockConflictIDs(blkID)
 	if err != nil {
 		r.tangle.OrphanageManager.OrphanBlock(blkID, errors.Errorf("conflictID of %s can't be retrieved: %w", blkID, err))
 		return nil, false
@@ -165,7 +165,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 				continue
 			}
 
-			excludedConflictIDs.AddAll(r.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedConflictIDs))
+			excludedConflictIDs.AddAll(r.tangle.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
 			return true, blkID, nil
 		}
@@ -208,12 +208,12 @@ func (r *ReferenceProvider) validTimeForStrongParent(blkID BlockID, issuingTime 
 
 // checkPayloadLiked checks if the payload of a Block is liked.
 func (r *ReferenceProvider) checkPayloadLiked(blkID BlockID) (err error) {
-	conflictIDs, err := r.tangle.Booker.PayloadBranchIDs(blkID)
+	conflictIDs, err := r.tangle.Booker.PayloadConflictIDs(blkID)
 	if err != nil {
 		return errors.Errorf("failed to determine payload conflictIDs of %s: %w", blkID, err)
 	}
 
-	if !r.tangle.Utils.AllBranchesLiked(conflictIDs) {
+	if !r.tangle.Utils.AllConflictsLiked(conflictIDs) {
 		return errors.Errorf("payload of %s is not liked: %s", blkID, conflictIDs)
 	}
 

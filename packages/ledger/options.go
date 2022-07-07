@@ -109,9 +109,9 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
 // region WithConsumerCacheTime ////////////////////////////////////////////////////////////////////////////////////////
 
 // WithConflictDAGOptions is an Option for the Ledger that allows to configure the options for the ConflictDAG
-func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) (option Option) {
+func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option Option) {
 	return func(options *options) {
-		options.branchDAGOptions = branchDAGOptions
+		options.conflictDAGOptions = conflictDAGOptions
 	}
 }
 
@@ -147,8 +147,8 @@ type options struct {
 	// consumerCacheTime contains the duration that Consumer objects stay cached after they have been released.
 	consumerCacheTime time.Duration
 
-	// branchDAGOptions contains the options for the ConflictDAG.
-	branchDAGOptions []conflictdag.Option
+	// conflictDAGOptions contains the options for the ConflictDAG.
+	conflictDAGOptions []conflictdag.Option
 }
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the

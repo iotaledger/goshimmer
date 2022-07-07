@@ -21,7 +21,7 @@ func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		block := task.Param(0).(*tangle.Block)
 
-		broadcastWsBlock(&wsblk{BlkTypeBlock, &blk{block.ID().Base58(), 0, uint32(block.Payload().Type())}})
+		broadcastWsBlock(&wsblk{MsgTypeBlock, &blk{block.ID().Base58(), 0, uint32(block.Payload().Type())}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))

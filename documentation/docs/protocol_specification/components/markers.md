@@ -28,7 +28,7 @@ Operations that involve traversing the Tangle are very performance intensive and
 *Markers* are a tool to infer knowledge about the structure of the Tangle, therefore, we use them to keep algorithms fast. Specifically, markers are used for:
 + past/future cone membership;
 + approximate approval weight of any block;
-+ tagging sections of the Tangle (e.g., branches) without having to traverse each block individually.
++ tagging sections of the Tangle (e.g., conflicts) without having to traverse each block individually.
 
 ## Definitions
 Let's define the terms related to markers:
@@ -105,7 +105,7 @@ In practice, we propagate the GoF finality to blocks in a marker's past cone unt
 For details of managing approval weight of each marker and approval weight calculation thereof please refer to [Approval Weight](consensus_mechanism.md#approval-weight-aw).
 
 
-### Branch Mapping
-Branches are introduced to the Tangle when double spends occur and are carried forward (inherited) by blocks until a conflict is resolved (merge to master). As such, each block needs to carry branch information and if a branch arises deep within the Tangle, each block would need to be traversed individually, which makes this operation very expensive and thus attackable.
+### Conflict Mapping
+Conflicts are introduced to the Tangle when double spends occur and are carried forward (inherited) by blocks until a conflict is resolved (merge to master). As such, each block needs to carry conflict information and if a conflict arises deep within the Tangle, each block would need to be traversed individually, which makes this operation very expensive and thus attackable.
 
-Therefore, we utilize markers to store branch information for blocks and store only a **difference** of branches (subtracted/added) on each block individually. In that way, propagation of branches can happen via structural marker information and not every block needs to be updated. When querying branch information of a block, first all branches of the block's past markers are retrieved and then combined with the diff of the block itself to result in the block's overall branch.
+Therefore, we utilize markers to store conflict information for blocks and store only a **difference** of conflicts (subtracted/added) on each block individually. In that way, propagation of conflicts can happen via structural marker information and not every block needs to be updated. When querying conflict information of a block, first all conflicts of the block's past markers are retrieved and then combined with the diff of the block itself to result in the block's overall conflict.

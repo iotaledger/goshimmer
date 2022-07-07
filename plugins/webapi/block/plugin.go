@@ -47,7 +47,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.POST("blocks/payload", PostPayload)
 
 	deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
-	deps.Server.GET("blocks/sequences/:sequenceID/markerindexbranchidmapping", GetMarkerIndexBranchIDMapping)
+	deps.Server.GET("blocks/sequences/:sequenceID/markerindexconflictidmapping", GetMarkerIndexConflictIDMapping)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,22 +78,22 @@ func GetSequence(c echo.Context) (err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetMarkerIndexBranchIDMapping ////////////////////////////////////////////////////////////////////////////////
+// region GetMarkerIndexConflictIDMapping ////////////////////////////////////////////////////////////////////////////////
 
-// GetMarkerIndexBranchIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexbranchidmapping endpoint.
-func GetMarkerIndexBranchIDMapping(c echo.Context) (err error) {
+// GetMarkerIndexConflictIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexconflictidmapping endpoint.
+func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 	sequenceID, err := sequenceIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Storage.MarkerIndexBranchIDMapping(sequenceID).Consume(func(markerIndexBranchIDMapping *tangle.MarkerIndexBranchIDMapping) {
-		err = c.String(http.StatusOK, markerIndexBranchIDMapping.String())
+	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangle.MarkerIndexConflictIDMapping) {
+		err = c.String(http.StatusOK, markerIndexConflictIDMapping.String())
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexBranchIDMapping of %s", sequenceID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,7 +171,7 @@ func GetBlockMetadata(c echo.Context) (err error) {
 
 // NewBlockMetadata returns BlockMetadata from the given tangle.BlockMetadata.
 func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels.BlockMetadata {
-	branchIDs, _ := deps.Tangle.Booker.BlockBranchIDs(metadata.ID())
+	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(metadata.ID())
 
 	return jsonmodels.BlockMetadata{
 		ID:                    metadata.ID().Base58(),
@@ -179,9 +179,9 @@ func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels.BlockMetadata {
 		Solid:                 metadata.IsSolid(),
 		SolidificationTime:    metadata.SolidificationTime().Unix(),
 		StructureDetails:      jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchIDs:             lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-		AddedBranchIDs:        lo.Map(metadata.AddedBranchIDs().Slice(), utxo.TransactionID.Base58),
-		SubtractedBranchIDs:   lo.Map(metadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Base58),
+		ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
+		AddedConflictIDs:      lo.Map(metadata.AddedConflictIDs().Slice(), utxo.TransactionID.Base58),
+		SubtractedConflictIDs: lo.Map(metadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Base58),
 		Scheduled:             metadata.Scheduled(),
 		ScheduledTime:         metadata.ScheduledTime().Unix(),
 		Booked:                metadata.IsBooked(),

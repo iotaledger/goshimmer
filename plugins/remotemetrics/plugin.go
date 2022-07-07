@@ -67,9 +67,9 @@ func configure(_ *node.Plugin) {
 		Plugin.LogInfof("%s is disabled; skipping %s\n", remotelog.Plugin.Name, Plugin.Name)
 		return
 	}
-	measureInitialBranchCounts()
+	measureInitialConflictCounts()
 	configureSyncMetrics()
-	configureBranchConfirmationMetrics()
+	configureConflictConfirmationMetrics()
 	configureBlockFinalizedMetrics()
 	configureBlockScheduledMetrics()
 	configureMissingBlockMetrics()
@@ -114,23 +114,23 @@ func configureSchedulerQueryMetrics() {
 	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
 }
 
-func configureBranchConfirmationMetrics() {
+func configureConflictConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
-		onBranchConfirmed(event.ID)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		onConflictConfirmed(event.ID)
 	}))
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		activeBranchesMutex.Lock()
-		defer activeBranchesMutex.Unlock()
+		activeConflictsMutex.Lock()
+		defer activeConflictsMutex.Unlock()
 
-		branchID := event.ID
-		if _, exists := activeBranches[branchID]; !exists {
-			branchTotalCountDB.Inc()
-			activeBranches[branchID] = types.Void
-			sendBranchMetrics()
+		conflictID := event.ID
+		if _, exists := activeConflicts[conflictID]; !exists {
+			conflictTotalCountDB.Inc()
+			activeConflicts[conflictID] = types.Void
+			sendConflictMetrics()
 		}
 	}))
 }

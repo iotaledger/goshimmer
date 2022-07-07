@@ -166,8 +166,8 @@ func (t *TipManager) checkChilds(blockID BlockID) bool {
 
 func (t *TipManager) removeStrongParents(block *Block) {
 	block.ForEachParentByType(StrongParentType, func(parentBlockID BlockID) bool {
-		// We do not want to remove the tip if it is the last one representing a pending branch.
-		// if t.isLastTipForBranch(parentBlockID) {
+		// We do not want to remove the tip if it is the last one representing a pending conflict.
+		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
 		// }
 

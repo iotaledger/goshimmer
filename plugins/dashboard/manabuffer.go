@@ -60,12 +60,12 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 		switch ev.Type() {
 		case mana.EventTypePledge:
 			blk = &wsblk{
-				Type: BlkTypeManaInitPledge,
+				Type: MsgTypeManaInitPledge,
 				Data: ev.ToJSONSerializable(),
 			}
 		case mana.EventTypeRevoke:
 			blk = &wsblk{
-				Type: BlkTypeManaInitRevoke,
+				Type: MsgTypeManaInitRevoke,
 				Data: ev.ToJSONSerializable(),
 			}
 		default:
@@ -76,7 +76,7 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 		}
 	}
 	// signal to frontend that all initial values are sent
-	if err := sendJSON(ws, &wsblk{BlkTypeManaInitDone, nil}); err != nil {
+	if err := sendJSON(ws, &wsblk{MsgTypeManaInitDone, nil}); err != nil {
 		return errors.Errorf("failed to send mana event to client: %w", err)
 	}
 	return nil
@@ -99,7 +99,7 @@ func (m *ManaBuffer) SendValueBlks(ws *websocket.Conn) error {
 	defer m.valueBlksMutex.RUnlock()
 	for _, valueBlk := range m.ValueBlks {
 		blk := &wsblk{
-			Type: BlkTypeManaValue,
+			Type: MsgTypeManaValue,
 			Data: valueBlk,
 		}
 		if err := sendJSON(ws, blk); err != nil {
@@ -129,7 +129,7 @@ func (m *ManaBuffer) SendMapOverall(ws *websocket.Conn) error {
 	defer m.mapOverallMutex.RUnlock()
 	for _, blkData := range m.MapOverall {
 		blk := &wsblk{
-			Type: BlkTypeManaMapOverall,
+			Type: MsgTypeManaMapOverall,
 			Data: blkData,
 		}
 		if err := sendJSON(ws, blk); err != nil {
@@ -159,7 +159,7 @@ func (m *ManaBuffer) SendMapOnline(ws *websocket.Conn) error {
 	defer m.mapOnlineMutex.RUnlock()
 	for _, blkData := range m.MapOnline {
 		blk := &wsblk{
-			Type: BlkTypeManaMapOnline,
+			Type: MsgTypeManaMapOnline,
 			Data: blkData,
 		}
 		if err := sendJSON(ws, blk); err != nil {

@@ -36,7 +36,7 @@ On top of the communication layer lives the application layer. Anybody can devel
 There are several core applications that must be run by all nodes, as the value transfer applications, which maintains the [ledger state](ledgerstate.md) (including  advanced [output types](advanced_outputs.md)), and a quantity called [Mana](mana.md), that serves as a scarce resource as our Sybil protection mechanism.
 Additionally, all nodes must run what we call the consensus applications, which regulate timestamps in the blocks and resolve conflicts.
 The consensus mechanism implemented in GoShimmer is leaderless and consists out of multiple components:
-1. [Approval Weight](consensus_mechanism.md#approval-weight-aw) is an objective measure to determine the grade of finality of blocks and branches based on [active cMana](consensus_mechanism.md#Active-cMana).
+1. [Approval Weight](consensus_mechanism.md#approval-weight-aw) is an objective measure to determine the grade of finality of blocks and conflicts based on [active cMana](consensus_mechanism.md#Active-cMana).
 2. The [Modular Conflict Selection Function](consensus_mechanism.md#modular-conflict-selection-function) is an abstraction on how a node sets an initial opinion on conflicts based on the .
 
 ## Data Flow - Overview
@@ -86,24 +86,24 @@ The scheduler makes sure that the network as a whole can operate with maximum th
 
 After scheduling, the block goes to the booker. This step is different between blocks that contain a transaction payload and blocks that do not contain it.
 
-In the case of a non-transaction payload, booking into the Tangle occurs after the conflicting parents branches check, i.e., after checking if the parents' branches contain sets of (two or more) transactions that belong to the same conflict set. In the case of this check not being successful, the block is marked as `invalid` and not booked.
+In the case of a non-transaction payload, booking into the Tangle occurs after the conflicting parents conflicts check, i.e., after checking if the parents' conflicts contain sets of (two or more) transactions that belong to the same conflict set. In the case of this check not being successful, the block is marked as `invalid` and not booked.
 
 In the case of a transaction as payload, initially, the following check is done:
 
 1. UTXO check: it checks if the inputs of the transaction were already booked. If the block does not pass this check, the block is not booked. If it passes the check, it goes to the next block of steps.
 2. Balances check: it checks if the sum of the values of the generated outputs equals the sum of the values of the consumed inputs. If the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
 3. Unlock conditions: checks if the unlock conditions are valid. If the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
-4. Inputs' branches validity check: it checks if all the consumed inputs belong to a valid branch. If the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
+4. Inputs' conflicts validity check: it checks if all the consumed inputs belong to a valid conflict. If the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
 
 After the objective checks, the following subjective checks are done:
 
-5. Inputs' branches rejection check: it checks if all the consumed inputs belong to a non-rejected branch. Notice that this is not an objective check, so the node is susceptible (even if with a small probability) to have its opinion about rejected branches changed by a reorganization. For that reason, if the block does not pass this check, the block is booked into the Tangle and ledger state (even though the balances are not altered by this block, since it will be booked to a rejected branch). This is what we call "lazy booking", which is done to avoid huge re-calculations in case of a reorganization of the ledger. If it passes the check, it goes to the next step.
-10. Double spend check: it checks if any of the inputs is conflicting with a transaction that was already confirmed. As in the last step, this check is not objective and, thus, if the block does not pass this check, it is lazy booked into the Tangle and ledger state, into an invalid branch. If it passes the check, it goes to the next step.
+5. Inputs' conflicts rejection check: it checks if all the consumed inputs belong to a non-rejected conflict. Notice that this is not an objective check, so the node is susceptible (even if with a small probability) to have its opinion about rejected conflicts changed by a reorganization. For that reason, if the block does not pass this check, the block is booked into the Tangle and ledger state (even though the balances are not altered by this block, since it will be booked to a rejected conflict). This is what we call "lazy booking", which is done to avoid huge re-calculations in case of a reorganization of the ledger. If it passes the check, it goes to the next step.
+10. Double spend check: it checks if any of the inputs is conflicting with a transaction that was already confirmed. As in the last step, this check is not objective and, thus, if the block does not pass this check, it is lazy booked into the Tangle and ledger state, into an invalid conflict. If it passes the check, it goes to the next step.
 
 At this point, the missing steps are the most computationally expensive:
 
-7.  Inputs' conflicting branches check: it checks if the branches of the inputs are conflicting. As in the last step, if the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
-8. Conflict check: it checks if the inputs are conflicting with an unconfirmed transaction. In this step, the branch to which the block belongs is computed. In both cases (passing the check or not), the transaction is booked into the ledger state and the block is booked into the Tangle, but its branch ID will be different depending on the outcome of the check.
+7.  Inputs' conflicting conflicts check: it checks if the conflicts of the inputs are conflicting. As in the last step, if the block does not pass this check, the block is marked as `invalid` and not booked. If it passes the check, it goes to the next step.
+8. Conflict check: it checks if the inputs are conflicting with an unconfirmed transaction. In this step, the conflict to which the block belongs is computed. In both cases (passing the check or not), the transaction is booked into the ledger state and the block is booked into the Tangle, but its conflict ID will be different depending on the outcome of the check.
 
 [![Booker](/img/protocol_specification/booker.png "Booker")](/img/protocol_specification/booker.png)
 
@@ -116,4 +116,4 @@ A detailed description can be found [here](consensus_mechanism.md).
 ### Tip Manager
 
 The first check done in the tip manager is the eligibility check (i.e., subjective timestamp is ok), after passing it, a block is said to be `eligible` for tip selection (otherwise, it's `not eligible`). 
-If a block is eligible for [tip selection](tangle.md#tsa) and its payload is `liked`, along with all its weak past cone, the block is added to the strong tip pool and its parents are removed from the strong tip pool. If a block is eligible for tip selection, its payload is `liked` but its branch is not liked it is added to the weak tip pool.
+If a block is eligible for [tip selection](tangle.md#tsa) and its payload is `liked`, along with all its weak past cone, the block is added to the strong tip pool and its parents are removed from the strong tip pool. If a block is eligible for tip selection, its payload is `liked` but its conflict is not liked it is added to the weak tip pool.

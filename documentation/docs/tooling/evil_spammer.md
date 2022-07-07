@@ -377,7 +377,7 @@ EvilBatch{
 #### Deep spamming
 Except basic functionality to customize spam batches, set the rate and duration, the Evil Spammer allows also for deep spamming.
 
-To create deep branch and UTXO structure  you need to enable the deep spam with an option
+To create deep conflict and UTXO structure  you need to enable the deep spam with an option
 ```go
 evilwallet.WithScenarioDeepSpamEnabled()
 ```

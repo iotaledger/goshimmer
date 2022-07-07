@@ -1,5 +1,5 @@
 ---
-description: ObjectStorage is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `blockStorage` amongst others.
+description: ObjectStorage is used as a base data structure for many data collection elements such as `conflictStorage`, `conflictStorage`, `blockStorage` amongst others.
 image: /img/logo/goshimmer_light.png
 keywords:
 - storage
@@ -13,7 +13,7 @@ keywords:
 
 # Object Storage
 
-In GoShimmer `ObjectStorage`  is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `blockStorage` and others.
+In GoShimmer `ObjectStorage`  is used as a base data structure for many data collection elements such as `conflictStorage`, `conflictStorage`, `blockStorage` and others.
 It can be described by the following characteristics, it:
 - is a manual cache which keeps objects in memory as long as consumers are using it
 - uses key-value storage type 

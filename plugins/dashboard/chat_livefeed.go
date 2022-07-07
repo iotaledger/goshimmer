@@ -29,7 +29,7 @@ func configureChatLiveFeed() {
 	chatLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		newBlock := task.Param(0).(*chat.BlockReceivedEvent)
 
-		broadcastWsBlock(&wsblk{BlkTypeChat, &chatBlk{
+		broadcastWsBlock(&wsblk{MsgTypeChat, &chatBlk{
 			From:      newBlock.From,
 			To:        newBlock.To,
 			Block:     newBlock.Block,

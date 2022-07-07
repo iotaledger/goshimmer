@@ -4111,16 +4111,16 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_branch_confirmation_time{instance=\"$instance\"}[30s]) / rate(tangle_branch_confirmed_count{instance=\"$instance\"}[30s])",
+              "expr": "irate(tangle_conflict_confirmation_time{instance=\"$instance\"}[30s]) / rate(tangle_conflict_confirmed_count{instance=\"$instance\"}[30s])",
               "interval": "",
-              "legendFormat": "Average branch confirmation time",
+              "legendFormat": "Average conflict confirmation time",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Branch finalization time",
+          "title": "Conflict finalization time",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -4289,14 +4289,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_branch_total_count_db{instance=\"$instance\"}",
+              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Total number of branches",
+          "title": "Total number of conflicts",
           "type": "stat"
         },
         {
@@ -4351,14 +4351,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_branch_total_count_db{instance=\"$instance\"} - tangle_branch_finalized_count_db{instance=\"$instance\"}",
+              "expr": "tangle_conflict_total_count_db{instance=\"$instance\"} - tangle_conflict_finalized_count_db{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Total number of unresolved branches",
+          "title": "Total number of unresolved conflicts",
           "type": "stat"
         },
         {
@@ -4413,14 +4413,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_branch_finalized_count_db{instance=\"$instance\"}",
+              "expr": "tangle_conflict_finalized_count_db{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Total number of finalized branches",
+          "title": "Total number of finalized conflicts",
           "type": "stat"
         },
         {
@@ -4475,14 +4475,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_branch_confirmed_count{instance=\"$instance\"}",
+              "expr": "tangle_conflict_confirmed_count{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Total number of confirmed branches",
+          "title": "Total number of confirmed conflicts",
           "type": "stat"
         }
       ],

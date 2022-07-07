@@ -33,7 +33,7 @@ import (
 // simplified way.
 type BlockTestFramework struct {
 	tangle                   *Tangle
-	branchIDs                map[string]utxo.TransactionID
+	conflictIDs              map[string]utxo.TransactionID
 	blocksByAlias            map[string]*Block
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[devnetvm.Address]wallet
@@ -50,7 +50,7 @@ type BlockTestFramework struct {
 func NewBlockTestFramework(tangle *Tangle, options ...BlockTestFrameworkOption) (blockTestFramework *BlockTestFramework) {
 	blockTestFramework = &BlockTestFramework{
 		tangle:           tangle,
-		branchIDs:        make(map[string]utxo.TransactionID),
+		conflictIDs:      make(map[string]utxo.TransactionID),
 		blocksByAlias:    make(map[string]*Block),
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[devnetvm.Address]wallet),
@@ -70,39 +70,39 @@ func (m *BlockTestFramework) Snapshot() (snapshot *ledger.Snapshot) {
 	return m.snapshot
 }
 
-// RegisterBranchID registers a BranchID from the given Blocks' transactions with the BlockTestFramework and
-// also an alias when printing the BranchID.
-func (m *BlockTestFramework) RegisterBranchID(alias, blockAlias string) {
-	branchID := m.BranchIDFromBlock(blockAlias)
-	m.branchIDs[alias] = branchID
-	branchID.RegisterAlias(alias)
+// RegisterConflictID registers a ConflictID from the given Blocks' transactions with the BlockTestFramework and
+// also an alias when printing the ConflictID.
+func (m *BlockTestFramework) RegisterConflictID(alias, blockAlias string) {
+	conflictID := m.ConflictIDFromBlock(blockAlias)
+	m.conflictIDs[alias] = conflictID
+	conflictID.RegisterAlias(alias)
 }
 
 func (m *BlockTestFramework) RegisterTransactionID(alias, blockAlias string) {
-	TxID := m.BranchIDFromBlock(blockAlias)
+	TxID := m.ConflictIDFromBlock(blockAlias)
 	TxID.RegisterAlias(alias)
 }
 
-// BranchID returns the BranchID registered with the given alias.
-func (m *BlockTestFramework) BranchID(alias string) (branchID utxo.TransactionID) {
-	branchID, ok := m.branchIDs[alias]
+// ConflictID returns the ConflictID registered with the given alias.
+func (m *BlockTestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
+	conflictID, ok := m.conflictIDs[alias]
 	if !ok {
-		panic("no branch registered with such alias " + alias)
+		panic("no conflict registered with such alias " + alias)
 	}
 
 	return
 }
 
-// BranchIDs returns the BranchIDs registered with the given aliases.
-func (m *BlockTestFramework) BranchIDs(aliases ...string) (branchIDs utxo.TransactionIDs) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// ConflictIDs returns the ConflictIDs registered with the given aliases.
+func (m *BlockTestFramework) ConflictIDs(aliases ...string) (conflictIDs utxo.TransactionIDs) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for _, alias := range aliases {
-		branchID, ok := m.branchIDs[alias]
+		conflictID, ok := m.conflictIDs[alias]
 		if !ok {
-			panic("no branch registered with such alias " + alias)
+			panic("no conflict registered with such alias " + alias)
 		}
-		branchIDs.Add(branchID)
+		conflictIDs.Add(conflictID)
 	}
 
 	return
@@ -265,8 +265,8 @@ func (m *BlockTestFramework) OutputMetadata(outputID utxo.OutputID) (outMeta *le
 	return
 }
 
-// BranchIDFromBlock returns the BranchID of the Transaction contained in the Block associated with the given alias.
-func (m *BlockTestFramework) BranchIDFromBlock(blockAlias string) utxo.TransactionID {
+// ConflictIDFromBlock returns the ConflictID of the Transaction contained in the Block associated with the given alias.
+func (m *BlockTestFramework) ConflictIDFromBlock(blockAlias string) utxo.TransactionID {
 	blockPayload := m.blocksByAlias[blockAlias].Payload()
 	tx, ok := blockPayload.(utxo.Transaction)
 	if !ok {
@@ -276,12 +276,12 @@ func (m *BlockTestFramework) BranchIDFromBlock(blockAlias string) utxo.Transacti
 	return tx.ID()
 }
 
-// Branch returns the branch emerging from the transaction contained within the given block.
+// Conflict returns the conflict emerging from the transaction contained within the given block.
 // This function thus only works on the block creating ledger.Conflict.
 // Panics if the block's payload isn't a transaction.
-func (m *BlockTestFramework) Branch(blockAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.BranchIDFromBlock(blockAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		b = branch
+func (m *BlockTestFramework) Conflict(blockAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.ConflictIDFromBlock(blockAlias)).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		b = conflict
 	})
 	return
 }
@@ -626,15 +626,15 @@ func randomTransactionID() (randomTransactionID utxo.TransactionID) {
 	return randomTransactionID
 }
 
-func randomBranchID() (randomBranchID utxo.TransactionID) {
-	if err := randomBranchID.FromRandomness(); err != nil {
+func randomConflictID() (randomConflictID utxo.TransactionID) {
+	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
 
-	return randomBranchID
+	return randomConflictID
 }
 
-func randomConflictID() (randomConflictID utxo.OutputID) {
+func randomResourceID() (randomConflictID utxo.OutputID) {
 	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
@@ -904,8 +904,8 @@ func (m *MockConfirmationOracle) IsBlockConfirmed(blkID BlockID) bool {
 	return false
 }
 
-// IsBranchConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsBranchConfirmed(branchID utxo.TransactionID) bool {
+// IsConflictConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsConflictConfirmed(conflictID utxo.TransactionID) bool {
 	return false
 }
 
@@ -953,26 +953,26 @@ type SimpleMockOnTangleVoting struct {
 // LikedConflictMembers is a struct that holds information about which Conflict is the liked one out of a set of
 // ConflictMembers.
 type LikedConflictMembers struct {
-	likedBranch     utxo.TransactionID
+	likedConflict   utxo.TransactionID
 	conflictMembers utxo.TransactionIDs
 }
 
-// LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID utxo.TransactionID) (likedBranchID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
-	likedConflictMembers := o.likedConflictMember[branchID]
+// LikedConflictMember returns conflicts that are liked instead of a disliked conflict as predefined.
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(conflictID utxo.TransactionID) (likedConflictID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
+	likedConflictMembers := o.likedConflictMember[conflictID]
 	innerConflictMembers := likedConflictMembers.conflictMembers.Clone()
-	innerConflictMembers.Delete(branchID)
+	innerConflictMembers.Delete(conflictID)
 
-	return likedConflictMembers.likedBranch, innerConflictMembers
+	return likedConflictMembers.likedConflict, innerConflictMembers
 }
 
-// BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
-func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (branchLiked bool) {
-	likedConflictMembers, ok := o.likedConflictMember[branchID]
+// ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
+func (o *SimpleMockOnTangleVoting) ConflictLiked(conflictID utxo.TransactionID) (conflictLiked bool) {
+	likedConflictMembers, ok := o.likedConflictMember[conflictID]
 	if !ok {
 		return false
 	}
-	return likedConflictMembers.conflictMembers.Has(branchID)
+	return likedConflictMembers.conflictMembers.Has(conflictID)
 }
 
 func emptyLikeReferences(payload payload.Payload, parents BlockIDs, _ time.Time) (references ParentBlockIDs, err error) {
@@ -1003,7 +1003,7 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	}
 
 	// attach all events
-	approvalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(e.ConflictWeightChanged))
 	approvalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(e.MarkerWeightChanged))
 	approvalWeightManager.Events.BlockProcessed.Hook(event.NewClosure(e.BlockProcessed))
 
@@ -1046,9 +1046,9 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// BranchWeightChanged is the mocked BranchWeightChanged function.
-func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
-	e.Called(event.BranchID, event.Weight)
+// ConflictWeightChanged is the mocked ConflictWeightChanged function.
+func (e *EventMock) ConflictWeightChanged(event *ConflictWeightChangedEvent) {
+	e.Called(event.ConflictID, event.Weight)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
