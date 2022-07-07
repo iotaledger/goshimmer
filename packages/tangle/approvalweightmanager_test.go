@@ -66,36 +66,36 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 	}
 }
 
-func TestBranchWeightMarshalling(t *testing.T) {
-	branchWeight := NewConflictWeight(randomConflictID())
-	branchWeight.SetWeight(5.1234)
-	branchWeightDecoded := new(ConflictWeight)
-	err := branchWeightDecoded.FromBytes(lo.PanicOnErr(branchWeight.Bytes()))
+func TestConflictWeightMarshalling(t *testing.T) {
+	conflictWeight := NewConflictWeight(randomConflictID())
+	conflictWeight.SetWeight(5.1234)
+	conflictWeightDecoded := new(ConflictWeight)
+	err := conflictWeightDecoded.FromBytes(lo.PanicOnErr(conflictWeight.Bytes()))
 	require.NoError(t, err)
-	assert.Equal(t, lo.PanicOnErr(branchWeight.Bytes()), lo.PanicOnErr(branchWeightDecoded.Bytes()))
-	assert.Equal(t, branchWeight.Weight(), branchWeightDecoded.Weight())
+	assert.Equal(t, lo.PanicOnErr(conflictWeight.Bytes()), lo.PanicOnErr(conflictWeightDecoded.Bytes()))
+	assert.Equal(t, conflictWeight.Weight(), conflictWeightDecoded.Weight())
 }
 
-func TestBranchVotersMarshalling(t *testing.T) {
-	branchVoters := NewConflictVoters(randomConflictID())
+func TestConflictVotersMarshalling(t *testing.T) {
+	conflictVoters := NewConflictVoters(randomConflictID())
 
 	for i := 0; i < 100; i++ {
-		branchVoters.AddVoter(identity.GenerateIdentity().ID())
+		conflictVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
-	branchVotersFromBytes := new(ConflictVoters)
-	err := branchVotersFromBytes.FromBytes(lo.PanicOnErr(branchVoters.Bytes()))
+	conflictVotersFromBytes := new(ConflictVoters)
+	err := conflictVotersFromBytes.FromBytes(lo.PanicOnErr(conflictVoters.Bytes()))
 	require.NoError(t, err)
 
-	// verify that branchVotersFromBytes has all voters from branchVoters
-	assert.Equal(t, branchVoters.Voters().Set.Size(), branchVotersFromBytes.Voters().Set.Size())
-	branchVoters.Voters().Set.ForEach(func(voter Voter) {
-		assert.True(t, branchVotersFromBytes.Voters().Set.Has(voter))
+	// verify that conflictVotersFromBytes has all voters from conflictVoters
+	assert.Equal(t, conflictVoters.Voters().Set.Size(), conflictVotersFromBytes.Voters().Set.Size())
+	conflictVoters.Voters().Set.ForEach(func(voter Voter) {
+		assert.True(t, conflictVotersFromBytes.Voters().Set.Has(voter))
 	})
 }
 
-// TestApprovalWeightManager_updateBranchVoters tests the ApprovalWeightManager's functionality regarding branches.
-// The scenario can be found in images/approvalweight-updateBranchSupporters.png.
-func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
+// TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.
+// The scenario can be found in images/approvalweight-updateConflictSupporters.png.
+func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
 	var weightProvider *CManaWeightProvider
@@ -112,7 +112,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
-	conflictIDs := map[string]utxo.OutputID{
+	resourceIDs := map[string]utxo.OutputID{
 		"Conflict 1": randomResourceID(),
 		"Conflict 2": randomResourceID(),
 		"Conflict 3": randomResourceID(),
@@ -120,7 +120,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		"Conflict 5": randomResourceID(),
 	}
 
-	branchIDs := map[string]*set.AdvancedSet[utxo.TransactionID]{
+	conflictIDs := map[string]*set.AdvancedSet[utxo.TransactionID]{
 		"Conflict 1":     set.NewAdvancedSet(randomConflictID()),
 		"Conflict 1.1":   set.NewAdvancedSet(randomConflictID()),
 		"Conflict 1.2":   set.NewAdvancedSet(randomConflictID()),
@@ -134,24 +134,24 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		"Conflict 4.2":   set.NewAdvancedSet(randomConflictID()),
 	}
 
-	createBranch(t, tangle, "Conflict 1", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Conflict 2", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Conflict 3", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
-	createBranch(t, tangle, "Conflict 4", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
+	createConflict(t, tangle, "Conflict 1", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(t, tangle, "Conflict 2", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(t, tangle, "Conflict 3", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
+	createConflict(t, tangle, "Conflict 4", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
 
-	createBranch(t, tangle, "Conflict 1.1", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, "Conflict 1.2", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, "Conflict 1.3", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
+	createConflict(t, tangle, "Conflict 1.1", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(t, tangle, "Conflict 1.2", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(t, tangle, "Conflict 1.3", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
 
-	createBranch(t, tangle, "Conflict 4.1", branchIDs, branchIDs["Conflict 4"], conflictIDs["Conflict 4"])
-	createBranch(t, tangle, "Conflict 4.2", branchIDs, branchIDs["Conflict 4"], conflictIDs["Conflict 4"])
+	createConflict(t, tangle, "Conflict 4.1", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
+	createConflict(t, tangle, "Conflict 4.2", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
 
-	createBranch(t, tangle, "Conflict 4.1.1", branchIDs, branchIDs["Conflict 4.1"], conflictIDs["Conflict 5"])
-	createBranch(t, tangle, "Conflict 4.1.2", branchIDs, branchIDs["Conflict 4.1"], conflictIDs["Conflict 5"])
+	createConflict(t, tangle, "Conflict 4.1.1", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
+	createConflict(t, tangle, "Conflict 4.1.2", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
 
-	branchIDs["Conflict 1.1 + Conflict 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
-	branchIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(branchIDs["Conflict 1.1"])
-	branchIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(branchIDs["Conflict 4.1.1"])
+	conflictIDs["Conflict 1.1 + Conflict 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
+	conflictIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(conflictIDs["Conflict 1.1"])
+	conflictIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(conflictIDs["Conflict 4.1.1"])
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
@@ -163,7 +163,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement2")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 4.1.2"])
+			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 4.1.2"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
@@ -181,7 +181,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 			"Conflict 4.1.2": true,
 			"Conflict 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, conflictIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	// statement 1: "Conflict 1.1 + Conflict 4.1.1"
@@ -190,7 +190,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement1")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
+			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 1.1 + Conflict 4.1.1"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
@@ -208,7 +208,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 			"Conflict 4.1.2": true,
 			"Conflict 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, conflictIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
 	// statement 3: "Conflict 2"
@@ -217,7 +217,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.StoreBlock(block)
 		block.ID().RegisterAlias("Statement3")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-			blockMetadata.SetAddedConflictIDs(branchIDs["Conflict 2"])
+			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 2"])
 			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
@@ -235,7 +235,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 			"Conflict 4.1.2": true,
 			"Conflict 4.2":   false,
 		}
-		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
+		validateStatementResults(t, approvalWeightManager, conflictIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 }
 
@@ -393,7 +393,7 @@ func TestApprovalWeightManager_ProcessBlock(t *testing.T) {
 	}
 }
 
-func TestAggregatedBranchApproval(t *testing.T) {
+func TestAggregatedConflictApproval(t *testing.T) {
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
 		nodes[node] = identity.GenerateIdentity()
@@ -424,42 +424,42 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block1").RegisterAlias("Branch1")
+		testFramework.TransactionID("Block1").RegisterAlias("Conflict1")
 	}
 
 	// ISSUE Block2
 	{
 		testFramework.CreateBlock("Block2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block2").RegisterAlias("Branch2")
+		testFramework.TransactionID("Block2").RegisterAlias("Conflict2")
 	}
 
 	// ISSUE Block3
 	{
 		testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block3").RegisterAlias("Branch3")
+		testFramework.TransactionID("Block3").RegisterAlias("Conflict3")
 	}
 
 	// ISSUE Block4
 	{
 		testFramework.CreateBlock("Block4", WithStrongParents("Block2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block4").RegisterAlias("Branch4")
+		testFramework.TransactionID("Block4").RegisterAlias("Conflict4")
 	}
 
 	// ISSUE Block5
 	{
 		testFramework.CreateBlock("Block5", WithStrongParents("Block4", "Block1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block5").RegisterAlias("Branch5")
+		testFramework.TransactionID("Block5").RegisterAlias("Conflict5")
 	}
 
 	// ISSUE Block6
 	{
 		testFramework.CreateBlock("Block6", WithStrongParents("Block4", "Block1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block6").RegisterAlias("Branch6")
+		testFramework.TransactionID("Block6").RegisterAlias("Conflict6")
 
 		_, err := tangle.Booker.BlockConflictIDs(testFramework.Block("Block6").ID())
 		require.NoError(t, err)
@@ -469,14 +469,14 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block7", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block7").RegisterAlias("Branch7")
+		testFramework.TransactionID("Block7").RegisterAlias("Conflict7")
 	}
 
 	// ISSUE Block8
 	{
 		testFramework.CreateBlock("Block8", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Block8").RegisterAlias("Branch8")
+		testFramework.TransactionID("Block8").RegisterAlias("Conflict8")
 		_, err := tangle.Booker.BlockConflictIDs(testFramework.Block("Block8").ID())
 		require.NoError(t, err)
 	}
@@ -872,28 +872,28 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func getSingleBranch(branches map[string]*set.AdvancedSet[utxo.TransactionID], alias string) utxo.TransactionID {
-	if branches[alias].Size() != 1 {
-		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %+v", alias, branches[alias]))
+func getSingleConflict(conflictes map[string]*set.AdvancedSet[utxo.TransactionID], alias string) utxo.TransactionID {
+	if conflictes[alias].Size() != 1 {
+		panic(fmt.Sprintf("Conflictes with alias %s are multiple conflictes, not a single one: %+v", alias, conflictes[alias]))
 	}
 
-	for it := branches[alias].Iterator(); it.HasNext(); {
+	for it := conflictes[alias].Iterator(); it.HasNext(); {
 		return it.Next()
 	}
 
 	return utxo.EmptyTransactionID
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentBranchIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
-	branchID := getSingleBranch(branchIDs, branchAlias)
-	tangle.Ledger.ConflictDAG.CreateConflict(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
-	branchID.RegisterAlias(branchAlias)
+func createConflict(t *testing.T, tangle *Tangle, conflictAlias string, conflictIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentConflictIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
+	conflict := getSingleConflict(conflictIDs, conflictAlias)
+	tangle.Ledger.ConflictDAG.CreateConflict(conflict, parentConflictIDs, set.NewAdvancedSet(conflictID))
+	conflict.RegisterAlias(conflictAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]utxo.TransactionIDs, voter Voter, expectedResults map[string]bool) {
-	for branchIDString, expectedResult := range expectedResults {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, conflictIDs map[string]utxo.TransactionIDs, voter Voter, expectedResults map[string]bool) {
+	for conflictIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		for it := branchIDs[branchIDString].Iterator(); it.HasNext(); {
+		for it := conflictIDs[conflictIDString].Iterator(); it.HasNext(); {
 			voters := approvalWeightManager.VotersOfConflict(it.Next())
 			if voters != nil {
 				actualResult = voters.Set.Has(voter)
@@ -903,6 +903,6 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 			}
 		}
 
-		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", branchIDString, branchIDs[branchIDString])
+		assert.Equalf(t, expectedResult, actualResult, "%s(%s) does not match", conflictIDString, conflictIDs[conflictIDString])
 	}
 }

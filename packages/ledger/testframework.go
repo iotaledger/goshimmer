@@ -212,32 +212,32 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 // "output.0": {"conflict1", "conflict2"}
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Conflict -> conflictIDs.
-	branchConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
+	ConflictResources := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
 
-	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
-		conflictID := t.OutputID(outputAlias)
+	for resourceAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
+		resourceID := t.OutputID(resourceAlias)
 		expectedConflictMembers := t.ConflictIDs(expectedConflictMembersAliases...)
 
 		// Check count of conflict members for this conflictID.
-		cachedConflictMembers := t.ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID)
-		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", conflictID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
+		cachedConflictMembers := t.ledger.ConflictDAG.Storage.CachedConflictMembers(resourceID)
+		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", resourceID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
 		cachedConflictMembers.Release()
 
-		// Verify that all named branches are stored as conflict members (conflictID -> branchIDs).
-		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
+		// Verify that all named conflicts are stored as conflict members (conflictID -> conflictIDs).
+		for _, conflictID := range expectedConflictMembers.Slice() {
+			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflictMember(resourceID, conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", resourceID, conflictID)
 
-			if _, exists := branchConflicts[branchID]; !exists {
-				branchConflicts[branchID] = set.NewAdvancedSet[utxo.OutputID]()
+			if _, exists := ConflictResources[conflictID]; !exists {
+				ConflictResources[conflictID] = set.NewAdvancedSet[utxo.OutputID]()
 			}
-			branchConflicts[branchID].Add(conflictID)
+			ConflictResources[conflictID].Add(resourceID)
 		}
 	}
 
-	// Make sure that all branches have all specified conflictIDs (reverse mapping).
-	for branchID, expectedConflicts := range branchConflicts {
-		t.ConsumeConflict(branchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictSetIDs())
+	// Make sure that all conflicts have all specified conflictIDs (reverse mapping).
+	for conflictID, expectedConflicts := range ConflictResources {
+		t.ConsumeConflict(conflictID, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			assert.Truef(t.t, expectedConflicts.Equal(conflict.ConflictSetIDs()), "%s: conflicts expected=%s, actual=%s", conflictID, expectedConflicts, conflict.ConflictSetIDs())
 		})
 	}
 }

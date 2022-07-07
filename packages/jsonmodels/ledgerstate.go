@@ -528,13 +528,13 @@ type ConflictWeight struct {
 	ApprovalWeight    float64            `json:"approvalWeight"`
 }
 
-// NewConflictWeight returns a Branch from the given ledger.Conflict.
-func NewConflictWeight(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) ConflictWeight {
+// NewConflictWeight returns a Conflict from the given ledger.Conflict.
+func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) ConflictWeight {
 	return ConflictWeight{
-		ID: branch.ID().Base58(),
+		ID: conflict.ID().Base58(),
 		Parents: func() []string {
 			parents := make([]string, 0)
-			for it := branch.Parents().Iterator(); it.HasNext(); {
+			for it := conflict.Parents().Iterator(); it.HasNext(); {
 				parents = append(parents, it.Next().Base58())
 			}
 
@@ -542,7 +542,7 @@ func NewConflictWeight(branch *conflictdag.Conflict[utxo.TransactionID, utxo.Out
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := branch.ConflictSetIDs().Iterator(); it.HasNext(); {
+			for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 				conflictIDs = append(conflictIDs, it.Next().Base58())
 			}
 

@@ -99,7 +99,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMember(conflictSetID 
 		})
 	}
 
-	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(bytes(conflictSetID), bytes(conflictSetID)))
+	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(bytes(conflictSetID), bytes(conflictID)))
 }
 
 // CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named
