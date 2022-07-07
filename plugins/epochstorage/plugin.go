@@ -131,7 +131,7 @@ func configure(plugin *node.Plugin) {
 		committableEpochs = append(committableEpochs, event.ECRecord)
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+	deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
 		message := event.Message
 		saveEpochVotersWeight(message)
 	}))
