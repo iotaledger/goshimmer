@@ -26,7 +26,7 @@ const (
 	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
 	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
-	Wmin = 2
+	Wmin = 5
 )
 
 var (
@@ -176,7 +176,7 @@ func (r *RateSetter) rateSetting() {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = r.initialPauseUpdates
 	} else {
-		ownRate += RateSettingIncrease * ownMana / totalMana
+		ownRate += math.Max(RateSettingIncrease*ownMana/totalMana, 0.01)
 	}
 	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
@@ -250,7 +250,7 @@ func (r *RateSetter) initializeInitialRate() {
 	} else {
 		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
 		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 0.001))
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
 	}
 }
 
