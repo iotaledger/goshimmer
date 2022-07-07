@@ -1,15 +1,15 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSMsgType} from "app/misc/WS";
+import {registerHandler, WSBlkType} from "app/misc/WS";
 import * as React from "react";
 import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
 import NodeStore from './NodeStore';
 
-export class ChatMessage {
+export class ChatBlock {
     from: string;
     to: string;
-    message: string;
-    messageID: string;
+    block: string;
+    blockID: string;
     timestamp: string;
 }
 
@@ -17,14 +17,14 @@ const liveFeedSize = 10;
 
 export class ChatStore {
     // live feed
-    @observable latest_msgs: Array<ChatMessage> = [];
-    @observable msg: ChatMessage = null;
+    @observable latest_blks: Array<ChatBlock> = [];
+    @observable blk: ChatBlock = null;
     
     // loading
     @observable send_loading: boolean = false;
     @observable send_err: any = null;
     
-    @observable message: string = "";
+    @observable block: string = "";
     @observable sending: boolean = false;
 
     routerStore: RouterStore;
@@ -33,23 +33,23 @@ export class ChatStore {
     constructor(routerStore: RouterStore, nodeStore: NodeStore) {
         this.routerStore = routerStore;
         this.nodeStore = nodeStore;
-        registerHandler(WSMsgType.Chat, this.addLiveFeed);
+        registerHandler(WSBlkType.Chat, this.addLiveFeed);
     }
 
     @action
-    addLiveFeed = (msg: ChatMessage) => {
+    addLiveFeed = (blk: ChatBlock) => {
         // prevent duplicates (should be fast with only size 10)
-        if (this.latest_msgs.findIndex((t) => t.messageID == msg.messageID) === -1) {
-            if (this.latest_msgs.length >= liveFeedSize) {
-                this.latest_msgs.shift();
+        if (this.latest_blks.findIndex((t) => t.blockID == blk.blockID) === -1) {
+            if (this.latest_blks.length >= liveFeedSize) {
+                this.latest_blks.shift();
             }
-            this.latest_msgs.push(msg);
+            this.latest_blks.push(blk);
         }
     };
 
     @action
-    updateSend = (message: string) => {
-        this.message = message;
+    updateSend = (block: string) => {
+        this.block = block;
     };
 
     @action
@@ -65,7 +65,7 @@ export class ChatStore {
         this.sending = false;
     };
 
-    sendMessage = async (message: string) => {
+    sendBlock = async (block: string) => {
         // this.updateQueryLoading(true);
         try {
             let res = await fetch(`/api/chat`, {
@@ -74,15 +74,15 @@ export class ChatStore {
                   'Accept': 'application/json',
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({from: this.nodeStore.status.id, to: 'all', message: message})
+                body: JSON.stringify({from: this.nodeStore.status.id, to: 'all', block: block})
             });
             if (res.status === 400) {
                 this.updateSendError("Not able to send");
                 return;
             }
-            const msg = await res.json();
+            const blk = await res.json();
             this.updateSending(false);
-            console.log(msg);
+            console.log(blk);
         } catch (err) {
             // this.updateQueryError(err);
             console.log(err);
@@ -91,31 +91,31 @@ export class ChatStore {
     };
 
     reset() {
-        this.message = "";
+        this.block = "";
         this.send_loading = false;
         this.sending = false;
     }
 
     @computed
-    get msgsLiveFeed() {
+    get blksLiveFeed() {
         let feed = [];
-        for (let i = this.latest_msgs.length - 1; i >= 0; i--) {
-            let msg = this.latest_msgs[i];
+        for (let i = this.latest_blks.length - 1; i >= 0; i--) {
+            let blk = this.latest_blks[i];
             feed.push(
-                <tr key={msg.messageID}>
+                <tr key={blk.blockID}>
                     <td>
-                        {msg.from}
+                        {blk.from}
                     </td>
                     <td>
-                        {msg.message}
+                        {blk.block}
                     </td>
                     <td>
-                        <Link to={`/explorer/message/${msg.messageID}`}>
-                        {msg.messageID}
+                        <Link to={`/explorer/block/${blk.blockID}`}>
+                        {blk.blockID}
                         </Link>
                     </td>
                     <td>
-                        {msg.timestamp}
+                        {blk.timestamp}
                     </td>
                 </tr>
             );

@@ -39,25 +39,25 @@ type dependencies struct {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *tangle.MessageBookedEvent) {
-		onReceiveMessageFromMessageLayer(event.MessageID)
+	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangle.BlockBookedEvent) {
+		onReceiveBlockFromBlockLayer(event.BlockID)
 	}))
 	configureWebAPI()
 }
 
-func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	var chatEvent *chat.MessageReceivedEvent
-	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		if message.Payload().Type() != chat.Type {
+func onReceiveBlockFromBlockLayer(blockID tangle.BlockID) {
+	var chatEvent *chat.BlockReceivedEvent
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+		if block.Payload().Type() != chat.Type {
 			return
 		}
-		chatPayload := message.Payload().(*chat.Payload)
-		chatEvent = &chat.MessageReceivedEvent{
+		chatPayload := block.Payload().(*chat.Payload)
+		chatEvent = &chat.BlockReceivedEvent{
 			From:      chatPayload.From(),
 			To:        chatPayload.To(),
-			Message:   chatPayload.Message(),
-			Timestamp: message.IssuingTime(),
-			MessageID: message.ID().Base58(),
+			Block:     chatPayload.Block(),
+			Timestamp: block.IssuingTime(),
+			BlockID:   block.ID().Base58(),
 		}
 	})
 
@@ -65,5 +65,5 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 		return
 	}
 
-	deps.Chat.Events.MessageReceived.Trigger(chatEvent)
+	deps.Chat.Events.BlockReceived.Trigger(chatEvent)
 }

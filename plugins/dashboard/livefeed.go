@@ -19,26 +19,26 @@ var (
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		message := task.Param(0).(*tangle.Message)
+		block := task.Param(0).(*tangle.Block)
 
-		broadcastWsMessage(&wsmsg{MsgTypeMessage, &msg{message.ID().Base58(), 0, uint32(message.Payload().Type())}})
+		broadcastWsBlock(&wsblk{BlkTypeBlock, &blk{block.ID().Base58(), 0, uint32(block.Payload().Type())}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))
 }
 
 func runLiveFeed() {
-	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		liveFeedWorkerPool.TrySubmit(event.Message)
+	notifyNewBlk := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		liveFeedWorkerPool.TrySubmit(event.Block)
 	})
 
-	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
+	if err := daemon.BackgroundWorker("Dashboard[BlkUpdater]", func(ctx context.Context) {
+		deps.Tangle.Storage.Events.BlockStored.Attach(notifyNewBlk)
 		<-ctx.Done()
-		log.Info("Stopping Dashboard[MsgUpdater] ...")
-		deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
+		log.Info("Stopping Dashboard[BlkUpdater] ...")
+		deps.Tangle.Storage.Events.BlockStored.Detach(notifyNewBlk)
 		liveFeedWorkerPool.Stop()
-		log.Info("Stopping Dashboard[MsgUpdater] ... done")
+		log.Info("Stopping Dashboard[BlkUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

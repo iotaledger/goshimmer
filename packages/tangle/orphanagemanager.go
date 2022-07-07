@@ -8,12 +8,12 @@ import (
 
 // region OrphanageManager /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OrphanageManager is a manager that tracks orphaned messages.
+// OrphanageManager is a manager that tracks orphaned blocks.
 type OrphanageManager struct {
 	Events *OrphanageManagerEvents
 
 	tangle              *Tangle
-	strongChildCounters map[MessageID]int
+	strongChildCounters map[BlockID]int
 	sync.Mutex
 }
 
@@ -22,31 +22,31 @@ func NewOrphanageManager(tangle *Tangle) *OrphanageManager {
 	return &OrphanageManager{
 		Events: &OrphanageManagerEvents{
 			BlockOrphaned:       event.New[*BlockOrphanedEvent](),
-			AllChildrenOrphaned: event.New[*Message](),
+			AllChildrenOrphaned: event.New[*Block](),
 		},
 
 		tangle:              tangle,
-		strongChildCounters: make(map[MessageID]int),
+		strongChildCounters: make(map[BlockID]int),
 	}
 }
 
 func (o *OrphanageManager) Setup() {
-	o.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
-		for strongParent := range event.Message.ParentsByType(StrongParentType) {
+	o.tangle.Solidifier.Events.BlockSolid.Attach(event.NewClosure(func(event *BlockSolidEvent) {
+		for strongParent := range event.Block.ParentsByType(StrongParentType) {
 			o.increaseStrongChildCounter(strongParent)
 		}
 	}))
 
-	o.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *MessageAcceptedEvent) {
+	o.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
 		o.Lock()
 		defer o.Unlock()
 
-		delete(o.strongChildCounters, event.Message.ID())
+		delete(o.strongChildCounters, event.Block.ID())
 	}))
 }
 
-func (o *OrphanageManager) OrphanBlock(blockID MessageID, reason error) {
-	o.tangle.Storage.Message(blockID).Consume(func(block *Message) {
+func (o *OrphanageManager) OrphanBlock(blockID BlockID, reason error) {
+	o.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		o.Events.BlockOrphaned.Trigger(&BlockOrphanedEvent{
 			Block:  block,
 			Reason: reason,
@@ -58,14 +58,14 @@ func (o *OrphanageManager) OrphanBlock(blockID MessageID, reason error) {
 	})
 }
 
-func (o *OrphanageManager) increaseStrongChildCounter(blockID MessageID) {
+func (o *OrphanageManager) increaseStrongChildCounter(blockID BlockID) {
 	o.Lock()
 	defer o.Unlock()
 
 	o.strongChildCounters[blockID]++
 }
 
-func (o *OrphanageManager) decreaseStrongChildCounter(blockID MessageID) {
+func (o *OrphanageManager) decreaseStrongChildCounter(blockID BlockID) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -74,7 +74,7 @@ func (o *OrphanageManager) decreaseStrongChildCounter(blockID MessageID) {
 	if o.strongChildCounters[blockID] == 0 {
 		delete(o.strongChildCounters, blockID)
 
-		o.tangle.Storage.Message(blockID).Consume(func(block *Message) {
+		o.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 			o.Events.AllChildrenOrphaned.Trigger(block)
 		})
 	}
@@ -86,11 +86,11 @@ func (o *OrphanageManager) decreaseStrongChildCounter(blockID MessageID) {
 
 type OrphanageManagerEvents struct {
 	BlockOrphaned       *event.Event[*BlockOrphanedEvent]
-	AllChildrenOrphaned *event.Event[*Message]
+	AllChildrenOrphaned *event.Event[*Block]
 }
 
 type BlockOrphanedEvent struct {
-	Block  *Message
+	Block  *Block
 	Reason error
 }
 

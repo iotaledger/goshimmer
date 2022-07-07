@@ -70,8 +70,8 @@ export default class GlobalSettings extends React.Component<Props, any> {
         }
     };
 
-    syncWithMsg = () => {
-        this.props.globalStore.syncWithMsg();
+    syncWithBlk = () => {
+        this.props.globalStore.syncWithBlk();
     };
 
     syncWithTx = () => {
@@ -282,7 +282,7 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                 </h5>
                                 <p>
                                     {' '}
-                                    Select a message/transaction/branch and
+                                    Select a block/transaction/branch and
                                     click the corresponding button to sync.{' '}
                                 </p>
                             </div>
@@ -291,10 +291,10 @@ export default class GlobalSettings extends React.Component<Props, any> {
                                     <Col xs="auto">
                                         <Button
                                             className={'button'}
-                                            onClick={this.syncWithMsg}
+                                            onClick={this.syncWithBlk}
                                             variant="outline-secondary"
                                         >
-                                            Sync with message
+                                            Sync with block
                                         </Button>
                                     </Col>
                                     <Col xs="auto">

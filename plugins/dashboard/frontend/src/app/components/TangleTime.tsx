@@ -22,15 +22,15 @@ export default class TangleTime extends React.Component<Props, any> {
                         <div>
                             <hr/>
                             <div className={"row"}>
-                                <div className={"col-12"}>Last Accepted Message: <Link
-                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.acceptedMessageID}`}>
-                                    {this.props.nodeStore.status.tangleTime.acceptedMessageID}
+                                <div className={"col-12"}>Last Accepted Block: <Link
+                                    to={`/explorer/block/${this.props.nodeStore.status.tangleTime.acceptedBlockID}`}>
+                                    {this.props.nodeStore.status.tangleTime.acceptedBlockID}
                                 </Link></div>
                             </div>
                             <div className={"row"}>
-                                <div className={"col-12"}>Last Confirmed Message: <Link
-                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.confirmedMessageID}`}>
-                                    {this.props.nodeStore.status.tangleTime.confirmedMessageID}
+                                <div className={"col-12"}>Last Confirmed Block: <Link
+                                    to={`/explorer/block/${this.props.nodeStore.status.tangleTime.confirmedBlockID}`}>
+                                    {this.props.nodeStore.status.tangleTime.confirmedBlockID}
                                 </Link></div>
                             </div>
                             <hr/>

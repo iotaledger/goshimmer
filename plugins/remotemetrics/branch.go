@@ -46,7 +46,7 @@ func onBranchConfirmed(branchID utxo.TransactionID) {
 	}
 	transactionID := branchID
 	// update branch metric counts even if node is not synced.
-	oldestAttachmentTime, oldestAttachmentMessageID, err := updateMetricCounts(branchID, transactionID)
+	oldestAttachmentTime, oldestAttachmentBlockID, err := updateMetricCounts(branchID, transactionID)
 
 	if err != nil || !deps.Tangle.Synced() {
 		return
@@ -61,14 +61,14 @@ func onBranchConfirmed(branchID utxo.TransactionID) {
 		Type:               "branchConfirmation",
 		NodeID:             nodeID,
 		MetricsLevel:       Parameters.MetricsLevel,
-		MessageID:          oldestAttachmentMessageID.Base58(),
+		BlockID:            oldestAttachmentBlockID.Base58(),
 		BranchID:           branchID.Base58(),
 		CreatedTimestamp:   oldestAttachmentTime,
 		ConfirmedTimestamp: clock.SyncedTime(),
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
-	deps.Tangle.Storage.Message(oldestAttachmentMessageID).Consume(func(message *tangle.Message) {
-		issuerID := identity.NewID(message.IssuerPublicKey())
+	deps.Tangle.Storage.Block(oldestAttachmentBlockID).Consume(func(block *tangle.Block) {
+		issuerID := identity.NewID(block.IssuerPublicKey())
 		record.IssuerID = issuerID.String()
 	})
 	_ = deps.RemoteLogger.Send(record)
@@ -102,10 +102,10 @@ func sendBranchMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(branchID utxo.TransactionID, transactionID utxo.TransactionID) (time.Time, tangle.MessageID, error) {
-	oldestAttachmentTime, oldestAttachmentMessageID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
+func updateMetricCounts(branchID utxo.TransactionID, transactionID utxo.TransactionID) (time.Time, tangle.BlockID, error) {
+	oldestAttachmentTime, oldestAttachmentBlockID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
 	if err != nil {
-		return time.Time{}, tangle.MessageID{}, err
+		return time.Time{}, tangle.BlockID{}, err
 	}
 	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 		if conflictingBranchID != branchID {
@@ -117,7 +117,7 @@ func updateMetricCounts(branchID utxo.TransactionID, transactionID utxo.Transact
 	finalizedBranchCountDB.Inc()
 	confirmedBranchCount.Inc()
 	delete(activeBranches, branchID)
-	return oldestAttachmentTime, oldestAttachmentMessageID, nil
+	return oldestAttachmentTime, oldestAttachmentBlockID, nil
 }
 
 func measureInitialBranchCounts() {

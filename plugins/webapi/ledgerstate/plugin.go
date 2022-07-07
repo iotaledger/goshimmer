@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -481,14 +481,14 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	messageIDs := tangle.NewMessageIDs()
+	blockIDs := tangle.NewBlockIDs()
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-		messageIDs.Add(attachment.MessageID())
+		blockIDs.Add(attachment.BlockID())
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, messageIDs))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, blockIDs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -540,7 +540,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// validate allowed mana pledge nodes.
-	allowedAccessMana := messagelayer.GetAllowedPledgeNodes(mana.AccessMana)
+	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(mana.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
@@ -548,7 +548,7 @@ func PostTransaction(c echo.Context) error {
 			})
 		}
 	}
-	allowedConsensusMana := messagelayer.GetAllowedPledgeNodes(mana.ConsensusMana)
+	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(mana.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
@@ -575,13 +575,13 @@ func PostTransaction(c echo.Context) error {
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
-	issueTransaction := func() (*tangle.Message, error) {
+	issueTransaction := func() (*tangle.Block, error) {
 		return deps.Tangle.IssuePayload(tx)
 	}
 
 	// add tx to double spend doubleSpendFilter
 	FilterAdd(tx)
-	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+	if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		// if we failed to issue the transaction, we remove it
 		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})

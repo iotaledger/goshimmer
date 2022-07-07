@@ -32,7 +32,7 @@ const (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	dagMutex *syncutils.DAGMutex[MessageID]
+	dagMutex *syncutils.DAGMutex[BlockID]
 
 	Options               *Options
 	Parser                *Parser
@@ -46,7 +46,7 @@ type Tangle struct {
 	OTVConsensusManager   *OTVConsensusManager
 	TipManager            *TipManager
 	Requester             *Requester
-	MessageFactory        *MessageFactory
+	BlockFactory          *BlockFactory
 	Ledger                *ledger.Ledger
 	Utils                 *Utils
 	WeightProvider        WeightProvider
@@ -58,7 +58,7 @@ type Tangle struct {
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker markers.Marker) bool
-	IsMessageConfirmed(msgID MessageID) bool
+	IsBlockConfirmed(blkID BlockID) bool
 	IsBranchConfirmed(branchID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
 	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
@@ -68,7 +68,7 @@ type ConfirmationOracle interface {
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
-		dagMutex: syncutils.NewDAGMutex[MessageID](),
+		dagMutex: syncutils.NewDAGMutex[BlockID](),
 		Events:   newEvents(),
 	}
 
@@ -86,7 +86,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
+	tangle.BlockFactory = NewBlockFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
@@ -123,8 +123,8 @@ func (t *Tangle) Setup() {
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
 
-	t.MessageFactory.Events.Error.Attach(event.NewClosure(func(err error) {
-		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
+	t.BlockFactory.Events.Error.Attach(event.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in BlockFactory: %w", err))
 	}))
 
 	t.Booker.Events.Error.Attach(event.NewClosure(func(err error) {
@@ -140,21 +140,21 @@ func (t *Tangle) Setup() {
 	}))
 }
 
-// ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
-func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
-	t.Parser.Parse(messageBytes, peer)
+// ProcessGossipBlock is used to feed new Blocks from the gossip layer into the Tangle.
+func (t *Tangle) ProcessGossipBlock(blockBytes []byte, peer *peer.Peer) {
+	t.Parser.Parse(blockBytes, peer)
 }
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
-func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
+func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (block *Block, err error) {
 	if !t.Bootstrapped() {
 		err = errors.Errorf("can't issue payload: %w", ErrNotBootstrapped)
 		return
 	}
-	return t.MessageFactory.IssuePayload(p, parentsCount...)
+	return t.BlockFactory.IssuePayload(p, parentsCount...)
 }
 
-// Bootstrapped returns a boolean value that indicates if the node has bootstrapped and the Tangle has solidified all messages
+// Bootstrapped returns a boolean value that indicates if the node has bootstrapped and the Tangle has solidified all blocks
 // until the genesis.
 func (t *Tangle) Bootstrapped() bool {
 	return t.TimeManager.Bootstrapped()
@@ -170,11 +170,11 @@ func (t *Tangle) Prune() (err error) {
 	return t.Storage.Prune()
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+// Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.Requester.Shutdown()
 	t.Parser.Shutdown()
-	t.MessageFactory.Shutdown()
+	t.BlockFactory.Shutdown()
 	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
@@ -222,7 +222,7 @@ func Store(store kvstore.KVStore) Option {
 	}
 }
 
-// Identity is an Option for the Tangle that allows to specify the node identity which is used to issue Messages.
+// Identity is an Option for the Tangle that allows to specify the node identity which is used to issue Blocks.
 func Identity(identity *identity.LocalIdentity) Option {
 	return func(options *Options) {
 		options.Identity = identity
@@ -252,7 +252,7 @@ func TimeSinceConfirmationThreshold(tscThreshold time.Duration) Option {
 }
 
 // GenesisNode is an Option for the Tangle that allows to set the GenesisNode, i.e., the node that is allowed to attach
-// to the Genesis Message.
+// to the Genesis Block.
 func GenesisNode(genesisNodeBase58 string) Option {
 	var genesisPublicKey *ed25519.PublicKey
 	pkBytes, _ := base58.Decode(genesisNodeBase58)
@@ -280,7 +280,7 @@ func RateSetterConfig(params RateSetterParams) Option {
 	}
 }
 
-// ApprovalWeights is an Option for the Tangle that allows to define how the approval weights of Messages is determined.
+// ApprovalWeights is an Option for the Tangle that allows to define how the approval weights of Blocks is determined.
 func ApprovalWeights(weightProvider WeightProvider) Option {
 	return func(options *Options) {
 		options.WeightProvider = weightProvider
@@ -327,14 +327,14 @@ func CommitmentFunc(commitmentRetrieverFunc func() (*epoch.ECRecord, epoch.Index
 
 // region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Messages
+// WeightProvider is an interface that allows the ApprovalWeightManager to determine approval weights of Blocks
 // in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
 	// Update updates the underlying data structure and keeps track of active nodes.
 	Update(t time.Time, nodeID identity.ID)
 
-	// Weight returns the weight and total weight for the given message.
-	Weight(message *Message) (weight, totalWeight float64)
+	// Weight returns the weight and total weight for the given block.
+	Weight(block *Block) (weight, totalWeight float64)
 
 	// WeightsOfRelevantVoters returns all relevant weights.
 	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)

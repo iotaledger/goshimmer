@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
+func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 	voters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
@@ -155,18 +155,18 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
-	message1 := newTestDataMessagePublicKey("test1", keyPair.PublicKey)
-	message2 := newTestDataMessagePublicKey("test2", keyPair.PublicKey)
+	block1 := newTestDataBlockPublicKey("test1", keyPair.PublicKey)
+	block2 := newTestDataBlockPublicKey("test2", keyPair.PublicKey)
 	// statement 2: "Conflict 4.1.2"
 	{
-		message := message2
-		tangle.Storage.StoreMessage(message)
-		message.ID().RegisterAlias("Statement2")
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
-			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
+		block := block2
+		tangle.Storage.StoreBlock(block)
+		block.ID().RegisterAlias("Statement2")
+		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
+			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(message)
+		approvalWeightManager.updateBranchVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     false,
@@ -186,14 +186,14 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 
 	// statement 1: "Conflict 1.1 + Conflict 4.1.1"
 	{
-		message := message1
-		tangle.Storage.StoreMessage(message)
-		message.ID().RegisterAlias("Statement1")
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
-			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
+		block := block1
+		tangle.Storage.StoreBlock(block)
+		block.ID().RegisterAlias("Statement1")
+		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
+			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(message)
+		approvalWeightManager.updateBranchVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     true,
@@ -213,14 +213,14 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 
 	// statement 3: "Conflict 2"
 	{
-		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
-		tangle.Storage.StoreMessage(message)
-		message.ID().RegisterAlias("Statement3")
-		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
-			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
+		block := newTestDataBlockPublicKey("test", keyPair.PublicKey)
+		tangle.Storage.StoreBlock(block)
+		block.ID().RegisterAlias("Statement3")
+		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+			blockMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
+			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
-		approvalWeightManager.updateBranchVoters(message)
+		approvalWeightManager.updateBranchVoters(block)
 
 		expectedResults := map[string]bool{
 			"Conflict 1":     false,
@@ -378,18 +378,18 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	}
 }
 
-// TestApprovalWeightManager_ProcessMessage tests the whole functionality of the ApprovalWeightManager.
-// The scenario can be found in images/approvalweight-processMessage.png.
-func TestApprovalWeightManager_ProcessMessage(t *testing.T) {
-	processMsgScenario := ProcessMessageScenario(t)
-	defer func(processMsgScenario *TestScenario, t *testing.T) {
-		if err := processMsgScenario.Cleanup(t); err != nil {
+// TestApprovalWeightManager_ProcessBlock tests the whole functionality of the ApprovalWeightManager.
+// The scenario can be found in images/approvalweight-processBlock.png.
+func TestApprovalWeightManager_ProcessBlock(t *testing.T) {
+	processBlkScenario := ProcessBlockScenario(t)
+	defer func(processBlkScenario *TestScenario, t *testing.T) {
+		if err := processBlkScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
-	}(processMsgScenario, t)
+	}(processBlkScenario, t)
 
-	for processMsgScenario.HasNext() {
-		processMsgScenario.Next(nil)
+	for processBlkScenario.HasNext() {
+		processBlkScenario.Next(nil)
 	}
 }
 
@@ -418,66 +418,66 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Setup()
 
-	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 500), WithGenesisOutput("G2", 500))
+	testFramework := NewBlockTestFramework(tangle, WithGenesisOutput("G1", 500), WithGenesisOutput("G2", 500))
 
-	// ISSUE Message1
+	// ISSUE Block1
 	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
-		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message1").RegisterAlias("Branch1")
+		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
+		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block1").RegisterAlias("Branch1")
 	}
 
-	// ISSUE Message2
+	// ISSUE Block2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
-		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message2").RegisterAlias("Branch2")
+		testFramework.CreateBlock("Block2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
+		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block2").RegisterAlias("Branch2")
 	}
 
-	// ISSUE Message3
+	// ISSUE Block3
 	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
-		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message3").RegisterAlias("Branch3")
+		testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
+		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block3").RegisterAlias("Branch3")
 	}
 
-	// ISSUE Message4
+	// ISSUE Block4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
-		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message4").RegisterAlias("Branch4")
+		testFramework.CreateBlock("Block4", WithStrongParents("Block2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
+		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block4").RegisterAlias("Branch4")
 	}
 
-	// ISSUE Message5
+	// ISSUE Block5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
-		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message5").RegisterAlias("Branch5")
+		testFramework.CreateBlock("Block5", WithStrongParents("Block4", "Block1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
+		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block5").RegisterAlias("Branch5")
 	}
 
-	// ISSUE Message6
+	// ISSUE Block6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
-		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message6").RegisterAlias("Branch6")
+		testFramework.CreateBlock("Block6", WithStrongParents("Block4", "Block1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
+		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block6").RegisterAlias("Branch6")
 
-		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
+		_, err := tangle.Booker.BlockBranchIDs(testFramework.Block("Block6").ID())
 		require.NoError(t, err)
 	}
 
-	// ISSUE Message7
+	// ISSUE Block7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
-		testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message7").RegisterAlias("Branch7")
+		testFramework.CreateBlock("Block7", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
+		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block7").RegisterAlias("Branch7")
 	}
 
-	// ISSUE Message8
+	// ISSUE Block8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
-		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
-		testFramework.TransactionID("Message8").RegisterAlias("Branch8")
-		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
+		testFramework.CreateBlock("Block8", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
+		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+		testFramework.TransactionID("Block8").RegisterAlias("Branch8")
+		_, err := tangle.Booker.BlockBranchIDs(testFramework.Block("Block8").ID())
 		require.NoError(t, err)
 	}
 }
@@ -511,70 +511,70 @@ func TestOutOfOrderStatements(t *testing.T) {
 
 	tangle.Setup()
 	testEventMock := NewEventMock(t, tangle.ApprovalWeightManager)
-	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("A", 500), WithGenesisOutput("B", 500))
+	testFramework := NewBlockTestFramework(tangle, WithGenesisOutput("A", 500), WithGenesisOutput("B", 500))
 
-	// ISSUE Message1
+	// ISSUE Block1
 	{
-		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
 
-		IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+		IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
 			markers.NewMarker(0, 1): 0.30,
 		})
 	}
-	// ISSUE Message2
+	// ISSUE Block2
 	{
-		testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.CreateBlock("Block2", WithStrongParents("Block1"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.45)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
 
-		IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+		IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
 			markers.NewMarker(0, 1): 0.45,
 			markers.NewMarker(0, 2): 0.15,
 		})
 	}
-	// ISSUE Message3
+	// ISSUE Block3
 	{
-		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()), WithInputs("A"), WithOutput("A3", 500))
+		testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["C"].PublicKey()), WithInputs("A"), WithOutput("A3", 500))
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.70)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.40)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
 
-		IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+		IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
 			markers.NewMarker(0, 1): 0.70,
 			markers.NewMarker(0, 2): 0.40,
 			markers.NewMarker(0, 3): 0.25,
 		})
 	}
-	// ISSUE Message4
+	// ISSUE Block4
 	{
-		testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
+		testFramework.CreateBlock("Block4", WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.90)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.60)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.45)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
 
-		IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+		IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
 			markers.NewMarker(0, 1): 0.90,
 			markers.NewMarker(0, 2): 0.60,
 			markers.NewMarker(0, 3): 0.45,
 			markers.NewMarker(0, 4): 0.20,
 		})
 	}
-	// ISSUE Message5
+	// ISSUE Block5
 	{
-		testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
-		testFramework.RegisterBranchID("A", "Message5")
+		testFramework.CreateBlock("Block5", WithStrongParents("Block4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
+		testFramework.RegisterBranchID("A", "Block5")
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.50)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
 
-		IssueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+		IssueAndValidateBlockApproval(t, "Block5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
 			markers.NewMarker(0, 1): 0.90,
 			markers.NewMarker(0, 2): 0.90,
 			markers.NewMarker(0, 3): 0.75,
@@ -583,10 +583,10 @@ func TestOutOfOrderStatements(t *testing.T) {
 		})
 	}
 
-	// ISSUE Message6
+	// ISSUE Block6
 	{
-		testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
-		testFramework.RegisterBranchID("B", "Message6")
+		testFramework.CreateBlock("Block6", WithStrongParents("Block4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
+		testFramework.RegisterBranchID("B", "Block6")
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
@@ -596,7 +596,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.30)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.10)
 
-		IssueAndValidateMessageApproval(t, "Message6", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block6", testEventMock, testFramework, map[string]float64{
 			"A": 0.3,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
@@ -608,13 +608,13 @@ func TestOutOfOrderStatements(t *testing.T) {
 		})
 	}
 
-	// ISSUE Message7
+	// ISSUE Block7
 	{
-		testFramework.CreateMessage("Message7", WithStrongParents("Message3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
+		testFramework.CreateBlock("Block7", WithStrongParents("Block3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 1.0)
 
-		IssueAndValidateMessageApproval(t, "Message7", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block7", testEventMock, testFramework, map[string]float64{
 			"A": 0.30,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
@@ -625,16 +625,16 @@ func TestOutOfOrderStatements(t *testing.T) {
 			markers.NewMarker(0, 5): 0.30,
 		})
 	}
-	// ISSUE Message8
+	// ISSUE Block8
 	{
-		testFramework.CreateMessage("Message8", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()), WithInputs("B"), WithOutput("B8", 500))
-		testFramework.RegisterBranchID("C", "Message7")
-		testFramework.RegisterBranchID("D", "Message8")
+		testFramework.CreateBlock("Block8", WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()), WithInputs("B"), WithOutput("B8", 500))
+		testFramework.RegisterBranchID("C", "Block7")
+		testFramework.RegisterBranchID("D", "Block8")
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.15)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("D"), 0.20)
 
-		IssueAndValidateMessageApproval(t, "Message8", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block8", testEventMock, testFramework, map[string]float64{
 			"A": 0.30,
 			"B": 0.10,
 			"C": 0.15,
@@ -648,15 +648,15 @@ func TestOutOfOrderStatements(t *testing.T) {
 		})
 	}
 
-	// ISSUE Message9
+	// ISSUE Block9
 	{
-		testFramework.CreateMessage("Message9", WithStrongParents("Message6", "Message7"), WithIssuer(nodes["A"].PublicKey()))
+		testFramework.CreateBlock("Block9", WithStrongParents("Block6", "Block7"), WithIssuer(nodes["A"].PublicKey()))
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.0)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.40)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.45)
 
-		IssueAndValidateMessageApproval(t, "Message9", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block9", testEventMock, testFramework, map[string]float64{
 			"A": 0,
 			"B": 0.40,
 			"C": 0.45,
@@ -669,16 +669,16 @@ func TestOutOfOrderStatements(t *testing.T) {
 			markers.NewMarker(0, 5): 0.30,
 		})
 	}
-	// ISSUE Message10
+	// ISSUE Block10
 	{
-		testFramework.CreateMessage("Message10", WithStrongParents("Message9"), WithIssuer(nodes["B"].PublicKey()))
+		testFramework.CreateBlock("Block10", WithStrongParents("Block9"), WithIssuer(nodes["B"].PublicKey()))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.75)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.15)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.55)
 
-		IssueAndValidateMessageApproval(t, "Message10", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block10", testEventMock, testFramework, map[string]float64{
 			"A": 0,
 			"B": 0.55,
 			"C": 0.45,
@@ -693,10 +693,10 @@ func TestOutOfOrderStatements(t *testing.T) {
 		})
 	}
 
-	// ISSUE Message11
+	// ISSUE Block11
 	{
 		// We skip ahead with the Sequence Number
-		testFramework.CreateMessage("Message11", WithStrongParents("Message5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(10000000000))
+		testFramework.CreateBlock("Block11", WithStrongParents("Block5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(10000000000))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.40)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.10)
@@ -704,7 +704,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("A"), 0.10)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("B"), 0.45)
 
-		IssueAndValidateMessageApproval(t, "Message11", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block11", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
 			"B": 0.45,
 			"C": 0.45,
@@ -720,17 +720,17 @@ func TestOutOfOrderStatements(t *testing.T) {
 		})
 	}
 
-	// ISSUE Message12
+	// ISSUE Block12
 	{
 		// We simulate an "old" vote
-		testFramework.CreateMessage("Message12", WithStrongParents("Message10"), WithIssuer(nodes["E"].PublicKey()))
+		testFramework.CreateBlock("Block12", WithStrongParents("Block10"), WithIssuer(nodes["E"].PublicKey()))
 
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.25)
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("C"), 0.55)
 
-		IssueAndValidateMessageApproval(t, "Message12", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block12", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
 			"B": 0.45,
 			"C": 0.55,
@@ -749,16 +749,16 @@ func TestOutOfOrderStatements(t *testing.T) {
 
 	testEventMock.AssertExpectations(t)
 
-	// ISSUE Message13
+	// ISSUE Block13
 	{
 		// We simulate an "old" vote
-		testFramework.CreateMessage("Message13", WithStrongParents("Message2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A13", 500))
-		testFramework.RegisterBranchID("X", "Message3")
-		testFramework.RegisterBranchID("Y", "Message13")
+		testFramework.CreateBlock("Block13", WithStrongParents("Block2"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("A13", 500))
+		testFramework.RegisterBranchID("X", "Block3")
+		testFramework.RegisterBranchID("Y", "Block13")
 
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
 
-		IssueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
+		IssueAndValidateBlockApproval(t, "Block13", testEventMock, testFramework, map[string]float64{
 			"A": 0.10,
 			"B": 0.45,
 			"C": 0.55,
@@ -854,15 +854,15 @@ func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightMan
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...markers.Marker) (message *Message) {
-	message = newTestDataMessagePublicKey("test", voter.PublicKey())
-	approvalWeightManager.tangle.Storage.StoreMessage(message)
-	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...markers.Marker) (block *Block) {
+	block = newTestDataBlockPublicKey("test", voter.PublicKey())
+	approvalWeightManager.tangle.Storage.StoreBlock(block)
+	approvalWeightManager.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 		newStructureDetails := markers.NewStructureDetails()
 		newStructureDetails.SetIsPastMarker(true)
 		newStructureDetails.SetPastMarkers(markers.NewMarkers(markersToApprove...))
 
-		messageMetadata.SetStructureDetails(newStructureDetails)
+		blockMetadata.SetStructureDetails(newStructureDetails)
 	})
 
 	return

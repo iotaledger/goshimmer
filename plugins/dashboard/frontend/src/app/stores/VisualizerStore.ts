@@ -1,5 +1,5 @@
 import {action, observable, ObservableMap} from 'mobx';
-import {registerHandler, WSMsgType} from "app/misc/WS";
+import {registerHandler, WSBlkType} from "app/misc/WS";
 import {RouterStore} from "mobx-react-router";
 import {default as Viva} from 'vivagraphjs';
 
@@ -33,7 +33,7 @@ export class VisualizerStore {
 
     // the currently selected vertex via hover
     @observable selected: Vertex;
-    @observable selected_approvers_count = 0;
+    @observable selected_childs_count = 0;
     @observable selected_approvees_count = 0;
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
@@ -50,8 +50,8 @@ export class VisualizerStore {
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
         this.fetchHistory();
-        registerHandler(WSMsgType.Vertex, this.addVertex);
-        registerHandler(WSMsgType.TipInfo, this.addTipInfo);
+        registerHandler(WSBlkType.Vertex, this.addVertex);
+        registerHandler(WSBlkType.TipInfo, this.addTipInfo);
     }
 
     fetchHistory = async () => {
@@ -324,7 +324,7 @@ export class VisualizerStore {
         dfsIterator(this.graph,
             node,
             node => {
-                this.selected_approvers_count++;
+                this.selected_childs_count++;
             },
             true,
             link => {
@@ -356,7 +356,7 @@ export class VisualizerStore {
             return;
         }
 
-        this.selected_approvers_count = 0;
+        this.selected_childs_count = 0;
         this.selected_approvees_count = 0;
 
         // clear link highlight

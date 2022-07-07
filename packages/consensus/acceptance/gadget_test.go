@@ -35,7 +35,7 @@ var (
 		return confirmation.Pending
 	}
 
-	TestMessageTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
+	TestBlockTranslation BlockThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -44,8 +44,8 @@ var (
 	}
 )
 
-func (handler *EventHandlerMock) MessageAccepted(msgID tangle.MessageID) {
-	handler.Called(msgID)
+func (handler *EventHandlerMock) BlockAccepted(blkID tangle.BlockID) {
+	handler.Called(blkID)
 }
 
 func (handler *EventHandlerMock) BranchAccepted(branchID utxo.TransactionID) {
@@ -57,7 +57,7 @@ func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance *tangle.Tangle) {
-	ag.Events().MessageAccepted.Hook(event.NewClosure(func(event *tangle.MessageAcceptedEvent) { handler.MessageAccepted(event.Message.ID()) }))
+	ag.Events().BlockAccepted.Hook(event.NewClosure(func(event *tangle.BlockAcceptedEvent) { handler.BlockAccepted(event.Block.ID()) }))
 	tangleInstance.Ledger.ConflictDAG.Events.BranchAccepted.Hook(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
 		handler.BranchAccepted(event.ID)
 	}))
@@ -65,277 +65,277 @@ func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
+	processBlkScenario := tangle.ProcessBlockScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer func(processBlkScenario *tangle.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
 			fmt.Println(string(debug.Stack()))
 			return
 		}
 
-		if err := processMsgScenario.Cleanup(t); err != nil {
+		if err := processBlkScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
-	}(processMsgScenario, t)
+	}(processBlkScenario, t)
 
 	testOpts := []Option{
 		WithBranchThresholdTranslation(TestBranchTranslation),
-		WithMessageThresholdTranslation(TestMessageTranslation),
+		WithBlockThresholdTranslation(TestBlockTranslation),
 	}
 
-	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
-	wireUpEvents(t, processMsgScenario.Tangle, sfg)
+	sfg := NewSimpleFinalityGadget(processBlkScenario.Tangle, testOpts...)
+	wireUpEvents(t, processBlkScenario.Tangle, sfg)
 
 	eventHandlerMock := &EventHandlerMock{}
-	eventHandlerMock.WireUpFinalityGadget(sfg, processMsgScenario.Tangle)
+	eventHandlerMock.WireUpFinalityGadget(sfg, processBlkScenario.Tangle)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
-		// Message1
+		// Block1
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message1"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Block1"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message2
+		// Block2
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message1", "Message2"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Block1", "Block2"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message3
+		// Block3
 		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message1").ID())
+			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block1").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1"},
-					confirmation.Pending:  {"Message2", "Message3"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1"},
+					confirmation.Pending:  {"Block2", "Block3"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message4
+		// Block4
 		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message2").ID())
+			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block2").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2"},
-					confirmation.Pending:  {"Message3", "Message4"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2"},
+					confirmation.Pending:  {"Block3", "Block4"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message5
+		// Block5
 		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message3").ID())
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message4").ID())
+			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block3").ID())
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block4").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
-					confirmation.Pending:  {"Message5"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
+					confirmation.Pending:  {"Block5"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message6
+		// Block6
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
-					confirmation.Pending:  {"Message5", "Message6"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
+					confirmation.Pending:  {"Block5", "Block6"},
 				})
 				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message5", "Message6"},
+					confirmation.Pending: {"Block5", "Block6"},
 				})
 				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message5", "Message6"},
+					confirmation.Pending: {"Block5", "Block6"},
 				})
 			},
 		},
-		// Message7
+		// Block7
 		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message5").ID())
-				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Message5"))
-				eventHandlerMock.On("BranchAccepted", testFramework.BranchIDFromMessage("Message5"))
+			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block5").ID())
+				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Block5"))
+				eventHandlerMock.On("BranchAccepted", testFramework.BranchIDFromBlock("Block5"))
 			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5"},
-					confirmation.Pending:  {"Message7", "Message6"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5"},
+					confirmation.Pending:  {"Block7", "Block6"},
 				})
 				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5"},
-					confirmation.Rejected: {"Message6"},
+					confirmation.Accepted: {"Block5"},
+					confirmation.Rejected: {"Block6"},
 				})
 				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5"},
-					confirmation.Rejected: {"Message6"},
-					confirmation.Pending:  {"Message7"},
+					confirmation.Accepted: {"Block5"},
+					confirmation.Rejected: {"Block6"},
+					confirmation.Pending:  {"Block7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message7.1
+		// Block7.1
 		{
-			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.On("MessageAccepted", testFramework.Message("Message7").ID())
-				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Message7"))
+			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block7").ID())
+				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Block7"))
 			},
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					confirmation.Pending:  {"Message7.1", "Message6"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
+					confirmation.Pending:  {"Block7.1", "Block6"},
 				})
 				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5"},
-					confirmation.Rejected: {"Message6"},
+					confirmation.Accepted: {"Block5"},
+					confirmation.Rejected: {"Block6"},
 				})
 				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5", "Message7"},
-					confirmation.Rejected: {"Message6"},
+					confirmation.Accepted: {"Block5", "Block7"},
+					confirmation.Rejected: {"Block6"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
 		},
-		// Message8
+		// Block8
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4", "Message5", "Message7"},
-					confirmation.Pending:  {"Message7.1", "Message6", "Message8"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
+					confirmation.Pending:  {"Block7.1", "Block6", "Block8"},
 				})
 				assertBranchesConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5"},
-					confirmation.Rejected: {"Message6"},
+					confirmation.Accepted: {"Block5"},
+					confirmation.Rejected: {"Block6"},
 				})
 				assertTxsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message5", "Message7"},
-					confirmation.Rejected: {"Message6"},
+					confirmation.Accepted: {"Block5", "Block7"},
+					confirmation.Rejected: {"Block6"},
 				})
 			},
 		},
 	}
-	for i := 0; processMsgScenario.HasNext(); i++ {
+	for i := 0; processBlkScenario.HasNext(); i++ {
 		if len(prePostSteps)-1 < i {
-			processMsgScenario.Next(nil)
+			processBlkScenario.Next(nil)
 			continue
 		}
-		processMsgScenario.Next(prePostSteps[i])
+		processBlkScenario.Next(prePostSteps[i])
 	}
 }
 
 func TestWeakVsStrongParentWalk(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario2(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
-		if err := processMsgScenario.Cleanup(t); err != nil {
+	processBlkScenario := tangle.ProcessBlockScenario2(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer func(processBlkScenario *tangle.TestScenario, t *testing.T) {
+		if err := processBlkScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
-	}(processMsgScenario, t)
+	}(processBlkScenario, t)
 
 	testOpts := []Option{
 		WithBranchThresholdTranslation(TestBranchTranslation),
-		WithMessageThresholdTranslation(TestMessageTranslation),
+		WithBlockThresholdTranslation(TestBlockTranslation),
 	}
 
-	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
-	wireUpEvents(t, processMsgScenario.Tangle, sfg)
+	sfg := NewSimpleFinalityGadget(processBlkScenario.Tangle, testOpts...)
+	wireUpEvents(t, processBlkScenario.Tangle, sfg)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
-		// Message0
+		// Block0
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message0"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Block0"},
 				})
 			},
 		},
-		// Message1
+		// Block1
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message1"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Block1"},
 				})
 			},
 		},
-		// Message2
+		// Block2
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Pending: {"Message1", "Message2"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Pending: {"Block1", "Block2"},
 				})
 			},
 		},
-		// Message3
+		// Block3
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {},
-					confirmation.Pending:  {"Message1", "Message2", "Message3"},
+					confirmation.Pending:  {"Block1", "Block2", "Block3"},
 				})
 			},
 		},
-		// Message4
+		// Block4
 		{
-			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				sfg.propagateConfirmationStateToMessagePastCone(testFramework.Message("Message4").ID(), confirmation.Accepted)
-				assertMsgsConfirmationState(t, testFramework, map[confirmation.State][]string{
-					confirmation.Accepted: {"Message1", "Message2", "Message3", "Message4"},
+			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				sfg.propagateConfirmationStateToBlockPastCone(testFramework.Block("Block4").ID(), confirmation.Accepted)
+				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
+					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
 				})
 			},
 		},
 	}
 
-	for i := 0; processMsgScenario.HasNext(); i++ {
+	for i := 0; processBlkScenario.HasNext(); i++ {
 		if len(prePostSteps)-1 < i {
-			processMsgScenario.Next(nil)
+			processBlkScenario.Next(nil)
 			continue
 		}
-		processMsgScenario.Next(prePostSteps[i])
+		processBlkScenario.Next(prePostSteps[i])
 	}
 }
 
-func assertMsgsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
-	for expectedConfirmationState, msgAliases := range expected {
-		for _, msgAlias := range msgAliases {
-			actualConfirmationState := testFramework.MessageMetadata(msgAlias).ConfirmationState()
-			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected msg %s ConfirmationState to be %s but is %s", msgAlias, expectedConfirmationState, actualConfirmationState)
+func assertBlksConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+	for expectedConfirmationState, blkAliases := range expected {
+		for _, blkAlias := range blkAliases {
+			actualConfirmationState := testFramework.BlockMetadata(blkAlias).ConfirmationState()
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected blk %s ConfirmationState to be %s but is %s", blkAlias, expectedConfirmationState, actualConfirmationState)
 		}
 	}
 }
 
-func assertTxsConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
-	for expectedConfirmationState, msgAliases := range expected {
-		for _, msgAlias := range msgAliases {
-			txMeta := testFramework.TransactionMetadata(msgAlias)
+func assertTxsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+	for expectedConfirmationState, blkAliases := range expected {
+		for _, blkAlias := range blkAliases {
+			txMeta := testFramework.TransactionMetadata(blkAlias)
 			actualConfirmationState := txMeta.ConfirmationState()
-			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected tx %s (via msg %s) ConfirmationState to be %s but is %s", txMeta.ID(), msgAlias, expectedConfirmationState, actualConfirmationState)
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected tx %s (via blk %s) ConfirmationState to be %s but is %s", txMeta.ID(), blkAlias, expectedConfirmationState, actualConfirmationState)
 			// auto. also check outputs
-			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
+			for _, output := range testFramework.Transaction(blkAlias).(*devnetvm.Transaction).Essence().Outputs() {
 				outputConfirmationState := testFramework.OutputMetadata(output.ID()).ConfirmationState()
-				assert.Equal(t, expectedConfirmationState, outputConfirmationState, "expected also tx output %s (via msg %s) ConfirmationState to be %s but is %s", output.ID(), msgAlias, expectedConfirmationState, outputConfirmationState)
+				assert.Equal(t, expectedConfirmationState, outputConfirmationState, "expected also tx output %s (via blk %s) ConfirmationState to be %s but is %s", output.ID(), blkAlias, expectedConfirmationState, outputConfirmationState)
 			}
 		}
 	}
 }
 
-func assertBranchesConfirmationState(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[confirmation.State][]string) {
-	for expectedConfirmationState, msgAliases := range expected {
-		for _, msgAlias := range msgAliases {
-			branch := testFramework.Branch(msgAlias)
-			actualConfirmationState := testFramework.TransactionMetadata(msgAlias).ConfirmationState()
-			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected branch %s (via msg %s) ConfirmationState to be %s but is %s", branch.ID(), msgAlias, expectedConfirmationState, actualConfirmationState)
+func assertBranchesConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+	for expectedConfirmationState, blkAliases := range expected {
+		for _, blkAlias := range blkAliases {
+			branch := testFramework.Branch(blkAlias)
+			actualConfirmationState := testFramework.TransactionMetadata(blkAlias).ConfirmationState()
+			assert.Equal(t, expectedConfirmationState, actualConfirmationState, "expected branch %s (via blk %s) ConfirmationState to be %s but is %s", branch.ID(), blkAlias, expectedConfirmationState, actualConfirmationState)
 		}
 	}
 }

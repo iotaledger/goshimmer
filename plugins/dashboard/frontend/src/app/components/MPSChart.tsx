@@ -54,7 +54,7 @@ export default class MPSChart extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>Messages Per Second</Card.Title>
+                    <Card.Title>Blocks Per Second</Card.Title>
                     <small>
                         MPS: {this.props.nodeStore.last_mps_metric.mps}.
                     </small>

@@ -50,7 +50,7 @@ keywords:
 
 ## `/ledgerstate/addresses/:address`
 
-Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
+Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw block. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
 
 ### Parameters
 | **Parameter**            | `address`      |
@@ -132,7 +132,7 @@ for _, output := range resp.Outputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.     |
-| `output` | string | An output raw message containing balances and corresponding addresses. |
+| `output` | string | An output raw block containing balances and corresponding addresses. |
 
 #### Type `OutputID`
 
@@ -228,7 +228,7 @@ for _, output := range resp.Outputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.    |
-| `output` | string | An output raw message containing balances and corresponding addresses |
+| `output` | string | An output raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 
@@ -505,7 +505,7 @@ for _, voter := range resp.Voters {
 
 ## `/ledgerstate/outputs/:outputID`
 Get an output details for a given base58 encoded output ID, such as output types, addresses, and their corresponding balances.
-For the client library API call balances will not be directly available as values because they are stored as a raw message. 
+For the client library API call balances will not be directly available as values because they are stored as a raw block. 
 
 ### Parameters
 
@@ -561,7 +561,7 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.     |
-| `output` | string | An output raw message containing balances and corresponding addresses |
+| `output` | string | An output raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 
@@ -714,8 +714,8 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 |:-----|:------|:------|
 | `outputID`            | OutputID  | The output identifier encoded with base58.   |
 | `branchID`            | string    | The identifier of the branch encoded with base58. |
-| `solid`               | bool      | The boolean indicator if the message is solid. |
-| `solidificationTime`  | int64     | The time of solidification of a message. |
+| `solid`               | bool      | The boolean indicator if the block is solid. |
+| `solidificationTime`  | int64     | The time of solidification of a block. |
 | `consumerCount`       | int       | The number of consumers. |
 | `firstConsumer`       | string    | The first consumer of the output. |
 | `finalized`           | bool      | The boolean indicator if the transaction is finalized. |
@@ -847,7 +847,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.  |
-| `output` | string | An output raw message containing balances and corresponding addresses. |
+| `output` | string | An output raw block containing balances and corresponding addresses. |
 
 #### Type `OutputID`
 
@@ -924,7 +924,7 @@ fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 
 
 ## `/ledgerstate/transactions/:transactionID/attachments`
-Gets the list of messages IDs with attachments of the base58 encoded transaction ID.
+Gets the list of blocks IDs with attachments of the base58 encoded transaction ID.
 
 ### Parameters
 | **Parameter**            | `transactionID`      |
@@ -951,16 +951,16 @@ resp, err := goshimAPI.GetTransactionAttachments("DNSN8GaCeep6CVuUV6KXAabXkL3bv4
 if err != nil {
     // return error
 }
-fmt.Printf("Messages IDs containing transaction %s:\n", resp.TransactionID)
-for _, msgID := range resp.MessageIDs {
-    fmt.Println(msgID)
+fmt.Printf("Blocks IDs containing transaction %s:\n", resp.TransactionID)
+for _, blkID := range resp.BlockIDs {
+    fmt.Println(blkID)
 }
 ```
 ### Response Examples
 ```json
 {
     "transactionID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
-    "messageIDs": [
+    "blockIDs": [
         "J1FQdMcticXiiuKMbjobq4zrYGHagk2mtTzkVwbqPgSq"
     ]
 }
@@ -970,12 +970,12 @@ for _, msgID := range resp.MessageIDs {
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`   | string  | The transaction identifier encoded with base58.  |
-| `messageIDs`       | []string    | The messages IDs that contains the requested transaction. |
+| `blockIDs`       | []string    | The blocks IDs that contains the requested transaction. |
 
 
 
 ## `/ledgerstate/transactions`
-Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction.md).
+Sends transaction provided in form of a binary data, validates transaction before issuing the block payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction.md).
 
 ### Examples
 
@@ -1001,7 +1001,7 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 
 
 ## `/ledgerstate/addresses/unspentOutputs`
-Gets all unspent outputs for a list of addresses that were sent in the body message.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
+Gets all unspent outputs for a list of addresses that were sent in the body block.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
 
 ### Request Body
 ```json
@@ -1114,7 +1114,7 @@ for _, outputs := range resp.UnspentOutputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string |  The type of the output.     |
-| `output` | string | An outputs raw message containing balances and corresponding addresses |
+| `output` | string | An outputs raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 

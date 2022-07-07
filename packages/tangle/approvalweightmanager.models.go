@@ -100,7 +100,6 @@ func (v *Voters) Clone() (clonedVoters *Voters) {
 
 // Decode deserializes bytes into a valid object.
 func (v *Voters) Decode(data []byte) (bytesRead int, err error) {
-
 	v.Set = set.New[Voter]()
 	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &v.Set, serix.WithValidation())
 	if err != nil {
@@ -232,9 +231,9 @@ const (
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
 // VotePower is used to establish an absolute order of votes, regardless of their arrival order.
-// Currently, the used VotePower is the SequenceNumber embedded in the Message Layout, so that, regardless
+// Currently, the used VotePower is the SequenceNumber embedded in the Block Layout, so that, regardless
 // of the order in which votes are received, the same conclusion is computed.
-// Alternatively, the objective timestamp of a Message could be used.
+// Alternatively, the objective timestamp of a Block could be used.
 type VotePower = uint64
 
 // LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.

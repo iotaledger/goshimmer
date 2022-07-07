@@ -48,12 +48,12 @@ curl "http://127.0.0.1:8080/path?command"
 
 $$ . $$
 
-Second, with `POST` we register a new POST route for a handler function. The handler can receive a JSON body input and send specific messages to the tangle.
+Second, with `POST` we register a new POST route for a handler function. The handler can receive a JSON body input and send specific blocks to the tangle.
 ```go
 webapi.Server().POST("path", HandlerFunc)
 ```	
 
-For example, the following Handler `broadcastData` sends a data message to the tangle
+For example, the following Handler `broadcastData` sends a data block to the tangle
 ```go
 func broadcastData(c echo.Context) error {
 	var request Request
@@ -62,12 +62,12 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	msg, err := messagelayer.IssuePayload(
-		payload.NewGenericDataPayload(request.Data), messagelayer.Tangle())
+	blk, err := blocklayer.IssuePayload(
+		payload.NewGenericDataPayload(request.Data), blocklayer.Tangle())
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
+	return c.JSON(http.StatusOK, Response{ID: blk.ID().String()})
 }
 ```
 As an example the JSON body   
@@ -76,5 +76,5 @@ As an example the JSON body
 	"data":"HelloWorld"
 }
 ```
-can be sent to `http://127.0.0.1:8080/data`, which will issue a data message containing "HelloWor" (note that in this  example the data input is size limited.)
+can be sent to `http://127.0.0.1:8080/data`, which will issue a data block containing "HelloWor" (note that in this  example the data input is size limited.)
  

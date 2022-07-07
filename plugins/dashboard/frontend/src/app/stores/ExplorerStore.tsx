@@ -1,5 +1,5 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSMsgType} from "app/misc/WS";
+import {registerHandler, WSBlkType} from "app/misc/WS";
 import {
     BasicPayload,
     getPayloadType,
@@ -12,10 +12,10 @@ import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
-export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
+export const GenesisBlockID = "1111111111111111111111111111111111111111111111111111111111111111";
 export const GenesisTransactionID = "11111111111111111111111111111111";
 
-export class Message {
+export class Block {
     id: string;
     solidification_timestamp: number;
     issuance_timestamp: number;
@@ -24,9 +24,9 @@ export class Message {
     issuer_short_id: string;
     signature: string;
     parentsByType: Map<string, Array<string>>;
-    strongApprovers: Array<string>;
-    weakApprovers: Array<string>;
-    shallowLikeApprovers: Array<string>;
+    strongChilds: Array<string>;
+    weakChilds: Array<string>;
+    shallowLikeChilds: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;
@@ -129,11 +129,11 @@ class BranchVoters {
 }
 
 class SearchResult {
-    message: MessageRef;
+    block: BlockRef;
     address: AddressResult;
 }
 
-class MessageRef {
+class BlockRef {
     id: string;
     payload_type: number;
 }
@@ -147,10 +147,10 @@ enum QueryError {
 
 export class ExplorerStore {
     // live feed
-    @observable latest_messages: Array<MessageRef> = [];
+    @observable latest_blocks: Array<BlockRef> = [];
 
     // queries
-    @observable msg: Message = null;
+    @observable blk: Block = null;
     @observable addr: AddressResult = null;
     @observable tx: any = null;
     @observable txMetadata: any = null;
@@ -179,7 +179,7 @@ export class ExplorerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        registerHandler(WSMsgType.Message, this.addLiveFeedMessage);
+        registerHandler(WSBlkType.Block, this.addLiveFeedBlock);
     }
 
     searchAny = async () => {
@@ -205,8 +205,8 @@ export class ExplorerStore {
         this.searching = false;
         let search = this.search;
         this.search = '';
-        if (this.search_result.message) {
-            this.routerStore.push(`/explorer/message/${search}`);
+        if (this.search_result.block) {
+            this.routerStore.push(`/explorer/block/${search}`);
             return;
         }
         if (this.search_result.address) {
@@ -224,16 +224,16 @@ export class ExplorerStore {
     @action
     updateSearching = (searching: boolean) => this.searching = searching;
 
-    searchMessage = async (id: string) => {
+    searchBlock = async (id: string) => {
         this.updateQueryLoading(true);
         try {
-            let res = await fetch(`/api/message/${id}`);
+            let res = await fetch(`/api/block/${id}`);
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
             }
-            let msg: Message = await res.json();
-            this.updateMessage(msg);
+            let blk: Block = await res.json();
+            this.updateBlock(blk);
         } catch (err) {
             this.updateQueryError(err);
         }
@@ -263,7 +263,7 @@ export class ExplorerStore {
             }
             let tx = await res.json()
             for(let i = 0; i < tx.inputs.length; i++) {
-                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisBlockID
                 try{
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
                     if (referencedOutputRes.status === 404){
@@ -445,7 +445,7 @@ export class ExplorerStore {
 
     @action
     reset = () => {
-        this.msg = null;
+        this.blk = null;
         this.query_err = null;
         // reset all variables
         this.tx = null;
@@ -523,20 +523,20 @@ export class ExplorerStore {
     }
 
     @action
-    updateMessage = (msg: Message) => {
-        this.msg = msg;
+    updateBlock = (blk: Block) => {
+        this.blk = blk;
         this.query_err = null;
         this.query_loading = false;
-        switch (msg.payload_type) {
+        switch (blk.payload_type) {
             case PayloadType.Transaction:
-                this.payload = msg.payload as TransactionPayload
+                this.payload = blk.payload as TransactionPayload
                 break;
             case PayloadType.Data:
-                this.payload = msg.payload as BasicPayload
+                this.payload = blk.payload as BasicPayload
                 break;
             case PayloadType.Faucet:
             default:
-                this.payload = msg.payload as BasicPayload
+                this.payload = blk.payload as BasicPayload
                 break;
         }
     };
@@ -552,30 +552,30 @@ export class ExplorerStore {
     };
 
     @action
-    addLiveFeedMessage = (msg: MessageRef) => {
+    addLiveFeedBlock = (blk: BlockRef) => {
         // prevent duplicates (should be fast with only size 10)
-        if (this.latest_messages.findIndex((t) => t.id == msg.id) === -1) {
-            if (this.latest_messages.length >= liveFeedSize) {
-                this.latest_messages.shift();
+        if (this.latest_blocks.findIndex((t) => t.id == blk.id) === -1) {
+            if (this.latest_blocks.length >= liveFeedSize) {
+                this.latest_blocks.shift();
             }
-            this.latest_messages.push(msg);
+            this.latest_blocks.push(blk);
         }
     };
 
     @computed
-    get msgsLiveFeed() {
+    get blksLiveFeed() {
         let feed = [];
-        for (let i = this.latest_messages.length - 1; i >= 0; i--) {
-            let msg = this.latest_messages[i];
+        for (let i = this.latest_blocks.length - 1; i >= 0; i--) {
+            let blk = this.latest_blocks[i];
             feed.push(
-                <tr key={msg.id}>
+                <tr key={blk.id}>
                     <td>
-                        <Link to={`/explorer/message/${msg.id}`}>
-                            {msg.id}
+                        <Link to={`/explorer/block/${blk.id}`}>
+                            {blk.id}
                         </Link>
                     </td>
                     <td>
-                        {getPayloadType(msg.payload_type)}
+                        {getPayloadType(blk.payload_type)}
                     </td>
                 </tr>
             );

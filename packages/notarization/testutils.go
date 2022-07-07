@@ -28,8 +28,8 @@ var (
 		return confirmation.Pending
 	}
 
-	// TestMessageConfirmationStateTranslation translates a message's AW into a confirmation state.
-	TestMessageConfirmationStateTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
+	// TestBlockConfirmationStateTranslation translates a block's AW into a confirmation state.
+	TestBlockConfirmationStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

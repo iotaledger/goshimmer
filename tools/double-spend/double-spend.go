@@ -78,7 +78,7 @@ func main() {
 
 	// issue transactions which spend the same output
 	conflictingTxs := make([]*devnetvm.Transaction, 2)
-	conflictingMsgIDs := make([]string, 2)
+	conflictingBlkIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
 	var wg sync.WaitGroup
@@ -108,7 +108,7 @@ func main() {
 			}
 			fmt.Println(resp.TransactionID)
 
-			fmt.Printf("issued conflict transaction %s\n", conflictingMsgIDs[i])
+			fmt.Printf("issued conflict transaction %s\n", conflictingBlkIDs[i])
 		}(i)
 	}
 	wg.Wait()

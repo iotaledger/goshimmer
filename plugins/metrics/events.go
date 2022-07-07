@@ -10,7 +10,7 @@ import (
 var Events *EventsStruct
 
 type EventsStruct struct {
-	// Fired when the messages per second metric is updated.
+	// Fired when the blocks per second metric is updated.
 	ReceivedMPSUpdated *event.Event[*ReceivedMPSUpdatedEvent]
 	// Fired when the transactions per second metric is updated.
 	ReceivedTPSUpdated *event.Event[*ReceivedTPSUpdatedEvent]

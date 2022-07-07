@@ -70,9 +70,9 @@ func configure(_ *node.Plugin) {
 	measureInitialBranchCounts()
 	configureSyncMetrics()
 	configureBranchConfirmationMetrics()
-	configureMessageFinalizedMetrics()
-	configureMessageScheduledMetrics()
-	configureMissingMessageMetrics()
+	configureBlockFinalizedMetrics()
+	configureBlockScheduledMetrics()
+	configureMissingBlockMetrics()
 	configureSchedulerQueryMetrics()
 }
 
@@ -88,7 +88,7 @@ func run(_ *node.Plugin) {
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
 		timeutil.NewTicker(func() { remotemetrics.Events.SchedulerQuery.Trigger(&remotemetrics.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
 
-		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
 	}, shutdown.PriorityRemoteLog); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
@@ -135,7 +135,7 @@ func configureBranchConfirmationMetrics() {
 	}))
 }
 
-func configureMessageFinalizedMetrics() {
+func configureBlockFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
@@ -143,40 +143,38 @@ func configureMessageFinalizedMetrics() {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
-			onMessageFinalized(event.Message)
+		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+			onBlockFinalized(event.Block)
 		}))
 	}
 }
 
-func configureMessageScheduledMetrics() {
+func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	} else {
-		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageScheduled")
+		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockScheduled")
 		}))
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	}
 }
 
-func configureMissingMessageMetrics() {
+func configureMissingBlockMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *tangle.MessageMissingEvent) {
-		sendMissingMessageRecord(event.MessageID, "missingMessage")
-
+	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangle.BlockMissingEvent) {
+		sendMissingBlockRecord(event.BlockID, "missingBlock")
 	}))
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *tangle.MissingMessageStoredEvent) {
-		sendMissingMessageRecord(event.MessageID, "missingMessageStored")
-
+	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangle.MissingBlockStoredEvent) {
+		sendMissingBlockRecord(event.BlockID, "missingBlockStored")
 	}))
 }

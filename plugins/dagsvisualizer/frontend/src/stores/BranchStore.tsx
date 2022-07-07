@@ -1,5 +1,5 @@
 import {action, makeObservable, observable, ObservableMap} from 'mobx';
-import {registerHandler, unregisterHandler, WSMsgType} from 'utils/WS';
+import {registerHandler, unregisterHandler, WSBlkType} from 'utils/WS';
 import {MAX_VERTICES} from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
@@ -39,20 +39,20 @@ export class BranchStore {
 
     constructor() {
         makeObservable(this);
-        registerHandler(WSMsgType.Branch, this.addBranch);
-        registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
-        registerHandler(WSMsgType.BranchConfirmationStateChanged, this.branchConfirmationStateChanged);
+        registerHandler(WSBlkType.Branch, this.addBranch);
+        registerHandler(WSBlkType.BranchParentsUpdate, this.updateParents);
+        registerHandler(WSBlkType.BranchConfirmationStateChanged, this.branchConfirmationStateChanged);
         registerHandler(
-            WSMsgType.BranchWeightChanged,
+            WSBlkType.BranchWeightChanged,
             this.branchWeightChanged
         );
     }
 
     unregisterHandlers() {
-        unregisterHandler(WSMsgType.Branch);
-        unregisterHandler(WSMsgType.BranchParentsUpdate);
-        unregisterHandler(WSMsgType.BranchConfirmationStateChanged);
-        unregisterHandler(WSMsgType.BranchWeightChanged);
+        unregisterHandler(WSBlkType.Branch);
+        unregisterHandler(WSBlkType.BranchParentsUpdate);
+        unregisterHandler(WSBlkType.BranchConfirmationStateChanged);
+        unregisterHandler(WSBlkType.BranchWeightChanged);
     }
 
     @action

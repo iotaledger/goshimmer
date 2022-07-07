@@ -98,9 +98,9 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// run message broker
+	// run block broker
 	runWebSocketStreams()
-	// run the message live feed
+	// run the block live feed
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
@@ -153,58 +153,58 @@ func worker(ctx context.Context) {
 }
 
 const (
-	// MsgTypeNodeStatus is the type of the NodeStatus message.
-	MsgTypeNodeStatus byte = iota
-	// MsgTypeMPSMetric is the type of the message per second (MPS) metric message.
-	MsgTypeMPSMetric
-	// MsgTypeMessage is the type of the message.
-	MsgTypeMessage
-	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
-	MsgTypeNeighborMetric
-	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
-	MsgTypeComponentCounterMetric
-	// MsgTypeTipsMetric is the type of the TipsMetric message.
-	MsgTypeTipsMetric
-	// MsgTypeVertex defines a vertex message.
-	MsgTypeVertex
-	// MsgTypeTipInfo defines a tip info message.
-	MsgTypeTipInfo
-	// MsgTypeManaValue defines a mana value message.
-	MsgTypeManaValue
-	// MsgTypeManaMapOverall defines a message containing overall mana map.
-	MsgTypeManaMapOverall
-	// MsgTypeManaMapOnline defines a message containing online mana map.
-	MsgTypeManaMapOnline
-	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
-	MsgTypeManaAllowedPledge
-	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
-	MsgTypeManaPledge
-	// MsgTypeManaInitPledge defines a message that is sent when initial pledge events are sent to the dashboard.
-	MsgTypeManaInitPledge
-	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
-	MsgTypeManaRevoke
-	// MsgTypeManaInitRevoke defines a message that is sent when initial revoke events are sent to the dashboard.
-	MsgTypeManaInitRevoke
-	// MsgTypeManaInitDone defines a message that is sent when all initial values are sent.
-	MsgTypeManaInitDone
-	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
-	MsgManaDashboardAddress
-	// MsgTypeChat defines a chat message.
-	MsgTypeChat
-	// MsgTypeRateSetterMetric defines rate setter metrics.
-	MsgTypeRateSetterMetric
-	// MsgTypeConflictsConflict defines a message that contains a conflictSet update for the conflictSet tab.
-	MsgTypeConflictsConflict
-	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflictSet tab.
-	MsgTypeConflictsBranch
+	// BlkTypeNodeStatus is the type of the NodeStatus block.
+	BlkTypeNodeStatus byte = iota
+	// BlkTypeMPSMetric is the type of the block per second (MPS) metric block.
+	BlkTypeMPSMetric
+	// BlkTypeBlock is the type of the block.
+	BlkTypeBlock
+	// BlkTypeNeighborMetric is the type of the NeighborMetric block.
+	BlkTypeNeighborMetric
+	// BlkTypeComponentCounterMetric is the type of the component counter triggered per second.
+	BlkTypeComponentCounterMetric
+	// BlkTypeTipsMetric is the type of the TipsMetric block.
+	BlkTypeTipsMetric
+	// BlkTypeVertex defines a vertex block.
+	BlkTypeVertex
+	// BlkTypeTipInfo defines a tip info block.
+	BlkTypeTipInfo
+	// BlkTypeManaValue defines a mana value block.
+	BlkTypeManaValue
+	// BlkTypeManaMapOverall defines a block containing overall mana map.
+	BlkTypeManaMapOverall
+	// BlkTypeManaMapOnline defines a block containing online mana map.
+	BlkTypeManaMapOnline
+	// BlkTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
+	BlkTypeManaAllowedPledge
+	// BlkTypeManaPledge defines a block that is sent when mana was pledged to the node.
+	BlkTypeManaPledge
+	// BlkTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
+	BlkTypeManaInitPledge
+	// BlkTypeManaRevoke defines a block that is sent when mana was revoked from a node.
+	BlkTypeManaRevoke
+	// BlkTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
+	BlkTypeManaInitRevoke
+	// BlkTypeManaInitDone defines a block that is sent when all initial values are sent.
+	BlkTypeManaInitDone
+	// BlkManaDashboardAddress is the socket address of the dashboard to stream mana from.
+	BlkManaDashboardAddress
+	// BlkTypeChat defines a chat block.
+	BlkTypeChat
+	// BlkTypeRateSetterMetric defines rate setter metrics.
+	BlkTypeRateSetterMetric
+	// BlkTypeConflictsConflict defines a block that contains a conflictSet update for the conflictSet tab.
+	BlkTypeConflictsConflict
+	// BlkTypeConflictsBranch defines a block that contains a branch update for the conflictSet tab.
+	BlkTypeConflictsBranch
 )
 
-type wsmsg struct {
+type wsblk struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
 }
 
-type msg struct {
+type blk struct {
 	ID          string `json:"id"`
 	Value       int64  `json:"value"`
 	PayloadType uint32 `json:"payload_type"`
@@ -227,8 +227,8 @@ type tangleTime struct {
 	CTT          int64 `json:"CTT"`
 	RCTT         int64 `json:"RCTT"`
 
-	AcceptedMessageID  string `json:"acceptedMessageID"`
-	ConfirmedMessageID string `json:"confirmedMessageID"`
+	AcceptedBlockID  string `json:"acceptedBlockID"`
+	ConfirmedBlockID string `json:"confirmedBlockID"`
 }
 
 type memmetrics struct {
@@ -336,14 +336,14 @@ func currentNodeStatus() *nodestatus {
 	// get TangleTime
 	tm := deps.Tangle.TimeManager
 	status.TangleTime = tangleTime{
-		Synced:             tm.Synced(),
-		Bootstrapped:       tm.Bootstrapped(),
-		AcceptedMessageID:  tm.LastAcceptedMessage().MessageID.Base58(),
-		ConfirmedMessageID: tm.LastConfirmedMessage().MessageID.Base58(),
-		ATT:                tm.ATT().UnixNano(),
-		RATT:               tm.RATT().UnixNano(),
-		CTT:                tm.CTT().UnixNano(),
-		RCTT:               tm.RCTT().UnixNano(),
+		Synced:           tm.Synced(),
+		Bootstrapped:     tm.Bootstrapped(),
+		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
+		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
+		ATT:              tm.ATT().UnixNano(),
+		RATT:             tm.RATT().UnixNano(),
+		CTT:              tm.CTT().UnixNano(),
+		RCTT:             tm.RCTT().UnixNano(),
 	}
 
 	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()

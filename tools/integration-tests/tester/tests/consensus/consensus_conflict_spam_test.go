@@ -50,19 +50,19 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	faucet, peer1 := n.Peers()[0], n.Peers()[1]
 	tokensPerRequest = faucet.Config().TokensPerRequest
 
-	const delayBetweenDataMessages = 100 * time.Millisecond
-	dataMessagesAmount := len(n.Peers()) * 10
+	const delayBetweenDataBlocks = 100 * time.Millisecond
+	dataBlocksAmount := len(n.Peers()) * 10
 
-	t.Logf("Sending %d data messages to confirm Faucet Outputs", dataMessagesAmount)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	fundingAddress := peer1.Address(0)
 	tests.SendFaucetRequest(t, peer1, fundingAddress)
 
-	t.Logf("Sending %d data messages to confirm Faucet Funds", dataMessagesAmount)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+	t.Logf("Sending %d data blocks to confirm Faucet Funds", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
 	require.Eventually(t, func() bool {
 		return tests.Balance(t, peer1, fundingAddress, devnetvm.ColorIOTA) >= uint64(tokensPerRequest)
@@ -89,18 +89,18 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
 
-	t.Logf("Sending data %d messages to confirm Conflicts and make ConfirmationState converge on all nodes", dataMessagesAmount*2)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount*2, delayBetweenDataMessages)
+	t.Logf("Sending data %d blocks to confirm Conflicts and make ConfirmationState converge on all nodes", dataBlocksAmount*2)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount*2, delayBetweenDataBlocks)
 
 	t.Logf("number of txs to verify is %d", len(txs))
 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
 
-	msgID, _ := tests.SendDataMessage(t, peer1, []byte("Gimme Master!"), 1)
+	blkID, _ := tests.SendDataBlock(t, peer1, []byte("Gimme Master!"), 1)
 
-	t.Logf("Verifying that %s is on MasterBranch", msgID)
-	messageMetadata, err := peer1.GetMessageMetadata(msgID)
+	t.Logf("Verifying that %s is on MasterBranch", blkID)
+	blockMetadata, err := peer1.GetBlockMetadata(blkID)
 	require.NoError(t, err)
-	require.Empty(t, messageMetadata.BranchIDs)
+	require.Empty(t, blockMetadata.BranchIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
@@ -138,8 +138,8 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 // It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
 // The conflicts are TX_B<->TX_A<->TX_C
 func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
-
+	keyPairs map[string]*ed25519.KeyPair, iteration int,
+) []*devnetvm.Transaction {
 	t.Logf("send pairwise conflicts on iteration %d", iteration)
 	peerIndex := (iteration + 1) % len(peers)
 
@@ -157,7 +157,8 @@ func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs devnet
 // Creates conflicts as so
 // TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
 func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
+	keyPairs map[string]*ed25519.KeyPair, iteration int,
+) []*devnetvm.Transaction {
 	t.Logf("send triple conflicts on iteration %d", iteration)
 
 	peerIndex := (iteration + 1) % len(peers)

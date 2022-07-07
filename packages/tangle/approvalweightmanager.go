@@ -38,26 +38,26 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
-	a.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
-		a.processBookedMessage(event.MessageID)
+	a.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
+		a.processBookedBlock(event.BlockID)
 	}))
-	a.tangle.Booker.Events.MessageBranchUpdated.Hook(event.NewClosure(func(event *MessageBranchUpdatedEvent) {
-		a.processForkedMessage(event.MessageID, event.BranchID)
+	a.tangle.Booker.Events.BlockBranchUpdated.Hook(event.NewClosure(func(event *BlockBranchUpdatedEvent) {
+		a.processForkedBlock(event.BlockID, event.BranchID)
 	}))
 	a.tangle.Booker.Events.MarkerBranchAdded.Hook(event.NewClosure(func(event *MarkerBranchAddedEvent) {
 		a.processForkedMarker(event.Marker, event.NewBranchID)
 	}))
 }
 
-// processBookedMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
-// voters of the Message's ledger.Conflict and approved markers.Marker and eventually triggers events when
+// processBookedBlock is the main entry point for the ApprovalWeightManager. It takes the Block's issuer, adds it to the
+// voters of the Block's ledger.Conflict and approved markers.Marker and eventually triggers events when
 // approval weights for branch and markers are reached.
-func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		a.updateBranchVoters(message)
-		a.updateSequenceVoters(message)
+func (a *ApprovalWeightManager) processBookedBlock(blockID BlockID) {
+	a.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		a.updateBranchVoters(block)
+		a.updateSequenceVoters(block)
 
-		a.Events.MessageProcessed.Trigger(&MessageProcessedEvent{messageID})
+		a.Events.BlockProcessed.Trigger(&BlockProcessedEvent{blockID})
 	})
 }
 
@@ -85,8 +85,8 @@ func (a *ApprovalWeightManager) WeightOfMarker(marker markers.Marker, anchorTime
 // Shutdown shuts down the ApprovalWeightManager and persists its state.
 func (a *ApprovalWeightManager) Shutdown() {}
 
-func (a *ApprovalWeightManager) isRelevantVoter(message *Message) bool {
-	voterWeight, totalWeight := a.tangle.WeightProvider.Weight(message)
+func (a *ApprovalWeightManager) isRelevantVoter(block *Block) bool {
+	voterWeight, totalWeight := a.tangle.WeightProvider.Weight(block)
 
 	return voterWeight/totalWeight >= minVoterWeight
 }
@@ -116,26 +116,26 @@ func (a *ApprovalWeightManager) markerVotes(marker markers.Marker) (markerVotes 
 	return markerVotes
 }
 
-func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
-	branchesOfMessage, err := a.tangle.Booker.MessageBranchIDs(message.ID())
+func (a *ApprovalWeightManager) updateBranchVoters(block *Block) {
+	branchesOfBlock, err := a.tangle.Booker.BlockBranchIDs(block.ID())
 	if err != nil {
 		panic(err)
 	}
 
-	voter := identity.NewID(message.IssuerPublicKey())
+	voter := identity.NewID(block.IssuerPublicKey())
 
 	// create vote with default BranchID and Opinion values that will be filled later
-	vote := NewBranchVote(voter, message.SequenceNumber(), utxo.TransactionID{}, UndefinedOpinion)
+	vote := NewBranchVote(voter, block.SequenceNumber(), utxo.TransactionID{}, UndefinedOpinion)
 
-	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
+	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfBlock, vote)
 	if isInvalid {
-		a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetSubjectivelyInvalid(true)
+		a.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+			blockMetadata.SetSubjectivelyInvalid(true)
 		})
 		return
 	}
 
-	if !a.isRelevantVoter(message) {
+	if !a.isRelevantVoter(block) {
 		return
 	}
 
@@ -190,7 +190,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSe
 		// currentVote := branchVote.WithBranchID(currentBranchID)
 
 		// Do not queue parents if a newer vote exists for this branch for this voter.
-		// TODO: do not exit earlier to always determine subjectively invalid messages correctly
+		// TODO: do not exit earlier to always determine subjectively invalid blocks correctly
 		// if a.identicalVoteWithHigherPowerExists(currentVote) {
 		// 	continue
 		// }
@@ -280,29 +280,29 @@ func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID utxo.TransactionI
 	})
 }
 
-func (a *ApprovalWeightManager) updateSequenceVoters(message *Message) {
-	if !a.isRelevantVoter(message) {
+func (a *ApprovalWeightManager) updateSequenceVoters(block *Block) {
+	if !a.isRelevantVoter(block) {
 		return
 	}
 
-	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+	a.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
 		supportWalker := walker.New[markers.Marker](false)
 
-		messageMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		blockMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 			supportWalker.Push(markers.NewMarker(sequenceID, index))
 
 			return true
 		})
 
 		for supportWalker.HasNext() {
-			a.addVoteToMarker(supportWalker.Next(), message, supportWalker)
+			a.addVoteToMarker(supportWalker.Next(), block, supportWalker)
 		}
 	})
 }
 
-func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, message *Message, walk *walker.Walker[markers.Marker]) {
+func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, block *Block, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
 	// voters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.
@@ -310,8 +310,8 @@ func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, message *
 		return
 	}
 
-	a.tangle.Storage.LatestMarkerVotes(marker.SequenceID(), identity.NewID(message.IssuerPublicKey()), NewLatestMarkerVotes).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
-		stored, previousHighestIndex := latestMarkerVotes.Store(marker.Index(), message.SequenceNumber())
+	a.tangle.Storage.LatestMarkerVotes(marker.SequenceID(), identity.NewID(block.IssuerPublicKey()), NewLatestMarkerVotes).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
+		stored, previousHighestIndex := latestMarkerVotes.Store(marker.Index(), block.SequenceNumber())
 		if !stored {
 			return
 		}
@@ -341,7 +341,7 @@ func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceI
 		currentMarker := markers.NewMarker(sequenceID, i)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if a.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
+		if a.tangle.Booker.MarkersManager.BlockID(currentMarker) == EmptyBlockID {
 			continue
 		}
 
@@ -373,12 +373,12 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) 
 	})
 }
 
-// processForkedMessage updates the Conflict weight after an individually mapped Message was forked into a new Conflict.
-func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID utxo.TransactionID) {
-	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+// processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
+func (a *ApprovalWeightManager) processForkedBlock(blockID BlockID, forkedBranchID utxo.TransactionID) {
+	a.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
 			a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedBranchID).Consume(func(forkedBranch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
+				if !a.addSupportToForkedBranchVoters(identity.NewID(block.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), block.SequenceNumber()) {
 					return
 				}
 

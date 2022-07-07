@@ -159,19 +159,19 @@ func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*ledger.C
 // GetTransactionAttachmentsResponse represents the JSON model of a response from the GetTransactionAttachments endpoint.
 type GetTransactionAttachmentsResponse struct {
 	TransactionID string   `json:"transactionID"`
-	MessageIDs    []string `json:"messageIDs"`
+	BlockIDs      []string `json:"blockIDs"`
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
-	var messageIDsBase58 []string
-	for messageID := range messageIDs {
-		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())
+func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs tangle.BlockIDs) *GetTransactionAttachmentsResponse {
+	var blockIDsBase58 []string
+	for blockID := range blockIDs {
+		blockIDsBase58 = append(blockIDsBase58, blockID.Base58())
 	}
 
 	return &GetTransactionAttachmentsResponse{
 		TransactionID: transactionID.Base58(),
-		MessageIDs:    messageIDsBase58,
+		BlockIDs:      blockIDsBase58,
 	}
 }
 
@@ -193,10 +193,10 @@ type PostPayloadResponse struct {
 	ID string `json:"id"`
 }
 
-// NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Message.
-func NewPostPayloadResponse(message *tangle.Message) *PostPayloadResponse {
+// NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Block.
+func NewPostPayloadResponse(block *tangle.Block) *PostPayloadResponse {
 	return &PostPayloadResponse{
-		ID: message.ID().Base58(),
+		ID: block.ID().Base58(),
 	}
 }
 

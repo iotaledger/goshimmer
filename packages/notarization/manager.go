@@ -57,12 +57,12 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		},
 	}
 
-	new.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageAcceptedEvent) {
-		new.OnMessageConfirmed(event.Message)
+	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
+		new.OnBlockConfirmed(event.Block)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageAcceptedEvent) {
-		new.OnMessageOrphaned(event.Message)
+	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
+		new.OnBlockOrphaned(event.Block)
 	}))
 
 	new.tangle.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionAcceptedEvent) {
@@ -151,7 +151,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		panic("could not set last confirmed epoch index")
 	}
 
-	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
+	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed block will arrive.
 	if err := m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
 		panic("could not set current epoch index")
 	}
@@ -159,7 +159,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 }
 
-// GetLatestEC returns the latest commitment that a new message should commit to.
+// GetLatestEC returns the latest commitment that a new block should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
@@ -180,37 +180,37 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
-// OnMessageConfirmed is the handler for message confirmed event.
-func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+// OnBlockConfirmed is the handler for block confirmed event.
+func (m *Manager) OnBlockConfirmed(block *tangle.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := epoch.IndexFromTime(message.IssuingTime())
+	ei := epoch.IndexFromTime(block.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("message %s confirmed with issuing time %s in already committed epoch %d", message.ID(), message.IssuingTime(), ei)
+		m.log.Errorf("block %s confirmed with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return
 	}
-	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
+	err := m.epochCommitmentFactory.insertTangleLeaf(ei, block.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
 }
 
-// OnMessageOrphaned is the handler for message orphaned event.
-func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+// OnBlockOrphaned is the handler for block orphaned event.
+func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := epoch.IndexFromTime(message.IssuingTime())
+	ei := epoch.IndexFromTime(block.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("message %s orphaned with issuing time %s in already committed epoch %d", message.ID(), message.IssuingTime(), ei)
+		m.log.Errorf("block %s orphaned with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return
 	}
-	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
+	err := m.epochCommitmentFactory.removeTangleLeaf(ei, block.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	transaction, isTransaction := message.Payload().(utxo.Transaction)
+	transaction, isTransaction := block.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
@@ -413,7 +413,7 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
-	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
+	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
 	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
 	return
 }

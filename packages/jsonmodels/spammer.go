@@ -2,8 +2,8 @@ package jsonmodels
 
 // SpammerResponse is the HTTP response of a spammer request.
 type SpammerResponse struct {
-	Message string `json:"message"`
-	Error   string `json:"error"`
+	Block string `json:"block"`
+	Error string `json:"error"`
 }
 
 // SpammerRequest contains the parameters of a spammer request.

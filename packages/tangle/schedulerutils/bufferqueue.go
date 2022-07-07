@@ -9,7 +9,7 @@ import (
 )
 
 // ErrInsufficientMana is returned when the mana is insufficient.
-var ErrInsufficientMana = errors.New("insufficient node's mana to schedule the message")
+var ErrInsufficientMana = errors.New("insufficient node's mana to schedule the block")
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -38,12 +38,12 @@ func (b *BufferQueue) NumActiveNodes() int {
 	return len(b.activeNode)
 }
 
-// MaxSize returns the max size (in bytes) of all messages in b.
+// MaxSize returns the max size (in bytes) of all blocks in b.
 func (b *BufferQueue) MaxSize() int {
 	return b.maxBuffer
 }
 
-// Size returns the total size (in bytes) of all messages in b.
+// Size returns the total size (in bytes) of all blocks in b.
 func (b *BufferQueue) Size() int {
 	return b.size
 }
@@ -57,10 +57,10 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 	return element.Value.(*NodeQueue)
 }
 
-// Submit submits a message. Return messages dropped from the scheduler to make room for the submitted message.
-// The submitted message can also be returned as dropped if the issuing node does not have enough access mana.
-func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) float64) (elements []ElementID, err error) {
-	nodeID := identity.NewID(msg.IssuerPublicKey())
+// Submit submits a block. Return blocks dropped from the scheduler to make room for the submitted block.
+// The submitted block can also be returned as dropped if the issuing node does not have enough access mana.
+func (b *BufferQueue) Submit(blk Element, accessManaRetriever func(identity.ID) float64) (elements []ElementID, err error) {
+	nodeID := identity.NewID(blk.IssuerPublicKey())
 	element, nodeActive := b.activeNode[nodeID]
 	var nodeQueue *NodeQueue
 	if nodeActive {
@@ -69,9 +69,9 @@ func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) 
 		nodeQueue = NewNodeQueue(nodeID)
 	}
 
-	// first we submit the message, and if it turns out that the node doesn't have enough bandwidth to submit, it will be removed by dropHead
-	if !nodeQueue.Submit(msg) {
-		return nil, errors.Errorf("message already submitted")
+	// first we submit the block, and if it turns out that the node doesn't have enough bandwidth to submit, it will be removed by dropHead
+	if !nodeQueue.Submit(blk) {
+		return nil, errors.Errorf("block already submitted")
 	}
 	// if the node was not active before, add it now
 	if !nodeActive {
@@ -87,10 +87,10 @@ func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) 
 	return nil, nil
 }
 
-func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (messagesDropped []ElementID) {
+func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (blocksDropped []ElementID) {
 	start := b.Current()
 
-	// remove as many messages as necessary to stay within max buffer size
+	// remove as many blocks as necessary to stay within max buffer size
 	for b.Size() > b.maxBuffer {
 		// find longest mana-scaled queue
 		maxScale := math.Inf(-1)
@@ -112,36 +112,36 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 			}
 		}
 		longestQueue := b.activeNode[maxNodeID].Value.(*NodeQueue)
-		// find oldest submitted and not-ready message in the longest queue
-		var oldestMessage Element
+		// find oldest submitted and not-ready block in the longest queue
+		var oldestBlock Element
 
 		for _, v := range longestQueue.submitted {
-			if oldestMessage == nil || oldestMessage.IssuingTime().After((*v).IssuingTime()) {
-				oldestMessage = *v
+			if oldestBlock == nil || oldestBlock.IssuingTime().After((*v).IssuingTime()) {
+				oldestBlock = *v
 			}
 		}
 
-		// if the oldest not-ready message is older than the oldest ready message, drop the former otherwise the latter
+		// if the oldest not-ready block is older than the oldest ready block, drop the former otherwise the latter
 		readyQueueFront := longestQueue.Front()
-		if oldestMessage != nil && (readyQueueFront == nil || oldestMessage.IssuingTime().Before(readyQueueFront.IssuingTime())) {
-			messagesDropped = append(messagesDropped, ElementIDFromBytes(oldestMessage.IDBytes()))
+		if oldestBlock != nil && (readyQueueFront == nil || oldestBlock.IssuingTime().Before(readyQueueFront.IssuingTime())) {
+			blocksDropped = append(blocksDropped, ElementIDFromBytes(oldestBlock.IDBytes()))
 			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
-			b.Unsubmit(oldestMessage)
+			b.Unsubmit(oldestBlock)
 		} else if readyQueueFront != nil {
-			msg := longestQueue.PopFront()
+			blk := longestQueue.PopFront()
 			b.size--
-			messagesDropped = append(messagesDropped, ElementIDFromBytes(msg.IDBytes()))
+			blocksDropped = append(blocksDropped, ElementIDFromBytes(blk.IDBytes()))
 		} else {
 			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
 		}
 	}
-	return messagesDropped
+	return blocksDropped
 }
 
-// Unsubmit removes a message from the submitted messages.
-// If that message is already marked as ready, Unsubmit has no effect.
-func (b *BufferQueue) Unsubmit(msg Element) bool {
-	nodeID := identity.NewID(msg.IssuerPublicKey())
+// Unsubmit removes a block from the submitted blocks.
+// If that block is already marked as ready, Unsubmit has no effect.
+func (b *BufferQueue) Unsubmit(blk Element) bool {
+	nodeID := identity.NewID(blk.IssuerPublicKey())
 
 	element, ok := b.activeNode[nodeID]
 	if !ok {
@@ -149,7 +149,7 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 	}
 
 	nodeQueue := element.Value.(*NodeQueue)
-	if !nodeQueue.Unsubmit(msg) {
+	if !nodeQueue.Unsubmit(blk) {
 		return false
 	}
 
@@ -157,25 +157,25 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 	return true
 }
 
-// Ready marks a previously submitted message as ready to be scheduled.
-func (b *BufferQueue) Ready(msg Element) bool {
-	element, ok := b.activeNode[identity.NewID(msg.IssuerPublicKey())]
+// Ready marks a previously submitted block as ready to be scheduled.
+func (b *BufferQueue) Ready(blk Element) bool {
+	element, ok := b.activeNode[identity.NewID(blk.IssuerPublicKey())]
 	if !ok {
 		return false
 	}
 
 	nodeQueue := element.Value.(*NodeQueue)
-	return nodeQueue.Ready(msg)
+	return nodeQueue.Ready(blk)
 }
 
-// ReadyMessagesCount returns the number of ready messages in the buffer.
-func (b *BufferQueue) ReadyMessagesCount() (readyMsgCount int) {
+// ReadyBlocksCount returns the number of ready blocks in the buffer.
+func (b *BufferQueue) ReadyBlocksCount() (readyBlkCount int) {
 	start := b.Current()
 	if start == nil {
 		return
 	}
 	for q := start; ; {
-		readyMsgCount += q.inbox.Len()
+		readyBlkCount += q.inbox.Len()
 		q = b.Next()
 		if q == start {
 			break
@@ -184,15 +184,15 @@ func (b *BufferQueue) ReadyMessagesCount() (readyMsgCount int) {
 	return
 }
 
-// TotalMessagesCount returns the number of messages in the buffer.
-func (b *BufferQueue) TotalMessagesCount() (msgCount int) {
+// TotalBlocksCount returns the number of blocks in the buffer.
+func (b *BufferQueue) TotalBlocksCount() (blkCount int) {
 	start := b.Current()
 	if start == nil {
 		return
 	}
 	for q := start; ; {
-		msgCount += q.inbox.Len()
-		msgCount += len(q.submitted)
+		blkCount += q.inbox.Len()
+		blkCount += len(q.submitted)
 		q = b.Next()
 		if q == start {
 			break
@@ -212,7 +212,7 @@ func (b *BufferQueue) InsertNode(nodeID identity.ID) {
 	b.activeNode[nodeID] = b.ringInsert(nodeQueue)
 }
 
-// RemoveNode removes all messages (submitted and ready) for the given node.
+// RemoveNode removes all blocks (submitted and ready) for the given node.
 func (b *BufferQueue) RemoveNode(nodeID identity.ID) {
 	element, ok := b.activeNode[nodeID]
 	if !ok {
@@ -243,15 +243,15 @@ func (b *BufferQueue) Current() *NodeQueue {
 	return b.ring.Value.(*NodeQueue)
 }
 
-// PopFront removes the first ready message from the queue of the current node.
+// PopFront removes the first ready block from the queue of the current node.
 func (b *BufferQueue) PopFront() Element {
 	q := b.Current()
-	msg := q.PopFront()
+	blk := q.PopFront()
 	b.size--
-	return msg
+	return blk
 }
 
-// IDs returns the IDs of all submitted messages (ready or not).
+// IDs returns the IDs of all submitted blocks (ready or not).
 func (b *BufferQueue) IDs() (ids []ElementID) {
 	start := b.Current()
 	if start == nil {

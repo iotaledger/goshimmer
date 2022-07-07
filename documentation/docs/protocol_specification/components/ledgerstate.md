@@ -168,7 +168,7 @@ This validation can commence as soon as the transaction data has been received i
 The following criteria define whether the transaction passes the syntactical validation:
 * Transaction Essence:
     * `Transaction Essence Version` value must be 0.
-    * The `timestamp` of the _Transaction Essence_ must be older than (or equal to) the `timestamp` of the message
+    * The `timestamp` of the _Transaction Essence_ must be older than (or equal to) the `timestamp` of the block
       containing the transaction by at most 10 minutes.
     * A _Transaction Essence_ must contain at least one input and output.
 * Inputs:
@@ -196,7 +196,7 @@ The following criteria define whether the transaction passes the syntactical val
 * `Signature Unlock Blocks` must define either an `Ed25519`- or `BLS Signature`.
 * A `Signature Unlock Block` unlocking multiple inputs must only appear once (be unique) and be positioned at the same index of the first input it unlocks. All other inputs unlocked by the same `Signature Unlock Block` must have a companion `Reference Unlock Block` at the same index as the corresponding input that points to the origin `Signature Unlock Block`.
 * `Reference Unlock Blocks` must specify a previous `Unlock Block` that is not of type `Reference Unlock Block`. The referenced index must therefore be smaller than the index of the `Reference Unlock Block`.
-* Given the type and length information, the _Transaction_ must consume the entire byte array the `Payload Length` field in the _Message_ defines.
+* Given the type and length information, the _Transaction_ must consume the entire byte array the `Payload Length` field in the _Block_ defines.
 
 
 ### Transaction Semantic Validation
@@ -209,7 +209,7 @@ The following criteria define whether the transaction passes the semantic valida
 
 If a transaction passes the semantic validation, its referenced UTXOs *shall* be marked as spent and the corresponding new outputs *shall* be booked/specified in the ledger. 
 
-Transactions that do not pass semantic validation *shall* be discarded. Their UTXOs are not marked as spent and neither are their outputs booked into the ledger. Moreover, their messages *shall* be considered invalid.
+Transactions that do not pass semantic validation *shall* be discarded. Their UTXOs are not marked as spent and neither are their outputs booked into the ledger. Moreover, their blocks *shall* be considered invalid.
 
 # Ledger State
 
@@ -230,14 +230,14 @@ A transaction that attempts to merge incompatible branches fails to pass a valid
 
 The composition of all realities defines the Realities Ledger State. 
 
-From this composition nodes are able to know which possible outcomes for the Tangle exist, where they split, how they relate to each other, if they can be merged and which messages are valid tips. All of this information can be retrieved in a fast and efficient way without having to walk the Tangle. 
+From this composition nodes are able to know which possible outcomes for the Tangle exist, where they split, how they relate to each other, if they can be merged and which blocks are valid tips. All of this information can be retrieved in a fast and efficient way without having to walk the Tangle. 
 
 Ultimately, for a set of competing realities, only one reality can survive. It is then up to the consensus protocol to determine which branch is part of the eventually accepted reality.
 
 In total the ledger state thus involves three different layers:
 * the UTXO DAG,
 * its extension to the corresponding branch DAG,
-* the Tangle which maps the parent relations between messages and thus also transactions.
+* the Tangle which maps the parent relations between blocks and thus also transactions.
 
 ## The UTXO DAG
 
@@ -254,7 +254,7 @@ If there is more than one consumer in the consumer list we *shall* create a conf
 
 ## Branches
 
-The UTXO model and the concept of solidification, makes all non-conflicting transactions converge to the same ledger state no matter in which order the transactions are received. Messages containing these transactions could always reference each other in the Tangle without limitations.
+The UTXO model and the concept of solidification, makes all non-conflicting transactions converge to the same ledger state no matter in which order the transactions are received. Blocks containing these transactions could always reference each other in the Tangle without limitations.
 
 However, every double spend creates a new possible version of the ledger state that will no longer converge. Whenever a double spend is detected, see the previous section, we track the outputs created by the conflicting transactions and all of the transactions that spend these outputs, by creating a container for them in the ledger which we call a branch. 
 
@@ -270,7 +270,7 @@ A conflict branch is created by a corresponding double spend transaction. Since 
 
 Outputs inside a branch can be double spent again, recursively forming sub-branches. 
 
-On solidification of a message, we *shall* store the corresponding branch identifier together with every output, as well as the transaction metadata to enable instant lookups of this information. Thus, on solidification, a transaction can be immediately associated with a branch. 
+On solidification of a block, we *shall* store the corresponding branch identifier together with every output, as well as the transaction metadata to enable instant lookups of this information. Thus, on solidification, a transaction can be immediately associated with a branch. 
 
 
 ### Aggregated Branches
@@ -282,7 +282,7 @@ If outputs from multiple non-conflicting branches are spent in the same transact
 To calculate the unique identifier of a new aggregated branch, we take the identifiers of the branches that were aggregated, sort them lexicographically and hash the concatenated identifiers once
 
 An aggregated branch can't aggregate other aggregated branches. However, it can aggregate the conflict branches that are part of the referenced aggregated branch. 
-Thus aggregated branches have no further branches as their children and they remain tips in the branch DAG. Furthermore, the sortation of the `branchID`s in the function `AggregatedBranchID()` ensures that even though messages can attach at different points in the Tangle and aggregate different aggregated branches they are treated as if they are in the same aggregated branch **if** the referenced conflict branches are the same. 
+Thus aggregated branches have no further branches as their children and they remain tips in the branch DAG. Furthermore, the sortation of the `branchID`s in the function `AggregatedBranchID()` ensures that even though blocks can attach at different points in the Tangle and aggregate different aggregated branches they are treated as if they are in the same aggregated branch **if** the referenced conflict branches are the same. 
 
 These properties allow for an efficient reduction of a set of branches. In the following we will require the following fields as part of the branch data: 
 * `isConflictBranch` is a boolean flat that is `TRUE` if the branch is a conflict branch or `FALSE` if its an aggregated branch.
@@ -316,12 +316,12 @@ In other words the conflict branches and the aggregated branches appear as the c
 
 Branches are conflicting if they, or any of their ancestors, are part of the same conflict set.
 The branch DAG can be used to check if branches are conflicting, by applying an operation called normalization, to a set of input branches.
-From this information we can identify messages or transactions that are trying to combine branches belonging to conflicting double spends, and thus introduce an invalid perception of the ledger state.
+From this information we can identify blocks or transactions that are trying to combine branches belonging to conflicting double spends, and thus introduce an invalid perception of the ledger state.
 
 Since branches represent the ledger state associated with a double spend and sub-branches implicitly share the perception of their parents, we define an operation to normalize a list of branches that gets rid of all branches that are referenced by other branches in that list. The function returns `NULL` if the branches are conflicting and can not be merged.
 
 ### Merging of Branches Into the Master Branch
 
-A branch gains approval weight when messages from (previously non-attached) `nodeID`s attach to messages in the future cone of that branch. Once the approval weight exceeds a certain threshold we consider the branch as confirmed.
+A branch gains approval weight when blocks from (previously non-attached) `nodeID`s attach to blocks in the future cone of that branch. Once the approval weight exceeds a certain threshold we consider the branch as confirmed.
 Once a conflict branch is confirmed, it can be merged back into the master branch. Since the approval weight is monotonically increasing for branches from the past to the future, branches are only merged into the master branch.
 The loosing branches and all their children branches are booked into the container `rejectedBranch` that has the identifier `rejectedBranchID`.

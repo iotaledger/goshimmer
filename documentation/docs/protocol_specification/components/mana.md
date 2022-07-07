@@ -137,11 +137,11 @@ By adding these fields to the signed transaction, `valuetransfers/packages/trans
    be exposed from the value tangle that given an `input`, returns the `pledgedNodeID` of the transaction creating the input.
 
 `Timestamp` is part of the signed transaction, therefore, a client sending a transaction to the node should already
-define it. In this case, this `Timestamp` will not be the same as the timestamp of the message containing the
-transaction and value payload, since the message is created on the node.
+define it. In this case, this `Timestamp` will not be the same as the timestamp of the block containing the
+transaction and value payload, since the block is created on the node.
 A solution to this is that upon receiving a `transaction` from a client, the node checks if the timestamp is within
 a predefined time window, for example `t_current - delta`, where `delta` could be couple seconds. If true, then the node
-constructs the message, which must have a greater timestamp, than the transaction.
+constructs the block, which must have a greater timestamp, than the transaction.
 
 `AccessManaNodeID` and `ConsensusManaNodeID` are also part of the signed transaction, so a client should fill them out.
 Node owners are free to choose to whom they pledge mana to with the transaction, so there should be a mechanism that
@@ -167,13 +167,13 @@ in the network. In future, when snapshotting is implemented in GoShimmer, nodes 
 for snapshot files that will contain initial base mana vectors as well.
 
 Until this functionality is implemented, mana calculation solely relies on transactions getting confirmed. That is, when
-a node joins the network and starts gathering messages and transactions from peers, it builds its own ledger state through
-solidification process. Essentially, the node requests all messages down to the genesis from the current tips of its neighbors.
-Once the genesis is found, messages are solidified bottom up. For the value tangle, this means that for each solidified
+a node joins the network and starts gathering blocks and transactions from peers, it builds its own ledger state through
+solidification process. Essentially, the node requests all blocks down to the genesis from the current tips of its neighbors.
+Once the genesis is found, blocks are solidified bottom up. For the value tangle, this means that for each solidified
 and liked transaction, `TransactionConfirmed` event is triggered, updating the base mana vectors.
 
 In case of a large database, initial synching and solidification is a computationally heavy task due to the sheer amount
-of messages in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional
+of blocks in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional
 "weight lifting" mechanism is needed (for example delaying mana calculation).
 
 In the GoShimmer test network, all funds are initially held by the faucet node, therefore all mana present at bootstrap belong
@@ -506,7 +506,7 @@ on TransactionConfirmed (tx):
 
 The mana plugin is responsible to determine when to start calculating mana locally.
 Since mana state is an extension to ledger state, it can only depict realistic mana values once the node is in sync.
-During syncing, ledger state is constructed from messages coming from neighbors as described further above.
+During syncing, ledger state is constructed from blocks coming from neighbors as described further above.
 
 In this first iteration, mana plugin relies on `TransactionConfirmed` event of the value transfers plugin, and has no
 explicit rules on when to start and stop mana calculation.

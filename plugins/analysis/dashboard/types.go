@@ -1,19 +1,19 @@
 package dashboard
 
 const (
-	// MsgTypePing defines a ping message type.
-	MsgTypePing byte = 0
-	// MsgTypeAddNode defines an addNode update message for autopeering visualizer.
-	MsgTypeAddNode byte = iota + 2 // backwards compatibility due to FPC removal.
-	// MsgTypeRemoveNode defines a removeNode update message for autopeering visualizer.
-	MsgTypeRemoveNode
-	// MsgTypeConnectNodes defines a connectNodes update message for autopeering visualizer.
-	MsgTypeConnectNodes
-	// MsgTypeDisconnectNodes defines a disconnectNodes update message for autopeering visualizer.
-	MsgTypeDisconnectNodes
+	// BlkTypePing defines a ping block type.
+	BlkTypePing byte = 0
+	// BlkTypeAddNode defines an addNode update block for autopeering visualizer.
+	BlkTypeAddNode byte = iota + 2 // backwards compatibility due to FPC removal.
+	// BlkTypeRemoveNode defines a removeNode update block for autopeering visualizer.
+	BlkTypeRemoveNode
+	// BlkTypeConnectNodes defines a connectNodes update block for autopeering visualizer.
+	BlkTypeConnectNodes
+	// BlkTypeDisconnectNodes defines a disconnectNodes update block for autopeering visualizer.
+	BlkTypeDisconnectNodes
 )
 
-type wsmsg struct {
+type wsblk struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
 }

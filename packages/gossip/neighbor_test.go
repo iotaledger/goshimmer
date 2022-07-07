@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	testPacket1 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("foo")}}}
-	testPacket2 = &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: []byte("bar")}}}
+	testPacket1 = &pb.Packet{Body: &pb.Packet_Block{Block: &pb.Block{Data: []byte("foo")}}}
+	testPacket2 = &pb.Packet{Body: &pb.Packet_Block{Block: &pb.Block{Data: []byte("bar")}}}
 )
 
 func TestNeighborClose(t *testing.T) {

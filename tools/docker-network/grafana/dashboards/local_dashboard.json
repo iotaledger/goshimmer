@@ -313,7 +313,7 @@
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
-      "description": "Aggregated MPS for all message types in the communication layer.",
+      "description": "Aggregated MPS for all block types in the communication layer.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -360,7 +360,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "irate(tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
+          "expr": "irate(tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}[5m])",
           "interval": "",
           "legendFormat": "Total MPS",
           "refId": "A"
@@ -791,16 +791,16 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_messages_per_type_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_blocks_per_type_count{instance=\"$instance\"}[5m])",
               "hide": false,
               "interval": "",
-              "legendFormat": "Message Per Second {{message_type}}",
+              "legendFormat": "Block Per Second {{block_type}}",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Message Per Second Per Type",
+          "title": "Block Per Second Per Type",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -881,7 +881,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_messages_per_component_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_blocks_per_component_count{instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "{{component}} MPS",
               "refId": "A"
@@ -889,7 +889,7 @@
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Message Per Second Per Component",
+          "title": "Block Per Second Per Component",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -927,7 +927,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Shows tips in message and value layer.",
+          "description": "Shows tips in block and value layer.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -970,9 +970,9 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_tips_count{instance=\"$instance\"}",
+              "expr": "tangle_block_tips_count{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Message Layer Tips",
+              "legendFormat": "Block Layer Tips",
               "refId": "A"
             }
           ],
@@ -1344,7 +1344,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Number of messages requested through solidification. ",
+          "description": "Number of blocks requested through solidification. ",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1388,15 +1388,15 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_message_solidification_missing_message_count{instance=\"$instance\"}[5m])",
+              "expr": "irate(tangle_block_solidification_missing_block_count{instance=\"$instance\"}[5m])",
               "interval": "",
-              "legendFormat": "Solidifier-requested messages",
+              "legendFormat": "Solidifier-requested blocks",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Solidifier-requested messages per second",
+          "title": "Solidifier-requested blocks per second",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1433,7 +1433,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Number of messages requested through solidification. ",
+          "description": "Number of blocks requested through solidification. ",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1477,15 +1477,15 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_message_solidification_missing_message_count{instance=\"$instance\"}",
+              "expr": "tangle_block_solidification_missing_block_count{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Solidifier-requested messages",
+              "legendFormat": "Solidifier-requested blocks",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Solidifier-requested messages total",
+          "title": "Solidifier-requested blocks total",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1700,7 +1700,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+          "description": "Number of blocks in missingBlockStore. These are the block the node knows it doesn't have and tries to requests them.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1743,15 +1743,15 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "tangle_message_missing_count_db{instance=\"$instance\"}",
+              "expr": "tangle_block_missing_count_db{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Missing Messages",
+              "legendFormat": "Missing Blocks",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Missing Messages",
+          "title": "Missing Blocks",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1788,7 +1788,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Describes the amount of total, solid and not solid messages in the node's database.",
+          "description": "Describes the amount of total, solid and not solid blocks in the node's database.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1834,29 +1834,29 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Solid Messages in DB",
+              "legendFormat": "Solid Blocks in DB",
               "refId": "A"
             },
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"} - tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Not Solid Messages in DB",
+              "legendFormat": "Not Solid Blocks in DB",
               "refId": "B"
             },
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"Store\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"Store\",instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Total Messages in DB",
+              "legendFormat": "Total Blocks in DB",
               "refId": "C"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Messages in Database",
+          "title": "Blocks in Database",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1894,7 +1894,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Number of messages currently requested by the message tangle.",
+          "description": "Number of blocks currently requested by the block tangle.",
           "fieldConfig": {
             "defaults": {
               "links": []
@@ -1938,15 +1938,15 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_message_request_queue_size{instance=\"$instance\"}",
+              "expr": "tangle_block_request_queue_size{instance=\"$instance\"}",
               "interval": "",
-              "legendFormat": "Message Request Queue Size",
+              "legendFormat": "Block Request Queue Size",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Message Request Queue Size",
+          "title": "Block Request Queue Size",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -1985,7 +1985,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Average time it takes to solidify messages.",
+          "description": "Average time it takes to solidify blocks.",
           "fieldConfig": {
             "defaults": {
               "links": [],
@@ -2030,7 +2030,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "rate(tangle_message_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_messages_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
+              "expr": "rate(tangle_block_total_time_since_received{component=\"Solidifier\",instance=\"$instance\"}[5m])/rate(tangle_blocks_per_component_count{component=\"Solidifier\",instance=\"$instance\"}[5m])",
               "interval": "",
               "legendFormat": "Avg Solidification Time",
               "refId": "A"
@@ -3975,7 +3975,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Indicates an average time it takes for a message to be finalized since it is received by the node.",
+          "description": "Indicates an average time it takes for a block to be finalized since it is received by the node.",
           "fieldConfig": {
             "defaults": {
               "unit": "ms"
@@ -4019,16 +4019,16 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "irate(tangle_message_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])",
+              "expr": "irate(tangle_block_finalization_time_since_received{instance=\"$instance\"}[1m]) / irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])",
               "interval": "",
-              "legendFormat": "{{messageType}} avg. finalization time",
+              "legendFormat": "{{blockType}} avg. finalization time",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Message finalization time",
+          "title": "Block finalization time",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -4067,7 +4067,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Indicates an average time it takes for a message to be finalized since it is received by the node.",
+          "description": "Indicates an average time it takes for a block to be finalized since it is received by the node.",
           "fieldConfig": {
             "defaults": {
               "unit": "ms"
@@ -4200,7 +4200,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(irate(tangle_messages_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_message_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
+              "expr": "sum(irate(tangle_blocks_parent_count_per_type{instance=\"$instance\"}[1m])) by (type,instance) / on(instance) group_left() sum(irate(tangle_block_finalized_count{instance=\"$instance\"}[1m])) by (instance)",
               "hide": false,
               "interval": "",
               "legendFormat": "{{type}}",
@@ -4570,7 +4570,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Rate at which scheduler processes messages from the buffer",
+          "description": "Rate at which scheduler processes blocks from the buffer",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -4675,14 +4675,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"Scheduler\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"Scheduler\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Scheduled messages",
+          "title": "Scheduled blocks",
           "type": "stat"
         },
         {
@@ -4690,7 +4690,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "description": "Messages skipped by the scheduler, because they were confirmed before. ",
+          "description": "Blocks skipped by the scheduler, because they were confirmed before. ",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -4736,14 +4736,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"SchedulerSkipped\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"SchedulerSkipped\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Skipped messages",
+          "title": "Skipped blocks",
           "type": "stat"
         },
         {
@@ -4857,14 +4857,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "tangle_messages_per_component_count{component=\"SchedulerDropped\",instance=\"$instance\"}",
+              "expr": "tangle_blocks_per_component_count{component=\"SchedulerDropped\",instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Dropped messages",
+          "title": "Dropped blocks",
           "type": "stat"
         },
         {
@@ -5107,14 +5107,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_total_blk_count{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "All messages count",
+          "title": "All blocks count",
           "type": "stat"
         },
         {
@@ -5313,14 +5313,14 @@
                 "uid": "PBFA97CFB590B2093"
               },
               "exemplar": false,
-              "expr": "scheduler_buffer_total_msg_count{instance=\"$instance\"} - scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_total_blk_count{instance=\"$instance\"} - scheduler_buffer_ready_blk_count{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Unready messages count",
+          "title": "Unready blocks count",
           "type": "stat"
         },
         {
@@ -5372,14 +5372,14 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "scheduler_buffer_ready_msg_count{instance=\"$instance\"}",
+              "expr": "scheduler_buffer_ready_blk_count{instance=\"$instance\"}",
               "interval": "",
               "legendFormat": "",
               "queryType": "randomWalk",
               "refId": "A"
             }
           ],
-          "title": "Ready messages count",
+          "title": "Ready blocks count",
           "type": "stat"
         },
         {

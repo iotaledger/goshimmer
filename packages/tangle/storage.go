@@ -16,17 +16,17 @@ import (
 )
 
 const (
-	// PrefixMessage defines the storage prefix for message.
-	PrefixMessage byte = iota
+	// PrefixBlock defines the storage prefix for block.
+	PrefixBlock byte = iota
 
-	// PrefixMessageMetadata defines the storage prefix for message metadata.
-	PrefixMessageMetadata
+	// PrefixBlockMetadata defines the storage prefix for block metadata.
+	PrefixBlockMetadata
 
-	// PrefixApprovers defines the storage prefix for approvers.
-	PrefixApprovers
+	// PrefixChilds defines the storage prefix for childs.
+	PrefixChilds
 
-	// PrefixMissingMessage defines the storage prefix for missing message.
-	PrefixMissingMessage
+	// PrefixMissingBlock defines the storage prefix for missing block.
+	PrefixMissingBlock
 
 	// PrefixAttachments defines the storage prefix for attachments.
 	PrefixAttachments
@@ -46,8 +46,8 @@ const (
 	// PrefixBranchWeight defines the storage prefix for the BranchWeight.
 	PrefixBranchWeight
 
-	// PrefixMarkerMessageMapping defines the storage prefix for the MarkerMessageMapping.
-	PrefixMarkerMessageMapping
+	// PrefixMarkerBlockMapping defines the storage prefix for the MarkerBlockMapping.
+	PrefixMarkerBlockMapping
 
 	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
@@ -61,20 +61,20 @@ const (
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Storage represents the storage of messages.
+// Storage represents the storage of blocks.
 type Storage struct {
 	tangle                            *Tangle
-	messageStorage                    *objectstorage.ObjectStorage[*Message]
-	messageMetadataStorage            *objectstorage.ObjectStorage[*MessageMetadata]
-	approverStorage                   *objectstorage.ObjectStorage[*Approver]
-	missingMessageStorage             *objectstorage.ObjectStorage[*MissingMessage]
+	blockStorage                      *objectstorage.ObjectStorage[*Block]
+	blockMetadataStorage              *objectstorage.ObjectStorage[*BlockMetadata]
+	childStorage                      *objectstorage.ObjectStorage[*Child]
+	missingBlockStorage               *objectstorage.ObjectStorage[*MissingBlock]
 	attachmentStorage                 *objectstorage.ObjectStorage[*Attachment]
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexBranchIDMapping]
 	branchVotersStorage               *objectstorage.ObjectStorage[*BranchVoters]
 	latestBranchVotesStorage          *objectstorage.ObjectStorage[*LatestBranchVotes]
 	latestMarkerVotesStorage          *objectstorage.ObjectStorage[*LatestMarkerVotes]
 	branchWeightStorage               *objectstorage.ObjectStorage[*BranchWeight]
-	markerMessageMappingStorage       *objectstorage.ObjectStorage[*MarkerMessageMapping]
+	markerBlockMappingStorage         *objectstorage.ObjectStorage[*MarkerBlockMapping]
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -87,17 +87,17 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    objectstorage.NewStructStorage[Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		messageMetadataStorage:            objectstorage.NewStructStorage[MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   objectstorage.NewStructStorage[Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingMessageStorage:             objectstorage.NewStructStorage[MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		blockStorage:                      objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		blockMetadataStorage:              objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		childStorage:                      objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChilds), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingBlockStorage:               objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestMarkerVotesStorage:          objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               objectstorage.NewStructStorage[BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       objectstorage.NewStructStorage[MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		markerBlockMappingStorage:         objectstorage.NewStructStorage[MarkerBlockMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBlockMapping), cacheProvider.CacheTime(cacheTime), MarkerBlockMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: newStorageEvents(),
 	}
@@ -109,91 +109,91 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
-	s.tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(event *MessageParsedEvent) {
-		s.tangle.Storage.StoreMessage(event.Message)
+	s.tangle.Parser.Events.BlockParsed.Hook(event.NewClosure(func(event *BlockParsedEvent) {
+		s.tangle.Storage.StoreBlock(event.Block)
 	}))
 }
 
-// StoreMessage stores a new message to the message store.
-func (s *Storage) StoreMessage(message *Message) {
-	// retrieve MessageID
-	messageID := message.ID()
+// StoreBlock stores a new block to the block store.
+func (s *Storage) StoreBlock(block *Block) {
+	// retrieve BlockID
+	blockID := block.ID()
 
-	// store Messages only once by using the existence of the Metadata as a guard
-	storedMetadata, stored := s.messageMetadataStorage.StoreIfAbsent(NewMessageMetadata(messageID))
+	// store Blocks only once by using the existence of the Metadata as a guard
+	storedMetadata, stored := s.blockMetadataStorage.StoreIfAbsent(NewBlockMetadata(blockID))
 	if !stored {
 		return
 	}
 
-	// create typed version of the stored MessageMetadata
-	cachedMsgMetadata := storedMetadata
-	defer cachedMsgMetadata.Release()
+	// create typed version of the stored BlockMetadata
+	cachedBlkMetadata := storedMetadata
+	defer cachedBlkMetadata.Release()
 
-	// store Message
-	cachedMessage := s.messageStorage.Store(message)
-	defer cachedMessage.Release()
+	// store Block
+	cachedBlock := s.blockStorage.Store(block)
+	defer cachedBlock.Release()
 
-	message.ForEachParent(func(parent Parent) {
-		s.approverStorage.Store(NewApprover(ParentTypeToApproverType[parent.Type], parent.ID, messageID)).Release()
+	block.ForEachParent(func(parent Parent) {
+		s.childStorage.Store(NewChild(ParentTypeToChildType[parent.Type], parent.ID, blockID)).Release()
 	})
 
 	// trigger events
-	if s.missingMessageStorage.DeleteIfPresent(messageID.Bytes()) {
-		s.tangle.Storage.Events.MissingMessageStored.Trigger(&MissingMessageStoredEvent{messageID})
+	if s.missingBlockStorage.DeleteIfPresent(blockID.Bytes()) {
+		s.tangle.Storage.Events.MissingBlockStored.Trigger(&MissingBlockStoredEvent{blockID})
 	}
 
-	// messages are stored, trigger MessageStored event to move on next check
-	s.Events.MessageStored.Trigger(&MessageStoredEvent{message})
+	// blocks are stored, trigger BlockStored event to move on next check
+	s.Events.BlockStored.Trigger(&BlockStoredEvent{block})
 }
 
-// Message retrieves a message from the message store.
-func (s *Storage) Message(messageID MessageID) *objectstorage.CachedObject[*Message] {
-	return s.messageStorage.Load(messageID.Bytes())
+// Block retrieves a block from the block store.
+func (s *Storage) Block(blockID BlockID) *objectstorage.CachedObject[*Block] {
+	return s.blockStorage.Load(blockID.Bytes())
 }
 
-// MessageMetadata retrieves the MessageMetadata with the given MessageID.
-func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback ...func() *MessageMetadata) *objectstorage.CachedObject[*MessageMetadata] {
+// BlockMetadata retrieves the BlockMetadata with the given BlockID.
+func (s *Storage) BlockMetadata(blockID BlockID, computeIfAbsentCallback ...func() *BlockMetadata) *objectstorage.CachedObject[*BlockMetadata] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) *MessageMetadata {
+		return s.blockMetadataStorage.ComputeIfAbsent(blockID.Bytes(), func(key []byte) *BlockMetadata {
 			return computeIfAbsentCallback[0]()
 		})
 	}
 
-	return s.messageMetadataStorage.Load(messageID.Bytes())
+	return s.blockMetadataStorage.Load(blockID.Bytes())
 }
 
-// Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
-// ApproverType to only return the corresponding Approvers.
-func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers objectstorage.CachedObjects[*Approver]) {
+// Childs retrieves the Childs of a Block from the object storage. It is possible to provide an optional
+// ChildType to only return the corresponding Childs.
+func (s *Storage) Childs(blockID BlockID, optionalChildType ...ChildType) (cachedChilds objectstorage.CachedObjects[*Child]) {
 	var iterationPrefix []byte
-	if len(optionalApproverType) >= 1 {
-		iterationPrefix = byteutils.ConcatBytes(messageID.Bytes(), optionalApproverType[0].Bytes())
+	if len(optionalChildType) >= 1 {
+		iterationPrefix = byteutils.ConcatBytes(blockID.Bytes(), optionalChildType[0].Bytes())
 	} else {
-		iterationPrefix = messageID.Bytes()
+		iterationPrefix = blockID.Bytes()
 	}
 
-	cachedApprovers = make(objectstorage.CachedObjects[*Approver], 0)
-	s.approverStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Approver]) bool {
-		cachedApprovers = append(cachedApprovers, cachedObject)
+	cachedChilds = make(objectstorage.CachedObjects[*Child], 0)
+	s.childStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Child]) bool {
+		cachedChilds = append(cachedChilds, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
 	return
 }
 
-// StoreMissingMessage stores a new MissingMessage entry in the object storage.
-func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *objectstorage.CachedObject[*MissingMessage], stored bool) {
-	cachedObject, stored := s.missingMessageStorage.StoreIfAbsent(missingMessage)
-	cachedMissingMessage = cachedObject
+// StoreMissingBlock stores a new MissingBlock entry in the object storage.
+func (s *Storage) StoreMissingBlock(missingBlock *MissingBlock) (cachedMissingBlock *objectstorage.CachedObject[*MissingBlock], stored bool) {
+	cachedObject, stored := s.missingBlockStorage.StoreIfAbsent(missingBlock)
+	cachedMissingBlock = cachedObject
 
 	return
 }
 
-// MissingMessages return the ids of messages in missingMessageStorage
-func (s *Storage) MissingMessages() (ids []MessageID) {
-	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
-		cachedObject.Consume(func(object *MissingMessage) {
-			ids = append(ids, object.MessageID())
+// MissingBlocks return the ids of blocks in missingBlockStorage
+func (s *Storage) MissingBlocks() (ids []BlockID) {
+	s.missingBlockStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingBlock]) bool {
+		cachedObject.Consume(func(object *MissingBlock) {
+			ids = append(ids, object.BlockID())
 		})
 
 		return true
@@ -202,8 +202,8 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
-	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
+func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, blockID BlockID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
+	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, blockID))
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
@@ -215,38 +215,38 @@ func (s *Storage) Attachments(transactionID utxo.TransactionID) (cachedAttachmen
 	return
 }
 
-// AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID utxo.TransactionID) (messageIDs MessageIDs) {
-	messageIDs = NewMessageIDs()
+// AttachmentBlockIDs returns the blockIDs of the transaction in attachmentStorage.
+func (s *Storage) AttachmentBlockIDs(transactionID utxo.TransactionID) (blockIDs BlockIDs) {
+	blockIDs = NewBlockIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		messageIDs.Add(attachment.MessageID())
+		blockIDs.Add(attachment.BlockID())
 	})
 	return
 }
 
-// IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
-func (s *Storage) IsTransactionAttachedByMessage(transactionID utxo.TransactionID, messageID MessageID) (attached bool) {
-	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
+// IsTransactionAttachedByBlock checks whether Transaction with transactionID is attached by Block with blockID.
+func (s *Storage) IsTransactionAttachedByBlock(transactionID utxo.TransactionID, blockID BlockID) (attached bool) {
+	return s.attachmentStorage.Contains(NewAttachment(transactionID, blockID).ObjectStorageKey())
 }
 
-// DeleteMessage deletes a message and its association to approvees by un-marking the given
-// message as an approver.
-func (s *Storage) DeleteMessage(messageID MessageID) {
-	s.Message(messageID).Consume(func(currentMsg *Message) {
-		currentMsg.ForEachParent(func(parent Parent) {
-			s.deleteApprover(parent, messageID)
+// DeleteBlock deletes a block and its association to approvees by un-marking the given
+// block as an child.
+func (s *Storage) DeleteBlock(blockID BlockID) {
+	s.Block(blockID).Consume(func(currentBlk *Block) {
+		currentBlk.ForEachParent(func(parent Parent) {
+			s.deleteChild(parent, blockID)
 		})
 
-		s.messageMetadataStorage.Delete(messageID.Bytes())
-		s.messageStorage.Delete(messageID.Bytes())
+		s.blockMetadataStorage.Delete(blockID.Bytes())
+		s.blockStorage.Delete(blockID.Bytes())
 
-		s.Events.MessageRemoved.Trigger(&MessageRemovedEvent{messageID})
+		s.Events.BlockRemoved.Trigger(&BlockRemovedEvent{blockID})
 	})
 }
 
-// DeleteMissingMessage deletes a message from the missingMessageStorage.
-func (s *Storage) DeleteMissingMessage(messageID MessageID) {
-	s.missingMessageStorage.Delete(messageID.Bytes())
+// DeleteMissingBlock deletes a block from the missingBlockStorage.
+func (s *Storage) DeleteMissingBlock(blockID BlockID) {
+	s.missingBlockStorage.Delete(blockID.Bytes())
 }
 
 // MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional
@@ -262,25 +262,25 @@ func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, comp
 	return s.markerIndexBranchIDMappingStorage.Load(sequenceID.Bytes())
 }
 
-// StoreMarkerMessageMapping stores a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageMapping) {
-	s.markerMessageMappingStorage.Store(markerMessageMapping).Release()
+// StoreMarkerBlockMapping stores a MarkerBlockMapping in the underlying object storage.
+func (s *Storage) StoreMarkerBlockMapping(markerBlockMapping *MarkerBlockMapping) {
+	s.markerBlockMappingStorage.Store(markerBlockMapping).Release()
 }
 
-// DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerMessageMapping(branchID utxo.TransactionID, messageID MessageID) {
-	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
+// DeleteMarkerBlockMapping deleted a MarkerBlockMapping in the underlying object storage.
+func (s *Storage) DeleteMarkerBlockMapping(branchID utxo.TransactionID, blockID BlockID) {
+	s.markerBlockMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), blockID.Bytes()))
 }
 
-// MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
-func (s *Storage) MarkerMessageMapping(marker markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
-	return s.markerMessageMappingStorage.Load(marker.Bytes())
+// MarkerBlockMapping retrieves the MarkerBlockMapping associated with the given details.
+func (s *Storage) MarkerBlockMapping(marker markers.Marker) (cachedMarkerBlockMappings *objectstorage.CachedObject[*MarkerBlockMapping]) {
+	return s.markerBlockMappingStorage.Load(marker.Bytes())
 }
 
-// MarkerMessageMappings retrieves the MarkerMessageMappings of a Sequence in the object storage.
-func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMarkerMessageMappings objectstorage.CachedObjects[*MarkerMessageMapping]) {
-	s.markerMessageMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MarkerMessageMapping]) bool {
-		cachedMarkerMessageMappings = append(cachedMarkerMessageMappings, cachedObject)
+// MarkerBlockMappings retrieves the MarkerBlockMappings of a Sequence in the object storage.
+func (s *Storage) MarkerBlockMappings(sequenceID markers.SequenceID) (cachedMarkerBlockMappings objectstorage.CachedObjects[*MarkerBlockMapping]) {
+	s.markerBlockMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MarkerBlockMapping]) bool {
+		cachedMarkerBlockMappings = append(cachedMarkerBlockMappings, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
 	return
@@ -346,8 +346,8 @@ func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallb
 }
 
 func (s *Storage) storeGenesis() {
-	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
-		genesisMetadata := model.NewStorable[MessageID, MessageMetadata](&messageMetadataModel{
+	s.BlockMetadata(EmptyBlockID, func() *BlockMetadata {
+		genesisMetadata := model.NewStorable[BlockID, BlockMetadata](&blockMetadataModel{
 			AddedBranchIDs:      utxo.NewTransactionIDs(),
 			SubtractedBranchIDs: utxo.NewTransactionIDs(),
 			SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
@@ -356,29 +356,29 @@ func (s *Storage) storeGenesis() {
 			Scheduled:           true,
 			Booked:              true,
 		})
-		genesisMetadata.SetID(EmptyMessageID)
+		genesisMetadata.SetID(EmptyBlockID)
 		return genesisMetadata
 	}).Release()
 }
 
-// deleteApprover deletes the Approver from the object storage that was created by the specified parent.
-func (s *Storage) deleteApprover(parent Parent, approvingMessage MessageID) {
-	s.approverStorage.Delete(byteutils.ConcatBytes(parent.ID.Bytes(), ParentTypeToApproverType[parent.Type].Bytes(), approvingMessage.Bytes()))
+// deleteChild deletes the Child from the object storage that was created by the specified parent.
+func (s *Storage) deleteChild(parent Parent, approvingBlock BlockID) {
+	s.childStorage.Delete(byteutils.ConcatBytes(parent.ID.Bytes(), ParentTypeToChildType[parent.Type].Bytes(), approvingBlock.Bytes()))
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
+// Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
 func (s *Storage) Shutdown() {
-	s.messageStorage.Shutdown()
-	s.messageMetadataStorage.Shutdown()
-	s.approverStorage.Shutdown()
-	s.missingMessageStorage.Shutdown()
+	s.blockStorage.Shutdown()
+	s.blockMetadataStorage.Shutdown()
+	s.childStorage.Shutdown()
+	s.missingBlockStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
 	s.branchVotersStorage.Shutdown()
 	s.latestBranchVotesStorage.Shutdown()
 	s.latestMarkerVotesStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
-	s.markerMessageMappingStorage.Shutdown()
+	s.markerBlockMappingStorage.Shutdown()
 
 	close(s.shutdown)
 }
@@ -386,17 +386,17 @@ func (s *Storage) Shutdown() {
 // Prune resets the database and deletes all objects (good for testing or "node resets").
 func (s *Storage) Prune() error {
 	for _, storagePrune := range []func() error{
-		s.messageStorage.Prune,
-		s.messageMetadataStorage.Prune,
-		s.approverStorage.Prune,
-		s.missingMessageStorage.Prune,
+		s.blockStorage.Prune,
+		s.blockMetadataStorage.Prune,
+		s.childStorage.Prune,
+		s.missingBlockStorage.Prune,
 		s.attachmentStorage.Prune,
 		s.markerIndexBranchIDMappingStorage.Prune,
 		s.branchVotersStorage.Prune,
 		s.latestBranchVotesStorage.Prune,
 		s.latestMarkerVotesStorage.Prune,
 		s.branchWeightStorage.Prune,
-		s.markerMessageMappingStorage.Prune,
+		s.markerBlockMappingStorage.Prune,
 	} {
 		if err := storagePrune(); err != nil {
 			err = fmt.Errorf("failed to prune storage: %w", err)
@@ -419,55 +419,55 @@ type DBStatsResult struct {
 	SumBookedReceivedTime         time.Duration
 	SumSchedulerReceivedTime      time.Duration
 	SumSchedulerBookedTime        time.Duration
-	MissingMessageCount           int
+	MissingBlockCount             int
 }
 
-// DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
-// that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
-// the average time it takes to solidify messages.
+// DBStats returns the number of solid blocks and total number of blocks in the database (blockMetadataStorage,
+// that should contain the blocks as blockStorage), the number of blocks in missingBlockStorage, furthermore
+// the average time it takes to solidify blocks.
 func (s *Storage) DBStats() (res DBStatsResult) {
-	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MessageMetadata]) bool {
-		cachedObject.Consume(func(msgMetaData *MessageMetadata) {
+	s.blockMetadataStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*BlockMetadata]) bool {
+		cachedObject.Consume(func(blkMetaData *BlockMetadata) {
 			res.StoredCount++
-			received := msgMetaData.ReceivedTime()
-			if msgMetaData.IsSolid() {
+			received := blkMetaData.ReceivedTime()
+			if blkMetaData.IsSolid() {
 				res.SolidCount++
-				res.SumSolidificationReceivedTime += msgMetaData.SolidificationTime().Sub(received)
+				res.SumSolidificationReceivedTime += blkMetaData.SolidificationTime().Sub(received)
 			}
-			if msgMetaData.IsBooked() {
+			if blkMetaData.IsBooked() {
 				res.BookedCount++
-				res.SumBookedReceivedTime += msgMetaData.BookedTime().Sub(received)
+				res.SumBookedReceivedTime += blkMetaData.BookedTime().Sub(received)
 			}
-			if msgMetaData.Scheduled() {
+			if blkMetaData.Scheduled() {
 				res.ScheduledCount++
-				res.SumSchedulerReceivedTime += msgMetaData.ScheduledTime().Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.BookedTime())
+				res.SumSchedulerReceivedTime += blkMetaData.ScheduledTime().Sub(received)
+				res.SumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
 			}
 		})
 		return true
 	})
 
-	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
-		cachedObject.Consume(func(object *MissingMessage) {
-			res.MissingMessageCount++
+	s.missingBlockStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingBlock]) bool {
+		cachedObject.Consume(func(object *MissingBlock) {
+			res.MissingBlockCount++
 		})
 		return true
 	})
 	return
 }
 
-// RetrieveAllTips returns the tips (i.e., solid messages that are not part of the approvers list).
-// It iterates over the messageMetadataStorage, thus only use this method if necessary.
+// RetrieveAllTips returns the tips (i.e., solid blocks that are not part of the childs list).
+// It iterates over the blockMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
-func (s *Storage) RetrieveAllTips() (tips []MessageID) {
-	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
-		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
-			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := s.Approvers(messageMetadata.ID())
-				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.ID())
+func (s *Storage) RetrieveAllTips() (tips []BlockID) {
+	s.blockMetadataStorage.ForEach(func(key []byte, cachedBlock *objectstorage.CachedObject[*BlockMetadata]) bool {
+		cachedBlock.Consume(func(blockMetadata *BlockMetadata) {
+			if blockMetadata != nil && blockMetadata.IsSolid() {
+				cachedChilds := s.Childs(blockMetadata.ID())
+				if len(cachedChilds) == 0 {
+					tips = append(tips, blockMetadata.ID())
 				}
-				cachedApprovers.Release()
+				cachedChilds.Release()
 			}
 		})
 		return true
@@ -477,89 +477,89 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ApproverType /////////////////////////////////////////////////////////////////////////////////////////////////
+// region ChildType /////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// StrongApprover is the ApproverType that represents references formed by strong parents.
-	StrongApprover ApproverType = iota
+	// StrongChild is the ChildType that represents references formed by strong parents.
+	StrongChild ChildType = iota
 
-	// WeakApprover is the ApproverType that represents references formed by weak parents.
-	WeakApprover
+	// WeakChild is the ChildType that represents references formed by weak parents.
+	WeakChild
 
-	// ShallowLikeApprover is the ApproverType that represents references formed by shallow like parents.
-	ShallowLikeApprover
+	// ShallowLikeChild is the ChildType that represents references formed by shallow like parents.
+	ShallowLikeChild
 )
 
-// ApproverTypeLength contains the amount of bytes that a marshaled version of the ApproverType contains.
-const ApproverTypeLength = 1
+// ChildTypeLength contains the amount of bytes that a marshaled version of the ChildType contains.
+const ChildTypeLength = 1
 
-// ApproverType is a type that represents the different kind of reverse mapping that we have for references formed by
+// ChildType is a type that represents the different kind of reverse mapping that we have for references formed by
 // strong and weak parents.
-type ApproverType uint8
+type ChildType uint8
 
-// ParentTypeToApproverType represents a convenient mapping between a parent type and the approver type.
-var ParentTypeToApproverType = map[ParentsType]ApproverType{
-	StrongParentType:      StrongApprover,
-	WeakParentType:        WeakApprover,
-	ShallowLikeParentType: ShallowLikeApprover,
+// ParentTypeToChildType represents a convenient mapping between a parent type and the child type.
+var ParentTypeToChildType = map[ParentsType]ChildType{
+	StrongParentType:      StrongChild,
+	WeakParentType:        WeakChild,
+	ShallowLikeParentType: ShallowLikeChild,
 }
 
-// Bytes returns a marshaled version of the ApproverType.
-func (a ApproverType) Bytes() []byte {
+// Bytes returns a marshaled version of the ChildType.
+func (a ChildType) Bytes() []byte {
 	return []byte{byte(a)}
 }
 
-// String returns a human readable version of the ApproverType.
-func (a ApproverType) String() string {
+// String returns a human readable version of the ChildType.
+func (a ChildType) String() string {
 	switch a {
-	case StrongApprover:
-		return "ApproverType(StrongApprover)"
-	case WeakApprover:
-		return "ApproverType(WeakApprover)"
-	case ShallowLikeApprover:
-		return "ApproverType(ShallowLikeApprover)"
+	case StrongChild:
+		return "ChildType(StrongChild)"
+	case WeakChild:
+		return "ChildType(WeakChild)"
+	case ShallowLikeChild:
+		return "ChildType(ShallowLikeChild)"
 	default:
-		return fmt.Sprintf("ApproverType(%X)", uint8(a))
+		return fmt.Sprintf("ChildType(%X)", uint8(a))
 	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Approver /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Child /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Approver is an approver of a given referenced message.
-type Approver struct {
-	model.StorableReference[Approver, *Approver, approverSourceModel, MessageID] `serix:"0"`
+// Child is an child of a given referenced block.
+type Child struct {
+	model.StorableReference[Child, *Child, childSourceModel, BlockID] `serix:"0"`
 }
 
-type approverSourceModel struct {
-	// the message which got referenced by the approver message.
-	ReferencedMessageID MessageID `serix:"0"`
+type childSourceModel struct {
+	// the block which got referenced by the child block.
+	ReferencedBlockID BlockID `serix:"0"`
 
-	// ApproverType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
-	ApproverType ApproverType `serix:"1"`
+	// ChildType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
+	ChildType ChildType `serix:"1"`
 }
 
-// NewApprover creates a new approver relation to the given approved/referenced message.
-func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
-	return model.NewStorableReference[Approver](approverSourceModel{
-		ReferencedMessageID: referencedMessageID,
-		ApproverType:        approverType,
-	}, approverMessageID)
+// NewChild creates a new child relation to the given approved/referenced block.
+func NewChild(childType ChildType, referencedBlockID BlockID, childBlockID BlockID) *Child {
+	return model.NewStorableReference[Child](childSourceModel{
+		ReferencedBlockID: referencedBlockID,
+		ChildType:         childType,
+	}, childBlockID)
 }
 
-// Type returns the type of the Approver reference.
-func (a *Approver) Type() ApproverType {
-	return a.SourceID().ApproverType
+// Type returns the type of the Child reference.
+func (a *Child) Type() ChildType {
+	return a.SourceID().ChildType
 }
 
-// ReferencedMessageID returns the ID of the message which is referenced by the approver.
-func (a *Approver) ReferencedMessageID() MessageID {
-	return a.SourceID().ReferencedMessageID
+// ReferencedBlockID returns the ID of the block which is referenced by the child.
+func (a *Child) ReferencedBlockID() BlockID {
+	return a.SourceID().ReferencedBlockID
 }
 
-// ApproverMessageID returns the ID of the message which referenced the given approved message.
-func (a *Approver) ApproverMessageID() MessageID {
+// ChildBlockID returns the ID of the block which referenced the given approved block.
+func (a *Child) ChildBlockID() BlockID {
 	return a.TargetID()
 }
 
@@ -567,15 +567,15 @@ func (a *Approver) ApproverMessageID() MessageID {
 
 // region Attachment ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Attachment stores the information which transaction was attached by which message. We need this to be able to perform
-// reverse lookups from transactions to their corresponding messages that attach them.
+// Attachment stores the information which transaction was attached by which block. We need this to be able to perform
+// reverse lookups from transactions to their corresponding blocks that attach them.
 type Attachment struct {
-	model.StorableReference[Attachment, *Attachment, utxo.TransactionID, MessageID] `serix:"0"`
+	model.StorableReference[Attachment, *Attachment, utxo.TransactionID, BlockID] `serix:"0"`
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
-	return model.NewStorableReference[Attachment](transactionID, messageID)
+func NewAttachment(transactionID utxo.TransactionID, blockID BlockID) *Attachment {
+	return model.NewStorableReference[Attachment](transactionID, blockID)
 }
 
 // TransactionID returns the transactionID of this Attachment.
@@ -583,38 +583,38 @@ func (a *Attachment) TransactionID() utxo.TransactionID {
 	return a.SourceID()
 }
 
-// MessageID returns the messageID of this Attachment.
-func (a *Attachment) MessageID() MessageID {
+// BlockID returns the blockID of this Attachment.
+func (a *Attachment) BlockID() BlockID {
 	return a.TargetID()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MissingMessage ///////////////////////////////////////////////////////////////////////////////////////////////
+// region MissingBlock ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// MissingMessage represents a missing message.
-type MissingMessage struct {
-	model.Storable[MessageID, MissingMessage, *MissingMessage, time.Time] `serix:"0"`
+// MissingBlock represents a missing block.
+type MissingBlock struct {
+	model.Storable[BlockID, MissingBlock, *MissingBlock, time.Time] `serix:"0"`
 }
 
-// NewMissingMessage creates new missing message with the specified messageID.
-func NewMissingMessage(messageID MessageID) *MissingMessage {
+// NewMissingBlock creates new missing block with the specified blockID.
+func NewMissingBlock(blockID BlockID) *MissingBlock {
 	now := time.Now()
-	missingMessage := model.NewStorable[MessageID, MissingMessage](
+	missingBlock := model.NewStorable[BlockID, MissingBlock](
 		&now,
 	)
 
-	missingMessage.SetID(messageID)
-	return missingMessage
+	missingBlock.SetID(blockID)
+	return missingBlock
 }
 
-// MessageID returns the id of the message.
-func (m *MissingMessage) MessageID() MessageID {
+// BlockID returns the id of the block.
+func (m *MissingBlock) BlockID() BlockID {
 	return m.ID()
 }
 
-// MissingSince returns the time since when this message is missing.
-func (m *MissingMessage) MissingSince() time.Time {
+// MissingSince returns the time since when this block is missing.
+func (m *MissingBlock) MissingSince() time.Time {
 	m.RLock()
 	defer m.RUnlock()
 	return m.M

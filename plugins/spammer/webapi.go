@@ -22,7 +22,7 @@ func handleRequest(c echo.Context) error {
 			request.Rate = 1
 		}
 
-		// IMIF: Inter Message Issuing Function
+		// IMIF: Inter Block Issuing Function
 		switch request.IMIF {
 		case "poisson":
 			break
@@ -39,14 +39,14 @@ func handleRequest(c echo.Context) error {
 			timeUnit = time.Second
 		}
 
-		messageSpammer.Shutdown()
-		messageSpammer.Start(request.Rate, timeUnit, request.IMIF)
-		log.Infof("Started spamming messages with %d %s and %s inter-message issuing function", request.Rate, request.Unit, request.IMIF)
-		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "started spamming messages"})
+		blockSpammer.Shutdown()
+		blockSpammer.Start(request.Rate, timeUnit, request.IMIF)
+		log.Infof("Started spamming blocks with %d %s and %s inter-block issuing function", request.Rate, request.Unit, request.IMIF)
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Block: "started spamming blocks"})
 	case "stop":
-		messageSpammer.Shutdown()
-		log.Info("Stopped spamming messages")
-		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Message: "stopped spamming messages"})
+		blockSpammer.Shutdown()
+		log.Info("Stopped spamming blocks")
+		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Block: "stopped spamming blocks"})
 	default:
 		return c.JSON(http.StatusBadRequest, jsonmodels.SpammerResponse{Error: "invalid cmd in request"})
 	}

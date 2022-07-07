@@ -1,5 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
+import { registerHandler, unregisterHandler, WSBlkType } from 'utils/WS';
 import { MAX_VERTICES } from 'utils/constants';
 import {
     tangleBooked,
@@ -8,11 +8,11 @@ import {
     tangleVertex
 } from 'models/tangle';
 import {
-    drawMessage,
+    drawBlock,
     initTangleDAG,
     reloadAfterShortPause,
-    selectMessage,
-    unselectMessage,
+    selectBlock,
+    unselectBlock,
     updateGraph,
     updateNodeDataAndColor,
     vivagraphLib
@@ -20,17 +20,17 @@ import {
 
 export class TangleStore {
     @observable maxTangleVertices = MAX_VERTICES;
-    @observable messages = new ObservableMap<string, tangleVertex>();
-    @observable foundMsgs = new ObservableMap<string, tangleVertex>();
+    @observable blocks = new ObservableMap<string, tangleVertex>();
+    @observable foundBlks = new ObservableMap<string, tangleVertex>();
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
-    @observable selectedMsg: tangleVertex = null;
+    @observable selectedBlk: tangleVertex = null;
     @observable paused = false;
     @observable search = '';
-    msgOrder: Array<string> = [];
-    lastMsgAddedBeforePause = '';
+    blkOrder: Array<string> = [];
+    lastBlkAddedBeforePause = '';
     selected_origin_color = '';
-    highlightedMsgs = new Map<string, string>();
+    highlightedBlks = new Map<string, string>();
     draw = true;
     vertexChanges = 0;
     graph;
@@ -38,112 +38,112 @@ export class TangleStore {
     constructor() {
         makeObservable(this);
 
-        registerHandler(WSMsgType.Message, this.addMessage);
-        registerHandler(WSMsgType.MessageBooked, this.setMessageBranch);
+        registerHandler(WSBlkType.Block, this.addBlock);
+        registerHandler(WSBlkType.BlockBooked, this.setBlockBranch);
         registerHandler(
-            WSMsgType.MessageConfirmed,
-            this.setMessageConfirmedTime
+            WSBlkType.BlockConfirmed,
+            this.setBlockConfirmedTime
         );
-        registerHandler(WSMsgType.MessageTxConfirmationStateChanged, this.updateMessageTxConfirmationState);
+        registerHandler(WSBlkType.BlockTxConfirmationStateChanged, this.updateBlockTxConfirmationState);
     }
 
     unregisterHandlers() {
-        unregisterHandler(WSMsgType.Message);
-        unregisterHandler(WSMsgType.MessageBooked);
-        unregisterHandler(WSMsgType.MessageConfirmed);
-        unregisterHandler(WSMsgType.MessageTxConfirmationStateChanged);
+        unregisterHandler(WSBlkType.Block);
+        unregisterHandler(WSBlkType.BlockBooked);
+        unregisterHandler(WSBlkType.BlockConfirmed);
+        unregisterHandler(WSBlkType.BlockTxConfirmationStateChanged);
     }
 
     @action
-    addMessage = (msg: tangleVertex) => {
+    addBlock = (blk: tangleVertex) => {
         this.checkLimit();
 
-        msg.isTip = true;
-        this.msgOrder.push(msg.ID);
-        this.messages.set(msg.ID, msg);
+        blk.isTip = true;
+        this.blkOrder.push(blk.ID);
+        this.blocks.set(blk.ID, blk);
 
         if (this.draw && !this.paused) {
-            this.drawVertex(msg);
+            this.drawVertex(blk);
         }
     };
 
     checkLimit = () => {
-        if (this.msgOrder.length >= this.maxTangleVertices) {
-            const removed = this.msgOrder.shift();
-            this.removeMessage(removed);
+        if (this.blkOrder.length >= this.maxTangleVertices) {
+            const removed = this.blkOrder.shift();
+            this.removeBlock(removed);
         }
     };
 
     @action
-    addFoundMsg = (msg: tangleVertex) => {
-        this.foundMsgs.set(msg.ID, msg);
+    addFoundBlk = (blk: tangleVertex) => {
+        this.foundBlks.set(blk.ID, blk);
     };
 
     @action
-    clearFoundMsgs = () => {
-        this.foundMsgs.clear();
+    clearFoundBlks = () => {
+        this.foundBlks.clear();
     };
 
     @action
-    removeMessage = (msgID: string) => {
-        const msg = this.messages.get(msgID);
-        if (msg) {
-            if (msg.isMarker) {
-                this.markerMap.delete(msgID);
+    removeBlock = (blkID: string) => {
+        const blk = this.blocks.get(blkID);
+        if (blk) {
+            if (blk.isMarker) {
+                this.markerMap.delete(blkID);
             }
-            this.removeVertex(msgID);
-            this.messages.delete(msgID);
+            this.removeVertex(blkID);
+            this.blocks.delete(blkID);
         }
     };
 
     @action
-    setMessageBranch = (branch: tangleBooked) => {
-        const msg = this.messages.get(branch.ID);
-        if (!msg) {
+    setBlockBranch = (branch: tangleBooked) => {
+        const blk = this.blocks.get(branch.ID);
+        if (!blk) {
             return;
         }
 
-        msg.branchIDs = branch.branchIDs;
-        msg.isMarker = branch.isMarker;
+        blk.branchIDs = branch.branchIDs;
+        blk.isMarker = branch.isMarker;
 
-        this.messages.set(msg.ID, msg);
+        this.blocks.set(blk.ID, blk);
         if (this.draw) {
-            this.updateIfNotPaused(msg);
+            this.updateIfNotPaused(blk);
         }
     };
 
     @action
-    updateMessageTxConfirmationState = (txConfirmationState: tangleTxConfirmationStateChanged) => {
-        const msg = this.messages.get(txConfirmationState.ID);
-        if (!msg) {
+    updateBlockTxConfirmationState = (txConfirmationState: tangleTxConfirmationStateChanged) => {
+        const blk = this.blocks.get(txConfirmationState.ID);
+        if (!blk) {
             return;
         }
 
         if (txConfirmationState.isConfirmed) {
-            msg.isTxConfirmed = true;
+            blk.isTxConfirmed = true;
         } else {
-            msg.isTxConfirmed = false;
+            blk.isTxConfirmed = false;
         }
 
-        this.messages.set(msg.ID, msg);
+        this.blocks.set(blk.ID, blk);
         if (this.draw) {
-            this.updateIfNotPaused(msg);
+            this.updateIfNotPaused(blk);
         }
     };
 
     @action
-    setMessageConfirmedTime = (info: tangleConfirmed) => {
-        const msg = this.messages.get(info.ID);
-        if (!msg) {
+    setBlockConfirmedTime = (info: tangleConfirmed) => {
+        const blk = this.blocks.get(info.ID);
+        if (!blk) {
             return;
         }
 
-        msg.confirmationState = info.confirmationState;
-        msg.isConfirmed = true;
-        msg.confirmationStateTime = info.confirmationStateTime;
-        this.messages.set(msg.ID, msg);
+        blk.confirmationState = info.confirmationState;
+        blk.isConfirmed = true;
+        blk.confirmationStateTime = info.confirmationStateTime;
+        this.blocks.set(blk.ID, blk);
         if (this.draw) {
-            this.updateIfNotPaused(msg);
+            this.updateIfNotPaused(blk);
         }
     };
 
@@ -155,7 +155,7 @@ export class TangleStore {
             this.svgRendererOnResume();
             return;
         }
-        this.lastMsgAddedBeforePause = this.msgOrder[this.msgOrder.length - 1];
+        this.lastBlkAddedBeforePause = this.blkOrder[this.blkOrder.length - 1];
         this.graph.pause();
         this.paused = true;
     };
@@ -175,13 +175,13 @@ export class TangleStore {
     searchAndSelect = () => {
         if (!this.search) return;
 
-        this.selectMsg(this.search);
-        this.centerMsg(this.search);
+        this.selectBlk(this.search);
+        this.centerBlk(this.search);
     };
 
-    drawExistedMsgs = () => {
-        this.messages.forEach((msg) => {
-            this.drawVertex(msg);
+    drawExistedBlks = () => {
+        this.blocks.forEach((blk) => {
+            this.drawVertex(blk);
         });
     };
 
@@ -197,33 +197,33 @@ export class TangleStore {
         this.graph.centerGraph();
     };
 
-    centerMsg = (msgID: string) => {
-        this.graph.centerVertex(msgID);
+    centerBlk = (blkID: string) => {
+        this.graph.centerVertex(blkID);
     };
 
-    drawVertex = (msg: tangleVertex) => {
-        drawMessage(msg, this.graph, this.messages);
+    drawVertex = (blk: tangleVertex) => {
+        drawBlock(blk, this.graph, this.blocks);
     };
 
-    removeVertex = (msgID: string) => {
+    removeVertex = (blkID: string) => {
         // svg renderer does not stop elements from being removed from the view while being paused
         // after resume() we update graph state with svgRendererOnResume()
         if (this.paused) {
             return;
         } else {
-            this.graph.removeVertex(msgID);
+            this.graph.removeVertex(blkID);
         }
         // release svg graphic from rendering
-        this.graph.releaseNode(msgID);
+        this.graph.releaseNode(blkID);
     };
 
     @action
     tangleOnClick = (event: any) => {
-        // message is currently selected
+        // block is currently selected
         if (event.target.tagName === 'rect') {
-            this.selectMsg(event.target.parentNode.node.id);
+            this.selectBlk(event.target.parentNode.node.id);
         } else {
-            if (this.selectedMsg !== null) {
+            if (this.selectedBlk !== null) {
                 this.clearSelected();
             }
         }
@@ -233,84 +233,84 @@ export class TangleStore {
     updateSelected = (vert: tangleVertex) => {
         if (!vert) return;
 
-        this.selectedMsg = vert;
+        this.selectedBlk = vert;
     };
 
-    selectMsg = (msgID: string) => {
+    selectBlk = (blkID: string) => {
         // clear pre-selected node first
         this.clearSelected();
-        this.clearHighlightedMsgs();
+        this.clearHighlightedBlks();
 
-        this.selected_origin_color = this.graph.getNodeColor(msgID);
-        const node = selectMessage(msgID, this.graph);
+        this.selected_origin_color = this.graph.getNodeColor(blkID);
+        const node = selectBlock(blkID, this.graph);
 
         this.updateSelected(node.data);
     };
 
     @action
     clearSelected = () => {
-        if (!this.selectedMsg) {
+        if (!this.selectedBlk) {
             return;
         }
-        this.clearHighlightedMsg(this.selectedMsg.ID);
-        this.selectedMsg = null;
+        this.clearHighlightedBlk(this.selectedBlk.ID);
+        this.selectedBlk = null;
     };
 
-    getTangleVertex = (msgID: string) => {
-        return this.messages.get(msgID) || this.foundMsgs.get(msgID);
+    getTangleVertex = (blkID: string) => {
+        return this.blocks.get(blkID) || this.foundBlks.get(blkID);
     };
 
-    highlightMsgs = (msgIDs: string[]) => {
-        this.clearHighlightedMsgs();
+    highlightBlks = (blkIDs: string[]) => {
+        this.clearHighlightedBlks();
 
-        // update highlighted msgs and its original color
-        msgIDs.forEach((id) => {
+        // update highlighted blks and its original color
+        blkIDs.forEach((id) => {
             const original_color = this.graph.getNodeColor(id);
-            selectMessage(id, this.graph);
-            this.highlightedMsgs.set(id, original_color);
+            selectBlock(id, this.graph);
+            this.highlightedBlks.set(id, original_color);
         });
     };
 
-    clearHighlightedMsgs = () => {
-        if (this.highlightedMsgs.size === 0) {
+    clearHighlightedBlks = () => {
+        if (this.highlightedBlks.size === 0) {
             return;
         }
-        this.highlightedMsgs.forEach((color: string, id) => {
-            this.clearHighlightedMsg(id);
+        this.highlightedBlks.forEach((color: string, id) => {
+            this.clearHighlightedBlk(id);
         });
-        this.highlightedMsgs.clear();
+        this.highlightedBlks.clear();
     };
 
-    clearHighlightedMsg = (msgID: string) => {
+    clearHighlightedBlk = (blkID: string) => {
         let color = '';
-        if (this.selectedMsg && msgID === this.selectedMsg.ID) {
+        if (this.selectedBlk && blkID === this.selectedBlk.ID) {
             color = this.selected_origin_color;
         } else {
-            color = this.highlightedMsgs.get(msgID);
+            color = this.highlightedBlks.get(blkID);
         }
 
-        unselectMessage(msgID, color, this.graph);
+        unselectBlock(blkID, color, this.graph);
     };
 
-    getMsgsFromBranch = (branchID: string, searchedMode: boolean) => {
-        const msgs = [];
+    getBlksFromBranch = (branchID: string, searchedMode: boolean) => {
+        const blks = [];
 
         if (searchedMode) {
-            this.foundMsgs.forEach((msg: tangleVertex) => {
-                if (msg.branchIDs.includes(branchID)) {
-                    msgs.push(msg.ID);
+            this.foundBlks.forEach((blk: tangleVertex) => {
+                if (blk.branchIDs.includes(branchID)) {
+                    blks.push(blk.ID);
                 }
             });
-            return msgs;
+            return blks;
         }
 
-        this.messages.forEach((msg: tangleVertex) => {
-            if (msg.branchIDs.includes(branchID)) {
-                msgs.push(msg.ID);
+        this.blocks.forEach((blk: tangleVertex) => {
+            if (blk.branchIDs.includes(branchID)) {
+                blks.push(blk.ID);
             }
         });
 
-        return msgs;
+        return blks;
     };
 
     start = () => {
@@ -322,7 +322,7 @@ export class TangleStore {
     stop = () => {
         this.unregisterHandlers();
         this.graph.stop();
-        this.selectedMsg = null;
+        this.selectedBlk = null;
     };
 
     registerTangleEvents = () => {
@@ -331,39 +331,39 @@ export class TangleStore {
     };
 
     // For svg renderer, pausing is not going to stop elements from being added or remover from svg frame
-    // when pause we are skipping addVertex function, and trigget this function on resume to reload messages
+    // when pause we are skipping addVertex function, and trigget this function on resume to reload blocks
     svgRendererOnResume = () => {
-        // if pause was long enough for newest added message to be removed then clear all graph at once
-        if (!this.messages.get(this.lastMsgAddedBeforePause)) {
+        // if pause was long enough for newest added block to be removed then clear all graph at once
+        if (!this.blocks.get(this.lastBlkAddedBeforePause)) {
             this.clearGraph();
-            this.drawExistedMsgs();
+            this.drawExistedBlks();
             return;
         }
-        reloadAfterShortPause(this.graph, this.messages);
+        reloadAfterShortPause(this.graph, this.blocks);
 
-        const idx = this.msgOrder.indexOf(this.lastMsgAddedBeforePause);
-        updateGraph(this.graph, this.msgOrder.slice(idx), this.messages);
+        const idx = this.blkOrder.indexOf(this.lastBlkAddedBeforePause);
+        updateGraph(this.graph, this.blkOrder.slice(idx), this.blocks);
     };
 
-    updateIfNotPaused = (msg: tangleVertex) => {
+    updateIfNotPaused = (blk: tangleVertex) => {
         if (!this.paused) {
-            updateNodeDataAndColor(msg.ID, msg, this.graph);
+            updateNodeDataAndColor(blk.ID, blk, this.graph);
         }
     };
 
     trimTangleToVerticesLimit() {
-        if (this.msgOrder.length >= this.maxTangleVertices) {
+        if (this.blkOrder.length >= this.maxTangleVertices) {
             const removeStartIndex =
-                this.msgOrder.length - this.maxTangleVertices;
-            const removed = this.msgOrder.slice(0, removeStartIndex);
-            this.msgOrder = this.msgOrder.slice(removeStartIndex);
-            this.removeMessages(removed);
+                this.blkOrder.length - this.maxTangleVertices;
+            const removed = this.blkOrder.slice(0, removeStartIndex);
+            this.blkOrder = this.blkOrder.slice(removeStartIndex);
+            this.removeBlocks(removed);
         }
     }
 
-    removeMessages(removed: string[]) {
-        removed.forEach((msgID: string) => {
-            this.removeMessage(msgID);
+    removeBlocks(removed: string[]) {
+        removed.forEach((blkID: string) => {
+            this.removeBlock(blkID);
         });
     }
 }

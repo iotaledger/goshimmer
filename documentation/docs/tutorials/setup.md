@@ -26,7 +26,7 @@ We want to emphasize that running a GoShimmer node requires proper knowledge in 
 
 Running a node in the GoShimmer testnet helps us in the following ways:
 * It increases the amount of nodes in the network and thus lets it form a more realistic network.
-* Your node will be configured to send debug log messages to a centralized logger from which we can assess and debug research questions and occurring problems.
+* Your node will be configured to send debug log blocks to a centralized logger from which we can assess and debug research questions and occurring problems.
 * Your node is configured to send metric data to a centralized analysis server where we store information such as resource consumption, traffic, and so on. This data helps us further fostering the development of GoShimmer and assessing network behavior.
 * If you expose your HTTP API port, you provide an entrypoint for other people to interact with the network.
 
@@ -262,7 +262,7 @@ It is important that the ports are correctly mapped so that the node can gain in
 
 :::warning INFO
 
-If the UDP NAT mapping is not configured correctly, GoShimmer will terminate with an error message stating to check the NAT configuration
+If the UDP NAT mapping is not configured correctly, GoShimmer will terminate with an error block stating to check the NAT configuration
 
 :::
 
@@ -310,15 +310,15 @@ GoShimmer also exposes an HTTP API. To check whether that works correctly, you c
   "version": "v0.6.2",
   "networkVersion": 30,
   "tangleTime": {
-    "messageID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
+    "blockID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
     "time": 1621879864032595415,
     "synced": true
   },
   "identityID": "D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW",
   "identityIDShort": "XBgY5DsUPng",
   "publicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
-  "solidMessageCount": 74088,
-  "totalMessageCount": 74088,
+  "solidBlockCount": 74088,
+  "totalBlockCount": 74088,
   "enabledPlugins": [
     ...
   ],

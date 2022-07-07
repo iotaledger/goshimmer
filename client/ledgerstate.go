@@ -157,7 +157,7 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 	return res, nil
 }
 
-// GetTransactionAttachments gets the attachments (messageIDs) of the transaction corresponding to TransactionID.
+// GetTransactionAttachments gets the attachments (blockIDs) of the transaction corresponding to TransactionID.
 func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID string) (*jsonmodels.GetTransactionAttachmentsResponse, error) {
 	res := &jsonmodels.GetTransactionAttachmentsResponse{}
 	if err := api.do(http.MethodGet, func() string {

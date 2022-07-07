@@ -1,5 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
+import { registerHandler, unregisterHandler, WSBlkType } from 'utils/WS';
 import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
@@ -36,18 +36,18 @@ export class UTXOStore {
 
     constructor() {
         makeObservable(this);
-        registerHandler(WSMsgType.Transaction, this.addTransaction);
-        registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
+        registerHandler(WSBlkType.Transaction, this.addTransaction);
+        registerHandler(WSBlkType.TransactionBooked, this.setTxBranch);
         registerHandler(
-            WSMsgType.TransactionConfirmationStateChanged,
+            WSBlkType.TransactionConfirmationStateChanged,
             this.transactionConfirmationStateChanged
         );
     }
 
     unregisterHandlers() {
-        unregisterHandler(WSMsgType.Transaction);
-        unregisterHandler(WSMsgType.TransactionBooked);
-        unregisterHandler(WSMsgType.TransactionConfirmationStateChanged);
+        unregisterHandler(WSBlkType.Transaction);
+        unregisterHandler(WSBlkType.TransactionBooked);
+        unregisterHandler(WSBlkType.TransactionConfirmationStateChanged);
     }
 
     @action

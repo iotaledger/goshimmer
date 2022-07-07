@@ -1,8 +1,8 @@
-export enum WSMsgType {
-    Message,
-    MessageBooked,
-    MessageConfirmed,
-    MessageTxConfirmationStateChanged,
+export enum WSBlkType {
+    Block,
+    BlockBooked,
+    BlockConfirmed,
+    BlockTxConfirmationStateChanged,
     Transaction,
     TransactionBooked,
     TransactionConfirmationStateChanged,
@@ -12,7 +12,7 @@ export enum WSMsgType {
     BranchWeightChanged
 }
 
-export interface WSMessage {
+export interface WSBlock {
     type: number;
     data: any;
 }
@@ -21,12 +21,12 @@ type DataHandler = (data: any) => void;
 
 const handlers = {};
 
-export function registerHandler(msgType: number, handler: DataHandler) {
-    handlers[msgType] = handler;
+export function registerHandler(blkType: number, handler: DataHandler) {
+    handlers[blkType] = handler;
 }
 
-export function unregisterHandler(msgType: number) {
-    delete handlers[msgType];
+export function unregisterHandler(blkType: number) {
+    delete handlers[blkType];
 }
 
 export function connectWebSocket(path: string, onOpen, onClose, onError) {
@@ -45,10 +45,10 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
     ws.onerror = onError;
 
     ws.onmessage = (e) => {
-        const wsMsg: WSMessage = JSON.parse(e.data);
-        const handler: DataHandler = handlers[wsMsg.type];
+        const wsBlk: WSBlock = JSON.parse(e.data);
+        const handler: DataHandler = handlers[wsBlk.type];
         if (handler != null) {
-            handler(wsMsg.data);
+            handler(wsBlk.data);
         }
     };
 }

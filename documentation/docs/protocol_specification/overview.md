@@ -1,6 +1,6 @@
 ---
 description: High-level overview of the protocol, and its implemented components.
-image: /img/protocol_specification/Protocol_overview_received_message.png
+image: /img/protocol_specification/Protocol_overview_received_block.png
 keywords:
 - overview
 - protocol

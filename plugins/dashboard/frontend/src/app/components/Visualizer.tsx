@@ -61,7 +61,7 @@ export class Visualizer extends React.Component<Props, any> {
     render() {
         let {
             vertices, finalized_count, selected,
-            selected_approvers_count, selected_approvees_count,
+            selected_childs_count, selected_approvees_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
         let {last_mps_metric, collecting} = this.props.nodeStore;
@@ -157,13 +157,13 @@ export class Visualizer extends React.Component<Props, any> {
                             MPS: {last_mps_metric.mps}
                             <br/>
                             Selected: {selected ?
-                            <Link to={`/explorer/message/${selected.id}`}>
+                            <Link to={`/explorer/block/${selected.id}`}>
                                 {selected.id.substr(0, 10)}
                             </Link>
                             : "-"}
                             <br/>
-                            Approvers/Approvees: {selected ?
-                            <span>{selected_approvers_count}/{selected_approvees_count}</span>
+                            Childs/Approvees: {selected ?
+                            <span>{selected_childs_count}/{selected_approvees_count}</span>
                             : '-/-'}
                             <br/>
                             {
@@ -171,7 +171,7 @@ export class Visualizer extends React.Component<Props, any> {
                                     <span> {parentType}:{' '}
                                         {selected.parentIDsByType[parentType].map((parent) => {
                                             return (
-                                                <Link to={`/explorer/message/${parent}`}>
+                                                <Link to={`/explorer/block/${parent}`}>
                                                     {parent.substr(0, 10) + " "}
                                                 </Link>
                                             )

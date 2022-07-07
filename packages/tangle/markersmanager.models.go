@@ -103,32 +103,32 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MarkerMessageMapping /////////////////////////////////////////////////////////////////////////////////////////
+// region MarkerBlockMapping /////////////////////////////////////////////////////////////////////////////////////////
 
-// MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
+// MarkerBlockMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceID(0).Length(), markers.Index(0).Length())
+var MarkerBlockMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceID(0).Length(), markers.Index(0).Length())
 
-// MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
-type MarkerMessageMapping struct {
-	model.Storable[markers.Marker, MarkerMessageMapping, *MarkerMessageMapping, MessageID] `serix:"0"`
+// MarkerBlockMapping is a data structure that denotes a mapping from a Marker to a Block.
+type MarkerBlockMapping struct {
+	model.Storable[markers.Marker, MarkerBlockMapping, *MarkerBlockMapping, BlockID] `serix:"0"`
 }
 
-// NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
-func NewMarkerMessageMapping(marker markers.Marker, messageID MessageID) *MarkerMessageMapping {
-	markerMessageMapping := model.NewStorable[markers.Marker, MarkerMessageMapping](&messageID)
-	markerMessageMapping.SetID(marker)
-	return markerMessageMapping
+// NewMarkerBlockMapping is the constructor for the MarkerBlockMapping.
+func NewMarkerBlockMapping(marker markers.Marker, blockID BlockID) *MarkerBlockMapping {
+	markerBlockMapping := model.NewStorable[markers.Marker, MarkerBlockMapping](&blockID)
+	markerBlockMapping.SetID(marker)
+	return markerBlockMapping
 }
 
-// Marker returns the Marker that is mapped to a MessageID.
-func (m *MarkerMessageMapping) Marker() *markers.Marker {
+// Marker returns the Marker that is mapped to a BlockID.
+func (m *MarkerBlockMapping) Marker() *markers.Marker {
 	marker := m.ID()
 	return &marker
 }
 
-// MessageID returns the MessageID of the Marker.
-func (m *MarkerMessageMapping) MessageID() MessageID {
+// BlockID returns the BlockID of the Marker.
+func (m *MarkerBlockMapping) BlockID() BlockID {
 	m.RLock()
 	defer m.RUnlock()
 

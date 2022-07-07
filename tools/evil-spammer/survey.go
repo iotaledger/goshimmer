@@ -20,6 +20,7 @@ var fundsQuestion = &survey.Select{
 	Options: outputNumbers,
 	Default: "100",
 }
+
 var settingsQuestion = &survey.Select{
 	Message: "Available settings:",
 	Options: settingsMenuOptions,
@@ -111,7 +112,6 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate, defaultTimeUnit st
 				if str, ok := val.(string); ok {
 					_, err := strconv.Atoi(str)
 					if err == nil {
-
 						return nil
 					}
 					return errors.New("Incorrect spam rate")

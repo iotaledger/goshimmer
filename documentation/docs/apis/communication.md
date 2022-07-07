@@ -1,41 +1,41 @@
 ---
-description: The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
+description: The communication layer represents the base Tangle layer where so called `Blocks` are gossiped around. A `Block` contains payloads, and it is up to upper layers to interpret and derive functionality out of them.
 image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API
-- message
-- encoded message id
+- block
+- encoded block id
 - consensus
 - payload
 ---
 # Communication Layer APIs
 
-The communication layer represents the base Tangle layer where so called `Messages` are gossiped around. A `Message` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
+The communication layer represents the base Tangle layer where so called `Blocks` are gossiped around. A `Block` contains payloads and it is up to upper layers to interpret and derive functionality out of them.
 
 
 The API provides the following functions to interact with this primitive layer:
-* [/messages/:messageID](#messagesmessageid)
-* [/messages/:messageID/metadata](#messagesmessageidmetadata)
+* [/blocks/:blockID](#blocksblockid)
+* [/blocks/:blockID/metadata](#blocksblockidmetadata)
 * [/data](#data)
-* [/messages/payload](#messagespayload)
+* [/blocks/payload](#blockspayload)
 
 Client lib APIs:
-* [GetMessage()](#client-lib---getmessage)
-* [GetMessageMetadata()](#client-lib---getmessagemetadata)
+* [GetBlock()](#client-lib---getblock)
+* [GetBlockMetadata()](#client-lib---getblockmetadata)
 * [Data()](#client-lib---data)
 * [SendPayload()](#client-lib---sendpayload)
 
-##  `/messages/:messageID`
+##  `/blocks/:blockID`
 
-Return message from the tangle.
+Return block from the tangle.
 
 ### Parameters
 
-| **Parameter**            | `messageID`      |
+| **Parameter**            | `blockID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | ID of a message to retrieve   |
+| **Description**          | ID of a block to retrieve   |
 | **Type**                 | string         |
 
 ### Examples
@@ -43,25 +43,25 @@ Return message from the tangle.
 #### cURL
 
 ```shell
-curl --location --request GET 'http://localhost:8080/messages/:messageID'
+curl --location --request GET 'http://localhost:8080/blocks/:blockID'
 ```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
+where `:blockID` is the base58 encoded block ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-#### Client lib - `GetMessage`
+#### Client lib - `GetBlock`
 
-Messages can be retrieved via `GetMessage(base58EncodedID string) (*jsonmodels.Message, error) `
+Blocks can be retrieved via `GetBlock(base58EncodedID string) (*jsonmodels.Block, error) `
 
 ```go
-message, err := goshimAPI.GetMessage(base58EncodedMessageID)
+block, err := goshimAPI.GetBlock(base58EncodedBlockID)
 if err != nil {
     // return error
 }
 
 // will print "Hello GoShimmer World"
-fmt.Println(string(message.Payload))
+fmt.Println(string(block.Payload))
 ```
 
-Note that we're getting actual `Message` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the message contains, meaning that this will also return messages which contain a transactions or DRNG payloads.
+Note that we're getting actual `Block` objects from this call which represent a vertex in the communication layer Tangle. It does not matter what type of payload the block contains, meaning that this will also return blocks which contain a transactions or DRNG payloads.
 
 ### Response Examples
 
@@ -73,11 +73,11 @@ Note that we're getting actual `Message` objects from this call which represent 
         "B89koPthm9zDx1p1fbkHwoyC1Buq896Spu3Mx1SmSete"
     ],
     "weakParents": [],
-    "strongApprovers": [
+    "strongChilds": [
         "4E4ucAA9UTTd1UC6ri4GYaS4dpzEnHPjs5gMEYhpUK8p",
         "669BRH69afQ7VfZGmNTMTeh2wnwXGKdBxtUCcRQ9CPzq"
     ],
-    "weakApprovers": [],
+    "weakChilds": [],
     "issuerPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
     "issuingTime": 1621873309,
     "sequenceNumber": 4354,
@@ -91,29 +91,29 @@ Note that we're getting actual `Message` objects from this call which represent 
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `strongParents`  | `[]string` | List of strong parents' message IDs. |
-| `weakParents`  | `[]string` | List of weak parents' message IDs. |
-| `strongApprovers`  | `[]string` | List of strong approvers' message IDs. |
-| `weakApprovers`  | `[]string` | List of weak approvers' message IDs. |
+| `id`  | `string` | Block ID. |
+| `strongParents`  | `[]string` | List of strong parents' block IDs. |
+| `weakParents`  | `[]string` | List of weak parents' block IDs. |
+| `strongChilds`  | `[]string` | List of strong childs' block IDs. |
+| `weakChilds`  | `[]string` | List of weak childs' block IDs. |
 | `issuerPublicKey`  | `[]string` | Public key of issuing node. |
-| `issuingTime`  | `int64` | Time this message was issued |
-| `sequenceNumber`  | `uint64` | Message sequence number. |
+| `issuingTime`  | `int64` | Time this block was issued |
+| `sequenceNumber`  | `uint64` | Block sequence number. |
 | `payloadType`  | `string` | Payload type. |
-| `payload`  | `[]byte` | The contents of the message. |
-| `signature`  | `string` | Message signature. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| `payload`  | `[]byte` | The contents of the block. |
+| `signature`  | `string` | Block signature. |
+| `error`   | `string` | Error block. Omitted if success.    |
 
-##  `/messages/:messageID/metadata`
+##  `/blocks/:blockID/metadata`
 
-Return message metadata.
+Return block metadata.
 
 ### Parameters
 
-| **Parameter**            | `messageID`      |
+| **Parameter**            | `blockID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | ID of a message to retrieve   |
+| **Description**          | ID of a block to retrieve   |
 | **Type**                 | string         |
 
 
@@ -122,21 +122,21 @@ Return message metadata.
 #### cURL
 
 ```shell
-curl --location --request GET 'http://localhost:8080/messages/:messageID/metadata'
+curl --location --request GET 'http://localhost:8080/blocks/:blockID/metadata'
 ```
-where `:messageID` is the base58 encoded message ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
+where `:blockID` is the base58 encoded block ID, e.g. 4MSkwAPzGwnjCJmTfbpW4z4GRC7HZHZNS33c2JikKXJc.
 
-#### Client lib - `GetMessageMetadata`
+#### Client lib - `GetBlockMetadata`
 
-Message metadata can be retrieved via `GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error)`
+Block metadata can be retrieved via `GetBlockMetadata(base58EncodedID string) (*jsonmodels.BlockMetadata, error)`
 ```go
-message, err := goshimAPI.GetMessageMetadata(base58EncodedMessageID)
+block, err := goshimAPI.GetBlockMetadata(base58EncodedBlockID)
 if err != nil {
     // return error
 }
 
-// will print whether message is finalized
-fmt.Println(string(message.Finalized))
+// will print whether block is finalized
+fmt.Println(string(block.Finalized))
 ```
 
 ### Response Examples
@@ -172,26 +172,26 @@ fmt.Println(string(message.Finalized))
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID. |
-| `receivedTime`  | `int64` | Time when message was received by the node. |
-| `solid`  | `bool` | Flag indicating whether the message is solid. |
-| `solidificationTime`  | `int64` | Time when message was solidified by the node. |
-| `structureDetails`  | `StructureDetails` | List of weak approvers' message IDs. |
-| `branchID`  | `string` | Name of branch that the message is part of. |
-| `scheduled`  | `bool` | Flag indicating whether the message is scheduled. |
-| `booked`  | `bool` | Flag indicating whether the message is booked. |
-| `eligible`  | `bool` | Flag indicating whether the message is eligible. |
-| `invalid`  | `bool` | Flag indicating whether the message is invalid. |
-| `finalized`  | `bool` | Flag indicating whether the message is finalized. |
-| `finalizedTime`   | `string` | Time when message was finalized.    |
-| `error`   | `string` | Error message. Omitted if success.    |
+| `id`  | `string` | Block ID. |
+| `receivedTime`  | `int64` | Time when block was received by the node. |
+| `solid`  | `bool` | Flag indicating whether the block is solid. |
+| `solidificationTime`  | `int64` | Time when block was solidified by the node. |
+| `structureDetails`  | `StructureDetails` | List of weak childs' block IDs. |
+| `branchID`  | `string` | Name of branch that the block is part of. |
+| `scheduled`  | `bool` | Flag indicating whether the block is scheduled. |
+| `booked`  | `bool` | Flag indicating whether the block is booked. |
+| `eligible`  | `bool` | Flag indicating whether the block is eligible. |
+| `invalid`  | `bool` | Flag indicating whether the block is invalid. |
+| `finalized`  | `bool` | Flag indicating whether the block is finalized. |
+| `finalizedTime`   | `string` | Time when block was finalized.    |
+| `error`   | `string` | Error block. Omitted if success.    |
 
 
 ## `/data`
 
 Method: `POST`
 
-A data message is simply a `Message` containing some raw data (literally bytes). This type of message has therefore no real functionality other than that it is retrievable via `GetMessage`.
+A data block is simply a `Block` containing some raw data (literally bytes). This type of block has therefore no real functionality other than that it is retrievable via `GetBlock`.
 
 ### Parameters
 
@@ -225,7 +225,7 @@ curl --location --request POST 'http://localhost:8080/data' \
 ##### `Data(data []byte) (string, error)`
 
 ```go
-messageID, err := goshimAPI.Data([]byte("Hello GoShimmer World"))
+blockID, err := goshimAPI.Data([]byte("Hello GoShimmer World"))
 if err != nil {
     // return error
 }
@@ -236,7 +236,7 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 ```json
 {
-  "id": "messageID" 
+  "id": "blockID" 
 }
 ```
 
@@ -244,15 +244,15 @@ Note that there is no need to do any additional work, since things like tip-sele
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the message. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| `id`  | `string` | Block ID of the block. Omitted if error. |
+| `error`   | `string` | Error block. Omitted if success.    |
 
 
-## `/messages/payload`
+## `/blocks/payload`
 
 Method: `POST`
 
-`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a message with the given payload and returns its `messageID`. Note that the payload must be valid, otherwise an error is returned.
+`SendPayload()` takes a `payload` object of any type (data, transaction, drng, etc.) as a byte slice, issues a block with the given payload and returns its `blockID`. Note that the payload must be valid, otherwise an error is returned.
 
 ### Parameters
 
@@ -276,7 +276,7 @@ Method: `POST`
 #### cURL
 
 ```shell
-curl --location --request POST 'http://localhost:8080/messages/payload' \
+curl --location --request POST 'http://localhost:8080/blocks/payload' \
 --header 'Content-Type: application/json' \
 --data-raw '{"payload": "payloadBytes"}'
 ```
@@ -287,14 +287,14 @@ curl --location --request POST 'http://localhost:8080/messages/payload' \
 
 ```go
 helloPayload := payload.NewData([]byte{"Hello GoShimmer World!"})
-messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
+blockID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 ```
 
 ### Response Examples
 
 ```shell
 {
-  "id": "messageID" 
+  "id": "blockID" 
 }
 ```
 
@@ -302,7 +302,7 @@ messageID, err := goshimAPI.SendPayload(helloPayload.Bytes())
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the message. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| `id`  | `string` | Block ID of the block. Omitted if error. |
+| `error`   | `string` | Error block. Omitted if success.    |
 
 Note that there is no need to do any additional work, since things like tip-selection, PoW and other tasks are done by the node itself.

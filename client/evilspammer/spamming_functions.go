@@ -14,19 +14,19 @@ import (
 
 func DataSpammingFunction(s *Spammer) {
 	clt := s.Clients.GetClient()
-	// sleep randomly to avoid issuing messages in different goroutines at once
+	// sleep randomly to avoid issuing blocks in different goroutines at once
 	time.Sleep(time.Duration(rand.Float64()*20) * time.Millisecond)
 	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 		s.ErrCounter.CountError(err)
 	}
-	msgID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
+	blkID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
 	if err != nil {
-		s.ErrCounter.CountError(ErrFailSendDataMessage)
+		s.ErrCounter.CountError(ErrFailSendDataBlock)
 	}
 
 	count := s.State.txSent.Add(1)
 	if count%int64(s.SpamDetails.Rate*2) == 0 {
-		s.log.Debugf("Last sent message, ID: %s; msgCount: %d", msgID, count)
+		s.log.Debugf("Last sent block, ID: %s; blkCount: %d", blkID, count)
 	}
 	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
@@ -53,7 +53,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			go func(clt evilwallet.Client, tx *devnetvm.Transaction) {
 				defer wg.Done()
 
-				// sleep randomly to avoid issuing messages in different goroutines at once
+				// sleep randomly to avoid issuing blocks in different goroutines at once
 				time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
 				if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 					s.ErrCounter.CountError(err)

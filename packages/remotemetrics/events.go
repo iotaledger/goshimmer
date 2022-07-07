@@ -22,7 +22,7 @@ func newCollectionLogEvents() *CollectionLogEvents {
 
 // TangleTimeSyncChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
 type TangleTimeSyncChangedEvent struct {
-	// Type defines the type of the message.
+	// Type defines the type of the block.
 	Type string `json:"type" bson:"type"`
 	// NodeID defines the ID of the node.
 	NodeID string `json:"nodeid" bson:"nodeid"`
@@ -34,13 +34,13 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// ATT contains time of the last accepted message
+	// ATT contains time of the last accepted block
 	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
-	// RATT contains relative time of the last accepted message
+	// RATT contains relative time of the last accepted block
 	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
-	// CTT contains time of the last confirmed message
+	// CTT contains time of the last confirmed block
 	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
-	// RCTT contains relative time of the last confirmed message
+	// RCTT contains relative time of the last confirmed block
 	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
@@ -49,13 +49,13 @@ type SchedulerQueryEvent struct {
 	Time time.Time
 }
 
-// MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
-type MessageFinalizedMetrics struct {
+// BlockFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
+type BlockFinalizedMetrics struct {
 	Type                 string    `json:"type" bson:"type"`
 	NodeID               string    `json:"nodeID" bson:"nodeID"`
 	IssuerID             string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel         uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID            string    `json:"messageID" bson:"messageID"`
+	BlockID              string    `json:"blockID" bson:"blockID"`
 	TransactionID        string    `json:"transactionID,omitempty" bson:"transactionID"`
 	IssuedTimestamp      time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	SolidTimestamp       time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
@@ -71,17 +71,17 @@ type MessageFinalizedMetrics struct {
 	ShallowLikeEdgeCount int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
-// MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
-type MessageScheduledMetrics struct {
+// BlockScheduledMetrics defines the scheduling block confirmation metrics record that is sent to remote logger.
+type BlockScheduledMetrics struct {
 	Type          string `json:"type" bson:"type"`
 	NodeID        string `json:"nodeID" bson:"nodeID"`
 	IssuerID      string `json:"issuerID" bson:"issuerID"`
 	MetricsLevel  uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID     string `json:"messageID" bson:"messageID"`
+	BlockID       string `json:"blockID" bson:"blockID"`
 	TransactionID string `json:"transactionID,omitempty" bson:"transactionID"`
-	// Time where the message was created by the issuing node
+	// Time where the block was created by the issuing node
 	IssuedTimestamp time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	// Time where the message was first seen by the node
+	// Time where the block was first seen by the node
 	ReceivedTimestamp          time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
 	SolidTimestamp             time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
 	ScheduledTimestamp         time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
@@ -107,12 +107,12 @@ type MessageScheduledMetrics struct {
 	LikeEdgeCount   int   `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
-// MissingMessageMetrics defines message solidification record that is sent to the remote logger.
-type MissingMessageMetrics struct {
+// MissingBlockMetrics defines block solidification record that is sent to the remote logger.
+type MissingBlockMetrics struct {
 	Type         string `json:"type" bson:"type"`
 	NodeID       string `json:"nodeID" bson:"nodeID"`
 	MetricsLevel uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID    string `json:"messageID" bson:"messageID"`
+	BlockID      string `json:"blockID" bson:"blockID"`
 	IssuerID     string `json:"issuerID"  bson:"issuerID"`
 }
 
@@ -122,7 +122,7 @@ type BranchConfirmationMetrics struct {
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
 	IssuerID           string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID          string    `json:"messageID" bson:"messageID"`
+	BlockID            string    `json:"blockID" bson:"blockID"`
 	BranchID           string    `json:"transactionID" bson:"transactionID"`
 	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
@@ -139,7 +139,7 @@ type SchedulerMetrics struct {
 	AManaNormalizedLengthPerNode map[string]float64 `json:"aManaNormalizedQueueLengthPerNode" bson:"aManaNormalizedQueueLengthPerNode"`
 	BufferSize                   uint32             `json:"bufferSize" bson:"bufferSize"`
 	BufferLength                 uint32             `json:"bufferLength" bson:"bufferLength"`
-	ReadyMessagesInBuffer        uint32             `json:"readyMessagesInBuffer" bson:"readyMessagesInBuffer"`
+	ReadyBlocksInBuffer          uint32             `json:"readyBlocksInBuffer" bson:"readyBlocksInBuffer"`
 	Timestamp                    time.Time          `json:"timestamp" bson:"timestamp"`
 }
 

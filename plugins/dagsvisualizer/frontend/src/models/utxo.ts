@@ -1,5 +1,5 @@
 export class utxoVertex {
-    msgID: string;
+    blkID: string;
     ID: string;
     inputs: Array<input>;
     outputs: Array<string>;

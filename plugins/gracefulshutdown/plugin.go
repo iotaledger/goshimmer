@@ -65,7 +65,7 @@ func configure(plugin *node.Plugin) {
 	}()
 }
 
-// ShutdownWithError prints out an error message and shuts down the default daemon instance.
+// ShutdownWithError prints out an error block and shuts down the default daemon instance.
 func ShutdownWithError(err error) {
 	Plugin.LogError(err)
 	gracefulStop <- syscall.SIGINT

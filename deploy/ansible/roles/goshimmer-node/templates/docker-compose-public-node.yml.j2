@@ -56,9 +56,9 @@ services:
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
       {% if faucet|default(false) %}
-      --messageLayer.startSynced=false
+      --blockLayer.startSynced=false
       {% else %}
-      --messageLayer.startSynced=true
+      --blockLayer.startSynced=true
       {% endif %}
-      --messageLayer.tangleTimeWindow=10m
-      --messageLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
+      --blockLayer.tangleTimeWindow=10m
+      --blockLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}

@@ -28,60 +28,60 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 
 // region walkers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WalkMessageID is a generic Tangle walker that executes a custom callback for every visited MessageID, starting from
-// the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
+// WalkBlockID is a generic Tangle walker that executes a custom callback for every visited BlockID, starting from
+// the given entry points. It accepts an optional boolean parameter which can be set to true if a Block should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkBlockID(callback func(blockID BlockID, walker *walker.Walker[BlockID]), entryPoints BlockIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		return
 	}
 
-	messageIDWalker := walker.New[MessageID](revisitElements...)
-	for messageID := range entryPoints {
-		messageIDWalker.Push(messageID)
+	blockIDWalker := walker.New[BlockID](revisitElements...)
+	for blockID := range entryPoints {
+		blockIDWalker.Push(blockID)
 	}
 
-	for messageIDWalker.HasNext() {
-		callback(messageIDWalker.Next(), messageIDWalker)
+	for blockIDWalker.HasNext() {
+		callback(blockIDWalker.Next(), blockIDWalker)
 	}
 }
 
-// WalkMessage is a generic Tangle walker that executes a custom callback for every visited Message, starting from
-// the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
+// WalkBlock is a generic Tangle walker that executes a custom callback for every visited Block, starting from
+// the given entry points. It accepts an optional boolean parameter which can be set to true if a Block should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
-		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			callback(message, walker)
+func (u *Utils) WalkBlock(callback func(block *Block, walker *walker.Walker[BlockID]), entryPoints BlockIDs, revisitElements ...bool) {
+	u.WalkBlockID(func(blockID BlockID, walker *walker.Walker[BlockID]) {
+		u.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+			callback(block, walker)
 		})
 	}, entryPoints, revisitElements...)
 }
 
-// WalkMessageMetadata is a generic Tangle walker that executes a custom callback for every visited MessageMetadata,
-// starting from the given entry points. It accepts an optional boolean parameter which can be set to true if a Message
+// WalkBlockMetadata is a generic Tangle walker that executes a custom callback for every visited BlockMetadata,
+// starting from the given entry points. It accepts an optional boolean parameter which can be set to true if a Block
 // should be visited more than once following different paths. The callback receives a Walker object as the last
 // parameter which can be used to control the behavior of the walk similar to how a "Context" is used in some parts of
 // the stdlib.
-func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
-		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			callback(messageMetadata, walker)
+func (u *Utils) WalkBlockMetadata(callback func(blockMetadata *BlockMetadata, walker *walker.Walker[BlockID]), entryPoints BlockIDs, revisitElements ...bool) {
+	u.WalkBlockID(func(blockID BlockID, walker *walker.Walker[BlockID]) {
+		u.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+			callback(blockMetadata, walker)
 		})
 	}, entryPoints, revisitElements...)
 }
 
-// WalkMessageAndMetadata is a generic Tangle walker that executes a custom callback for every visited Message and
-// MessageMetadata, starting from the given entry points. It accepts an optional boolean parameter which can be set to
-// true if a Message should be visited more than once following different paths. The callback receives a Walker object
+// WalkBlockAndMetadata is a generic Tangle walker that executes a custom callback for every visited Block and
+// BlockMetadata, starting from the given entry points. It accepts an optional boolean parameter which can be set to
+// true if a Block should be visited more than once following different paths. The callback receives a Walker object
 // as the last parameter which can be used to control the behavior of the walk similar to how a "Context" is used in
 // some parts of the stdlib.
-func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
-		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				callback(message, messageMetadata, walker)
+func (u *Utils) WalkBlockAndMetadata(callback func(block *Block, blockMetadata *BlockMetadata, walker *walker.Walker[BlockID]), entryPoints BlockIDs, revisitElements ...bool) {
+	u.WalkBlockID(func(blockID BlockID, walker *walker.Walker[BlockID]) {
+		u.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+			u.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+				callback(block, blockMetadata, walker)
 			})
 		})
 	}, entryPoints, revisitElements...)
@@ -90,13 +90,13 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region structural checks ////////////////////////////////////////////////////////////////////////////////////////////
-// checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true.
-func (u *Utils) checkBookedParents(message *Message, attachmentMessageID MessageID, getParents func(*Message) MessageIDs) (bool, MessageIDs) {
-	bookedParents := NewMessageIDs()
+// checkBookedParents check if block parents are booked and add then to bookedParents. If we find attachmentBlockId in the parents we stop and return true.
+func (u *Utils) checkBookedParents(block *Block, attachmentBlockID BlockID, getParents func(*Block) BlockIDs) (bool, BlockIDs) {
+	bookedParents := NewBlockIDs()
 
-	for parentID := range getParents(message) {
+	for parentID := range getParents(block) {
 		var parentBooked bool
-		u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
+		u.tangle.Storage.BlockMetadata(parentID).Consume(func(parentMetadata *BlockMetadata) {
 			parentBooked = parentMetadata.IsBooked()
 		})
 		if !parentBooked {
@@ -104,7 +104,7 @@ func (u *Utils) checkBookedParents(message *Message, attachmentMessageID Message
 		}
 
 		// First check all of the parents to avoid unnecessary checks and possible walking.
-		if attachmentMessageID == parentID {
+		if attachmentBlockID == parentID {
 			return true, bookedParents
 		}
 
@@ -113,12 +113,12 @@ func (u *Utils) checkBookedParents(message *Message, attachmentMessageID Message
 	return false, bookedParents
 }
 
-// ApprovingMessageIDs returns the MessageIDs that approve a given Message. It accepts an optional ApproverType to
-// filter the Approvers.
-func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDs) {
-	approvingMessageIDs = NewMessageIDs()
-	u.tangle.Storage.Approvers(messageID, optionalApproverType...).Consume(func(approver *Approver) {
-		approvingMessageIDs.Add(approver.ApproverMessageID())
+// ApprovingBlockIDs returns the BlockIDs that approve a given Block. It accepts an optional ChildType to
+// filter the Childs.
+func (u *Utils) ApprovingBlockIDs(blockID BlockID, optionalChildType ...ChildType) (approvingBlockIDs BlockIDs) {
+	approvingBlockIDs = NewBlockIDs()
+	u.tangle.Storage.Childs(blockID, optionalChildType...).Consume(func(child *Child) {
+		approvingBlockIDs.Add(child.ChildBlockID())
 	})
 
 	return
@@ -137,10 +137,10 @@ func (u *Utils) AllBranchesLiked(branchIDs *set.AdvancedSet[utxo.TransactionID])
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ComputeIfTransaction computes the given callback if the given messageID contains a transaction.
-func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(utxo.TransactionID)) (computed bool) {
-	u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if tx, ok := message.Payload().(utxo.Transaction); ok {
+// ComputeIfTransaction computes the given callback if the given blockID contains a transaction.
+func (u *Utils) ComputeIfTransaction(blockID BlockID, compute func(utxo.TransactionID)) (computed bool) {
+	u.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		if tx, ok := block.Payload().(utxo.Transaction); ok {
 			transactionID := tx.ID()
 			compute(transactionID)
 			computed = true
@@ -149,15 +149,15 @@ func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(utxo.Tran
 	return
 }
 
-// FirstAttachment returns the MessageID and timestamp of the first (oldest) attachment of a given transaction.
-func (u *Utils) FirstAttachment(transactionID utxo.TransactionID) (oldestAttachmentTime time.Time, oldestAttachmentMessageID MessageID, err error) {
+// FirstAttachment returns the BlockID and timestamp of the first (oldest) attachment of a given transaction.
+func (u *Utils) FirstAttachment(transactionID utxo.TransactionID) (oldestAttachmentTime time.Time, oldestAttachmentBlockID BlockID, err error) {
 	oldestAttachmentTime = time.Unix(0, 0)
-	oldestAttachmentMessageID = EmptyMessageID
+	oldestAttachmentBlockID = EmptyBlockID
 	if !u.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		u.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-			if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
-				oldestAttachmentTime = message.IssuingTime()
-				oldestAttachmentMessageID = message.ID()
+		u.tangle.Storage.Block(attachment.BlockID()).Consume(func(block *Block) {
+			if oldestAttachmentTime.Unix() == 0 || block.IssuingTime().Before(oldestAttachmentTime) {
+				oldestAttachmentTime = block.IssuingTime()
+				oldestAttachmentBlockID = block.ID()
 			}
 		})
 	}) {

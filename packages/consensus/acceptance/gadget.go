@@ -14,8 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// MessageThresholdTranslation is a function which translates approval weight to a confirmation.State.
-type MessageThresholdTranslation func(aw float64) confirmation.State
+// BlockThresholdTranslation is a function which translates approval weight to a confirmation.State.
+type BlockThresholdTranslation func(aw float64) confirmation.State
 
 // BranchThresholdTranslation is a function which translates approval weight to a confirmation.State.
 type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) confirmation.State
@@ -34,8 +34,8 @@ var (
 		return confirmation.Pending
 	}
 
-	// DefaultMessageTranslation is the default function to translate the approval weight to confirmation.State of a message.
-	DefaultMessageTranslation MessageThresholdTranslation = func(aw float64) confirmation.State {
+	// DefaultBlockTranslation is the default function to translate the approval weight to confirmation.State of a block.
+	DefaultBlockTranslation BlockThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= acceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -49,19 +49,19 @@ type Option func(*Options)
 
 // Options defines the options for a Gadget.
 type Options struct {
-	BranchTransFunc  BranchThresholdTranslation
-	MessageTransFunc MessageThresholdTranslation
+	BranchTransFunc BranchThresholdTranslation
+	BlockTransFunc  BlockThresholdTranslation
 }
 
 var defaultOpts = []Option{
 	WithBranchThresholdTranslation(DefaultBranchTranslation),
-	WithMessageThresholdTranslation(DefaultMessageTranslation),
+	WithBlockThresholdTranslation(DefaultBlockTranslation),
 }
 
-// WithMessageThresholdTranslation returns an Option setting the MessageThresholdTranslation.
-func WithMessageThresholdTranslation(f MessageThresholdTranslation) Option {
+// WithBlockThresholdTranslation returns an Option setting the BlockThresholdTranslation.
+func WithBlockThresholdTranslation(f BlockThresholdTranslation) Option {
 	return func(opts *Options) {
-		opts.MessageTransFunc = f
+		opts.BlockTransFunc = f
 	}
 }
 
@@ -73,7 +73,7 @@ func WithBranchThresholdTranslation(f BranchThresholdTranslation) Option {
 }
 
 // Gadget is a GadgetInterface which simply translates approval weight down to confirmation.State
-// and then applies it to messages, branches, transactions and outputs.
+// and then applies it to blocks, branches, transactions and outputs.
 type Gadget struct {
 	tangle                    *tangle.Tangle
 	opts                      *Options
@@ -108,23 +108,23 @@ func (s *Gadget) Events() *tangle.ConfirmationEvents {
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
 func (s *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
-	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
-	if messageID == tangle.EmptyMessageID {
+	blockID := s.tangle.Booker.MarkersManager.BlockID(marker)
+	if blockID == tangle.EmptyBlockID {
 		return false
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if messageMetadata.ConfirmationState().IsAccepted() {
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		if blockMetadata.ConfirmationState().IsAccepted() {
 			confirmed = true
 		}
 	})
 	return
 }
 
-// IsMessageConfirmed returns whether the given message is confirmed.
-func (s *Gadget) IsMessageConfirmed(msgID tangle.MessageID) (confirmed bool) {
-	s.tangle.Storage.MessageMetadata(msgID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if messageMetadata.ConfirmationState().IsAccepted() {
+// IsBlockConfirmed returns whether the given block is confirmed.
+func (s *Gadget) IsBlockConfirmed(blkID tangle.BlockID) (confirmed bool) {
+	s.tangle.Storage.BlockMetadata(blkID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		if blockMetadata.ConfirmationState().IsAccepted() {
 			confirmed = true
 		}
 	})
@@ -178,15 +178,15 @@ func (s *Gadget) IsTransactionConfirmed(transactionID utxo.TransactionID) (confi
 
 // HandleMarker receives a marker and its current approval weight. It propagates the ConfirmationState according to AW to its past cone.
 func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
-	confirmationState := s.opts.MessageTransFunc(aw)
+	confirmationState := s.opts.BlockTransFunc(aw)
 	if confirmationState.IsPending() {
 		return nil
 	}
 
-	// get message ID of marker
-	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if confirmationState <= messageMetadata.ConfirmationState() {
+	// get block ID of marker
+	blockID := s.tangle.Booker.MarkersManager.BlockID(marker)
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		if confirmationState <= blockMetadata.ConfirmationState() {
 			return
 		}
 
@@ -194,7 +194,7 @@ func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 			s.setMarkerConfirmed(marker)
 		}
 
-		s.propagateConfirmationStateToMessagePastCone(messageID, confirmationState)
+		s.propagateConfirmationStateToBlockPastCone(blockID, confirmationState)
 	})
 
 	return err
@@ -214,28 +214,28 @@ func (s *Gadget) setMarkerConfirmed(marker markers.Marker) (updated bool) {
 	return true
 }
 
-// propagateConfirmationStateToMessagePastCone propagates the given ConfirmationState to the past cone of the Message.
-func (s *Gadget) propagateConfirmationStateToMessagePastCone(messageID tangle.MessageID, confirmationState confirmation.State) {
-	strongParentWalker := walker.New[tangle.MessageID](false).Push(messageID)
-	weakParentsSet := set.New[tangle.MessageID]()
+// propagateConfirmationStateToBlockPastCone propagates the given ConfirmationState to the past cone of the Block.
+func (s *Gadget) propagateConfirmationStateToBlockPastCone(blockID tangle.BlockID, confirmationState confirmation.State) {
+	strongParentWalker := walker.New[tangle.BlockID](false).Push(blockID)
+	weakParentsSet := set.New[tangle.BlockID]()
 
 	for strongParentWalker.HasNext() {
-		strongParentMessageID := strongParentWalker.Next()
-		if strongParentMessageID == tangle.EmptyMessageID {
+		strongParentBlockID := strongParentWalker.Next()
+		if strongParentBlockID == tangle.EmptyBlockID {
 			continue
 		}
 
-		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.ConfirmationState() >= confirmationState {
+		s.tangle.Storage.BlockMetadata(strongParentBlockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+			if blockMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
-			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
-				if !s.setMessageConfirmationState(message, messageMetadata, confirmationState) {
+			s.tangle.Storage.Block(strongParentBlockID).Consume(func(block *tangle.Block) {
+				if !s.setBlockConfirmationState(block, blockMetadata, confirmationState) {
 					return
 				}
 
-				message.ForEachParent(func(parent tangle.Parent) {
+				block.ForEachParent(func(parent tangle.Parent) {
 					if parent.Type == tangle.StrongParentType {
 						strongParentWalker.Push(parent.ID)
 						return
@@ -246,17 +246,17 @@ func (s *Gadget) propagateConfirmationStateToMessagePastCone(messageID tangle.Me
 		})
 	}
 
-	weakParentsSet.ForEach(func(weakParent tangle.MessageID) {
+	weakParentsSet.ForEach(func(weakParent tangle.BlockID) {
 		if strongParentWalker.Pushed(weakParent) {
 			return
 		}
-		s.tangle.Storage.MessageMetadata(weakParent).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.ConfirmationState() >= confirmationState {
+		s.tangle.Storage.BlockMetadata(weakParent).Consume(func(blockMetadata *tangle.BlockMetadata) {
+			if blockMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
-			s.tangle.Storage.Message(weakParent).Consume(func(message *tangle.Message) {
-				s.setMessageConfirmationState(message, messageMetadata, confirmationState)
+			s.tangle.Storage.Block(weakParent).Consume(func(block *tangle.Block) {
+				s.setBlockConfirmationState(block, blockMetadata, confirmationState)
 			})
 		})
 	})
@@ -272,20 +272,20 @@ func (s *Gadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err erro
 	return nil
 }
 
-func (s *Gadget) setMessageConfirmationState(message *tangle.Message, messageMetadata *tangle.MessageMetadata, confirmationState confirmation.State) (modified bool) {
-	// abort if message has ConfirmationState already set
-	if modified = messageMetadata.SetConfirmationState(confirmationState); !modified {
+func (s *Gadget) setBlockConfirmationState(block *tangle.Block, blockMetadata *tangle.BlockMetadata, confirmationState confirmation.State) (modified bool) {
+	// abort if block has ConfirmationState already set
+	if modified = blockMetadata.SetConfirmationState(confirmationState); !modified {
 		return
 	}
 
 	if confirmationState.IsAccepted() {
-		s.Events().MessageAccepted.Trigger(&tangle.MessageAcceptedEvent{
-			Message: message,
+		s.Events().BlockAccepted.Trigger(&tangle.BlockAcceptedEvent{
+			Block: block,
 		})
 
 		// set ConfirmationState of payload (applicable only to transactions)
-		if tx, ok := message.Payload().(*devnetvm.Transaction); ok {
-			s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
+		if tx, ok := block.Payload().(*devnetvm.Transaction); ok {
+			s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
 		}
 	}
 

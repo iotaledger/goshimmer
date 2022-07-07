@@ -75,7 +75,8 @@ func NSpendBatch(nSpent int) EvilBatch {
 		scenarioAlias = append(scenarioAlias,
 			ScenarioAlias{
 				Inputs:  []string{strconv.Itoa(inputStartNum)},
-				Outputs: []string{strconv.Itoa(i)}},
+				Outputs: []string{strconv.Itoa(i)},
+			},
 		)
 	}
 	conflictSlice = append(conflictSlice, scenarioAlias)

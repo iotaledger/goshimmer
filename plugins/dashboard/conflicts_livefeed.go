@@ -87,16 +87,16 @@ func (b *branch) ToJSON() *branchJSON {
 }
 
 func sendConflictUpdate(c *conflictSet) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsConflict, c.ToJSON())
+	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsConflict, c.ToJSON())
 }
 
 func sendBranchUpdate(b *branch) {
-	conflictsLiveFeedWorkerPool.TrySubmit(MsgTypeConflictsBranch, b.ToJSON())
+	conflictsLiveFeedWorkerPool.TrySubmit(BlkTypeConflictsBranch, b.ToJSON())
 }
 
 func configureConflictLiveFeed() {
 	conflictsLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		broadcastWsMessage(&wsmsg{task.Param(0).(byte), task.Param(1)})
+		broadcastWsBlock(&wsblk{task.Param(0).(byte), task.Param(1)})
 		task.Return(nil)
 	}, workerpool.WorkerCount(conflictsLiveFeedWorkerCount), workerpool.QueueSize(conflictsLiveFeedWorkerQueueSize))
 }
@@ -233,10 +233,10 @@ func sendAllConflicts() {
 func issuerOfOldestAttachment(branchID utxo.TransactionID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
 	deps.Tangle.Storage.Attachments(utxo.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
-		deps.Tangle.Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
-			if oldestAttachmentTime.IsZero() || message.IssuingTime().Before(oldestAttachmentTime) {
-				oldestAttachmentTime = message.IssuingTime()
-				id = identity.New(message.IssuerPublicKey()).ID()
+		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangle.Block) {
+			if oldestAttachmentTime.IsZero() || block.IssuingTime().Before(oldestAttachmentTime) {
+				oldestAttachmentTime = block.IssuingTime()
+				id = identity.New(block.IssuerPublicKey()).ID()
 			}
 		})
 	})

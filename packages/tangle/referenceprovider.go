@@ -27,8 +27,8 @@ func NewReferenceProvider(tangle *Tangle) (newInstance *ReferenceProvider) {
 }
 
 // References is an implementation of ReferencesFunc.
-func (r *ReferenceProvider) References(payload payload.Payload, strongParents MessageIDs, issuingTime time.Time) (references ParentMessageIDs, err error) {
-	references = NewParentMessageIDs()
+func (r *ReferenceProvider) References(payload payload.Payload, strongParents BlockIDs, issuingTime time.Time) (references ParentBlockIDs, err error) {
+	references = NewParentBlockIDs()
 
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
 	if tx, isTx := payload.(utxo.Transaction); isTx {
@@ -36,7 +36,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 		for it := referencedTxs.Iterator(); it.HasNext(); {
 			referencedTx := it.Next()
 			if !r.tangle.ConfirmationOracle.IsTransactionConfirmed(referencedTx) {
-				latestAttachment := r.tangle.MessageFactory.LatestAttachment(referencedTx)
+				latestAttachment := r.tangle.BlockFactory.LatestAttachment(referencedTx)
 				if latestAttachment == nil {
 					continue
 				}
@@ -57,13 +57,13 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 
 	for strongParent := range strongParents {
 		excludedConflictIDsCopy := excludedConflictIDs.Clone()
-		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime, excludedConflictIDsCopy)
+		referencesToAdd, validStrongParent := r.addedReferencesForBlock(strongParent, issuingTime, excludedConflictIDsCopy)
 		if !validStrongParent {
 			if err = r.checkPayloadLiked(strongParent); err != nil {
 				continue
 			}
 
-			referencesToAdd = NewParentMessageIDs().Add(WeakParentType, strongParent)
+			referencesToAdd = NewParentBlockIDs().Add(WeakParentType, strongParent)
 		} else {
 			referencesToAdd.AddStrong(strongParent)
 		}
@@ -81,8 +81,8 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 	return references, nil
 }
 
-func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs MessageIDs) {
-	blockIDs = NewMessageIDs()
+func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs BlockIDs) {
+	blockIDs = NewBlockIDs()
 	if amount == 0 {
 		return blockIDs
 	}
@@ -99,29 +99,29 @@ func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, 
 	return blockIDs
 }
 
-// addedReferenceForMessage returns the reference that is necessary to correct our opinion on the given message.
-func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (addedReferences ParentMessageIDs, success bool) {
-	msgConflictIDs, err := r.tangle.Booker.MessageBranchIDs(msgID)
+// addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
+func (r *ReferenceProvider) addedReferencesForBlock(blkID BlockID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (addedReferences ParentBlockIDs, success bool) {
+	blkConflictIDs, err := r.tangle.Booker.BlockBranchIDs(blkID)
 	if err != nil {
-		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("conflictID of %s can't be retrieved: %w", msgID, err))
+		r.tangle.OrphanageManager.OrphanBlock(blkID, errors.Errorf("conflictID of %s can't be retrieved: %w", blkID, err))
 		return nil, false
 	}
 
-	addedReferences = NewParentMessageIDs()
-	if msgConflictIDs.IsEmpty() {
+	addedReferences = NewParentBlockIDs()
+	if blkConflictIDs.IsEmpty() {
 		return addedReferences, true
 	}
 
-	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime, excludedConflictIDs); err != nil {
-		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
+	if addedReferences, err = r.addedReferencesForConflicts(blkConflictIDs, issuingTime, excludedConflictIDs); err != nil {
+		r.tangle.OrphanageManager.OrphanBlock(blkID, errors.Errorf("cannot pick up %s as strong parent: %w", blkID, err))
 		return nil, false
 	}
 
 	// fmt.Println("excludedConflictIDs", excludedConflictIDs)
-	// fmt.Println("addedReferencesForMessage", msgID, addedReferences)
-	// A message might introduce too many references and cannot be picked up as a strong parent.
-	if _, success := r.tryExtendReferences(NewParentMessageIDs(), addedReferences); !success {
-		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
+	// fmt.Println("addedReferencesForBlock", blkID, addedReferences)
+	// A block might introduce too many references and cannot be picked up as a strong parent.
+	if _, success := r.tryExtendReferences(NewParentBlockIDs(), addedReferences); !success {
+		r.tangle.OrphanageManager.OrphanBlock(blkID, errors.Errorf("cannot pick up %s as strong parent: %w", blkID, err))
 		return nil, false
 	}
 
@@ -129,8 +129,8 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 }
 
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
-func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd ParentMessageIDs, err error) {
-	referencesToAdd = NewParentMessageIDs()
+func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd ParentBlockIDs, err error) {
+	referencesToAdd = NewParentBlockIDs()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -140,10 +140,10 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 			continue
 		}
 
-		if adjust, referencedMsg, referenceErr := r.adjustOpinion(conflictID, issuingTime, excludedConflictIDs); referenceErr != nil {
+		if adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, issuingTime, excludedConflictIDs); referenceErr != nil {
 			return nil, errors.Errorf("failed to create reference for %s: %w", conflictID, referenceErr)
 		} else if adjust {
-			referencesToAdd.Add(ShallowLikeParentType, referencedMsg)
+			referencesToAdd.Add(ShallowLikeParentType, referencedBlk)
 		}
 	}
 
@@ -151,23 +151,23 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 }
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (adjust bool, msgID MessageID, err error) {
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (adjust bool, blkID BlockID, err error) {
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
 		if likedConflictID, dislikedConflictIDs := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
 			// only triggers in first iteration
 			if likedConflictID == conflictID {
-				return false, EmptyMessageID, nil
+				return false, EmptyBlockID, nil
 			}
 
-			if msgID, err = r.firstValidAttachment(likedConflictID, issuingTime); err != nil {
+			if blkID, err = r.firstValidAttachment(likedConflictID, issuingTime); err != nil {
 				continue
 			}
 
 			excludedConflictIDs.AddAll(r.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedConflictIDs))
 
-			return true, msgID, nil
+			return true, blkID, nil
 		}
 
 		// only walk deeper if we don't like "something else"
@@ -176,22 +176,22 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 		})
 	}
 
-	return false, EmptyMessageID, errors.Newf("failed to create dislike for %s", conflictID)
+	return false, EmptyBlockID, errors.Newf("failed to create dislike for %s", conflictID)
 }
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
-func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID, issuingTime time.Time) (msgID MessageID, err error) {
-	attachmentTime, msgID, err := r.tangle.Utils.FirstAttachment(txID)
+func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID, issuingTime time.Time) (blkID BlockID, err error) {
+	attachmentTime, blkID, err := r.tangle.Utils.FirstAttachment(txID)
 	if err != nil {
-		return EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
+		return EmptyBlockID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
 	}
 
 	// TODO: we don't want to vote on anything that is in a committed epoch.
 	if !r.validTime(attachmentTime, issuingTime) {
-		return EmptyMessageID, errors.Errorf("attachment of %s with %s is too far in the past", txID, msgID)
+		return EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past", txID, blkID)
 	}
 
-	return msgID, nil
+	return blkID, nil
 }
 
 func (r *ReferenceProvider) validTime(parentTime, issuingTime time.Time) bool {
@@ -199,36 +199,36 @@ func (r *ReferenceProvider) validTime(parentTime, issuingTime time.Time) bool {
 	return issuingTime.Sub(parentTime) < maxParentsTimeDifference
 }
 
-func (r *ReferenceProvider) validTimeForStrongParent(msgID MessageID, issuingTime time.Time) (valid bool) {
-	r.tangle.Storage.Message(msgID).Consume(func(msg *Message) {
-		valid = r.validTime(msg.IssuingTime(), issuingTime)
+func (r *ReferenceProvider) validTimeForStrongParent(blkID BlockID, issuingTime time.Time) (valid bool) {
+	r.tangle.Storage.Block(blkID).Consume(func(blk *Block) {
+		valid = r.validTime(blk.IssuingTime(), issuingTime)
 	})
 	return valid
 }
 
-// checkPayloadLiked checks if the payload of a Message is liked.
-func (r *ReferenceProvider) checkPayloadLiked(msgID MessageID) (err error) {
-	conflictIDs, err := r.tangle.Booker.PayloadBranchIDs(msgID)
+// checkPayloadLiked checks if the payload of a Block is liked.
+func (r *ReferenceProvider) checkPayloadLiked(blkID BlockID) (err error) {
+	conflictIDs, err := r.tangle.Booker.PayloadBranchIDs(blkID)
 	if err != nil {
-		return errors.Errorf("failed to determine payload conflictIDs of %s: %w", msgID, err)
+		return errors.Errorf("failed to determine payload conflictIDs of %s: %w", blkID, err)
 	}
 
 	if !r.tangle.Utils.AllBranchesLiked(conflictIDs) {
-		return errors.Errorf("payload of %s is not liked: %s", msgID, conflictIDs)
+		return errors.Errorf("payload of %s is not liked: %s", blkID, conflictIDs)
 	}
 
 	return nil
 }
 
 // tryExtendReferences tries to extend the references with the given referencesToAdd.
-func (r *ReferenceProvider) tryExtendReferences(references ParentMessageIDs, referencesToAdd ParentMessageIDs) (extendedReferences ParentMessageIDs, success bool) {
+func (r *ReferenceProvider) tryExtendReferences(references ParentBlockIDs, referencesToAdd ParentBlockIDs) (extendedReferences ParentBlockIDs, success bool) {
 	if referencesToAdd.IsEmpty() {
 		return references, true
 	}
 
 	extendedReferences = references.Clone()
-	for referenceType, referencedMessageIDs := range referencesToAdd {
-		extendedReferences.AddAll(referenceType, referencedMessageIDs)
+	for referenceType, referencedBlockIDs := range referencesToAdd {
+		extendedReferences.AddAll(referenceType, referencedBlockIDs)
 
 		if len(extendedReferences[referenceType]) > MaxParentsCount {
 			return nil, false

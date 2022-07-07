@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-var messageSpammer *spammer.Spammer
+var blockSpammer *spammer.Spammer
 
 // PluginName is the name of the spammer plugin.
 const PluginName = "Spammer"
@@ -40,7 +40,7 @@ func init() {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	messageSpammer = spammer.New(deps.Tangle.IssuePayload, log, deps.Tangle.RateSetter.Estimate)
+	blockSpammer = spammer.New(deps.Tangle.IssuePayload, log, deps.Tangle.RateSetter.Estimate)
 	deps.Server.GET("spammer", handleRequest)
 }
 
@@ -48,7 +48,7 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("spammer", func(ctx context.Context) {
 		<-ctx.Done()
 
-		messageSpammer.Shutdown()
+		blockSpammer.Shutdown()
 	}, shutdown.PrioritySpammer); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

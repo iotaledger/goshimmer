@@ -3,31 +3,31 @@ package dagsvisualizer
 import "github.com/iotaledger/goshimmer/packages/jsonmodels"
 
 const (
-	// MsgTypeTangleVertex is the type of the Tangle DAG vertex.
-	MsgTypeTangleVertex byte = iota
-	// MsgTypeTangleBooked is the type of the Tangle DAG confirmed message.
-	MsgTypeTangleBooked
-	// MsgTypeTangleConfirmed is the type of the Tangle DAG confirmed message.
-	MsgTypeTangleConfirmed
-	// MsgTypeTangleTxConfirmationState is the type of the Tangle DAG transaction ConfirmationState.
-	MsgTypeTangleTxConfirmationState
-	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
-	MsgTypeUTXOVertex
-	// MsgTypeUTXOBooked is the type of the booked transaction.
-	MsgTypeUTXOBooked
-	// MsgTypeUTXOConfirmationStateChanged is the type of the UTXO DAG vertex confirmation state message.
-	MsgTypeUTXOConfirmationStateChanged
-	// MsgTypeBranchVertex is the type of the branch DAG vertex.
-	MsgTypeBranchVertex
-	// MsgTypeBranchParentsUpdate is the type of the branch DAG vertex parents updated message.
-	MsgTypeBranchParentsUpdate
-	// MsgTypeBranchConfirmationStateChanged is the type of the branch DAG vertex confirmed message.
-	MsgTypeBranchConfirmationStateChanged
-	// MsgTypeBranchWeightChanged is the type of the branch DAG vertex weight changed message.
-	MsgTypeBranchWeightChanged
+	// BlkTypeTangleVertex is the type of the Tangle DAG vertex.
+	BlkTypeTangleVertex byte = iota
+	// BlkTypeTangleBooked is the type of the Tangle DAG confirmed block.
+	BlkTypeTangleBooked
+	// BlkTypeTangleConfirmed is the type of the Tangle DAG confirmed block.
+	BlkTypeTangleConfirmed
+	// BlkTypeTangleTxConfirmationState is the type of the Tangle DAG transaction ConfirmationState.
+	BlkTypeTangleTxConfirmationState
+	// BlkTypeUTXOVertex is the type of the UTXO DAG vertex.
+	BlkTypeUTXOVertex
+	// BlkTypeUTXOBooked is the type of the booked transaction.
+	BlkTypeUTXOBooked
+	// BlkTypeUTXOConfirmationStateChanged is the type of the UTXO DAG vertex confirmation state block.
+	BlkTypeUTXOConfirmationStateChanged
+	// BlkTypeBranchVertex is the type of the branch DAG vertex.
+	BlkTypeBranchVertex
+	// BlkTypeBranchParentsUpdate is the type of the branch DAG vertex parents updated block.
+	BlkTypeBranchParentsUpdate
+	// BlkTypeBranchConfirmationStateChanged is the type of the branch DAG vertex confirmed block.
+	BlkTypeBranchConfirmationStateChanged
+	// BlkTypeBranchWeightChanged is the type of the branch DAG vertex weight changed block.
+	BlkTypeBranchWeightChanged
 )
 
-type wsMessage struct {
+type wsBlock struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
 }
@@ -64,7 +64,7 @@ type tangleTxConfirmationStateChanged struct {
 }
 
 type utxoVertex struct {
-	MsgID                 string              `json:"msgID"`
+	BlkID                 string              `json:"blkID"`
 	ID                    string              `json:"ID"`
 	Inputs                []*jsonmodels.Input `json:"inputs"`
 	Outputs               []string            `json:"outputs"`
@@ -113,7 +113,7 @@ type branchWeightChanged struct {
 }
 
 type searchResult struct {
-	Messages []*tangleVertex `json:"messages"`
+	Blocks   []*tangleVertex `json:"blocks"`
 	Txs      []*utxoVertex   `json:"txs"`
 	Branches []*branchVertex `json:"branches"`
 	Error    string          `json:"error,omitempty"`

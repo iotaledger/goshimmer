@@ -42,7 +42,7 @@ func NewManager(options ...ManagerOption) (newManager *Manager) {
 }
 
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
-// message that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
+// block that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
 func (m *Manager) InheritStructureDetails(referencedStructureDetails []*StructureDetails, increaseIndexCallback IncreaseIndexCallback) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
@@ -310,7 +310,7 @@ type ManagerOptions struct {
 	// storage.
 	CacheTime time.Duration
 
-	// MaxPastMarkerDistance is a parameter for the Manager that allows to specify how many consecutive messages are
+	// MaxPastMarkerDistance is a parameter for the Manager that allows to specify how many consecutive blocks are
 	// allowed to not receive a new PastMaster before we create a new Sequence.
 	MaxPastMarkerDistance uint64
 }
@@ -352,7 +352,7 @@ func WithCacheTime(cacheTime time.Duration) ManagerOption {
 	}
 }
 
-// WithMaxPastMarkerDistance is an Option for the Manager that allows to specify how many consecutive messages are
+// WithMaxPastMarkerDistance is an Option for the Manager that allows to specify how many consecutive blocks are
 // allowed to not receive a new PastMaster before we create a new Sequence.
 func WithMaxPastMarkerDistance(distance uint64) ManagerOption {
 	return func(options *ManagerOptions) {

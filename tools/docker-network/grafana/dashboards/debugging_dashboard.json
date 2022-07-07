@@ -111,15 +111,15 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\"}[1m])) by (instance)",
           "interval": "",
-          "legendFormat": "Message Per Second {{instance}}",
+          "legendFormat": "Block Per Second {{instance}}",
           "queryType": "randomWalk",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"TransactionType(1337)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"TransactionType(1337)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Transaction Per Second {{instance}}",
@@ -127,38 +127,38 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"dRNG(111)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"dRNG(111)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
-          "legendFormat": "dRNG Message Per Second {{instance}}",
+          "legendFormat": "dRNG Block Per Second {{instance}}",
           "refId": "C"
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"faucet(2)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"faucet(2)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
-          "legendFormat": "Faucet Message Per Second {{instance}}",
+          "legendFormat": "Faucet Block Per Second {{instance}}",
           "refId": "D"
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"networkdelay(189)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"networkdelay(189)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
-          "legendFormat": "Network Delay Message Per Second {{instance}}",
+          "legendFormat": "Network Delay Block Per Second {{instance}}",
           "refId": "E"
         },
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\",message_type=\"Statement(3)\"}[1m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\",block_type=\"Statement(3)\"}[1m])) by (instance)",
           "hide": false,
           "interval": "",
           "legendFormat": "Statements Per Second {{instance}}",
           "refId": "F"
         }
       ],
-      "title": "Message Per Second Per Type",
+      "title": "Block Per Second Per Type",
       "type": "timeseries"
     },
     {
@@ -210,7 +210,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_component_count{component=\"Booker\",instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
           "legendFormat": "MPS {{instance}} ",
           "refId": "A"
@@ -220,7 +220,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Message Per Second Per Instance Booker",
+      "title": "Block Per Second Per Instance Booker",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -308,7 +308,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(irate(tangle_messages_per_type_count{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(irate(tangle_blocks_per_type_count{instance=~\"$instance\"}[5m])) by (instance)",
           "interval": "",
           "legendFormat": "MPS {{instance}} ",
           "refId": "A"
@@ -318,7 +318,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Message Per Second Per Instance",
+      "title": "Block Per Second Per Instance",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -363,7 +363,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Shows tips in message and value layer.",
+      "description": "Shows tips in block and value layer.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -407,7 +407,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_tips_count{instance=~\"$instance\"}",
+          "expr": "tangle_block_tips_count{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Tips {{instance}}",
           "refId": "A"
@@ -462,7 +462,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+      "description": "Number of blocks in missingBlockStore. These are the block the node knows it doesn't have and tries to requests them.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -506,9 +506,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_missing_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_block_missing_count_db{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Missing Messages {{instance}}",
+          "legendFormat": "Missing Blocks {{instance}}",
           "refId": "A"
         }
       ],
@@ -516,7 +516,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Missing Messages",
+      "title": "Missing Blocks",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -561,7 +561,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Describes the amount of total, solid and not solid messages in the node's database.",
+      "description": "Describes the amount of total, solid and not solid blocks in the node's database.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -607,23 +607,23 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_solid_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_block_solid_count_db{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Solid Messages in DB {{instance}}",
+          "legendFormat": "Solid Blocks in DB {{instance}}",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "tangle_message_total_count_db{instance=~\"$instance\"} - tangle_message_solid_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_block_total_count_db{instance=~\"$instance\"} - tangle_block_solid_count_db{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Not Solid Messages in DB {{instance}}",
+          "legendFormat": "Not Solid Blocks in DB {{instance}}",
           "refId": "B"
         },
         {
           "exemplar": true,
-          "expr": "tangle_message_total_count_db{instance=~\"$instance\"}",
+          "expr": "tangle_block_total_count_db{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Total Messages in DB {{instance}}",
+          "legendFormat": "Total Blocks in DB {{instance}}",
           "refId": "C"
         }
       ],
@@ -631,7 +631,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Messages in Database",
+      "title": "Blocks in Database",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -676,7 +676,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Number of messages currently requested by the message tangle.",
+      "description": "Number of blocks currently requested by the block tangle.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -720,9 +720,9 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_request_queue_size{instance=~\"$instance\"}",
+          "expr": "tangle_block_request_queue_size{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "Message Request Queue Size",
+          "legendFormat": "Block Request Queue Size",
           "refId": "A"
         }
       ],
@@ -730,7 +730,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Message Request Queue Size",
+      "title": "Block Request Queue Size",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -775,7 +775,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Average time it takes to solidify messages.",
+      "description": "Average time it takes to solidify blocks.",
       "fieldConfig": {
         "defaults": {
           "links": []
@@ -819,7 +819,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "tangle_message_avg_solidification_time{instance=~\"$instance\"}",
+          "expr": "tangle_block_avg_solidification_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "Avg Solidification Time {{instance}}",
           "refId": "A"

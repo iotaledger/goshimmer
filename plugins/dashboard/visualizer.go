@@ -20,10 +20,10 @@ var (
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 
-	msgHistoryMutex    sync.RWMutex
-	msgFinalized       map[string]bool
-	msgHistory         []*tangle.Message
-	maxMsgHistorySize  = 1000
+	blkHistoryMutex    sync.RWMutex
+	blkFinalized       map[string]bool
+	blkHistory         []*tangle.Block
+	maxBlkHistorySize  = 1000
 	numHistoryToRemove = 100
 )
 
@@ -35,7 +35,7 @@ type vertex struct {
 	IsTx            bool                `json:"is_tx"`
 }
 
-// tipinfo holds information about whether a given message is a tip or not.
+// tipinfo holds information about whether a given block is a tip or not.
 type tipinfo struct {
 	ID    string `json:"id"`
 	IsTip bool   `json:"is_tip"`
@@ -49,64 +49,64 @@ type history struct {
 func configureVisualizer() {
 	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
-		case *tangle.Message:
+		case *tangle.Block:
 			sendVertex(x, task.Param(1).(bool))
 		case *tangle.TipEvent:
-			sendTipInfo(task.Param(1).(tangle.MessageID), task.Param(2).(bool))
+			sendTipInfo(task.Param(1).(tangle.BlockID), task.Param(2).(bool))
 		}
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
 
-	// configure msgHistory, msgSolid
-	msgFinalized = make(map[string]bool, maxMsgHistorySize)
-	msgHistory = make([]*tangle.Message, 0, maxMsgHistorySize)
+	// configure blkHistory, blkSolid
+	blkFinalized = make(map[string]bool, maxBlkHistorySize)
+	blkHistory = make([]*tangle.Block, 0, maxBlkHistorySize)
 }
 
-func sendVertex(msg *tangle.Message, finalized bool) {
-	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:              msg.ID().Base58(),
-		ParentIDsByType: prepareParentReferences(msg),
+func sendVertex(blk *tangle.Block, finalized bool) {
+	broadcastWsBlock(&wsblk{BlkTypeVertex, &vertex{
+		ID:              blk.ID().Base58(),
+		ParentIDsByType: prepareParentReferences(blk),
 		IsFinalized:     finalized,
-		IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
+		IsTx:            blk.Payload().Type() == devnetvm.TransactionType,
 	}}, true)
 }
 
-func sendTipInfo(messageID tangle.MessageID, isTip bool) {
-	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
-		ID:    messageID.Base58(),
+func sendTipInfo(blockID tangle.BlockID, isTip bool) {
+	broadcastWsBlock(&wsblk{BlkTypeTipInfo, &tipinfo{
+		ID:    blockID.Base58(),
 		IsTip: isTip,
 	}}, true)
 }
 
 func runVisualizer() {
-	processMessage := func(message *tangle.Message) {
-		finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(message.ID())
-		addToHistory(message, finalized)
-		visualizerWorkerPool.TrySubmit(message, finalized)
+	processBlock := func(block *tangle.Block) {
+		finalized := deps.Tangle.ConfirmationOracle.IsBlockConfirmed(block.ID())
+		addToHistory(block, finalized)
+		visualizerWorkerPool.TrySubmit(block, finalized)
 	}
 
-	notifyNewMsgStored := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		processMessage(event.Message)
+	notifyNewBlkStored := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		processBlock(event.Block)
 	})
 
-	notifyNewMsgAccepted := event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
-		processMessage(event.Message)
+	notifyNewBlkAccepted := event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+		processBlock(event.Block)
 	})
 
 	notifyNewTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
-		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, true)
+		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.BlockID, true)
 	})
 
 	notifyDeletedTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
-		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, false)
+		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.BlockID, false)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsgStored)
-		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsgStored)
-		deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(notifyNewMsgAccepted)
-		defer deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Detach(notifyNewMsgAccepted)
+		deps.Tangle.Storage.Events.BlockStored.Attach(notifyNewBlkStored)
+		defer deps.Tangle.Storage.Events.BlockStored.Detach(notifyNewBlkStored)
+		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(notifyNewBlkAccepted)
+		defer deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Detach(notifyNewBlkAccepted)
 		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
@@ -122,19 +122,19 @@ func runVisualizer() {
 
 func setupVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/visualizer/history", func(c echo.Context) (err error) {
-		msgHistoryMutex.RLock()
-		defer msgHistoryMutex.RUnlock()
+		blkHistoryMutex.RLock()
+		defer blkHistoryMutex.RUnlock()
 
-		cpyHistory := make([]*tangle.Message, len(msgHistory))
-		copy(cpyHistory, msgHistory)
+		cpyHistory := make([]*tangle.Block, len(blkHistory))
+		copy(cpyHistory, blkHistory)
 
 		var res []vertex
-		for _, msg := range cpyHistory {
+		for _, blk := range cpyHistory {
 			res = append(res, vertex{
-				ID:              msg.ID().Base58(),
-				ParentIDsByType: prepareParentReferences(msg),
-				IsFinalized:     msgFinalized[msg.ID().Base58()],
-				IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
+				ID:              blk.ID().Base58(),
+				ParentIDsByType: prepareParentReferences(blk),
+				IsFinalized:     blkFinalized[blk.ID().Base58()],
+				IsTx:            blk.Payload().Type() == devnetvm.TransactionType,
 			})
 		}
 
@@ -142,22 +142,22 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func addToHistory(msg *tangle.Message, finalized bool) {
-	msgHistoryMutex.Lock()
-	defer msgHistoryMutex.Unlock()
-	if _, exist := msgFinalized[msg.ID().Base58()]; exist {
-		msgFinalized[msg.ID().Base58()] = finalized
+func addToHistory(blk *tangle.Block, finalized bool) {
+	blkHistoryMutex.Lock()
+	defer blkHistoryMutex.Unlock()
+	if _, exist := blkFinalized[blk.ID().Base58()]; exist {
+		blkFinalized[blk.ID().Base58()] = finalized
 		return
 	}
 
-	// remove 100 old msgs if the slice is full
-	if len(msgHistory) >= maxMsgHistorySize {
+	// remove 100 old blks if the slice is full
+	if len(blkHistory) >= maxBlkHistorySize {
 		for i := 0; i < numHistoryToRemove; i++ {
-			delete(msgFinalized, msgHistory[i].ID().Base58())
+			delete(blkFinalized, blkHistory[i].ID().Base58())
 		}
-		msgHistory = append(msgHistory[:0], msgHistory[numHistoryToRemove:maxMsgHistorySize]...)
+		blkHistory = append(blkHistory[:0], blkHistory[numHistoryToRemove:maxBlkHistorySize]...)
 	}
-	// add new msg
-	msgHistory = append(msgHistory, msg)
-	msgFinalized[msg.ID().Base58()] = finalized
+	// add new blk
+	blkHistory = append(blkHistory, blk)
+	blkFinalized[blk.ID().Base58()] = finalized
 }

@@ -29,11 +29,11 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 	return
 }
 
-// InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
+// InheritStructureDetails returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structureDetails []*markers.StructureDetails) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
+func (b *BranchMarkersMapper) InheritStructureDetails(block *Block, structureDetails []*markers.StructureDetails) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
 	// newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
-	//	nodeID := identity.NewID(message.IssuerPublicKey())
+	//	nodeID := identity.NewID(block.IssuerPublicKey())
 	//	bufferUsedRatio := float64(b.tangle.Scheduler.BufferSize()) / float64(b.tangle.Scheduler.MaxBufferSize())
 	//	nodeQueueRatio := float64(b.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(b.tangle.Scheduler.BufferSize())
 	//	if bufferUsedRatio > 0.01 && nodeQueueRatio > 0.1 {
@@ -49,24 +49,24 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 
 	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
 	if newStructureDetails.IsPastMarker() {
-		b.SetMessageID(newStructureDetails.PastMarkers().Marker(), message.ID())
+		b.SetBlockID(newStructureDetails.PastMarkers().Marker(), block.ID())
 	}
 
 	return
 }
 
-// MessageID retrieves the MessageID of the given Marker.
-func (b *BranchMarkersMapper) MessageID(marker markers.Marker) (messageID MessageID) {
-	b.tangle.Storage.MarkerMessageMapping(marker).Consume(func(markerMessageMapping *MarkerMessageMapping) {
-		messageID = markerMessageMapping.MessageID()
+// BlockID retrieves the BlockID of the given Marker.
+func (b *BranchMarkersMapper) BlockID(marker markers.Marker) (blockID BlockID) {
+	b.tangle.Storage.MarkerBlockMapping(marker).Consume(func(markerBlockMapping *MarkerBlockMapping) {
+		blockID = markerBlockMapping.BlockID()
 	})
 
 	return
 }
 
-// SetMessageID associates a MessageID with the given Marker.
-func (b *BranchMarkersMapper) SetMessageID(marker markers.Marker, messageID MessageID) {
-	b.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
+// SetBlockID associates a BlockID with the given Marker.
+func (b *BranchMarkersMapper) SetBlockID(marker markers.Marker, blockID BlockID) {
+	b.tangle.Storage.StoreMarkerBlockMapping(NewMarkerBlockMapping(marker, blockID))
 }
 
 // SetBranchIDs associates ledger.BranchIDs with the given Marker.

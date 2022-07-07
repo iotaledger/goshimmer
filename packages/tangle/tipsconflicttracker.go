@@ -36,8 +36,8 @@ func (c *TipsConflictTracker) Setup() {
 	}))
 }
 
-func (c *TipsConflictTracker) AddTip(messageID MessageID) {
-	messageConflictIDs, err := c.tangle.Booker.MessageBranchIDs(messageID)
+func (c *TipsConflictTracker) AddTip(blockID BlockID) {
+	blockConflictIDs, err := c.tangle.Booker.BlockBranchIDs(blockID)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func (c *TipsConflictTracker) AddTip(messageID MessageID) {
 	c.Lock()
 	defer c.Unlock()
 
-	for it := messageConflictIDs.Iterator(); it.HasNext(); {
+	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
@@ -58,8 +58,8 @@ func (c *TipsConflictTracker) AddTip(messageID MessageID) {
 	}
 }
 
-func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
-	messageBranchIDs, err := c.tangle.Booker.MessageBranchIDs(messageID)
+func (c *TipsConflictTracker) RemoveTip(blockID BlockID) {
+	blockBranchIDs, err := c.tangle.Booker.BlockBranchIDs(blockID)
 	if err != nil {
 		panic("could not determine BranchIDs of tip.")
 	}
@@ -67,7 +67,7 @@ func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
 	c.Lock()
 	defer c.Unlock()
 
-	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+	for it := blockBranchIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
 		if _, exists := c.tipsConflictCount[conflictID]; !exists {

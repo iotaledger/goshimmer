@@ -35,9 +35,9 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 		"inboundIDs", in.String(),
 	)
 
-	data, err := packet.NewHeartbeatMessage(hb)
+	data, err := packet.NewHeartbeatBlock(hb)
 	if err != nil {
-		log.Info(err, " - heartbeat message skipped")
+		log.Info(err, " - heartbeat block skipped")
 		return
 	}
 

@@ -50,7 +50,6 @@ func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 
 // bookTransactionCommand is a ChainedCommand that books a Transaction.
 func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-
 	b.bookTransaction(params.Context, params.Transaction, params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 
 	return next(params)

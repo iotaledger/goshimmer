@@ -24,7 +24,7 @@ export class Explorer extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <p>
-                            Search for addresses, messages, transactions, outputs and branches.
+                            Search for addresses, blocks, transactions, outputs and branches.
                         </p>
                     </Col>
                 </Row>

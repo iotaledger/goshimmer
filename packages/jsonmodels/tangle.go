@@ -2,17 +2,17 @@ package jsonmodels
 
 import "github.com/iotaledger/hive.go/types/confirmation"
 
-// region Message ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Block ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Message represents the JSON model of a tangle.Message.
-type Message struct {
+// Block represents the JSON model of a tangle.Block.
+type Block struct {
 	ID                   string   `json:"id"`
 	StrongParents        []string `json:"strongParents"`
 	WeakParents          []string `json:"weakParents"`
 	ShallowLikeParents   []string `json:"shallowLikeParents"`
-	StrongApprovers      []string `json:"strongApprovers"`
-	WeakApprovers        []string `json:"weakApprovers"`
-	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
+	StrongChilds         []string `json:"strongChilds"`
+	WeakChilds           []string `json:"weakChilds"`
+	ShallowLikeChilds    []string `json:"shallowLikeChilds"`
 	IssuerPublicKey      string   `json:"issuerPublicKey"`
 	IssuingTime          int64    `json:"issuingTime"`
 	SequenceNumber       uint64   `json:"sequenceNumber"`
@@ -29,10 +29,10 @@ type Message struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
+// region BlockMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageMetadata represents the JSON model of the tangle.MessageMetadata.
-type MessageMetadata struct {
+// BlockMetadata represents the JSON model of the tangle.BlockMetadata.
+type BlockMetadata struct {
 	ID                    string             `json:"id"`
 	ReceivedTime          int64              `json:"receivedTime"`
 	Solid                 bool               `json:"solid"`

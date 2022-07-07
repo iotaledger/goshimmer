@@ -1,5 +1,5 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSMsgType} from "app/misc/WS";
+import {registerHandler, WSBlkType} from "app/misc/WS";
 import * as React from "react";
 import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
@@ -7,7 +7,7 @@ import NodeStore from './NodeStore';
 import {Table} from "react-bootstrap";
 import {ConfirmationState, resolveConfirmationState} from "app/utils/confirmation_state";
 
-export class ConflictMessage {
+export class ConflictBlock {
     conflictID: string;
     arrivalTime: number;
     resolved: boolean;
@@ -15,7 +15,7 @@ export class ConflictMessage {
     shown: boolean;
 }
 
-export class BranchMessage {
+export class BranchBlock {
     branchID: string;
     conflictIDs: Array<string>;
     confirmationState: number;
@@ -27,8 +27,8 @@ export class BranchMessage {
 
 export class ConflictsStore {
     // live feed
-    @observable conflicts: Map<String, ConflictMessage>;
-    @observable branches: Map<String, BranchMessage>;
+    @observable conflicts: Map<String, ConflictBlock>;
+    @observable branches: Map<String, BranchBlock>;
     
     routerStore: RouterStore;
     nodeStore: NodeStore;
@@ -38,25 +38,25 @@ export class ConflictsStore {
         this.nodeStore = nodeStore;
         this.conflicts = new Map;
         this.branches = new Map;
-        registerHandler(WSMsgType.Conflict, this.updateConflicts);
-        registerHandler(WSMsgType.Branch, this.updateBranches);
+        registerHandler(WSBlkType.Conflict, this.updateConflicts);
+        registerHandler(WSBlkType.Branch, this.updateBranches);
     }
 
     @action
-    updateConflicts = (msg: ConflictMessage) => {
-        this.conflicts.set(msg.conflictID, msg);
+    updateConflicts = (blk: ConflictBlock) => {
+        this.conflicts.set(blk.conflictID, blk);
     };
 
     @action
-    updateBranches = (msg: BranchMessage) => {
-        this.branches.set(msg.branchID, msg);
+    updateBranches = (blk: BranchBlock) => {
+        this.branches.set(blk.branchID, blk);
     };
    
     @computed
     get conflictsLiveFeed() {
         // sort branches by time and ID to prevent "jumping"
         let conflictsArr = Array.from(this.conflicts.values());
-        conflictsArr.sort((x: ConflictMessage, y: ConflictMessage): number => {
+        conflictsArr.sort((x: ConflictBlock, y: ConflictBlock): number => {
                 return y.arrivalTime - x.arrivalTime || x.conflictID.localeCompare(y.conflictID);
             }
         )
@@ -89,7 +89,7 @@ export class ConflictsStore {
 
             // sort branches by time and ID to prevent "jumping"
             let branchesArr = Array.from(this.branches.values());
-            branchesArr.sort((x: BranchMessage, y: BranchMessage): number => {
+            branchesArr.sort((x: BranchBlock, y: BranchBlock): number => {
                    return x.issuingTime - y.issuingTime || x.branchID.localeCompare(y.branchID)
                 }
             )

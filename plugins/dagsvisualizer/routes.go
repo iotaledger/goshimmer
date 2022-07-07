@@ -81,7 +81,7 @@ func setupRoutes(e *echo.Echo) {
 		log.Warnf("Request failed: %s", err)
 
 		var statusCode int
-		var message string
+		var block string
 
 		switch errors.Unwrap(err) {
 		case echo.ErrNotFound:
@@ -92,31 +92,31 @@ func setupRoutes(e *echo.Echo) {
 
 		case echo.ErrUnauthorized:
 			statusCode = http.StatusUnauthorized
-			message = "unauthorized"
+			block = "unauthorized"
 
 		case ErrForbidden:
 			statusCode = http.StatusForbidden
-			message = "access forbidden"
+			block = "access forbidden"
 
 		case ErrInternalError:
 			statusCode = http.StatusInternalServerError
-			message = "internal server error"
+			block = "internal server error"
 
 		case ErrNotFound:
 			statusCode = http.StatusNotFound
-			message = "not found"
+			block = "not found"
 
 		case ErrInvalidParameter:
 			statusCode = http.StatusBadRequest
-			message = "bad request"
+			block = "bad request"
 
 		default:
 			statusCode = http.StatusInternalServerError
-			message = "internal server error"
+			block = "internal server error"
 		}
 
-		message = fmt.Sprintf("%s, error: %+v", message, err)
-		if err := c.String(statusCode, message); err != nil {
+		block = fmt.Sprintf("%s, error: %+v", block, err)
+		if err := c.String(statusCode, block); err != nil {
 			log.Warn("failed to send error response")
 		}
 	}

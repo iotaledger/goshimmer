@@ -1,6 +1,6 @@
 import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
-import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
+import {connectWebSocket, registerHandler, unregisterHandler, WSBlkType} from "app/misc/WS";
 
 class MPSMetric {
     mps: number;
@@ -23,8 +23,8 @@ class TangleTime {
     RATT: number;
     CTT: number;
     RCTT: number;
-    acceptedMessageID: string;
-    confirmedMessageID: string;
+    acceptedBlockID: string;
+    confirmedBlockID: string;
 
 }
 
@@ -213,25 +213,25 @@ export class NodeStore {
     }
 
     registerHandlers = () => {
-        registerHandler(WSMsgType.Status, this.updateStatus);
-        registerHandler(WSMsgType.MPSMetrics, (mps: number) => {
+        registerHandler(WSBlkType.Status, this.updateStatus);
+        registerHandler(WSBlkType.MPSMetrics, (mps: number) => {
             this.addMPSMetric(this.updateLastMPSMetric(mps));
         });
-        registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
-        registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
-        registerHandler(WSMsgType.ComponentCounterMetrics, this.updateLastComponentMetric);
-        registerHandler(WSMsgType.RateSetter, this.updateLastRateSetterMetric)
+        registerHandler(WSBlkType.NeighborStats, this.updateNeighborMetrics);
+        registerHandler(WSBlkType.TipsMetrics, this.updateLastTipsMetric);
+        registerHandler(WSBlkType.ComponentCounterMetrics, this.updateLastComponentMetric);
+        registerHandler(WSBlkType.RateSetter, this.updateLastRateSetterMetric)
 
         this.updateCollecting(true);
     }
 
     unregisterHandlers = () => {
-        unregisterHandler(WSMsgType.Status);
-        unregisterHandler(WSMsgType.MPSMetrics);
-        unregisterHandler(WSMsgType.NeighborStats);
-        unregisterHandler(WSMsgType.TipsMetrics);
-        unregisterHandler(WSMsgType.ComponentCounterMetrics);
-        unregisterHandler(WSMsgType.RateSetter);
+        unregisterHandler(WSBlkType.Status);
+        unregisterHandler(WSBlkType.MPSMetrics);
+        unregisterHandler(WSBlkType.NeighborStats);
+        unregisterHandler(WSBlkType.TipsMetrics);
+        unregisterHandler(WSBlkType.ComponentCounterMetrics);
+        unregisterHandler(WSBlkType.RateSetter);
         this.updateCollecting(false);
     }
 

@@ -25,7 +25,7 @@ keywords:
         }
     }()
 ```
-- Wrap errors with `errors.Wrap()` when returning them to the caller. It adds the stack trace and a custom message to the error. Without that information investigating an issue is very hard.
+- Wrap errors with `errors.Wrap()` when returning them to the caller. It adds the stack trace and a custom block to the error. Without that information investigating an issue is very hard.
 - Use `errors.Is()` instead of direct errors comparison. This function unwraps errors recursively. [Example](https://github.com/iotaledger/goshimmer/pull/1113/files#diff-05fdc081489a8d5a61224d812f9bbd7bc77edf9769ed00d95ea024d2a44a699aL62).
 - Propagate `ctx` and use APIs that accept `ctx`, start exposing APIs that accept `ctx`. Context is a native way for timeouts/cancellation in Go. It allows writing more resilient and fault tolerant code. [Example](https://github.com/iotaledger/goshimmer/pull/1113/files#diff-f2820ed0d3d4d9ea05b78b1dd3978dbcf9401c8caaa8cc40cc1c0342a55379fcL35).
 - Don’t shadow builtin functions like copy, len, new etc. [Example](https://github.com/iotaledger/goshimmer/pull/1113/files#diff-f07268750a44da26386469c1b1e93574a678c3d418fce9e1f186d5f1991a92eaL14).
@@ -41,7 +41,7 @@ keywords:
 
 We use the new error wrapping API and behavior introduced with Go 1.13 but we use the "github.com/cockroachdb/errors" drop-in replacement which follows the Go 2 design draft and which enables us to have a stack trace for every "wrapping" of the error.
 
-Errors should always be wrapped and annotated with an additional message at each step. The following example shows how errors are wrapped and turned into the corresponding sentinel errors.
+Errors should always be wrapped and annotated with an additional block at each step. The following example shows how errors are wrapped and turned into the corresponding sentinel errors.
 
 ```go
 package example

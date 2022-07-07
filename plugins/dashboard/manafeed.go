@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 var (
@@ -38,15 +38,15 @@ func ManaBufferInstance() *ManaBuffer {
 func configureManaFeed() {
 	manaFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch task.Param(0).(byte) {
-		case MsgTypeManaValue:
+		case BlkTypeManaValue:
 			sendManaValue()
-		case MsgTypeManaMapOverall:
+		case BlkTypeManaMapOverall:
 			sendManaMapOverall()
-		case MsgTypeManaMapOnline:
+		case BlkTypeManaMapOnline:
 			sendManaMapOnline()
-		case MsgTypeManaPledge:
+		case BlkTypeManaPledge:
 			sendManaPledge(task.Param(1).(*mana.PledgedEvent))
-		case MsgTypeManaRevoke:
+		case BlkTypeManaRevoke:
 			sendManaRevoke(task.Param(1).(*mana.RevokedEvent))
 		}
 		task.Return(nil)
@@ -55,10 +55,10 @@ func configureManaFeed() {
 
 func runManaFeed() {
 	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
+		manaFeedWorkerPool.TrySubmit(BlkTypeManaPledge, ev)
 	})
 	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
+		manaFeedWorkerPool.TrySubmit(BlkTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
 		mana.Events.Pledged.Attach(notifyManaPledge)
@@ -73,9 +73,9 @@ func runManaFeed() {
 				log.Info("Stopping Dashboard[ManaUpdater] ... done")
 				return
 			case <-manaTicker.C:
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaValue)
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOverall)
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOnline)
+				manaFeedWorkerPool.TrySubmit(BlkTypeManaValue)
+				manaFeedWorkerPool.TrySubmit(BlkTypeManaMapOverall)
+				manaFeedWorkerPool.TrySubmit(BlkTypeManaMapOnline)
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {
@@ -83,7 +83,7 @@ func runManaFeed() {
 	}
 }
 
-// region Websocket message sending handlers (live updates)
+// region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
 	access, _, err := manaPlugin.GetAccessMana(ownID)
@@ -96,17 +96,17 @@ func sendManaValue() {
 	if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get own consensus mana: %s ", err.Error())
 	}
-	msgData := &ManaValueMsgData{
+	blkData := &ManaValueBlkData{
 		NodeID:    ownID.String(),
 		Access:    access,
 		Consensus: consensus,
 		Time:      time.Now().Unix(),
 	}
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaValue,
-		Data: msgData,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaValue,
+		Data: blkData,
 	})
-	ManaBufferInstance().StoreValueMsg(msgData)
+	ManaBufferInstance().StoreValueBlk(blkData)
 }
 
 func sendManaMapOverall() {
@@ -114,30 +114,30 @@ func sendManaMapOverall() {
 	if err != nil && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana nodes: %s ", err.Error())
 	}
-	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
+	accessPayload := &ManaNetworkListBlkData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
 		totalAccessMana += accessManaList[i].Mana
 	}
 	accessPayload.TotalMana = totalAccessMana
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaMapOverall,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaMapOverall,
 		Data: accessPayload,
 	})
 	consensusManaList, _, err := manaPlugin.GetHighestManaNodes(mana.ConsensusMana, 0)
 	if err != nil && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana nodes: %s ", err.Error())
 	}
-	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: mana.ConsensusMana.String()}
 	totalConsensusMana := 0.0
 	for i := 0; i < len(consensusManaList); i++ {
 		consensusPayload.Nodes = append(consensusPayload.Nodes, consensusManaList[i].ToNodeStr())
 		totalConsensusMana += consensusManaList[i].Mana
 	}
 	consensusPayload.TotalMana = totalConsensusMana
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaMapOverall,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaMapOverall,
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOverall(accessPayload, consensusPayload)
@@ -148,20 +148,20 @@ func sendManaMapOnline() {
 	if err != nil && !errors.Is(err, manaPlugin.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of online access mana nodes: %s", err.Error())
 	}
-	accessPayload := &ManaNetworkListMsgData{ManaType: mana.AccessMana.String()}
+	accessPayload := &ManaNetworkListBlkData{ManaType: mana.AccessMana.String()}
 	totalAccessMana := 0.0
 	for i := 0; i < len(accessManaList); i++ {
 		accessPayload.Nodes = append(accessPayload.Nodes, accessManaList[i].ToNodeStr())
 		totalAccessMana += accessManaList[i].Mana
 	}
 	accessPayload.TotalMana = totalAccessMana
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaMapOnline,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaMapOnline,
 		Data: accessPayload,
 	})
 
 	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
-	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
+	consensusPayload := &ManaNetworkListBlkData{ManaType: mana.ConsensusMana.String()}
 	for nodeID, weight := range weights {
 		n := mana.Node{
 			ID:   nodeID,
@@ -175,8 +175,8 @@ func sendManaMapOnline() {
 	})
 
 	consensusPayload.TotalMana = totalWeight
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaMapOnline,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaMapOnline,
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
@@ -184,46 +184,46 @@ func sendManaMapOnline() {
 
 func sendManaPledge(ev *mana.PledgedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaPledge,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaPledge,
 		Data: ev.ToJSONSerializable(),
 	})
 }
 
 func sendManaRevoke(ev *mana.RevokedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeManaRevoke,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeManaRevoke,
 		Data: ev.ToJSONSerializable(),
 	})
 }
 
 // endregion
 
-// region Websocket message sending handlers (initial data)
+// region Websocket block sending handlers (initial data)
 func sendAllowedManaPledge(ws *websocket.Conn) error {
 	allowedAccess := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	allowedConsensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 
-	wsmsgData := &AllowedPledgeIDsMsgData{}
-	wsmsgData.Access.Enabled = allowedAccess.IsFilterEnabled
+	wsblkData := &AllowedPledgeIDsBlkData{}
+	wsblkData.Access.Enabled = allowedAccess.IsFilterEnabled
 	allowedAccess.Allowed.ForEach(func(ID identity.ID) {
-		wsmsgData.Access.AllowedNodeIDs = append(wsmsgData.Access.AllowedNodeIDs, AllowedNodeStr{
+		wsblkData.Access.AllowedNodeIDs = append(wsblkData.Access.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),
 		})
 	})
-	wsmsgData.Consensus.Enabled = allowedConsensus.IsFilterEnabled
+	wsblkData.Consensus.Enabled = allowedConsensus.IsFilterEnabled
 	allowedConsensus.Allowed.ForEach(func(ID identity.ID) {
-		wsmsgData.Consensus.AllowedNodeIDs = append(wsmsgData.Consensus.AllowedNodeIDs, AllowedNodeStr{
+		wsblkData.Consensus.AllowedNodeIDs = append(wsblkData.Consensus.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),
 		})
 	})
 
-	if err := sendJSON(ws, &wsmsg{
-		Type: MsgTypeManaAllowedPledge,
-		Data: wsmsgData,
+	if err := sendJSON(ws, &wsblk{
+		Type: BlkTypeManaAllowedPledge,
+		Data: wsblkData,
 	}); err != nil {
 		return err
 	}
@@ -232,25 +232,25 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 
 // endregion
 
-// region Websocket message data structs
+// region Websocket block data structs
 
-// ManaValueMsgData contains mana values for a particular node.
-type ManaValueMsgData struct {
+// ManaValueBlkData contains mana values for a particular node.
+type ManaValueBlkData struct {
 	NodeID    string  `json:"nodeID"`
 	Access    float64 `json:"access"`
 	Consensus float64 `json:"consensus"`
 	Time      int64   `json:"time"`
 }
 
-// ManaNetworkListMsgData contains a list of mana values for nodes in the network.
-type ManaNetworkListMsgData struct {
+// ManaNetworkListBlkData contains a list of mana values for nodes in the network.
+type ManaNetworkListBlkData struct {
 	ManaType  string         `json:"manaType"`
 	TotalMana float64        `json:"totalMana"`
 	Nodes     []mana.NodeStr `json:"nodes"`
 }
 
-// AllowedPledgeIDsMsgData contains information on the allowed pledge ID configuration of the node.
-type AllowedPledgeIDsMsgData struct {
+// AllowedPledgeIDsBlkData contains information on the allowed pledge ID configuration of the node.
+type AllowedPledgeIDsBlkData struct {
 	Access    PledgeIDFilter `json:"accessFilter"`
 	Consensus PledgeIDFilter `json:"consensusFilter"`
 }

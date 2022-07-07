@@ -51,7 +51,7 @@ export class StatementPayload extends React.Component<Props, any> {
                                 {payload.timestamps.map( (value) => {
                                     return (
                                         <ListGroupItem>
-                                            Message ID: {value.msg_id}
+                                            Block ID: {value.blk_id}
                                             <ul>
                                                 <li>Opinion: {value.opinion.value}</li>
                                                 <li>Round: {value.opinion.round}</li>

@@ -44,17 +44,17 @@ type Payload struct {
 }
 
 type payloadModel struct {
-	From    string `serix:"0,lengthPrefixType=uint32"`
-	To      string `serix:"1,lengthPrefixType=uint32"`
-	Message string `serix:"2,lengthPrefixType=uint32"`
+	From  string `serix:"0,lengthPrefixType=uint32"`
+	To    string `serix:"1,lengthPrefixType=uint32"`
+	Block string `serix:"2,lengthPrefixType=uint32"`
 }
 
 // NewPayload creates a new chat payload.
-func NewPayload(from, to, message string) *Payload {
+func NewPayload(from, to, block string) *Payload {
 	return model.NewImmutable[Payload](&payloadModel{
-		From:    from,
-		To:      to,
-		Message: message,
+		From:  from,
+		To:    to,
+		Block: block,
 	},
 	)
 }
@@ -67,17 +67,17 @@ func (p *Payload) Type() payload.Type {
 	return Type
 }
 
-// From returns an author of the message.
+// From returns an author of the block.
 func (p *Payload) From() string {
 	return p.M.From
 }
 
-// To returns a recipient of the message.
+// To returns a recipient of the block.
 func (p *Payload) To() string {
 	return p.M.To
 }
 
-// Message returns the message contents.
-func (p *Payload) Message() string {
-	return p.M.Message
+// Block returns the block contents.
+func (p *Payload) Block() string {
+	return p.M.Block
 }

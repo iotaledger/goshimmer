@@ -27,14 +27,14 @@ func TestStorage_StoreAttachment(t *testing.T) {
 	defer tangle.Shutdown()
 
 	transactionID := randomTransactionID()
-	messageID := randomMessageID()
-	cachedAttachment, stored := tangle.Storage.StoreAttachment(transactionID, messageID)
+	blockID := randomBlockID()
+	cachedAttachment, stored := tangle.Storage.StoreAttachment(transactionID, blockID)
 	cachedAttachment.Release()
 	assert.True(t, stored)
-	cachedAttachment, stored = tangle.Storage.StoreAttachment(transactionID, randomMessageID())
+	cachedAttachment, stored = tangle.Storage.StoreAttachment(transactionID, randomBlockID())
 	assert.True(t, stored)
 	cachedAttachment.Release()
-	cachedAttachment, stored = tangle.Storage.StoreAttachment(transactionID, messageID)
+	cachedAttachment, stored = tangle.Storage.StoreAttachment(transactionID, blockID)
 	assert.False(t, stored)
 	assert.Nil(t, cachedAttachment)
 }
@@ -50,7 +50,7 @@ func TestStorage_Attachments(t *testing.T) {
 		// for every tx, store random number of attachments.
 		for j := 0; j < rand.Intn(5)+1; j++ {
 			attachments[transactionID]++
-			cachedAttachment, _ := tangle.Storage.StoreAttachment(transactionID, randomMessageID())
+			cachedAttachment, _ := tangle.Storage.StoreAttachment(transactionID, randomBlockID())
 			cachedAttachment.Release()
 		}
 	}

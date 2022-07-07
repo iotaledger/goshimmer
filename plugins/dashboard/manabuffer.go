@@ -22,11 +22,11 @@ type ManaBuffer struct {
 	// Events store PledgedEvent and RevokedEvent structs in chronological order.
 	Events          []mana.Event
 	eventsMutex     sync.RWMutex
-	ValueMsgs       []*ManaValueMsgData
-	valueMsgsMutex  sync.RWMutex
-	MapOverall      map[mana.Type]*ManaNetworkListMsgData
+	ValueBlks       []*ManaValueBlkData
+	valueBlksMutex  sync.RWMutex
+	MapOverall      map[mana.Type]*ManaNetworkListBlkData
 	mapOverallMutex sync.RWMutex
-	MapOnline       map[mana.Type]*ManaNetworkListMsgData
+	MapOnline       map[mana.Type]*ManaNetworkListBlkData
 	mapOnlineMutex  sync.RWMutex
 }
 
@@ -34,9 +34,9 @@ type ManaBuffer struct {
 func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
 		Events:     make([]mana.Event, 0),
-		ValueMsgs:  make([]*ManaValueMsgData, 0),
-		MapOverall: make(map[mana.Type]*ManaNetworkListMsgData),
-		MapOnline:  make(map[mana.Type]*ManaNetworkListMsgData),
+		ValueBlks:  make([]*ManaValueBlkData, 0),
+		MapOverall: make(map[mana.Type]*ManaNetworkListBlkData),
+		MapOnline:  make(map[mana.Type]*ManaNetworkListBlkData),
 	}
 }
 
@@ -56,70 +56,70 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 	m.eventsMutex.RLock()
 	defer m.eventsMutex.RUnlock()
 	for _, ev := range m.Events {
-		var msg *wsmsg
+		var blk *wsblk
 		switch ev.Type() {
 		case mana.EventTypePledge:
-			msg = &wsmsg{
-				Type: MsgTypeManaInitPledge,
+			blk = &wsblk{
+				Type: BlkTypeManaInitPledge,
 				Data: ev.ToJSONSerializable(),
 			}
 		case mana.EventTypeRevoke:
-			msg = &wsmsg{
-				Type: MsgTypeManaInitRevoke,
+			blk = &wsblk{
+				Type: BlkTypeManaInitRevoke,
 				Data: ev.ToJSONSerializable(),
 			}
 		default:
 			return errors.Errorf("unexpected mana event type")
 		}
-		if err := sendJSON(ws, msg); err != nil {
+		if err := sendJSON(ws, blk); err != nil {
 			return errors.Errorf("failed to send mana event to client: %w", err)
 		}
 	}
 	// signal to frontend that all initial values are sent
-	if err := sendJSON(ws, &wsmsg{MsgTypeManaInitDone, nil}); err != nil {
+	if err := sendJSON(ws, &wsblk{BlkTypeManaInitDone, nil}); err != nil {
 		return errors.Errorf("failed to send mana event to client: %w", err)
 	}
 	return nil
 }
 
-// StoreValueMsg stores a value msg in the buffer. If it is full, drops the oldest msg.
-func (m *ManaBuffer) StoreValueMsg(msg *ManaValueMsgData) {
-	m.valueMsgsMutex.Lock()
-	defer m.valueMsgsMutex.Unlock()
-	if len(m.ValueMsgs) >= maxManaValuesBufferSize {
-		// drop oldest msg if buffer is full
-		m.ValueMsgs = m.ValueMsgs[1:]
+// StoreValueBlk stores a value blk in the buffer. If it is full, drops the oldest blk.
+func (m *ManaBuffer) StoreValueBlk(blk *ManaValueBlkData) {
+	m.valueBlksMutex.Lock()
+	defer m.valueBlksMutex.Unlock()
+	if len(m.ValueBlks) >= maxManaValuesBufferSize {
+		// drop oldest blk if buffer is full
+		m.ValueBlks = m.ValueBlks[1:]
 	}
-	m.ValueMsgs = append(m.ValueMsgs, msg)
+	m.ValueBlks = append(m.ValueBlks, blk)
 }
 
-// SendValueMsgs sends all msgs in the buffer through the provided websocket connection.
-func (m *ManaBuffer) SendValueMsgs(ws *websocket.Conn) error {
-	m.valueMsgsMutex.RLock()
-	defer m.valueMsgsMutex.RUnlock()
-	for _, valueMsg := range m.ValueMsgs {
-		msg := &wsmsg{
-			Type: MsgTypeManaValue,
-			Data: valueMsg,
+// SendValueBlks sends all blks in the buffer through the provided websocket connection.
+func (m *ManaBuffer) SendValueBlks(ws *websocket.Conn) error {
+	m.valueBlksMutex.RLock()
+	defer m.valueBlksMutex.RUnlock()
+	for _, valueBlk := range m.ValueBlks {
+		blk := &wsblk{
+			Type: BlkTypeManaValue,
+			Data: valueBlk,
 		}
-		if err := sendJSON(ws, msg); err != nil {
+		if err := sendJSON(ws, blk); err != nil {
 			return errors.Errorf("failed to send mana value to client: %w", err)
 		}
 	}
 	return nil
 }
 
-// StoreMapOverall stores network mana map msg data.
-func (m *ManaBuffer) StoreMapOverall(msgs ...*ManaNetworkListMsgData) {
+// StoreMapOverall stores network mana map blk data.
+func (m *ManaBuffer) StoreMapOverall(blks ...*ManaNetworkListBlkData) {
 	m.mapOverallMutex.Lock()
 	defer m.mapOverallMutex.Unlock()
-	for _, msg := range msgs {
-		manaType, err := mana.TypeFromString(msg.ManaType)
+	for _, blk := range blks {
+		manaType, err := mana.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue
 		}
-		m.MapOverall[manaType] = msg
+		m.MapOverall[manaType] = blk
 	}
 }
 
@@ -127,29 +127,29 @@ func (m *ManaBuffer) StoreMapOverall(msgs ...*ManaNetworkListMsgData) {
 func (m *ManaBuffer) SendMapOverall(ws *websocket.Conn) error {
 	m.mapOverallMutex.RLock()
 	defer m.mapOverallMutex.RUnlock()
-	for _, msgData := range m.MapOverall {
-		msg := &wsmsg{
-			Type: MsgTypeManaMapOverall,
-			Data: msgData,
+	for _, blkData := range m.MapOverall {
+		blk := &wsblk{
+			Type: BlkTypeManaMapOverall,
+			Data: blkData,
 		}
-		if err := sendJSON(ws, msg); err != nil {
+		if err := sendJSON(ws, blk); err != nil {
 			return errors.Errorf("failed to send overall mana map to client: %w", err)
 		}
 	}
 	return nil
 }
 
-// StoreMapOnline stores network mana map msg data.
-func (m *ManaBuffer) StoreMapOnline(msgs ...*ManaNetworkListMsgData) {
+// StoreMapOnline stores network mana map blk data.
+func (m *ManaBuffer) StoreMapOnline(blks ...*ManaNetworkListBlkData) {
 	m.mapOnlineMutex.Lock()
 	defer m.mapOnlineMutex.Unlock()
-	for _, msg := range msgs {
-		manaType, err := mana.TypeFromString(msg.ManaType)
+	for _, blk := range blks {
+		manaType, err := mana.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue
 		}
-		m.MapOnline[manaType] = msg
+		m.MapOnline[manaType] = blk
 	}
 }
 
@@ -157,12 +157,12 @@ func (m *ManaBuffer) StoreMapOnline(msgs ...*ManaNetworkListMsgData) {
 func (m *ManaBuffer) SendMapOnline(ws *websocket.Conn) error {
 	m.mapOnlineMutex.RLock()
 	defer m.mapOnlineMutex.RUnlock()
-	for _, msgData := range m.MapOnline {
-		msg := &wsmsg{
-			Type: MsgTypeManaMapOnline,
-			Data: msgData,
+	for _, blkData := range m.MapOnline {
+		blk := &wsblk{
+			Type: BlkTypeManaMapOnline,
+			Data: blkData,
 		}
-		if err := sendJSON(ws, msg); err != nil {
+		if err := sendJSON(ws, blk); err != nil {
 			return errors.Errorf("failed to send online mana map to client: %w", err)
 		}
 	}
