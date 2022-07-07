@@ -144,8 +144,6 @@ func onTransactionAccepted(transactionID utxo.TransactionID) {
 			InputInfos: inputInfos,
 		}
 
-		fmt.Println(">> onTransactionAccepted", txInfo)
-
 		// book in only access mana
 		baseManaVectors[mana.AccessMana].Book(txInfo)
 	})
