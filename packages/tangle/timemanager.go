@@ -145,6 +145,14 @@ func (t *TimeManager) RCTT() time.Time {
 	return t.RATT()
 }
 
+// ActivityTime return the time used for defining nodes' activity window.
+func (t *TimeManager) ActivityTime() time.Time {
+	if t.Bootstrapped() {
+		return t.RATT()
+	}
+	return t.ATT()
+}
+
 // Bootstrapped returns whether the node has bootstrapped based on the difference between CTT and the current wall time which can
 // be configured via SyncTimeWindow.
 // When the node becomes bootstrapped and this method returns true, it can't return false after that.
