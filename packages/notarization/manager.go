@@ -201,7 +201,7 @@ func (m *Manager) OnBlockConfirmed(block *tangle.Block) {
 		m.log.Error(err)
 		return
 	}
-	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
+	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
 // OnBlockOrphaned is the handler for block orphaned event.
@@ -218,8 +218,8 @@ func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	
-	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
+
+	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 	transaction, isTransaction := block.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
@@ -569,9 +569,9 @@ type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommittable *event.Event[*EpochCommittableEvent]
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
-	// TangleTreeInserted is an event that gets triggered when a Message is inserted into the Tangle smt.
+	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
-	// TangleTreeRemoved is an event that gets triggered when a Message is removed from Tangle smt.
+	// TangleTreeRemoved is an event that gets triggered when a Block is removed from Tangle smt.
 	TangleTreeRemoved *event.Event[*TangleTreeUpdatedEvent]
 	// StateMutationTreeInserted is an event that gets triggered when a transaction is inserted into the state mutation smt.
 	StateMutationTreeInserted *event.Event[*StateMutationTreeUpdatedEvent]
@@ -585,10 +585,10 @@ type Events struct {
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
 type TangleTreeUpdatedEvent struct {
-	// EI is the index of the message.
+	// EI is the index of the block.
 	EI epoch.Index
-	// MessageID is the messageID that inserted/removed to/from the tangle smt.
-	MessageID tangle.MessageID
+	// BlockID is the blockID that inserted/removed to/from the tangle smt.
+	BlockID tangle.BlockID
 }
 
 // StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
