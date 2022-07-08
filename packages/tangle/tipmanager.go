@@ -93,8 +93,8 @@ func (t *TipManager) AddTip(block *Block) {
 		return
 	}
 
-	// Check if any childs that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its childs.
-	if t.checkChilds(blockID) {
+	// Check if any children that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its children.
+	if t.checkChildren(blockID) {
 		return
 	}
 
@@ -146,10 +146,10 @@ func (t *TipManager) deleteTip(blkID BlockID) (deleted bool) {
 	return
 }
 
-// checkChilds returns true if the block has any confirmed or scheduled child.
-func (t *TipManager) checkChilds(blockID BlockID) bool {
+// checkChildren returns true if the block has any confirmed or scheduled child.
+func (t *TipManager) checkChildren(blockID BlockID) bool {
 	childScheduledConfirmed := false
-	t.tangle.Storage.Childs(blockID).Consume(func(child *Child) {
+	t.tangle.Storage.Children(blockID).Consume(func(child *Child) {
 		if childScheduledConfirmed {
 			return
 		}

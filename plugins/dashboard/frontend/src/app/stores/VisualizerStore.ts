@@ -33,7 +33,7 @@ export class VisualizerStore {
 
     // the currently selected vertex via hover
     @observable selected: Vertex;
-    @observable selected_childs_count = 0;
+    @observable selected_children_count = 0;
     @observable selected_parents_count = 0;
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
@@ -324,7 +324,7 @@ export class VisualizerStore {
         dfsIterator(this.graph,
             node,
             node => {
-                this.selected_childs_count++;
+                this.selected_children_count++;
             },
             true,
             link => {
@@ -356,7 +356,7 @@ export class VisualizerStore {
             return;
         }
 
-        this.selected_childs_count = 0;
+        this.selected_children_count = 0;
         this.selected_parents_count = 0;
 
         // clear link highlight

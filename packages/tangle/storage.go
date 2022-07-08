@@ -22,8 +22,8 @@ const (
 	// PrefixBlockMetadata defines the storage prefix for block metadata.
 	PrefixBlockMetadata
 
-	// PrefixChilds defines the storage prefix for childs.
-	PrefixChilds
+	// PrefixChildren defines the storage prefix for children.
+	PrefixChildren
 
 	// PrefixMissingBlock defines the storage prefix for missing block.
 	PrefixMissingBlock
@@ -89,7 +89,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		shutdown:                            make(chan struct{}),
 		blockStorage:                        objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		blockMetadataStorage:                objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		childStorage:                        objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChilds), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		childStorage:                        objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChildren), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		missingBlockStorage:                 objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		attachmentStorage:                   objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexConflictIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexConflictIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerConflictIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -162,9 +162,9 @@ func (s *Storage) BlockMetadata(blockID BlockID, computeIfAbsentCallback ...func
 	return s.blockMetadataStorage.Load(blockID.Bytes())
 }
 
-// Childs retrieves the Childs of a Block from the object storage. It is possible to provide an optional
-// ChildType to only return the corresponding Childs.
-func (s *Storage) Childs(blockID BlockID, optionalChildType ...ChildType) (cachedChilds objectstorage.CachedObjects[*Child]) {
+// Children retrieves the Children of a Block from the object storage. It is possible to provide an optional
+// ChildType to only return the corresponding Children.
+func (s *Storage) Children(blockID BlockID, optionalChildType ...ChildType) (cachedChildren objectstorage.CachedObjects[*Child]) {
 	var iterationPrefix []byte
 	if len(optionalChildType) >= 1 {
 		iterationPrefix = byteutils.ConcatBytes(blockID.Bytes(), optionalChildType[0].Bytes())
@@ -172,9 +172,9 @@ func (s *Storage) Childs(blockID BlockID, optionalChildType ...ChildType) (cache
 		iterationPrefix = blockID.Bytes()
 	}
 
-	cachedChilds = make(objectstorage.CachedObjects[*Child], 0)
+	cachedChildren = make(objectstorage.CachedObjects[*Child], 0)
 	s.childStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Child]) bool {
-		cachedChilds = append(cachedChilds, cachedObject)
+		cachedChildren = append(cachedChildren, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
@@ -456,18 +456,18 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 	return
 }
 
-// RetrieveAllTips returns the tips (i.e., solid blocks that are not part of the childs list).
+// RetrieveAllTips returns the tips (i.e., solid blocks that are not part of the children list).
 // It iterates over the blockMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
 func (s *Storage) RetrieveAllTips() (tips []BlockID) {
 	s.blockMetadataStorage.ForEach(func(key []byte, cachedBlock *objectstorage.CachedObject[*BlockMetadata]) bool {
 		cachedBlock.Consume(func(blockMetadata *BlockMetadata) {
 			if blockMetadata != nil && blockMetadata.IsSolid() {
-				cachedChilds := s.Childs(blockMetadata.ID())
-				if len(cachedChilds) == 0 {
+				cachedChildren := s.Children(blockMetadata.ID())
+				if len(cachedChildren) == 0 {
 					tips = append(tips, blockMetadata.ID())
 				}
-				cachedChilds.Release()
+				cachedChildren.Release()
 			}
 		})
 		return true

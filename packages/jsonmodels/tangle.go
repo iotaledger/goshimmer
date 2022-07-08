@@ -10,9 +10,9 @@ type Block struct {
 	StrongParents        []string `json:"strongParents"`
 	WeakParents          []string `json:"weakParents"`
 	ShallowLikeParents   []string `json:"shallowLikeParents"`
-	StrongChilds         []string `json:"strongChilds"`
-	WeakChilds           []string `json:"weakChilds"`
-	ShallowLikeChilds    []string `json:"shallowLikeChilds"`
+	StrongChildren         []string `json:"strongChildren"`
+	WeakChildren           []string `json:"weakChildren"`
+	ShallowLikeChildren    []string `json:"shallowLikeChildren"`
 	IssuerPublicKey      string   `json:"issuerPublicKey"`
 	IssuingTime          int64    `json:"issuingTime"`
 	SequenceNumber       uint64   `json:"sequenceNumber"`

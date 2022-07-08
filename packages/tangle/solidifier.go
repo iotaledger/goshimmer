@@ -44,7 +44,7 @@ func (s *Solidifier) Setup() {
 	}))
 
 	s.Events.BlockSolid.Attach(event.NewClosure(func(event *BlockSolidEvent) {
-		s.processChilds(event.Block.ID())
+		s.processChildren(event.Block.ID())
 	}))
 }
 
@@ -62,8 +62,8 @@ func (s *Solidifier) solidify(block *Block) {
 	})
 }
 
-func (s *Solidifier) processChilds(blockID BlockID) {
-	s.tangle.Storage.Childs(blockID).Consume(func(child *Child) {
+func (s *Solidifier) processChildren(blockID BlockID) {
+	s.tangle.Storage.Children(blockID).Consume(func(child *Child) {
 		event.Loop.Submit(func() {
 			s.Solidify(child.ChildBlockID())
 		})
@@ -86,7 +86,7 @@ func (s *Solidifier) RetrieveMissingBlock(blockID BlockID) (blockWasMissing bool
 	return blockWasMissing
 }
 
-// checkBlockSolidity checks if the given Block is solid and eventually queues its Childs to also be checked.
+// checkBlockSolidity checks if the given Block is solid and eventually queues its Children to also be checked.
 func (s *Solidifier) checkBlockSolidity(block *Block, blockMetadata *BlockMetadata) (blockBecameSolid bool) {
 	s.mutex.Lock(block.ID())
 	defer s.mutex.Unlock(block.ID())

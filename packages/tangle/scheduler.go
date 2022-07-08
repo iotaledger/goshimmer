@@ -132,7 +132,7 @@ func (s *Scheduler) Setup() {
 	}))
 
 	s.tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
-		s.updateChilds(event.BlockID)
+		s.updateChildren(event.BlockID)
 	}))
 
 	onBlockConfirmed := func(block *Block) {
@@ -153,7 +153,7 @@ func (s *Scheduler) Setup() {
 				s.Events.BlockSkipped.Trigger(&BlockSkippedEvent{blockID})
 			}
 		})
-		s.updateChilds(blockID)
+		s.updateChildren(blockID)
 	}
 
 	s.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
@@ -347,10 +347,10 @@ func (s *Scheduler) tryReady(blockID BlockID) {
 	}
 }
 
-// updateChilds iterates over the direct childs of the given blockID and
+// updateChildren iterates over the direct children of the given blockID and
 // tries to mark them as ready.
-func (s *Scheduler) updateChilds(blockID BlockID) {
-	s.tangle.Storage.Childs(blockID).Consume(func(child *Child) {
+func (s *Scheduler) updateChildren(blockID BlockID) {
+	s.tangle.Storage.Children(blockID).Consume(func(child *Child) {
 		s.tryReady(child.ChildBlockID())
 	})
 }

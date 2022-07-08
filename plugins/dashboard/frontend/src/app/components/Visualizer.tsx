@@ -61,7 +61,7 @@ export class Visualizer extends React.Component<Props, any> {
     render() {
         let {
             vertices, finalized_count, selected,
-            selected_childs_count, selected_parents_count,
+            selected_children_count, selected_parents_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
         let {last_mps_metric, collecting} = this.props.nodeStore;
@@ -162,8 +162,8 @@ export class Visualizer extends React.Component<Props, any> {
                             </Link>
                             : "-"}
                             <br/>
-                            Childs/Parents: {selected ?
-                            <span>{selected_childs_count}/{selected_parents_count}</span>
+                            Children/Parents: {selected ?
+                            <span>{selected_children_count}/{selected_parents_count}</span>
                             : '-/-'}
                             <br/>
                             {

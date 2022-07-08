@@ -271,7 +271,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		conflicts := []*conflictVertex{}
 		conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
 		entryBlks := tangle.NewBlockIDs()
-		deps.Tangle.Storage.Childs(tangle.EmptyBlockID).Consume(func(child *tangle.Child) {
+		deps.Tangle.Storage.Children(tangle.EmptyBlockID).Consume(func(child *tangle.Child) {
 			entryBlks.Add(child.ChildBlockID())
 		})
 
@@ -307,7 +307,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 
 				// continue walking if the block is issued before endTimestamp
 				if blk.IssuingTime().Before(endTimestamp) {
-					deps.Tangle.Storage.Childs(blockID).Consume(func(child *tangle.Child) {
+					deps.Tangle.Storage.Children(blockID).Consume(func(child *tangle.Child) {
 						walker.Push(child.ChildBlockID())
 					})
 				}
