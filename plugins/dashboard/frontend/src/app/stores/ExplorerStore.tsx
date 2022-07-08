@@ -1,5 +1,5 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSBlkType} from "app/misc/WS";
+import {registerHandler, WSMsgType} from "app/misc/WS";
 import {
     BasicPayload,
     getPayloadType,
@@ -179,7 +179,7 @@ export class ExplorerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        registerHandler(WSBlkType.Block, this.addLiveFeedBlock);
+        registerHandler(WSMsgType.Block, this.addLiveFeedBlock);
     }
 
     searchAny = async () => {
