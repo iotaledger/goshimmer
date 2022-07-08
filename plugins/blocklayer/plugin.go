@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -59,6 +60,7 @@ type dependencies struct {
 	Discover         *discover.Protocol `optional:"true"`
 	Storage          kvstore.KVStore
 	RemoteLoggerConn *remotelog.RemoteLoggerConn `optional:"true"`
+	NotarizationMgr  *notarization.Manager
 }
 
 type tangledeps struct {

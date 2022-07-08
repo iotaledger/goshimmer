@@ -1,13 +1,11 @@
 package notarization
 
 import (
-	"reflect"
 	"sync/atomic"
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types/confirmation"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
@@ -60,10 +58,6 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	// attach all events
 	notarizationManager.Events.EpochCommittable.Hook(event.NewClosure(e.EpochCommittable))
 	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
-
-	// assure that all available events are mocked
-	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
 
 	return e
 }

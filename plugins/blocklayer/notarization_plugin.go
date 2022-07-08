@@ -20,7 +20,14 @@ const (
 	NotarizationPluginName = "Notarization"
 )
 
-type notarizationDependencies struct {
+type notarizationPluginDependencies struct {
+	dig.In
+
+	Tangle  *tangle.Tangle
+	Manager *notarization.Manager
+}
+
+type notarizationManagerDependencies struct {
 	dig.In
 
 	Tangle  *tangle.Tangle
@@ -29,9 +36,7 @@ type notarizationDependencies struct {
 
 var (
 	NotarizationPlugin *node.Plugin
-	notarizationDeps   = new(notarizationDependencies)
-
-	notarizationManager *notarization.Manager
+	notarizationDeps   = new(notarizationPluginDependencies)
 )
 
 func init() {
@@ -45,27 +50,26 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	notarizationManager = newNotarizationManager(*notarizationDeps)
 	if nodeSnapshot != nil {
-		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+		notarizationDeps.Manager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 	// attach mana plugin event after notarization manager has been initialized
-	notarizationManager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
+	notarizationDeps.Manager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
 }
 
 func runNotarizationPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Notarization", func(ctx context.Context) {
 		<-ctx.Done()
-		notarizationManager.Shutdown()
+		notarizationDeps.Manager.Shutdown()
 	}, shutdown.PriorityNotarization); err != nil {
 		NotarizationPlugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
-func newNotarizationManager(deps notarizationDependencies) *notarization.Manager {
+func newNotarizationManager(deps notarizationManagerDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
-		notarizationDeps.Tangle,
+		deps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
 		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))
@@ -73,10 +77,10 @@ func newNotarizationManager(deps notarizationDependencies) *notarization.Manager
 
 // GetLatestEC returns the latest commitment that a new block should commit to.
 func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
-	ecRecord, err = notarizationManager.GetLatestEC()
+	ecRecord, err = notarizationDeps.Manager.GetLatestEC()
 	if err != nil {
 		return
 	}
-	latestConfirmedEpoch, err = notarizationManager.LatestConfirmedEpochIndex()
+	latestConfirmedEpoch, err = notarizationDeps.Manager.LatestConfirmedEpochIndex()
 	return
 }

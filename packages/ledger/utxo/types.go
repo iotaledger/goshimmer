@@ -101,6 +101,14 @@ func (o *OutputID) FromRandomness() (err error) {
 	return nil
 }
 
+// FromBytes un-serializes an OutputID from a []byte.
+func (o *OutputID) FromBytes(outputBytes []byte) (err error) {
+	if _, err := serix.DefaultAPI.Decode(context.Background(), outputBytes, o, serix.WithValidation()); err != nil {
+		return errors.Errorf("Fail to parse outputID from bytes: %w", err)
+	}
+	return nil
+}
+
 // RegisterAlias allows to register a human-readable alias for the OutputID which will be used as a replacement for the
 // String method.
 func (o OutputID) RegisterAlias(alias string) {
