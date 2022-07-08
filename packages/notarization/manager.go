@@ -483,7 +483,7 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	return
 }
 
-func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent) {
+func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent) {
 	epochForManaVector := ei - epoch.Index(m.options.ManaEpochDelay)
 	if epochForManaVector < 1 {
 		return
@@ -524,7 +524,9 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		}
 
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
-		manaVectorUpdateEvents = append(manaVectorUpdateEvents, m.triggerManaVectorUpdate(ei))
+		if manaVectorUpdateEvent := m.manaVectorUpdate(ei); manaVectorUpdateEvent != nil {
+			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)
+		}
 	}
 
 	go func() {
