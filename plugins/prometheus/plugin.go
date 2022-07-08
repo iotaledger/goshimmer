@@ -70,6 +70,7 @@ func configure(plugin *node.Plugin) {
 		registerManaMetrics()
 		registerSchedulerMetrics()
 		registerRateSetterMetrics()
+		registerEpochCommittmentMetrics()
 	}
 
 	if metrics.Parameters.Global {

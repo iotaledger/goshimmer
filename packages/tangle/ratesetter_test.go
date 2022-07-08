@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/epoch"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 

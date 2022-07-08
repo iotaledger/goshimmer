@@ -126,15 +126,14 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
-
-	// select tips, perform PoW and prepare references
-	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, issuerPublicKey, sequenceNumber, lastConfirmedEpochIndex, epochCommitment)
 	if epochCommitmentErr != nil {
 		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
 
+	// select tips, perform PoW and prepare references
+	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, issuerPublicKey, sequenceNumber, lastConfirmedEpochIndex, epochCommitment)
 	if err != nil {
 		return nil, errors.Errorf("could not select tips and perform PoW: %w", err)
 	}
