@@ -229,7 +229,7 @@ func (s *Storage) IsTransactionAttachedByBlock(transactionID utxo.TransactionID,
 	return s.attachmentStorage.Contains(NewAttachment(transactionID, blockID).ObjectStorageKey())
 }
 
-// DeleteBlock deletes a block and its association to approvees by un-marking the given
+// DeleteBlock deletes a block and its association to parents by un-marking the given
 // block as an child.
 func (s *Storage) DeleteBlock(blockID BlockID) {
 	s.Block(blockID).Consume(func(currentBlk *Block) {

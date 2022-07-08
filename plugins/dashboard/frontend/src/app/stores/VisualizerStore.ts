@@ -34,7 +34,7 @@ export class VisualizerStore {
     // the currently selected vertex via hover
     @observable selected: Vertex;
     @observable selected_childs_count = 0;
-    @observable selected_approvees_count = 0;
+    @observable selected_parents_count = 0;
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
 
@@ -173,32 +173,32 @@ export class VisualizerStore {
 
             Object.keys(vert.parentIDsByType).map((parentType) => {
                 vert.parentIDsByType[parentType].forEach((value) => {
-                    this.deleteApproveeLink(value)
+                    this.deleteParentLink(value)
                 })
             })
         }
     }
 
     @action
-    deleteApproveeLink = (approveeId: string) => {
-        if (!approveeId) {
+    deleteParentLink = (parentId: string) => {
+        if (!parentId) {
             return;
         }
-        let approvee = this.vertices.get(approveeId);
-        if (approvee) {
-            if (this.selected && approveeId === this.selected.id) {
+        let parent = this.vertices.get(parentId);
+        if (parent) {
+            if (this.selected && parentId === this.selected.id) {
                 this.clearSelected();
             }
-            if (approvee.is_finalized) {
+            if (parent.is_finalized) {
                 this.finalized_count--;
             }
-            if (approvee.is_tip) {
+            if (parent.is_tip) {
                 this.tips_count--;
             }
-            this.vertices.delete(approveeId);
+            this.vertices.delete(parentId);
         }
         if (this.draw) {
-            this.graph.removeNode(approveeId);
+            this.graph.removeNode(parentId);
         }
     }
 
@@ -334,7 +334,7 @@ export class VisualizerStore {
             seenForward
         );
         dfsIterator(this.graph, node, node => {
-                this.selected_approvees_count++;
+                this.selected_parents_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
                 linkUI.color = parseColor("#b58900");
@@ -357,7 +357,7 @@ export class VisualizerStore {
         }
 
         this.selected_childs_count = 0;
-        this.selected_approvees_count = 0;
+        this.selected_parents_count = 0;
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);

@@ -5,10 +5,10 @@ import { BRANCH, UTXO } from '../styles/cytoscapeStyles';
 export class TangleLegend extends React.Component<any, any> {
     render() {
         const nodeLabels = [
-            'MSG Confirmed',
-            'MSG Pending',
-            'MSG with TX Confirmed',
-            'MSG with TX Pending',
+            'BLK Confirmed',
+            'BLK Pending',
+            'BLK with TX Confirmed',
+            'BLK with TX Pending',
             'Tip',
             'Unknown'
         ];

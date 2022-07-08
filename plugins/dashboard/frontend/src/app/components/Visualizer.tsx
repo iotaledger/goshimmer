@@ -61,7 +61,7 @@ export class Visualizer extends React.Component<Props, any> {
     render() {
         let {
             vertices, finalized_count, selected,
-            selected_childs_count, selected_approvees_count,
+            selected_childs_count, selected_parents_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
         let {last_mps_metric, collecting} = this.props.nodeStore;
@@ -129,11 +129,11 @@ export class Visualizer extends React.Component<Props, any> {
                     <Col xs={{span: 5, offset: 2}}>
                         <p>
                             <Badge pill style={{background: "#b9b7bd", color: "white"}}>
-                                MSG Pending
+                                BLK Pending
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#6c71c4", color: "white"}}>
-                                MSG Confirmed
+                                BLK Confirmed
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#393e46", color: "white"}}>
@@ -162,8 +162,8 @@ export class Visualizer extends React.Component<Props, any> {
                             </Link>
                             : "-"}
                             <br/>
-                            Childs/Approvees: {selected ?
-                            <span>{selected_childs_count}/{selected_approvees_count}</span>
+                            Childs/Parents: {selected ?
+                            <span>{selected_childs_count}/{selected_parents_count}</span>
                             : '-/-'}
                             <br/>
                             {
