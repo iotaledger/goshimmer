@@ -6,9 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
-var (
-	lastCommittedEpoch prometheus.Gauge
-)
+var lastCommittedEpoch prometheus.Gauge
 
 func registerEpochCommittmentMetrics() {
 	lastCommittedEpoch = prometheus.NewGauge(prometheus.GaugeOpts{

@@ -116,17 +116,17 @@ func GetBlock(c echo.Context) (err error) {
 		ecRecord.SetPrevEC(block.PrevEC())
 
 		err = c.JSON(http.StatusOK, jsonmodels.Block{
-			ID:                 block.ID().Base58(),
-			StrongParents:      block.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParents:        block.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParents: block.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			StrongChildren:       deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.StrongChild).Base58(),
-			WeakChildren:         deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.WeakChild).Base58(),
-			ShallowLikeChildren:  deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.ShallowLikeChild).Base58(),
-			IssuerPublicKey:    block.IssuerPublicKey().String(),
-			IssuingTime:        block.IssuingTime().Unix(),
-			SequenceNumber:     block.SequenceNumber(),
-			PayloadType:        block.Payload().Type().String(),
+			ID:                  block.ID().Base58(),
+			StrongParents:       block.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParents:         block.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParents:  block.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			StrongChildren:      deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.StrongChild).Base58(),
+			WeakChildren:        deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.WeakChild).Base58(),
+			ShallowLikeChildren: deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.ShallowLikeChild).Base58(),
+			IssuerPublicKey:     block.IssuerPublicKey().String(),
+			IssuingTime:         block.IssuingTime().Unix(),
+			SequenceNumber:      block.SequenceNumber(),
+			PayloadType:         block.Payload().Type().String(),
 			TransactionID: func() string {
 				if block.Payload().Type() == devnetvm.TransactionType {
 					return block.Payload().(*devnetvm.Transaction).ID().Base58()
