@@ -73,11 +73,11 @@ Note that we're getting actual `Block` objects from this call which represent a 
         "B89koPthm9zDx1p1fbkHwoyC1Buq896Spu3Mx1SmSete"
     ],
     "weakParents": [],
-    "strongChilds": [
+    "strongChildren": [
         "4E4ucAA9UTTd1UC6ri4GYaS4dpzEnHPjs5gMEYhpUK8p",
         "669BRH69afQ7VfZGmNTMTeh2wnwXGKdBxtUCcRQ9CPzq"
     ],
-    "weakChilds": [],
+    "weakChildren": [],
     "issuerPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
     "issuingTime": 1621873309,
     "sequenceNumber": 4354,
@@ -94,8 +94,8 @@ Note that we're getting actual `Block` objects from this call which represent a 
 | `id`  | `string` | Block ID. |
 | `strongParents`  | `[]string` | List of strong parents' block IDs. |
 | `weakParents`  | `[]string` | List of weak parents' block IDs. |
-| `strongChilds`  | `[]string` | List of strong childs' block IDs. |
-| `weakChilds`  | `[]string` | List of weak childs' block IDs. |
+| `strongChildren`  | `[]string` | List of strong children' block IDs. |
+| `weakChildren`  | `[]string` | List of weak children' block IDs. |
 | `issuerPublicKey`  | `[]string` | Public key of issuing node. |
 | `issuingTime`  | `int64` | Time this block was issued |
 | `sequenceNumber`  | `uint64` | Block sequence number. |
@@ -176,7 +176,7 @@ fmt.Println(string(block.Finalized))
 | `receivedTime`  | `int64` | Time when block was received by the node. |
 | `solid`  | `bool` | Flag indicating whether the block is solid. |
 | `solidificationTime`  | `int64` | Time when block was solidified by the node. |
-| `structureDetails`  | `StructureDetails` | List of weak childs' block IDs. |
+| `structureDetails`  | `StructureDetails` | List of weak children' block IDs. |
 | `conflictID`  | `string` | Name of conflict that the block is part of. |
 | `scheduled`  | `bool` | Flag indicating whether the block is scheduled. |
 | `booked`  | `bool` | Flag indicating whether the block is booked. |

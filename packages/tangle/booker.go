@@ -173,7 +173,7 @@ func (b *Booker) processBookedTransaction(id utxo.TransactionID, blockIDToIgnore
 }
 
 func (b *Booker) propagateBooking(blockID BlockID) {
-	b.tangle.Storage.Childs(blockID).Consume(func(child *Child) {
+	b.tangle.Storage.Children(blockID).Consume(func(child *Child) {
 		event.Loop.Submit(func() {
 			b.tangle.Storage.Block(child.ChildBlockID()).Consume(func(approvingBlock *Block) {
 				b.book(approvingBlock)

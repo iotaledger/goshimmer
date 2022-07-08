@@ -24,9 +24,9 @@ export class Block {
     issuer_short_id: string;
     signature: string;
     parentsByType: Map<string, Array<string>>;
-    strongChilds: Array<string>;
-    weakChilds: Array<string>;
-    shallowLikeChilds: Array<string>;
+    strongChildren: Array<string>;
+    weakChildren: Array<string>;
+    shallowLikeChildren: Array<string>;
     solid: boolean;
     conflictIDs: Array<string>;
     addedConflictIDs: Array<string>;

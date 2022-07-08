@@ -114,10 +114,10 @@ func (u *Utils) checkBookedParents(block *Block, attachmentBlockID BlockID, getP
 }
 
 // ApprovingBlockIDs returns the BlockIDs that approve a given Block. It accepts an optional ChildType to
-// filter the Childs.
+// filter the Children.
 func (u *Utils) ApprovingBlockIDs(blockID BlockID, optionalChildType ...ChildType) (approvingBlockIDs BlockIDs) {
 	approvingBlockIDs = NewBlockIDs()
-	u.tangle.Storage.Childs(blockID, optionalChildType...).Consume(func(child *Child) {
+	u.tangle.Storage.Children(blockID, optionalChildType...).Consume(func(child *Child) {
 		approvingBlockIDs.Add(child.ChildBlockID())
 	})
 

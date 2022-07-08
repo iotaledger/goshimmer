@@ -70,7 +70,7 @@ Followed by the bytes filters, the received bytes are parsed into a block and it
 
 ### Storage
 
-Only blocks that pass the Parser are stored, along with their metadata. Additionally, new blocks are stored as childs of their parents, i.e., a reverse mapping that enables us to walk the Tangle into the future cone of a block.
+Only blocks that pass the Parser are stored, along with their metadata. Additionally, new blocks are stored as children of their parents, i.e., a reverse mapping that enables us to walk the Tangle into the future cone of a block.
 
 ### Solidifier
 

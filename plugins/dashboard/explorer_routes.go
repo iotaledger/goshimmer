@@ -40,12 +40,12 @@ type ExplorerBlock struct {
 	Signature string `json:"signature"`
 	// ParentsByType is the map of parents group by type
 	ParentsByType map[string][]string `json:"parentsByType"`
-	// StrongChilds are the strong childs of the block.
-	StrongChilds []string `json:"strongChilds"`
-	// WeakChilds are the weak childs of the block.
-	WeakChilds []string `json:"weakChilds"`
-	// ShallowLikeChilds are the shallow like childs of the block.
-	ShallowLikeChilds []string `json:"shallowLikeChilds"`
+	// StrongChildren are the strong children of the block.
+	StrongChildren []string `json:"strongChildren"`
+	// WeakChildren are the weak children of the block.
+	WeakChildren []string `json:"weakChildren"`
+	// ShallowLikeChildren are the shallow like children of the block.
+	ShallowLikeChildren []string `json:"shallowLikeChildren"`
 	// Solid defines the solid status of the block.
 	Solid                 bool               `json:"solid"`
 	ConflictIDs           []string           `json:"conflictIDs"`
@@ -97,9 +97,9 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 		Signature:               blk.Signature().String(),
 		SequenceNumber:          blk.SequenceNumber(),
 		ParentsByType:           prepareParentReferences(blk),
-		StrongChilds:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.StrongChild).Base58(),
-		WeakChilds:              deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.WeakChild).Base58(),
-		ShallowLikeChilds:       deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.ShallowLikeChild).Base58(),
+		StrongChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.StrongChild).Base58(),
+		WeakChildren:              deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.WeakChild).Base58(),
+		ShallowLikeChildren:       deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.ShallowLikeChild).Base58(),
 		Solid:                   blockMetadata.IsSolid(),
 		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),

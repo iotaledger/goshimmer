@@ -58,7 +58,7 @@ The Tangle represents a growing partially-ordered set of blocks, linked with eac
 - **Future cone**: All blocks that directly or indirectly reference a block are called its future cone.
 - **Solidity**: A block is marked as solid if its entire past cone until the Genesis (or the latest snapshot) is known.
 - **Parents**: A block directly references between 1-8 previous blocks that we call its **parents**. A parent can be either **strong** or **weak** (see [approval switch](#orphanage--approval-switch)).
-- **Childs**: Parents are approved by their referencing blocks called **childs**. It is thus a reverse mapping of parents. As in the parents' definition, an child might be either **strong** or **weak**.
+- **Children**: Parents are approved by their referencing blocks called **children**. It is thus a reverse mapping of parents. As in the parents' definition, an child might be either **strong** or **weak**.
 - **Conflict**: A version of the ledger that temporarily coexists with other versions, each spawned by conflicting transactions. 
 
 ## Blocks
@@ -399,7 +399,7 @@ When a block is scheduled, it is gossiped to the node's neighbors and, normally,
 except in the following situations:
 
 * A confirmed block shall not be added to the tip pool (it shall be skipped by the scheduler).
-* A block that has confirmed or scheduled childs shall not be added to the tip pool.
+* A block that has confirmed or scheduled children shall not be added to the tip pool.
 
 Additionally, strong parents of a block are removed from the tip pool, when the block is added and unused tips are removed from the tip pool after a certain amount of time.
 
@@ -419,12 +419,12 @@ A block inherits the conflict of its strong parents, while it does not inherit t
 
 #### Approval Weight
 
-The approval weight of a given block takes into account all of its future cone built over all its strong childs.
+The approval weight of a given block takes into account all of its future cone built over all its strong children.
 Let's consider the following example:
 
 [![Approval Weight](/img/protocol_specification/approval_weight_example.png "Approval Weight")](/img/protocol_specification/approval_weight_example.png )
 
-*E* is a weak block strongly approving *B* and *D*. When considering the approval weight of *B*, only the strong childs of its future cone are used, thus, *D, E, F*. Note that, the approval weight of *E* would instead be built over *G, H, I*. Therefore, its approval weight does not add up to its own weight (for instance, when looking at the approval weight of *B*).
+*E* is a weak block strongly approving *B* and *D*. When considering the approval weight of *B*, only the strong children of its future cone are used, thus, *D, E, F*. Note that, the approval weight of *E* would instead be built over *G, H, I*. Therefore, its approval weight does not add up to its own weight (for instance, when looking at the approval weight of *B*).
 
 ### Solidification
 

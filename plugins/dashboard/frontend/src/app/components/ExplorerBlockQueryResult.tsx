@@ -297,13 +297,13 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                             <Col>
                                 <ListGroup>
                                     {
-                                        blk.strongChilds.map((value, index) => {
+                                        blk.strongChildren.map((value, index) => {
                                             return (
                                                 <ListGroup.Item key={"Strong Child" + index + 1}
                                                                 className="text-break">
                                                     Strong Child {index + 1}: {' '}
-                                                    <Link to={`/explorer/block/${blk.strongChilds[index]}`}>
-                                                        {blk.strongChilds[index]}
+                                                    <Link to={`/explorer/block/${blk.strongChildren[index]}`}>
+                                                        {blk.strongChildren[index]}
                                                     </Link>
                                                 </ListGroup.Item>
                                             )
@@ -317,13 +317,13 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                             <Col>
                                 <ListGroup>
                                     {
-                                        blk.weakChilds.map((value, index) => {
+                                        blk.weakChildren.map((value, index) => {
                                             return (
                                                 <ListGroup.Item key={"Weak Child" + index + 1}
                                                                 className="text-break">
                                                     Weak Child {index + 1}: {' '}
-                                                    <Link to={`/explorer/block/${blk.weakChilds[index]}`}>
-                                                        {blk.weakChilds[index]}
+                                                    <Link to={`/explorer/block/${blk.weakChildren[index]}`}>
+                                                        {blk.weakChildren[index]}
                                                     </Link>
                                                 </ListGroup.Item>
                                             )
@@ -337,13 +337,13 @@ export class ExplorerBlockQueryResult extends React.Component<Props, any> {
                             <Col>
                                 <ListGroup>
                                     {
-                                        blk.shallowLikeChilds.map((value, index) => {
+                                        blk.shallowLikeChildren.map((value, index) => {
                                             return (
                                                 <ListGroup.Item key={"ShallowLike Child" + index + 1}
                                                                 className="text-break">
                                                     ShallowLike Child {index + 1}: {' '}
-                                                    <Link to={`/explorer/block/${blk.shallowLikeChilds[index]}`}>
-                                                        {blk.shallowLikeChilds[index]}
+                                                    <Link to={`/explorer/block/${blk.shallowLikeChildren[index]}`}>
+                                                        {blk.shallowLikeChildren[index]}
                                                     </Link>
                                                 </ListGroup.Item>
                                             )

@@ -77,7 +77,7 @@ mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
   block must satisfy the following conditions:
     * The block has a ready flag assigned. A ready flag is assigned to a block when all of its parents are eligible (the parents have been scheduled or confirmed).
     * The block timestamp is not in the future.
-* __Block skipping__. Once a block in the outbox is confirmed by another block approving it, it will get removed from the outbox buffer. Since the block already has childs and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
+* __Block skipping__. Once a block in the outbox is confirmed by another block approving it, it will get removed from the outbox buffer. Since the block already has children and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
 * __Block drop__: Due to the node's bootstrapping, network congestion, or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and isolate the attacker's spam, a node shall drop some blocks if the total number of blocks in all queues exceeds the maximum buffer size. Particularly, the node will drop blocks from the queue with the largest mana-scaled length, computed by dividing the number of blocks in the queue by the amount of access Mana of the corresponding node.
   - `Mana-scaled queue size = queue size / node aMana`;
 * __Scheduler management__: The scheduler counters and pointers are updated.
