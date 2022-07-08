@@ -1,6 +1,6 @@
 import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
-import {connectWebSocket, registerHandler, unregisterHandler, WSBlkType} from "app/misc/WS";
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
 
 class BPSMetric {
     mps: number;
@@ -213,25 +213,25 @@ export class NodeStore {
     }
 
     registerHandlers = () => {
-        registerHandler(WSBlkType.Status, this.updateStatus);
-        registerHandler(WSBlkType.BPSMetrics, (mps: number) => {
+        registerHandler(WSMsgType.Status, this.updateStatus);
+        registerHandler(WSMsgType.BPSMetrics, (mps: number) => {
             this.addBPSMetric(this.updateLastBPSMetric(mps));
         });
-        registerHandler(WSBlkType.NeighborStats, this.updateNeighborMetrics);
-        registerHandler(WSBlkType.TipsMetrics, this.updateLastTipsMetric);
-        registerHandler(WSBlkType.ComponentCounterMetrics, this.updateLastComponentMetric);
-        registerHandler(WSBlkType.RateSetter, this.updateLastRateSetterMetric)
+        registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
+        registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
+        registerHandler(WSMsgType.ComponentCounterMetrics, this.updateLastComponentMetric);
+        registerHandler(WSMsgType.RateSetter, this.updateLastRateSetterMetric)
 
         this.updateCollecting(true);
     }
 
     unregisterHandlers = () => {
-        unregisterHandler(WSBlkType.Status);
-        unregisterHandler(WSBlkType.BPSMetrics);
-        unregisterHandler(WSBlkType.NeighborStats);
-        unregisterHandler(WSBlkType.TipsMetrics);
-        unregisterHandler(WSBlkType.ComponentCounterMetrics);
-        unregisterHandler(WSBlkType.RateSetter);
+        unregisterHandler(WSMsgType.Status);
+        unregisterHandler(WSMsgType.BPSMetrics);
+        unregisterHandler(WSMsgType.NeighborStats);
+        unregisterHandler(WSMsgType.TipsMetrics);
+        unregisterHandler(WSMsgType.ComponentCounterMetrics);
+        unregisterHandler(WSMsgType.RateSetter);
         this.updateCollecting(false);
     }
 

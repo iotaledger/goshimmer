@@ -1,5 +1,5 @@
 import { action, observable, ObservableMap } from 'mobx';
-import { registerHandler, WSBlkType } from "app/misc/WS";
+import { registerHandler, WSMsgType } from "app/misc/WS";
 import { RouterStore } from "mobx-react-router";
 import { default as Viva } from 'vivagraphjs';
 
@@ -48,8 +48,8 @@ export class VisualizerStore {
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
         this.fetchHistory();
-        registerHandler(WSBlkType.Vertex, this.addVertex);
-        registerHandler(WSBlkType.TipInfo, this.addTipInfo);
+        registerHandler(WSMsgType.Vertex, this.addVertex);
+        registerHandler(WSMsgType.TipInfo, this.addTipInfo);
     }
 
     fetchHistory = async () => {

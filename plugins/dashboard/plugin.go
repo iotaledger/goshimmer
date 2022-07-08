@@ -193,8 +193,10 @@ const (
 	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
 	MsgTypeRateSetterMetric
-	// BlkTypeConflictsConflict defines a block that contains a conflict update for the conflictSet tab.
-	BlkTypeConflictsConflict
+	// MsgTypeConflictsConflictSet defines a websocket message that contains a conflictSet update for the "conflicts" tab.
+	MsgTypeConflictsConflictSet
+	// MsgTypeConflictsConflict defines a websocket message that contains a conflict update for the "conflicts" tab.
+	MsgTypeConflictsConflict
 )
 
 type wsblk struct {

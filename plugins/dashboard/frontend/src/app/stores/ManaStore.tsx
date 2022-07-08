@@ -1,5 +1,5 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSBlkType} from "../misc/WS";
+import {registerHandler, WSMsgType} from "../misc/WS";
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
 import Plus from "../../assets/plus.svg";
@@ -147,15 +147,15 @@ export class ManaStore {
     constructor() {
         this.manaValues = [];
 
-        registerHandler(WSBlkType.Mana, this.addNewManaValue);
-        registerHandler(WSBlkType.ManaMapOverall, this.updateNetworkRichest);
-        registerHandler(WSBlkType.ManaMapOnline, this.updateActiveRichest);
-        registerHandler(WSBlkType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
-        registerHandler(WSBlkType.ManaInitPledge, this.addNewInitPledge);
-        registerHandler(WSBlkType.ManaInitRevoke, this.addNewInitRevoke);
-        registerHandler(WSBlkType.ManaInitDone, this.initDone);
-        registerHandler(WSBlkType.ManaPledge, this.addNewPledge);
-        registerHandler(WSBlkType.ManaRevoke, this.addNewRevoke);
+        registerHandler(WSMsgType.Mana, this.addNewManaValue);
+        registerHandler(WSMsgType.ManaMapOverall, this.updateNetworkRichest);
+        registerHandler(WSMsgType.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSMsgType.ManaAllowedPledge, this.updateAllowedPledgeIDs);
+        registerHandler(WSMsgType.ManaInitPledge, this.addNewInitPledge);
+        registerHandler(WSMsgType.ManaInitRevoke, this.addNewInitRevoke);
+        registerHandler(WSMsgType.ManaInitDone, this.initDone);
+        registerHandler(WSMsgType.ManaPledge, this.addNewPledge);
+        registerHandler(WSMsgType.ManaRevoke, this.addNewRevoke);
     };
 
     @action

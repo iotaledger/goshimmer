@@ -1,4 +1,4 @@
-export enum WSBlkType {
+export enum WSMsgType {
     Status,
     BPSMetrics,
     Block,
@@ -19,6 +19,7 @@ export enum WSBlkType {
     BlkManaDashboardAddress,
     Chat,
     RateSetter,
+    ConflictSet,
     Conflict,
 }
 

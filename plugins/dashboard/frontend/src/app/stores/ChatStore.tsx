@@ -1,5 +1,5 @@
 import {action, computed, observable} from 'mobx';
-import {registerHandler, WSBlkType} from "app/misc/WS";
+import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
 import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
@@ -33,7 +33,7 @@ export class ChatStore {
     constructor(routerStore: RouterStore, nodeStore: NodeStore) {
         this.routerStore = routerStore;
         this.nodeStore = nodeStore;
-        registerHandler(WSBlkType.Chat, this.addLiveFeed);
+        registerHandler(WSMsgType.Chat, this.addLiveFeed);
     }
 
     @action
