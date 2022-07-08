@@ -483,17 +483,17 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	return
 }
 
-func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
+func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent) {
 	epochForManaVector := ei - epoch.Index(m.options.ManaEpochDelay)
 	if epochForManaVector < 1 {
 		return
 	}
 	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
-	m.Events.ManaVectorUpdate.Trigger(&ManaVectorUpdateEvent{
+	return &ManaVectorUpdateEvent{
 		EI:               ei,
 		EpochDiffCreated: created,
 		EpochDiffSpent:   spent,
-	})
+	}
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
@@ -502,6 +502,9 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		m.log.Errorf("could not obtain last committed epoch index: %v", err)
 		return
 	}
+
+	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
+	manaVectorUpdateEvents := make([]*ManaVectorUpdateEvent, 0)
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
 		if !m.isCommittable(ei) {
 			break
@@ -520,9 +523,18 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 			return
 		}
 
-		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
-		m.triggerManaVectorUpdate(ei)
+		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
+		manaVectorUpdateEvents = append(manaVectorUpdateEvents, m.triggerManaVectorUpdate(ei))
 	}
+
+	go func() {
+		for _, epochCommittableEvent := range epochCommittableEvents {
+			m.Events.EpochCommittable.Trigger(epochCommittableEvent)
+		}
+		for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
+			m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
+		}
+	}()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
