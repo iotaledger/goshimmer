@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"sync"
+	"time"
 
 	"go.uber.org/dig"
 
@@ -37,6 +38,7 @@ var (
 	committableEpochs      = make([]*epoch.ECRecord, 0)
 	epochVotersWeightMutex sync.RWMutex
 	epochVotersWeight      = make(map[epoch.Index]map[epoch.ECR]map[identity.ID]float64, 0)
+	epochVotersLatestVote  = make(map[identity.ID]*latestVote, 0)
 
 	maxEpochContentsToKeep   = 100
 	numEpochContentsToRemove = 20
@@ -54,6 +56,11 @@ type epochContentStorages struct {
 	transactionIDs kvstore.KVStore
 }
 
+type latestVote struct {
+	ei         epoch.Index
+	ecr        epoch.ECR
+	issuedTime time.Time
+}
 type dependencies struct {
 	dig.In
 
@@ -417,11 +424,20 @@ func saveEpochVotersWeight(message *tangle.Message) {
 	epochVotersWeightMutex.Lock()
 	defer epochVotersWeightMutex.Unlock()
 	epochIndex := message.M.EI
+	ecr := message.M.ECR
 	if _, ok := epochVotersWeight[epochIndex]; !ok {
 		epochVotersWeight[epochIndex] = make(map[epoch.ECR]map[identity.ID]float64)
 	}
-	if _, ok := epochVotersWeight[epochIndex][message.M.ECR]; !ok {
-		epochVotersWeight[epochIndex][message.M.ECR] = make(map[identity.ID]float64)
+	if _, ok := epochVotersWeight[epochIndex][ecr]; !ok {
+		epochVotersWeight[epochIndex][ecr] = make(map[identity.ID]float64)
 	}
-	epochVotersWeight[epochIndex][message.M.ECR][voter] = activeWeights[voter]
+
+	vote, ok := epochVotersLatestVote[voter]
+	if ok {
+		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(message.M.IssuingTime) {
+			delete(epochVotersWeight[vote.ei][vote.ecr], voter)
+		}
+	}
+	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: message.M.IssuingTime}
+	epochVotersWeight[epochIndex][ecr][voter] = activeWeights[voter]
 }
