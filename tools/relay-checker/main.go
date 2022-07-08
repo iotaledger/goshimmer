@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/dig"
@@ -50,7 +51,7 @@ func main() {
 	for i := 0; i < repeat; i++ {
 		blkID, err := testBroadcastData(api)
 		if err != nil {
-			fmt.Printf("%s\n", err)
+			fmt.Printf("%s\n", strings.ReplaceAll(err.Error(), "\n", ""))
 			break
 		}
 		fmt.Printf("blkID: %s\n", blkID)
@@ -61,14 +62,14 @@ func main() {
 		// query target node
 		err = testTargetGetBlocks(api, blkID)
 		if err != nil {
-			fmt.Printf("%s\n", err)
+			fmt.Printf("%s\n", strings.ReplaceAll(err.Error(), "\n", ""))
 			break
 		}
 
 		// query test nodes
 		err = testNodesGetBlocks(blkID)
 		if err != nil {
-			fmt.Printf("%s\n", err)
+			fmt.Printf("%s\n", strings.ReplaceAll(err.Error(), "\n", ""))
 			break
 		}
 	}

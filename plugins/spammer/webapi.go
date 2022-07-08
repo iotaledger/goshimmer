@@ -2,6 +2,7 @@ package spammer
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo"
@@ -41,7 +42,7 @@ func handleRequest(c echo.Context) error {
 
 		blockSpammer.Shutdown()
 		blockSpammer.Start(request.Rate, timeUnit, request.IMIF)
-		log.Infof("Started spamming blocks with %d %s and %s inter-block issuing function", request.Rate, request.Unit, request.IMIF)
+		log.Infof("Started spamming blocks with %d %s and %s inter-block issuing function", request.Rate, strings.ReplaceAll(request.Unit, "\n", ""), strings.ReplaceAll(request.IMIF, "\n", ""))
 		return c.JSON(http.StatusOK, jsonmodels.SpammerResponse{Block: "started spamming blocks"})
 	case "stop":
 		blockSpammer.Shutdown()

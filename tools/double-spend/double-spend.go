@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +34,7 @@ func main() {
 	myAddr := mySeed.Address(0)
 
 	if _, err := clients[0].BroadcastFaucetRequest(myAddr.Address().Base58(), -1); err != nil {
-		fmt.Println(err)
+		fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 		return
 	}
 
@@ -44,7 +45,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 		resp, err := clients[0].PostAddressUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 			return
 		}
 		fmt.Println("Waiting for funds to be confirmed...")

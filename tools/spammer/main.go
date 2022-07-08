@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -49,7 +50,7 @@ func main() {
 	for _, api := range apis {
 		resp, err := api.ToggleSpammer(enableSpammer, rate, unit, imif)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 			continue
 		}
 		fmt.Println(resp)
