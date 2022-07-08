@@ -61,7 +61,6 @@ export class Visualizer extends React.Component<Props, any> {
     render() {
         let {
             vertices, finalized_count, selected,
-            selected_children_count, selected_parents_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
         let {last_mps_metric, collecting} = this.props.nodeStore;
@@ -161,10 +160,6 @@ export class Visualizer extends React.Component<Props, any> {
                                 {selected.id.substr(0, 10)}
                             </Link>
                             : "-"}
-                            <br/>
-                            Children/Parents: {selected ?
-                            <span>{selected_children_count}/{selected_parents_count}</span>
-                            : '-/-'}
                             <br/>
                             {
                                 selected ? Object.keys(selected.parentIDsByType).map((parentType) =>

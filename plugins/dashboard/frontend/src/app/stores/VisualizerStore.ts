@@ -1,7 +1,7 @@
-import {action, observable, ObservableMap} from 'mobx';
-import {registerHandler, WSBlkType} from "app/misc/WS";
-import {RouterStore} from "mobx-react-router";
-import {default as Viva} from 'vivagraphjs';
+import { action, observable, ObservableMap } from 'mobx';
+import { registerHandler, WSBlkType } from "app/misc/WS";
+import { RouterStore } from "mobx-react-router";
+import { default as Viva } from 'vivagraphjs';
 
 export class Vertex {
     id: string;
@@ -33,8 +33,6 @@ export class VisualizerStore {
 
     // the currently selected vertex via hover
     @observable selected: Vertex;
-    @observable selected_children_count = 0;
-    @observable selected_parents_count = 0;
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
 
@@ -313,34 +311,10 @@ export class VisualizerStore {
         this.selected_via_click = !!viaClick;
 
         // mutate links
-        let node = this.graph.getNode(vert.id);
         let nodeUI = this.graphics.getNodeUI(vert.id);
         this.selected_origin_color = nodeUI.color
         nodeUI.color = parseColor("#859900");
         nodeUI.size = vertexSize * 1.5;
-
-        const seenForward = [];
-        const seenBackwards = [];
-        dfsIterator(this.graph,
-            node,
-            node => {
-                this.selected_children_count++;
-            },
-            true,
-            link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#d33682");
-            },
-            seenForward
-        );
-        dfsIterator(this.graph, node, node => {
-                this.selected_parents_count++;
-            }, false, link => {
-                const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = parseColor("#b58900");
-            },
-            seenBackwards
-        );
     }
 
     resetLinks = () => {
@@ -355,9 +329,6 @@ export class VisualizerStore {
         if (!this.selected || (this.selected_via_click && !force_clear)) {
             return;
         }
-
-        this.selected_children_count = 0;
-        this.selected_parents_count = 0;
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
@@ -374,7 +345,7 @@ export class VisualizerStore {
         const seenForward = [];
         const seenBackwards = [];
         dfsIterator(this.graph, node, node => {
-            }, true,
+        }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
                 linkUI.color = parseColor("#586e75");
@@ -382,7 +353,7 @@ export class VisualizerStore {
             seenBackwards
         );
         dfsIterator(this.graph, node, node => {
-            }, false,
+        }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
                 linkUI.color = parseColor("#586e75");
