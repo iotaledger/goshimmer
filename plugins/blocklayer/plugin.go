@@ -110,10 +110,8 @@ func configure(plugin *node.Plugin) {
 		deps.Tangle.ProcessGossipBlock(lo.PanicOnErr(event.Block.Bytes()), deps.Local.Peer)
 	}))
 
-	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangle.BlockBookedEvent) {
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
-			deps.Tangle.WeightProvider.Update(block.IssuingTime(), identity.NewID(block.IssuerPublicKey()))
-		})
+	deps.Tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		deps.Tangle.WeightProvider.Update(event.Block.IssuingTime(), identity.NewID(event.Block.IssuerPublicKey()))
 	}))
 
 	deps.Tangle.Parser.Events.BlockRejected.Attach(event.NewClosure(func(event *tangle.BlockRejectedEvent) {
@@ -222,7 +220,7 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.ActivityTime, tangleDeps.Storage)
+	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RATT, tangleDeps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfConflict))
 
 	acceptanceGadget = acceptance.NewSimpleFinalityGadget(tangleInstance)
