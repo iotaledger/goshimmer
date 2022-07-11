@@ -196,6 +196,12 @@ var tangleInstance *tangle.Tangle
 
 // newTangle gets the tangle instance.
 func newTangle(tangleDeps tangledeps) *tangle.Tangle {
+	// TODO: this should use the time from the snapshot instead of epoch.GenesisTime
+	genesisTime := time.Unix(epoch.GenesisTime, 0)
+	if Parameters.GenesisTime > 0 {
+		genesisTime = time.Unix(Parameters.GenesisTime, 0)
+	}
+
 	tangleInstance = tangle.New(
 		tangle.Store(tangleDeps.Storage),
 		tangle.Identity(tangleDeps.Local.LocalIdentity()),
@@ -215,6 +221,7 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 			RateSettingPause: RateSetterParameters.RateSettingPause,
 			Enabled:          RateSetterParameters.Enable,
 		}),
+		tangle.GenesisTime(genesisTime),
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),

@@ -54,8 +54,8 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	// initialize with Genesis
 	t.lastAcceptedBlock = LastBlock{
 		BlockID:    EmptyBlockID,
-		BlockTime:  time.Unix(epoch.GenesisTime, 0),
-		UpdateTime: time.Unix(epoch.GenesisTime, 0),
+		BlockTime:  tangle.Options.GenesisTime,
+		UpdateTime: tangle.Options.GenesisTime,
 	}
 
 	marshaledLastConfirmedBlock, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))

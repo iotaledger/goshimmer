@@ -213,6 +213,7 @@ type Options struct {
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
 	CommitmentFunc                 func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)
+	GenesisTime                    time.Time
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -284,6 +285,13 @@ func RateSetterConfig(params RateSetterParams) Option {
 func ApprovalWeights(weightProvider WeightProvider) Option {
 	return func(options *Options) {
 		options.WeightProvider = weightProvider
+	}
+}
+
+// GenesisTime is an Option for the Tangle that allows to set the genesis time.
+func GenesisTime(genesisTime time.Time) Option {
+	return func(options *Options) {
+		options.GenesisTime = genesisTime
 	}
 }
 

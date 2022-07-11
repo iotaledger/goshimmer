@@ -201,7 +201,8 @@ func runManaPlugin(_ *node.Plugin) {
 				}
 
 				// initialize cMana WeightProvider with snapshot
-				t := time.Unix(epoch.GenesisTime, 0)
+				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
+				t := deps.Tangle.Options.GenesisTime
 				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
 					if nodeID == genesisNodeID {
