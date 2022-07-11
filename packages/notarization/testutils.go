@@ -17,8 +17,8 @@ const (
 )
 
 var (
-	// TestConflictConfirmationStateTranslation translates a conflict's AW into a confirmation state.
-	TestConflictConfirmationStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
+	// TestConflictAcceptanceStateTranslation translates a conflict's AW into a confirmation state.
+	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -26,8 +26,8 @@ var (
 		return confirmation.Pending
 	}
 
-	// TestBlockConfirmationStateTranslation translates a block's AW into a confirmation state.
-	TestBlockConfirmationStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
+	// TestBlockAcceptanceStateTranslation translates a block's AW into a confirmation state.
+	TestBlockAcceptanceStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

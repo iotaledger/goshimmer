@@ -74,6 +74,10 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Configure(options...)
 
+	if !tangle.Options.GenesisTime.IsZero() {
+		epoch.GenesisTime = tangle.Options.GenesisTime.Unix()
+	}
+
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
 	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithConflictDAGOptions(tangle.Options.ConflictDAGOptions...))

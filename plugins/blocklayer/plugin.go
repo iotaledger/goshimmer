@@ -172,10 +172,6 @@ func configure(plugin *node.Plugin) {
 		}
 	}
 
-	if Parameters.GenesisTime > 0 {
-		epoch.GenesisTime = Parameters.GenesisTime
-	}
-
 	configureFinality()
 }
 

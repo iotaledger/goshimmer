@@ -205,7 +205,6 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Block3, issuing time epoch 3
 	{
 		fmt.Println("block 3")
-		fmt.Println("issueing time blk 3 ", issuingTime.String())
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
@@ -228,7 +227,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	// Block4, issuing time epoch 4
 	{
 		fmt.Println("block 4")
-		fmt.Println("issuing time blk 4 ", issuingTime.String())
+
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		assert.Equal(t, EC0, EC(ecRecord))
@@ -962,15 +961,15 @@ func TestManager_DiffUTXOs(t *testing.T) {
 }
 
 func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Duration, minCommittable time.Duration, options ...tangle.Option) (testFramework *tangle.BlockTestFramework, eventMock *EventMock, m *Manager) {
-	testTangle := tangle.NewTestTangle(append([]tangle.Option{tangle.StartSynced(true)}, options...)...)
+	testTangle := tangle.NewTestTangle(append([]tangle.Option{tangle.StartSynced(true), tangle.GenesisTime(genesisTime)}, options...)...)
 	testTangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 0
 
 	testFramework = tangle.NewBlockTestFramework(testTangle, tangle.WithGenesisOutput("A", 500), tangle.WithGenesisOutput("B", 500))
 
 	// set up finality gadget
 	testOpts := []acceptance.Option{
-		acceptance.WithConflictThresholdTranslation(TestConflictConfirmationStateTranslation),
-		acceptance.WithBlockThresholdTranslation(TestBlockConfirmationStateTranslation),
+		acceptance.WithConflictThresholdTranslation(TestConflictAcceptanceStateTranslation),
+		acceptance.WithBlockThresholdTranslation(TestBlockAcceptanceStateTranslation),
 	}
 	sfg := acceptance.NewSimpleFinalityGadget(testTangle, testOpts...)
 	testTangle.ConfirmationOracle = sfg
@@ -995,7 +994,6 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 	eventMock = NewEventMock(t, m)
 
 	epoch.Duration = int64(epochInterval.Seconds())
-	epoch.GenesisTime = genesisTime.Unix()
 
 	return testFramework, eventMock, m
 }
@@ -1098,6 +1096,7 @@ func loadSnapshot(m *Manager, testFramework *tangle.BlockTestFramework) {
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangle.Tangle) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+		fmt.Println(">> MarkerWeightChanged:", e.Marker)
 		sfg.HandleMarker(e.Marker, e.Weight)
 	}))
 	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
