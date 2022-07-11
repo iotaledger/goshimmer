@@ -112,7 +112,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 	assert.NoError(t, err)
 	// epoch 4 has pbc = 0 but is not old enough and epoch 1 has pbc != 0
 	assert.Equal(t, epoch.Index(0), commitment.EI())
-
+	event.Loop.WaitUntilAllTasksProcessed()
 	eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 	eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
 	//
@@ -234,7 +234,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, EC0, EC(ecRecord))
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
-
+		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		testFramework.CreateBlock("Block4", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Block3", "Block2"), tangle.WithIssuer(nodes["D"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
@@ -1001,6 +1001,8 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 }
 
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.BlockTestFramework, m *Manager, results map[string]bool) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
 	for alias, result := range results {
 		blkID := testFramework.Block(alias).ID()
 		p, err := m.GetBlockInclusionProof(blkID)
@@ -1016,6 +1018,8 @@ func assertExistenceOfBlock(t *testing.T, testFramework *tangle.BlockTestFramewo
 }
 
 func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.BlockTestFramework, m *Manager, results map[string]bool) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
 	for alias, result := range results {
 		var ei epoch.Index
 		var notConfirmed bool
@@ -1044,6 +1048,8 @@ func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.BlockTestF
 }
 
 func assertEpochDiff(t *testing.T, testFramework *tangle.BlockTestFramework, m *Manager, ei epoch.Index, expectedSpentAliases, expectedCreatedAliases []string) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
 	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
 	expectedSpentIDs := utxo.NewOutputIDs()
 	expectedCreatedIDs := utxo.NewOutputIDs()

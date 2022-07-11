@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -64,7 +65,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 	}
 
 	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
-		new.OnBlockConfirmed(event.Block)
+		new.OnBlockAccepted(event.Block)
 	}))
 
 	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
@@ -186,12 +187,14 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
-// OnBlockConfirmed is the handler for block confirmed event.
-func (m *Manager) OnBlockConfirmed(block *tangle.Block) {
+// OnBlockAccepted is the handler for block confirmed event.
+func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(block.IssuingTime())
+	fmt.Println("block", block.ID(), "accepted at epoch", ei)
+
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("block %s confirmed with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return

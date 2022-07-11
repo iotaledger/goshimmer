@@ -71,6 +71,7 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	event.Loop.WaitUntilAllTasksProcessed()
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
