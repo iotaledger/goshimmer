@@ -32,7 +32,7 @@ The transactions per second metric is irrelevant for the current development sta
 
 ## How is Spamming Prevented?
 
-The Coordicide lays out concepts for spam prevention through the means of rate control and such. However, in the current version, GoShimmer relies on Proof of Work (PoW) to prevent over saturation of the network. Doing the PoW for a message will usually take a couple of seconds on commodity hardware.
+The Coordicide lays out concepts for spam prevention through the means of rate control and such. However, in the current version, GoShimmer relies on Proof of Work (PoW) to prevent over saturation of the network. Doing the PoW for a block will usually take a couple of seconds on commodity hardware.
 
 ## What Happens if I Issue a Double Spend?
 

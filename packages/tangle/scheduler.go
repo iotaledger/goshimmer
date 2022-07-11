@@ -17,29 +17,29 @@ import (
 )
 
 const (
-	// MinMana is the minimum amount of Mana needed to issue messages.
-	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
+	// MinMana is the minimum amount of Mana needed to issue blocks.
+	// MaxBlockSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
 	MinMana float64 = 1.0
 )
 
 // MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
-// It must be >= MaxMessageSize.
-var MaxDeficit = new(big.Rat).SetInt64(int64(MaxMessageSize))
+// It must be >= MaxBlockSize.
+var MaxDeficit = new(big.Rat).SetInt64(int64(MaxBlockSize))
 
-// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
+// ErrNotRunning is returned when a block is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
-	MaxBufferSize                     int
-	TotalSupply                       int
-	Rate                              time.Duration
-	TotalAccessManaRetrieveFunc       func() float64
-	AccessManaMapRetrieverFunc        func() map[identity.ID]float64
-	ConfirmedMessageScheduleThreshold time.Duration
+	MaxBufferSize                   int
+	TotalSupply                     int
+	Rate                            time.Duration
+	TotalAccessManaRetrieveFunc     func() float64
+	AccessManaMapRetrieverFunc      func() map[identity.ID]float64
+	ConfirmedBlockScheduleThreshold time.Duration
 }
 
-// Scheduler is a Tangle component that takes care of scheduling the messages that shall be booked.
+// Scheduler is a Tangle component that takes care of scheduling the blocks that shall be booked.
 type Scheduler struct {
 	Events *SchedulerEvents
 
@@ -53,7 +53,7 @@ type Scheduler struct {
 	deficitsMutex         sync.RWMutex
 	deficits              map[identity.ID]*big.Rat
 	rate                  *atomic.Duration
-	confirmedMsgThreshold time.Duration
+	confirmedBlkThreshold time.Duration
 	shutdownSignal        chan struct{}
 	shutdownOnce          sync.Once
 }
@@ -70,8 +70,8 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// total supply of mana
 	totalSupply := tangle.Options.SchedulerParams.TotalSupply
 
-	// threshold after which confirmed messages are not scheduled
-	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
+	// threshold after which confirmed blocks are not scheduled
+	confirmedBlockScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedBlockScheduleThreshold
 
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(totalSupply)
@@ -89,7 +89,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		rate:                  atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
 		ticker:                time.NewTicker(tangle.Options.SchedulerParams.Rate),
 		buffer:                schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
-		confirmedMsgThreshold: confirmedMessageScheduleThreshold,
+		confirmedBlkThreshold: confirmedBlockScheduleThreshold,
 		deficits:              make(map[identity.ID]*big.Rat),
 		shutdownSignal:        make(chan struct{}),
 	}
@@ -121,43 +121,43 @@ func (s *Scheduler) Shutdown() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	// pass booked messages to the scheduler
-	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *MessageProcessedEvent) {
-		if err := s.Submit(event.MessageID); err != nil {
+	// pass booked blocks to the scheduler
+	s.tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *BlockProcessedEvent) {
+		if err := s.Submit(event.BlockID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
-		s.tryReady(event.MessageID)
+		s.tryReady(event.BlockID)
 	}))
 
-	s.tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		s.updateApprovers(event.MessageID)
+	s.tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		s.updateChildren(event.BlockID)
 	}))
 
-	onMessageConfirmed := func(message *Message) {
-		messageID := message.ID()
+	onBlockConfirmed := func(block *Block) {
+		blockID := block.ID()
 		var scheduled bool
-		s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			scheduled = messageMetadata.Scheduled()
+		s.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+			scheduled = blockMetadata.Scheduled()
 		})
 		if scheduled {
 			return
 		}
-		s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if clock.Since(message.IssuingTime()) > s.confirmedMsgThreshold {
-				err := s.Unsubmit(messageID)
+		s.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+			if clock.Since(block.IssuingTime()) > s.confirmedBlkThreshold {
+				err := s.Unsubmit(blockID)
 				if err != nil {
-					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
+					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed block from scheduler: %w", err))
 				}
-				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{messageID})
+				s.Events.BlockSkipped.Trigger(&BlockSkippedEvent{blockID})
 			}
 		})
-		s.updateApprovers(messageID)
+		s.updateChildren(blockID)
 	}
 
-	s.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *MessageAcceptedEvent) {
-		onMessageConfirmed(event.Message)
+	s.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
+		onBlockConfirmed(event.Block)
 	}))
 
 	s.Start()
@@ -216,18 +216,18 @@ func (s *Scheduler) BufferSize() int {
 	return s.buffer.Size()
 }
 
-// ReadyMessagesCount returns the size buffer.
-func (s *Scheduler) ReadyMessagesCount() int {
+// ReadyBlocksCount returns the size buffer.
+func (s *Scheduler) ReadyBlocksCount() int {
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
-	return s.buffer.ReadyMessagesCount()
+	return s.buffer.ReadyBlocksCount()
 }
 
-// TotalMessagesCount returns the size buffer.
-func (s *Scheduler) TotalMessagesCount() int {
+// TotalBlocksCount returns the size buffer.
+func (s *Scheduler) TotalBlocksCount() int {
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
-	return s.buffer.TotalMessagesCount()
+	return s.buffer.TotalBlocksCount()
 }
 
 // AccessManaCache returns the object which caches access mana values.
@@ -235,58 +235,58 @@ func (s *Scheduler) AccessManaCache() *schedulerutils.AccessManaCache {
 	return s.accessManaCache
 }
 
-// Submit submits a message to be considered by the scheduler.
+// Submit submits a block to be considered by the scheduler.
 // This transactions will be included in all the control metrics, but it will never be
-// scheduled until Ready(messageID) has been called.
-func (s *Scheduler) Submit(messageID MessageID) (err error) {
-	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+// scheduled until Ready(blockID) has been called.
+func (s *Scheduler) Submit(blockID BlockID) (err error) {
+	if !s.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		s.bufferMutex.Lock()
 		defer s.bufferMutex.Unlock()
-		err = s.submit(message)
+		err = s.submit(block)
 	}) {
-		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get block '%x' from storage", blockID)
 	}
 	return err
 }
 
-// Unsubmit removes a message from the submitted messages.
-// If that message is already marked as ready, Unsubmit has no effect.
-func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
-	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+// Unsubmit removes a block from the submitted blocks.
+// If that block is already marked as ready, Unsubmit has no effect.
+func (s *Scheduler) Unsubmit(blockID BlockID) (err error) {
+	if !s.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		s.bufferMutex.Lock()
 		defer s.bufferMutex.Unlock()
 
-		s.unsubmit(message)
+		s.unsubmit(block)
 	}) {
-		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get block '%x' from storage", blockID)
 	}
 	return err
 }
 
-// Ready marks a previously submitted message as ready to be scheduled.
+// Ready marks a previously submitted block as ready to be scheduled.
 // If Ready is called without a previous Submit, it has no effect.
-func (s *Scheduler) Ready(messageID MessageID) (err error) {
-	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+func (s *Scheduler) Ready(blockID BlockID) (err error) {
+	if !s.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		s.bufferMutex.Lock()
 		defer s.bufferMutex.Unlock()
 
-		s.ready(message)
+		s.ready(block)
 	}) {
-		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+		err = errors.Errorf("failed to get block '%x' from storage", blockID)
 	}
 	return err
 }
 
-// SubmitAndReady submits the message to the scheduler and marks it ready right away.
-func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
+// SubmitAndReady submits the block to the scheduler and marks it ready right away.
+func (s *Scheduler) SubmitAndReady(block *Block) (err error) {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 
-	if err = s.submit(message); err != nil {
+	if err = s.submit(block); err != nil {
 		return err
 	}
 
-	s.ready(message)
+	s.ready(block)
 
 	return nil
 }
@@ -296,8 +296,8 @@ func (s *Scheduler) GetManaFromCache(nodeID identity.ID) int64 {
 	return int64(math.Ceil(s.AccessManaCache().GetCachedMana(nodeID)))
 }
 
-// Clear removes all submitted messages (ready or not) from the scheduler.
-// The MessageDiscarded event is triggered for each of these messages.
+// Clear removes all submitted blocks (ready or not) from the scheduler.
+// The BlockDiscarded event is triggered for each of these blocks.
 func (s *Scheduler) Clear() {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
@@ -305,29 +305,29 @@ func (s *Scheduler) Clear() {
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
 		for _, id := range q.IDs() {
-			messageID := NewMessageID(id)
-			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-				messageMetadata.SetDiscardedTime(clock.SyncedTime())
+			blockID := NewBlockID(id)
+			s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+				blockMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
-			s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{messageID})
+			s.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockID})
 		}
 	}
 }
 
-// isEligible returns true if the given messageID has either been scheduled or confirmed.
-func (s *Scheduler) isEligible(messageID MessageID) (eligible bool) {
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		eligible = messageMetadata.Scheduled() ||
-			s.tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
+// isEligible returns true if the given blockID has either been scheduled or confirmed.
+func (s *Scheduler) isEligible(blockID BlockID) (eligible bool) {
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+		eligible = blockMetadata.Scheduled() ||
+			s.tangle.ConfirmationOracle.IsBlockConfirmed(blockID)
 	})
 	return
 }
 
-// isReady returns true if the given messageID's parents are eligible.
-func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
+// isReady returns true if the given blockID's parents are eligible.
+func (s *Scheduler) isReady(blockID BlockID) (ready bool) {
 	ready = true
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		message.ForEachParent(func(parent Parent) {
+	s.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		block.ForEachParent(func(parent Parent) {
 			if !s.isEligible(parent.ID) { // parents are not eligible
 				ready = false
 				return
@@ -338,61 +338,61 @@ func (s *Scheduler) isReady(messageID MessageID) (ready bool) {
 	return
 }
 
-// tryReady tries to set the given message as ready.
-func (s *Scheduler) tryReady(messageID MessageID) {
-	if s.isReady(messageID) {
-		if err := s.Ready(messageID); err != nil {
-			s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", messageID, err))
+// tryReady tries to set the given block as ready.
+func (s *Scheduler) tryReady(blockID BlockID) {
+	if s.isReady(blockID) {
+		if err := s.Ready(blockID); err != nil {
+			s.Events.Error.Trigger(errors.Errorf("failed to mark %s as ready: %w", blockID, err))
 		}
 	}
 }
 
-// updateApprovers iterates over the direct approvers of the given messageID and
+// updateChildren iterates over the direct children of the given blockID and
 // tries to mark them as ready.
-func (s *Scheduler) updateApprovers(messageID MessageID) {
-	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-		s.tryReady(approver.ApproverMessageID())
+func (s *Scheduler) updateChildren(blockID BlockID) {
+	s.tangle.Storage.Children(blockID).Consume(func(child *Child) {
+		s.tryReady(child.ChildBlockID())
 	})
 }
 
-func (s *Scheduler) submit(message *Message) error {
+func (s *Scheduler) submit(block *Block) error {
 	if s.stopped.IsSet() {
 		return ErrNotRunning
 	}
 
-	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+	s.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 		// shortly before submitting we set the queued time
-		messageMetadata.SetQueuedTime(clock.SyncedTime())
+		blockMetadata.SetQueuedTime(clock.SyncedTime())
 	})
 
 	s.AccessManaCache().RefreshCacheIfNecessary()
 	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedMessageIDs, err := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
+	droppedBlockIDs, err := s.buffer.Submit(block, s.AccessManaCache().GetCachedMana)
 	if err != nil {
-		panic(errors.Errorf("failed to submit %s: %w", message.ID(), err))
+		panic(errors.Errorf("failed to submit %s: %w", block.ID(), err))
 	}
-	for _, droppedMsgID := range droppedMessageIDs {
-		s.tangle.Storage.MessageMetadata(NewMessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetDiscardedTime(clock.SyncedTime())
+	for _, droppedBlkID := range droppedBlockIDs {
+		s.tangle.Storage.BlockMetadata(NewBlockID(droppedBlkID)).Consume(func(blockMetadata *BlockMetadata) {
+			blockMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
-		s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{NewMessageID(droppedMsgID)})
+		s.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{NewBlockID(droppedBlkID)})
 	}
 	return nil
 }
 
-func (s *Scheduler) unsubmit(message *Message) {
-	s.buffer.Unsubmit(message)
+func (s *Scheduler) unsubmit(block *Block) {
+	s.buffer.Unsubmit(block)
 }
 
-func (s *Scheduler) ready(message *Message) {
-	s.buffer.Ready(message)
+func (s *Scheduler) ready(block *Block) {
+	s.buffer.Ready(block)
 }
 
 func (s *Scheduler) Quanta(nodeID identity.ID) *big.Rat {
 	return big.NewRat(s.GetManaFromCache(nodeID), int64(s.AccessManaCache().GetCachedTotalMana()))
 }
 
-func (s *Scheduler) schedule() *Message {
+func (s *Scheduler) schedule() *Block {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
 	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
@@ -401,7 +401,7 @@ func (s *Scheduler) schedule() *Message {
 	s.updateActiveNodesList(s.AccessManaCache().RawAccessManaVector())
 
 	start := s.buffer.Current()
-	// no messages submitted
+	// no blocks submitted
 	if start == nil {
 		return nil
 	}
@@ -409,28 +409,28 @@ func (s *Scheduler) schedule() *Message {
 	var schedulingNode *schedulerutils.NodeQueue
 	rounds := new(big.Rat).SetInt64(math.MaxInt64)
 	for q := start; ; {
-		msg := q.Front()
-		// a message can be scheduled, if it is ready
+		blk := q.Front()
+		// a block can be scheduled, if it is ready
 		// (its issuing time is not in the future and all of its parents are eligible).
-		// while loop to skip all the confirmed messages
-		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
-			var msgID MessageID
-			if _, err := msgID.Decode(msg.IDBytes()); err != nil {
-				panic("MessageID could not be parsed!")
+		// while loop to skip all the confirmed blocks
+		for blk != nil && !clock.SyncedTime().Before(blk.IssuingTime()) {
+			var blkID BlockID
+			if _, err := blkID.Decode(blk.IDBytes()); err != nil {
+				panic("BlockID could not be parsed!")
 			}
-			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
-				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
-				// do we want to mark those messages somehow for debugging?
-				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{msgID})
+			if s.tangle.ConfirmationOracle.IsBlockConfirmed(blkID) && clock.Since(blk.IssuingTime()) > s.confirmedBlkThreshold {
+				// if a block is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
+				// do we want to mark those blocks somehow for debugging?
+				s.Events.BlockSkipped.Trigger(&BlockSkippedEvent{blkID})
 				s.buffer.PopFront()
-				msg = q.Front()
+				blk = q.Front()
 			} else {
-				// compute how often the deficit needs to be incremented until the message can be scheduled
-				remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(msg.Size()), 1), s.GetDeficit(q.NodeID())), new(big.Rat))
+				// compute how often the deficit needs to be incremented until the block can be scheduled
+				remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(blk.Size()), 1), s.GetDeficit(q.NodeID())), new(big.Rat))
 				// calculate how many rounds we need to skip to accumulate enough deficit.
 				// Use for loop to account for float imprecision.
 				r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.NodeID())))
-				// find the first node that will be allowed to schedule a message
+				// find the first node that will be allowed to schedule a block
 				if r.Cmp(rounds) < 0 {
 					rounds = r
 					schedulingNode = q
@@ -445,7 +445,7 @@ func (s *Scheduler) schedule() *Message {
 		}
 	}
 
-	// if there is no node with a ready message, we cannot schedule anything
+	// if there is no node with a ready block, we cannot schedule anything
 	if schedulingNode == nil {
 		return nil
 	}
@@ -467,12 +467,12 @@ func (s *Scheduler) schedule() *Message {
 		s.updateDeficit(q.NodeID(), s.Quanta(q.NodeID()))
 	}
 
-	// remove the message from the buffer and adjust node's deficit
-	msg := s.buffer.PopFront()
-	nodeID := identity.NewID(msg.IssuerPublicKey())
-	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(msg.Size())))
+	// remove the block from the buffer and adjust node's deficit
+	blk := s.buffer.PopFront()
+	nodeID := identity.NewID(blk.IssuerPublicKey())
+	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(blk.Size())))
 
-	return msg.(*Message)
+	return blk.(*Block)
 }
 
 func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
@@ -482,8 +482,8 @@ func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
 	// use counter to avoid infinite loop in case the start element is removed
 	activeNodes := s.buffer.NumActiveNodes()
 	// remove nodes that don't have mana and have empty queue
-	// this allows nodes with zero mana to issue messages, however those nodes will only accumulate their deficit
-	// when there are messages in the node's queue
+	// this allows nodes with zero mana to issue blocks, however those nodes will only accumulate their deficit
+	// when there are blocks in the node's queue
 	for i := 0; i < activeNodes; i++ {
 		if nodeMana, exists := manaCache[currentNode.NodeID()]; (!exists || nodeMana < MinMana) && currentNode.Size() == 0 {
 			s.buffer.RemoveNode(currentNode.NodeID())
@@ -506,7 +506,7 @@ func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
 	}
 }
 
-// mainLoop periodically triggers the scheduling of ready messages.
+// mainLoop periodically triggers the scheduling of ready blocks.
 func (s *Scheduler) mainLoop() {
 	defer s.ticker.Stop()
 
@@ -515,11 +515,11 @@ loop:
 		select {
 		// every rate time units
 		case <-s.ticker.C:
-			// TODO: pause the ticker, if there are no ready messages
-			if msg := s.schedule(); msg != nil {
-				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-					if messageMetadata.SetScheduled(true) {
-						s.Events.MessageScheduled.Trigger(&MessageScheduledEvent{msg.ID()})
+			// TODO: pause the ticker, if there are no ready blocks
+			if blk := s.schedule(); blk != nil {
+				s.tangle.Storage.BlockMetadata(blk.ID()).Consume(func(blockMetadata *BlockMetadata) {
+					if blockMetadata.SetScheduled(true) {
+						s.Events.BlockScheduled.Trigger(&BlockScheduledEvent{blk.ID()})
 					}
 				})
 			}
@@ -530,7 +530,7 @@ loop:
 		}
 	}
 
-	// remove all unscheduled messages
+	// remove all unscheduled blocks
 	s.Clear()
 }
 

@@ -32,7 +32,7 @@ type CommitmentRoots struct {
 	manaRoot          epoch.MerkleRoot
 }
 
-// CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
+// CommitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
 type CommitmentTrees struct {
 	EI                epoch.Index
 	tangleTree        *smt.SparseMerkleTree
@@ -97,12 +97,12 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 	}
 
 	root := make([]byte, 0)
-	branch1 := make([]byte, 0)
-	branch2 := make([]byte, 0)
+	conflict1 := make([]byte, 0)
+	conflict2 := make([]byte, 0)
 
-	branch1Hashed := blake2b.Sum256(append(append(branch1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	branch2Hashed := blake2b.Sum256(append(append(branch2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
+	conflict1Hashed := blake2b.Sum256(append(append(conflict1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
+	conflict2Hashed := blake2b.Sum256(append(append(conflict2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
+	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
 }
@@ -197,28 +197,28 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 	return nil
 }
 
-// InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
+// InsertTangleLeaf inserts blk to the Tangle sparse merkle tree.
+func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangle.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
 	}
-	_, err = commitment.tangleTree.Update(msgID.Bytes(), msgID.Bytes())
+	_, err = commitment.tangleTree.Update(blkID.Bytes(), blkID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
 	return nil
 }
 
-// RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.MessageID) error {
+// RemoveTangleLeaf removes the block ID from the Tangle sparse merkle tree.
+func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangle.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
 	}
-	exists, _ := commitment.tangleTree.Has(msgID.Bytes())
+	exists, _ := commitment.tangleTree.Has(blkID.Bytes())
 	if exists {
-		_, err2 := commitment.tangleTree.Delete(msgID.Bytes())
+		_, err2 := commitment.tangleTree.Delete(blkID.Bytes())
 		if err2 != nil {
 			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
@@ -322,14 +322,14 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
 	// Volatile storage for small trees
 	db, _ := database.NewMemDB()
-	messageIDStore := db.NewStore()
-	messageValueStore := db.NewStore()
+	blockIDStore := db.NewStore()
+	blockValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
 
 	commitmentTrees := &CommitmentTrees{
 		EI:                ei,
-		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		tangleTree:        smt.NewSparseMerkleTree(blockIDStore, blockValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 

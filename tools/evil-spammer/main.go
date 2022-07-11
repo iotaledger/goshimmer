@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/goshimmer/tools/evil-spammer/evillogger"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"github.com/iotaledger/goshimmer/tools/evil-spammer/evillogger"
 )
 
 var (
@@ -22,7 +23,7 @@ func main() {
 		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
 			"'interactive' - enters the interactive mode.\n" +
 			"'basic' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n" +
-			"'quick' - runs simple stress test: tx spam -> msg spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
+			"'quick' - runs simple stress test: tx spam -> blk spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
 		return
 	}
 	// run selected test scenario
@@ -69,11 +70,11 @@ func parseOptionFlagSet(flagSet *flag.FlagSet) {
 
 func parseBasicSpamFlags() {
 	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	spamTypes := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'msg' - message,"+
+	spamTypes := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
 		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario")
 	rate := optionFlagSet.String("rate", "", "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	duration := optionFlagSet.String("duration", "", "Spam duration. Cannot be combined with flag 'msgNum'. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	msgNum := optionFlagSet.String("msgNum", "", "Spam duration in seconds. Cannot be combined with flag 'duration'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
+	duration := optionFlagSet.String("duration", "", "Spam duration. Cannot be combined with flag 'blkNum'. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	blkNum := optionFlagSet.String("blkNum", "", "Spam duration in seconds. Cannot be combined with flag 'duration'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
 	timeunit := optionFlagSet.Duration("tu", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
@@ -97,9 +98,9 @@ func parseBasicSpamFlags() {
 		parsedDurations := parseDurations(*duration)
 		customSpamParams.Durations = parsedDurations
 	}
-	if *msgNum != "" {
-		parsedMsgNums := parseCommaSepInt(*msgNum)
-		customSpamParams.MsgToBeSent = parsedMsgNums
+	if *blkNum != "" {
+		parsedBlkNums := parseCommaSepInt(*blkNum)
+		customSpamParams.BlkToBeSent = parsedBlkNums
 	}
 	if *scenario != "" {
 		conflictBatch, ok := evilwallet.GetScenario(*scenario)
@@ -111,12 +112,12 @@ func parseBasicSpamFlags() {
 	customSpamParams.TimeUnit = *timeunit
 	customSpamParams.DelayBetweenConflicts = *delayBetweenConflicts
 
-	// fill in unused parameter: msgNum or duration with zeros
-	if *duration == "" && *msgNum != "" {
-		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.MsgToBeSent))
+	// fill in unused parameter: blkNum or duration with zeros
+	if *duration == "" && *blkNum != "" {
+		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.BlkToBeSent))
 	}
-	if *msgNum == "" && *duration != "" {
-		customSpamParams.MsgToBeSent = make([]int, len(customSpamParams.Durations))
+	if *blkNum == "" && *duration != "" {
+		customSpamParams.BlkToBeSent = make([]int, len(customSpamParams.Durations))
 	}
 }
 

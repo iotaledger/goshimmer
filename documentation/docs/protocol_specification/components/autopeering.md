@@ -216,6 +216,6 @@ Upon reception of a *Peering Request*, a peer *shall* make a decision to accept,
 Neighbor removal can occur for several reasons:
 * A node is replacing a neighbor with a better (in terms of score function) one;
 * From the gossip layer, the connection with a neighbor is lost;
-* If some form of reputation or bad behavior is being monitored, a neighbor could be dropped in case of misbehavior. For example, a node could respond to the peering request but choose not to gossip received messages.
+* If some form of reputation or bad behavior is being monitored, a neighbor could be dropped in case of misbehavior. For example, a node could respond to the peering request but choose not to gossip received blocks.
 
 Independently from the reason, when a peer drops a neighbor *shall* send a *Peering Drop* and remove the neighbor from its requested/accepted neighbor list. Upon reception of a *Peering Drop*, the peer *shall* remove the dropping neighbor from its requested/accepted neighbor list.

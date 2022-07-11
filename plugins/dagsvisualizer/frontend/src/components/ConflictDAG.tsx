@@ -3,8 +3,8 @@ import Container from 'react-bootstrap/Container';
 import {inject, observer} from 'mobx-react';
 import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
 import {Collapse} from 'react-bootstrap';
-import BranchStore from 'stores/BranchStore';
-import {BranchInfo} from 'components/BranchInfo';
+import ConflictStore from 'stores/ConflictStore';
+import {ConflictInfo} from 'components/ConflictInfo';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
@@ -14,14 +14,14 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import 'styles/style.css';
 import GlobalStore from '../stores/GlobalStore';
-import {BranchLegend} from './Legend';
+import {ConflictLegend} from './Legend';
 
 interface Props {
-    branchStore?: BranchStore;
+    conflictStore?: ConflictStore;
     globalStore?: GlobalStore;
 }
 
-@inject('branchStore')
+@inject('conflictStore')
 @inject('globalStore')
 @observer
 export default class ConflictDAG extends React.Component<Props, any> {
@@ -31,40 +31,40 @@ export default class ConflictDAG extends React.Component<Props, any> {
     }
 
     componentDidMount() {
-        this.props.branchStore.start();
+        this.props.conflictStore.start();
     }
 
     componentWillUnmount() {
-        this.props.branchStore.stop();
+        this.props.conflictStore.stop();
     }
 
     pauseResumeVisualizer = () => {
-        this.props.branchStore.pauseResume();
+        this.props.conflictStore.pauseResume();
     };
 
     updateVerticesLimit = (e) => {
-        this.props.branchStore.updateVerticesLimit(e.target.value);
+        this.props.conflictStore.updateVerticesLimit(e.target.value);
     };
 
     updateSearch = (e) => {
-        this.props.branchStore.updateSearch(e.target.value);
+        this.props.conflictStore.updateSearch(e.target.value);
     };
 
     searchAndHighlight = (e: any) => {
         if (e.key !== 'Enter') return;
-        this.props.branchStore.searchAndHighlight();
+        this.props.conflictStore.searchAndHighlight();
     };
 
     centerGraph = () => {
-        this.props.branchStore.centerEntireGraph();
+        this.props.conflictStore.centerEntireGraph();
     };
 
-    syncWithBranch = () => {
-        this.props.globalStore.syncWithBranch();
+    syncWithConflict = () => {
+        this.props.globalStore.syncWithConflict();
     };
 
     render() {
-        const { paused, maxBranchVertices, search } = this.props.branchStore;
+        const { paused, maxConflictVertices, search } = this.props.conflictStore;
 
         return (
             <Container>
@@ -76,7 +76,7 @@ export default class ConflictDAG extends React.Component<Props, any> {
                     }
                 >
                     <h2>
-                        Branch DAG
+                        Conflict DAG
                         {this.state.open ? (
                             <MdKeyboardArrowUp />
                         ) : (
@@ -130,10 +130,10 @@ export default class ConflictDAG extends React.Component<Props, any> {
                                 <InputGroup className="mb-1">
                                     <Button
                                         className={'button'}
-                                        onClick={this.syncWithBranch}
+                                        onClick={this.syncWithConflict}
                                         variant="outline-secondary"
                                     >
-                                        Sync with branch
+                                        Sync with conflict
                                     </Button>
                                 </InputGroup>
                             </Col>
@@ -144,7 +144,7 @@ export default class ConflictDAG extends React.Component<Props, any> {
                                     </InputGroup.Text>
                                     <FormControl
                                         placeholder="limit"
-                                        value={maxBranchVertices.toString()}
+                                        value={maxConflictVertices.toString()}
                                         onChange={this.updateVerticesLimit}
                                         aria-label="vertices-limit"
                                         aria-describedby="vertices-limit"
@@ -169,10 +169,10 @@ export default class ConflictDAG extends React.Component<Props, any> {
                             </Col>
                         </Row>
                         <div className="graphFrame">
-                            <BranchInfo />
-                            <div id="branchVisualizer" />
+                            <ConflictInfo />
+                            <div id="conflictVisualizer" />
                         </div>
-                        <BranchLegend />
+                        <ConflictLegend />
                     </div>
                 </Collapse>
                 <br />

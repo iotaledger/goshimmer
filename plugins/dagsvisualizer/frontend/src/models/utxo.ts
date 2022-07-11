@@ -1,9 +1,9 @@
 export class utxoVertex {
-    msgID: string;
+    blkID: string;
     ID: string;
     inputs: Array<input>;
     outputs: Array<string>;
-    branchID: string;
+    conflictID: string;
     isConfirmed: boolean;
     confirmationState: string;
     confirmationStateTime: number;
@@ -16,7 +16,7 @@ export class input {
 
 export class utxoBooked {
     ID: string;
-    branchID: string;
+    conflictID: string;
 }
 
 export class utxoConfirmationStateChanged {

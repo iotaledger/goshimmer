@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +34,7 @@ func main() {
 	myAddr := mySeed.Address(0)
 
 	if _, err := clients[0].BroadcastFaucetRequest(myAddr.Address().Base58(), -1); err != nil {
-		fmt.Println(err)
+		fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 		return
 	}
 
@@ -44,7 +45,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 		resp, err := clients[0].PostAddressUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 			return
 		}
 		fmt.Println("Waiting for funds to be confirmed...")
@@ -78,7 +79,7 @@ func main() {
 
 	// issue transactions which spend the same output
 	conflictingTxs := make([]*devnetvm.Transaction, 2)
-	conflictingMsgIDs := make([]string, 2)
+	conflictingBlkIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
 	var wg sync.WaitGroup
@@ -108,7 +109,7 @@ func main() {
 			}
 			fmt.Println(resp.TransactionID)
 
-			fmt.Printf("issued conflict transaction %s\n", conflictingMsgIDs[i])
+			fmt.Printf("issued conflict transaction %s\n", conflictingBlkIDs[i])
 		}(i)
 	}
 	wg.Wait()

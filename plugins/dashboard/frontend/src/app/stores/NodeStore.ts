@@ -2,7 +2,7 @@ import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
 import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
 
-class MPSMetric {
+class BPSMetric {
     mps: number;
     ts: string;
 }
@@ -23,8 +23,8 @@ class TangleTime {
     RATT: number;
     CTT: number;
     RCTT: number;
-    acceptedMessageID: string;
-    confirmedMessageID: string;
+    acceptedBlockID: string;
+    confirmedBlockID: string;
 
 }
 
@@ -190,8 +190,8 @@ const maxMetricsDataPoints = 900;
 export class NodeStore {
     @observable status: Status = new Status();
     @observable websocketConnected: boolean = false;
-    @observable last_mps_metric: MPSMetric = new MPSMetric();
-    @observable collected_mps_metrics: Array<MPSMetric> = [];
+    @observable last_mps_metric: BPSMetric = new BPSMetric();
+    @observable collected_mps_metrics: Array<BPSMetric> = [];
     @observable collected_rate_setter_metrics: Array<RateSetterMetric> = [];
     @observable last_rate_setter_metric: RateSetterMetric = new RateSetterMetric();
     @observable collected_scheduler_metrics: Array<SchedulerMetric> = [];
@@ -214,8 +214,8 @@ export class NodeStore {
 
     registerHandlers = () => {
         registerHandler(WSMsgType.Status, this.updateStatus);
-        registerHandler(WSMsgType.MPSMetrics, (mps: number) => {
-            this.addMPSMetric(this.updateLastMPSMetric(mps));
+        registerHandler(WSMsgType.BPSMetrics, (mps: number) => {
+            this.addBPSMetric(this.updateLastBPSMetric(mps));
         });
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
@@ -227,7 +227,7 @@ export class NodeStore {
 
     unregisterHandlers = () => {
         unregisterHandler(WSMsgType.Status);
-        unregisterHandler(WSMsgType.MPSMetrics);
+        unregisterHandler(WSMsgType.BPSMetrics);
         unregisterHandler(WSMsgType.NeighborStats);
         unregisterHandler(WSMsgType.TipsMetrics);
         unregisterHandler(WSMsgType.ComponentCounterMetrics);
@@ -319,8 +319,8 @@ export class NodeStore {
     };
 
     @action
-    updateLastMPSMetric = (mps: number) => {
-        let mpsMetric = new MPSMetric();
+    updateLastBPSMetric = (mps: number) => {
+        let mpsMetric = new BPSMetric();
         mpsMetric.mps = mps;
         mpsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
         this.last_mps_metric = mpsMetric;
@@ -328,7 +328,7 @@ export class NodeStore {
     };
 
     @action
-    addMPSMetric = (metric: MPSMetric) => {
+    addBPSMetric = (metric: BPSMetric) => {
         if (this.collected_mps_metrics.length > maxMetricsDataPoints) {
             this.collected_mps_metrics.shift();
         }
@@ -358,12 +358,12 @@ export class NodeStore {
     @computed
     get mpsSeries() {
         let mps = Object.assign({}, chartSeriesOpts,
-            series("MPS", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
+            series("BPS", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
         );
 
         let labels = [];
         for (let i = 0; i < this.collected_mps_metrics.length; i++) {
-            let metric: MPSMetric = this.collected_mps_metrics[i];
+            let metric: BPSMetric = this.collected_mps_metrics[i];
             labels.push(metric.ts);
             mps.data.push(metric.mps);
         }

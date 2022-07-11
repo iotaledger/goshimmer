@@ -58,15 +58,15 @@ fmt.Println(string(info))
   "version": "v0.6.2",
   "networkVersion": 30,
   "tangleTime": {
-    "messageID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
+    "blockID": "6ndfmfogpH9H8C9X9Fbb7Jmuf8RJHQgSjsHNPdKUUhoJ",
     "time": 1621879864032595415,
     "synced": true
   },
   "identityID": "D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW",
   "identityIDShort": "XBgY5DsUPng",
   "publicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd",
-  "solidMessageCount": 74088,
-  "totalMessageCount": 74088,
+  "solidBlockCount": 74088,
+  "totalBlockCount": 74088,
   "enabledPlugins": [
     "Activity",
     "AnalysisClient",
@@ -85,7 +85,7 @@ fmt.Println(string(info))
     "Mana",
     "ManaRefresher",
     "ManualPeering",
-    "MessageLayer",
+    "BlockLayer",
     "Metrics",
     "NetworkDelay",
     "PoW",
@@ -104,7 +104,7 @@ fmt.Println(string(info))
     "WebAPIHealthzEndpoint",
     "WebAPIInfoEndpoint",
     "WebAPILedgerstateEndpoint",
-    "WebAPIMessageEndpoint",
+    "WebAPIBlockEndpoint",
     "WebAPIToolsEndpoint",
     "snapshot"
   ],
@@ -146,9 +146,9 @@ fmt.Println(string(info))
 | `identityID`  | `string` | Identity ID of the node encoded in base58. |
 | `identityIDShort`  | `string` | Identity ID of the node encoded in base58 and truncated to its first 8 bytes. |
 | `publicKey`  | `string` | Public key of the node encoded in base58 |
-| `messageRequestQueueSize`  | `int` | The number of messages a node is trying to request from neighbors. |
-| `solidMessageCount`  | `int` | The number of solid messages in the node's database. |
-| `totalMessageCount`  | `int` | The number of messages in the node's database. |
+| `blockRequestQueueSize`  | `int` | The number of blocks a node is trying to request from neighbors. |
+| `solidBlockCount`  | `int` | The number of solid blocks in the node's database. |
+| `totalBlockCount`  | `int` | The number of blocks in the node's database. |
 | `enabledPlugins`  | `[]string` | List of enabled plugins. |
 | `disabledPlugins`  | `[]string` | List if disabled plugins. |
 | `mana`  | `Mana` | Mana values. |
@@ -156,14 +156,14 @@ fmt.Println(string(info))
 | `mana_decay`  | `float64` | The decay coefficient of `bm2`. |
 | `scheduler`  | `Scheduler` |  Scheduler is the scheduler used.|
 | `rateSetter`  | `RateSetter` | RateSetter is the rate setter used. |
-| `error` | `string` | Error message. Omitted if success.     |
+| `error` | `string` | Error block. Omitted if success.     |
 
 * Type `TangleTime`
 
 |field | Type | Description|
 |:-----|:------|:------|
-| `messageID`  | `string` | ID of the last confirmed message.  |
-| `time`   | `int64` | Issue timestamp of the last confirmed message.    |
+| `blockID`  | `string` | ID of the last confirmed block.  |
+| `time`   | `int64` | Issue timestamp of the last confirmed block.    |
 | `synced`   | `bool` | Flag indicating whether node is in sync.     |
 
 
@@ -217,4 +217,4 @@ This method is not available in client lib
 #### Results
 
 Empty response with HTTP 200 success code if everything is running correctly.
-Error message is returned if failed.
+Error block is returned if failed.

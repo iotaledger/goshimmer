@@ -61,7 +61,6 @@ export class Visualizer extends React.Component<Props, any> {
     render() {
         let {
             vertices, finalized_count, selected,
-            selected_approvers_count, selected_approvees_count,
             verticesLimit, tips_count, paused, search
         } = this.props.visualizerStore;
         let {last_mps_metric, collecting} = this.props.nodeStore;
@@ -129,11 +128,11 @@ export class Visualizer extends React.Component<Props, any> {
                     <Col xs={{span: 5, offset: 2}}>
                         <p>
                             <Badge pill style={{background: "#b9b7bd", color: "white"}}>
-                                MSG Pending
+                                BLK Pending
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#6c71c4", color: "white"}}>
-                                MSG Confirmed
+                                BLK Confirmed
                             </Badge>
                             {' '}
                             <Badge pill style={{background: "#393e46", color: "white"}}>
@@ -154,24 +153,20 @@ export class Visualizer extends React.Component<Props, any> {
                             <br/>
                             Vertices: {vertices.size}, Tips: {tips_count},
                             Confirmed/UnConfirmed: {finalized_count}/{vertices.size - finalized_count},{' '}
-                            MPS: {last_mps_metric.mps}
+                            BPS: {last_mps_metric.mps}
                             <br/>
                             Selected: {selected ?
-                            <Link to={`/explorer/message/${selected.id}`}>
+                            <Link to={`/explorer/block/${selected.id}`}>
                                 {selected.id.substr(0, 10)}
                             </Link>
                             : "-"}
-                            <br/>
-                            Approvers/Approvees: {selected ?
-                            <span>{selected_approvers_count}/{selected_approvees_count}</span>
-                            : '-/-'}
                             <br/>
                             {
                                 selected ? Object.keys(selected.parentIDsByType).map((parentType) =>
                                     <span> {parentType}:{' '}
                                         {selected.parentIDsByType[parentType].map((parent) => {
                                             return (
-                                                <Link to={`/explorer/message/${parent}`}>
+                                                <Link to={`/explorer/block/${parent}`}>
                                                     {parent.substr(0, 10) + " "}
                                                 </Link>
                                             )

@@ -29,10 +29,10 @@ export class TransactionInfo extends React.Component<Props, any> {
                             </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
-                                    Msg ID:
+                                    Blk ID:
                                     <LinkToDashboard
-                                        route={`explorer/messasge/${selectedTx.msgID}`}
-                                        title={selectedTx.msgID}
+                                        route={`explorer/messasge/${selectedTx.blkID}`}
+                                        title={selectedTx.blkID}
                                     />
                                 </ListGroup.Item>
                                 <ListGroup.Item>

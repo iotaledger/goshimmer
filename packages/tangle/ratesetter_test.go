@@ -40,15 +40,15 @@ func TestRateSetter_Submit(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
-	messageIssued := make(chan *Message, 1)
-	rateSetter.Events.MessageIssued.Attach(event.NewClosure(func(event *MessageConstructedEvent) { messageIssued <- event.Message }))
+	blockIssued := make(chan *Block, 1)
+	rateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
 
-	msg := newMessage(localNode.PublicKey())
-	assert.NoError(t, rateSetter.Issue(msg))
+	blk := newBlock(localNode.PublicKey())
+	assert.NoError(t, rateSetter.Issue(blk))
 	assert.Eventually(t, func() bool {
 		select {
-		case msg1 := <-messageIssued:
-			return assert.Equal(t, msg, msg1)
+		case blk1 := <-blockIssued:
+			return assert.Equal(t, blk, blk1)
 		default:
 			return false
 		}
@@ -64,12 +64,12 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
-	messageDiscarded := make(chan MessageID, MaxLocalQueueSize*2)
-	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
-	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
+	blockDiscarded := make(chan BlockID, MaxLocalQueueSize*2)
+	discardedCounter := event.NewClosure(func(event *BlockDiscardedEvent) { blockDiscarded <- event.BlockID })
+	rateSetter.Events.BlockDiscarded.Hook(discardedCounter)
 	for i := 0; i < MaxLocalQueueSize*2; i++ {
-		msg := NewMessage(
-			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+		blk := NewBlock(
+			emptyLikeReferencesFromStrongParents(NewBlockIDs(EmptyBlockID)),
 			time.Now(),
 			localNode.PublicKey(),
 			0,
@@ -79,13 +79,13 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			0,
 			epoch.NewECRecord(0),
 		)
-		assert.NoError(t, msg.DetermineID())
-		assert.NoError(t, rateSetter.Issue(msg))
+		assert.NoError(t, blk.DetermineID())
+		assert.NoError(t, rateSetter.Issue(blk))
 	}
 
 	assert.Eventually(t, func() bool {
 		select {
-		case <-messageDiscarded:
+		case <-blockDiscarded:
 			return true
 		default:
 			return false

@@ -17,7 +17,7 @@ var (
 	networkID = []byte("v0.2.0")
 )
 
-func TestNewHeartbeatMessage(t *testing.T) {
+func TestNewHeartbeatBlock(t *testing.T) {
 	testCases := []struct {
 		hb  *Heartbeat
 		err error
@@ -112,7 +112,7 @@ func TestNewHeartbeatMessage(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		hb := testCase.hb
-		serializedHb, err := NewHeartbeatMessage(hb)
+		serializedHb, err := NewHeartbeatBlock(hb)
 		tlvHeaderLength := int(tlv.HeaderMessageDefinition.MaxBytesLength)
 		if testCase.err != nil {
 			require.True(t, errors.Is(err, testCase.err))
@@ -120,7 +120,7 @@ func TestNewHeartbeatMessage(t *testing.T) {
 		}
 
 		require.NoError(t, err, "heartbeat should have been serialized successfully")
-		assert.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat message type tlv header value as first byte")
+		assert.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat block type tlv header value as first byte")
 		assert.EqualValues(t, len(networkID), int(serializedHb[tlvHeaderLength]), "expected network id to have length %d", len(networkID))
 		ownIDOffset := tlvHeaderLength + HeartbeatPacketNetworkIDBytesCountSize + len(networkID)
 		assert.EqualValues(t, hb.OwnID, serializedHb[ownIDOffset:ownIDOffset+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", ownIDOffset, ownIDOffset+HeartbeatPacketPeerIDSize)
@@ -152,9 +152,9 @@ func TestParseHeartbeat(t *testing.T) {
 		// ok
 		func() testcase {
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: make([][]byte, 0), InboundIDs: make([][]byte, 0)}
-			// message = tlv header + packet
+			// block = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			return testcase{index: 0, source: serializedHb[tlvHeaderLength:], expected: hb, err: nil}
 		}(),
 		// ok
@@ -168,9 +168,9 @@ func TestParseHeartbeat(t *testing.T) {
 				inboundIDs[i] = inboundID[:]
 			}
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
-			// message = tlv header + packet
+			// block = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			return testcase{index: 1, source: serializedHb[tlvHeaderLength:], expected: hb, err: nil}
 		}(),
 		// err, exceeds max inbound peer IDs
@@ -187,9 +187,9 @@ func TestParseHeartbeat(t *testing.T) {
 				inboundIDs[i] = inboundID[:]
 			}
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
-			// message = tlv header + packet
+			// block = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			// add an additional peer id
 			serializedHb = append(serializedHb, ownID[:]...)
 			return testcase{index: 2, source: serializedHb[tlvHeaderLength:], expected: hb, err: ErrMalformedPacket}
@@ -202,9 +202,9 @@ func TestParseHeartbeat(t *testing.T) {
 				outboundIDs[i] = outboundID[:]
 			}
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: make([][]byte, 0)}
-			// NewHeartbeatMessage would return nil and and error for a malformed packet (too many outbound peer IDs)
-			// so we create a correct message(tlv header + packet)
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			// NewHeartbeatBlock would return nil and and error for a malformed packet (too many outbound peer IDs)
+			// so we create a correct block(tlv header + packet)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			// and add an extra outbound ID (inbound IDs are zero)
 			serializedHb = append(serializedHb, ownID[:]...)
 			// manually overwrite outboundIDCount
@@ -219,9 +219,9 @@ func TestParseHeartbeat(t *testing.T) {
 				outboundIDs[i] = outboundID[:]
 			}
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: make([][]byte, 0)}
-			// message = tlv header + packet
+			// block = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			// we set the count to HeartbeatMaxOutboundPeersCount but we only have HeartbeatMaxOutboundPeersCount - 1
 			// actually serialized in the packet
 			serializedHb[tlvHeaderLength+HeartbeatPacketMinSize+len(networkID)-1] = HeartbeatMaxOutboundPeersCount
@@ -248,7 +248,7 @@ func TestParseHeartbeat(t *testing.T) {
 		func() testcase {
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: make([][]byte, 0), InboundIDs: make([][]byte, 0)}
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			// set networkIDByteSize to 0
 			serializedHb[tlvHeaderLength] = 0
 			return testcase{index: 8, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrInvalidHeartbeatNetworkVersion}
@@ -256,9 +256,9 @@ func TestParseHeartbeat(t *testing.T) {
 		// err network ID does not have the correct form (missing v)
 		func() testcase {
 			hb := &Heartbeat{NetworkID: []byte("0.2.1"), OwnID: ownID[:], OutboundIDs: make([][]byte, 0), InboundIDs: make([][]byte, 0)}
-			// message = tlv header + packet
+			// block = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			return testcase{index: 9, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrInvalidHeartbeatNetworkVersion}
 		}(),
 		// receive an "old" heartbeat packet
@@ -272,8 +272,8 @@ func TestParseHeartbeat(t *testing.T) {
 				inboundIDs[i] = inboundID[:]
 			}
 			hb := &Heartbeat{NetworkID: networkID, OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
-			// message = tlv header + packet
-			serializedHb, _ := NewHeartbeatMessage(hb)
+			// block = tlv header + packet
+			serializedHb, _ := NewHeartbeatBlock(hb)
 			// heartbeat without network ID: cut the network id size byte, and network ID
 			serializedHb = serializedHb[tlvHeaderLength+1+len(networkID):]
 			return testcase{index: 10, source: serializedHb, expected: nil, err: ErrInvalidHeartbeatNetworkVersion}

@@ -8,22 +8,22 @@ import (
 
 // Events defines all the events related to the gossip protocol.
 type Events struct {
-	// Fired when a new message was received via the gossip protocol.
-	MessageReceived *event.Event[*MessageReceivedEvent]
+	// Fired when a new block was received via the gossip protocol.
+	BlockReceived *event.Event[*BlockReceivedEvent]
 }
 
 // newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
-		MessageReceived: event.New[*MessageReceivedEvent](),
+		BlockReceived: event.New[*BlockReceivedEvent](),
 	}
 }
 
-// MessageReceivedEvent holds data about a message received event.
-type MessageReceivedEvent struct {
-	// The raw message.
+// BlockReceivedEvent holds data about a block received event.
+type BlockReceivedEvent struct {
+	// The raw block.
 	Data []byte
-	// The sender of the message.
+	// The sender of the block.
 	Peer *peer.Peer
 }
 

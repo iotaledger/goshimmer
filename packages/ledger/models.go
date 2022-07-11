@@ -22,8 +22,8 @@ type TransactionMetadata struct {
 }
 
 type transactionMetadata struct {
-	// BranchIDs contains the conflicting BranchIDs that this Transaction depends on.
-	BranchIDs utxo.TransactionIDs `serix:"0"`
+	// ConflictIDs contains the conflicting ConflictIDs that this Transaction depends on.
+	ConflictIDs utxo.TransactionIDs `serix:"0"`
 
 	// Booked contains a boolean flag that indicates if the Transaction was Booked already.
 	Booked bool `serix:"1"`
@@ -47,7 +47,7 @@ type transactionMetadata struct {
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
 func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
 	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
-		BranchIDs:         utxo.NewTransactionIDs(),
+		ConflictIDs:       utxo.NewTransactionIDs(),
 		OutputIDs:         utxo.NewOutputIDs(),
 		ConfirmationState: confirmation.Pending,
 	})
@@ -56,24 +56,24 @@ func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) 
 	return new
 }
 
-// BranchIDs returns the conflicting BranchIDs that the Transaction depends on.
-func (t *TransactionMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+// ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
+func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.BranchIDs.Clone()
+	return t.M.ConflictIDs.Clone()
 }
 
-// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+// SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
+func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.M.BranchIDs.Equal(branchIDs) {
+	if t.M.ConflictIDs.Equal(conflictIDs) {
 		return false
 	}
 
-	t.M.BranchIDs = branchIDs.Clone()
+	t.M.ConflictIDs = conflictIDs.Clone()
 	t.SetModified()
 
 	return true
@@ -193,9 +193,9 @@ func (t *TransactionMetadata) ConfirmationStateTime() (confirmationStateTime tim
 	return t.M.ConfirmationStateTime
 }
 
-// IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Branch).
+// IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Conflict).
 func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
-	return t.BranchIDs().Is(t.ID())
+	return t.ConflictIDs().Is(t.ID())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,8 +217,8 @@ type outputMetadata struct {
 	// CreationTime contains the time when the Output was created.
 	CreationTime time.Time `serix:"2"`
 
-	// BranchIDs contains the conflicting BranchIDs that this Output depends on.
-	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
+	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
+	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
 	FirstConsumer utxo.TransactionID `serix:"4"`
@@ -236,7 +236,7 @@ type outputMetadata struct {
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
-		BranchIDs:         utxo.NewTransactionIDs(),
+		ConflictIDs:       utxo.NewTransactionIDs(),
 		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(outputID)
@@ -313,24 +313,24 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 	return true
 }
 
-// BranchIDs returns the conflicting BranchIDs that the Output depends on.
-func (o *OutputMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+// ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
+func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.BranchIDs.Clone()
+	return o.M.ConflictIDs.Clone()
 }
 
-// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (o *OutputMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+// SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
+func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.BranchIDs.Equal(branchIDs) {
+	if o.M.ConflictIDs.Equal(conflictIDs) {
 		return false
 	}
 
-	o.M.BranchIDs = branchIDs.Clone()
+	o.M.ConflictIDs = conflictIDs.Clone()
 	o.SetModified()
 
 	return true
@@ -458,15 +458,15 @@ func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 	return ids
 }
 
-// BranchIDs returns a union of all BranchIDs of the contained OutputMetadata objects.
-func (o *OutputsMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
+func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
-		branchIDs.AddAll(outputMetadata.BranchIDs())
+		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil
 	})
 
-	return branchIDs
+	return conflictIDs
 }
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).

@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-func TestTipManager_DataMessageTips(t *testing.T) {
+func TestTipManager_DataBlockTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer func(tangle *Tangle) {
 		_ = tangle.Prune()
@@ -22,78 +22,78 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	tangle.Setup()
 	tipManager := tangle.TipManager
 
-	// set up scenario (images/tipmanager-DataMessageTips-test.png)
-	messages := make(map[string]*Message)
+	// set up scenario (images/tipmanager-DataBlockTips-test.png)
+	blocks := make(map[string]*Block)
 
 	// without any tip -> genesis
 	{
 		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
-		assert.Contains(t, parents, EmptyMessageID)
+		assert.Contains(t, parents, EmptyBlockID)
 	}
 	fmt.Println("send genesis")
 	// without any count -> 1 tip, in this case genesis
 	{
 		parents := tipManager.Tips(nil, 0)
 		assert.Len(t, parents, 1)
-		assert.Contains(t, parents, EmptyMessageID)
+		assert.Contains(t, parents, EmptyBlockID)
 	}
-	fmt.Println("send msg1")
-	// Message 1
+	fmt.Println("send blk1")
+	// Block 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
-		tipManager.AddTip(messages["1"])
-		tangle.TimeManager.updateTime(messages["1"])
+		blocks["1"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
+		tipManager.AddTip(blocks["1"])
+		tangle.TimeManager.updateTime(blocks["1"])
 		tangle.TimeManager.updateSyncedState()
 
 		assert.Equal(t, 1, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
+		assert.Contains(t, tipManager.tips.Keys(), blocks["1"].ID())
 
 		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
-		assert.Contains(t, parents, messages["1"].ID())
+		assert.Contains(t, parents, blocks["1"].ID())
 	}
-	fmt.Println("send msg2")
-	// Message 2
+	fmt.Println("send blk2")
+	// Block 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
-		tipManager.AddTip(messages["2"])
+		blocks["2"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
+		tipManager.AddTip(blocks["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID(), messages["2"].ID())
+		assert.Contains(t, tipManager.tips.Keys(), blocks["1"].ID(), blocks["2"].ID())
 
 		parents := tipManager.Tips(nil, 3)
 		assert.Len(t, parents, 2)
-		assert.Contains(t, parents, messages["1"].ID(), messages["2"].ID())
+		assert.Contains(t, parents, blocks["1"].ID(), blocks["2"].ID())
 	}
-	fmt.Println("send msg3")
-	// Message 3
+	fmt.Println("send blk3")
+	// Block 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
-		tipManager.AddTip(messages["3"])
+		blocks["3"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID(), blocks["2"].ID()), NewBlockIDs())
+		tipManager.AddTip(blocks["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
+		assert.Contains(t, tipManager.tips.Keys(), blocks["3"].ID())
 
 		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
-		assert.Contains(t, parents, messages["3"].ID())
+		assert.Contains(t, parents, blocks["3"].ID())
 	}
-	fmt.Println("send msg3")
-	// Add Message 4-8
+	fmt.Println("send blk3")
+	// Add Block 4-8
 	{
-		tips := NewMessageIDs()
-		tips.Add(messages["3"].ID())
+		tips := NewBlockIDs()
+		tips.Add(blocks["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID()), NewMessageIDs())
-			tipManager.AddTip(messages[nString])
-			tips.Add(messages[nString].ID())
+			blocks[nString] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID()), NewBlockIDs())
+			tipManager.AddTip(blocks[nString])
+			tips.Add(blocks[nString].ID())
 
-			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
-			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
-			fmt.Println("send msg", n)
+			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Block %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Block %d", n)
+			assert.Contains(t, tipManager.tips.Keys(), blocks["3"].ID())
+			fmt.Println("send blk", n)
 		}
 	}
 
@@ -124,19 +124,19 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 // 	tangle := NewTestTangle()
 // 	defer tangle.Shutdown()
 // 	tipManager := tangle.TipManager
-// 	confirmedMessageIDs := NewMessageIDs()
-// 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: markers.NewMarkers(markers.NewMarker(0, 1))}
+// 	confirmedBlockIDs := NewBlockIDs()
+// 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedBlockIDs: confirmedBlockIDs, confirmedMarkers: markers.NewMarkers(markers.NewMarker(0, 1))}
 //
-// 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 5), WithGenesisOutput("G2", 8))
+// 	testFramework := NewBlockTestFramework(tangle, WithGenesisOutput("G1", 5), WithGenesisOutput("G2", 8))
 //
 // 	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
 //
-// 	// Message 1
+// 	// Block 1
 // 	{
 // 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
 //
-// 		testFramework.CreateMessage(
-// 			"Message1",
+// 		testFramework.CreateBlock(
+// 			"Block1",
 // 			WithStrongParents("Genesis"),
 // 			WithIssuingTime(issueTime),
 // 			WithInputs("G1"),
@@ -144,59 +144,59 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 // 			WithOutput("B", 1),
 // 			WithOutput("c", 1),
 // 		)
-// 		testFramework.IssueMessages("Message1")
-// 		// bookMessage(t, tangle, testFramework.Message("Message1"))
+// 		testFramework.IssueBlocks("Block1")
+// 		// bookBlock(t, tangle, testFramework.Block("Block1"))
 // 		testFramework.WaitUntilAllTasksProcessed()
 //
-// 		tipManager.AddTip(testFramework.Message("Message1"))
+// 		tipManager.AddTip(testFramework.Block("Block1"))
 // 		assert.Equal(t, 0, tipManager.TipCount())
 //
-// 		// mark this message as confirmed
-// 		confirmedMessageIDs.Add(testFramework.Message("Message1").ID())
+// 		// mark this block as confirmed
+// 		confirmedBlockIDs.Add(testFramework.Block("Block1").ID())
 // 	}
 //
-// 	// Message 2
+// 	// Block 2
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message2",
+// 		testFramework.CreateBlock(
+// 			"Block2",
 // 			WithStrongParents("Genesis"),
 // 			WithInputs("G2"),
 // 			WithOutput("D", 6),
 // 			WithOutput("E", 1),
 // 			WithOutput("F", 1),
 // 		)
-// 		testFramework.IssueMessages("Message2")
+// 		testFramework.IssueBlocks("Block2")
 // 		testFramework.WaitUntilAllTasksProcessed()
 //
-// 		tipManager.AddTip(testFramework.Message("Message2"))
+// 		tipManager.AddTip(testFramework.Block("Block2"))
 // 		assert.Equal(t, 1, tipManager.TipCount())
 //
-// 		// use this message to set TangleTime
-// 		tangle.TimeManager.updateTime(testFramework.Message("Message2"))
+// 		// use this block to set TangleTime
+// 		tangle.TimeManager.updateTime(testFramework.Block("Block2"))
 // 	}
 //
-// 	// Message 3
+// 	// Block 3
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message3",
+// 		testFramework.CreateBlock(
+// 			"Block3",
 // 			WithStrongParents("Genesis"),
 // 			WithInputs("A"),
 // 			WithOutput("H", 1),
 // 			WithOutput("I", 1),
 // 			WithOutput("J", 1),
 // 		)
-// 		testFramework.IssueMessages("Message3")
+// 		testFramework.IssueBlocks("Block3")
 // 		testFramework.WaitUntilAllTasksProcessed()
-// 		tipManager.AddTip(testFramework.Message("Message3"))
+// 		tipManager.AddTip(testFramework.Block("Block3"))
 // 		assert.Equal(t, 2, tipManager.TipCount())
 // 	}
 //
-// 	// Message 4
+// 	// Block 4
 // 	{
 //
-// 		testFramework.CreateMessage(
-// 			"Message4",
-// 			WithStrongParents("Genesis", "Message2"),
+// 		testFramework.CreateBlock(
+// 			"Block4",
+// 			WithStrongParents("Genesis", "Block2"),
 // 			WithInputs("D"),
 // 			WithOutput("K", 1),
 // 			WithOutput("L", 1),
@@ -205,208 +205,208 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 // 			WithOutput("O", 1),
 // 			WithOutput("P", 1),
 // 		)
-// 		testFramework.IssueMessages("Message4")
+// 		testFramework.IssueBlocks("Block4")
 // 		testFramework.WaitUntilAllTasksProcessed()
-// 		tipManager.AddTip(testFramework.Message("Message4"))
+// 		tipManager.AddTip(testFramework.Block("Block4"))
 // 		assert.Equal(t, 2, tipManager.TipCount())
 // 	}
 //
-// 	// Message 5
+// 	// Block 5
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message5",
-// 			WithStrongParents("Genesis", "Message1"),
+// 		testFramework.CreateBlock(
+// 			"Block5",
+// 			WithStrongParents("Genesis", "Block1"),
 // 		)
-// 		testFramework.IssueMessages("Message5")
+// 		testFramework.IssueBlocks("Block5")
 // 		testFramework.WaitUntilAllTasksProcessed()
-// 		tipManager.AddTip(testFramework.Message("Message5"))
+// 		tipManager.AddTip(testFramework.Block("Block5"))
 // 		assert.Equal(t, 3, tipManager.TipCount())
 // 	}
 //
-// 	createScenarioMessageWith1Input1Output := func(messageStringID, inputStringID, outputStringID string, strongParents []string) {
-// 		testFramework.CreateMessage(
-// 			messageStringID,
+// 	createScenarioBlockWith1Input1Output := func(blockStringID, inputStringID, outputStringID string, strongParents []string) {
+// 		testFramework.CreateBlock(
+// 			blockStringID,
 // 			WithInputs(inputStringID),
 // 			WithOutput(outputStringID, 1),
 // 			WithStrongParents(strongParents...),
 // 		)
-// 		testFramework.IssueMessages(messageStringID)
+// 		testFramework.IssueBlocks(blockStringID)
 // 		testFramework.WaitUntilAllTasksProcessed()
 // 	}
 //
-// 	// Message 6
+// 	// Block 6
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message6", "H", "Q", []string{"Message3", "Message5"})
-// 		tipManager.AddTip(testFramework.Message("Message6"))
+// 		createScenarioBlockWith1Input1Output("Block6", "H", "Q", []string{"Block3", "Block5"})
+// 		tipManager.AddTip(testFramework.Block("Block6"))
 // 		assert.Equal(t, 2, tipManager.TipCount())
 // 	}
 //
-// 	// Message 7
+// 	// Block 7
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message7", "I", "R", []string{"Message3", "Message5"})
-// 		tipManager.AddTip(testFramework.Message("Message7"))
+// 		createScenarioBlockWith1Input1Output("Block7", "I", "R", []string{"Block3", "Block5"})
+// 		tipManager.AddTip(testFramework.Block("Block7"))
 // 		assert.Equal(t, 3, tipManager.TipCount())
 // 	}
 //
-// 	// Message 8
+// 	// Block 8
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message8", "J", "S", []string{"Message3", "Message5"})
-// 		tipManager.AddTip(testFramework.Message("Message8"))
+// 		createScenarioBlockWith1Input1Output("Block8", "J", "S", []string{"Block3", "Block5"})
+// 		tipManager.AddTip(testFramework.Block("Block8"))
 // 		assert.Equal(t, 4, tipManager.TipCount())
 // 	}
 //
-// 	// Message 9
+// 	// Block 9
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message9", "K", "T", []string{"Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message9"))
+// 		createScenarioBlockWith1Input1Output("Block9", "K", "T", []string{"Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block9"))
 // 		assert.Equal(t, 4, tipManager.TipCount())
 // 	}
 //
-// 	// Message 10
+// 	// Block 10
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message10", "L", "U", []string{"Message2", "Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message10"))
+// 		createScenarioBlockWith1Input1Output("Block10", "L", "U", []string{"Block2", "Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block10"))
 // 		assert.Equal(t, 5, tipManager.TipCount())
 // 	}
 //
-// 	// Message 11
+// 	// Block 11
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message11", "M", "V", []string{"Message2", "Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message11"))
+// 		createScenarioBlockWith1Input1Output("Block11", "M", "V", []string{"Block2", "Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block11"))
 // 		assert.Equal(t, 6, tipManager.TipCount())
 // 	}
 //
-// 	// Message 12
+// 	// Block 12
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message12", "N", "X", []string{"Message3", "Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message12"))
+// 		createScenarioBlockWith1Input1Output("Block12", "N", "X", []string{"Block3", "Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block12"))
 // 		assert.Equal(t, 7, tipManager.TipCount())
 // 	}
 //
-// 	// Message 13
+// 	// Block 13
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message13", "O", "Y", []string{"Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message13"))
+// 		createScenarioBlockWith1Input1Output("Block13", "O", "Y", []string{"Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block13"))
 // 		assert.Equal(t, 8, tipManager.TipCount())
 // 	}
 //
-// 	// Message 14
+// 	// Block 14
 // 	{
-// 		createScenarioMessageWith1Input1Output("Message14", "P", "Z", []string{"Message4"})
-// 		tipManager.AddTip(testFramework.Message("Message14"))
+// 		createScenarioBlockWith1Input1Output("Block14", "P", "Z", []string{"Block4"})
+// 		tipManager.AddTip(testFramework.Block("Block14"))
 // 		assert.Equal(t, 9, tipManager.TipCount())
 // 	}
 //
-// 	// Message 15
+// 	// Block 15
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message15",
-// 			WithStrongParents("Message10", "Message11"),
+// 		testFramework.CreateBlock(
+// 			"Block15",
+// 			WithStrongParents("Block10", "Block11"),
 // 		)
-// 		testFramework.IssueMessages("Message15")
+// 		testFramework.IssueBlocks("Block15")
 // 		testFramework.WaitUntilAllTasksProcessed()
-// 		tipManager.AddTip(testFramework.Message("Message15"))
+// 		tipManager.AddTip(testFramework.Block("Block15"))
 // 		assert.Equal(t, 8, tipManager.TipCount())
 // 	}
 //
-// 	// Message 16
+// 	// Block 16
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message16",
-// 			WithStrongParents("Message10", "Message11", "Message14"),
+// 		testFramework.CreateBlock(
+// 			"Block16",
+// 			WithStrongParents("Block10", "Block11", "Block14"),
 // 		)
-// 		testFramework.IssueMessages("Message16")
+// 		testFramework.IssueBlocks("Block16")
 // 		testFramework.WaitUntilAllTasksProcessed()
-// 		tipManager.AddTip(testFramework.Message("Message16"))
+// 		tipManager.AddTip(testFramework.Block("Block16"))
 // 		assert.Equal(t, 8, tipManager.TipCount())
 // 	}
 // 	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// 	// Message 17
+// 	// Block 17
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message17",
-// 			WithStrongParents("Message16"),
+// 		testFramework.CreateBlock(
+// 			"Block17",
+// 			WithStrongParents("Block16"),
 // 			WithOutput("OUT17", 8),
 // 			WithInputs("Q", "R", "S", "T", "U", "V", "X", "Y"),
 // 		)
-// 		testFramework.IssueMessages("Message17").WaitUntilAllTasksProcessed()
-// 		parents, err := tipManager.Tips(testFramework.Message("Message17").Payload(), 4)
+// 		testFramework.IssueBlocks("Block17").WaitUntilAllTasksProcessed()
+// 		parents, err := tipManager.Tips(testFramework.Block("Block17").Payload(), 4)
 // 		assert.NoError(t, err)
-// 		assert.Equal(t, parents, NewMessageIDs(
-// 			testFramework.Message("Message6").ID(),
-// 			testFramework.Message("Message7").ID(),
-// 			testFramework.Message("Message8").ID(),
-// 			testFramework.Message("Message9").ID(),
-// 			testFramework.Message("Message10").ID(),
-// 			testFramework.Message("Message11").ID(),
-// 			testFramework.Message("Message12").ID(),
-// 			testFramework.Message("Message13").ID(),
-// 		), "Message17 should have the correct parents")
+// 		assert.Equal(t, parents, NewBlockIDs(
+// 			testFramework.Block("Block6").ID(),
+// 			testFramework.Block("Block7").ID(),
+// 			testFramework.Block("Block8").ID(),
+// 			testFramework.Block("Block9").ID(),
+// 			testFramework.Block("Block10").ID(),
+// 			testFramework.Block("Block11").ID(),
+// 			testFramework.Block("Block12").ID(),
+// 			testFramework.Block("Block13").ID(),
+// 		), "Block17 should have the correct parents")
 // 	}
 //
-// 	// Message 18
+// 	// Block 18
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message18",
-// 			WithStrongParents("Message16"),
+// 		testFramework.CreateBlock(
+// 			"Block18",
+// 			WithStrongParents("Block16"),
 // 			WithOutput("OUT18", 6),
 // 			WithInputs("Q", "R", "S", "T", "U", "V"),
 // 		)
 //
-// 		parents, err := tipManager.Tips(testFramework.Message("Message18").Payload(), 4)
+// 		parents, err := tipManager.Tips(testFramework.Block("Block18").Payload(), 4)
 // 		fmt.Println(parents, err)
 //
 // 		assert.NoError(t, err)
-// 		// there are possible parents to be selected, however, since the directly referenced messages are tips as well
+// 		// there are possible parents to be selected, however, since the directly referenced blocks are tips as well
 // 		// there is a chance that these are doubly selected, resulting 6 to 8 parents
 // 		assert.GreaterOrEqual(t, len(parents), 6)
 // 		assert.LessOrEqual(t, len(parents), 8)
 // 		assert.Contains(t, parents,
-// 			testFramework.Message("Message6").ID(),
-// 			testFramework.Message("Message7").ID(),
-// 			testFramework.Message("Message8").ID(),
-// 			testFramework.Message("Message9").ID(),
-// 			testFramework.Message("Message10").ID(),
-// 			testFramework.Message("Message11").ID(),
+// 			testFramework.Block("Block6").ID(),
+// 			testFramework.Block("Block7").ID(),
+// 			testFramework.Block("Block8").ID(),
+// 			testFramework.Block("Block9").ID(),
+// 			testFramework.Block("Block10").ID(),
+// 			testFramework.Block("Block11").ID(),
 // 		)
 // 	}
 //
-// 	// Message 19
+// 	// Block 19
 // 	{
-// 		testFramework.CreateMessage(
-// 			"Message19",
-// 			WithStrongParents("Message16"),
+// 		testFramework.CreateBlock(
+// 			"Block19",
+// 			WithStrongParents("Block16"),
 // 			WithOutput("OUT19", 3),
 // 			WithInputs("B", "V", "Z"),
 // 		)
 //
-// 		parents, err := tipManager.Tips(testFramework.Message("Message19").Payload(), 4)
+// 		parents, err := tipManager.Tips(testFramework.Block("Block19").Payload(), 4)
 // 		assert.NoError(t, err)
 //
 // 		// we reference 11, 14 directly. 1 is too old and should not be directly referenced
 // 		assert.GreaterOrEqual(t, len(parents), 4)
 // 		assert.LessOrEqual(t, len(parents), 8)
 // 		assert.Contains(t, parents,
-// 			testFramework.Message("Message11").ID(),
-// 			testFramework.Message("Message14").ID(),
+// 			testFramework.Block("Block11").ID(),
+// 			testFramework.Block("Block14").ID(),
 // 		)
 // 		assert.NotContains(t, parents,
-// 			testFramework.Message("Message1").ID(),
+// 			testFramework.Block("Block1").ID(),
 // 		)
 // 	}
 //
-// 	// Message 20
+// 	// Block 20
 // 	{
 //
-// 		testFramework.CreateMessage(
-// 			"Message20",
-// 			WithStrongParents("Message16"),
+// 		testFramework.CreateBlock(
+// 			"Block20",
+// 			WithStrongParents("Block16"),
 // 			WithOutput("OUT20", 9),
 // 			WithInputs("Q", "R", "S", "T", "U", "V", "X", "Y", "Z"),
 // 		)
 //
-// 		parents, err := tipManager.Tips(testFramework.Message("Message20").Payload(), 4)
+// 		parents, err := tipManager.Tips(testFramework.Block("Block20").Payload(), 4)
 // 		assert.NoError(t, err)
 //
 // 		// there are 9 inputs to be directly referenced -> we need to reference them via tips (8 tips available)
@@ -424,58 +424,58 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 
 	tipManager := tangle.TipManager
 
-	testFramework := NewMessageTestFramework(
+	testFramework := NewBlockTestFramework(
 		tangle,
 	)
 
 	tangle.Setup()
 
 	createTestTangleTSC(t, testFramework)
-	var confirmedMessageIDsString []string
-	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
+	var confirmedBlockIDsString []string
+	confirmedBlockIDs := prepareConfirmedBlockIDs(testFramework, confirmedBlockIDsString)
 	confirmedMarkers := markers.NewMarkers()
 
-	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
-	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedBlockIDs: confirmedBlockIDs, confirmedMarkers: confirmedMarkers}
+	tangle.TimeManager.updateTime(testFramework.Block("Marker-2/3"))
 	tangle.TimeManager.updateSyncedState()
 
 	// Even without any confirmations, it should be possible to attach to genesis.
-	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyBlockID))
 
-	// case 0 - only one message can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/0_2").ID()))
+	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/0_2").ID()))
 	// case #1
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/3_4").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/3_4").ID()))
 	// case #2
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("1/3_4").ID()))
 	// case #3
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
-	// case #4 (marker message)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/3_4").ID()))
+	// case #4 (marker block)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("Marker-1/2").ID()))
 	// case #5
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
-	// case #6 (attach to unconfirmed message older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/5_4").ID()))
+	// case #6 (attach to unconfirmed block older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSC_2").ID()))
 	// case #7
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("3/2_4").ID()))
 	// case #8
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/3+0/4_3").ID()))
 	// case #9
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
-	// case #10 (attach to confirmed message older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("Marker-4/5").ID()))
+	// case #10 (attach to confirmed block older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSCSeq2_2").ID()))
 	// case #11
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
-	//case #12 (attach to 0/1-postTSCSeq3_4)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSCSeq3_4").ID()))
-	//case #13 (attach to unconfirmed message younger than TSC, with confirmed past marker older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC_2").ID()))
-	//case #14
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("6/2_4").ID()))
-	//case #15
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq5_4").ID()))
-	//case #16
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC-direct_0").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("5/2_4").ID()))
+	// case #12 (attach to 0/1-postTSCSeq3_4)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSCSeq3_4").ID()))
+	// case #13 (attach to unconfirmed block younger than TSC, with confirmed past marker older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSC_2").ID()))
+	// case #14
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("6/2_4").ID()))
+	// case #15
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSCSeq5_4").ID()))
+	// case #16
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSC-direct_0").ID()))
 }
 
 // Test based on packages/tangle/images/TSC_test_scenario.png.
@@ -487,101 +487,101 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 
 	tipManager := tangle.TipManager
 	confirmationOracle := &MockConfirmationOracleTipManagerTest{
-		confirmedMessageIDs:    NewMessageIDs(),
+		confirmedBlockIDs:      NewBlockIDs(),
 		confirmedMarkers:       markers.NewMarkers(),
 		MockConfirmationOracle: MockConfirmationOracle{},
 	}
 	tangle.ConfirmationOracle = confirmationOracle
 
-	testFramework := NewMessageTestFramework(
+	testFramework := NewBlockTestFramework(
 		tangle,
 	)
 
 	tangle.Setup()
 
 	createTestTangleTSC(t, testFramework)
-	confirmedMessageIDsString := []string{"Marker-0/1", "0/1-preTSCSeq1_0", "0/1-preTSCSeq1_1", "0/1-preTSCSeq1_2", "0/1-postTSCSeq1_0", "0/1-postTSCSeq1_1", "0/1-postTSCSeq1_2", "0/1-postTSCSeq1_3", "0/1-postTSCSeq1_4", "0/1-postTSCSeq1_5", "Marker-1/2", "0/1-preTSCSeq2_0", "0/1-preTSCSeq2_1", "0/1-preTSCSeq2_2", "0/1-postTSCSeq2_0", "0/1-postTSCSeq2_1", "0/1-postTSCSeq2_2", "0/1-postTSCSeq2_3", "0/1-postTSCSeq2_4", "0/1-postTSCSeq2_5", "Marker-2/2", "2/2_0", "2/2_1", "2/2_2", "2/2_3", "2/2_4", "Marker-2/3"}
-	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
+	confirmedBlockIDsString := []string{"Marker-0/1", "0/1-preTSCSeq1_0", "0/1-preTSCSeq1_1", "0/1-preTSCSeq1_2", "0/1-postTSCSeq1_0", "0/1-postTSCSeq1_1", "0/1-postTSCSeq1_2", "0/1-postTSCSeq1_3", "0/1-postTSCSeq1_4", "0/1-postTSCSeq1_5", "Marker-1/2", "0/1-preTSCSeq2_0", "0/1-preTSCSeq2_1", "0/1-preTSCSeq2_2", "0/1-postTSCSeq2_0", "0/1-postTSCSeq2_1", "0/1-postTSCSeq2_2", "0/1-postTSCSeq2_3", "0/1-postTSCSeq2_4", "0/1-postTSCSeq2_5", "Marker-2/2", "2/2_0", "2/2_1", "2/2_2", "2/2_3", "2/2_4", "Marker-2/3"}
+	confirmedBlockIDs := prepareConfirmedBlockIDs(testFramework, confirmedBlockIDsString)
 	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3))
 
 	confirmationOracle.Lock()
-	confirmationOracle.confirmedMessageIDs = confirmedMessageIDs
+	confirmationOracle.confirmedBlockIDs = confirmedBlockIDs
 	confirmationOracle.confirmedMarkers = confirmedMarkers
 	confirmationOracle.Unlock()
 
-	// = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
-	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
+	// = &MockConfirmationOracleTipManagerTest{confirmedBlockIDs: confirmedBlockIDs, confirmedMarkers: confirmedMarkers}
+	tangle.TimeManager.updateTime(testFramework.Block("Marker-2/3"))
 	tangle.TimeManager.updateSyncedState()
 
 	// Even without any confirmations, it should be possible to attach to genesis.
-	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyBlockID))
 
-	// case 0 - only one message can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/0_2").ID()))
+	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/0_2").ID()))
 	// case #1
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/3_4").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/3_4").ID()))
 	// case #2
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("1/3_4").ID()))
 	// case #3
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
-	// case #4 (marker message)
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/3_4").ID()))
+	// case #4 (marker block)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("Marker-1/2").ID()))
 	// case #5
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
-	// case #6 (attach to unconfirmed message older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/5_4").ID()))
+	// case #6 (attach to unconfirmed block older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSC_2").ID()))
 	// case #7
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("3/2_4").ID()))
 	// case #8
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("2/3+0/4_3").ID()))
 	// case #9
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
-	// case #10 (attach to confirmed message older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("Marker-4/5").ID()))
+	// case #10 (attach to confirmed block older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSCSeq2_2").ID()))
 	// case #11
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
-	//case #12 (attach to 0/1-postTSCSeq3_4)
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSCSeq3_4").ID()))
-	//case #13 (attach to unconfirmed message younger than TSC, with confirmed past marker older than TSC)
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC_2").ID()))
-	//case #14
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("6/2_4").ID()))
-	//case #15
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq5_4").ID()))
-	//case #16
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC-direct_0").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("5/2_4").ID()))
+	// case #12 (attach to 0/1-postTSCSeq3_4)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSCSeq3_4").ID()))
+	// case #13 (attach to unconfirmed block younger than TSC, with confirmed past marker older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSC_2").ID()))
+	// case #14
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("6/2_4").ID()))
+	// case #15
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-preTSCSeq5_4").ID()))
+	// case #16
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Block("0/1-postTSC-direct_0").ID()))
 }
 
-func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
-	var lastMsgAlias string
+func createTestTangleTSC(t *testing.T, testFramework *BlockTestFramework) {
+	var lastBlkAlias string
 
 	// SEQUENCE 0
 	{
-		testFramework.CreateMessage("Marker-0/1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-9*time.Minute)))
-		testFramework.IssueMessages("Marker-0/1").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-0/1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		testFramework.IssueBlocks("Marker-0/1").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSC", 3, []string{lastMsgAlias}, time.Minute)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-postTSC", 3, []string{lastBlkAlias}, time.Minute)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-0/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-0/2", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-0/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/2", 5, []string{"Marker-0/2"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "0/2", 5, []string{"Marker-0/2"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-0/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/3").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-0/3", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-0/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/3", 5, []string{"Marker-0/3"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "0/3", 5, []string{"Marker-0/3"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-0/4", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/4").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-0/4", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-0/4").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
+		_ = issueBlocks(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
 		testFramework.PreventNewMarkers(false)
 
-		// issue message for test case #16
-		testFramework.CreateMessage("0/1-postTSC-direct_0", WithStrongParents("Marker-0/1"))
-		testFramework.IssueMessages("0/1-postTSC-direct_0").WaitUntilAllTasksProcessed()
+		// issue block for test case #16
+		testFramework.CreateBlock("0/1-postTSC-direct_0", WithStrongParents("Marker-0/1"))
+		testFramework.IssueBlocks("0/1-postTSC-direct_0").WaitUntilAllTasksProcessed()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -599,7 +599,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 
 	// SEQUENCE 0 (without markers)
 	{
-		_ = issueMessages(testFramework, "0/0", 3, []string{"Genesis"}, time.Minute)
+		_ = issueBlocks(testFramework, "0/0", 3, []string{"Genesis"}, time.Minute)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"0/0_0": markers.NewMarkers(markers.NewMarker(0, 0)),
@@ -610,18 +610,18 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 1
 	{ //nolint:dupl
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq1", 6, []string{lastMsgAlias}, time.Minute*4)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-postTSCSeq1", 6, []string{lastBlkAlias}, time.Minute*4)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-1/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
-		testFramework.IssueMessages("Marker-1/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-1/2", WithStrongParents(lastBlkAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueBlocks("Marker-1/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "1/2", 5, []string{"Marker-1/2"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "1/2", 5, []string{"Marker-1/2"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-1/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-1/3").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-1/3", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-1/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
+		_ = issueBlocks(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -652,18 +652,18 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 2
 	{ //nolint:dupl
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq2", 6, []string{lastMsgAlias}, time.Minute*4)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-postTSCSeq2", 6, []string{lastBlkAlias}, time.Minute*4)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-2/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
-		testFramework.IssueMessages("Marker-2/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-2/2", WithStrongParents(lastBlkAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueBlocks("Marker-2/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "2/2", 5, []string{"Marker-2/2"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "2/2", 5, []string{"Marker-2/2"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-2/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-2/3").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-2/3", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-2/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
+		_ = issueBlocks(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -693,10 +693,10 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 
 	// SEQUENCE 2 + 0
 	{
-		testFramework.CreateMessage("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
-		testFramework.IssueMessages("Marker-2/5").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
+		testFramework.IssueBlocks("Marker-2/5").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
+		_ = issueBlocks(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -712,12 +712,12 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 3
 	{
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-3/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-3/2", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-3/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
+		_ = issueBlocks(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -738,9 +738,9 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 2 + 0 (two past markers) -> SEQUENCE 4
 	{
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
-		testFramework.CreateMessage("Marker-4/5", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-4/5").WaitUntilAllTasksProcessed()
+		lastBlkAlias = issueBlocks(testFramework, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
+		testFramework.CreateBlock("Marker-4/5", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-4/5").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -754,12 +754,12 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 5
 	{
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-5/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-5/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-5/2", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-5/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
+		_ = issueBlocks(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -780,12 +780,12 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 6
 	{
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
+		lastBlkAlias = issueBlocks(testFramework, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
 		testFramework.PreventNewMarkers(false)
-		testFramework.CreateMessage("Marker-6/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-6/2").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Marker-6/2", WithStrongParents(lastBlkAlias))
+		testFramework.IssueBlocks("Marker-6/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
-		_ = issueMessages(testFramework, "6/2", 5, []string{"Marker-6/2"}, 0)
+		_ = issueBlocks(testFramework, "6/2", 5, []string{"Marker-6/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -804,58 +804,58 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	}
 }
 
-func prepareConfirmedMessageIDs(testFramework *MessageTestFramework, confirmedIDs []string) MessageIDs {
-	confirmedMessageIDs := NewMessageIDs()
+func prepareConfirmedBlockIDs(testFramework *BlockTestFramework, confirmedIDs []string) BlockIDs {
+	confirmedBlockIDs := NewBlockIDs()
 	for _, id := range confirmedIDs {
-		confirmedMessageIDs.Add(testFramework.Message(id).ID())
+		confirmedBlockIDs.Add(testFramework.Block(id).ID())
 	}
-	return confirmedMessageIDs
+	return confirmedBlockIDs
 }
 
-func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCount int, parents []string, timestampOffset time.Duration) string {
-	msgAlias := fmt.Sprintf("%s_%d", msgPrefix, 0)
+func issueBlocks(testFramework *BlockTestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
+	blkAlias := fmt.Sprintf("%s_%d", blkPrefix, 0)
 
-	testFramework.CreateMessage(msgAlias, WithStrongParents(parents...), WithIssuingTime(time.Now().Add(-timestampOffset)))
-	testFramework.IssueMessages(msgAlias).WaitUntilAllTasksProcessed()
+	testFramework.CreateBlock(blkAlias, WithStrongParents(parents...), WithIssuingTime(time.Now().Add(-timestampOffset)))
+	testFramework.IssueBlocks(blkAlias).WaitUntilAllTasksProcessed()
 
-	for i := 1; i < msgCount; i++ {
-		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
-		testFramework.CreateMessage(alias, WithIssuer(identity.GenerateIdentity().PublicKey()), WithStrongParents(msgAlias), WithSequenceNumber(uint64(i)), WithIssuingTime(time.Now().Add(-timestampOffset)))
-		testFramework.IssueMessages(alias).WaitUntilAllTasksProcessed()
-		fmt.Println("issuing message", testFramework.Message(alias).ID())
-		msgAlias = alias
+	for i := 1; i < blkCount; i++ {
+		alias := fmt.Sprintf("%s_%d", blkPrefix, i)
+		testFramework.CreateBlock(alias, WithIssuer(identity.GenerateIdentity().PublicKey()), WithStrongParents(blkAlias), WithSequenceNumber(uint64(i)), WithIssuingTime(time.Now().Add(-timestampOffset)))
+		testFramework.IssueBlocks(alias).WaitUntilAllTasksProcessed()
+		fmt.Println("issuing block", testFramework.Block(alias).ID())
+		blkAlias = alias
 	}
-	return msgAlias
+	return blkAlias
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	parents := ParentMessageIDs{
+func createAndStoreParentsDataBlockInMasterConflict(tangle *Tangle, strongParents, weakParents BlockIDs) (block *Block) {
+	parents := ParentBlockIDs{
 		StrongParentType: strongParents,
 	}
 	if len(weakParents) > 0 {
 		parents[WeakParentType] = weakParents
 	}
 
-	message = newTestParentsDataMessage("testmessage", parents)
-	tangle.Storage.StoreMessage(message)
+	block = newTestParentsDataBlock("testblock", parents)
+	tangle.Storage.StoreBlock(block)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	return
 }
 
 type MockConfirmationOracleTipManagerTest struct {
-	confirmedMessageIDs MessageIDs
-	confirmedMarkers    *markers.Markers
+	confirmedBlockIDs BlockIDs
+	confirmedMarkers  *markers.Markers
 
 	MockConfirmationOracle
 }
 
-// IsMessageConfirmed mocks its interface function.
-func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
+// IsBlockConfirmed mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) IsBlockConfirmed(blkID BlockID) bool {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.confirmedMessageIDs.Contains(msgID)
+	return m.confirmedBlockIDs.Contains(blkID)
 }
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
@@ -870,7 +870,7 @@ func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(seque
 	return 0
 }
 
-// IsMessageConfirmed mocks its interface function.
+// IsBlockConfirmed mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker markers.Marker) bool {
 	m.RLock()
 	defer m.RUnlock()

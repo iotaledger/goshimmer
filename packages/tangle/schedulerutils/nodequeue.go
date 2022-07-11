@@ -20,7 +20,7 @@ type ElementID [ElementIDLength]byte
 func ElementIDFromBytes(data []byte) (result ElementID) {
 	// check arguments
 	if len(data) < ElementIDLength {
-		panic("bytes not long enough to encode a valid message id")
+		panic("bytes not long enough to encode a valid block id")
 	}
 
 	copy(result[:], data)
@@ -31,7 +31,7 @@ func (e ElementID) Bytes() []byte {
 	return e[:]
 }
 
-// Element represents the generic interface for an message in NodeQueue.
+// Element represents the generic interface for an block in NodeQueue.
 type Element interface {
 	// IDBytes returns the ID of an Element as a byte slice.
 	IDBytes() []byte
@@ -42,13 +42,13 @@ type Element interface {
 	// IssuerPublicKey returns the issuer public key of the element.
 	IssuerPublicKey() ed25519.PublicKey
 
-	// IssuingTime returns the issuing time of the message.
+	// IssuingTime returns the issuing time of the block.
 	IssuingTime() time.Time
 }
 
 // region NodeQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
-// NodeQueue keeps the submitted messages of a node.
+// NodeQueue keeps the submitted blocks of a node.
 type NodeQueue struct {
 	nodeID    identity.ID
 	submitted map[ElementID]*Element
@@ -65,7 +65,7 @@ func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 	}
 }
 
-// Size returns the total size of the messages in the queue.
+// Size returns the total size of the blocks in the queue.
 // This function is thread-safe.
 func (q *NodeQueue) Size() int {
 	if q == nil {
@@ -79,11 +79,11 @@ func (q *NodeQueue) NodeID() identity.ID {
 	return q.nodeID
 }
 
-// Submit submits a message for the queue.
+// Submit submits a block for the queue.
 func (q *NodeQueue) Submit(element Element) bool {
 	// this is just a debugging check, it will never happen in practice
-	if msgNodeID := identity.NewID(element.IssuerPublicKey()); q.nodeID != msgNodeID {
-		panic(fmt.Sprintf("nodequeue: queue node ID(%x) and issuer ID(%x) does not match.", q.nodeID, msgNodeID))
+	if blkNodeID := identity.NewID(element.IssuerPublicKey()); q.nodeID != blkNodeID {
+		panic(fmt.Sprintf("nodequeue: queue node ID(%x) and issuer ID(%x) does not match.", q.nodeID, blkNodeID))
 	}
 
 	id := ElementIDFromBytes(element.IDBytes())
@@ -96,7 +96,7 @@ func (q *NodeQueue) Submit(element Element) bool {
 	return true
 }
 
-// Unsubmit removes a previously submitted message from the queue.
+// Unsubmit removes a previously submitted block from the queue.
 func (q *NodeQueue) Unsubmit(element Element) bool {
 	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
@@ -108,7 +108,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 	return true
 }
 
-// Ready marks a previously submitted message as ready to be scheduled.
+// Ready marks a previously submitted block as ready to be scheduled.
 func (q *NodeQueue) Ready(element Element) bool {
 	id := ElementIDFromBytes(element.IDBytes())
 	if _, submitted := q.submitted[id]; !submitted {
@@ -120,7 +120,7 @@ func (q *NodeQueue) Ready(element Element) bool {
 	return true
 }
 
-// IDs returns the IDs of all submitted messages (ready or not).
+// IDs returns the IDs of all submitted blocks (ready or not).
 func (q *NodeQueue) IDs() (ids []ElementID) {
 	for id := range q.submitted {
 		ids = append(ids, id)
@@ -131,7 +131,7 @@ func (q *NodeQueue) IDs() (ids []ElementID) {
 	return ids
 }
 
-// Front returns the first ready message in the queue.
+// Front returns the first ready block in the queue.
 func (q *NodeQueue) Front() Element {
 	if q == nil || q.inbox.Len() == 0 {
 		return nil
@@ -139,18 +139,18 @@ func (q *NodeQueue) Front() Element {
 	return (*q.inbox)[0]
 }
 
-// PopFront removes the first ready message from the queue.
+// PopFront removes the first ready block from the queue.
 func (q *NodeQueue) PopFront() Element {
-	msg := heap.Pop(q.inbox).(Element)
+	blk := heap.Pop(q.inbox).(Element)
 	q.size.Dec()
-	return msg
+	return blk
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ElementHeap /////////////////////////////////////////////////////////////////////////////////////////////
 
-// ElementHeap holds a heap of messages with respect to their IssuingTime.
+// ElementHeap holds a heap of blocks with respect to their IssuingTime.
 type ElementHeap []Element
 
 // Len is the number of elements in the collection.

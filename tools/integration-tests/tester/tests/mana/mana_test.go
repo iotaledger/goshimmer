@@ -87,7 +87,7 @@ var (
 //	require.NoError(t, err)
 //
 //	faucetConfig := framework.PeerConfig()
-//	faucetConfig.MessageLayer.StartSynced = true
+//	faucetConfig.BlockLayer.StartSynced = true
 //	faucetConfig.Faucet.Enabled = true
 //	faucetConfig.Mana.Enabled = true
 //	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
@@ -96,7 +96,7 @@ var (
 //	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
 //	faucetConfig.Activity.Enabled = true
 //	faucetConfig.Seed = seedBytes
-//	faucetConfig.MessageLayer.Snapshot.File = snapshotInfo.FilePath
+//	faucetConfig.BlockLayer.Snapshot.File = snapshotInfo.FilePath
 //
 //	faucet, err := n.CreatePeer(ctx, faucetConfig)
 //	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestManaApis(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
-		Activity:    true, // we need to issue regular activity messages
+		Activity:    true, // we need to issue regular activity blocks
 		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
@@ -308,7 +308,6 @@ func TestManaApis(t *testing.T) {
 		require.Equal(t, false, respAll.Consensus.IsFilterEnabled)
 		require.Equal(t, []string{fullID(faucet.ID())}, respAll.Consensus.Allowed)
 	})
-
 }
 
 func fullID(id identity.ID) string {

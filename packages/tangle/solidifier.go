@@ -9,20 +9,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-// maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
+// maxParentsTimeDifference defines the smallest allowed time difference between a child Block and its parents.
 const minParentsTimeDifference = 0 * time.Second
 
-// maxParentsTimeDifference defines the biggest allowed time difference between a child Message and its parents.
+// maxParentsTimeDifference defines the biggest allowed time difference between a child Block and its parents.
 const maxParentsTimeDifference = 30 * time.Minute
 
 // region Solidifier ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Solidifier is the Tangle's component that solidifies messages.
+// Solidifier is the Tangle's component that solidifies blocks.
 type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	mutex  *syncutils.DAGMutex[MessageID]
+	mutex  *syncutils.DAGMutex[BlockID]
 	tangle *Tangle
 }
 
@@ -30,7 +30,7 @@ type Solidifier struct {
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: newSolidifierEvents(),
-		mutex:  syncutils.NewDAGMutex[MessageID](),
+		mutex:  syncutils.NewDAGMutex[BlockID](),
 		tangle: tangle,
 	}
 
@@ -39,130 +39,130 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
-	s.tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		s.solidify(event.Message)
+	s.tangle.Storage.Events.BlockStored.Hook(event.NewClosure(func(event *BlockStoredEvent) {
+		s.solidify(event.Block)
 	}))
 
-	s.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
-		s.processApprovers(event.Message.ID())
+	s.Events.BlockSolid.Attach(event.NewClosure(func(event *BlockSolidEvent) {
+		s.processChildren(event.Block.ID())
 	}))
 }
 
-// Solidify solidifies the given Message.
-func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Storage.Message(messageID).Consume(s.solidify)
+// Solidify solidifies the given Block.
+func (s *Solidifier) Solidify(blockID BlockID) {
+	s.tangle.Storage.Block(blockID).Consume(s.solidify)
 }
 
-// Solidify solidifies the given Message.
-func (s *Solidifier) solidify(message *Message) {
-	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		if s.checkMessageSolidity(message, messageMetadata) {
-			s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
+// Solidify solidifies the given Block.
+func (s *Solidifier) solidify(block *Block) {
+	s.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
+		if s.checkBlockSolidity(block, blockMetadata) {
+			s.Events.BlockSolid.Trigger(&BlockSolidEvent{block})
 		}
 	})
 }
 
-func (s *Solidifier) processApprovers(messageID MessageID) {
-	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+func (s *Solidifier) processChildren(blockID BlockID) {
+	s.tangle.Storage.Children(blockID).Consume(func(child *Child) {
 		event.Loop.Submit(func() {
-			s.Solidify(approver.ApproverMessageID())
+			s.Solidify(child.ChildBlockID())
 		})
 	})
 }
 
-// RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
-func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMissing bool) {
-	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
-			cachedMissingMessage.Release()
+// RetrieveMissingBlock checks if the block is missing and triggers the corresponding events to request it. It returns true if the block has been missing.
+func (s *Solidifier) RetrieveMissingBlock(blockID BlockID) (blockWasMissing bool) {
+	s.tangle.Storage.BlockMetadata(blockID, func() *BlockMetadata {
+		if cachedMissingBlock, stored := s.tangle.Storage.StoreMissingBlock(NewMissingBlock(blockID)); stored {
+			cachedMissingBlock.Release()
 
-			messageWasMissing = true
-			s.Events.MessageMissing.Trigger(&MessageMissingEvent{messageID})
+			blockWasMissing = true
+			s.Events.BlockMissing.Trigger(&BlockMissingEvent{blockID})
 		}
 
 		return nil
 	}).Release()
 
-	return messageWasMissing
+	return blockWasMissing
 }
 
-// checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) (messageBecameSolid bool) {
-	s.mutex.Lock(message.ID())
-	defer s.mutex.Unlock(message.ID())
+// checkBlockSolidity checks if the given Block is solid and eventually queues its Children to also be checked.
+func (s *Solidifier) checkBlockSolidity(block *Block, blockMetadata *BlockMetadata) (blockBecameSolid bool) {
+	s.mutex.Lock(block.ID())
+	defer s.mutex.Unlock(block.ID())
 
-	if messageMetadata.IsSolid() {
+	if blockMetadata.IsSolid() {
 		return false
 	}
 
-	if !s.isMessageSolid(message, messageMetadata) {
+	if !s.isBlockSolid(block, blockMetadata) {
 		return false
 	}
 
-	if !s.areParentMessagesValid(message) {
-		if messageMetadata.SetObjectivelyInvalid(true) {
-			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
+	if !s.areParentBlocksValid(block) {
+		if blockMetadata.SetObjectivelyInvalid(true) {
+			s.tangle.Events.BlockInvalid.Trigger(&BlockInvalidEvent{BlockID: block.ID(), Error: ErrParentsInvalid})
 		}
 
 		return false
 	}
 
-	return messageMetadata.SetSolid(true)
+	return blockMetadata.SetSolid(true)
 }
 
-// isMessageSolid checks if the given Message is solid.
-func (s *Solidifier) isMessageSolid(message *Message, messageMetadata *MessageMetadata) (solid bool) {
-	if message == nil || message.IsDeleted() || messageMetadata == nil || messageMetadata.IsDeleted() {
+// isBlockSolid checks if the given Block is solid.
+func (s *Solidifier) isBlockSolid(block *Block, blockMetadata *BlockMetadata) (solid bool) {
+	if block == nil || block.IsDeleted() || blockMetadata == nil || blockMetadata.IsDeleted() {
 		return false
 	}
 
-	if messageMetadata.IsSolid() {
+	if blockMetadata.IsSolid() {
 		return true
 	}
 
 	solid = true
-	message.ForEachParent(func(parent Parent) {
-		// as missing messages are requested in isMessageMarkedAsSolid, we need to be aware of short-circuit evaluation
-		// rules, thus we need to evaluate isMessageMarkedAsSolid !!first!!
-		solid = s.isMessageMarkedAsSolid(parent.ID) && solid
+	block.ForEachParent(func(parent Parent) {
+		// as missing blocks are requested in isBlockMarkedAsSolid, we need to be aware of short-circuit evaluation
+		// rules, thus we need to evaluate isBlockMarkedAsSolid !!first!!
+		solid = s.isBlockMarkedAsSolid(parent.ID) && solid
 	})
 
 	return
 }
 
-// isMessageMarkedAsSolid checks whether the given message is solid and marks it as missing if it isn't known.
-func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
-	if messageID == EmptyMessageID {
+// isBlockMarkedAsSolid checks whether the given block is solid and marks it as missing if it isn't known.
+func (s *Solidifier) isBlockMarkedAsSolid(blockID BlockID) (solid bool) {
+	if blockID == EmptyBlockID {
 		return true
 	}
 
-	if s.RetrieveMissingMessage(messageID) {
+	if s.RetrieveMissingBlock(blockID) {
 		return false
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		solid = messageMetadata.IsSolid()
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+		solid = blockMetadata.IsSolid()
 	})
 
 	return
 }
 
-// areParentMessagesValid checks whether the parents of the given Message are valid.
-func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
+// areParentBlocksValid checks whether the parents of the given Block are valid.
+func (s *Solidifier) areParentBlocksValid(block *Block) (valid bool) {
 	valid = true
-	message.ForEachParent(func(parent Parent) {
+	block.ForEachParent(func(parent Parent) {
 		if !valid {
 			return
 		}
 
-		if parent.ID == EmptyMessageID {
+		if parent.ID == EmptyBlockID {
 			if s.tangle.Options.GenesisNode != nil {
-				valid = *s.tangle.Options.GenesisNode == message.IssuerPublicKey()
+				valid = *s.tangle.Options.GenesisNode == block.IssuerPublicKey()
 				return
 			}
 
-			s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
-				timeDifference := message.IssuingTime().Sub(messageMetadata.SolidificationTime())
+			s.tangle.Storage.BlockMetadata(parent.ID).Consume(func(blockMetadata *BlockMetadata) {
+				timeDifference := block.IssuingTime().Sub(blockMetadata.SolidificationTime())
 				if valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference; !valid {
 					return
 				}
@@ -171,14 +171,14 @@ func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 			return
 		}
 
-		s.tangle.Storage.Message(parent.ID).Consume(func(parentMessage *Message) {
+		s.tangle.Storage.Block(parent.ID).Consume(func(parentBlock *Block) {
 			if parent.Type == ShallowLikeParentType {
-				if _, valid = parentMessage.Payload().(utxo.Transaction); !valid {
+				if _, valid = parentBlock.Payload().(utxo.Transaction); !valid {
 					return
 				}
 			}
 
-			if valid = s.isParentMessageValid(parentMessage, message); !valid {
+			if valid = s.isParentBlockValid(parentBlock, block); !valid {
 				return
 			}
 		})
@@ -187,15 +187,15 @@ func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	return
 }
 
-// isParentMessageValid checks whether the given parent Message is valid.
-func (s *Solidifier) isParentMessageValid(parentMessage *Message, childMessage *Message) (valid bool) {
-	timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
+// isParentBlockValid checks whether the given parent Block is valid.
+func (s *Solidifier) isParentBlockValid(parentBlock *Block, childBlock *Block) (valid bool) {
+	timeDifference := childBlock.IssuingTime().Sub(parentBlock.IssuingTime())
 	if timeDifference < minParentsTimeDifference || timeDifference > maxParentsTimeDifference {
 		return false
 	}
 
-	s.tangle.Storage.MessageMetadata(parentMessage.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		valid = !messageMetadata.IsObjectivelyInvalid()
+	s.tangle.Storage.BlockMetadata(parentBlock.ID()).Consume(func(blockMetadata *BlockMetadata) {
+		valid = !blockMetadata.IsObjectivelyInvalid()
 	})
 
 	return valid

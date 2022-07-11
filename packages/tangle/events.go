@@ -15,8 +15,8 @@ import (
 
 // Events represents events happening in the Tangle.
 type Events struct {
-	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
-	MessageInvalid *event.Event[*MessageInvalidEvent]
+	// BlockInvalid is triggered when a Block is detected to be objectively invalid.
+	BlockInvalid *event.Event[*BlockInvalidEvent]
 
 	// Error is triggered when the Tangle faces an error from which it can not recover.
 	Error *event.Event[error]
@@ -25,56 +25,56 @@ type Events struct {
 // newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
-		MessageInvalid: event.New[*MessageInvalidEvent](),
-		Error:          event.New[error](),
+		BlockInvalid: event.New[*BlockInvalidEvent](),
+		Error:        event.New[error](),
 	}
 }
 
-// MessageInvalidEvent is struct that is passed along with triggering a messageInvalidEvent.
-type MessageInvalidEvent struct {
-	MessageID MessageID
-	Error     error
+// BlockInvalidEvent is struct that is passed along with triggering a blockInvalidEvent.
+type BlockInvalidEvent struct {
+	BlockID BlockID
+	Error   error
 }
 
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
-	MessageAccepted *event.Event[*MessageAcceptedEvent]
-	MessageOrphaned *event.Event[*MessageAcceptedEvent]
+	BlockAccepted *event.Event[*BlockAcceptedEvent]
+	BlockOrphaned *event.Event[*BlockAcceptedEvent]
 }
 
 // NewConfirmationEvents returns a new ConfirmationEvents object.
 func NewConfirmationEvents() (new *ConfirmationEvents) {
 	return &ConfirmationEvents{
-		MessageAccepted: event.New[*MessageAcceptedEvent](),
-		MessageOrphaned: event.New[*MessageAcceptedEvent](),
+		BlockAccepted: event.New[*BlockAcceptedEvent](),
+		BlockOrphaned: event.New[*BlockAcceptedEvent](),
 	}
 }
 
-type MessageAcceptedEvent struct {
-	Message *Message
+type BlockAcceptedEvent struct {
+	Block *Block
 }
 
-// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
+// region BlockFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageFactoryEvents represents events happening on a message factory.
-type MessageFactoryEvents struct {
-	// Fired when a message is built including tips, sequence number and other metadata.
-	MessageConstructed *event.Event[*MessageConstructedEvent]
+// BlockFactoryEvents represents events happening on a block factory.
+type BlockFactoryEvents struct {
+	// Fired when a block is built including tips, sequence number and other metadata.
+	BlockConstructed *event.Event[*BlockConstructedEvent]
 
 	// Fired when an error occurred.
 	Error *event.Event[error]
 }
 
-// NewMessageFactoryEvents returns a new MessageFactoryEvents object.
-func NewMessageFactoryEvents() (new *MessageFactoryEvents) {
-	return &MessageFactoryEvents{
-		MessageConstructed: event.New[*MessageConstructedEvent](),
-		Error:              event.New[error](),
+// NewBlockFactoryEvents returns a new BlockFactoryEvents object.
+func NewBlockFactoryEvents() (new *BlockFactoryEvents) {
+	return &BlockFactoryEvents{
+		BlockConstructed: event.New[*BlockConstructedEvent](),
+		Error:            event.New[error](),
 	}
 }
 
-type MessageConstructedEvent struct {
-	Message *Message
+type BlockConstructedEvent struct {
+	Block *Block
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,14 +83,14 @@ type MessageConstructedEvent struct {
 
 // BookerEvents represents events happening in the Booker.
 type BookerEvents struct {
-	// MessageBooked is triggered when a Message was booked (it's Branch, and it's Payload's Branch were determined).
-	MessageBooked *event.Event[*MessageBookedEvent]
+	// BlockBooked is triggered when a Block was booked (it's Conflict, and it's Payload's Conflict were determined).
+	BlockBooked *event.Event[*BlockBookedEvent]
 
-	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
-	MessageBranchUpdated *event.Event[*MessageBranchUpdatedEvent]
+	// BlockConflictUpdated is triggered when the ConflictID of a Block is changed in its BlockMetadata.
+	BlockConflictUpdated *event.Event[*BlockConflictUpdatedEvent]
 
-	// MarkerBranchAdded is triggered when a Marker is mapped to a new BranchID.
-	MarkerBranchAdded *event.Event[*MarkerBranchAddedEvent]
+	// MarkerConflictAdded is triggered when a Marker is mapped to a new ConflictID.
+	MarkerConflictAdded *event.Event[*MarkerConflictAddedEvent]
 
 	// Error gets triggered when the Booker faces an unexpected error.
 	Error *event.Event[error]
@@ -98,25 +98,25 @@ type BookerEvents struct {
 
 func NewBookerEvents() (new *BookerEvents) {
 	return &BookerEvents{
-		MessageBooked:        event.New[*MessageBookedEvent](),
-		MessageBranchUpdated: event.New[*MessageBranchUpdatedEvent](),
-		MarkerBranchAdded:    event.New[*MarkerBranchAddedEvent](),
+		BlockBooked:          event.New[*BlockBookedEvent](),
+		BlockConflictUpdated: event.New[*BlockConflictUpdatedEvent](),
+		MarkerConflictAdded:  event.New[*MarkerConflictAddedEvent](),
 		Error:                event.New[error](),
 	}
 }
 
-type MessageBookedEvent struct {
-	MessageID MessageID
+type BlockBookedEvent struct {
+	BlockID BlockID
 }
 
-type MessageBranchUpdatedEvent struct {
-	MessageID MessageID
-	BranchID  utxo.TransactionID
+type BlockConflictUpdatedEvent struct {
+	BlockID    BlockID
+	ConflictID utxo.TransactionID
 }
 
-type MarkerBranchAddedEvent struct {
-	Marker      markers.Marker
-	NewBranchID utxo.TransactionID
+type MarkerConflictAddedEvent struct {
+	Marker        markers.Marker
+	NewConflictID utxo.TransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,36 +125,36 @@ type MarkerBranchAddedEvent struct {
 
 // SchedulerEvents represents events happening in the Scheduler.
 type SchedulerEvents struct {
-	// MessageScheduled is triggered when a message is ready to be scheduled.
-	MessageScheduled *event.Event[*MessageScheduledEvent]
-	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
-	MessageDiscarded *event.Event[*MessageDiscardedEvent]
-	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
-	MessageSkipped  *event.Event[*MessageSkippedEvent]
+	// BlockScheduled is triggered when a block is ready to be scheduled.
+	BlockScheduled *event.Event[*BlockScheduledEvent]
+	// BlockDiscarded is triggered when a block is removed from the longest mana-scaled queue when the buffer is full.
+	BlockDiscarded *event.Event[*BlockDiscardedEvent]
+	// BlockSkipped is triggered when a block is confirmed before it's scheduled, and is skipped by the scheduler.
+	BlockSkipped    *event.Event[*BlockSkippedEvent]
 	NodeBlacklisted *event.Event[*NodeBlacklistedEvent]
 	Error           *event.Event[error]
 }
 
 func NewSchedulerEvents() (new *SchedulerEvents) {
 	return &SchedulerEvents{
-		MessageScheduled: event.New[*MessageScheduledEvent](),
-		MessageDiscarded: event.New[*MessageDiscardedEvent](),
-		MessageSkipped:   event.New[*MessageSkippedEvent](),
-		NodeBlacklisted:  event.New[*NodeBlacklistedEvent](),
-		Error:            event.New[error](),
+		BlockScheduled:  event.New[*BlockScheduledEvent](),
+		BlockDiscarded:  event.New[*BlockDiscardedEvent](),
+		BlockSkipped:    event.New[*BlockSkippedEvent](),
+		NodeBlacklisted: event.New[*NodeBlacklistedEvent](),
+		Error:           event.New[error](),
 	}
 }
 
-type MessageScheduledEvent struct {
-	MessageID MessageID
+type BlockScheduledEvent struct {
+	BlockID BlockID
 }
 
-type MessageDiscardedEvent struct {
-	MessageID MessageID
+type BlockDiscardedEvent struct {
+	BlockID BlockID
 }
 
-type MessageSkippedEvent struct {
-	MessageID MessageID
+type BlockSkippedEvent struct {
+	BlockID BlockID
 }
 
 type NodeBlacklistedEvent struct {
@@ -167,25 +167,25 @@ type NodeBlacklistedEvent struct {
 
 // ApprovalWeightManagerEvents represents events happening in the ApprovalWeightManager.
 type ApprovalWeightManagerEvents struct {
-	// MessageProcessed is triggered once a message is finished being processed by the ApprovalWeightManager.
-	MessageProcessed *event.Event[*MessageProcessedEvent]
-	// BranchWeightChanged is triggered when a branch's weight changed.
-	BranchWeightChanged *event.Event[*BranchWeightChangedEvent]
+	// BlockProcessed is triggered once a block is finished being processed by the ApprovalWeightManager.
+	BlockProcessed *event.Event[*BlockProcessedEvent]
+	// ConflictWeightChanged is triggered when a conflict's weight changed.
+	ConflictWeightChanged *event.Event[*ConflictWeightChangedEvent]
 	// MarkerWeightChanged is triggered when a marker's weight changed.
 	MarkerWeightChanged *event.Event[*MarkerWeightChangedEvent]
 }
 
 func newApprovalWeightManagerEvents() (new *ApprovalWeightManagerEvents) {
 	return &ApprovalWeightManagerEvents{
-		MessageProcessed:    event.New[*MessageProcessedEvent](),
-		BranchWeightChanged: event.New[*BranchWeightChangedEvent](),
-		MarkerWeightChanged: event.New[*MarkerWeightChangedEvent](),
+		BlockProcessed:        event.New[*BlockProcessedEvent](),
+		ConflictWeightChanged: event.New[*ConflictWeightChangedEvent](),
+		MarkerWeightChanged:   event.New[*MarkerWeightChangedEvent](),
 	}
 }
 
-// MessageProcessedEvent holds information about a processed message.
-type MessageProcessedEvent struct {
-	MessageID MessageID
+// BlockProcessedEvent holds information about a processed block.
+type BlockProcessedEvent struct {
+	BlockID BlockID
 }
 
 // MarkerWeightChangedEvent holds information about a marker and its updated weight.
@@ -194,10 +194,10 @@ type MarkerWeightChangedEvent struct {
 	Weight float64
 }
 
-// BranchWeightChangedEvent holds information about a branch and its updated weight.
-type BranchWeightChangedEvent struct {
-	BranchID utxo.TransactionID
-	Weight   float64
+// ConflictWeightChangedEvent holds information about a conflict and its updated weight.
+type ConflictWeightChangedEvent struct {
+	ConflictID utxo.TransactionID
+	Weight     float64
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -206,62 +206,62 @@ type BranchWeightChangedEvent struct {
 
 // SolidifierEvents represents events happening in the Solidifier.
 type SolidifierEvents struct {
-	// MessageSolid is triggered when a message becomes solid, i.e. its past cone is known and solid.
-	MessageSolid *event.Event[*MessageSolidEvent]
+	// BlockSolid is triggered when a block becomes solid, i.e. its past cone is known and solid.
+	BlockSolid *event.Event[*BlockSolidEvent]
 
-	// MessageMissing is triggered when a message references an unknown parent Message.
-	MessageMissing *event.Event[*MessageMissingEvent]
+	// BlockMissing is triggered when a block references an unknown parent Block.
+	BlockMissing *event.Event[*BlockMissingEvent]
 }
 
 func newSolidifierEvents() (new *SolidifierEvents) {
 	return &SolidifierEvents{
-		MessageSolid:   event.New[*MessageSolidEvent](),
-		MessageMissing: event.New[*MessageMissingEvent](),
+		BlockSolid:   event.New[*BlockSolidEvent](),
+		BlockMissing: event.New[*BlockMissingEvent](),
 	}
 }
 
-type MessageSolidEvent struct {
-	Message *Message
+type BlockSolidEvent struct {
+	Block *Block
 }
 
-type MessageMissingEvent struct {
-	MessageID MessageID
+type BlockMissingEvent struct {
+	BlockID BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region StorageEvents ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// StorageEvents represents events happening on the message store.
+// StorageEvents represents events happening on the block store.
 type StorageEvents struct {
-	// Fired when a message has been stored.
-	MessageStored *event.Event[*MessageStoredEvent]
+	// Fired when a block has been stored.
+	BlockStored *event.Event[*BlockStoredEvent]
 
-	// Fired when a message was removed from storage.
-	MessageRemoved *event.Event[*MessageRemovedEvent]
+	// Fired when a block was removed from storage.
+	BlockRemoved *event.Event[*BlockRemovedEvent]
 
-	// Fired when a message which was previously marked as missing was received.
-	MissingMessageStored *event.Event[*MissingMessageStoredEvent]
+	// Fired when a block which was previously marked as missing was received.
+	MissingBlockStored *event.Event[*MissingBlockStoredEvent]
 }
 
 func newStorageEvents() (new *StorageEvents) {
 	return &StorageEvents{
-		MessageStored:        event.New[*MessageStoredEvent](),
-		MessageRemoved:       event.New[*MessageRemovedEvent](),
-		MissingMessageStored: event.New[*MissingMessageStoredEvent](),
+		BlockStored:        event.New[*BlockStoredEvent](),
+		BlockRemoved:       event.New[*BlockRemovedEvent](),
+		MissingBlockStored: event.New[*MissingBlockStoredEvent](),
 	}
 }
 
-type MessageStoredEvent struct {
-	Message *Message
+type BlockStoredEvent struct {
+	Block *Block
 }
 
-type MessageRemovedEvent struct {
-	MessageID MessageID
+type BlockRemovedEvent struct {
+	BlockID BlockID
 }
 
-type MissingMessageStoredEvent struct {
-	MessageID MessageID
+type MissingBlockStoredEvent struct {
+	BlockID BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -270,18 +270,18 @@ type MissingMessageStoredEvent struct {
 
 // DispatcherEvents represents events happening in the Dispatcher.
 type DispatcherEvents struct {
-	// MessageDispatched is triggered when a message is already scheduled and thus ready to be dispatched.
-	MessageDispatched *event.Event[*MessageDispatchedEvent]
+	// BlockDispatched is triggered when a block is already scheduled and thus ready to be dispatched.
+	BlockDispatched *event.Event[*BlockDispatchedEvent]
 }
 
 func newDispatcherEvents() (new *DispatcherEvents) {
 	return &DispatcherEvents{
-		MessageDispatched: event.New[*MessageDispatchedEvent](),
+		BlockDispatched: event.New[*BlockDispatchedEvent](),
 	}
 }
 
-type MessageDispatchedEvent struct {
-	MessageID MessageID
+type BlockDispatchedEvent struct {
+	BlockID BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -290,47 +290,47 @@ type MessageDispatchedEvent struct {
 
 // ParserEvents represents events happening in the Parser.
 type ParserEvents struct {
-	// Fired when a message was parsed.
-	MessageParsed *event.Event[*MessageParsedEvent]
+	// Fired when a block was parsed.
+	BlockParsed *event.Event[*BlockParsedEvent]
 
 	// Fired when submitted bytes are rejected by a filter.
 	BytesRejected *event.Event[*BytesRejectedEvent]
 
-	// Fired when a message got rejected by a filter.
-	MessageRejected *event.Event[*MessageRejectedEvent]
+	// Fired when a block got rejected by a filter.
+	BlockRejected *event.Event[*BlockRejectedEvent]
 }
 
 func newParserEvents() (new *ParserEvents) {
 	return &ParserEvents{
-		MessageParsed:   event.New[*MessageParsedEvent](),
-		BytesRejected:   event.New[*BytesRejectedEvent](),
-		MessageRejected: event.New[*MessageRejectedEvent](),
+		BlockParsed:   event.New[*BlockParsedEvent](),
+		BytesRejected: event.New[*BytesRejectedEvent](),
+		BlockRejected: event.New[*BlockRejectedEvent](),
 	}
 }
 
 // BytesRejectedEvent holds the information provided by the BytesRejected event that gets triggered when the bytes of a
-// Message did not pass the parsing step.
+// Block did not pass the parsing step.
 type BytesRejectedEvent struct {
 	Bytes []byte
 	Peer  *peer.Peer
 	Error error
 }
 
-// MessageRejectedEvent holds the information provided by the MessageRejected event that gets triggered when the Message
+// BlockRejectedEvent holds the information provided by the BlockRejected event that gets triggered when the Block
 // was detected to be invalid.
-type MessageRejectedEvent struct {
-	Message *Message
-	Peer    *peer.Peer
-	Error   error
+type BlockRejectedEvent struct {
+	Block *Block
+	Peer  *peer.Peer
+	Error error
 }
 
-// MessageParsedEvent holds the information provided by the MessageParsed event that gets triggered when a message was
+// BlockParsedEvent holds the information provided by the BlockParsed event that gets triggered when a block was
 // fully parsed and syntactically validated.
-type MessageParsedEvent struct {
-	// Message contains the parsed Message.
-	Message *Message
+type BlockParsedEvent struct {
+	// Block contains the parsed Block.
+	Block *Block
 
-	// Peer contains the node that sent this Message to the node.
+	// Peer contains the node that sent this Block to the node.
 	Peer *peer.Peer
 }
 
@@ -338,9 +338,9 @@ type MessageParsedEvent struct {
 
 // region RequesterEvents //////////////////////////////////////////////////////////////////////////////////////////////
 
-// RequesterEvents represents events happening on a message requester.
+// RequesterEvents represents events happening on a block requester.
 type RequesterEvents struct {
-	// RequestIssued is an event that is triggered when the requester wants to request the given Message from its
+	// RequestIssued is an event that is triggered when the requester wants to request the given Block from its
 	// neighbors.
 	RequestIssued *event.Event[*RequestIssuedEvent]
 
@@ -364,19 +364,19 @@ func newRequesterEvents() (new *RequesterEvents) {
 }
 
 type RequestIssuedEvent struct {
-	MessageID MessageID
+	BlockID BlockID
 }
 
 type RequestStartedEvent struct {
-	MessageID MessageID
+	BlockID BlockID
 }
 
 type RequestStoppedEvent struct {
-	MessageID MessageID
+	BlockID BlockID
 }
 
 type RequestFailedEvent struct {
-	MessageID MessageID
+	BlockID BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -406,8 +406,8 @@ type SyncChangedEvent struct {
 
 // TimeUpdate represents an update in Tangle Time.
 type TimeUpdate struct {
-	// MessageID is the ID of the message that caused the time update.
-	MessageID MessageID
+	// BlockID is the ID of the block that caused the time update.
+	BlockID BlockID
 	// ATT is the new Acceptance Tangle Time.
 	ATT time.Time
 	// UpdateTime is the wall clock time when the update has occurred.
@@ -434,11 +434,11 @@ func newTipManagerEvents() (new *TipManagerEvents) {
 	}
 }
 
-// TipEvent holds the information provided by the TipEvent event that gets triggered when a message gets added or
+// TipEvent holds the information provided by the TipEvent event that gets triggered when a block gets added or
 // removed as tip.
 type TipEvent struct {
-	// MessageID of the added/removed tip.
-	MessageID MessageID
+	// BlockID of the added/removed tip.
+	BlockID BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

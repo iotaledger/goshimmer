@@ -28,7 +28,7 @@ import (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// Plugin is the plugin instance of the messagelayer plugin.
+	// Plugin is the plugin instance of the blocklayer plugin.
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
@@ -52,7 +52,7 @@ var (
 type epochContentStorages struct {
 	spentOutputs   kvstore.KVStore
 	createdOutputs kvstore.KVStore
-	messageIDs     kvstore.KVStore
+	blockIDs       kvstore.KVStore
 	transactionIDs kvstore.KVStore
 }
 
@@ -94,13 +94,13 @@ func configure(plugin *node.Plugin) {
 		epochOrderMutex.Unlock()
 		checkEpochContentLimit()
 
-		err := insertMessageToEpoch(event.EI, event.MessageID)
+		err := insertblockToEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
 	deps.NotarizationMgr.Events.TangleTreeRemoved.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
-		err := removeMessageFromEpoch(event.EI, event.MessageID)
+		err := removeblockFromEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
@@ -135,9 +135,9 @@ func configure(plugin *node.Plugin) {
 		committableEpochs = append(committableEpochs, event.ECRecord)
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
-		message := event.Message
-		saveEpochVotersWeight(message)
+	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+		block := event.Block
+		saveEpochVotersWeight(block)
 	}))
 }
 
@@ -207,27 +207,27 @@ func GetCommittableEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
 	return
 }
 
-func GetPendingBranchCount() map[epoch.Index]uint64 {
+func GetPendingConflictCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochMessages(ei epoch.Index) ([]tangle.MessageID, error) {
+func GetEpochblocks(ei epoch.Index) ([]tangle.BlockID, error) {
 	stores, err := getEpochContentStorage(ei)
 	if err != nil {
-		return []tangle.MessageID{}, err
+		return []tangle.BlockID{}, err
 	}
 
-	var msgIDs []tangle.MessageID
-	stores.messageIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
-		var msgID tangle.MessageID
-		if _, err := msgID.Decode(key); err != nil {
-			panic("MessageID could not be parsed!")
+	var blkIDs []tangle.BlockID
+	stores.blockIDs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
+		var blkID tangle.BlockID
+		if _, err := blkID.Decode(key); err != nil {
+			panic("BlockID could not be parsed!")
 		}
-		msgIDs = append(msgIDs, msgID)
+		blkIDs = append(blkIDs, blkID)
 		return true
 	})
 
-	return msgIDs, nil
+	return blkIDs, nil
 }
 
 func GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
@@ -323,30 +323,30 @@ func newEpochContentStorage() *epochContentStorages {
 		spentOutputs:   db.NewStore(),
 		createdOutputs: db.NewStore(),
 		transactionIDs: db.NewStore(),
-		messageIDs:     db.NewStore(),
+		blockIDs:       db.NewStore(),
 	}
 }
 
-func insertMessageToEpoch(ei epoch.Index, msgID tangle.MessageID) error {
+func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	epochContentStorage, err := getEpochContentStorage(ei)
 	if err != nil {
 		return err
 	}
 
-	if err := epochContentStorage.messageIDs.Set(msgID.Bytes(), msgID.Bytes()); err != nil {
-		return errors.New("Fail to insert Message to epoch store")
+	if err := epochContentStorage.blockIDs.Set(blkID.Bytes(), blkID.Bytes()); err != nil {
+		return errors.New("Fail to insert block to epoch store")
 	}
 	return nil
 }
 
-func removeMessageFromEpoch(ei epoch.Index, msgID tangle.MessageID) error {
+func removeblockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	epochContentStorage, err := getEpochContentStorage(ei)
 	if err != nil {
 		return err
 	}
 
-	if err := epochContentStorage.messageIDs.Delete(msgID.Bytes()); err != nil {
-		return errors.New("Fail to remove Message from epoch store")
+	if err := epochContentStorage.blockIDs.Delete(blkID.Bytes()); err != nil {
+		return errors.New("Fail to remove block from epoch store")
 	}
 	return nil
 }
@@ -417,14 +417,14 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 	return nil
 }
 
-func saveEpochVotersWeight(message *tangle.Message) {
-	voter := identity.NewID(message.IssuerPublicKey())
+func saveEpochVotersWeight(block *tangle.Block) {
+	voter := identity.NewID(block.IssuerPublicKey())
 	activeWeights, _ := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	epochVotersWeightMutex.Lock()
 	defer epochVotersWeightMutex.Unlock()
-	epochIndex := message.M.EI
-	ecr := message.M.ECR
+	epochIndex := block.M.EI
+	ecr := block.M.ECR
 	if _, ok := epochVotersWeight[epochIndex]; !ok {
 		epochVotersWeight[epochIndex] = make(map[epoch.ECR]map[identity.ID]float64)
 	}
@@ -434,10 +434,10 @@ func saveEpochVotersWeight(message *tangle.Message) {
 
 	vote, ok := epochVotersLatestVote[voter]
 	if ok {
-		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(message.M.IssuingTime) {
+		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.M.IssuingTime) {
 			delete(epochVotersWeight[vote.ei][vote.ecr], voter)
 		}
 	}
-	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: message.M.IssuingTime}
+	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime}
 	epochVotersWeight[epochIndex][ecr][voter] = activeWeights[voter]
 }

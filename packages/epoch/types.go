@@ -38,7 +38,7 @@ func IndexFromTime(t time.Time) Index {
 		return 0
 	}
 
-	return Index(elapsedSeconds / Duration + 1)
+	return Index(elapsedSeconds/Duration + 1)
 }
 
 func (i Index) Bytes() []byte {
@@ -56,13 +56,13 @@ func (i Index) String() string {
 
 // StartTime calculates the start time of the given epoch.
 func (i Index) StartTime() time.Time {
-	startUnix := GenesisTime + int64(i - 1)*Duration
+	startUnix := GenesisTime + int64(i-1)*Duration
 	return time.Unix(startUnix, 0)
 }
 
 // EndTime calculates the end time of the given epoch.
 func (i Index) EndTime() time.Time {
-	endUnix := GenesisTime + int64(i - 1)*Duration + Duration - 1
+	endUnix := GenesisTime + int64(i-1)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
 }
 
@@ -75,8 +75,10 @@ func CurrentEpochIndex() Index {
 
 type MerkleRoot [blake2b.Size256]byte
 
-type ECR = MerkleRoot
-type EC = MerkleRoot
+type (
+	ECR = MerkleRoot
+	EC  = MerkleRoot
+)
 
 func NewMerkleRoot(bytes []byte) (mr MerkleRoot) {
 	b := [blake2b.Size256]byte{}

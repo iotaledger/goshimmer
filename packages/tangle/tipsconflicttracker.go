@@ -28,16 +28,16 @@ func NewTipsConflictTracker(tangle *Tangle) *TipsConflictTracker {
 }
 
 func (c *TipsConflictTracker) Setup() {
-	c.tangle.Ledger.ConflictDAG.Events.BranchAccepted.Attach(event.NewClosure(func(event *conflictdag.BranchAcceptedEvent[utxo.TransactionID]) {
+	c.tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		c.deleteConflict(event.ID)
 	}))
-	c.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+	c.tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 		c.deleteConflict(event.ID)
 	}))
 }
 
-func (c *TipsConflictTracker) AddTip(messageID MessageID) {
-	messageConflictIDs, err := c.tangle.Booker.MessageBranchIDs(messageID)
+func (c *TipsConflictTracker) AddTip(blockID BlockID) {
+	blockConflictIDs, err := c.tangle.Booker.BlockConflictIDs(blockID)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func (c *TipsConflictTracker) AddTip(messageID MessageID) {
 	c.Lock()
 	defer c.Unlock()
 
-	for it := messageConflictIDs.Iterator(); it.HasNext(); {
+	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
@@ -58,16 +58,16 @@ func (c *TipsConflictTracker) AddTip(messageID MessageID) {
 	}
 }
 
-func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
-	messageBranchIDs, err := c.tangle.Booker.MessageBranchIDs(messageID)
+func (c *TipsConflictTracker) RemoveTip(blockID BlockID) {
+	blockConflictIDs, err := c.tangle.Booker.BlockConflictIDs(blockID)
 	if err != nil {
-		panic("could not determine BranchIDs of tip.")
+		panic("could not determine ConflictIDs of tip.")
 	}
 
 	c.Lock()
 	defer c.Unlock()
 
-	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
 		if _, exists := c.tipsConflictCount[conflictID]; !exists {
@@ -91,13 +91,13 @@ func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utx
 
 	missingConflicts = utxo.NewTransactionIDs()
 	_ = c.missingConflicts.ForEach(func(conflictID utxo.TransactionID) (err error) {
-		// TODO: this should not be necessary if BranchAccepted/BranchRejected events are fired appropriately
+		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
 			c.missingConflicts.Delete(conflictID)
 			delete(c.tipsConflictCount, conflictID)
 			return
 		}
-		if !c.tangle.OTVConsensusManager.BranchLiked(conflictID) {
+		if !c.tangle.OTVConsensusManager.ConflictLiked(conflictID) {
 			return
 		}
 

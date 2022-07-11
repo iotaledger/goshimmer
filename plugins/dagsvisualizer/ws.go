@@ -29,9 +29,9 @@ var (
 	}
 )
 
-// a websocket client with a channel for downstream messages.
+// a websocket client with a channel for downstream blocks.
 type wsclient struct {
-	// downstream message channel.
+	// downstream block channel.
 	channel chan interface{}
 	// a channel which is closed when the websocket client is disconnected.
 	exit chan struct{}
@@ -66,22 +66,22 @@ func removeWsClient(clientID uint64) {
 	close(wsClient.channel)
 }
 
-// broadcasts the given message to all connected websocket clients.
-func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
+// broadcasts the given block to all connected websocket clients.
+func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 	wsClientsMu.RLock()
 	defer wsClientsMu.RUnlock()
 
 	for _, wsClient := range wsClients {
 		if len(dontDrop) > 0 {
 			select {
-			case wsClient.channel <- msg:
+			case wsClient.channel <- blk:
 			case <-wsClient.exit:
 				// get unblocked if the websocket connection just got closed
 			}
 			continue
 		}
 		select {
-		case wsClient.channel <- msg:
+		case wsClient.channel <- blk:
 		default:
 			// potentially drop if slow consumer
 		}
@@ -110,11 +110,11 @@ func websocketRoute(c echo.Context) error {
 	sendInitialData(ws)
 
 	for {
-		msg := <-wsClient.channel
+		blk := <-wsClient.channel
 		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
 			break
 		}
-		if err := ws.WriteJSON(msg); err != nil {
+		if err := ws.WriteJSON(blk); err != nil {
 			break
 		}
 	}
@@ -124,17 +124,17 @@ func websocketRoute(c echo.Context) error {
 func sendInitialData(ws *websocket.Conn) {
 	bufferMutex.RLock()
 	defer bufferMutex.RUnlock()
-	for _, msg := range buffer {
-		if err := sendJSON(ws, msg); err != nil {
-			log.Errorf("failed to send DAG message to client: %s", err.Error())
+	for _, blk := range buffer {
+		if err := sendJSON(ws, blk); err != nil {
+			log.Errorf("failed to send DAG block to client: %s", err.Error())
 		}
 	}
 }
 
-func sendJSON(ws *websocket.Conn, msg *wsMessage) error {
+func sendJSON(ws *websocket.Conn, blk *wsBlock) error {
 	var err error
 	if err = ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err == nil {
-		err = ws.WriteJSON(msg)
+		err = ws.WriteJSON(blk)
 	}
 	return err
 }

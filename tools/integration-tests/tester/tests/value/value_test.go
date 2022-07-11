@@ -29,7 +29,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Activity:    true, // we need to issue regular activity messages
+		Activity:    true, // we need to issue regular activity blocks
 		Snapshot:    snapshotInfo,
 		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
@@ -70,7 +70,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 		addrBalance[addr.Base58()] = map[devnetvm.Color]uint64{devnetvm.ColorIOTA: tokensPerRequest}
 	}
 
-	// wait for messages to be gossiped
+	// wait for blocks to be gossiped
 	for _, peer := range nonFaucetPeers {
 		require.Eventually(t, func() bool {
 			return tests.Balance(t, peer, peer.Address(0), devnetvm.ColorIOTA) == tokensPerRequest
@@ -120,7 +120,7 @@ func TestValueAliasPersistence(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
-		Activity:    true, // we need to issue regular activity messages
+		Activity:    true, // we need to issue regular activity blocks
 		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))

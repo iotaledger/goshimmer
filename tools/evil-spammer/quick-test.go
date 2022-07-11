@@ -35,7 +35,7 @@ func QuickTest(params *QuickTestParams) {
 		evilspammer.WithErrorCounter(counter),
 		evilspammer.WithEvilWallet(evilWallet),
 	}
-	msgOptions := append(baseOptions,
+	blkOptions := append(baseOptions,
 		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
 	)
 
@@ -47,7 +47,7 @@ func QuickTest(params *QuickTestParams) {
 		evilspammer.WithEvilScenario(dsScenario),
 	)
 
-	msgSpammer := evilspammer.NewSpammer(msgOptions...)
+	blkSpammer := evilspammer.NewSpammer(blkOptions...)
 	txSpammer := evilspammer.NewSpammer(baseOptions...)
 	dsSpammer := evilspammer.NewSpammer(dsOptions...)
 
@@ -55,7 +55,7 @@ func QuickTest(params *QuickTestParams) {
 	txSpammer.Spam()
 	time.Sleep(5 * time.Second)
 
-	msgSpammer.Spam()
+	blkSpammer.Spam()
 	time.Sleep(5 * time.Second)
 
 	dsSpammer.Spam()

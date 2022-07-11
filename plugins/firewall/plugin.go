@@ -72,10 +72,10 @@ func run(plugin *node.Plugin) {
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
-	if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
-				Reason: "Messages rate limit hit",
+				Reason: "Blocks rate limit hit",
 				Info: map[string]interface{}{
 					"rateLimit": event.RateLimit,
 				},
@@ -84,10 +84,10 @@ func start(ctx context.Context) {
 		mrl.Events.Hit.Attach(mrlClosure)
 		defer mrl.Events.Hit.Detach(mrlClosure)
 	}
-	if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
+	if mrrl := deps.GossipMgr.BlockRequestsRateLimiter(); mrrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
-				Reason: "Message requests rate limit hit",
+				Reason: "Block requests rate limit hit",
 				Info: map[string]interface{}{
 					"rateLimit": event.RateLimit,
 				},
