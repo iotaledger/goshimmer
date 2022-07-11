@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	epoch "github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -104,7 +104,9 @@ func TestManager_GetLatestEC(t *testing.T) {
 	// only epoch 0 has pbc = 0
 	assert.Equal(t, epoch.Index(0), commitment.EI())
 
-	m.decreasePendingConflictCounter(4)
+	epochCommittableEvents, manaVectorUpdateEvents := m.decreasePendingConflictCounter(4)
+	assert.Emptyf(t, epochCommittableEvents, "expected no epoch committable events")
+	assert.Emptyf(t, manaVectorUpdateEvents, "expected no mana vector update events")
 
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
@@ -115,8 +117,14 @@ func TestManager_GetLatestEC(t *testing.T) {
 	eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
 	//
 	// eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
-	m.decreasePendingConflictCounter(1)
-	m.decreasePendingConflictCounter(2)
+	committableEvents, _ := m.decreasePendingConflictCounter(1)
+	assert.Len(t, committableEvents, 1)
+	assert.Equal(t, epoch.Index(1), committableEvents[0].EI)
+
+	committableEvents, _ = m.decreasePendingConflictCounter(2)
+	assert.Len(t, committableEvents, 1)
+	assert.Equal(t, epoch.Index(2), committableEvents[0].EI)
+
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 2 has pbc=0 and is old enough

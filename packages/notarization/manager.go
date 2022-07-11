@@ -290,15 +290,21 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
 func (m *Manager) OnConflictConfirmed(conflictID utxo.TransactionID) {
+	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictConfirmed(conflictID)
+	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+}
+
+// OnConflictConfirmed is the handler for conflict confirmed event.
+func (m *Manager) onConflictConfirmed(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 	ei := m.getConflictEI(conflictID, true)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("conflict confirmed in already committed epoch %d", ei)
-		return
+		return nil, nil
 	}
-	m.decreasePendingConflictCounter(ei)
+	return m.decreasePendingConflictCounter(ei)
 }
 
 // OnConflictCreated is the handler for conflict created event.
@@ -317,6 +323,12 @@ func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 
 // OnConflictRejected is the handler for conflict created event.
 func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
+	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictRejected(conflictID)
+	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+}
+
+// OnConflictRejected is the handler for conflict created event.
+func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -324,13 +336,19 @@ func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("conflict rejected in already committed epoch %d", ei)
-		return
+		return nil, nil
 	}
-	m.decreasePendingConflictCounter(ei)
+	return m.decreasePendingConflictCounter(ei)
 }
 
-// OnAcceptanceTimeUpdated is the handler for time updated event.
+// OnAcceptanceTimeUpdated is the handler for time updated event and triggers the events.
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
+	epochCommittableEvents, manaVectorUpdateEvents := m.onAcceptanceTimeUpdated(newTime)
+	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+}
+
+// OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
+func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -338,16 +356,17 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	currentEpochIndex, err := m.epochCommitmentFactory.storage.acceptanceEpochIndex()
 	if err != nil {
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
-		return
+		return nil, nil
 	}
 	if ei > currentEpochIndex {
 		err = m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
 		if err != nil {
 			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
-			return
+			return nil, nil
 		}
-		m.moveLatestCommittableEpoch(ei)
+		return m.moveLatestCommittableEpoch(ei)
 	}
+	return nil, nil
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
@@ -372,11 +391,12 @@ func (m *Manager) Shutdown() {
 	m.epochCommitmentFactory.storage.shutdown()
 }
 
-func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) {
+func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	m.pendingConflictsCounters[ei]--
 	if m.pendingConflictsCounters[ei] == 0 {
-		m.moveLatestCommittableEpoch(ei)
+		return m.moveLatestCommittableEpoch(ei)
 	}
+	return nil, nil
 }
 
 func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
@@ -496,11 +516,11 @@ func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent
 	}
 }
 
-func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
+func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		m.log.Errorf("could not obtain last committed epoch index: %v", err)
-		return
+		return nil, nil
 	}
 
 	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
@@ -515,12 +535,12 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 		ecRecord, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei)
 		if ecRecordErr != nil {
 			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
-			return
+			return nil, nil
 		}
 
 		if err = m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
 			m.log.Errorf("could not set last committed epoch: %v", err)
-			return
+			return nil, nil
 		}
 
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
@@ -528,15 +548,25 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)
 		}
 	}
+	return epochCommittableEvents, manaVectorUpdateEvents
 
-	go func() {
-		for _, epochCommittableEvent := range epochCommittableEvents {
-			m.Events.EpochCommittable.Trigger(epochCommittableEvent)
-		}
-		for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
-			m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
-		}
-	}()
+	//go func() {
+	//	for _, epochCommittableEvent := range epochCommittableEvents {
+	//		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
+	//	}
+	//	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
+	//		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
+	//	}
+	//}()
+}
+
+func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
+	for _, epochCommittableEvent := range epochCommittableEvents {
+		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
+	}
+	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
+		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
