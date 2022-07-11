@@ -136,7 +136,6 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 
 		// If we already expressed a dislike of the conflict (through another liked instead) we don't need to revisit this conflictID.
 		if excludedConflictIDs.Has(conflictID) {
-			// fmt.Println(">>>> Skipping", conflictID, "because it is already excluded")
 			continue
 		}
 

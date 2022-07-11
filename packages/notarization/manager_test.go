@@ -1096,7 +1096,6 @@ func loadSnapshot(m *Manager, testFramework *tangle.BlockTestFramework) {
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangle.Tangle) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
-		fmt.Println(">> MarkerWeightChanged:", e.Marker)
 		sfg.HandleMarker(e.Marker, e.Weight)
 	}))
 	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
