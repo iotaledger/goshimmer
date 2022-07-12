@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -33,6 +33,7 @@ type Manager struct {
 	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
 	Events                      *Events
+	bootstrapped                bool
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -61,6 +62,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
 			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
+			Bootstrapped:              event.New[*BootstrappedEvent](),
 		},
 	}
 
@@ -193,7 +195,6 @@ func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(block.IssuingTime())
-	fmt.Println("block", block.ID(), "accepted at epoch", ei)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("block %s confirmed with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
@@ -386,6 +387,13 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 	return pendingConflicts
 }
 
+// Bootstrapped returns the current value of pendingConflictsCount per epoch.
+func (m *Manager) Bootstrapped() bool {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+	return m.bootstrapped
+}
+
 // Shutdown shuts down the manager's permanent storagee.
 func (m *Manager) Shutdown() {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -566,9 +574,19 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
 	for _, epochCommittableEvent := range epochCommittableEvents {
 		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
+		m.updateEpochsBootstrapped(epochCommittableEvent.EI)
 	}
 	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
 		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
+	}
+}
+
+func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+	if !m.bootstrapped && ei > epoch.IndexFromTime(clock.SyncedTime().Add(-2*m.options.MinCommittableEpochAge)) {
+		m.bootstrapped = true
+		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
 }
 
@@ -628,6 +646,8 @@ type Events struct {
 	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
 	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed from the UTXO smt.
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
+	// Bootstrapped is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
+	Bootstrapped *event.Event[*BootstrappedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -636,6 +656,12 @@ type TangleTreeUpdatedEvent struct {
 	EI epoch.Index
 	// BlockID is the blockID that inserted/removed to/from the tangle smt.
 	BlockID tangle.BlockID
+}
+
+// BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
+type BootstrappedEvent struct {
+	// EI is the index of the last commitable epoch
+	EI epoch.Index
 }
 
 // StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.

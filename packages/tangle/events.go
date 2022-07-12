@@ -387,6 +387,7 @@ type RequestFailedEvent struct {
 type TimeManagerEvents struct {
 	// Fired when the nodes sync status changes.
 	SyncChanged           *event.Event[*SyncChangedEvent]
+	Bootstrapped          *event.Event[*SyncChangedEvent]
 	AcceptanceTimeUpdated *event.Event[*TimeUpdate]
 	ConfirmedTimeUpdated  *event.Event[*TimeUpdate]
 }
@@ -396,6 +397,7 @@ func newTimeManagerEvents() (new *TimeManagerEvents) {
 		SyncChanged:           event.New[*SyncChangedEvent](),
 		AcceptanceTimeUpdated: event.New[*TimeUpdate](),
 		ConfirmedTimeUpdated:  event.New[*TimeUpdate](),
+		Bootstrapped:          event.New[*SyncChangedEvent](),
 	}
 }
 

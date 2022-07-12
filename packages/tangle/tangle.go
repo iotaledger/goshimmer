@@ -151,6 +151,7 @@ func (t *Tangle) ProcessGossipBlock(blockBytes []byte, peer *peer.Peer) {
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (block *Block, err error) {
+	// TODO: after breaking up the tangle package, this needs to use bootstrapmanager.Boostrapped() instead. Currently needs to use this one because the bootstrapmanager is not available here.
 	if !t.Bootstrapped() {
 		err = errors.Errorf("can't issue payload: %w", ErrNotBootstrapped)
 		return
