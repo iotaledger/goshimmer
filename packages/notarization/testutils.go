@@ -78,6 +78,7 @@ func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
+	event.Loop.WaitUntilAllTasksProcessed()
 	calledEvents := atomic.LoadUint64(&e.calledEvents)
 	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
 	if calledEvents != expectedEvents {
