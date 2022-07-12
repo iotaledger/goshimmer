@@ -1,7 +1,6 @@
 package bootstrapmanager
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -40,18 +39,14 @@ func (m *Manager) Setup() {
 	m.tangle.TimeManager.Events.Bootstrapped.Attach(event.NewClosure(func(_ *tangle.SyncChangedEvent) {
 		m.Lock()
 		defer m.Unlock()
-		fmt.Println("Tangle bootstrapped")
 		if m.notarizationManager.Bootstrapped() {
-			fmt.Println("Node is bootstrapped")
 			m.events.Bootstrapped.Trigger(&BootstrappedEvent{})
 		}
 	}))
 	m.notarizationManager.Events.Bootstrapped.Attach(event.NewClosure(func(_ *notarization.BootstrappedEvent) {
 		m.Lock()
 		defer m.Unlock()
-		fmt.Println("Notarization bootstrapped")
 		if m.tangle.Bootstrapped() {
-			fmt.Println("Node is bootstrapped")
 			m.events.Bootstrapped.Trigger(&BootstrappedEvent{})
 		}
 	}))
