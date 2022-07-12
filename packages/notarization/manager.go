@@ -296,7 +296,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 // OnConflictConfirmed is the handler for conflict confirmed event.
 func (m *Manager) OnConflictConfirmed(conflictID utxo.TransactionID) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictConfirmed(conflictID)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
@@ -329,7 +329,7 @@ func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 // OnConflictRejected is the handler for conflict created event.
 func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictRejected(conflictID)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnConflictRejected is the handler for conflict created event.
@@ -349,7 +349,7 @@ func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCom
 // OnAcceptanceTimeUpdated is the handler for time updated event and triggers the events.
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onAcceptanceTimeUpdated(newTime)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
