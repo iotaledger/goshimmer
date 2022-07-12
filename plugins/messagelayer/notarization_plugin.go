@@ -70,7 +70,7 @@ func newNotarizationManager(deps notarizationManagerDependencies) *notarization.
 	return notarization.NewManager(
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		deps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))
 }
