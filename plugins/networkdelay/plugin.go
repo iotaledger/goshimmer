@@ -78,28 +78,28 @@ func configure(plugin *node.Plugin) {
 
 	configureWebAPI()
 
-	// subscribe to message-layer
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
-		onReceiveMessageFromMessageLayer(event.MessageID)
+	// subscribe to block-layer
+	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
+		onReceiveBlockFromBlockLayer(event.BlockID)
 	}))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
-func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	deps.Tangle.Storage.Message(messageID).Consume(func(solidMessage *tangle.Message) {
-		messagePayload := solidMessage.Payload()
-		if messagePayload.Type() != Type {
+func onReceiveBlockFromBlockLayer(blockID tangle.BlockID) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(solidBlock *tangle.Block) {
+		blockPayload := solidBlock.Payload()
+		if blockPayload.Type() != Type {
 			return
 		}
 
 		// check for node identity
-		issuerPubKey := solidMessage.IssuerPublicKey()
+		issuerPubKey := solidBlock.IssuerPublicKey()
 		if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
 			return
 		}
 
-		networkDelayObject, ok := messagePayload.(*Payload)
+		networkDelayObject, ok := blockPayload.(*Payload)
 		if !ok {
 			app.LogInfo("could not cast payload to network delay payload")
 
@@ -108,10 +108,10 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 
 		now := clock.SyncedTime().UnixNano()
 
-		// abort if message was sent more than 1min ago
+		// abort if block was sent more than 1min ago
 		// this should only happen due to a node resyncing
 		if time.Duration(now-networkDelayObject.SentTime()) > time.Minute {
-			app.LogDebugf("Received network delay message with >1min delay\n%s", networkDelayObject)
+			app.LogDebugf("Received network delay block with >1min delay\n%s", networkDelayObject)
 			return
 		}
 

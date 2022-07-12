@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// ErrMessageNotFound is returned when a message could not be found in the Tangle.
-var ErrMessageNotFound = errors.New("message not found")
+// ErrBlockNotFound is returned when a block could not be found in the Tangle.
+var ErrBlockNotFound = errors.New("block not found")
 
 var localAddr *net.TCPAddr
 
@@ -36,19 +36,19 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
-	// loads the given message from the message layer and returns it or an error if not found.
-	loadMessage := func(msgID tangle.MessageID) ([]byte, error) {
-		cachedMessage := t.Storage.Message(msgID)
-		defer cachedMessage.Release()
-		if !cachedMessage.Exists() {
-			if crypto.Randomness.Float64() < Parameters.MissingMessageRequestRelayProbability {
-				t.Solidifier.RetrieveMissingMessage(msgID)
+	// loads the given block from the block layer and returns it or an error if not found.
+	loadBlock := func(blkID tangle.BlockID) ([]byte, error) {
+		cachedBlock := t.Storage.Block(blkID)
+		defer cachedBlock.Release()
+		if !cachedBlock.Exists() {
+			if crypto.Randomness.Float64() < Parameters.MissingBlockRequestRelayProbability {
+				t.Solidifier.RetrieveMissingBlock(blkID)
 			}
 
-			return nil, ErrMessageNotFound
+			return nil, ErrBlockNotFound
 		}
-		msg, _ := cachedMessage.Unwrap()
-		return msg.Bytes()
+		blk, _ := cachedBlock.Unwrap()
+		return blk.Bytes()
 	}
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
 	if err != nil {
@@ -64,43 +64,43 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
 	}
 	var opts []gossip.ManagerOption
-	if Parameters.MessagesRateLimit != (messagesLimitParameters{}) {
-		Plugin.Logger().Infof("Initializing messages rate limiter with the following parameters: %+v",
-			Parameters.MessagesRateLimit)
+	if Parameters.BlocksRateLimit != (blocksLimitParameters{}) {
+		Plugin.Logger().Infof("Initializing blocks rate limiter with the following parameters: %+v",
+			Parameters.BlocksRateLimit)
 		mrl, mrlErr := ratelimiter.NewPeerRateLimiter(
-			Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit,
-			Plugin.Logger().With("rateLimiter", "messagesRateLimiter"),
+			Parameters.BlocksRateLimit.Interval, Parameters.BlocksRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "blocksRateLimiter"),
 		)
 		if mrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize messages rate limiter: %+v", mrlErr)
+			Plugin.LogFatalf("Failed to initialize blocks rate limiter: %+v", mrlErr)
 		}
-		opts = append(opts, gossip.WithMessagesRateLimiter(mrl))
+		opts = append(opts, gossip.WithBlocksRateLimiter(mrl))
 	}
-	if Parameters.MessageRequestsRateLimit != (messageRequestsLimitParameters{}) {
-		Plugin.Logger().Infof("Initializing message requests rate limiter with the following parameters: %+v",
-			Parameters.MessageRequestsRateLimit)
+	if Parameters.BlockRequestsRateLimit != (blockRequestsLimitParameters{}) {
+		Plugin.Logger().Infof("Initializing block requests rate limiter with the following parameters: %+v",
+			Parameters.BlockRequestsRateLimit)
 		mrrl, mrrlErr := ratelimiter.NewPeerRateLimiter(
-			Parameters.MessageRequestsRateLimit.Interval, Parameters.MessageRequestsRateLimit.Limit,
-			Plugin.Logger().With("rateLimiter", "messageRequestsRateLimiter"),
+			Parameters.BlockRequestsRateLimit.Interval, Parameters.BlockRequestsRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "blockRequestsRateLimiter"),
 		)
 		if mrrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize message requests rate limiter: %+v", mrrlErr)
+			Plugin.LogFatalf("Failed to initialize block requests rate limiter: %+v", mrrlErr)
 		}
-		opts = append(opts, gossip.WithMessageRequestsRateLimiter(mrrl))
+		opts = append(opts, gossip.WithBlockRequestsRateLimiter(mrrl))
 	}
-	mgr := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
+	mgr := gossip.NewManager(libp2pHost, lPeer, loadBlock, Plugin.Logger(), opts...)
 	return mgr
 }
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 	defer func() {
-		if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+		if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 			mrl.Close()
 		}
 	}()
 	defer func() {
-		if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
+		if mrrl := deps.GossipMgr.BlockRequestsRateLimiter(); mrrl != nil {
 			mrrl.Close()
 		}
 	}()

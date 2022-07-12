@@ -1,11 +1,11 @@
 ---
-description: The ledgerstate API provides endpoints to retrieve address details, unspent outputs for an address, get branch details, and list child branches amongst others.
+description: The ledgerstate API provides endpoints to retrieve address details, unspent outputs for an address, get conflict details, and list child conflicts amongst others.
 image: /img/logo/goshimmer_light.png
 keywords:
 - client library
 - HTTP API
 - addresses
-- branches
+- conflicts
 - outputs
 - transactions
 - UTXO
@@ -17,10 +17,10 @@ keywords:
 
 * [/ledgerstate/addresses/:address](#ledgerstateaddressesaddress)
 * [/ledgerstate/addresses/:address/unspentOutputs](#ledgerstateaddressesaddressunspentoutputs)
-* [/ledgerstate/branches/:branchID](#ledgerstatebranchesbranchid)
-* [/ledgerstate/branches/:branchID/children](#ledgerstatebranchesbranchidchildren)
-* [/ledgerstate/branches/:branchID/conflicts](#ledgerstatebranchesbranchidconflicts)
-* [/ledgerstate/branches/:branchID/voters](#ledgerstatebranchesbranchidvoters)
+* [/ledgerstate/conflicts/:conflictID](#ledgerstateconflictsconflictid)
+* [/ledgerstate/conflicts/:conflictID/children](#ledgerstateconflictsconflictidchildren)
+* [/ledgerstate/conflicts/:conflictID/conflicts](#ledgerstateconflictsconflictidconflicts)
+* [/ledgerstate/conflicts/:conflictID/voters](#ledgerstateconflictsconflictidvoters)
 * [/ledgerstate/outputs/:outputID](#ledgerstateoutputsoutputid)
 * [/ledgerstate/outputs/:outputID/consumers](#ledgerstateoutputsoutputidconsumers)
 * [/ledgerstate/outputs/:outputID/metadata](#ledgerstateoutputsoutputidmetadata)
@@ -35,10 +35,10 @@ keywords:
 
 * [GetAddressOutputs()](#client-lib---getaddressoutputs)
 * [GetAddressUnspentOutputs()](#client-lib---getaddressunspentoutputs)
-* [GetBranch()](#client-lib---getbranch)
-* [GetBranchChildren()](#client-lib---getbranchchildren)
-* [GetBranchConflicts()](#client-lib---getbranchconflicts)
-* [GetBranchVoters()](#client-lib---getbranchvoters)
+* [GetConflict()](#client-lib---getconflict)
+* [GetConflictChildren()](#client-lib---getconflictchildren)
+* [GetConflictConflicts()](#client-lib---getconflictconflicts)
+* [GetConflictVoters()](#client-lib---getconflictvoters)
 * [GetOutput()](#client-lib---getoutput)
 * [GetOutputConsumers()](#client-lib---getoutputconsumers)
 * [GetOutputMetadata()](#client-lib---getoutputmetadata)
@@ -50,7 +50,7 @@ keywords:
 
 ## `/ledgerstate/addresses/:address`
 
-Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw message. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
+Get address details for a given base58 encoded address ID, such as output types and balances. For the client library API call balances will not be directly available as values because they are stored as a raw block. Balance can be read after retrieving `ledgerstate.Output` instance, as presented in the examples.
 
 ### Parameters
 | **Parameter**            | `address`      |
@@ -132,7 +132,7 @@ for _, output := range resp.Outputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.     |
-| `output` | string | An output raw message containing balances and corresponding addresses. |
+| `output` | string | An output raw block containing balances and corresponding addresses. |
 
 #### Type `OutputID`
 
@@ -228,7 +228,7 @@ for _, output := range resp.Outputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.    |
-| `output` | string | An output raw message containing balances and corresponding addresses |
+| `output` | string | An output raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 
@@ -240,15 +240,15 @@ for _, output := range resp.Outputs {
 
 
 
-## `/ledgerstate/branches/:branchID`
-Gets a branch details for a given base58 encoded branch ID.
+## `/ledgerstate/conflicts/:conflictID`
+Gets a conflict details for a given base58 encoded conflict ID.
 
 ### Parameters
 
-| **Parameter**            | `branchID`      |
+| **Parameter**            | `conflictID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The branch ID encoded in base58. |
+| **Description**          | The conflict ID encoded in base58. |
 | **Type**                 | string         |
 
 ### Examples
@@ -256,31 +256,31 @@ Gets a branch details for a given base58 encoded branch ID.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/:branchID \
+curl http://localhost:8080/ledgerstate/conflicts/:conflictID \
 -X GET \
 -H 'Content-Type: application/json'
 ```
 
-where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+where `:conflictID` is the ID of the conflict, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
-#### Client lib - `GetBranch()`
+#### Client lib - `GetConflict()`
 ```Go
-resp, err := goshimAPI.GetBranch("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
+resp, err := goshimAPI.GetConflict("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
 }
-fmt.Println("branch ID: ", resp.ID)
-fmt.Println("branch type: ", resp.Type)
-fmt.Println("branch inclusion state: ", resp.InclusionState)
-fmt.Println("branch parents IDs: ", resp.Parents)
-fmt.Println("branch conflicts IDs: ", resp.ConflictIDs)
+fmt.Println("conflict ID: ", resp.ID)
+fmt.Println("conflict type: ", resp.Type)
+fmt.Println("conflict inclusion state: ", resp.ConfirmationState)
+fmt.Println("conflict parents IDs: ", resp.Parents)
+fmt.Println("conflict conflicts IDs: ", resp.ConflictIDs)
 fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp.Finalized, resp.MonotonicallyLiked)
 ```
 ### Response Examples
 ```json
 {
     "id": "5v6iyxKUSSF73yoZa6YngNN5tqoX8hJQWKGXrgcz3XTg",
-    "type": "ConflictBranchType",
+    "type": "ConflictConflictType",
     "parents": [
         "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM"
     ],
@@ -290,33 +290,33 @@ fmt.Printf("liked: %v, finalized: %v, monotonically liked: %v", resp.Liked, resp
     "liked": false,
     "monotonicallyLiked": false,
     "finalized": false,
-    "inclusionState": "InclusionState(Pending)"
+    "confirmationState": "ConfirmationState(Pending)"
 }
 ```
 
 ### Results
-|Return field | Type | Description|
-|:-----|:------|:------|
-| `id`  | string | The branch identifier encoded with base58.   |
-| `type`        | string | The type of the branch.  |
-| `parents`     | []string | The list of parent branches IDs.   |
-| `conflictIDs` | []string | The list of conflicts identifiers.  |
-| `liked`       | bool | The boolean indicator if branch is liked.   |
-| `monotonicallyLiked`   | bool | The boolean indicator if branch is monotonically liked.   |
-| `finalized`   | bool | The boolean indicator if branch is finalized.   |
-| `inclusionState`   | string | Inclusion state of a branch.   |
+|Return field | Type | Description                                             |
+|:-----|:------|:--------------------------------------------------------|
+| `id`  | string | The conflict identifier encoded with base58.              |
+| `type`        | string | The type of the conflict.                                 |
+| `parents`     | []string | The list of parent conflicts IDs.                        |
+| `conflictIDs` | []string | The list of conflicts identifiers.                      |
+| `liked`       | bool | The boolean indicator if conflict is liked.               |
+| `monotonicallyLiked`   | bool | The boolean indicator if conflict is monotonically liked. |
+| `finalized`   | bool | The boolean indicator if conflict is finalized.           |
+| `confirmationState`   | string | Confirmation state of a conflict.                         |
 
 
 
-## `/ledgerstate/branches/:branchID/children`
-Gets a list of all child branches for a branch with given base58 encoded branch ID.
+## `/ledgerstate/conflicts/:conflictID/children`
+Gets a list of all child conflicts for a conflict with given base58 encoded conflict ID.
 
 ### Parameters
 
-| **Parameter**            | `branchID`      |
+| **Parameter**            | `conflictID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The branch ID encoded in base58. |
+| **Description**          | The conflict ID encoded in base58. |
 | **Type**                 | string         |
 
 
@@ -325,34 +325,34 @@ Gets a list of all child branches for a branch with given base58 encoded branch 
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/:branchID/children \
+curl http://localhost:8080/ledgerstate/conflicts/:conflictID/children \
 -X GET \
 -H 'Content-Type: application/json'
 ```
 
-where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+where `:conflictID` is the ID of the conflict, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
-#### Client lib - `GetBranchChildren()`
+#### Client lib - `GetConflictChildren()`
 ```Go
-resp, err := goshimAPI.GetBranchChildren("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
+resp, err := goshimAPI.GetConflictChildren("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     //return error
 }
-fmt.Printf("All children branches for branch %s:\n", resp.BranchID)
-for _, branch := range resp.ChildBranches {
-    fmt.Println("branchID: ", branch.BranchID)
-    fmt.Printf("type: %s\n", branch.BranchID)
+fmt.Printf("All children conflicts for conflict %s:\n", resp.ConflictID)
+for _, conflict := range resp.ChildConflicts {
+    fmt.Println("conflictID: ", conflict.ConflictID)
+    fmt.Printf("type: %s\n", conflict.ConflictID)
 }
 ```
 
 ### Response Examples
 ```json
 {
-    "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
-    "childBranches": [
+    "conflictID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
+    "childConflicts": [
         {
-            "branchID": "4SdXm5NXEcVogiJNEKkecqd5rZzRYeGYBj8oBNsdX91W",
-            "type": "AggregatedBranchType"
+            "conflictID": "4SdXm5NXEcVogiJNEKkecqd5rZzRYeGYBj8oBNsdX91W",
+            "type": "AggregatedConflictType"
         }
     ]
 }
@@ -362,28 +362,28 @@ for _, branch := range resp.ChildBranches {
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `branchID`  | string | The branch identifier encoded with base58.   |
-| `childBranches`        | []ChildBranch | The child branches data.  |
+| `conflictID`  | string | The conflict identifier encoded with base58.   |
+| `childConflicts`        | []ChildConflict | The child conflicts data.  |
 
 
-#### Type `ChildBranch`
+#### Type `ChildConflict`
 
 |Field | Type | Description|
 |:-----|:------|:------|
-| `branchID`  | string | The branch identifier encoded with base58.   |
-| `type`        | string | The type of the branch.  |
+| `conflictID`  | string | The conflict identifier encoded with base58.   |
+| `type`        | string | The type of the conflict.  |
 
 
 
-## `/ledgerstate/branches/:branchID/conflicts`
-Get all conflicts for a given branch ID, their outputs and conflicting branches.
+## `/ledgerstate/conflicts/:conflictID/conflicts`
+Get all conflicts for a given conflict ID, their outputs and conflicting conflicts.
 
 ### Parameters
 
-| **Parameter**            | `branchID`      |
+| **Parameter**            | `conflictID`      |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The conflicting branch ID encoded in base58. |
+| **Description**          | The conflicting conflict ID encoded in base58. |
 | **Type**                 | string         |
 
 
@@ -392,31 +392,31 @@ Get all conflicts for a given branch ID, their outputs and conflicting branches.
 #### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/:branchID/conflicts \
+curl http://localhost:8080/ledgerstate/conflicts/:conflictID/conflicts \
 -X GET \
 -H 'Content-Type: application/json'
 ```
 
-where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+where `:conflictID` is the ID of the conflict, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
-#### Client lib - `GetBranchConflicts()`
+#### Client lib - `GetConflictConflicts()`
 ```Go
-resp, err := goshimAPI.GetBranchConflicts("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
+resp, err := goshimAPI.GetConflictConflicts("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
 }
-fmt.Printf("All conflicts for branch %s:\n", resp.BranchID)
+fmt.Printf("All conflicts for conflict %s:\n", resp.ConflictID)
 // iterate over all conflicts
-for _, branch := range resp.Conflicts {
-    fmt.Println("output ID: ", branch.OutputID.Base58)
-    fmt.Println("conflicting transaction ID: ", branch.OutputID.TransactionID)
-    fmt.Printf("related branches: %v\n", branch.BranchIDs)
+for _, conflict := range resp.Conflicts {
+    fmt.Println("output ID: ", conflict.OutputID.Base58)
+    fmt.Println("conflicting transaction ID: ", conflict.OutputID.TransactionID)
+    fmt.Printf("related conflicts: %v\n", conflict.ConflictIDs)
 }
 ```
 ### Response Examples
 ```json
 {
-    "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
+    "conflictID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
     "conflicts": [
         {
             "outputID": {
@@ -424,7 +424,7 @@ for _, branch := range resp.Conflicts {
                 "transactionID": "9wr21zza46Y5QonKEHNQ6x8puA7Rbq5LAbsQZJCK1g1g",
                 "outputIndex": 0
             },
-            "branchIDs": [
+            "conflictIDs": [
                 "b8QRhHerfg14cYQ4VFD7Fyh1HYTCbjt9aK1XJmdoXwq",
                 "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV"
             ]
@@ -437,14 +437,14 @@ for _, branch := range resp.Conflicts {
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `branchID`  | string | The branch identifier encoded with base58.   |
+| `conflictID`  | string | The conflict identifier encoded with base58.   |
 | `conflicts` | []Conflict | The conflict data.  |
 
 #### Type `Conflict`
 |Field | Type | Description|
 |:-----|:------|:------|
-| `outputID`  | OutputID | The branch identifier encoded with base58.   |
-| `branchIDs` | []string | The identifiers of all related branches encoded in base58.  |
+| `outputID`  | OutputID | The conflict identifier encoded with base58.   |
+| `conflictIDs` | []string | The identifiers of all related conflicts encoded in base58.  |
 
 #### Type `OutputID`
 
@@ -455,13 +455,13 @@ for _, branch := range resp.Conflicts {
 | `outputIndex`   | int | The index of an output.     |
 
 
-## `/ledgerstate/branches/:branchID/voters`
-Get a list of voters of a given branchID.
+## `/ledgerstate/conflicts/:conflictID/voters`
+Get a list of voters of a given conflictID.
 
-| **Parameter**            | `branchID`     |
+| **Parameter**            | `conflictID`     |
 |--------------------------|----------------|
 | **Required or Optional** | required       |
-| **Description**          | The branch ID encoded in base58. |
+| **Description**          | The conflict ID encoded in base58. |
 | **Type**                 | string         |
 
 ### Examples
@@ -469,19 +469,19 @@ Get a list of voters of a given branchID.
 ### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/:branchID/voters \
+curl http://localhost:8080/ledgerstate/conflicts/:conflictID/voters \
 -X GET \
 -H 'Content-Type: application/json'
 ```
-where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
+where `:conflictID` is the ID of the conflict, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
-#### Client lib - `GetBranchVoters()`
+#### Client lib - `GetConflictVoters()`
 ```Go
-resp, err := goshimAPI.GetBranchVoters("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
+resp, err := goshimAPI.GetConflictVoters("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
 }
-fmt.Printf("All voters for branch %s:\n", resp.BranchID)
+fmt.Printf("All voters for conflict %s:\n", resp.ConflictID)
 // iterate over all voters
 for _, voter := range resp.Voters {
     fmt.Println("ID: ", voter)
@@ -491,7 +491,7 @@ for _, voter := range resp.Voters {
 ### Response examples
 ```json
 {
-  "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
+  "conflictID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
   "voters": ["b8QRhHerfg14cYQ4VFD7Fyh1HYTCbjt9aK1XJmdoXwq","41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK"]
 }
 ```
@@ -499,13 +499,13 @@ for _, voter := range resp.Voters {
 ### Results
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `branchID`   | string    | The branch identifier encoded with base58.   |
-| `voters` | [] string | The list of branch voter IDs  |
+| `conflictID`   | string    | The conflict identifier encoded with base58.   |
+| `voters` | [] string | The list of conflict voter IDs  |
 
 
 ## `/ledgerstate/outputs/:outputID`
 Get an output details for a given base58 encoded output ID, such as output types, addresses, and their corresponding balances.
-For the client library API call balances will not be directly available as values because they are stored as a raw message. 
+For the client library API call balances will not be directly available as values because they are stored as a raw block. 
 
 ### Parameters
 
@@ -561,7 +561,7 @@ fmt.Println("transactionID: ", resp.OutputID.TransactionID)
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.     |
-| `output` | string | An output raw message containing balances and corresponding addresses |
+| `output` | string | An output raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 
@@ -685,7 +685,7 @@ if err != nil {
     // return error
 }
 fmt.Printf("Metadata of an output %s:\n", resp.OutputID.Base58)
-fmt.Println("branchID: ", resp.BranchID)
+fmt.Println("conflictID: ", resp.ConflictID)
 fmt.Println("first consumer: ", resp.FirstConsumer)
 fmt.Println("number of consumers: ", resp.ConsumerCount)
 fmt.Printf("finalized: %v, solid: %v\n", resp.Finalized, resp.Solid)
@@ -699,7 +699,7 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
         "transactionID": "9wr21zza46Y5QonKEHNQ6x8puA7Rbq5LAbsQZJCK1g1g",
         "outputIndex": 0
     },
-    "branchID": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
+    "conflictID": "4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM",
     "solid": true,
     "solidificationTime": 1621889327,
     "consumerCount": 2,
@@ -713,9 +713,9 @@ fmt.Println("solidification time: ",  time.Unix(resp.SolidificationTime, 0))
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `outputID`            | OutputID  | The output identifier encoded with base58.   |
-| `branchID`            | string    | The identifier of the branch encoded with base58. |
-| `solid`               | bool      | The boolean indicator if the message is solid. |
-| `solidificationTime`  | int64     | The time of solidification of a message. |
+| `conflictID`            | string    | The identifier of the conflict encoded with base58. |
+| `solid`               | bool      | The boolean indicator if the block is solid. |
+| `solidificationTime`  | int64     | The time of solidification of a block. |
 | `consumerCount`       | int       | The number of consumers. |
 | `firstConsumer`       | string    | The first consumer of the output. |
 | `finalized`           | bool      | The boolean indicator if the transaction is finalized. |
@@ -751,7 +751,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID \
 -H 'Content-Type: application/json'
 ```
 
-where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+where `:transactionID` is the ID of the conflict, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransaction()`
 ```Go
@@ -847,7 +847,7 @@ fmt.Println("consensus mana pledgeID:", resp.ConsensusPledgeID)
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string | The type of the output.  |
-| `output` | string | An output raw message containing balances and corresponding addresses. |
+| `output` | string | An output raw block containing balances and corresponding addresses. |
 
 #### Type `OutputID`
 
@@ -888,7 +888,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/metadata \
 -H 'Content-Type: application/json'
 ```
 
-where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+where `:transactionID` is the ID of the conflict, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionMetadata()`
 ```Go
@@ -897,15 +897,15 @@ if err != nil {
     // return error
 }
 fmt.Println("transactionID:", resp.TransactionID)
-fmt.Println("branchID:", resp.BranchID)
-fmt.Printf("branch lazy booked: %v, solid: %v, finalized: %v\n", resp.LazyBooked, resp.Solid, resp.Finalized)
+fmt.Println("conflictID:", resp.ConflictID)
+fmt.Printf("conflict lazy booked: %v, solid: %v, finalized: %v\n", resp.LazyBooked, resp.Solid, resp.Finalized)
 fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 ```
 ### Response Examples
 ```json
 {
     "transactionID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
-    "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
+    "conflictID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
     "solid": true,
     "solidificationTime": 1621889358,
     "finalized": true,
@@ -916,7 +916,7 @@ fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`         | string  | The transaction identifier encoded with base58.    |
-| `branchID`       | string    |  The branch identifier of the transaction. |
+| `conflictID`       | string    |  The conflict identifier of the transaction. |
 | `solid`  | bool      | The boolean indicator if the transaction is solid. |
 | `solidificationTime`          | uint64      | The time of solidification of the transaction. |
 | `finalized`         | bool    | The boolean indicator if the transaction is finalized. |
@@ -924,7 +924,7 @@ fmt.Println("solidification time:",  time.Unix(resp.SolidificationTime, 0))
 
 
 ## `/ledgerstate/transactions/:transactionID/attachments`
-Gets the list of messages IDs with attachments of the base58 encoded transaction ID.
+Gets the list of blocks IDs with attachments of the base58 encoded transaction ID.
 
 ### Parameters
 | **Parameter**            | `transactionID`      |
@@ -943,7 +943,7 @@ curl http://localhost:8080/ledgerstate/transactions/:transactionID/attachments \
 -H 'Content-Type: application/json'
 ```
 
-where `:transactionID` is the ID of the branch, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
+where `:transactionID` is the ID of the conflict, e.g. HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV.
 
 #### Client lib - `GetTransactionAttachments()`
 ```Go
@@ -951,16 +951,16 @@ resp, err := goshimAPI.GetTransactionAttachments("DNSN8GaCeep6CVuUV6KXAabXkL3bv4
 if err != nil {
     // return error
 }
-fmt.Printf("Messages IDs containing transaction %s:\n", resp.TransactionID)
-for _, msgID := range resp.MessageIDs {
-    fmt.Println(msgID)
+fmt.Printf("Blocks IDs containing transaction %s:\n", resp.TransactionID)
+for _, blkID := range resp.BlockIDs {
+    fmt.Println(blkID)
 }
 ```
 ### Response Examples
 ```json
 {
     "transactionID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
-    "messageIDs": [
+    "blockIDs": [
         "J1FQdMcticXiiuKMbjobq4zrYGHagk2mtTzkVwbqPgSq"
     ]
 }
@@ -970,12 +970,12 @@ for _, msgID := range resp.MessageIDs {
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `transactionID`   | string  | The transaction identifier encoded with base58.  |
-| `messageIDs`       | []string    | The messages IDs that contains the requested transaction. |
+| `blockIDs`       | []string    | The blocks IDs that contains the requested transaction. |
 
 
 
 ## `/ledgerstate/transactions`
-Sends transaction provided in form of a binary data, validates transaction before issuing the message payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction.md).
+Sends transaction provided in form of a binary data, validates transaction before issuing the block payload. For more detail on how to prepare transaction bytes see the [tutorial](../tutorials/send_transaction.md).
 
 ### Examples
 
@@ -1001,7 +1001,7 @@ fmt.Println("Transaction sent, txID: ", resp.TransactionID)
 
 
 ## `/ledgerstate/addresses/unspentOutputs`
-Gets all unspent outputs for a list of addresses that were sent in the body message.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
+Gets all unspent outputs for a list of addresses that were sent in the body block.  Returns the unspent outputs along with inclusion state and metadata for the wallet. 
 
 ### Request Body
 ```json
@@ -1066,7 +1066,7 @@ for _, outputs := range resp.UnspentOutputs {
                             "address": "1Z4t5KEKU65fbeQCbNdztYTB1B4Cdxys1XRzTFrmvAf3"
                         }
                     },
-                    "inclusionState": {
+                    "confirmationState": {
                         "confirmed": true,
                         "rejected": false,
                         "conflicting": false
@@ -1105,7 +1105,7 @@ for _, outputs := range resp.UnspentOutputs {
 |Field | Type | Description|
 |:-----|:------|:------|
 | `output`  | Output | The unspent output.   |
-| `inclusionState`| InclusionState   | The inclusion state of the transaction containing the output.  |
+| `confirmationState`| ConfirmationState   | The inclusion state of the transaction containing the output.  |
 | `metadata`| WalletOutputMetadata   | The metadata of the output for the wallet lib.  |
 
 #### Type `Output`
@@ -1114,7 +1114,7 @@ for _, outputs := range resp.UnspentOutputs {
 |:-----|:------|:------|
 | `outputID`  | OutputID | The identifier of an output.   |
 | `outputType`   | string |  The type of the output.     |
-| `output` | string | An outputs raw message containing balances and corresponding addresses |
+| `output` | string | An outputs raw block containing balances and corresponding addresses |
 
 #### Type `OutputID`
 
@@ -1124,12 +1124,12 @@ for _, outputs := range resp.UnspentOutputs {
 | `transactionID`   | string | The transaction identifier encoded with base58.     |
 | `outputIndex`   | int | The index of an output.     |
 
-#### Type `InclusionState`
+#### Type `ConfirmationState`
 
 |Field | Type | Description|
 |:-----|:------|:------|
 | `confirmed`  | bool |  The boolean indicating if the transaction containing the output is confirmed. |
-| `rejected`   | bool | The boolean indicating if the transaction that contains the output was rejected and is booked to the rejected branch.   |
+| `rejected`   | bool | The boolean indicating if the transaction that contains the output was rejected and is booked to the rejected conflict.   |
 | `conflicting`   | bool | The boolean indicating if the output is in conflicting transaction.|
 
 #### Type `WalletOutputMetadata`

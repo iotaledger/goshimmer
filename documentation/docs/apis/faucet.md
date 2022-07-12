@@ -118,5 +118,5 @@ if err != nil {
 
 |Return field | Type | Description|
 |:-----|:------|:------|
-| `id`  | `string` | Message ID of the faucet request. Omitted if error. |
-| `error`   | `string` | Error message. Omitted if success.    |
+| `id`  | `string` | Block ID of the faucet request. Omitted if error. |
+| `error`   | `string` | Error block. Omitted if success.    |

@@ -19,26 +19,26 @@ var (
 	autoPeeringWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
-// JSON encoded websocket message for adding a node
+// JSON encoded websocket block for adding a node
 type addNode struct {
 	NetworkVersion string `json:"networkVersion"`
 	ID             string `json:"id"`
 }
 
-// JSON encoded websocket message for removing a node
+// JSON encoded websocket block for removing a node
 type removeNode struct {
 	NetworkVersion string `json:"networkVersion"`
 	ID             string `json:"id"`
 }
 
-// JSON encoded websocket message for connecting two nodes
+// JSON encoded websocket block for connecting two nodes
 type connectNodes struct {
 	NetworkVersion string `json:"networkVersion"`
 	Source         string `json:"source"`
 	Target         string `json:"target"`
 }
 
-// JSON encoded websocket message for disconnecting two nodes
+// JSON encoded websocket block for disconnecting two nodes
 type disconnectNodes struct {
 	NetworkVersion string `json:"networkVersion"`
 	Source         string `json:"source"`
@@ -48,7 +48,7 @@ type disconnectNodes struct {
 func configureAutopeeringWorkerPool() {
 	// create a new worker pool for processing autopeering updates coming from analysis server
 	autoPeeringWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		// determine what msg to send based on first parameter
+		// determine what blk to send based on first parameter
 		// first parameter is always a letter denoting what to do with the following string or strings
 		x := fmt.Sprintf("%v", task.Param(0))
 		switch x {
@@ -66,10 +66,10 @@ func configureAutopeeringWorkerPool() {
 	}, workerpool.WorkerCount(autoPeeringWorkerCount), workerpool.QueueSize(autoPeeringWorkerQueueSize))
 }
 
-// send and addNode msg to all connected ws clients
+// send and addNode blk to all connected ws clients
 func sendAddNode(eventStruct *analysisserver.AddNodeEvent) {
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeAddNode,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeAddNode,
 		Data: &addNode{
 			NetworkVersion: eventStruct.NetworkVersion,
 			ID:             eventStruct.NodeID,
@@ -77,10 +77,10 @@ func sendAddNode(eventStruct *analysisserver.AddNodeEvent) {
 	}, true)
 }
 
-// send a removeNode msg to all connected ws clients
+// send a removeNode blk to all connected ws clients
 func sendRemoveNode(eventStruct *analysisserver.RemoveNodeEvent) {
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeRemoveNode,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeRemoveNode,
 		Data: &removeNode{
 			NetworkVersion: eventStruct.NetworkVersion,
 			ID:             eventStruct.NodeID,
@@ -88,10 +88,10 @@ func sendRemoveNode(eventStruct *analysisserver.RemoveNodeEvent) {
 	}, true)
 }
 
-// send a connectNodes msg to all connected ws clients
+// send a connectNodes blk to all connected ws clients
 func sendConnectNodes(eventStruct *analysisserver.ConnectNodesEvent) {
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeConnectNodes,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeConnectNodes,
 		Data: &connectNodes{
 			NetworkVersion: eventStruct.NetworkVersion,
 			Source:         eventStruct.SourceID,
@@ -102,8 +102,8 @@ func sendConnectNodes(eventStruct *analysisserver.ConnectNodesEvent) {
 
 // send disconnectNodes to all connected ws clients
 func sendDisconnectNodes(eventStruct *analysisserver.DisconnectNodesEvent) {
-	broadcastWsMessage(&wsmsg{
-		Type: MsgTypeDisconnectNodes,
+	broadcastWsBlock(&wsblk{
+		Type: BlkTypeDisconnectNodes,
 		Data: &disconnectNodes{
 			NetworkVersion: eventStruct.NetworkVersion,
 			Source:         eventStruct.SourceID,
@@ -160,14 +160,14 @@ func createAutopeeringEventHandlers(wsClient *websocket.Conn) *analysisserver.Ev
 // creates callback function for addNode  event
 func createAddNodeCallback(ws *websocket.Conn) func(event *analysisserver.AddNodeEvent) {
 	return func(event *analysisserver.AddNodeEvent) {
-		wsMessage := &wsmsg{
-			Type: MsgTypeAddNode,
+		wsBlock := &wsblk{
+			Type: BlkTypeAddNode,
 			Data: &addNode{
 				NetworkVersion: event.NetworkVersion,
 				ID:             event.NodeID,
 			},
 		}
-		if err := sendJSON(ws, wsMessage); err != nil {
+		if err := sendJSON(ws, wsBlock); err != nil {
 			log.Error(err.Error())
 		}
 	}
@@ -176,14 +176,14 @@ func createAddNodeCallback(ws *websocket.Conn) func(event *analysisserver.AddNod
 // creates callback function for removeNode  event
 func createRemoveNodeCallback(ws *websocket.Conn) func(event *analysisserver.RemoveNodeEvent) {
 	return func(event *analysisserver.RemoveNodeEvent) {
-		wsMessage := &wsmsg{
-			Type: MsgTypeRemoveNode,
+		wsBlock := &wsblk{
+			Type: BlkTypeRemoveNode,
 			Data: &removeNode{
 				NetworkVersion: event.NetworkVersion,
 				ID:             event.NodeID,
 			},
 		}
-		if err := sendJSON(ws, wsMessage); err != nil {
+		if err := sendJSON(ws, wsBlock); err != nil {
 			log.Error(err.Error())
 		}
 	}
@@ -192,15 +192,15 @@ func createRemoveNodeCallback(ws *websocket.Conn) func(event *analysisserver.Rem
 // creates callback function for connectNodes  event
 func createConnectNodesCallback(ws *websocket.Conn) func(event *analysisserver.ConnectNodesEvent) {
 	return func(event *analysisserver.ConnectNodesEvent) {
-		wsMessage := &wsmsg{
-			Type: MsgTypeConnectNodes,
+		wsBlock := &wsblk{
+			Type: BlkTypeConnectNodes,
 			Data: &connectNodes{
 				NetworkVersion: event.NetworkVersion,
 				Source:         event.SourceID,
 				Target:         event.TargetID,
 			},
 		}
-		if err := sendJSON(ws, wsMessage); err != nil {
+		if err := sendJSON(ws, wsBlock); err != nil {
 			log.Error(err.Error())
 		}
 	}
@@ -209,15 +209,15 @@ func createConnectNodesCallback(ws *websocket.Conn) func(event *analysisserver.C
 // creates callback function for disconnectNodes  event
 func createDisconnectNodesCallback(ws *websocket.Conn) func(event *analysisserver.DisconnectNodesEvent) {
 	return func(event *analysisserver.DisconnectNodesEvent) {
-		wsMessage := &wsmsg{
-			Type: MsgTypeDisconnectNodes,
+		wsBlock := &wsblk{
+			Type: BlkTypeDisconnectNodes,
 			Data: &disconnectNodes{
 				NetworkVersion: event.NetworkVersion,
 				Source:         event.SourceID,
 				Target:         event.TargetID,
 			},
 		}
-		if err := sendJSON(ws, wsMessage); err != nil {
+		if err := sendJSON(ws, wsBlock); err != nil {
 			log.Error(err.Error())
 		}
 	}

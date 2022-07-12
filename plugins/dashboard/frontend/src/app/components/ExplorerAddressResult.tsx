@@ -12,7 +12,7 @@ import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
 import {outputToComponent, totalBalanceFromExplorerOutputs} from "app/utils/output";
 import {Button, ListGroupItem} from "react-bootstrap";
-import {resolveBase58BranchID} from "app/utils/branch";
+import {resolveBase58ConflictID} from "app/utils/conflict";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -238,14 +238,14 @@ class OutputMeta extends React.Component<omProps, any> {
         let pendingMana = this.props.pendingMana;
         return (
             <ListGroup>
-                BranchIDs: 
+                ConflictIDs: 
                 <ListGroup>
                     {
-                        metadata.branchIDs.map((value, index) => {
+                        metadata.conflictIDs.map((value, index) => {
                             return (
-                                <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
-                                    <Link to={`/explorer/branch/${value}`}>
-                                        {resolveBase58BranchID(value)}
+                                <ListGroup.Item key={"ConflictID" + index + 1} className="text-break">
+                                    <Link to={`/explorer/conflict/${value}`}>
+                                        {resolveBase58ConflictID(value)}
                                     </Link>
                                 </ListGroup.Item>
                             )

@@ -5,21 +5,20 @@ import {RouterStore,} from "mobx-react-router";
 import {Link} from "react-router-dom";
 import NodeStore from './NodeStore';
 import {Table} from "react-bootstrap";
-import {GoF} from "app/stores/ExplorerStore";
+import {ConfirmationState, resolveConfirmationState} from "app/utils/confirmation_state";
 
-export class ConflictMessage {
-    conflictID: string;
+export class ConflictSet {
+    conflictSetID: string;
     arrivalTime: number;
     resolved: boolean;
     timeToResolve: number;
     shown: boolean;
 }
 
-export class BranchMessage {
-    branchID: string;
-    conflictIDs: Array<string>;
-    aw: number;
-    gof: number;
+export class Conflict {
+    conflictID: string;
+    conflictSetIDs: Array<string>;
+    confirmationState: number;
     issuingTime: number;
     issuerNodeID: string;
 }
@@ -28,8 +27,8 @@ export class BranchMessage {
 
 export class ConflictsStore {
     // live feed
-    @observable conflicts: Map<String, ConflictMessage>;
-    @observable branches: Map<String, BranchMessage>;
+    @observable conflictSets: Map<String, ConflictSet>;
+    @observable conflicts: Map<String, Conflict>;
     
     routerStore: RouterStore;
     nodeStore: NodeStore;
@@ -37,31 +36,38 @@ export class ConflictsStore {
     constructor(routerStore: RouterStore, nodeStore: NodeStore) {
         this.routerStore = routerStore;
         this.nodeStore = nodeStore;
+        this.conflictSets = new Map;
         this.conflicts = new Map;
-        this.branches = new Map;
+        registerHandler(WSMsgType.ConflictSet, this.updateConflictSets);
         registerHandler(WSMsgType.Conflict, this.updateConflicts);
-        registerHandler(WSMsgType.Branch, this.updateBranches);
     }
 
     @action
-    updateConflicts = (msg: ConflictMessage) => {
-        this.conflicts.set(msg.conflictID, msg);
+    updateConflictSets = (blk: ConflictSet) => {
+        this.conflictSets.set(blk.conflictSetID, blk);
     };
 
     @action
-    updateBranches = (msg: BranchMessage) => {
-        this.branches.set(msg.branchID, msg);
+    updateConflicts = (blk: Conflict) => {
+        this.conflicts.set(blk.conflictID, blk);
     };
    
     @computed
     get conflictsLiveFeed() {
+        // sort branches by time and ID to prevent "jumping"
+        let conflictsArr = Array.from(this.conflictSets.values());
+        conflictsArr.sort((x: ConflictSet, y: ConflictSet): number => {
+                return y.arrivalTime - x.arrivalTime || x.conflictSetID.localeCompare(y.conflictSetID);
+            }
+        )
+
         let feed = [];
-        for (let [key, conflict] of this.conflicts) {
+        for (let conflict of conflictsArr) {
             feed.push(
-                <tr key={conflict.conflictID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
+                <tr key={conflict.conflictSetID} onClick={() => conflict.shown = !conflict.shown} style={{cursor:"pointer"}}>
                     <td>
-                        <Link to={`/explorer/output/${conflict.conflictID}`}>
-                            {conflict.conflictID}
+                        <Link to={`/explorer/output/${conflict.conflictSetID}`}>
+                            {conflict.conflictSetID}
                         </Link>
                     </td>
                     <td>
@@ -82,25 +88,24 @@ export class ConflictsStore {
             }
 
             // sort branches by time and ID to prevent "jumping"
-            let branchesArr = Array.from(this.branches.values());
-            branchesArr.sort((x: BranchMessage, y: BranchMessage): number => {
-                   return x.issuingTime - y.issuingTime || x.branchID.localeCompare(y.branchID)
+            let branchesArr = Array.from(this.conflicts.values());
+            branchesArr.sort((x: Conflict, y: Conflict): number => {
+                   return x.issuingTime - y.issuingTime || x.conflictID.localeCompare(y.conflictID)
                 }
             )
 
             let branches = [];
             for (let branch of branchesArr) {
-                for(let conflictID of branch.conflictIDs){
-                    if (conflictID === key) {
+                for(let conflictID of branch.conflictSetIDs){
+                    if (conflictID === conflict.conflictSetID) {
                         branches.push(
-                                    <tr key={branch.branchID} className={branch.gof == GoF.High ? "table-success" : ""}>
+                                    <tr key={branch.conflictID} className={branch.confirmationState > ConfirmationState.Accepted ? "table-success" : ""}>
                                         <td>
-                                            <Link to={`/explorer/branch/${branch.branchID}`}>
-                                                {branch.branchID}
+                                            <Link to={`/explorer/branch/${branch.conflictID}`}>
+                                                {branch.conflictID}
                                             </Link>
                                         </td>
-                                        <td>{branch.aw}</td>
-                                        <td>{branch.gof}</td>
+                                        <td>{resolveConfirmationState(branch.confirmationState)}</td>
                                         <td> {new Date(branch.issuingTime * 1000).toLocaleString()}</td>
                                         <td>{branch.issuerNodeID}</td>
                                     </tr>
@@ -109,14 +114,13 @@ export class ConflictsStore {
                 }
             }
             feed.push(
-                <tr key={conflict.conflictID+"_branches"}>
+                <tr key={conflict.conflictSetID+"_branches"}>
                     <td colSpan={4}>
                         <Table size="sm">
                             <thead>
                             <tr>
                                 <th>BranchID</th>
-                                <th>AW</th>
-                                <th>GoF</th>
+                                <th>ConfirmationState</th>
                                 <th>IssuingTime</th>
                                 <th>Issuer NodeID</th>
                             </tr>

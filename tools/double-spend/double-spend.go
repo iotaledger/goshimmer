@@ -3,19 +3,17 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/lo"
-
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func main() {
@@ -36,7 +34,7 @@ func main() {
 	myAddr := mySeed.Address(0)
 
 	if _, err := clients[0].BroadcastFaucetRequest(myAddr.Address().Base58(), -1); err != nil {
-		fmt.Println(err)
+		fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 		return
 	}
 
@@ -47,14 +45,14 @@ func main() {
 		time.Sleep(5 * time.Second)
 		resp, err := clients[0].PostAddressUnspentOutputs([]string{myAddr.Address().Base58()})
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 			return
 		}
 		fmt.Println("Waiting for funds to be confirmed...")
 		for _, v := range resp.UnspentOutputs {
 			if len(v.Outputs) > 0 {
 				myOutputID = v.Outputs[0].Output.OutputID.Base58
-				confirmed = v.Outputs[0].GradeOfFinality == gof.High
+				confirmed = v.Outputs[0].ConfirmationState.IsAccepted()
 				break
 			}
 		}
@@ -81,7 +79,7 @@ func main() {
 
 	// issue transactions which spend the same output
 	conflictingTxs := make([]*devnetvm.Transaction, 2)
-	conflictingMsgIDs := make([]string, 2)
+	conflictingBlkIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
 	var wg sync.WaitGroup
@@ -111,7 +109,7 @@ func main() {
 			}
 			fmt.Println(resp.TransactionID)
 
-			fmt.Printf("issued conflict transaction %s\n", conflictingMsgIDs[i])
+			fmt.Printf("issued conflict transaction %s\n", conflictingBlkIDs[i])
 		}(i)
 	}
 	wg.Wait()

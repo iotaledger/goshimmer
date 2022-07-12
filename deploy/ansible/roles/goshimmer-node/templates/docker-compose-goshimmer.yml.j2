@@ -51,7 +51,7 @@ services:
       --autoPeering.networkVersion={{ networkVersion }}
      {% endif %}
       --node.disablePlugins=portcheck,ManaInitializer
-      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
+      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsBlockEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
       --prometheus.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
@@ -68,9 +68,9 @@ services:
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
      {% if faucet|default(false) %}
-      --messageLayer.startSynced=false
+      --blockLayer.startSynced=false
      {% else %}
-      --messageLayer.startSynced=true
+      --blockLayer.startSynced=true
      {% endif %}
-      --messageLayer.tangleTimeWindow=10m
-      --messageLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
+      --blockLayer.tangleTimeWindow=10m
+      --blockLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}

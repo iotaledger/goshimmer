@@ -81,7 +81,7 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 }
 ```
 
-The last parameter to the `CreateNetwork` function can be used to alter peers' configuration to use a generated snapshot file (e.g. `conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath`).
+The last parameter to the `CreateNetwork` function can be used to alter peers' configuration to use a generated snapshot file (e.g. `conf.BlockLayer.Snapshot.File = snaphotInfo.FilePath`).
 
 The `CommonSnapshotConfigFunc` function can be used for the average scenario: it will use the same `SnapshotInfo` for all peers. 
 

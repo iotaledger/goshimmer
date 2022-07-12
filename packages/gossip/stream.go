@@ -67,8 +67,8 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
 	}
 	ps := newPacketsStream(stream)
-	if err := sendNegotiationMessage(ps); err != nil {
-		err = errors.Wrap(err, "failed to send negotiation message")
+	if err := sendNegotiationBlock(ps); err != nil {
+		err = errors.Wrap(err, "failed to send negotiation block")
 		err = errors.CombineErrors(err, stream.Close())
 		return nil, err
 	}
@@ -167,8 +167,8 @@ func (m *Manager) removeAcceptMatcher(am *acceptMatcher) {
 
 func (m *Manager) streamHandler(stream network.Stream) {
 	ps := newPacketsStream(stream)
-	if err := receiveNegotiationMessage(ps); err != nil {
-		m.log.Warnw("Failed to receive negotiation message", "err", err)
+	if err := receiveNegotiationBlock(ps); err != nil {
+		m.log.Warnw("Failed to receive negotiation block", "err", err)
 		m.closeStream(stream)
 		return
 	}
@@ -210,7 +210,7 @@ func (ps *packetsStream) writePacket(packet *pb.Packet) error {
 	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
-	err := ps.writer.WriteMsg(packet)
+	err := ps.writer.WriteBlk(packet)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -224,19 +224,19 @@ func (ps *packetsStream) readPacket(packet *pb.Packet) error {
 	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
 		return errors.WithStack(err)
 	}
-	if err := ps.reader.ReadMsg(packet); err != nil {
+	if err := ps.reader.ReadBlk(packet); err != nil {
 		return errors.WithStack(err)
 	}
 	ps.packetsRead.Inc()
 	return nil
 }
 
-func sendNegotiationMessage(ps *packetsStream) error {
+func sendNegotiationBlock(ps *packetsStream) error {
 	packet := &pb.Packet{Body: &pb.Packet_Negotiation{Negotiation: &pb.Negotiation{}}}
 	return errors.WithStack(ps.writePacket(packet))
 }
 
-func receiveNegotiationMessage(ps *packetsStream) (err error) {
+func receiveNegotiationBlock(ps *packetsStream) (err error) {
 	packet := &pb.Packet{}
 	if err := ps.readPacket(packet); err != nil {
 		return errors.WithStack(err)

@@ -6,11 +6,11 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -479,23 +479,23 @@ func NewOutputID(outputID utxo.OutputID) *OutputID {
 
 // OutputMetadata represents the JSON model of the ledger.OutputMetadata.
 type OutputMetadata struct {
-	OutputID            *OutputID           `json:"outputID"`
-	BranchIDs           []string            `json:"branchIDs"`
-	FirstConsumer       string              `json:"firstCount"`
-	ConfirmedConsumer   string              `json:"confirmedConsumer,omitempty"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	OutputID              *OutputID          `json:"outputID"`
+	ConflictIDs           []string           `json:"conflictIDs"`
+	FirstConsumer         string             `json:"firstCount"`
+	ConfirmedConsumer     string             `json:"confirmedConsumer,omitempty"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
 // NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
-		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchIDs:           lo.Map(lo.Map(outputMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		FirstConsumer:       outputMetadata.FirstConsumer().Base58(),
-		ConfirmedConsumer:   confirmedConsumerID.Base58(),
-		GradeOfFinality:     outputMetadata.GradeOfFinality(),
-		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
+		OutputID:              NewOutputID(outputMetadata.ID()),
+		ConflictIDs:           lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		FirstConsumer:         outputMetadata.FirstConsumer().Base58(),
+		ConfirmedConsumer:     confirmedConsumerID.Base58(),
+		ConfirmationState:     outputMetadata.ConfirmationState(),
+		ConfirmationStateTime: outputMetadata.ConfirmationStateTime().Unix(),
 	}
 }
 
@@ -519,25 +519,22 @@ func NewConsumer(consumer *ledger.Consumer) *Consumer {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Conflict ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Branch represents the JSON model of a ledger.Conflict.
-type Branch struct {
-	ID              string              `json:"id"`
-	Parents         []string            `json:"parents"`
-	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
-	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
-	ApprovalWeight  float64             `json:"approvalWeight"`
-	InclusionState  string              `json:"inclusionState"`
+// ConflictWeight represents the JSON model of a ledger.Conflict.
+type ConflictWeight struct {
+	ID                string             `json:"id"`
+	Parents           []string           `json:"parents"`
+	ConflictIDs       []string           `json:"conflictIDs,omitempty"`
+	ConfirmationState confirmation.State `json:"confirmationState"`
+	ApprovalWeight    float64            `json:"approvalWeight"`
 }
 
-// NewBranch returns a Branch from the given ledger.Conflict.
-func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64, inclusionState conflictdag.InclusionState) Branch {
-	return Branch{
-		ID: branch.ID().Base58(),
+// NewConflictWeight returns a Conflict from the given ledger.Conflict.
+func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) ConflictWeight {
+	return ConflictWeight{
+		ID: conflict.ID().Base58(),
 		Parents: func() []string {
 			parents := make([]string, 0)
-			for it := branch.Parents().Iterator(); it.HasNext(); {
+			for it := conflict.Parents().Iterator(); it.HasNext(); {
 				parents = append(parents, it.Next().Base58())
 			}
 
@@ -545,31 +542,28 @@ func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+			for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 				conflictIDs = append(conflictIDs, it.Next().Base58())
 			}
 
 			return conflictIDs
 		}(),
-		GradeOfFinality: gradeOfFinality,
-		ApprovalWeight:  aw,
-		InclusionState:  inclusionState.String(),
+		ConfirmationState: confirmationState,
+		ApprovalWeight:    aw,
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region ChildConflict //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ChildBranch represents the JSON model of a ledger.ChildBranch.
-type ChildBranch struct {
-	BranchID string `json:"branchID"`
+// ChildConflict represents the JSON model of a ledger.ChildConflict.
+type ChildConflict struct {
+	ConflictID string `json:"conflictID"`
 }
 
-// NewChildBranch returns a ChildBranch from the given ledger.ChildBranch.
-func NewChildBranch(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) *ChildBranch {
-	return &ChildBranch{
-		BranchID: childBranch.ChildBranchID().Base58(),
+// NewChildConflict returns a ChildConflict from the given ledger.ChildConflict.
+func NewChildConflict(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) *ChildConflict {
+	return &ChildConflict{
+		ConflictID: childConflict.ChildConflictID().Base58(),
 	}
 }
 
@@ -579,18 +573,18 @@ func NewChildBranch(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) *C
 
 // Conflict represents the JSON model of a ledger.Conflict.
 type Conflict struct {
-	OutputID  *OutputID `json:"outputID"`
-	BranchIDs []string  `json:"branchIDs"`
+	OutputID    *OutputID `json:"outputID"`
+	ConflictIDs []string  `json:"conflictIDs"`
 }
 
 // NewConflict returns a Conflict from the given ledger.ConflictID.
-func NewConflict(conflictID utxo.OutputID, branchIDs []utxo.TransactionID) *Conflict {
+func NewConflict(conflictID utxo.OutputID, conflictIDs []utxo.TransactionID) *Conflict {
 	return &Conflict{
 		OutputID: NewOutputID(conflictID),
-		BranchIDs: func() (mappedBranchIDs []string) {
-			mappedBranchIDs = make([]string, 0)
-			for _, branchID := range branchIDs {
-				mappedBranchIDs = append(mappedBranchIDs, branchID.Base58())
+		ConflictIDs: func() (mappedConflictIDs []string) {
+			mappedConflictIDs = make([]string, 0)
+			for _, conflictID := range conflictIDs {
+				mappedConflictIDs = append(mappedConflictIDs, conflictID.Base58())
 			}
 
 			return
@@ -729,23 +723,23 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 
 // TransactionMetadata represents the JSON model of the ledger.TransactionMetadata.
 type TransactionMetadata struct {
-	TransactionID       string              `json:"transactionID"`
-	BranchIDs           []string            `json:"branchIDs"`
-	Booked              bool                `json:"booked"`
-	BookedTime          int64               `json:"bookedTime"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	TransactionID         string             `json:"transactionID"`
+	ConflictIDs           []string           `json:"conflictIDs"`
+	Booked                bool               `json:"booked"`
+	BookedTime            int64              `json:"bookedTime"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 }
 
 // NewTransactionMetadata returns the TransactionMetadata from the given ledger.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
-		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchIDs:           lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		Booked:              transactionMetadata.IsBooked(),
-		BookedTime:          transactionMetadata.BookingTime().Unix(),
-		GradeOfFinality:     transactionMetadata.GradeOfFinality(),
-		GradeOfFinalityTime: transactionMetadata.GradeOfFinalityTime().Unix(),
+		TransactionID:         transactionMetadata.ID().Base58(),
+		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		Booked:                transactionMetadata.IsBooked(),
+		BookedTime:            transactionMetadata.BookingTime().Unix(),
+		ConfirmationState:     transactionMetadata.ConfirmationState(),
+		ConfirmationStateTime: transactionMetadata.ConfirmationStateTime().Unix(),
 	}
 }
 

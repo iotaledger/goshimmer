@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes.
+	// MaxLocalQueueSize is the maximum local (containing the block to be issued) queue size in bytes.
 	MaxLocalQueueSize = 20
 	// RateSettingIncrease is the global additive increase parameter.
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "A".
@@ -26,13 +26,13 @@ const (
 	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
 	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
-	Wmin = 2
+	Wmin = 5
 )
 
 var (
-	// ErrInvalidIssuer is returned when an invalid message is passed to the rate setter.
-	ErrInvalidIssuer = errors.New("message not issued by local node")
-	// ErrStopped is returned when a message is passed to a stopped rate setter.
+	// ErrInvalidIssuer is returned when an invalid block is passed to the rate setter.
+	ErrInvalidIssuer = errors.New("block not issued by local node")
+	// ErrStopped is returned when a block is passed to a stopped rate setter.
 	ErrStopped = errors.New("rate setter stopped")
 )
 
@@ -55,7 +55,7 @@ type RateSetter struct {
 	Events              *RateSetterEvents
 	self                identity.ID
 	issuingQueue        *schedulerutils.NodeQueue
-	issueChan           chan *Message
+	issueChan           chan *Block
 	deficitChan         chan float64
 	excessDeficit       *atomic.Float64
 	ownRate             *atomic.Float64
@@ -69,13 +69,12 @@ type RateSetter struct {
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
-
 	rateSetter := &RateSetter{
 		tangle:              tangle,
 		Events:              newRateSetterEvents(),
 		self:                tangle.Options.Identity.ID(),
 		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
-		issueChan:           make(chan *Message),
+		issueChan:           make(chan *Block),
 		deficitChan:         make(chan float64),
 		excessDeficit:       atomic.NewFloat64(0),
 		ownRate:             atomic.NewFloat64(0),
@@ -99,20 +98,20 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
 	if r.tangle.Options.RateSetterParams.Mode == "disabled" {
-		r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
-			r.Events.MessageIssued.Trigger(event)
+		r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
+			r.Events.BlockIssued.Trigger(event)
 		}))
 		return
 	}
 
-	r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
-		if err := r.Issue(event.Message); err != nil {
+	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
+		if err := r.Issue(event.Block); err != nil {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
 	// update own AIMD rate setting each time a message is scheduled if in AIMD mode
 	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
-		r.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
+		r.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(_ *BlockScheduledEvent) {
 			if r.pauseUpdates > 0 {
 				r.pauseUpdates--
 				return
@@ -130,9 +129,9 @@ func (r *RateSetter) Setup() {
 	}
 }
 
-// Issue submits a message to the local issuing queue.
-func (r *RateSetter) Issue(message *Message) error {
-	if identity.NewID(message.IssuerPublicKey()) != r.self {
+// Issue submits a block to the local issuing queue.
+func (r *RateSetter) Issue(block *Block) error {
+	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
 	r.initOnce.Do(func() {
@@ -141,7 +140,7 @@ func (r *RateSetter) Issue(message *Message) error {
 	})
 
 	select {
-	case r.issueChan <- message:
+	case r.issueChan <- block:
 		return nil
 	case <-r.shutdownSignal:
 		return ErrStopped
@@ -165,7 +164,7 @@ func (r *RateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
-// Estimate estimates the issuing time of new message.
+// Estimate estimates the issuing time of new block.
 func (r *RateSetter) Estimate() time.Duration {
 	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
 		r.initOnce.Do(func() {
@@ -186,7 +185,7 @@ func (r *RateSetter) Estimate() time.Duration {
 	}
 }
 
-// rateSetting updates the rate ownRate at which messages can be issued by the node.
+// rateSetting updates the rate ownRate at which blocks can be issued by the node.
 func (r *RateSetter) AIMDRateSetting() {
 	// Return access mana or MinMana to allow zero mana nodes issue.
 	ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
@@ -200,7 +199,7 @@ func (r *RateSetter) AIMDRateSetting() {
 		ownRate *= RateSettingDecrease
 		r.pauseUpdates = r.initialPauseUpdates
 	} else {
-		ownRate += RateSettingIncrease * ownMana / totalMana
+		ownRate += math.Max(RateSettingIncrease*ownMana/totalMana, 0.01)
 	}
 	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
@@ -216,15 +215,15 @@ func (r *RateSetter) AIMDIssuerLoop() {
 loop:
 	for {
 		select {
-		// a new message can be issued (submitted to the scheduler) if there is anything in the issuing queue
+		// a new block can be submitted to the scheduler
 		case <-issueTimer.C:
 			timerStopped = true
 			if r.issuingQueue.Front() == nil {
 				continue
 			}
 
-			msg := r.issuingQueue.PopFront().(*Message)
-			r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
+			blk := r.issuingQueue.PopFront().(*Block)
+			r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -232,16 +231,15 @@ loop:
 				timerStopped = false
 			}
 
-		// add a new message to the local issuer queue
-		case msg := <-r.issueChan:
+		// add a new block to the local issuer queue
+		case blk := <-r.issueChan:
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
-				// drop tail
-				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
+				r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
 				continue
 			}
 			// add to queue
-			r.issuingQueue.Submit(msg)
-			r.issuingQueue.Ready(msg)
+			r.issuingQueue.Submit(blk)
+			r.issuingQueue.Ready(blk)
 
 			// set a new timer if needed
 			// if a timer is already running it is not updated, even if the ownRate has changed
@@ -258,9 +256,9 @@ loop:
 		}
 	}
 
-	// discard all remaining messages at shutdown
+	// discard all remaining blocks at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{NewMessageID(id)})
+		r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{NewBlockID(id)})
 	}
 }
 
@@ -332,7 +330,7 @@ func (r *RateSetter) InitializeRate() {
 	} else {
 		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
 		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 0.001))
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
 	}
 }
 
@@ -342,16 +340,16 @@ func (r *RateSetter) InitializeRate() {
 
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
-	MessageDiscarded *event.Event[*MessageDiscardedEvent]
-	MessageIssued    *event.Event[*MessageConstructedEvent]
-	Error            *event.Event[error]
+	BlockDiscarded *event.Event[*BlockDiscardedEvent]
+	BlockIssued    *event.Event[*BlockConstructedEvent]
+	Error          *event.Event[error]
 }
 
 func newRateSetterEvents() (new *RateSetterEvents) {
 	return &RateSetterEvents{
-		MessageDiscarded: event.New[*MessageDiscardedEvent](),
-		MessageIssued:    event.New[*MessageConstructedEvent](),
-		Error:            event.New[error](),
+		BlockDiscarded: event.New[*BlockDiscardedEvent](),
+		BlockIssued:    event.New[*BlockConstructedEvent](),
+		Error:          event.New[error](),
 	}
 }
 

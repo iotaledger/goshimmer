@@ -1,8 +1,15 @@
 package mana
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/types"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/event"
@@ -12,7 +19,6 @@ import (
 
 var (
 	baseTime            = time.Now()
-	inputTime           = baseTime.Add(time.Hour * -200)
 	txTime              = baseTime.Add(time.Hour * 6)
 	txPledgeID          = randNodeID()
 	inputPledgeID1      = randNodeID()
@@ -40,9 +46,7 @@ var (
 		},
 		InputInfos: []InputInfo{
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: inputTime,
-				Amount:    beforeBookingAmount[inputPledgeID1],
+				Amount: beforeBookingAmount[inputPledgeID1],
 				PledgeID: map[Type]identity.ID{
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
@@ -50,9 +54,7 @@ var (
 				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: inputTime,
-				Amount:    beforeBookingAmount[inputPledgeID2],
+				Amount: beforeBookingAmount[inputPledgeID2],
 				PledgeID: map[Type]identity.ID{
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
@@ -60,9 +62,7 @@ var (
 				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: inputTime,
-				Amount:    beforeBookingAmount[inputPledgeID3],
+				Amount: beforeBookingAmount[inputPledgeID3],
 				PledgeID: map[Type]identity.ID{
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
@@ -71,26 +71,56 @@ var (
 			},
 		},
 	}
+	epochCreatedBalances    = []uint64{1, 1, 2, 2, 1}
+	epochSpentBalances      = []uint64{2, 2, 2, 1}
+	epochCreatedPledgeIDs   = []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID2, inputPledgeID3, inputPledgeID3}
+	epochSpentPledgeIDs     = []identity.ID{inputPledgeID1, inputPledgeID1, inputPledgeID2, inputPledgeID3}
+	afterBookingEpochAmount = map[identity.ID]float64{
+		inputPledgeID1: 2.0,
+		inputPledgeID2: 4.0,
+		inputPledgeID3: 4.0,
+	}
 )
 
 func randNodeID() identity.ID {
 	return identity.GenerateIdentity().ID()
 }
 
+func prepareEpochDiffs() (created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
+	for i, amount := range epochCreatedBalances {
+		outWithMeta := createOutputWithMetadata(amount, epochCreatedPledgeIDs[i])
+		created = append(created, outWithMeta)
+	}
+	for i, amount := range epochSpentBalances {
+		outWithMeta := createOutputWithMetadata(amount, epochSpentPledgeIDs[i])
+		spent = append(spent, outWithMeta)
+	}
+
+	return
+}
+
+func createOutputWithMetadata(amount uint64, createdPledgeID identity.ID) *ledger.OutputWithMetadata {
+	now := time.Now()
+	addr := seed.NewSeed().Address(0).Address()
+	out := devnetvm.NewSigLockedSingleOutput(amount, addr)
+	outWithMeta := ledger.NewOutputWithMetadata(out.ID(), out, now, createdPledgeID, createdPledgeID)
+	return outWithMeta
+}
+
 func TestNewBaseManaVector_Consensus(t *testing.T) {
-	bmvCons := NewBaseManaVector()
+	bmvCons := NewBaseManaVector(ConsensusMana)
 	assert.Equal(t, ConsensusMana, bmvCons.Type())
 	assert.Equal(t, map[identity.ID]*ManaBase{}, bmvCons.(*ManaBaseVector).M.Vector)
 }
 
 func TestConsensusBaseManaVector_Type(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	vectorType := bmv.Type()
 	assert.Equal(t, ConsensusMana, vectorType)
 }
 
 func TestConsensusBaseManaVector_Size(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	assert.Equal(t, 0, bmv.Size())
 
 	for i := 0; i < 10; i++ {
@@ -100,7 +130,7 @@ func TestConsensusBaseManaVector_Size(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_Has(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	randID := randNodeID()
 
 	has := bmv.Has(randID)
@@ -130,7 +160,7 @@ func TestConsensusBaseManaVector_Book(t *testing.T) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 
 	// init vector to inputTime with pledged beforeBookingAmount
 	bmv.SetMana(inputPledgeID1, NewManaBase(beforeBookingAmount[inputPledgeID1]))
@@ -191,8 +221,84 @@ func TestConsensusBaseManaVector_Book(t *testing.T) {
 	assert.Empty(t, revokedNodeIds)
 }
 
+func TestConsensusBaseManaVector_BookEpoch(t *testing.T) {
+	// hold information about which events triggered
+	var (
+		updateEvents []*UpdatedEvent
+		revokeEvents []*RevokedEvent
+		pledgeEvents []*PledgedEvent
+	)
+	nodeIds := map[identity.ID]types.Empty{
+		inputPledgeID1: types.Void,
+		inputPledgeID2: types.Void,
+		inputPledgeID3: types.Void,
+	}
+
+	fmt.Println("all ids: ", inputPledgeID1.String(), ' ', inputPledgeID2.String(), ' ', inputPledgeID3.String())
+	created, spent := prepareEpochDiffs()
+	// when an event triggers, add it to the log
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
+		updateEvents = append(updateEvents, ev)
+	}))
+	Events.Revoked.Hook(event.NewClosure(func(ev *RevokedEvent) {
+		revokeEvents = append(revokeEvents, ev)
+	}))
+	Events.Pledged.Hook(event.NewClosure(func(ev *PledgedEvent) {
+		pledgeEvents = append(pledgeEvents, ev)
+	}))
+	bmv := NewBaseManaVector(ConsensusMana)
+
+	// init vector to inputTime with pledged beforeBookingAmount
+	bmv.SetMana(inputPledgeID1, NewManaBase(beforeBookingAmount[inputPledgeID1]))
+	bmv.SetMana(inputPledgeID2, NewManaBase(beforeBookingAmount[inputPledgeID2]))
+	bmv.SetMana(inputPledgeID3, NewManaBase(beforeBookingAmount[inputPledgeID3]))
+
+	bmv.BookEpoch(created, spent)
+
+	// update triggered for the 3 nodes that mana was revoked from, and once for the pledged
+	assert.Equal(t, 9, len(updateEvents))
+	assert.Equal(t, 5, len(pledgeEvents))
+	assert.Equal(t, 4, len(revokeEvents))
+
+	latestUpdateEvent := make(map[identity.ID]*UpdatedEvent)
+	for _, ev := range updateEvents {
+		latestUpdateEvent[ev.NodeID] = ev
+	}
+	// check only the latest update event for each nodeID
+	for _, ev := range latestUpdateEvent {
+		// has the right type
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		// base mana values are expected
+		assert.Equal(t, afterBookingEpochAmount[ev.NodeID], ev.NewMana.BaseValue())
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+
+	afterEventsAmount := make(map[identity.ID]float64)
+	afterEventsAmount[inputPledgeID1] = beforeBookingAmount[inputPledgeID1]
+	afterEventsAmount[inputPledgeID2] = beforeBookingAmount[inputPledgeID2]
+	afterEventsAmount[inputPledgeID3] = beforeBookingAmount[inputPledgeID3]
+
+	for i, ev := range revokeEvents {
+		afterEventsAmount[epochSpentPledgeIDs[i]] -= ev.Amount
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+	for i, ev := range pledgeEvents {
+		afterEventsAmount[epochCreatedPledgeIDs[i]] += ev.Amount
+		assert.Equal(t, ConsensusMana, ev.ManaType)
+		assert.Contains(t, nodeIds, ev.NodeID)
+	}
+	// make sure pledge and revoke events balance changes are as expected
+	for id := range afterBookingEpochAmount {
+		assert.Equal(t, afterEventsAmount[id], afterBookingEpochAmount[id])
+		m, _, err := bmv.GetMana(id)
+		require.NoError(t, err)
+		assert.Equal(t, afterBookingEpochAmount[id], m)
+	}
+}
+
 func TestConsensusBaseManaVector_GetMana(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	randID := randNodeID()
 	mana, _, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
@@ -211,7 +317,7 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_ForEach(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 
 	for i := 0; i < 10000; i++ {
 		bmv.SetMana(randNodeID(), NewManaBase(1.0))
@@ -239,7 +345,7 @@ func TestConsensusBaseManaVector_ForEach(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 
 	// empty vector returns empty map
 	manaMap, _, err := bmv.GetManaMap()
@@ -266,7 +372,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 
 	nodeIDs := make([]identity.ID, 10)
 
@@ -305,7 +411,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 
 	nodeIDs := make([]identity.ID, 10)
 
@@ -353,7 +459,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_SetMana(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
@@ -365,7 +471,7 @@ func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_ToPersistables(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	id1 := randNodeID()
 	id2 := randNodeID()
 	data := map[identity.ID]float64{
@@ -391,7 +497,7 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		id := randNodeID()
 		p := NewPersistableBaseMana(id, ConsensusMana, []float64{10}, []float64{100}, baseTime)
-		bmv := NewBaseManaVector()
+		bmv := NewBaseManaVector(ConsensusMana)
 		assert.False(t, bmv.Has(id))
 		err := bmv.FromPersistable(p)
 		assert.NoError(t, err)
@@ -401,19 +507,10 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 		assert.Equal(t, 10.0, bmValue.BaseValue())
 	})
 
-	t.Run("CASE: Wrong type", func(t *testing.T) {
-		p := NewPersistableBaseMana(randNodeID(), AccessMana, []float64{0}, []float64{0}, baseTime)
-		bmv := NewBaseManaVector()
-
-		err := bmv.FromPersistable(p)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "has type Access instead of Consensus")
-	})
-
 	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
 		p := NewPersistableBaseMana(randNodeID(), ConsensusMana, []float64{0, 0}, []float64{0}, baseTime)
 
-		bmv := NewBaseManaVector()
+		bmv := NewBaseManaVector(ConsensusMana)
 
 		err := bmv.FromPersistable(p)
 		assert.Error(t, err)
@@ -422,7 +519,7 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
-	bmv := NewBaseManaVector()
+	bmv := NewBaseManaVector(ConsensusMana)
 	id1 := randNodeID()
 	id2 := randNodeID()
 	data := map[identity.ID]float64{
@@ -435,7 +532,7 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 	persistables := bmv.ToPersistables()
 
 	var restoredBmv BaseManaVector
-	restoredBmv = NewBaseManaVector()
+	restoredBmv = NewBaseManaVector(ConsensusMana)
 
 	for _, p := range persistables {
 		err := restoredBmv.FromPersistable(p)

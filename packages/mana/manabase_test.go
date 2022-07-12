@@ -35,28 +35,22 @@ func TestPledgeAndUpdateRegularOldFunds_Consensus(t *testing.T) {
 		PledgeID:     map[Type]identity.ID{}, // don't care
 		InputInfos: []InputInfo{
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: _baseTime.Add(time.Hour * -200),
-				Amount:    5.0,
-				PledgeID:  map[Type]identity.ID{}, // don't care
+				Amount:   5.0,
+				PledgeID: map[Type]identity.ID{}, // don't care
 			},
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: _baseTime.Add(time.Hour * -200),
-				Amount:    3.0,
-				PledgeID:  map[Type]identity.ID{}, // don't care
+				Amount:   3.0,
+				PledgeID: map[Type]identity.ID{}, // don't care
 			},
 			{
-				// funds have been sitting here for couple days...
-				TimeStamp: _baseTime.Add(time.Hour * -200),
-				Amount:    2.0,
-				PledgeID:  map[Type]identity.ID{}, // don't care
+				Amount:   2.0,
+				PledgeID: map[Type]identity.ID{}, // don't care
 			},
 		},
 	}
 
-	pledged := bm.pledge(_txInfo)
+	bm.pledge(_txInfo.sumInputs())
 
-	assert.Equal(t, 10.0, pledged)
+	assert.Equal(t, 10.0, _txInfo.sumInputs())
 	assert.Equal(t, 11.0, bm.BaseValue())
 }

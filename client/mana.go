@@ -16,7 +16,6 @@ const (
 	routeGetNHighestAccessMana    = "mana/access/nhighest"
 	routeGetNHighestConsensusMana = "mana/consensus/nhighest"
 	routePending                  = "mana/pending"
-	routePastConsensusVector      = "mana/consensus/past"
 	routePastConsensusEventLogs   = "mana/consensus/logs"
 	routeAllowedPledgeNodeIDs     = "mana/allowedManaPledge"
 )
@@ -124,25 +123,6 @@ func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*jsonmodels.GetNHighes
 	if err := api.do(http.MethodGet, func() string {
 		return fmt.Sprintf("%s?number=%d", routeGetNHighestConsensusMana, n)
 	}(), nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// GetPastConsensusManaVector returns the consensus base mana vector of a time in the past.
-func (api *GoShimmerAPI) GetPastConsensusManaVector(t int64) (*jsonmodels.PastConsensusManaVectorResponse, error) {
-	res := &jsonmodels.PastConsensusManaVectorResponse{}
-	if err := api.do(http.MethodGet, routePastConsensusVector,
-		&jsonmodels.PastConsensusManaVectorRequest{Timestamp: t}, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// GetPastConsensusVectorMetadata returns the consensus base mana vector metadata of a time in the past.
-func (api *GoShimmerAPI) GetPastConsensusVectorMetadata() (*jsonmodels.PastConsensusVectorMetadataResponse, error) {
-	res := &jsonmodels.PastConsensusVectorMetadataResponse{}
-	if err := api.do(http.MethodGet, routePastConsensusVector, nil, res); err != nil {
 		return nil, err
 	}
 	return res, nil

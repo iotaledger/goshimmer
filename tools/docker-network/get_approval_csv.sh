@@ -6,14 +6,14 @@ NUM_REPLICAS=`docker ps | grep peer_replica | wc -l`
 echo "Triggering approval analysis on peer_master and $NUM_REPLICAS replicas..."
 
 curl -s -i -H \"Accept: application/json\" -H \"Content-Type: application/json\"\
- -X GET http://localhost:8080/tools/message/approval > /dev/null &
+ -X GET http://localhost:8080/tools/block/approval > /dev/null &
 
 for (( c=1; c<=NUM_REPLICAS; c++ ))
 do
   docker exec --interactive peer_master /bin/bash -c\
   "curl -s -i -o /dev/null -H \"Accept: application/json\"\
   -H \"Content-Type: application/json\"\
-  -X GET http://docker-network_peer_replica_$c:8080/tools/message/approval" &
+  -X GET http://docker-network_peer_replica_$c:8080/tools/block/approval" &
 done
 wait
 echo "Triggering approval analysis on peer_master and $NUM_REPLICAS replicas... DONE"

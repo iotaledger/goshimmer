@@ -20,47 +20,47 @@ export class ChatSend extends React.Component<Props, any> {
     constructor(props) {
       super(props);
       this.state = {
-        chatMessage: '', // the message
+        chatBlock: '', // the block
         error: false, // if there was an error or not
-        infoMessage: null // something to display to the user, like Sent! or Booh!
+        infoBlock: null // something to display to the user, like Sent! or Booh!
       };
     }
-    timeout = null; // just a timeout to remove the message from the screen after N seconds
+    timeout = null; // just a timeout to remove the block from the screen after N seconds
     updateSend = (e) => {
       //Update the State
       this.setState({
-        chatMessage: e.target.value
+        chatBlock: e.target.value
       });
     };
-    sendMessage = async (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || this.state.chatMessage === '') return;
+    sendBlock = async (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || this.state.chatBlock === '') return;
       this.props.chatStore
-        .sendMessage(this.state.chatMessage)
+        .sendBlock(this.state.chatBlock)
         .then(() => {
-          // if all good, we reset the input field and display a success message
+          // if all good, we reset the input field and display a success block
           this.setState({
-            chatMessage: '',
-            infoMessage: 'Message sent!',
+            chatBlock: '',
+            infoBlock: 'Block sent!',
             error: false
           });
-          // but then we remove the message from the screen, just a personal thing
+          // but then we remove the block from the screen, just a personal thing
           this.timeout = setTimeout(() => {
             this.setState({
-              infoMessage: null,
+              infoBlock: null,
               error: false
             });
           }, 10000);
         })
         .catch((e) => {
-          // if there was an error, we dont clean the input and display an error message
+          // if there was an error, we dont clean the input and display an error block
           this.setState({
-            infoMessage: 'Ooops error!',
+            infoBlock: 'Ooops error!',
             error: true
           });
-          // and then we remove the message from the screen, for error messages perhaps is not necessary
+          // and then we remove the block from the screen, for error blocks perhaps is not necessary
           this.timeout = setTimeout(() => {
             this.setState({
-              infoMessage: null,
+              infoBlock: null,
               error: false
             });
           }, 10000);
@@ -77,22 +77,22 @@ export class ChatSend extends React.Component<Props, any> {
         <React.Fragment>
           <Row className={'mb-3'}>
             <Col>
-              <h6>Send a message via the Tangle</h6>
+              <h6>Send a block via the Tangle</h6>
               <InputGroup className="mb-3">
                 <FormControl
-                  placeholder="Send Message"
-                  aria-label="Send Message"
+                  placeholder="Send Block"
+                  aria-label="Send Block"
                   aria-describedby="basic-addon1"
-                  value={this.state.chatMessage}
+                  value={this.state.chatBlock}
                   onChange={this.updateSend}
-                  onKeyUp={this.sendMessage}
+                  onKeyUp={this.sendBlock}
                   disabled={sending}
                   maxlength="1000"
                 />
               </InputGroup>
-              {this.state.infoMessage && (
+              {this.state.infoBlock && (
                 <p style={{ color: `${this.state.error ? 'red' : 'inherit'}` }}>
-                  {this.state.infoMessage}
+                  {this.state.infoBlock}
                 </p>
               )}
             </Col>

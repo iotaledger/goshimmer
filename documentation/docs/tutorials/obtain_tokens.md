@@ -13,13 +13,13 @@ keywords:
 
 ## The Faucet dApp
 
-The faucet is a dApp built on top of the [value and communication layer](../apis/communication.md)). It sends IOTA tokens to addresses by listening to faucet request messages. A faucet message is a Message containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
+The faucet is a dApp built on top of the [value and communication layer](../apis/communication.md)). It sends IOTA tokens to addresses by listening to faucet request blocks. A faucet block is a Block containing a special payload with an address encoded in Base58, the aManaPledgeID, the cManaPledgeID and a nonce as a proof that some Proof Of Work has been computed. The PoW is just a way to rate limit and avoid abuse of the Faucet. The Faucet has an additional protection by means of granting request to a given address only once. That means that, in order to receive funds from the Faucet multuple times, the address must be different.
 
-After sending a faucet request message, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
+After sending a faucet request block, you can check your balances via [`GetAddressUnspentOutputs()`](../apis/ledgerstate.md).
 
 ## Obtain Tokens From the Faucet
 
-There are 3 ways to send a faucet request message to obtain IOTA tokens:
+There are 3 ways to send a faucet request block to obtain IOTA tokens:
 1. Via the Go client library
 2. Via the HTTP API directly
 3. Via the wallet
@@ -34,7 +34,7 @@ Example:
 // the proof of work difficulty,
 // the optional aManaPledgeID (Base58 encoded),
 // the optional cManaPledgeID (Base58 encoded)
-messageID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY", 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
+blockID, err := goshimAPI.SendFaucetRequest("JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY", 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 
 ---- or
 
@@ -46,7 +46,7 @@ addr := wallet.New(connector).ReceiveAddress()
 // the proof of work difficulty,
 // the optional aManaPledgeID (Base58 encoded),
 // the optional cManaPledgeID (Base58 encoded)
-messageID, err := goshimAPI.SendFaucetRequest(addr.Base58(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
+blockID, err := goshimAPI.SendFaucetRequest(addr.Base58(), 22, "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5")
 ```
 
 ### Via the Wallet

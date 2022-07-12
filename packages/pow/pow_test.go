@@ -30,19 +30,19 @@ func TestWorker_Work(t *testing.T) {
 
 func TestWorker_Validate(t *testing.T) {
 	tests := []*struct {
-		msg             []byte
+		blk             []byte
 		nonce           uint64
 		expLeadingZeros int
 		expErr          error
 	}{
-		{msg: nil, nonce: 0, expLeadingZeros: 1, expErr: nil},
-		{msg: nil, nonce: 4611686018451317632, expLeadingZeros: 28, expErr: nil},
-		{msg: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
+		{blk: nil, nonce: 0, expLeadingZeros: 1, expErr: nil},
+		{blk: nil, nonce: 4611686018451317632, expLeadingZeros: 28, expErr: nil},
+		{blk: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
 	}
 
 	w := &Worker{}
 	for _, tt := range tests {
-		zeros, err := w.LeadingZerosWithNonce(tt.msg, tt.nonce)
+		zeros, err := w.LeadingZerosWithNonce(tt.blk, tt.nonce)
 		assert.Equal(t, tt.expLeadingZeros, zeros)
 		assert.Equal(t, tt.expErr, err)
 	}

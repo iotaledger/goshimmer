@@ -20,8 +20,8 @@ var (
 	ErrInvalidMetricHeartbeatVersion = errors.New("invalid Metric heartbeat version")
 )
 
-// MetricHeartbeatMessageDefinition defines a metric heartbeat message's format.
-var MetricHeartbeatMessageDefinition = &message.Definition{
+// MetricHeartbeatBlockDefinition defines a metric heartbeat block's format.
+var MetricHeartbeatBlockDefinition = &message.Definition{
 	ID:             MessageTypeMetricHeartbeat,
 	MaxBytesLength: 65535,
 	VariableLength: true,
@@ -77,9 +77,9 @@ func (hb MetricHeartbeat) Bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// NewMetricHeartbeatMessage serializes the given Metric heartbeat into a byte slice and adds a TLV header to the packet.
-// message = TLV header + serialized packet.
-func NewMetricHeartbeatMessage(hb *MetricHeartbeat) ([]byte, error) {
+// NewMetricHeartbeatBlock serializes the given Metric heartbeat into a byte slice and adds a TLV header to the packet.
+// block = TLV header + serialized packet.
+func NewMetricHeartbeatBlock(hb *MetricHeartbeat) ([]byte, error) {
 	packet, err := hb.Bytes()
 	if err != nil {
 		return nil, err

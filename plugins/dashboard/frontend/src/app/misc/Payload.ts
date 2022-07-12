@@ -22,7 +22,7 @@ export class TransactionPayload {
 export class ChatPayload {
     from: string;
     to: string;
-    message: string;
+    block: string;
 }
 
 export class Transaction {
@@ -109,7 +109,7 @@ export class Conflict {
 }
 
 export class Timestamp {
-    msg_id: string;
+    blk_id: string;
     opinion: Opinion;
 }
 

@@ -23,24 +23,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-func BenchmarkVerifyDataMessages(b *testing.B) {
+func BenchmarkVerifyDataBlocks(b *testing.B) {
 	tangle := NewTestTangle()
 
 	pool := workerpool.NewBlockingQueuedWorkerPool(workerpool.WorkerCount(runtime.GOMAXPROCS(0)))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs) {
-		return NewMessageIDs(EmptyMessageID)
+	factory := NewBlockFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents BlockIDs) {
+		return NewBlockIDs(EmptyBlockID)
 	}), emptyLikeReferences)
 
-	messages := make([][]byte, b.N)
+	blocks := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+		blk, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
 		require.NoError(b, err)
-		messages[i] = lo.PanicOnErr(msg.Bytes())
+		blocks[i] = lo.PanicOnErr(blk.Bytes())
 	}
 
 	b.ResetTimer()
@@ -48,11 +49,11 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			var msg *Message
-			if err := msg.FromBytes(messages[currentIndex]); err != nil {
+			var blk *Block
+			if err := blk.FromBytes(blocks[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
-				if _, err := msg.VerifySignature(); err != nil {
+				if _, err := blk.VerifySignature(); err != nil {
 					b.Error(err)
 				}
 			}
@@ -67,16 +68,16 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs) {
-		return NewMessageIDs(EmptyMessageID)
+	factory := NewBlockFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents BlockIDs) {
+		return NewBlockIDs(EmptyBlockID)
 	}), emptyLikeReferences)
 
-	messages := make([]*Message, b.N)
+	blocks := make([]*Block, b.N)
 	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+		blk, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
 		require.NoError(b, err)
-		messages[i] = msg
-		messages[i].Bytes()
+		blocks[i] = blk
+		blocks[i].Bytes()
 	}
 	b.ResetTimer()
 
@@ -86,7 +87,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 		currentIndex := i
 		if err := pool.Submit(func() {
-			messages[currentIndex].VerifySignature()
+			blocks[currentIndex].VerifySignature()
 			wg.Done()
 		}); err != nil {
 			b.Error(err)
@@ -97,7 +98,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkTangle_StoreMessage(b *testing.B) {
+func BenchmarkTangle_StoreBlock(b *testing.B) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	if err := tangle.Prune(); err != nil {
@@ -106,149 +107,149 @@ func BenchmarkTangle_StoreMessage(b *testing.B) {
 		return
 	}
 
-	messageBytes := make([]*Message, b.N)
+	blockBytes := make([]*Block, b.N)
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = newTestDataMessage("some data")
-		messageBytes[i].Bytes()
+		blockBytes[i] = newTestDataBlock("some data")
+		blockBytes[i].Bytes()
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tangle.Storage.StoreMessage(messageBytes[i])
+		tangle.Storage.StoreBlock(blockBytes[i])
 	}
 }
 
-func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
-	messageTangle := NewTestTangle()
-	messageTangle.Storage.Setup()
-	messageTangle.Solidifier.Setup()
-	defer messageTangle.Shutdown()
+func TestTangle_InvalidParentsAgeBlock(t *testing.T) {
+	blockTangle := NewTestTangle()
+	blockTangle.Storage.Setup()
+	blockTangle.Solidifier.Setup()
+	defer blockTangle.Shutdown()
 
-	var storedMessages, solidMessages, invalidMessages int32
+	var storedBlocks, solidBlocks, invalidBlocks int32
 
-	newOldParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+	newOldParentsBlock := func(strongParents BlockIDs) *Block {
+		block, err := NewBlockWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
-		if err := message.DetermineID(); err != nil {
+		if err := block.DetermineID(); err != nil {
 			panic(err)
 		}
-		return message
+		return block
 	}
-	newYoungParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+	newYoungParentsBlock := func(strongParents BlockIDs) *Block {
+		block, err := NewBlockWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
-		if err := message.DetermineID(); err != nil {
+		if err := block.DetermineID(); err != nil {
 			panic(err)
 		}
-		return message
+		return block
 	}
-	newValidMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{})
+	newValidBlock := func(strongParents BlockIDs) *Block {
+		block, err := NewBlockWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 		assert.NoError(t, err)
-		if err := message.DetermineID(); err != nil {
+		if err := block.DetermineID(); err != nil {
 			panic(err)
 		}
-		return message
+		return block
 	}
 
 	var wg sync.WaitGroup
-	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		atomic.AddInt32(&storedMessages, 1)
+	blockTangle.Storage.Events.BlockStored.Hook(event.NewClosure(func(event *BlockStoredEvent) {
+		atomic.AddInt32(&storedBlocks, 1)
 		wg.Done()
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		atomic.AddInt32(&solidMessages, 1)
+	blockTangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		atomic.AddInt32(&solidBlocks, 1)
 	}))
 
-	messageTangle.Events.MessageInvalid.Hook(event.NewClosure(func(event *MessageInvalidEvent) {
-		atomic.AddInt32(&invalidMessages, 1)
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(event *BlockInvalidEvent) {
+		atomic.AddInt32(&invalidBlocks, 1)
 	}))
 
-	messageA := newTestDataMessage("some data")
-	messageB := newTestDataMessage("some data1")
-	messageC := newValidMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
-	messageOldParents := newOldParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
-	messageYoungParents := newYoungParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
+	blockA := newTestDataBlock("some data")
+	blockB := newTestDataBlock("some data1")
+	blockC := newValidBlock(NewBlockIDs(blockA.ID(), blockB.ID()))
+	blockOldParents := newOldParentsBlock(NewBlockIDs(blockA.ID(), blockB.ID()))
+	blockYoungParents := newYoungParentsBlock(NewBlockIDs(blockA.ID(), blockB.ID()))
 
 	wg.Add(5)
-	messageTangle.Storage.StoreMessage(messageA)
-	messageTangle.Storage.StoreMessage(messageB)
-	messageTangle.Storage.StoreMessage(messageC)
-	messageTangle.Storage.StoreMessage(messageOldParents)
-	messageTangle.Storage.StoreMessage(messageYoungParents)
+	blockTangle.Storage.StoreBlock(blockA)
+	blockTangle.Storage.StoreBlock(blockB)
+	blockTangle.Storage.StoreBlock(blockC)
+	blockTangle.Storage.StoreBlock(blockOldParents)
+	blockTangle.Storage.StoreBlock(blockYoungParents)
 
-	// wait for all messages to become solid
+	// wait for all blocks to become solid
 	wg.Wait()
 
-	assert.EqualValues(t, 5, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, 3, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidMessages))
+	assert.EqualValues(t, 5, atomic.LoadInt32(&storedBlocks))
+	assert.EqualValues(t, 3, atomic.LoadInt32(&solidBlocks))
+	assert.EqualValues(t, 2, atomic.LoadInt32(&invalidBlocks))
 }
 
-func TestTangle_StoreMessage(t *testing.T) {
-	messageTangle := NewTestTangle()
-	defer messageTangle.Shutdown()
-	if err := messageTangle.Prune(); err != nil {
+func TestTangle_StoreBlock(t *testing.T) {
+	blockTangle := NewTestTangle()
+	defer blockTangle.Shutdown()
+	if err := blockTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
 
-	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		fmt.Println("STORED:", event.Message.ID())
+	blockTangle.Storage.Events.BlockStored.Hook(event.NewClosure(func(event *BlockStoredEvent) {
+		fmt.Println("STORED:", event.Block.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		fmt.Println("SOLID:", event.Message.ID())
+	blockTangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		fmt.Println("SOLID:", event.Block.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
-		fmt.Println("MISSING:", event.MessageID)
+	blockTangle.Solidifier.Events.BlockMissing.Hook(event.NewClosure(func(event *BlockMissingEvent) {
+		fmt.Println("MISSING:", event.BlockID)
 	}))
 
-	messageTangle.Storage.Events.MessageRemoved.Hook(event.NewClosure(func(event *MessageRemovedEvent) {
-		fmt.Println("REMOVED:", event.MessageID)
+	blockTangle.Storage.Events.BlockRemoved.Hook(event.NewClosure(func(event *BlockRemovedEvent) {
+		fmt.Println("REMOVED:", event.BlockID)
 	}))
 
-	newMessageOne := newTestDataMessage("some data")
-	newMessageTwo := newTestDataMessage("some other data")
+	newBlockOne := newTestDataBlock("some data")
+	newBlockTwo := newTestDataBlock("some other data")
 
-	messageTangle.Storage.StoreMessage(newMessageTwo)
+	blockTangle.Storage.StoreBlock(newBlockTwo)
 
 	time.Sleep(7 * time.Second)
 
-	messageTangle.Storage.StoreMessage(newMessageOne)
+	blockTangle.Storage.StoreBlock(newBlockOne)
 }
 
-func TestTangle_MissingMessages(t *testing.T) {
+func TestTangle_MissingBlocks(t *testing.T) {
 	const (
-		messageCount = 2000
-		tangleWidth  = 250
-		storeDelay   = 5 * time.Millisecond
+		blockCount  = 2000
+		tangleWidth = 250
+		storeDelay  = 5 * time.Millisecond
 	)
 
 	// create the tangle
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfConflict))
 
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
 
 	// map to keep track of the tips
-	tips := randommap.New[MessageID, MessageID]()
-	tips.Set(EmptyMessageID, EmptyMessageID)
+	tips := randommap.New[BlockID, BlockID]()
+	tips.Set(EmptyBlockID, EmptyBlockID)
 
-	// setup the message factory
-	tangle.MessageFactory = NewMessageFactory(
+	// setup the block factory
+	tangle.BlockFactory = NewBlockFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsBlockIDs BlockIDs) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return NewMessageIDs(EmptyMessageID)
+				return NewBlockIDs(EmptyBlockID)
 			}
-			parents := NewMessageIDs()
+			parents := NewBlockIDs()
 			for _, tip := range r {
 				parents.Add(tip)
 			}
@@ -257,29 +258,29 @@ func TestTangle_MissingMessages(t *testing.T) {
 		emptyLikeReferences,
 	)
 
-	// create a helper function that creates the messages
-	createNewMessage := func() *Message {
+	// create a helper function that creates the blocks
+	createNewBlock := func() *Block {
 		// issue the payload
-		msg, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
+		blk, err := tangle.BlockFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			tips.Delete(msg.ParentsByType(StrongParentType).First())
+			tips.Delete(blk.ParentsByType(StrongParentType).First())
 		}
 
-		// add current message as a tip
-		tips.Set(msg.ID(), msg.ID())
+		// add current block as a tip
+		tips.Set(blk.ID(), blk.ID())
 
-		// return the constructed message
-		return msg
+		// return the constructed block
+		return blk
 	}
 
-	// generate the messages we want to solidify
-	messages := make(map[MessageID]*Message, messageCount)
-	for i := 0; i < messageCount; i++ {
-		msg := createNewMessage()
-		messages[msg.ID()] = msg
+	// generate the blocks we want to solidify
+	blocks := make(map[BlockID]*Block, blockCount)
+	for i := 0; i < blockCount; i++ {
+		blk := createNewBlock()
+		blocks[blk.ID()] = blk
 	}
 
 	// manually set up Tangle flow as far as we need it
@@ -288,76 +289,76 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		storedMessages  int32
-		missingMessages int32
-		solidMessages   int32
+		storedBlocks  int32
+		missingBlocks int32
+		solidBlocks   int32
 	)
-	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(_ *MessageStoredEvent) {
-		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d", n, messageCount)
+	tangle.Storage.Events.BlockStored.Hook(event.NewClosure(func(_ *BlockStoredEvent) {
+		n := atomic.AddInt32(&storedBlocks, 1)
+		t.Logf("stored blocks %d/%d", n, blockCount)
 	}))
 
-	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
-		atomic.AddInt32(&missingMessages, 1)
-		// store the message after it has been requested
+	// increase the counter when a missing block was detected
+	tangle.Solidifier.Events.BlockMissing.Hook(event.NewClosure(func(event *BlockMissingEvent) {
+		atomic.AddInt32(&missingBlocks, 1)
+		// store the block after it has been requested
 		go func() {
 			time.Sleep(storeDelay)
-			tangle.Storage.StoreMessage(messages[event.MessageID])
+			tangle.Storage.StoreBlock(blocks[event.BlockID])
 		}()
 	}))
 
-	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(_ *MissingMessageStoredEvent) {
-		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d", n)
+	// decrease the counter when a missing block was received
+	tangle.Storage.Events.MissingBlockStored.Hook(event.NewClosure(func(_ *MissingBlockStoredEvent) {
+		n := atomic.AddInt32(&missingBlocks, -1)
+		t.Logf("missing blocks %d", n)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(_ *MessageSolidEvent) {
-		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d", n, messageCount)
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(_ *BlockSolidEvent) {
+		n := atomic.AddInt32(&solidBlocks, 1)
+		t.Logf("solid blocks %d/%d", n, blockCount)
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key MessageID, _ MessageID) { tangle.Storage.StoreMessage(messages[key]) })
+	tips.ForEach(func(key BlockID, _ BlockID) { tangle.Storage.StoreBlock(blocks[key]) })
 
 	// wait for all transactions to become solid
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidBlocks) == blockCount }, 5*time.Minute, 100*time.Millisecond)
 
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, messageCount, atomic.LoadInt32(&storedMessages))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
+	assert.EqualValues(t, blockCount, atomic.LoadInt32(&solidBlocks))
+	assert.EqualValues(t, blockCount, atomic.LoadInt32(&storedBlocks))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&missingBlocks))
 }
 
 func TestRetrieveAllTips(t *testing.T) {
-	messageTangle := NewTestTangle(Identity(selfLocalIdentity))
-	messageTangle.Setup()
-	defer messageTangle.Shutdown()
+	blockTangle := NewTestTangle(Identity(selfLocalIdentity))
+	blockTangle.Setup()
+	defer blockTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", ParentMessageIDs{
-		StrongParentType: NewMessageIDs(EmptyMessageID),
+	blockA := newTestParentsDataBlock("A", ParentBlockIDs{
+		StrongParentType: NewBlockIDs(EmptyBlockID),
 	})
-	messageB := newTestParentsDataMessage("B", ParentMessageIDs{
-		StrongParentType: NewMessageIDs(messageA.ID()),
+	blockB := newTestParentsDataBlock("B", ParentBlockIDs{
+		StrongParentType: NewBlockIDs(blockA.ID()),
 	})
-	messageC := newTestParentsDataMessage("C", ParentMessageIDs{
-		StrongParentType: NewMessageIDs(messageA.ID()),
+	blockC := newTestParentsDataBlock("C", ParentBlockIDs{
+		StrongParentType: NewBlockIDs(blockA.ID()),
 	})
 
 	var wg sync.WaitGroup
 
-	messageTangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(_ *MessageScheduledEvent) {
+	blockTangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(_ *BlockScheduledEvent) {
 		wg.Done()
 	}))
 
 	wg.Add(3)
-	messageTangle.Storage.StoreMessage(messageA)
-	messageTangle.Storage.StoreMessage(messageB)
-	messageTangle.Storage.StoreMessage(messageC)
+	blockTangle.Storage.StoreBlock(blockA)
+	blockTangle.Storage.StoreBlock(blockB)
+	blockTangle.Storage.StoreBlock(blockC)
 
 	wg.Wait()
 
-	allTips := messageTangle.Storage.RetrieveAllTips()
+	allTips := blockTangle.Storage.RetrieveAllTips()
 
 	assert.Equal(t, 2, len(allTips))
 }
@@ -371,23 +372,23 @@ func TestTangle_Flow(t *testing.T) {
 		testPort    = 8000
 		targetPOW   = 2
 
-		solidMsgCount   = 2000
-		invalidMsgCount = 10
+		solidBlkCount   = 2000
+		invalidBlkCount = 10
 		tangleWidth     = 250
 		networkDelay    = 5 * time.Millisecond
 	)
 
 	var (
-		totalMsgCount = solidMsgCount + invalidMsgCount
+		totalBlkCount = solidBlkCount + invalidBlkCount
 		testWorker    = pow.New(1)
 		// same as gossip manager
-		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
-		messageWorkerQueueSize = 1000
+		blockWorkerCount     = runtime.GOMAXPROCS(0) * 4
+		blockWorkerQueueSize = 1000
 	)
 
 	// map to keep track of the tips
-	tips := randommap.New[MessageID, MessageID]()
-	tips.Set(EmptyMessageID, EmptyMessageID)
+	tips := randommap.New[BlockID, BlockID]()
+	tips.Set(EmptyBlockID, EmptyBlockID)
 
 	// create the tangle
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
@@ -399,16 +400,16 @@ func TestTangle_Flow(t *testing.T) {
 	localIdentity := tangle.Options.Identity
 	localPeer := peer.NewPeer(localIdentity.Identity, net.IPv4zero, services)
 
-	// set up the message factory
-	tangle.MessageFactory = NewMessageFactory(
+	// set up the block factory
+	tangle.BlockFactory = NewBlockFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsBlockIDs BlockIDs) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return NewMessageIDs(EmptyMessageID)
+				return NewBlockIDs(EmptyBlockID)
 			}
 
-			parents := NewMessageIDs()
+			parents := NewBlockIDs()
 			for _, tip := range r {
 				parents.Add(tip)
 			}
@@ -418,79 +419,79 @@ func TestTangle_Flow(t *testing.T) {
 	)
 
 	// PoW workers
-	tangle.MessageFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
-		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
+	tangle.BlockFactory.SetWorker(WorkerFunc(func(blkBytes []byte) (uint64, error) {
+		content := blkBytes[:len(blkBytes)-ed25519.SignatureSize-8]
 		return testWorker.Mine(context.Background(), content, targetPOW)
 	}))
-	tangle.MessageFactory.SetTimeout(powTimeout)
-	// create a helper function that creates the messages
-	createNewMessage := func(invalidTS bool) *Message {
-		var msg *Message
+	tangle.BlockFactory.SetTimeout(powTimeout)
+	// create a helper function that creates the blocks
+	createNewBlock := func(invalidTS bool) *Block {
+		var blk *Block
 		var err error
 
 		// issue the payload
 		if invalidTS {
-			msg, err = tangle.MessageFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
+			blk, err = tangle.BlockFactory.issueInvalidTsPayload(payload.NewGenericDataPayload([]byte("")))
 		} else {
-			msg, err = tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
+			blk, err = tangle.BlockFactory.IssuePayload(payload.NewGenericDataPayload([]byte("")))
 		}
 		require.NoError(t, err)
 
 		// remove a tip if the width of the tangle is reached
 		if !invalidTS {
 			if tips.Size() >= tangleWidth {
-				tips.Delete(msg.ParentsByType(StrongParentType).First())
+				tips.Delete(blk.ParentsByType(StrongParentType).First())
 			}
 		}
 
-		// add current message as a tip
-		// only valid message will be in the tip set
+		// add current block as a tip
+		// only valid block will be in the tip set
 		if !invalidTS {
-			tips.Set(msg.ID(), msg.ID())
+			tips.Set(blk.ID(), blk.ID())
 		}
-		require.NoError(t, msg.DetermineID())
-		// return the constructed message
-		return msg
+		require.NoError(t, blk.DetermineID())
+		// return the constructed block
+		return blk
 	}
 
-	// setup the message parser
+	// setup the block parser
 	tangle.Parser.AddBytesFilter(NewPowFilter(testWorker, targetPOW))
 
 	// create inboxWP to act as the gossip layer
 	inboxWP := workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		time.Sleep(networkDelay)
-		tangle.ProcessGossipMessage(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
+		tangle.ProcessGossipBlock(task.Param(0).([]byte), task.Param(1).(*peer.Peer))
 
 		task.Return(nil)
-	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
+	}, workerpool.WorkerCount(blockWorkerCount), workerpool.QueueSize(blockWorkerQueueSize))
 	defer inboxWP.Stop()
 
-	// generate the messages we want to solidify
-	messages := make(map[MessageID]*Message, solidMsgCount)
-	for i := 0; i < solidMsgCount; i++ {
-		msg := createNewMessage(false)
-		messages[msg.ID()] = msg
+	// generate the blocks we want to solidify
+	blocks := make(map[BlockID]*Block, solidBlkCount)
+	for i := 0; i < solidBlkCount; i++ {
+		blk := createNewBlock(false)
+		blocks[blk.ID()] = blk
 	}
 
-	// generate the invalid timestamp messages
-	invalidmsgs := make(map[MessageID]*Message, invalidMsgCount)
-	for i := 0; i < invalidMsgCount; i++ {
-		msg := createNewMessage(true)
-		messages[msg.ID()] = msg
-		invalidmsgs[msg.ID()] = msg
+	// generate the invalid timestamp blocks
+	invalidblks := make(map[BlockID]*Block, invalidBlkCount)
+	for i := 0; i < invalidBlkCount; i++ {
+		blk := createNewBlock(true)
+		blocks[blk.ID()] = blk
+		invalidblks[blk.ID()] = blk
 	}
 
 	// counter for the different stages
 	var (
-		parsedMessages    int32
-		storedMessages    int32
-		missingMessages   int32
-		solidMessages     int32
-		scheduledMessages int32
-		bookedMessages    int32
-		awMessages        int32
-		invalidMessages   int32
-		rejectedMessages  int32
+		parsedBlocks    int32
+		storedBlocks    int32
+		missingBlocks   int32
+		solidBlocks     int32
+		scheduledBlocks int32
+		bookedBlocks    int32
+		awBlocks        int32
+		invalidBlocks   int32
+		rejectedBlocks  int32
 	)
 
 	tangle.Parser.Events.BytesRejected.Hook(event.NewClosure(func(event *BytesRejectedEvent) {
@@ -498,59 +499,59 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.Hook(event.NewClosure(func(event *MessageRejectedEvent) {
-		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, event.Message.ID(), event.Error)
+	tangle.Parser.Events.BlockRejected.Hook(event.NewClosure(func(event *BlockRejectedEvent) {
+		n := atomic.AddInt32(&rejectedBlocks, 1)
+		t.Logf("rejected by block filter blocks %d/%d - %s %s", n, totalBlkCount, event.Block.ID(), event.Error)
 	}))
 
-	tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		n := atomic.AddInt32(&parsedMessages, 1)
-		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
+	tangle.Parser.Events.BlockParsed.Hook(event.NewClosure(func(blkParsedEvent *BlockParsedEvent) {
+		n := atomic.AddInt32(&parsedBlocks, 1)
+		t.Logf("parsed blocks %d/%d - %s", n, totalBlkCount, blkParsedEvent.Block.ID())
 	}))
 
-	// message invalid events
-	tangle.Events.MessageInvalid.Hook(event.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
-		n := atomic.AddInt32(&invalidMessages, 1)
-		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageInvalidEvent.MessageID)
+	// block invalid events
+	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(blockInvalidEvent *BlockInvalidEvent) {
+		n := atomic.AddInt32(&invalidBlocks, 1)
+		t.Logf("invalid blocks %d/%d - %s", n, totalBlkCount, blockInvalidEvent.BlockID)
 	}))
 
-	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
+	tangle.Storage.Events.BlockStored.Hook(event.NewClosure(func(event *BlockStoredEvent) {
+		n := atomic.AddInt32(&storedBlocks, 1)
+		t.Logf("stored blocks %d/%d - %s", n, totalBlkCount, event.Block.ID())
 	}))
 
-	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
-		atomic.AddInt32(&missingMessages, 1)
+	// increase the counter when a missing block was detected
+	tangle.Solidifier.Events.BlockMissing.Hook(event.NewClosure(func(event *BlockMissingEvent) {
+		atomic.AddInt32(&missingBlocks, 1)
 
-		// push the message into the gossip inboxWP
-		inboxWP.TrySubmit(lo.PanicOnErr(messages[event.MessageID].Bytes()), localPeer)
+		// push the block into the gossip inboxWP
+		inboxWP.TrySubmit(lo.PanicOnErr(blocks[event.BlockID].Bytes()), localPeer)
 	}))
 
-	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(event *MissingMessageStoredEvent) {
-		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d - %s", n, event.MessageID)
+	// decrease the counter when a missing block was received
+	tangle.Storage.Events.MissingBlockStored.Hook(event.NewClosure(func(event *MissingBlockStoredEvent) {
+		n := atomic.AddInt32(&missingBlocks, -1)
+		t.Logf("missing blocks %d - %s", n, event.BlockID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		n := atomic.AddInt32(&solidBlocks, 1)
+		t.Logf("solid blocks %d/%d - %s", n, totalBlkCount, event.Block.ID())
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, event.MessageID)
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		n := atomic.AddInt32(&scheduledBlocks, 1)
+		t.Logf("scheduled blocks %d/%d - %s", n, totalBlkCount, event.BlockID)
 	}))
 
-	tangle.Booker.Events.MessageBooked.Hook(event.NewClosure(func(event *MessageBookedEvent) {
-		n := atomic.AddInt32(&bookedMessages, 1)
-		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
+	tangle.Booker.Events.BlockBooked.Hook(event.NewClosure(func(event *BlockBookedEvent) {
+		n := atomic.AddInt32(&bookedBlocks, 1)
+		t.Logf("booked blocks %d/%d - %s", n, totalBlkCount, event.BlockID)
 	}))
 
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(*MessageProcessedEvent) {
-		n := atomic.AddInt32(&awMessages, 1)
-		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
+	tangle.ApprovalWeightManager.Events.BlockProcessed.Hook(event.NewClosure(func(*BlockProcessedEvent) {
+		n := atomic.AddInt32(&awBlocks, 1)
+		t.Logf("approval weight processed blocks %d/%d", n, totalBlkCount)
 	}))
 
 	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
@@ -561,42 +562,42 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Setup()
 
 	// issue tips to start solidification
-	tips.ForEach(func(key MessageID, _ MessageID) {
-		if key == EmptyMessageID {
+	tips.ForEach(func(key BlockID, _ BlockID) {
+		if key == EmptyBlockID {
 			return
 		}
-		inboxWP.TrySubmit(lo.PanicOnErr(messages[key].Bytes()), localPeer)
+		inboxWP.TrySubmit(lo.PanicOnErr(blocks[key].Bytes()), localPeer)
 	})
-	// incoming invalid messages
-	for _, msg := range invalidmsgs {
-		inboxWP.TrySubmit(lo.PanicOnErr(msg.Bytes()), localPeer)
+	// incoming invalid blocks
+	for _, blk := range invalidblks {
+		inboxWP.TrySubmit(lo.PanicOnErr(blk.Bytes()), localPeer)
 	}
 
-	// wait for all messages to be scheduled
+	// wait for all blocks to be scheduled
 	lastWaitNotice := time.Now()
 	assert.Eventually(t, func() bool {
 		if time.Now().Sub(lastWaitNotice) > time.Second {
 			lastWaitNotice = time.Now()
-			t.Logf("waiting for scheduled messages %d/%d", atomic.LoadInt32(&scheduledMessages), totalMsgCount)
+			t.Logf("waiting for scheduled blocks %d/%d", atomic.LoadInt32(&scheduledBlocks), totalBlkCount)
 		}
 
-		return atomic.LoadInt32(&scheduledMessages) == solidMsgCount
+		return atomic.LoadInt32(&scheduledBlocks) == solidBlkCount
 	}, 5*time.Minute, 100*time.Millisecond)
 
-	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
-	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
-	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
-	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedMessages))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&missingMessages))
+	assert.EqualValuesf(t, totalBlkCount, atomic.LoadInt32(&parsedBlocks), "parsed blocks does not match")
+	assert.EqualValuesf(t, totalBlkCount, atomic.LoadInt32(&storedBlocks), "stored blocks does not match")
+	assert.EqualValues(t, solidBlkCount, atomic.LoadInt32(&solidBlocks))
+	assert.EqualValues(t, solidBlkCount, atomic.LoadInt32(&scheduledBlocks))
+	assert.EqualValues(t, solidBlkCount, atomic.LoadInt32(&bookedBlocks))
+	assert.EqualValues(t, solidBlkCount, atomic.LoadInt32(&awBlocks))
+	// blocks with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
+	assert.EqualValues(t, invalidBlkCount, atomic.LoadInt32(&invalidBlocks))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&rejectedBlocks))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&missingBlocks))
 }
 
-// IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
-func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) (*Message, error) {
+// IssueInvalidTsPayload creates a new block including sequence number and tip selection and returns it.
+func (f *BlockFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) (*Block, error) {
 	payloadLen := len(lo.PanicOnErr(p.Bytes()))
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -622,7 +623,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, 0, epoch.NewECRecord(0))
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -630,14 +631,14 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature, err := f.sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce, 0, epoch.NewECRecord(0))
 	if err != nil {
 		err = fmt.Errorf("signing failed failed: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
 
-	msg, err := NewMessageWithValidation(
+	blk, err := NewBlockWithValidation(
 		emptyLikeReferencesFromStrongParents(parents),
 		issuingTime,
 		issuerPublicKey,
@@ -645,11 +646,13 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		p,
 		nonce,
 		signature,
+		0,
+		epoch.NewECRecord(0),
 	)
 	if err != nil {
-		err = fmt.Errorf("problem with message syntax: %w", err)
+		err = fmt.Errorf("problem with block syntax: %w", err)
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
-	return msg, nil
+	return blk, nil
 }

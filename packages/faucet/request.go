@@ -108,7 +108,7 @@ func (p *Payload) SetConsensusManaPledgeID(id identity.ID) {
 	p.M.ConsensusManaPledgeID = id
 }
 
-// IsFaucetReq checks if the message is faucet payload.
-func IsFaucetReq(msg *tangle.Message) bool {
-	return msg.Payload().Type() == RequestType
+// IsFaucetReq checks if the block is faucet payload.
+func IsFaucetReq(blk *tangle.Block) bool {
+	return blk.Payload().Type() == RequestType
 }

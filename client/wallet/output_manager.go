@@ -100,7 +100,7 @@ func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Add
 				continue
 			}
 			// discard non-confirmed if includePending is false
-			if !includePending && !output.GradeOfFinalityReached {
+			if !includePending && !output.ConfirmationStateReached {
 				continue
 			}
 

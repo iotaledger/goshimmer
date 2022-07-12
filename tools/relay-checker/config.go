@@ -7,7 +7,7 @@ import (
 var (
 	nodes        []string
 	target       = ""
-	msgData      = "TEST99BROADCAST99DATA"
+	blkData      = "TEST99BROADCAST99DATA"
 	cooldownTime = 2 * time.Second
 	repeat       = 1
 )
@@ -25,7 +25,7 @@ func initConfig() {
 
 	// optional settings
 	if Parameters.Data != "" {
-		msgData = Parameters.Data
+		blkData = Parameters.Data
 	}
 	if Parameters.CooldownTime > 0 {
 		cooldownTime = Parameters.CooldownTime

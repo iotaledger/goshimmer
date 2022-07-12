@@ -36,6 +36,7 @@ then
   PROFILES+=("grafana")
 fi
 
+export BLOCKLAYER_GENESISTIME=$(date +%s)
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
 docker-compose up
 

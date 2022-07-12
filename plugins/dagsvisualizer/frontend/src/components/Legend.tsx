@@ -5,10 +5,10 @@ import { BRANCH, UTXO } from '../styles/cytoscapeStyles';
 export class TangleLegend extends React.Component<any, any> {
     render() {
         const nodeLabels = [
-            'MSG Confirmed',
-            'MSG Pending',
-            'MSG with TX Confirmed',
-            'MSG with TX Pending',
+            'BLK Confirmed',
+            'BLK Pending',
+            'BLK with TX Confirmed',
+            'BLK with TX Pending',
             'Tip',
             'Unknown'
         ];
@@ -113,12 +113,12 @@ export class UTXOLegend extends React.Component<any, any> {
     }
 }
 
-export class BranchLegend extends React.Component<any, any> {
+export class ConflictLegend extends React.Component<any, any> {
     render() {
         const nodeLabels = [
-            'Conflict branch confirmed',
-            'Conflict branch pending/rejected',
-            'Master branch'
+            'Conflict conflict confirmed',
+            'Conflict conflict pending/rejected',
+            'Master conflict'
         ];
         const nodeColors = [
             BRANCH.COLOR_CONFIRMED,

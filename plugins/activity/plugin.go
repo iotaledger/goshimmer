@@ -34,8 +34,8 @@ func configure(plugin *node.Plugin) {
 	plugin.LogInfof("starting node with activity plugin")
 }
 
-// broadcastActivityMessage broadcasts a sync beacon via communication layer.
-func broadcastActivityMessage() {
+// broadcastActivityBlock broadcasts a sync beacon via communication layer.
+func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
 	// sleep some time according to rate setter estimate
@@ -43,13 +43,13 @@ func broadcastActivityMessage() {
 		time.Sleep(deps.Tangle.RateSetter.Estimate())
 	}
 
-	msg, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
+	blk, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
-		Plugin.LogWarnf("error issuing activity message: %s", err)
+		Plugin.LogWarnf("error issuing activity block: %s", err)
 		return
 	}
 
-	Plugin.LogDebugf("issued activity message %s", msg.ID())
+	Plugin.LogDebugf("issued activity block %s", blk.ID())
 }
 
 func run(_ *node.Plugin) {
@@ -60,10 +60,10 @@ func run(_ *node.Plugin) {
 		time.Sleep(initialDelay)
 
 		if Parameters.BroadcastInterval > 0 {
-			timeutil.NewTicker(broadcastActivityMessage, Parameters.BroadcastInterval, ctx)
+			timeutil.NewTicker(broadcastActivityBlock, Parameters.BroadcastInterval, ctx)
 		}
 
-		// Wait before terminating, so we get correct log messages from the daemon regarding the shutdown order.
+		// Wait before terminating, so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
 	}, shutdown.PriorityActivity); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)

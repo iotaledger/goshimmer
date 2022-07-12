@@ -19,8 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// LoadMessageFunc defines a function that returns the message for the given id.
-type LoadMessageFunc func(messageId tangle.MessageID) ([]byte, error)
+// LoadBlockFunc defines a function that returns the block for the given id.
+type LoadBlockFunc func(blockId tangle.BlockID) ([]byte, error)
 
 // ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
 type ConnectPeerOption func(conf *connectPeerConfig)
@@ -57,7 +57,7 @@ type Manager struct {
 	acceptMutex sync.RWMutex
 	acceptMap   map[libp2ppeer.ID]*acceptMatcher
 
-	loadMessageFunc LoadMessageFunc
+	loadBlockFunc   LoadBlockFunc
 	log             *logger.Logger
 	neighborsEvents map[NeighborsGroup]*NeighborsEvents
 
@@ -67,8 +67,8 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	messagesRateLimiter        *ratelimiter.PeerRateLimiter
-	messageRequestsRateLimiter *ratelimiter.PeerRateLimiter
+	blocksRateLimiter        *ratelimiter.PeerRateLimiter
+	blockRequestsRateLimiter *ratelimiter.PeerRateLimiter
 
 	pendingCount          atomic.Uint64
 	requesterPendingCount atomic.Uint64
@@ -78,15 +78,15 @@ type Manager struct {
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log *logger.Logger, opts ...ManagerOption,
+func NewManager(libp2pHost host.Host, local *peer.Local, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption,
 ) *Manager {
 	m := &Manager{
-		Libp2pHost:      libp2pHost,
-		Events:          newEvents(),
-		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
-		local:           local,
-		loadMessageFunc: f,
-		log:             log,
+		Libp2pHost:    libp2pHost,
+		Events:        newEvents(),
+		acceptMap:     map[libp2ppeer.ID]*acceptMatcher{},
+		local:         local,
+		loadBlockFunc: f,
+		log:           log,
 		neighborsEvents: map[NeighborsGroup]*NeighborsEvents{
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
@@ -102,30 +102,30 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 	return m
 }
 
-// WithMessagesRateLimiter allows to set a PeerRateLimiter instance
-// to be used as messages rate limiter in the gossip manager.
-func WithMessagesRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
+// WithBlocksRateLimiter allows to set a PeerRateLimiter instance
+// to be used as blocks rate limiter in the gossip manager.
+func WithBlocksRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
 	return func(m *Manager) {
-		m.messagesRateLimiter = prl
+		m.blocksRateLimiter = prl
 	}
 }
 
-// MessagesRateLimiter returns the messages rate limiter instance used in the gossip manager.
-func (m *Manager) MessagesRateLimiter() *ratelimiter.PeerRateLimiter {
-	return m.messagesRateLimiter
+// BlocksRateLimiter returns the blocks rate limiter instance used in the gossip manager.
+func (m *Manager) BlocksRateLimiter() *ratelimiter.PeerRateLimiter {
+	return m.blocksRateLimiter
 }
 
-// WithMessageRequestsRateLimiter allows to set a PeerRateLimiter instance
-// to be used as messages requests rate limiter in the gossip manager.
-func WithMessageRequestsRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
+// WithBlockRequestsRateLimiter allows to set a PeerRateLimiter instance
+// to be used as blocks requests rate limiter in the gossip manager.
+func WithBlockRequestsRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
 	return func(m *Manager) {
-		m.messageRequestsRateLimiter = prl
+		m.blockRequestsRateLimiter = prl
 	}
 }
 
-// MessageRequestsRateLimiter returns the message requests rate limiter instance used in the gossip manager.
-func (m *Manager) MessageRequestsRateLimiter() *ratelimiter.PeerRateLimiter {
-	return m.messageRequestsRateLimiter
+// BlockRequestsRateLimiter returns the block requests rate limiter instance used in the gossip manager.
+func (m *Manager) BlockRequestsRateLimiter() *ratelimiter.PeerRateLimiter {
+	return m.blockRequestsRateLimiter
 }
 
 // Stop stops the manager and closes all established connections.
@@ -155,13 +155,15 @@ func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
 func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
-	connectOpts ...ConnectPeerOption) error {
+	connectOpts ...ConnectPeerOption,
+) error {
 	return m.addNeighbor(ctx, p, group, m.dialPeer, connectOpts)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
-	connectOpts ...ConnectPeerOption) error {
+	connectOpts ...ConnectPeerOption,
+) error {
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
@@ -197,25 +199,25 @@ func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*N
 	return nbr, nil
 }
 
-// RequestMessage requests the message with the given id from the neighbors.
+// RequestBlock requests the block with the given id from the neighbors.
 // If no peer is provided, all neighbors are queried.
-func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
-	msgReq := &pb.MessageRequest{Id: messageID}
-	packet := &pb.Packet{Body: &pb.Packet_MessageRequest{MessageRequest: msgReq}}
+func (m *Manager) RequestBlock(blockID []byte, to ...identity.ID) {
+	blkReq := &pb.BlockRequest{Id: blockID}
+	packet := &pb.Packet{Body: &pb.Packet_BlockRequest{BlockRequest: blkReq}}
 	recipients := m.send(packet, to...)
-	if m.messagesRateLimiter != nil {
+	if m.blocksRateLimiter != nil {
 		for _, nbr := range recipients {
-			// Increase the limit by 2 for every message request to make rate limiter more forgiving during node sync.
-			m.messagesRateLimiter.ExtendLimit(nbr.Peer, 2)
+			// Increase the limit by 2 for every block request to make rate limiter more forgiving during node sync.
+			m.blocksRateLimiter.ExtendLimit(nbr.Peer, 2)
 		}
 	}
 }
 
-// SendMessage adds the given message the send queue of the neighbors.
+// SendBlock adds the given block the send queue of the neighbors.
 // The actual send then happens asynchronously. If no peer is provided, it is send to all neighbors.
-func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
-	msg := &pb.Message{Data: msgData}
-	packet := &pb.Packet{Body: &pb.Packet_Message{Message: msg}}
+func (m *Manager) SendBlock(blkData []byte, to ...identity.ID) {
+	blk := &pb.Block{Data: blkData}
+	packet := &pb.Packet{Body: &pb.Packet_Block{Block: blk}}
 	m.send(packet, to...)
 }
 
@@ -331,14 +333,14 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 	switch packetBody := packet.GetBody().(type) {
-	case *pb.Packet_Message:
-		if added := event.Loop.TrySubmit(func() { m.processMessagePacket(packetBody, nbr); m.pendingCount.Dec() }); !added {
-			return fmt.Errorf("messageWorkerPool full: packet message discarded")
+	case *pb.Packet_Block:
+		if added := event.Loop.TrySubmit(func() { m.processBlockPacket(packetBody, nbr); m.pendingCount.Dec() }); !added {
+			return fmt.Errorf("blockWorkerPool full: packet block discarded")
 		}
 		m.pendingCount.Inc()
-	case *pb.Packet_MessageRequest:
-		if added := event.Loop.TrySubmit(func() { m.processMessageRequestPacket(packetBody, nbr); m.requesterPendingCount.Dec() }); !added {
-			return fmt.Errorf("messageRequestWorkerPool full: message request discarded")
+	case *pb.Packet_BlockRequest:
+		if added := event.Loop.TrySubmit(func() { m.processBlockRequestPacket(packetBody, nbr); m.requesterPendingCount.Dec() }); !added {
+			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
 		}
 		m.requesterPendingCount.Inc()
 	default:
@@ -348,44 +350,44 @@ func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 	return nil
 }
 
-// MessageWorkerPoolStatus returns the name and the load of the workerpool.
-func (m *Manager) MessageWorkerPoolStatus() (name string, load uint64) {
-	return "messageWorkerPool", m.pendingCount.Load()
+// BlockWorkerPoolStatus returns the name and the load of the workerpool.
+func (m *Manager) BlockWorkerPoolStatus() (name string, load uint64) {
+	return "blockWorkerPool", m.pendingCount.Load()
 }
 
-// MessageRequestWorkerPoolStatus returns the name and the load of the workerpool.
-func (m *Manager) MessageRequestWorkerPoolStatus() (name string, load uint64) {
-	return "messageRequestWorkerPool", m.requesterPendingCount.Load()
+// BlockRequestWorkerPoolStatus returns the name and the load of the workerpool.
+func (m *Manager) BlockRequestWorkerPoolStatus() (name string, load uint64) {
+	return "blockRequestWorkerPool", m.requesterPendingCount.Load()
 }
 
-func (m *Manager) processMessagePacket(packetMsg *pb.Packet_Message, nbr *Neighbor) {
-	if m.messagesRateLimiter != nil {
-		m.messagesRateLimiter.Count(nbr.Peer)
+func (m *Manager) processBlockPacket(packetBlk *pb.Packet_Block, nbr *Neighbor) {
+	if m.blocksRateLimiter != nil {
+		m.blocksRateLimiter.Count(nbr.Peer)
 	}
-	m.Events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packetMsg.Message.GetData(), Peer: nbr.Peer})
+	m.Events.BlockReceived.Trigger(&BlockReceivedEvent{Data: packetBlk.Block.GetData(), Peer: nbr.Peer})
 }
 
-func (m *Manager) processMessageRequestPacket(packetMsgReq *pb.Packet_MessageRequest, nbr *Neighbor) {
-	if m.messageRequestsRateLimiter != nil {
-		m.messageRequestsRateLimiter.Count(nbr.Peer)
+func (m *Manager) processBlockRequestPacket(packetBlkReq *pb.Packet_BlockRequest, nbr *Neighbor) {
+	if m.blockRequestsRateLimiter != nil {
+		m.blockRequestsRateLimiter.Count(nbr.Peer)
 	}
-	var msgID tangle.MessageID
-	_, err := msgID.Decode(packetMsgReq.MessageRequest.GetId())
+	var blkID tangle.BlockID
+	_, err := blkID.Decode(packetBlkReq.BlockRequest.GetId())
 	if err != nil {
-		m.log.Debugw("invalid message id:", "err", err)
+		m.log.Debugw("invalid block id:", "err", err)
 		return
 	}
 
-	msgBytes, err := m.loadMessageFunc(msgID)
+	blkBytes, err := m.loadBlockFunc(blkID)
 	if err != nil {
-		m.log.Debugw("error loading message", "msg-id", msgID, "err", err)
+		m.log.Debugw("error loading block", "blk-id", blkID, "err", err)
 		return
 	}
 
-	// send the loaded message directly to the neighbor
-	packet := &pb.Packet{Body: &pb.Packet_Message{Message: &pb.Message{Data: msgBytes}}}
+	// send the loaded block directly to the neighbor
+	packet := &pb.Packet{Body: &pb.Packet_Block{Block: &pb.Block{Data: blkBytes}}}
 	if err := nbr.ps.writePacket(packet); err != nil {
-		nbr.log.Warnw("Failed to send requested message back to the neighbor", "err", err)
+		nbr.log.Warnw("Failed to send requested block back to the neighbor", "err", err)
 		nbr.close()
 	}
 }

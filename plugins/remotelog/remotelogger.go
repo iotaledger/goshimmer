@@ -25,16 +25,16 @@ func newRemoteLoggerConn(address string) (*RemoteLoggerConn, error) {
 	return &RemoteLoggerConn{conn: c}, nil
 }
 
-// SendLogMsg sends log message to the remote logger.
-func (r *RemoteLoggerConn) SendLogMsg(level logger.Level, name, msg string) {
-	m := logMessage{
+// SendLogBlk sends log block to the remote logger.
+func (r *RemoteLoggerConn) SendLogBlk(level logger.Level, name, blk string) {
+	m := logBlock{
 		banner.AppVersion,
 		myGitHead,
-		myGitBranch,
+		myGitConflict,
 		myID,
 		level.CapitalString(),
 		name,
-		msg,
+		blk,
 		clock.SyncedTime(),
 		remoteLogType,
 	}
@@ -42,9 +42,9 @@ func (r *RemoteLoggerConn) SendLogMsg(level logger.Level, name, msg string) {
 	_ = deps.RemoteLogger.Send(m)
 }
 
-// Send sends a message on the RemoteLoggers connection.
-func (r *RemoteLoggerConn) Send(msg interface{}) error {
-	b, err := json.Marshal(msg)
+// Send sends a block on the RemoteLoggers connection.
+func (r *RemoteLoggerConn) Send(blk interface{}) error {
+	b, err := json.Marshal(blk)
 	if err != nil {
 		return err
 	}

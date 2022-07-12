@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // getManaHandler handles the request.

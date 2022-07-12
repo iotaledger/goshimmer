@@ -10,21 +10,21 @@ import (
 )
 
 var (
-	// schedulerRate rate at which messages are scheduled.
+	// schedulerRate rate at which blocks are scheduled.
 	schedulerRate time.Duration
 
-	// readyMessagesCount number of ready messages in the scheduler buffer.
-	readyMessagesCount int
+	// readyBlocksCount number of ready blocks in the scheduler buffer.
+	readyBlocksCount int
 
-	// totalMessagesCount number of  messages in the scheduler buffer.
-	totalMessagesCount int
+	// totalBlocksCount number of  blocks in the scheduler buffer.
+	totalBlocksCount int
 
 	// bufferSize number of bytes waiting to be scheduled.
 	bufferSize int
 
 	// schedulerDeficit deficit value
 	schedulerDeficit float64
-	// maxBufferSize maximum number of messages can be stored in the buffer.
+	// maxBufferSize maximum number of blocks can be stored in the buffer.
 	maxBufferSize int
 
 	// nodeQueueSizes current size of each node's queue.
@@ -49,8 +49,8 @@ func measureSchedulerMetrics() {
 	maxBufferSize = deps.Tangle.Options.SchedulerParams.MaxBufferSize
 	schedulerDeficit, _ = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
 	schedulerRate = deps.Tangle.Scheduler.Rate()
-	readyMessagesCount = deps.Tangle.Scheduler.ReadyMessagesCount()
-	totalMessagesCount = deps.Tangle.Scheduler.TotalMessagesCount()
+	readyBlocksCount = deps.Tangle.Scheduler.ReadyBlocksCount()
+	totalBlocksCount = deps.Tangle.Scheduler.TotalBlocksCount()
 }
 
 // SchedulerNodeQueueSizes current size of each node's queue.
@@ -81,14 +81,14 @@ func SchedulerNodeAManaAmount() map[string]float64 {
 	return clone
 }
 
-// SchedulerTotalBufferMessagesCount returns if the node is synced based on tangle time.
-func SchedulerTotalBufferMessagesCount() int {
-	return totalMessagesCount
+// SchedulerTotalBufferBlocksCount returns if the node is synced based on tangle time.
+func SchedulerTotalBufferBlocksCount() int {
+	return totalBlocksCount
 }
 
-// SchedulerReadyMessagesCount number of ready messages in the scheduler buffer.
-func SchedulerReadyMessagesCount() int {
-	return readyMessagesCount
+// SchedulerReadyBlocksCount number of ready blocks in the scheduler buffer.
+func SchedulerReadyBlocksCount() int {
+	return readyBlocksCount
 }
 
 // SchedulerMaxBufferSize returns the maximum buffer size.
@@ -106,7 +106,7 @@ func SchedulerBufferSize() int {
 	return bufferSize
 }
 
-// SchedulerRate rate at which messages are scheduled.
+// SchedulerRate rate at which blocks are scheduled.
 func SchedulerRate() int64 {
 	return schedulerRate.Milliseconds()
 }

@@ -20,6 +20,7 @@ var fundsQuestion = &survey.Select{
 	Options: outputNumbers,
 	Default: "100",
 }
+
 var settingsQuestion = &survey.Select{
 	Message: "Available settings:",
 	Options: settingsMenuOptions,
@@ -63,7 +64,7 @@ var spamTypeQuestions = func(defaultDeep, defaultReuse string) []*survey.Questio
 				Message: "Deep spam",
 				Options: confirms,
 				Default: defaultDeep,
-				Help:    "Uses outputs generated during the spam, to create deep UTXO and branch structures.",
+				Help:    "Uses outputs generated during the spam, to create deep UTXO and conflict structures.",
 			},
 		},
 		{
@@ -111,7 +112,6 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate, defaultTimeUnit st
 				if str, ok := val.(string); ok {
 					_, err := strconv.Atoi(str)
 					if err == nil {
-
 						return nil
 					}
 					return errors.New("Incorrect spam rate")

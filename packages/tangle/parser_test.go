@@ -24,43 +24,43 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
-	msgBytes := lo.PanicOnErr(newTestDataMessage("Test").Bytes())
-	msgParser := NewParser()
-	msgParser.Setup()
+func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
+	blkBytes := lo.PanicOnErr(newTestDataBlock("Test").Bytes())
+	blkParser := NewParser()
+	blkParser.Setup()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		msgParser.Parse(msgBytes, nil)
+		blkParser.Parse(blkBytes, nil)
 	}
 }
 
-func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
-	messageBytes := make([][]byte, b.N)
+func BenchmarkBlockParser_ParseBytesDifferent(b *testing.B) {
+	blockBytes := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = lo.PanicOnErr(newTestDataMessage("Test" + strconv.Itoa(i)).Bytes())
+		blockBytes[i] = lo.PanicOnErr(newTestDataBlock("Test" + strconv.Itoa(i)).Bytes())
 	}
 
-	msgParser := NewParser()
-	msgParser.Setup()
+	blkParser := NewParser()
+	blkParser.Setup()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		msgParser.Parse(messageBytes[i], nil)
+		blkParser.Parse(blockBytes[i], nil)
 	}
 }
 
-func TestMessageParser_ParseMessage(t *testing.T) {
-	msg := newTestDataMessage("Test")
+func TestBlockParser_ParseBlock(t *testing.T) {
+	blk := newTestDataBlock("Test")
 
-	msgParser := NewParser()
-	msgParser.Setup()
-	msgParser.Parse(lo.PanicOnErr(msg.Bytes()), nil)
+	blkParser := NewParser()
+	blkParser.Setup()
+	blkParser.Parse(lo.PanicOnErr(blk.Bytes()), nil)
 
-	msgParser.Events.MessageParsed.Hook(event.NewClosure(func(_ *MessageParsedEvent) {
-		log.Infof("parsed message")
+	blkParser.Events.BlockParsed.Hook(event.NewClosure(func(_ *BlockParsedEvent) {
+		log.Infof("parsed block")
 	}))
 }
 
@@ -73,43 +73,43 @@ var (
 func TestTransactionFilter_Filter(t *testing.T) {
 	filter := NewTransactionFilter()
 	// set callbacks
-	m := &messageCallbackMock{}
+	m := &blockCallbackMock{}
 	filter.OnAccept(m.Accept)
 	filter.OnReject(m.Reject)
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
-		msg := &Message{}
-		msg.Init()
+		blk := &Block{}
+		blk.Init()
 
-		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
-		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
+		blk.payload = payload.NewGenericDataPayload([]byte("hello world"))
+		m.On("Accept", blk, testPeer)
+		filter.Filter(blk, testPeer)
 	})
 }
 
-func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
-	msg := &Message{}
-	msg.Init()
+func Test_isBlockAndTransactionTimestampsValid(t *testing.T) {
+	blk := &Block{}
+	blk.Init()
 
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.M.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
-		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
+		blk.M.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
+		assert.True(t, isBlockAndTransactionTimestampsValid(tx, blk))
 	})
 	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.M.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
-		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
+		blk.M.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
+		assert.False(t, isBlockAndTransactionTimestampsValid(tx, blk))
 	})
-	t.Run("equal tx and msg timestamp", func(t *testing.T) {
+	t.Run("equal tx and blk timestamp", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.M.IssuingTime = tx.Essence().Timestamp()
-		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
+		blk.M.IssuingTime = tx.Essence().Timestamp()
+		assert.True(t, isBlockAndTransactionTimestampsValid(tx, blk))
 	})
-	t.Run("older message", func(t *testing.T) {
+	t.Run("older block", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.M.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
-		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
+		blk.M.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
+		assert.False(t, isBlockAndTransactionTimestampsValid(tx, blk))
 	})
 }
 
@@ -121,32 +121,32 @@ func TestPowFilter_Filter(t *testing.T) {
 	filter.OnAccept(m.Accept)
 	filter.OnReject(m.Reject)
 
-	t.Run("reject small message", func(t *testing.T) {
-		m.On("Reject", mock.Anything, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrMessageTooSmall) }), testPeer)
+	t.Run("reject small block", func(t *testing.T) {
+		m.On("Reject", mock.Anything, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrBlockTooSmall) }), testPeer)
 		filter.Filter(nil, testPeer)
 	})
 
-	msg := newTestNonceMessage(0)
-	msgBytes := lo.PanicOnErr(msg.Bytes())
+	blk := newTestNonceBlock(0)
+	blkBytes := lo.PanicOnErr(blk.Bytes())
 
 	t.Run("reject invalid nonce", func(t *testing.T) {
-		m.On("Reject", msgBytes, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
-		filter.Filter(msgBytes, testPeer)
+		m.On("Reject", blkBytes, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
+		filter.Filter(blkBytes, testPeer)
 	})
 
-	nonce, err := testWorker.Mine(context.Background(), msgBytes[:len(msgBytes)-len(msg.Signature())-pow.NonceBytes], testDifficulty)
+	nonce, err := testWorker.Mine(context.Background(), blkBytes[:len(blkBytes)-len(blk.Signature())-pow.NonceBytes], testDifficulty)
 	require.NoError(t, err)
 
-	msgPOW := newTestNonceMessage(nonce)
-	msgPOWBytes := lo.PanicOnErr(msgPOW.Bytes())
+	blkPOW := newTestNonceBlock(nonce)
+	blkPOWBytes := lo.PanicOnErr(blkPOW.Bytes())
 
 	t.Run("accept valid nonce", func(t *testing.T) {
-		zeroes, err := testWorker.LeadingZeros(msgPOWBytes[:len(msgPOWBytes)-len(msgPOW.Signature())])
+		zeroes, err := testWorker.LeadingZeros(blkPOWBytes[:len(blkPOWBytes)-len(blkPOW.Signature())])
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, zeroes, testDifficulty)
 
-		m.On("Accept", msgPOWBytes, testPeer)
-		filter.Filter(msgPOWBytes, testPeer)
+		m.On("Accept", blkPOWBytes, testPeer)
+		filter.Filter(blkPOWBytes, testPeer)
 	})
 
 	m.AssertExpectations(t)
@@ -154,13 +154,13 @@ func TestPowFilter_Filter(t *testing.T) {
 
 type bytesCallbackMock struct{ mock.Mock }
 
-func (m *bytesCallbackMock) Accept(msg []byte, p *peer.Peer)            { m.Called(msg, p) }
-func (m *bytesCallbackMock) Reject(msg []byte, err error, p *peer.Peer) { m.Called(msg, err, p) }
+func (m *bytesCallbackMock) Accept(blk []byte, p *peer.Peer)            { m.Called(blk, p) }
+func (m *bytesCallbackMock) Reject(blk []byte, err error, p *peer.Peer) { m.Called(blk, err, p) }
 
-type messageCallbackMock struct{ mock.Mock }
+type blockCallbackMock struct{ mock.Mock }
 
-func (m *messageCallbackMock) Accept(msg *Message, p *peer.Peer)            { m.Called(msg, p) }
-func (m *messageCallbackMock) Reject(msg *Message, err error, p *peer.Peer) { m.Called(msg, err, p) }
+func (m *blockCallbackMock) Accept(blk *Block, p *peer.Peer)            { m.Called(blk, p) }
+func (m *blockCallbackMock) Reject(blk *Block, err error, p *peer.Peer) { m.Called(blk, err, p) }
 
 type testTxPayload struct{}
 

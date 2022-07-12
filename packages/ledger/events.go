@@ -23,8 +23,8 @@ type Events struct {
 	// TransactionInclusionUpdated is an event that gets triggered whenever the inclusion time of a Transaction changes.
 	TransactionInclusionUpdated *event.Event[*TransactionInclusionUpdatedEvent]
 
-	// TransactionConfirmed is an event that gets triggered whenever a Transaction is confirmed.
-	TransactionConfirmed *event.Event[*TransactionConfirmedEvent]
+	// TransactionAccepted is an event that gets triggered whenever a Transaction is confirmed.
+	TransactionAccepted *event.Event[*TransactionAcceptedEvent]
 
 	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
 	TransactionRejected *event.Event[*TransactionRejectedEvent]
@@ -32,8 +32,8 @@ type Events struct {
 	// TransactionForked is an event that gets triggered whenever a Transaction is forked.
 	TransactionForked *event.Event[*TransactionForkedEvent]
 
-	// TransactionBranchIDUpdated is an event that gets triggered whenever the Branch of a Transaction is updated.
-	TransactionBranchIDUpdated *event.Event[*TransactionBranchIDUpdatedEvent]
+	// TransactionConflictIDUpdated is an event that gets triggered whenever the Conflict of a Transaction is updated.
+	TransactionConflictIDUpdated *event.Event[*TransactionConflictIDUpdatedEvent]
 
 	// TransactionInvalid is an event that gets triggered whenever a Transaction is found to be invalid.
 	TransactionInvalid *event.Event[*TransactionInvalidEvent]
@@ -45,15 +45,15 @@ type Events struct {
 // newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
-		TransactionStored:           event.New[*TransactionStoredEvent](),
-		TransactionBooked:           event.New[*TransactionBookedEvent](),
-		TransactionInclusionUpdated: event.New[*TransactionInclusionUpdatedEvent](),
-		TransactionConfirmed:        event.New[*TransactionConfirmedEvent](),
-		TransactionRejected:         event.New[*TransactionRejectedEvent](),
-		TransactionForked:           event.New[*TransactionForkedEvent](),
-		TransactionBranchIDUpdated:  event.New[*TransactionBranchIDUpdatedEvent](),
-		TransactionInvalid:          event.New[*TransactionInvalidEvent](),
-		Error:                       event.New[error](),
+		TransactionStored:            event.New[*TransactionStoredEvent](),
+		TransactionBooked:            event.New[*TransactionBookedEvent](),
+		TransactionInclusionUpdated:  event.New[*TransactionInclusionUpdatedEvent](),
+		TransactionAccepted:          event.New[*TransactionAcceptedEvent](),
+		TransactionRejected:          event.New[*TransactionRejectedEvent](),
+		TransactionForked:            event.New[*TransactionForkedEvent](),
+		TransactionConflictIDUpdated: event.New[*TransactionConflictIDUpdatedEvent](),
+		TransactionInvalid:           event.New[*TransactionInvalidEvent](),
+		Error:                        event.New[error](),
 	}
 }
 
@@ -102,11 +102,11 @@ type TransactionInclusionUpdatedEvent struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TransactionConfirmedEvent ////////////////////////////////////////////////////////////////////////////////////
+// region TransactionAcceptedEvent /////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionConfirmedEvent is a container that acts as a dictionary for the TransactionConfirmed event related
+// TransactionAcceptedEvent is a container that acts as a dictionary for the TransactionAccepted event related
 // parameters.
-type TransactionConfirmedEvent struct {
+type TransactionAcceptedEvent struct {
 	// TransactionID contains the identifier of the confirmed Transaction.
 	TransactionID utxo.TransactionID
 }
@@ -131,7 +131,7 @@ type TransactionForkedEvent struct {
 	// TransactionID contains the identifier of the forked Transaction.
 	TransactionID utxo.TransactionID
 
-	// ParentConflicts contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
+	// ParentConflicts contains the set of ConflictIDs that form the parent Conflicts for the newly forked Transaction.
 	ParentConflicts *set.AdvancedSet[utxo.TransactionID]
 
 	// Context contains a Context provided by the caller that triggered this event.
@@ -140,19 +140,19 @@ type TransactionForkedEvent struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+// region TransactionConflictIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
 
-// TransactionBranchIDUpdatedEvent is a container that acts as a dictionary for the TransactionBranchIDUpdated event
+// TransactionConflictIDUpdatedEvent is a container that acts as a dictionary for the TransactionConflictIDUpdated event
 // related parameters.
-type TransactionBranchIDUpdatedEvent struct {
-	// TransactionID contains the identifier of the Transaction whose BranchIDs were updated.
+type TransactionConflictIDUpdatedEvent struct {
+	// TransactionID contains the identifier of the Transaction whose ConflictIDs were updated.
 	TransactionID utxo.TransactionID
 
-	// AddedBranchID contains the identifier of the Branch that was added to the BranchIDs of the Transaction.
-	AddedBranchID utxo.TransactionID
+	// AddedConflictID contains the identifier of the Conflict that was added to the ConflictIDs of the Transaction.
+	AddedConflictID utxo.TransactionID
 
-	// RemovedBranchIDs contains the set of the BranchIDs that were removed while updating the Transaction.
-	RemovedBranchIDs *set.AdvancedSet[utxo.TransactionID]
+	// RemovedConflictIDs contains the set of the ConflictIDs that were removed while updating the Transaction.
+	RemovedConflictIDs *set.AdvancedSet[utxo.TransactionID]
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context

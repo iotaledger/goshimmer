@@ -87,7 +87,7 @@ func run(_ *node.Plugin) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 
 		// connect protocol events to processors
-		prot = protocol.New(packet.AnalysisMsgRegistry())
+		prot = protocol.New(packet.AnalysisBlkRegistry())
 		wireUp(prot)
 
 		go server.Listen(addr, port)
@@ -110,7 +110,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 	}
 	onReceiveData := event.NewClosure(func(event *network.ReceivedDataEvent) {
 		if _, err := prot.Read(event.Data); err != nil {
-			log.Debugw("Invalid message received; closing connection", "err", err)
+			log.Debugw("Invalid block received; closing connection", "err", err)
 			_ = conn.Close()
 		}
 	})

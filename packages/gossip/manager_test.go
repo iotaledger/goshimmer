@@ -30,11 +30,11 @@ import (
 const graceTime = 10 * time.Millisecond
 
 var (
-	log             = logger.NewExampleLogger("gossip")
-	testMessageData = []byte("testMsg")
+	log           = logger.NewExampleLogger("gossip")
+	testBlockData = []byte("testBlk")
 )
 
-func loadTestMessage(tangle.MessageID) ([]byte, error) { return testMessageData, nil }
+func loadTestBlock(tangle.BlockID) ([]byte, error) { return testBlockData, nil }
 
 func TestClose(t *testing.T) {
 	testMgrs := newTestManagers(t, true /* doMock */, "A")
@@ -112,12 +112,12 @@ func TestP2PSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	mgrB.On("messageReceived", &MessageReceivedEvent{
-		Data: testMessageData,
+	mgrB.On("blockReceived", &BlockReceivedEvent{
+		Data: testBlockData,
 		Peer: peerA,
 	}).Once()
 
-	mgrA.SendMessage(testMessageData)
+	mgrA.SendBlock(testBlockData)
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -162,14 +162,14 @@ func TestP2PSendTwice(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	mgrB.On("messageReceived", &MessageReceivedEvent{
-		Data: testMessageData,
+	mgrB.On("blockReceived", &BlockReceivedEvent{
+		Data: testBlockData,
 		Peer: peerA,
 	}).Twice()
 
-	mgrA.SendMessage(testMessageData)
+	mgrA.SendBlock(testBlockData)
 	time.Sleep(1 * time.Second) // wait a bit between the sends, to test timeouts
-	mgrA.SendMessage(testMessageData)
+	mgrA.SendBlock(testBlockData)
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -226,11 +226,11 @@ func TestBroadcast(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	event := &MessageReceivedEvent{Data: testMessageData, Peer: peerA}
-	mgrB.On("messageReceived", event).Once()
-	mgrC.On("messageReceived", event).Once()
+	event := &BlockReceivedEvent{Data: testBlockData, Peer: peerA}
+	mgrB.On("blockReceived", event).Once()
+	mgrC.On("blockReceived", event).Once()
 
-	mgrA.SendMessage(testMessageData)
+	mgrA.SendBlock(testBlockData)
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -288,11 +288,11 @@ func TestSingleSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	// only mgr should receive the message
-	mgrB.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerA}).Once()
+	// only mgr should receive the block
+	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Peer: peerA}).Once()
 
-	// A sends the message only to B
-	mgrA.SendMessage(testMessageData, peerB.ID())
+	// A sends the block only to B
+	mgrA.SendBlock(testBlockData, peerB.ID())
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -324,7 +324,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	mgrB.AssertExpectations(t)
 }
 
-func TestMessageRequest(t *testing.T) {
+func TestBlockRequest(t *testing.T) {
 	testMgrs := newTestManagers(t, true /* doMock */, t.Name()+"_A", t.Name()+"_B")
 	mgrA, closeA, peerA := testMgrs[0].mockManager, testMgrs[0].close, testMgrs[0].peer
 	mgrB, closeB, peerB := testMgrs[1].mockManager, testMgrs[1].close, testMgrs[1].peer
@@ -352,14 +352,14 @@ func TestMessageRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := tangle.MessageID{}
+	id := tangle.BlockID{}
 
-	// mgrA should eventually receive the message
-	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
+	// mgrA should eventually receive the block
+	mgrA.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Peer: peerB}).Once()
 
-	b, err := proto.Marshal(&pb.MessageRequest{Id: id.Bytes()})
+	b, err := proto.Marshal(&pb.BlockRequest{Id: id.Bytes()})
 	require.NoError(t, err)
-	mgrA.RequestMessage(b)
+	mgrA.RequestBlock(b)
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -537,7 +537,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 		require.NoError(t, err)
 
 		// start the actual gossipping
-		mgr := NewManager(hst, local, loadTestMessage, l)
+		mgr := NewManager(hst, local, loadTestBlock, l)
 		require.NoError(t, err)
 		tearDown := func() {
 			mgr.Stop()
@@ -569,7 +569,7 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
 	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
-	e.Events.MessageReceived.Hook(event.NewClosure(e.messageReceived))
+	e.Events.BlockReceived.Hook(event.NewClosure(e.blockReceived))
 
 	return e
 }
@@ -581,4 +581,4 @@ type mockedManager struct {
 
 func (e *mockedManager) neighborAdded(event *NeighborAddedEvent)     { e.Called(event.Neighbor) }
 func (e *mockedManager) neighborRemoved(event *NeighborRemovedEvent) { e.Called(event.Neighbor) }
-func (e *mockedManager) messageReceived(event *MessageReceivedEvent) { e.Called(event) }
+func (e *mockedManager) blockReceived(event *BlockReceivedEvent)     { e.Called(event) }

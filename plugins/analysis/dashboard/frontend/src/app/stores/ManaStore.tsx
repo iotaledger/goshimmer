@@ -1,11 +1,11 @@
 import {action, computed, observable} from 'mobx';
 import * as React from "react";
 import {Col, ListGroupItem, OverlayTrigger, Popover, Row} from "react-bootstrap";
-import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
-import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
+import {WSBlkTypeDashboard} from "../models/ws/WSBlkTypeDashboard";
+import {INetworkManaBlock} from "../models/mana/INetworkManaBlock";
 import {INode} from "../models/mana/INode";
-import {IPledgeMessage} from "../models/mana/IPledgeMessage";
-import {IRevokeMessage} from "../models/mana/IRevokeMessage";
+import {IPledgeBlock} from "../models/mana/IPledgeBlock";
+import {IRevokeBlock} from "../models/mana/IRevokeBlock";
 import {displayManaUnit} from "../../../../../../dashboard/frontend/src/app/utils";
 import Plus from "../../../../../../../plugins/dashboard/frontend/src/assets/plus.svg"
 import Minus from "../../../../../../../plugins/dashboard/frontend/src/assets/minus.svg"
@@ -105,13 +105,13 @@ export class ManaStore {
     constructor() {
         this.accessValues = [];
         this.consensusValues = [];
-        registerHandler(WSMsgTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
-        registerHandler(WSMsgTypeDashboard.ManaMapOnline, this.updateActiveRichest);
-        registerHandler(WSMsgTypeDashboard.ManaInitPledge, this.addNewInitPledge);
-        registerHandler(WSMsgTypeDashboard.ManaInitRevoke, this.addNewInitRevoke);
-        registerHandler(WSMsgTypeDashboard.ManaInitDone, this.initDone);
-        registerHandler(WSMsgTypeDashboard.ManaPledge, this.addNewPledge);
-        registerHandler(WSMsgTypeDashboard.ManaRevoke, this.addNewRevoke);
+        registerHandler(WSBlkTypeDashboard.ManaMapOverall, this.updateNetworkRichest);
+        registerHandler(WSBlkTypeDashboard.ManaMapOnline, this.updateActiveRichest);
+        registerHandler(WSBlkTypeDashboard.ManaInitPledge, this.addNewInitPledge);
+        registerHandler(WSBlkTypeDashboard.ManaInitRevoke, this.addNewInitRevoke);
+        registerHandler(WSBlkTypeDashboard.ManaInitDone, this.initDone);
+        registerHandler(WSBlkTypeDashboard.ManaPledge, this.addNewPledge);
+        registerHandler(WSBlkTypeDashboard.ManaRevoke, this.addNewRevoke);
     };
 
     @action
@@ -170,31 +170,31 @@ export class ManaStore {
     }
 
     @action
-    updateNetworkRichest = (msg: INetworkManaMessage) => {
-        switch (msg.manaType) {
+    updateNetworkRichest = (blk: INetworkManaBlock) => {
+        switch (blk.manaType) {
             case "Access":
-                this.totalAccessNetwork = msg.totalMana;
-                this.accessNetworkRichest = msg.nodes;
+                this.totalAccessNetwork = blk.totalMana;
+                this.accessNetworkRichest = blk.nodes;
                 this.addAccessValue(this.totalAccessNetwork)
                 break;
             case "Consensus":
-                this.totalConsensusNetwork = msg.totalMana;
-                this.consensusNetworkRichest = msg.nodes;
+                this.totalConsensusNetwork = blk.totalMana;
+                this.consensusNetworkRichest = blk.nodes;
                 this.addConsensusValue(this.totalConsensusNetwork);
                 break;
         }
     }
 
     @action
-    updateActiveRichest = (msg: INetworkManaMessage) => {
-        switch (msg.manaType) {
+    updateActiveRichest = (blk: INetworkManaBlock) => {
+        switch (blk.manaType) {
             case "Access":
-                this.totalAccessActive = msg.totalMana;
-                this.accessActiveRichest = msg.nodes;
+                this.totalAccessActive = blk.totalMana;
+                this.accessActiveRichest = blk.nodes;
                 break;
             case "Consensus":
-                this.totalConsensusActive = msg.totalMana;
-                this.consensusActiveRichest = msg.nodes;
+                this.totalConsensusActive = blk.totalMana;
+                this.consensusActiveRichest = blk.nodes;
                 //TODO: show access or consensus mana
                 this.consensusActiveRichest.forEach(node => {
                     autopeeringStore.updateColorBasedOnMana(node.shortNodeID, node.mana)
@@ -214,9 +214,9 @@ export class ManaStore {
     }
 
     @action
-    addNewInitPledge = (msg: IPledgeMessage) => {
+    addNewInitPledge = (blk: IPledgeBlock) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Access":
                 store = this.initAccessEvents;
                 if (store.length >= maxEventsStored) {
@@ -239,18 +239,18 @@ export class ManaStore {
                 return
         }
         let newData = new PledgeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount,
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount,
         );
         store.push(newData);
     }
 
     @action
-    addNewPledge = (msg: IPledgeMessage) => {
+    addNewPledge = (blk: IPledgeBlock) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Access":
                 store = this.accessEvents;
                 if (store.length >= maxEventsStored) {
@@ -273,19 +273,19 @@ export class ManaStore {
                 return
         }
         let newData = new PledgeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount,
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount,
         );
         store.push(newData);
         this.eventsUpdated = true;
     }
 
     @action
-    addNewInitRevoke = (msg: IRevokeMessage) => {
+    addNewInitRevoke = (blk: IRevokeBlock) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Consensus":
                 store = this.initConsensusEvents;
                 if (store.length >= maxEventsStored) {
@@ -299,18 +299,18 @@ export class ManaStore {
                 return;
         }
         let newData = new RevokeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount
         );
         store.push(newData);
     }
 
     @action
-    addNewRevoke = (msg: IRevokeMessage) => {
+    addNewRevoke = (blk: IRevokeBlock) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Consensus":
                 store = this.consensusEvents;
                 if (store.length >= maxEventsStored) {
@@ -324,10 +324,10 @@ export class ManaStore {
                 return;
         }
         let newData = new RevokeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount
         );
         store.push(newData);
         this.eventsUpdated = true;

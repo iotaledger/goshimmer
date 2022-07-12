@@ -7,7 +7,7 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go v0.0.0-20220617100616-12bd6f35b4a1
+	github.com/iotaledger/hive.go v0.0.0-20220705110659-84be3e28c8ce
 	github.com/mr-tron/base58 v1.2.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
@@ -23,6 +23,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8 // indirect
+	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect

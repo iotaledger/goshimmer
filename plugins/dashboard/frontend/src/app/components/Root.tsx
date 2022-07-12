@@ -10,7 +10,7 @@ import {Explorer} from "app/components/Explorer";
 import {NavExplorerSearchbar} from "app/components/NavExplorerSearchbar";
 import {Redirect, Route, Switch} from 'react-router-dom';
 import {LinkContainer} from 'react-router-bootstrap';
-import {ExplorerMessageQueryResult} from "app/components/ExplorerMessageQueryResult";
+import {ExplorerBlockQueryResult} from "app/components/ExplorerBlockQueryResult";
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
@@ -20,7 +20,7 @@ import {Conflicts} from "app/components/Conflicts";
 import {Mana} from "app/components/Mana";
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerOutputQueryResult} from "app/components/ExplorerOutputQueryResult";
-import {ExplorerBranchQueryResult} from "app/components/ExplorerBranchQueryResult";
+import {ExplorerConflictQueryResult} from "app/components/ExplorerConflictQueryResult";
 
 interface Props {
     history: any;
@@ -93,11 +93,11 @@ export class Root extends React.Component<Props, any> {
                 <Switch>
                     <Route exact path="/dashboard" component={Dashboard}/>
                     <Route exact path="/neighbors" component={Neighbors}/>
-                    <Route exact path="/explorer/message/:id" component={ExplorerMessageQueryResult}/>
+                    <Route exact path="/explorer/block/:id" component={ExplorerBlockQueryResult}/>
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/transaction/:id" component={ExplorerTransactionQueryResult}/>
                     <Route exact path="/explorer/output/:id" component={ExplorerOutputQueryResult}/>
-                    <Route exact path="/explorer/branch/:id" component={ExplorerBranchQueryResult}/>
+                    <Route exact path="/explorer/conflict/:id" component={ExplorerConflictQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/chat" component={Chat}/>
                     <Route exact path="/conflicts" component={Conflicts}/>

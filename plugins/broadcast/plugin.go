@@ -53,16 +53,16 @@ func run(_ *node.Plugin) {
 		Plugin.LogFatalf("Failed to start Broadcast daemon: %v", err)
 	}
 
-	// Get Messages from node.
-	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		server.Broadcast([]byte(event.Message.String()))
+	// Get Blocks from node.
+	notifyNewBlk := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		server.Broadcast([]byte(event.Block.String()))
 	})
 
-	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
+	if err := daemon.BackgroundWorker("Broadcast[BlkUpdater]", func(ctx context.Context) {
+		deps.Tangle.Storage.Events.BlockStored.Attach(notifyNewBlk)
 		<-ctx.Done()
 		Plugin.LogInfof("Stopping Broadcast...")
-		deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
+		deps.Tangle.Storage.Events.BlockStored.Detach(notifyNewBlk)
 		Plugin.LogInfof("Stopping Broadcast... \tDone")
 	}, shutdown.PriorityBroadcast); err != nil {
 		Plugin.LogError("Failed to start as daemon: %s", err)

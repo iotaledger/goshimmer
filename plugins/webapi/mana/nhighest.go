@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.

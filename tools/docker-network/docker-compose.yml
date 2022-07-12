@@ -8,6 +8,8 @@ services:
   peer_master:
     build: *goshimmer_build
     stop_grace_period: 1m
+    environment:
+      - BLOCKLAYER_GENESISTIME
     command: >
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
@@ -19,20 +21,19 @@ services:
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
       --mana.enableResearchVectors=false
-      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
-      --messageLayer.snapshot.genesisNode=
-      --messageLayer.startSynced=true
+      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+      --blockLayer.snapshot.genesisNode=
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
       --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
-      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsBlockEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --messageLayer.startSynced=true
+      --blockLayer.startSynced=true
     secrets:
       - goshimmer.config.json
-      - goshimmer.message.snapshot.bin
+      - goshimmer.block.snapshot.bin
     volumes:
       - mainnetdb:/app/mainnetdb
       - peerdb:/app/peerdb
@@ -49,20 +50,21 @@ services:
   peer_replica:
     build: *goshimmer_build
     stop_grace_period: 1m
+    environment:
+      - BLOCKLAYER_GENESISTIME
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",spammer
-      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
-      --messageLayer.snapshot.genesisNode=
-      --messageLayer.startSynced=true
+      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+      --blockLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
       - goshimmer.config.json
-      - goshimmer.message.snapshot.bin
+      - goshimmer.block.snapshot.bin
     networks:
       - goshimmer
     depends_on:
@@ -70,22 +72,23 @@ services:
   peer_master2:
     build: *goshimmer_build
     stop_grace_period: 1m
+    environment:
+      - BLOCKLAYER_GENESISTIME
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
       --node.overwriteStoredSeed=true
-      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
-      --messageLayer.snapshot.genesisNode=
-      --messageLayer.startSynced=true
+      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+      --blockLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --messageLayer.startSynced=true
+      --blockLayer.startSynced=true
     secrets:
       - goshimmer.config.json
-      - goshimmer.message.snapshot.bin
+      - goshimmer.block.snapshot.bin
     ports:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
@@ -97,22 +100,21 @@ services:
   peer_nomana:
     build: *goshimmer_build
     stop_grace_period: 1m
+    environment:
+      - BLOCKLAYER_GENESISTIME
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.enablePlugins="webapi tools endpoint",spammer,prometheus
       --node.overwriteStoredSeed=true
-      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
-      --messageLayer.snapshot.genesisNode=
-      --messageLayer.startSynced=true
+      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+      --blockLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --mana.snapshotResetTime=true
-      --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
-      - goshimmer.message.snapshot.bin
+      - goshimmer.block.snapshot.bin
     ports:
       - "8040:8080/tcp" # web API
       - "8041:8081/tcp" # dashboard
@@ -125,6 +127,8 @@ services:
   faucet:
     build: *goshimmer_build
     stop_grace_period: 1m
+    environment:
+      - BLOCKLAYER_GENESISTIME
     command: >
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
@@ -134,14 +138,14 @@ services:
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus,spammer,"WebAPIFaucetEndpoint"
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
-      --messageLayer.startSynced=true
+      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+      --blockLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
-      --messageLayer.snapshot.genesisNode=
+      --blockLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
     secrets:
       - goshimmer.config.json
-      - goshimmer.message.snapshot.bin
+      - goshimmer.block.snapshot.bin
     ports:
       - "8090:8080/tcp" # web API
       - "8051:8061/tcp" # dags visualizer
@@ -197,7 +201,7 @@ volumes:
   grafana-data-volume:
 # read only files to load in the containers that may be shared across containers
 secrets:
-  goshimmer.message.snapshot.bin:
+  goshimmer.block.snapshot.bin:
     file: ${SNAPSHOT_FILE:-./docker-network.snapshot}
   goshimmer.config.json:
     file: ${GOSHIMMER_CONFIG:-./config.docker.json}

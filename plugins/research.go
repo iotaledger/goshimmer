@@ -8,6 +8,7 @@ import (
 	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/chat"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/goshimmer/plugins/networkdelay"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -22,6 +23,7 @@ var Research = node.Plugins(
 	analysisdashboard.Plugin,
 	prometheus.Plugin,
 	remotemetrics.Plugin,
+	epochstorage.Plugin,
 	networkdelay.App(),
 	activity.Plugin,
 	chat.Plugin,

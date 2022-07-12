@@ -10,7 +10,7 @@ package mana
 //	"github.com/mr-tron/base58"
 //
 //	"github.com/iotaledger/goshimmer/packages/mana"
-//	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+//	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 //	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 //)
 //
