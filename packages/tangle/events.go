@@ -128,18 +128,20 @@ type SchedulerEvents struct {
 	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
 	MessageDiscarded *event.Event[*MessageDiscardedEvent]
 	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
-	MessageSkipped  *event.Event[*MessageSkippedEvent]
-	NodeBlacklisted *event.Event[*NodeBlacklistedEvent]
-	Error           *event.Event[error]
+	MessageSkipped    *event.Event[*MessageSkippedEvent]
+	NodeBlacklisted   *event.Event[*NodeBlacklistedEvent]
+	Error             *event.Event[error]
+	OwnDeficitUpdated *event.Event[*OwnDeficitUpdatedEvent]
 }
 
 func NewSchedulerEvents() (new *SchedulerEvents) {
 	return &SchedulerEvents{
-		MessageScheduled: event.New[*MessageScheduledEvent](),
-		MessageDiscarded: event.New[*MessageDiscardedEvent](),
-		MessageSkipped:   event.New[*MessageSkippedEvent](),
-		NodeBlacklisted:  event.New[*NodeBlacklistedEvent](),
-		Error:            event.New[error](),
+		MessageScheduled:  event.New[*MessageScheduledEvent](),
+		MessageDiscarded:  event.New[*MessageDiscardedEvent](),
+		MessageSkipped:    event.New[*MessageSkippedEvent](),
+		NodeBlacklisted:   event.New[*NodeBlacklistedEvent](),
+		Error:             event.New[error](),
+		OwnDeficitUpdated: event.New[*OwnDeficitUpdatedEvent](),
 	}
 }
 
@@ -157,6 +159,10 @@ type MessageSkippedEvent struct {
 
 type NodeBlacklistedEvent struct {
 	NodeID identity.ID
+}
+
+type OwnDeficitUpdatedEvent struct {
+	Deficit float64
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

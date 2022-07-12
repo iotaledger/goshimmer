@@ -22,7 +22,7 @@ const (
 	RateSettingIncrease = 0.075
 	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "β".
-	RateSettingDecrease = 1.5
+	RateSettingDecrease = 0.7
 	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
 	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
@@ -40,7 +40,7 @@ var (
 
 // RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
-	Enabled          bool
+	Mode             string
 	Initial          float64
 	RateSettingPause time.Duration
 }
@@ -56,6 +56,8 @@ type RateSetter struct {
 	self                identity.ID
 	issuingQueue        *schedulerutils.NodeQueue
 	issueChan           chan *Message
+	deficitChan         chan float64
+	excessDeficit       *atomic.Float64
 	ownRate             *atomic.Float64
 	pauseUpdates        uint
 	initialPauseUpdates uint
@@ -74,6 +76,8 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		self:                tangle.Options.Identity.ID(),
 		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:           make(chan *Message),
+		deficitChan:         make(chan float64),
+		excessDeficit:       atomic.NewFloat64(0),
 		ownRate:             atomic.NewFloat64(0),
 		pauseUpdates:        0,
 		initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
@@ -82,13 +86,19 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		shutdownOnce:        sync.Once{},
 	}
 
-	go rateSetter.issuerLoop()
+	if tangle.Options.RateSetterParams.Mode == "aimd" {
+		go rateSetter.AIMDIssuerLoop()
+	}
+	if tangle.Options.RateSetterParams.Mode == "deficit" {
+		go rateSetter.DeficitIssuerLoop()
+	}
+
 	return rateSetter
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
-	if !r.tangle.Options.RateSetterParams.Enabled {
+	if r.tangle.Options.RateSetterParams.Mode == "disabled" {
 		r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
 			r.Events.MessageIssued.Trigger(event)
 		}))
@@ -100,16 +110,24 @@ func (r *RateSetter) Setup() {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
-	// update own rate setting
-	r.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
-		if r.pauseUpdates > 0 {
-			r.pauseUpdates--
-			return
-		}
-		if r.issuingQueue.Size()+r.tangle.Scheduler.NodeQueueSize(selfLocalIdentity.ID()) > 0 {
-			r.rateSetting()
-		}
-	}))
+	// update own AIMD rate setting each time a message is scheduled if in AIMD mode
+	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
+		r.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
+			if r.pauseUpdates > 0 {
+				r.pauseUpdates--
+				return
+			}
+			if r.issuingQueue.Size()+r.tangle.Scheduler.NodeQueueSize(selfLocalIdentity.ID()) > 0 {
+				r.AIMDRateSetting()
+			}
+		}))
+	}
+	// update deficit-based rate setting if own deficit is modified
+	if r.tangle.Options.RateSetterParams.Mode == "deficit" {
+		r.tangle.Scheduler.Events.OwnDeficitUpdated.Attach(event.NewClosure(func(event *OwnDeficitUpdatedEvent) {
+			r.deficitChan <- event.Deficit
+		}))
+	}
 }
 
 // Issue submits a message to the local issuing queue.
@@ -119,7 +137,7 @@ func (r *RateSetter) Issue(message *Message) error {
 	}
 	r.initOnce.Do(func() {
 		// initialize mana vectors in cache here when mana vectors are already loaded
-		r.initializeInitialRate()
+		r.InitializeRate()
 	})
 
 	select {
@@ -149,21 +167,27 @@ func (r *RateSetter) Size() int {
 
 // Estimate estimates the issuing time of new message.
 func (r *RateSetter) Estimate() time.Duration {
-	r.initOnce.Do(func() {
-		// initialize mana vectors in cache here when mana vectors are already loaded
-		r.initializeInitialRate()
-	})
+	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
+		r.initOnce.Do(func() {
+			// initialize mana vectors in cache here when mana vectors are already loaded
+			r.InitializeRate()
+		})
 
-	var pauseUpdate time.Duration
-	if r.pauseUpdates > 0 {
-		pauseUpdate = time.Duration(float64(r.pauseUpdates)) * r.tangle.Scheduler.Rate()
+		var pauseUpdate time.Duration
+		if r.pauseUpdates > 0 {
+			pauseUpdate = time.Duration(float64(r.pauseUpdates)) * r.tangle.Scheduler.Rate()
+		}
+		// dummy estimate
+		return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
+	} else if r.tangle.Options.RateSetterParams.Mode == "deficit" {
+		return time.Duration((r.excessDeficit.Load() - float64(r.Size())) / r.ownRate.Load())
+	} else {
+		return time.Duration(0) // return no wait if rate setter is disabled
 	}
-	// dummy estimate
-	return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
 }
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
-func (r *RateSetter) rateSetting() {
+func (r *RateSetter) AIMDRateSetting() {
 	// Return access mana or MinMana to allow zero mana nodes issue.
 	ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
 	maxManaValue := lo.Max(append(lo.Values(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()), MinMana)...)
@@ -173,7 +197,7 @@ func (r *RateSetter) rateSetting() {
 
 	// TODO: make sure not to issue or scheduled blocks older than TSC
 	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
-		ownRate /= RateSettingDecrease
+		ownRate *= RateSettingDecrease
 		r.pauseUpdates = r.initialPauseUpdates
 	} else {
 		ownRate += RateSettingIncrease * ownMana / totalMana
@@ -181,7 +205,7 @@ func (r *RateSetter) rateSetting() {
 	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
 
-func (r *RateSetter) issuerLoop() {
+func (r *RateSetter) AIMDIssuerLoop() {
 	var (
 		issueTimer    = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
@@ -192,7 +216,7 @@ func (r *RateSetter) issuerLoop() {
 loop:
 	for {
 		select {
-		// a new message can be submitted to the scheduler
+		// a new message can be issued (submitted to the scheduler) if there is anything in the issuing queue
 		case <-issueTimer.C:
 			timerStopped = true
 			if r.issuingQueue.Front() == nil {
@@ -211,6 +235,7 @@ loop:
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
+				// drop tail
 				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
 				continue
 			}
@@ -239,12 +264,69 @@ loop:
 	}
 }
 
+func (r *RateSetter) DeficitIssuerLoop() {
+	var (
+		nextMessageSize = float64(0.0)
+		lastDeficit     = float64(0.0)
+		lastUpdateTime  = float64(time.Now().Nanosecond()) / 1000000000
+	)
+loop:
+	for {
+		select {
+		// if own deficit changes, check if we can issue something
+		case excessDeficit := <-r.deficitChan:
+			r.excessDeficit.Store(excessDeficit)
+			if nextMessageSize > 0 && excessDeficit > nextMessageSize {
+				msg := r.issuingQueue.PopFront().(*Message)
+				r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
+
+				if next := r.issuingQueue.Front(); next != nil {
+					nextMessageSize = 0.0
+				} else {
+					nextMessageSize = float64(next.Size())
+				}
+			}
+			// update the deficit growth rate estimate
+			currentTime := float64(time.Now().Nanosecond()) / 1000000000
+			r.ownRate.Store((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime))
+			lastDeficit = excessDeficit
+			lastUpdateTime = currentTime
+
+		// if new message arrives, add it to the issuing queue
+		case msg := <-r.issueChan:
+			// if issuing queue is empty and we have enough deficit, issue this immediately
+			if r.issuingQueue.Size() == 0 && r.excessDeficit.Load() >= float64(msg.Size()) {
+				r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
+				// if issuing queue is full, discard this
+			} else if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
+				// drop tail
+				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
+				continue
+			}
+			// add to queue
+			r.issuingQueue.Submit(msg)
+			r.issuingQueue.Ready(msg)
+
+			if next := r.issuingQueue.Front(); next != nil {
+				nextMessageSize = 0.0
+			} else {
+				nextMessageSize = float64(next.Size())
+			}
+
+		// on close, exit the loop
+		case <-r.shutdownSignal:
+			break loop
+		}
+	}
+
+}
+
 func (r *RateSetter) issueInterval() time.Duration {
 	wait := time.Duration(math.Ceil(float64(1) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
-func (r *RateSetter) initializeInitialRate() {
+func (r *RateSetter) InitializeRate() {
 	if r.tangle.Options.RateSetterParams.Initial > 0.0 {
 		r.ownRate.Store(r.tangle.Options.RateSetterParams.Initial)
 	} else {

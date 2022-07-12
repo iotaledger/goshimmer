@@ -56,6 +56,7 @@ type Scheduler struct {
 	confirmedMsgThreshold time.Duration
 	shutdownSignal        chan struct{}
 	shutdownOnce          sync.Once
+	self                  identity.ID
 }
 
 // NewScheduler returns a new Scheduler.
@@ -92,6 +93,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		confirmedMsgThreshold: confirmedMessageScheduleThreshold,
 		deficits:              make(map[identity.ID]*big.Rat),
 		shutdownSignal:        make(chan struct{}),
+		self:                  tangle.Options.Identity.ID(),
 	}
 }
 
@@ -554,6 +556,13 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
 	s.deficits[nodeID] = minRat(deficit, MaxDeficit)
+
+	// Trigger deficit updated event for the deficit-based rate setter.
+	if nodeID == s.self {
+		deficitFloat, _ := deficit.Float64()
+		excessDeficit := deficitFloat - float64(s.buffer.NodeQueue(nodeID).Size())
+		s.Events.OwnDeficitUpdated.Trigger(&OwnDeficitUpdatedEvent{excessDeficit})
+	}
 }
 
 func minRat(x, y *big.Rat) *big.Rat {

@@ -197,7 +197,7 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 		tangle.RateSetterConfig(tangle.RateSetterParams{
 			Initial:          RateSetterParameters.Initial,
 			RateSettingPause: RateSetterParameters.RateSettingPause,
-			Enabled:          RateSetterParameters.Enable,
+			Mode:             RateSetterParameters.Mode,
 		}),
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),

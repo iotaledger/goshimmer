@@ -57,7 +57,7 @@ type RateSetterParametersDefinition struct {
 	// RateSettingPause defines for how long to pause updates after decrease of rate.
 	RateSettingPause time.Duration `default:"2s" usage:"for how long to pause updates after decrease of rate"`
 	// Enable is the flag that enables the rate setting mechanism on node startup.
-	Enable bool `default:"true" usage:"whether to enable rate setter"`
+	Mode string `default:"deficit" usage:"rate setter mode. Possible values are aimd, deficit, or disabled"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
