@@ -77,6 +77,8 @@ type SchedulerParametersDefinition struct {
 type NotarizationParameterDefinition struct {
 	// MinEpochCommitableAge defines the min age of a commitable epoch.
 	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
+	// BootstrapWindow when notarization manager is considered to be bootstrapped
+	BootstrapWindow time.Duration `default:"2m" usage:"when notarization manager is considered to be bootstrapped"`
 	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
 	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 }

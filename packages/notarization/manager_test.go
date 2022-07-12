@@ -976,7 +976,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), ManaDelay(2), Log(logger.NewExampleLogger("test")))
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), ManaDelay(2), Log(logger.NewExampleLogger("test")))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()

@@ -584,7 +584,7 @@ func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableE
 func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-	if !m.bootstrapped && ei > epoch.IndexFromTime(clock.SyncedTime().Add(-2*m.options.MinCommittableEpochAge)) {
+	if !m.bootstrapped && ei > epoch.IndexFromTime(clock.SyncedTime().Add(m.options.BootstrapWindow)) {
 		m.bootstrapped = true
 		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
@@ -600,6 +600,7 @@ type ManagerOption func(options *ManagerOptions)
 // ManagerOptions is a container of all the config parameters of the notarization manager.
 type ManagerOptions struct {
 	MinCommittableEpochAge time.Duration
+	BootstrapWindow        time.Duration
 	ManaEpochDelay         uint
 	Log                    *logger.Logger
 }
@@ -608,6 +609,13 @@ type ManagerOptions struct {
 func MinCommittableEpochAge(d time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.MinCommittableEpochAge = d
+	}
+}
+
+// BootstrapWindow specifies when the notarization manager is considered to be bootstrapped.
+func BootstrapWindow(d time.Duration) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.BootstrapWindow = d
 	}
 }
 

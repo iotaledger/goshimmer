@@ -212,7 +212,7 @@ func configureEvents() {
 	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
 		onBlockProcessed(event.BlockID)
 	}))
-	deps.BootstrapManager.Events().Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
+	deps.BootstrapManager.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
 		bootstrapped <- true
 	}))
 }
