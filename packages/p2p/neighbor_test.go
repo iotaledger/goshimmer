@@ -1,4 +1,4 @@
-package gossip
+package p2p
 
 import (
 	"net"
@@ -66,9 +66,9 @@ func TestNeighborWrite(t *testing.T) {
 	}))
 	neighborB.readLoop()
 
-	err := neighborA.ps.writePacket(testPacket1)
+	err := neighborA.Ps.writePacket(testPacket1)
 	require.NoError(t, err)
-	err = neighborB.ps.writePacket(testPacket2)
+	err = neighborB.Ps.writePacket(testPacket2)
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)

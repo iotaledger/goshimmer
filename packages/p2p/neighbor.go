@@ -1,4 +1,4 @@
-package gossip
+package p2p
 
 import (
 	"io"
@@ -32,15 +32,15 @@ type Neighbor struct {
 
 	Events *NeighborEvents
 
-	log            *logger.Logger
+	Log            *logger.Logger
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
 
-	ps *packetsStream
+	Ps *PacketsStream
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *logger.Logger) *Neighbor {
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *PacketsStream, log *logger.Logger) *Neighbor {
 	log = log.With(
 		"id", p.ID(),
 		"localAddr", ps.Conn().LocalMultiaddr(),
@@ -52,25 +52,25 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *log
 
 		Events: NewNeighborEvents(),
 
-		log: log,
+		Log: log,
 
-		ps: ps,
+		Ps: ps,
 	}
 }
 
 // PacketsRead returns number of packets this neighbor has received.
 func (n *Neighbor) PacketsRead() uint64 {
-	return n.ps.packetsRead.Load()
+	return n.Ps.packetsRead.Load()
 }
 
 // PacketsWritten returns number of packets this neighbor has sent.
 func (n *Neighbor) PacketsWritten() uint64 {
-	return n.ps.packetsWritten.Load()
+	return n.Ps.packetsWritten.Load()
 }
 
 // ConnectionEstablished returns the connection established.
 func (n *Neighbor) ConnectionEstablished() time.Time {
-	return n.ps.Stat().Opened
+	return n.Ps.Stat().Opened
 }
 
 func (n *Neighbor) readLoop() {
@@ -85,16 +85,16 @@ func (n *Neighbor) readLoop() {
 			// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
 			// we won't execute it twice.
 			packet := &pb.Packet{}
-			err := n.ps.readPacket(packet)
+			err := n.Ps.ReadPacket(packet)
 			if err != nil {
 				if isPermanentError(err) {
 					if disconnectErr := n.disconnect(); disconnectErr != nil {
-						n.log.Warnw("Failed to disconnect", "err", disconnectErr)
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
 					}
 					return
 				}
 				if !isTimeoutError(err) {
-					n.log.Debugw("Read error", "err", err)
+					n.Log.Debugw("Read error", "err", err)
 				}
 				continue
 			}
@@ -103,19 +103,19 @@ func (n *Neighbor) readLoop() {
 	}()
 }
 
-func (n *Neighbor) close() {
+func (n *Neighbor) Close() {
 	if err := n.disconnect(); err != nil {
-		n.log.Errorw("Failed to disconnect the neighbor", "err", err)
+		n.Log.Errorw("Failed to disconnect the neighbor", "err", err)
 	}
 	n.wg.Wait()
 }
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
-		if streamErr := n.ps.Close(); streamErr != nil {
+		if streamErr := n.Ps.Close(); streamErr != nil {
 			err = errors.WithStack(streamErr)
 		}
-		n.log.Info("Connection closed")
+		n.Log.Info("Connection closed")
 		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
 	})
 	return err

@@ -1,4 +1,4 @@
-package gossip
+package p2p
 
 import (
 	"context"
