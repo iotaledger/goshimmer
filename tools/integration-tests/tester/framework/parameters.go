@@ -120,7 +120,7 @@ func EntryNodeConfig() config.GoShimmer {
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
 		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization", "ManaInitializer",
-		"Firewall", "WebAPILedgerstateEndpoint")
+		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
