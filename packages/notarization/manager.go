@@ -29,6 +29,7 @@ type Manager struct {
 	tangle                      *tangle.Tangle
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
+	bootstrapMutex              sync.RWMutex
 	options                     *ManagerOptions
 	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
@@ -389,8 +390,8 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 
 // Bootstrapped returns the current value of pendingConflictsCount per epoch.
 func (m *Manager) Bootstrapped() bool {
-	m.epochCommitmentFactoryMutex.RLock()
-	defer m.epochCommitmentFactoryMutex.RUnlock()
+	m.bootstrapMutex.RLock()
+	defer m.bootstrapMutex.RUnlock()
 	return m.bootstrapped
 }
 
@@ -560,15 +561,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 		}
 	}
 	return epochCommittableEvents, manaVectorUpdateEvents
-
-	//go func() {
-	//	for _, epochCommittableEvent := range epochCommittableEvents {
-	//		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
-	//	}
-	//	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
-	//		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
-	//	}
-	//}()
 }
 
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
@@ -582,10 +574,10 @@ func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableE
 }
 
 func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
-	m.epochCommitmentFactoryMutex.Lock()
-	defer m.epochCommitmentFactoryMutex.Unlock()
-	if !m.bootstrapped && ei > epoch.IndexFromTime(clock.SyncedTime().Add(m.options.BootstrapWindow)) {
+	if !m.Bootstrapped() && ei > epoch.IndexFromTime(clock.SyncedTime().Add(m.options.BootstrapWindow)) {
+		m.bootstrapMutex.Lock()
 		m.bootstrapped = true
+		m.bootstrapMutex.Unlock()
 		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
 }
