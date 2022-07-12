@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -193,7 +192,6 @@ func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(block.IssuingTime())
-	fmt.Println("block", block.ID(), "accepted at epoch", ei)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("block %s confirmed with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
@@ -552,15 +550,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 		}
 	}
 	return epochCommittableEvents, manaVectorUpdateEvents
-
-	//go func() {
-	//	for _, epochCommittableEvent := range epochCommittableEvents {
-	//		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
-	//	}
-	//	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
-	//		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
-	//	}
-	//}()
 }
 
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
