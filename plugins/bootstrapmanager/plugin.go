@@ -16,7 +16,7 @@ import (
 var (
 	// Plugin is the plugin instance of the blocklayer plugin.
 	Plugin     *node.Plugin
-	deps       = new(dependencies)
+	_          = new(dependencies)
 	pluginDeps = new(pluginDependencies)
 )
 
