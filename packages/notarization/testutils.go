@@ -3,9 +3,11 @@ package notarization
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
@@ -78,13 +80,14 @@ func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
+	var calledEvents, expectedEvents uint64
 	event.Loop.WaitUntilAllTasksProcessed()
-	calledEvents := atomic.LoadUint64(&e.calledEvents)
-	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
-	if calledEvents != expectedEvents {
-		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
-		return false
-	}
+
+	assert.Eventuallyf(t, func() bool {
+		calledEvents = atomic.LoadUint64(&e.calledEvents)
+		expectedEvents = atomic.LoadUint64(&e.expectedEvents)
+		return calledEvents == expectedEvents
+	}, 5*time.Second, 1*time.Millisecond, "number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
 
 	defer func() {
 		e.Calls = make([]mock.Call, 0)
