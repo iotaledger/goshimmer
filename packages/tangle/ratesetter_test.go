@@ -19,7 +19,7 @@ var (
 	testRateSetterParams = RateSetterParams{
 		Initial:          testInitial,
 		RateSettingPause: time.Second,
-		Enabled:          true,
+		Mode:             "aimd",
 	}
 )
 

@@ -109,7 +109,7 @@ func (r *RateSetter) Setup() {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
-	// update own AIMD rate setting each time a message is scheduled if in AIMD mode
+	// update own AIMD rate setting each time a block is scheduled if in AIMD mode
 	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
 		r.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(_ *BlockScheduledEvent) {
 			if r.pauseUpdates > 0 {
@@ -179,7 +179,11 @@ func (r *RateSetter) Estimate() time.Duration {
 		// dummy estimate
 		return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
 	} else if r.tangle.Options.RateSetterParams.Mode == "deficit" {
-		return time.Duration((r.excessDeficit.Load() - float64(r.Size())) / r.ownRate.Load())
+		if r.tangle.Scheduler.ReadyBlocksCount() == 0 {
+			return time.Duration(0)
+		} else {
+			return time.Duration(lo.Max(0, (float64(r.Size())-r.excessDeficit.Load())/r.ownRate.Load()))
+		}
 	} else {
 		return time.Duration(0) // return no wait if rate setter is disabled
 	}
@@ -264,9 +268,9 @@ loop:
 
 func (r *RateSetter) DeficitIssuerLoop() {
 	var (
-		nextMessageSize = float64(0.0)
-		lastDeficit     = float64(0.0)
-		lastUpdateTime  = float64(time.Now().Nanosecond()) / 1000000000
+		nextBlockSize  = float64(0.0)
+		lastDeficit    = float64(0.0)
+		lastUpdateTime = float64(time.Now().Nanosecond()) / 1000000000
 	)
 loop:
 	for {
@@ -274,41 +278,48 @@ loop:
 		// if own deficit changes, check if we can issue something
 		case excessDeficit := <-r.deficitChan:
 			r.excessDeficit.Store(excessDeficit)
-			if nextMessageSize > 0 && excessDeficit > nextMessageSize {
-				msg := r.issuingQueue.PopFront().(*Message)
-				r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
-
+			if nextBlockSize > 0 && (excessDeficit >= nextBlockSize || r.tangle.Scheduler.ReadyBlocksCount() == 0) {
+				blk := r.issuingQueue.PopFront().(*Block)
+				r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
 				if next := r.issuingQueue.Front(); next != nil {
-					nextMessageSize = 0.0
+					nextBlockSize = 0.0
 				} else {
-					nextMessageSize = float64(next.Size())
+					nextBlockSize = float64(next.Size())
 				}
 			}
 			// update the deficit growth rate estimate
 			currentTime := float64(time.Now().Nanosecond()) / 1000000000
-			r.ownRate.Store((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime))
+			if excessDeficit > lastDeficit {
+				r.ownRate.Store((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime))
+			}
 			lastDeficit = excessDeficit
 			lastUpdateTime = currentTime
 
-		// if new message arrives, add it to the issuing queue
-		case msg := <-r.issueChan:
+		// if new block arrives, add it to the issuing queue
+		case blk := <-r.issueChan:
 			// if issuing queue is empty and we have enough deficit, issue this immediately
-			if r.issuingQueue.Size() == 0 && r.excessDeficit.Load() >= float64(msg.Size()) {
-				r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
-				// if issuing queue is full, discard this
-			} else if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
+			if r.excessDeficit.Load() >= float64(blk.Size()) || r.tangle.Scheduler.ReadyBlocksCount() == 0 {
+				if r.Size() == 0 {
+					r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
+					break
+				}
+				issueBlk := r.issuingQueue.PopFront().(*Block)
+				r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: issueBlk})
+			}
+			// if issuing queue is full, discard this
+			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
 				// drop tail
-				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
-				continue
+				r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
+				break
 			}
 			// add to queue
-			r.issuingQueue.Submit(msg)
-			r.issuingQueue.Ready(msg)
+			r.issuingQueue.Submit(blk)
+			r.issuingQueue.Ready(blk)
 
 			if next := r.issuingQueue.Front(); next != nil {
-				nextMessageSize = 0.0
+				nextBlockSize = 0.0
 			} else {
-				nextMessageSize = float64(next.Size())
+				nextBlockSize = float64(next.Size())
 			}
 
 		// on close, exit the loop

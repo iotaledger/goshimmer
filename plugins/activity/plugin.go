@@ -38,8 +38,8 @@ func configure(plugin *node.Plugin) {
 func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
-	// sleep some time according to rate setter estimate
-	if deps.Tangle.Options.RateSetterParams.Enabled {
+	// sleep some time according to rate setter estimate (either aimd or deficit mode)
+	if deps.Tangle.Options.RateSetterParams.Mode != "disabled" {
 		time.Sleep(deps.Tangle.RateSetter.Estimate())
 	}
 
