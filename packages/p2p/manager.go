@@ -66,7 +66,7 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	protocols map[protocol.ID]*ProtocolHandler
+	registeredProtocols map[protocol.ID]*ProtocolHandler
 }
 
 // NewManager creates a new Manager.
@@ -80,8 +80,8 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
-		neighbors: map[identity.ID]*Neighbor{},
-		protocols: map[protocol.ID]*ProtocolHandler{},
+		neighbors:           map[identity.ID]*Neighbor{},
+		registeredProtocols: map[protocol.ID]*ProtocolHandler{},
 	}
 }
 
@@ -111,14 +111,14 @@ func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 
 // RegisterProtocol registers a new protocol.
 func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
-	m.protocols[protocolID] = protocolHandler
+	m.registeredProtocols[protocolID] = protocolHandler
 	m.libp2pHost.SetStreamHandler(protocolID, protocolHandler.StreamHandler)
 }
 
 // UnregisterProtocol unregisters a protocol.
 func (m *Manager) UnregisterProtocol(protocolID protocol.ID) {
 	m.libp2pHost.RemoveStreamHandler(protocolID)
-	delete(m.protocols, protocolID)
+	delete(m.registeredProtocols, protocolID)
 }
 
 // GetP2PHost returns the libp2p host.
@@ -236,7 +236,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))
 	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		protocolHandler, isRegistered := m.protocols[event.Protocol]
+		protocolHandler, isRegistered := m.registeredProtocols[event.Protocol]
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
 		}

@@ -63,7 +63,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	}
 
 	streams := make(map[protocol.ID]*PacketsStream)
-	for protocolID, handlers := range m.protocols {
+	for protocolID, handlers := range m.registeredProtocols {
 		stream, err := handlers.StreamEstablishFunc(ctx, libp2pID)
 		if err != nil {
 			return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
