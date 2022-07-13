@@ -264,53 +264,72 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 }
 
 func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
+	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	if err := baseStore.Set(append(prefix, blkID.Bytes()...), blkID.Bytes()); err != nil {
+	if err := blockStore.Set(blkID.Bytes(), blkID.Bytes()); err != nil {
 		return errors.New("Fail to insert block to epoch store")
 	}
 	return nil
 }
 
 func removeblockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
+	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	if err := baseStore.Delete(append(prefix, blkID.Bytes()...)); err != nil {
+	if err := blockStore.Delete(blkID.Bytes()); err != nil {
 		return errors.New("Fail to remove block from epoch store")
 	}
 	return nil
 }
 
 func insertTransactionToEpoch(ei epoch.Index, txID utxo.TransactionID) error {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...)
+	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	if err := baseStore.Set(append(prefix, txID.Bytes()...), txID.Bytes()); err != nil {
+	if err := txStore.Set(txID.Bytes(), txID.Bytes()); err != nil {
 		return errors.New("Fail to insert Transaction to epoch store")
 	}
 	return nil
 }
 
 func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...)
+	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	if err := baseStore.Delete(append(prefix, txID.Bytes()...)); err != nil {
+	if err := txStore.Delete(txID.Bytes()); err != nil {
 		return errors.New("Fail to remove Transaction from epoch store")
 	}
 	return nil
 }
 
 func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
-	createdPrefix := append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...)
-	spentPrefix := append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...)
+	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+
+	spentStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
 	for _, s := range spent {
-		if err := baseStore.Set(append(spentPrefix, s.ID().Bytes()...), s.ID().Bytes()); err != nil {
+		if err := spentStore.Set(s.ID().Bytes(), s.ID().Bytes()); err != nil {
 			return errors.New("Fail to insert spent output to epoch store")
 		}
 	}
 
 	for _, c := range created {
-		if err := baseStore.Set(append(createdPrefix, c.ID().Bytes()...), c.ID().Bytes()); err != nil {
+		if err := createdStore.Set(c.ID().Bytes(), c.ID().Bytes()); err != nil {
 			return errors.New("Fail to insert created output to epoch store")
 		}
 	}
@@ -319,17 +338,24 @@ func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMet
 }
 
 func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
-	createdPrefix := append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...)
-	spentPrefix := append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...)
+	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+
+	spentStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
 	for _, s := range spent {
-		if err := baseStore.Delete(append(spentPrefix, s.ID().Bytes()...)); err != nil {
+		if err := spentStore.Delete(s.ID().Bytes()); err != nil {
 			return errors.New("Fail to remove spent output from epoch store")
 		}
 	}
 
 	for _, c := range created {
-		if err := baseStore.Delete(append(createdPrefix, c.ID().Bytes()...)); err != nil {
+		if err := createdStore.Delete(c.ID().Bytes()); err != nil {
 			return errors.New("Fail to remove created output from epoch store")
 		}
 	}
