@@ -60,12 +60,9 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*
 	return new
 }
 
+// GetStream returns the stream for the given protocol.
 func (n *Neighbor) GetStream(protocol protocol.ID) *PacketsStream {
 	return n.protocols[protocol]
-}
-
-func (n *Neighbor) RegisterStream(protocol protocol.ID, ps *PacketsStream) {
-	n.protocols[protocol] = ps
 }
 
 // PacketsRead returns number of packets this neighbor has received.
@@ -132,6 +129,7 @@ func (n *Neighbor) readLoop() {
 	}
 }
 
+// Close closes the connection with the neighbor.
 func (n *Neighbor) Close() {
 	if err := n.disconnect(); err != nil {
 		n.Log.Errorw("Failed to disconnect the neighbor", "err", err)

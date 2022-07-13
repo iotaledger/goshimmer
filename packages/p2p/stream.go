@@ -130,6 +130,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	return map[protocol.ID]*PacketsStream{stream.Protocol(): stream}, nil
 }
 
+// AcceptMatcher holds data to match an existing connection with a peer.
 type AcceptMatcher struct {
 	Peer     *peer.Peer // connecting peer
 	Libp2pID libp2ppeer.ID
@@ -164,6 +165,8 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher) {
 	defer m.acceptMutex.Unlock()
 	delete(m.acceptMap, am.Libp2pID)
 }
+
+// MatchNewStream matches a new stream with a peer.
 func (m *Manager) MatchNewStream(stream network.Stream) *AcceptMatcher {
 	m.acceptMutex.RLock()
 	defer m.acceptMutex.RUnlock()
@@ -171,12 +174,14 @@ func (m *Manager) MatchNewStream(stream network.Stream) *AcceptMatcher {
 	return am
 }
 
+// CloseStream closes a stream.
 func (m *Manager) CloseStream(s network.Stream) {
 	if err := s.Close(); err != nil {
 		m.log.Warnw("close error", "err", err)
 	}
 }
 
+// PacketsStream represents a stream of packets.
 type PacketsStream struct {
 	network.Stream
 	packetFactory func() proto.Message
@@ -189,6 +194,7 @@ type PacketsStream struct {
 	packetsWritten *atomic.Uint64
 }
 
+// NewPacketsStream creates a new PacketsStream.
 func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message) *PacketsStream {
 	return &PacketsStream{
 		Stream:         stream,
@@ -200,6 +206,7 @@ func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message)
 	}
 }
 
+// WritePacket writes a packet to the stream.
 func (ps *PacketsStream) WritePacket(message proto.Message) error {
 	ps.writerLock.Lock()
 	defer ps.writerLock.Unlock()
@@ -214,6 +221,7 @@ func (ps *PacketsStream) WritePacket(message proto.Message) error {
 	return nil
 }
 
+// ReadPacket reads a packet from the stream.
 func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 	ps.readerLock.Lock()
 	defer ps.readerLock.Unlock()

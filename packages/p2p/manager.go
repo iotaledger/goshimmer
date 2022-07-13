@@ -109,16 +109,19 @@ func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 	return m.neighborsEvents[group]
 }
 
+// RegisterProtocol registers a new protocol.
 func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
 	m.protocols[protocolID] = protocolHandler
 	m.libp2pHost.SetStreamHandler(protocolID, protocolHandler.StreamHandler)
 }
 
+// UnregisterProtocol unregisters a protocol.
 func (m *Manager) UnregisterProtocol(protocolID protocol.ID) {
 	m.libp2pHost.RemoveStreamHandler(protocolID)
 	delete(m.protocols, protocolID)
 }
 
+// GetP2PHost returns the libp2p host.
 func (m *Manager) GetP2PHost() host.Host {
 	return m.libp2pHost
 }
@@ -180,6 +183,7 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 	return result
 }
 
+// GetNeighborsByID returns all the neighbors that are currently connected corresponding to the supplied ids.
 func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 	if len(ids) == 0 {
@@ -232,7 +236,11 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))
 	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		if err := m.protocols[event.Protocol].PacketHandler(event.Neighbor, event.Packet); err != nil {
+		protocolHandler, isRegistered := m.protocols[event.Protocol]
+		if !isRegistered {
+			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
+		}
+		if err := protocolHandler.PacketHandler(event.Neighbor, event.Packet); err != nil {
 			nbr.Log.Debugw("Can't handle packet", "err", err)
 		}
 	}))
