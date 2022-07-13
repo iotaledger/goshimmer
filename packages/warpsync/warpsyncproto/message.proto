@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto";
+
+package warpsyncproto;
+
+message Packet {
+  oneof body {
+    EpochBlocks epochblocks = 1;
+    EpochRequest epochRequest = 2;
+    Negotiation negotiation = 3;
+  }
+}
+
+message EpochBlocks {
+  int64 epoch = 1;
+  repeated bytes blocks = 2;
+}
+
+message EpochRequest {
+  int64 epoch = 1;
+}
+
+message Negotiation {}
