@@ -52,8 +52,7 @@ type Manager struct {
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption,
-) *Manager {
+func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
 		p2pManager:    p2pManager,
 		Events:        newEvents(),

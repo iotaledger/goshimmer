@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
@@ -28,7 +27,6 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local     *peer.Local
 	Tangle    *tangle.Tangle
 	GossipMgr *gossip.Manager
 	P2PMgr    *p2p.Manager
