@@ -574,7 +574,7 @@ func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableE
 }
 
 func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
-	if !m.Bootstrapped() && (ei > epoch.IndexFromTime(clock.SyncedTime().Add(m.options.BootstrapWindow)) || m.options.BootstrapWindow == 0) {
+	if !m.Bootstrapped() && (ei > epoch.IndexFromTime(clock.SyncedTime().Add(-m.options.BootstrapWindow)) || m.options.BootstrapWindow == 0) {
 		m.bootstrapMutex.Lock()
 		m.bootstrapped = true
 		m.bootstrapMutex.Unlock()
