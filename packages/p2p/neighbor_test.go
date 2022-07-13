@@ -11,17 +11,22 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	gp "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/libp2putil/libp2ptesting"
 )
 
 var (
-	testPacket1 = &pb.Packet{Body: &pb.Packet_Block{Block: &pb.Block{Data: []byte("foo")}}}
-	testPacket2 = &pb.Packet{Body: &pb.Packet_Block{Block: &pb.Block{Data: []byte("bar")}}}
+	testPacket1             = &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: []byte("foo")}}}
+	testPacket2             = &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: []byte("bar")}}}
+	log                     = logger.NewExampleLogger("p2p_test")
+	protocolID  protocol.ID = "testgossip/0.0.1"
 )
 
 func TestNeighborClose(t *testing.T) {
@@ -51,7 +56,8 @@ func TestNeighborWrite(t *testing.T) {
 	defer neighborA.disconnect()
 	var countA uint32
 	neighborA.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		assert.Equal(t, testPacket2.String(), event.Packet.String())
+		gpPacket := event.Packet.(*gp.Packet)
+		assert.Equal(t, testPacket2.String(), gpPacket.String())
 		atomic.AddUint32(&countA, 1)
 	}))
 	neighborA.readLoop()
@@ -61,14 +67,15 @@ func TestNeighborWrite(t *testing.T) {
 
 	var countB uint32
 	neighborB.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		assert.Equal(t, testPacket1.String(), event.Packet.String())
+		gpPacket := event.Packet.(*gp.Packet)
+		assert.Equal(t, testPacket1.String(), gpPacket.String())
 		atomic.AddUint32(&countB, 1)
 	}))
 	neighborB.readLoop()
 
-	err := neighborA.Ps.writePacket(testPacket1)
+	err := neighborA.protocols[protocolID].WritePacket(testPacket1)
 	require.NoError(t, err)
-	err = neighborB.Ps.writePacket(testPacket2)
+	err = neighborB.protocols[protocolID].WritePacket(testPacket2)
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)
@@ -76,7 +83,11 @@ func TestNeighborWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, stream network.Stream) *Neighbor {
-	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, newPacketsStream(stream), log.Named(name))
+	return NewNeighbor(newTestPeer(name), NeighborsGroupAuto, map[protocol.ID]*PacketsStream{protocolID: NewPacketsStream(stream, packetFactory)}, log.Named(name))
+}
+
+func packetFactory() proto.Message {
+	return &gp.Packet{}
 }
 
 func newTestPeer(name string) *peer.Peer {
