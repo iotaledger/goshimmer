@@ -189,6 +189,14 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
+// LatestCommittableEpochIndex returns the latest committable epoch index.
+func (m *Manager) LatestCommittableEpochIndex() (epoch.Index, error) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+
+	return m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+}
+
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -239,7 +247,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 		return
 	}
 	if removed {
-		m.tangle.WeightProvider.Update(ei, nodeID)
+		m.tangle.WeightProvider.Remove(ei, nodeID)
 		m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 	}
 

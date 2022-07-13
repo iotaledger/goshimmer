@@ -860,6 +860,11 @@ func mockTotalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
+// mockEpochRetriever returns mocked latest committable epoch index.
+func mockEpochRetriever() epoch.Index {
+	return 0
+}
+
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
@@ -928,7 +933,11 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 type MockWeightProvider struct{}
 
 // Update mocks its interface function.
-func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
+func (m *MockWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
+}
+
+// Remove mocks its interface function.
+func (m *MockWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
 }
 
 // Weight mocks its interface function.

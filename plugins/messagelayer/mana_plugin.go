@@ -201,13 +201,12 @@ func runManaPlugin(_ *node.Plugin) {
 				}
 
 				// initialize cMana WeightProvider with snapshot
-				t := time.Unix(epoch.GenesisTime, 0)
 				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
 					if nodeID == genesisNodeID {
 						continue
 					}
-					deps.Tangle.WeightProvider.Update(t, nodeID)
+					deps.Tangle.WeightProvider.Update(0, nodeID)
 				}
 
 				manaLogger.Infof("MANA: read snapshot from %s", Parameters.Snapshot.File)

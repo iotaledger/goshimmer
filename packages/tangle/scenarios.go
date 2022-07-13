@@ -1,12 +1,11 @@
 package tangle
 
 import (
-	"math"
-	"testing"
-	"time"
-
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
+	"math"
+	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -79,7 +78,7 @@ func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range s.nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			weightProvider.Update(1, node.ID())
 		}
 		return map[identity.ID]float64{
 			s.nodes["A"].ID(): 30,
@@ -89,7 +88,7 @@ func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
@@ -437,7 +436,7 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range s.nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			weightProvider.Update(epoch.Index(1), node.ID())
 		}
 		return map[identity.ID]float64{
 			s.nodes["A"].ID(): 30,
@@ -447,7 +446,7 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),

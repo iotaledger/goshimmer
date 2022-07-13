@@ -331,7 +331,10 @@ func CommitmentFunc(commitmentRetrieverFunc func() (*epoch.ECRecord, epoch.Index
 // in a flexible way, independently of a specific implementation.
 type WeightProvider interface {
 	// Update updates the underlying data structure and keeps track of active nodes.
-	Update(t time.Time, nodeID identity.ID)
+	Update(ei epoch.Index, nodeID identity.ID)
+
+	// Remove updates the underlying data structure by removing node from active list.
+	Remove(ei epoch.Index, nodeID identity.ID)
 
 	// Weight returns the weight and total weight for the given message.
 	Weight(message *Message) (weight, totalWeight float64)

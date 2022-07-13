@@ -1,6 +1,7 @@
 package snapshotcreator
 
 import (
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"

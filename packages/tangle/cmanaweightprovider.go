@@ -1,9 +1,10 @@
 package tangle
 
 import (
-	"container/heap"
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/epoch"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -24,9 +25,9 @@ func init() {
 }
 
 const (
-	activeTimeThreshold  = 5 * time.Minute
 	minimumManaThreshold = 0
 	activeNodesKey       = "WeightProviderActiveNodes"
+	activeEpochThreshold = 2
 )
 
 // region CManaWeightProvider //////////////////////////////////////////////////////////////////////////////////////////
@@ -36,19 +37,21 @@ type NodesActivityLog map[identity.ID]*ActivityLog
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
-	store             kvstore.KVStore
-	mutex             sync.RWMutex
-	activeNodes       NodesActivityLog
-	manaRetrieverFunc ManaRetrieverFunc
-	timeRetrieverFunc TimeRetrieverFunc
+	store               kvstore.KVStore
+	mutex               sync.RWMutex
+	activeNodes         NodesActivityLog
+	manaRetrieverFunc   ManaRetrieverFunc
+	epochRetrieverFunc  EpochRetrieverFunc
+	manaEpochDelayParam uint
 }
 
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
-func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
+func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, epochRetrieverFunc EpochRetrieverFunc, manaEpochDelay uint, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:       make(NodesActivityLog),
-		manaRetrieverFunc: manaRetrieverFunc,
-		timeRetrieverFunc: timeRetrieverFunc,
+		activeNodes:         make(NodesActivityLog),
+		manaRetrieverFunc:   manaRetrieverFunc,
+		epochRetrieverFunc:  epochRetrieverFunc,
+		manaEpochDelayParam: manaEpochDelay,
 	}
 
 	if len(store) == 0 {
@@ -73,14 +76,8 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 }
 
 // Update updates the underlying data structure and keeps track of active nodes.
-func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
-	// We only want to log node activity that is relevant, i.e., node activity before TangleTime-activeTimeThreshold
-	// does not matter anymore since the TangleTime advances towards the present/future.
-	staleThreshold := c.timeRetrieverFunc().Add(-activeTimeThreshold)
-	if t.Before(staleThreshold) {
-		return
-	}
-
+func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
+	// We don't check if the epoch index is too old, as this is handled by the NotarizationManager
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -90,7 +87,17 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 		c.activeNodes[nodeID] = a
 	}
 
-	a.Add(t)
+	a.Add(ei)
+}
+
+// Remove updates the underlying data structure by removing node from activity list.
+func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	// we allow for removing nodes from activity list due to orphanage event
+	if a, exists := c.activeNodes[nodeID]; exists {
+		a.Remove(ei)
+	}
 }
 
 // Weight returns the weight and total weight for the given message.
@@ -104,8 +111,11 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	weights = make(map[identity.ID]float64)
 
 	mana := c.manaRetrieverFunc()
-	targetTime := c.timeRetrieverFunc()
-	lowerBoundTargetTime := targetTime.Add(-activeTimeThreshold)
+
+	latestCommutableEI := c.epochRetrieverFunc()
+	lowerBoundEpoch := latestCommutableEI - activeEpochThreshold - epoch.Index(c.manaEpochDelayParam)
+	upperBoundEpoch := latestCommutableEI - epoch.Index(c.manaEpochDelayParam)
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -113,8 +123,8 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 		nodeMana := mana[nodeID]
 
 		// Determine whether node was active in time window.
-		if active, empty := al.Active(lowerBoundTargetTime, targetTime); !active {
-			if empty {
+		if active := al.Active(lowerBoundEpoch, upperBoundEpoch); !active {
+			if empty := al.Clean(lowerBoundEpoch); empty {
 				delete(c.activeNodes, nodeID)
 			}
 			continue
@@ -160,6 +170,9 @@ type ManaRetrieverFunc func() map[identity.ID]float64
 // TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
 
+//
+type EpochRetrieverFunc func() epoch.Index
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -186,90 +199,86 @@ func activeNodesToBytes(activeNodes NodesActivityLog) []byte {
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// granularity defines the granularity in seconds with which we log node activities.
-const granularity = 60
-
-// timeToUnixGranularity converts a time t to a unix timestamp with granularity.
-func timeToUnixGranularity(t time.Time) int64 {
-	return t.Unix() / granularity
-}
-
 // ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	setTimes set.Set[int64] `serix:"0,lengthPrefixType=uint32"`
-	times    *minHeap
+	setEpochs set.Set[epoch.Index] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
-	var mh minHeap
 
 	a := &ActivityLog{
-		setTimes: set.New[int64](),
-		times:    &mh,
+		setEpochs: set.New[epoch.Index](),
 	}
-	heap.Init(a.times)
 
 	return a
 }
 
 // Add adds a node activity to the log.
-func (a *ActivityLog) Add(t time.Time) (added bool) {
-	u := timeToUnixGranularity(t)
-	if !a.setTimes.Add(u) {
+func (a *ActivityLog) Add(ei epoch.Index) (added bool) {
+	if !a.setEpochs.Add(ei) {
 		return false
 	}
 
-	heap.Push(a.times, u)
+	return true
+}
+
+// Remove removes a node activity from the log.
+func (a *ActivityLog) Remove(ei epoch.Index) (removed bool) {
+	if !a.setEpochs.Delete(ei) {
+		return false
+	}
+
 	return true
 }
 
 // Active returns true if the node was active between lower and upper bound.
 // It cleans up the log on the fly, meaning that old/stale times are deleted.
 // If the log ends up empty after cleaning up, empty is set to true.
-func (a *ActivityLog) Active(lowerBound, upperBound time.Time) (active, empty bool) {
-	lb, ub := timeToUnixGranularity(lowerBound), timeToUnixGranularity(upperBound)
-
-	for a.times.Len() > 0 {
-		// Get the lowest element of the min-heap = the earliest time.
-		earliestActivity := (*a.times)[0]
-
-		// We clean up possible stale times < lowerBound because we don't need them anymore.
-		if earliestActivity < lb {
-			a.setTimes.Delete(earliestActivity)
-			heap.Pop(a.times)
-			continue
+func (a *ActivityLog) Active(lowerBound, upperBound epoch.Index) (active bool) {
+	for ei := lowerBound; ei <= upperBound; ei++ {
+		if a.setEpochs.Has(ei) {
+			active = true
 		}
-
-		// Check if time is between lower and upper bound. Because of cleanup, earliestActivity >= lb is implicitly given.
-		if earliestActivity <= ub {
-			return true, false
-		}
-		// Otherwise, the node has active times in the future of upperBound but is not currently active.
-		return false, false
 	}
 
-	// If the heap is empty, there's no activity anymore and the object might potentially be cleaned up.
-	return false, true
+	return
 }
 
-// Times returns all times stored in this ActivityLog.
-func (a *ActivityLog) Times() (times []int64) {
-	times = make([]int64, 0, a.times.Len())
-
-	for _, u := range *a.times {
-		times = append(times, u)
+func (a *ActivityLog) Clean(cutoff epoch.Index) (empty bool) {
+	// we remove all activity records below lowerBound as we will no longer need it
+	a.setEpochs.ForEach(func(ei epoch.Index) {
+		if ei < cutoff {
+			a.setEpochs.Delete(ei)
+		}
+	})
+	if a.setEpochs.Size() == 0 {
+		return true
 	}
+	return
+}
 
-	return times
+// Epochs returns all epochs stored in this ActivityLog.
+func (a *ActivityLog) Epochs() (epochs []epoch.Index) {
+	epochs = make([]epoch.Index, 0, a.setEpochs.Size())
+
+	// insert in order
+	a.setEpochs.ForEach(func(ei epoch.Index) {
+		idx := sort.Search(len(epochs), func(i int) bool { return epochs[i] >= ei })
+		epochs = append(epochs[:idx+1], epochs[idx:]...)
+		epochs[idx] = ei
+	})
+
+	return
 }
 
 // String returns a human-readable version of ActivityLog.
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.times.Len()))
-	for _, u := range *a.times {
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.setEpochs.Size()))
+	ordered := a.Epochs()
+	for _, u := range ordered {
 		builder.WriteString(fmt.Sprintf("%d, ", u))
 	}
 	builder.WriteString(")")
@@ -280,17 +289,16 @@ func (a *ActivityLog) String() string {
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
 
-	for _, u := range *a.times {
-		clone.setTimes.Add(u)
-		heap.Push(clone.times, u)
-	}
+	a.setEpochs.ForEach(func(ei epoch.Index) {
+		clone.setEpochs.Add(ei)
+	})
 
 	return clone
 }
 
 // Encode ActivityLog a serialized byte slice of the object.
 func (a *ActivityLog) Encode() ([]byte, error) {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.setTimes, serix.WithValidation())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.setEpochs, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)
@@ -300,50 +308,15 @@ func (a *ActivityLog) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
-	var mh minHeap
 
-	a.setTimes = set.New[int64]()
-	a.times = &mh
-	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.setTimes, serix.WithValidation())
+	a.setEpochs = set.New[epoch.Index]()
+	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.setEpochs, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse ActivityLog: %w", err)
 		return
 	}
-	a.setTimes.ForEach(func(time int64) {
-		heap.Push(a.times, time)
-	})
+
 	return
-}
-
-// minHeap is an int64 min heap.
-type minHeap []int64
-
-// Len is the number of elements in the collection.
-func (h minHeap) Len() int {
-	return len(h)
-}
-
-// Less reports whether the element with index i must sort before the element with index j.
-func (h minHeap) Less(i, j int) bool {
-	return h[i] < h[j]
-}
-
-// Swap swaps the elements with indexes i and j.
-func (h minHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-// Push pushes the element x onto the heap.
-func (h *minHeap) Push(x interface{}) {
-	*h = append(*h, x.(int64))
-}
-
-// Pop removes and returns the minimum element (according to Less) from the heap.
-func (h *minHeap) Pop() interface{} {
-	n := len(*h)
-	x := (*h)[n-1]
-	*h = (*h)[:n-1]
-	return x
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
