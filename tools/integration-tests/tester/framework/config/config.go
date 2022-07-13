@@ -183,6 +183,8 @@ type Dagsvisualizer struct {
 // Notarization defines the parameters of the Notarization plugin.
 type Notarization struct {
 	Enabled bool
+
+	blocklayer.NotarizationParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

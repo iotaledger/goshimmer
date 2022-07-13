@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -28,10 +29,12 @@ type Manager struct {
 	tangle                      *tangle.Tangle
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
+	bootstrapMutex              sync.RWMutex
 	options                     *ManagerOptions
 	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
 	Events                      *Events
+	bootstrapped                bool
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -60,6 +63,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
 			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
+			Bootstrapped:              event.New[*BootstrappedEvent](),
 		},
 	}
 
@@ -292,7 +296,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 // OnConflictConfirmed is the handler for conflict confirmed event.
 func (m *Manager) OnConflictConfirmed(conflictID utxo.TransactionID) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictConfirmed(conflictID)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
@@ -325,7 +329,7 @@ func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 // OnConflictRejected is the handler for conflict created event.
 func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictRejected(conflictID)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnConflictRejected is the handler for conflict created event.
@@ -345,7 +349,7 @@ func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCom
 // OnAcceptanceTimeUpdated is the handler for time updated event and triggers the events.
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	epochCommittableEvents, manaVectorUpdateEvents := m.onAcceptanceTimeUpdated(newTime)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	go m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
@@ -382,6 +386,13 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 		pendingConflicts[k] = v
 	}
 	return pendingConflicts
+}
+
+// Bootstrapped returns the current value of pendingConflictsCount per epoch.
+func (m *Manager) Bootstrapped() bool {
+	m.bootstrapMutex.RLock()
+	defer m.bootstrapMutex.RUnlock()
+	return m.bootstrapped
 }
 
 // Shutdown shuts down the manager's permanent storagee.
@@ -554,10 +565,20 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
 	for _, epochCommittableEvent := range epochCommittableEvents {
+		m.updateEpochsBootstrapped(epochCommittableEvent.EI)
 		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
 	}
 	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
 		m.Events.ManaVectorUpdate.Trigger(manaVectorUpdateEvent)
+	}
+}
+
+func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
+	if !m.Bootstrapped() && (ei > epoch.IndexFromTime(clock.SyncedTime().Add(-m.options.BootstrapWindow)) || m.options.BootstrapWindow == 0) {
+		m.bootstrapMutex.Lock()
+		m.bootstrapped = true
+		m.bootstrapMutex.Unlock()
+		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
 }
 
@@ -571,6 +592,7 @@ type ManagerOption func(options *ManagerOptions)
 // ManagerOptions is a container of all the config parameters of the notarization manager.
 type ManagerOptions struct {
 	MinCommittableEpochAge time.Duration
+	BootstrapWindow        time.Duration
 	ManaEpochDelay         uint
 	Log                    *logger.Logger
 }
@@ -579,6 +601,13 @@ type ManagerOptions struct {
 func MinCommittableEpochAge(d time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.MinCommittableEpochAge = d
+	}
+}
+
+// BootstrapWindow specifies when the notarization manager is considered to be bootstrapped.
+func BootstrapWindow(d time.Duration) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.BootstrapWindow = d
 	}
 }
 
@@ -617,6 +646,8 @@ type Events struct {
 	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
 	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed from the UTXO smt.
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
+	// Bootstrapped is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
+	Bootstrapped *event.Event[*BootstrappedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -625,6 +656,12 @@ type TangleTreeUpdatedEvent struct {
 	EI epoch.Index
 	// BlockID is the blockID that inserted/removed to/from the tangle smt.
 	BlockID tangle.BlockID
+}
+
+// BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
+type BootstrappedEvent struct {
+	// EI is the index of the last commitable epoch
+	EI epoch.Index
 }
 
 // StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
