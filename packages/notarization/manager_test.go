@@ -961,6 +961,8 @@ func TestManager_DiffUTXOs(t *testing.T) {
 }
 
 func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Duration, minCommittable time.Duration, options ...tangle.Option) (testFramework *tangle.BlockTestFramework, eventMock *EventMock, m *Manager) {
+	epoch.Duration = int64(epochInterval.Seconds())
+
 	testTangle := tangle.NewTestTangle(append([]tangle.Option{tangle.StartSynced(true), tangle.GenesisTime(genesisTime)}, options...)...)
 	testTangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 0
 
@@ -992,8 +994,6 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 	loadSnapshot(m, testFramework)
 
 	eventMock = NewEventMock(t, m)
-
-	epoch.Duration = int64(epochInterval.Seconds())
 
 	return testFramework, eventMock, m
 }
