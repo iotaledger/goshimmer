@@ -62,6 +62,7 @@ func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, op
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
+		PacketFactory:       gossipPacketFactory,
 		StreamEstablishFunc: m.newPacketStream,
 		StreamHandler:       m.streamHandler,
 		PacketHandler:       m.handlePacket,
@@ -117,7 +118,7 @@ func (m *Manager) newPacketStream(ctx context.Context, libp2pID libp2ppeer.ID) (
 	if err != nil {
 		return nil, err
 	}
-	ps := p2p.NewPacketsStream(stream)
+	ps := p2p.NewPacketsStream(stream, gossipPacketFactory)
 	if err := sendNegotiationBlock(ps); err != nil {
 		err = errors.Wrap(err, "failed to send negotiation block")
 		err = errors.CombineErrors(err, stream.Close())
@@ -127,7 +128,7 @@ func (m *Manager) newPacketStream(ctx context.Context, libp2pID libp2ppeer.ID) (
 }
 
 func (m *Manager) streamHandler(stream network.Stream) {
-	ps := p2p.NewPacketsStream(stream)
+	ps := p2p.NewPacketsStream(stream, gossipPacketFactory)
 	if err := receiveNegotiationBlock(ps); err != nil {
 		m.log.Warnw("Failed to receive negotiation block", "err", err)
 		m.p2pManager.CloseStream(stream)
@@ -241,6 +242,10 @@ func (m *Manager) processBlockRequestPacket(packetBlkReq *gp.Packet_BlockRequest
 		nbr.Log.Warnw("Failed to send requested block back to the neighbor", "err", err)
 		nbr.Close()
 	}
+}
+
+func gossipPacketFactory() proto.Message {
+	return &gp.Packet{}
 }
 
 func sendNegotiationBlock(ps *p2p.PacketsStream) error {

@@ -179,6 +179,7 @@ func (m *Manager) CloseStream(s network.Stream) {
 
 type PacketsStream struct {
 	network.Stream
+	packetFactory func() proto.Message
 
 	readerLock     sync.Mutex
 	reader         *libp2putil.UvarintReader
@@ -188,9 +189,10 @@ type PacketsStream struct {
 	packetsWritten *atomic.Uint64
 }
 
-func NewPacketsStream(stream network.Stream) *PacketsStream {
+func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message) *PacketsStream {
 	return &PacketsStream{
 		Stream:         stream,
+		packetFactory:  packetFactory,
 		reader:         libp2putil.NewDelimitedReader(stream),
 		writer:         libp2putil.NewDelimitedWriter(stream),
 		packetsRead:    atomic.NewUint64(0),

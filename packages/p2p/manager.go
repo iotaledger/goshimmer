@@ -25,6 +25,7 @@ type connectPeerConfig struct {
 
 // ProtocolHandler holds callbacks to handle a protocol.
 type ProtocolHandler struct {
+	PacketFactory       func() proto.Message
 	StreamEstablishFunc func(context.Context, libp2ppeer.ID) (*PacketsStream, error)
 	StreamHandler       func(network.Stream)
 	PacketHandler       func(*Neighbor, proto.Message) error
@@ -80,6 +81,7 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
 		neighbors: map[identity.ID]*Neighbor{},
+		protocols: map[protocol.ID]*ProtocolHandler{},
 	}
 }
 

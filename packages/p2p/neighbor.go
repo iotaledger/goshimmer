@@ -12,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-yamux/v2"
-	"google.golang.org/protobuf/proto"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -109,7 +108,7 @@ func (n *Neighbor) readLoop() {
 				// In any case we call .disconnect() after encountering the error,
 				// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
 				// we won't execute it twice.
-				var packet proto.Message
+				packet := stream.packetFactory()
 				err := stream.ReadPacket(packet)
 				if err != nil {
 					if isPermanentError(err) {

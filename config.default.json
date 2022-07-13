@@ -32,7 +32,7 @@
     "directory": "mainnetdb",
     "inMemory": false
   },
-  "gossip": {
+  "p2p": {
     "bindAddress": "0.0.0.0:14666"
   },
   "logger": {

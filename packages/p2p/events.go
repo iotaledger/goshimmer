@@ -28,7 +28,7 @@ type NeighborAddedEvent struct {
 	Neighbor *Neighbor
 }
 
-// NeighborAddedEvent holds data about the removed neighbor.
+// NeighborRemovedEvent holds data about the removed neighbor.
 type NeighborRemovedEvent struct {
 	Neighbor *Neighbor
 }
@@ -40,10 +40,11 @@ type NeighborEvents struct {
 	PacketReceived *event.Event[*NeighborPacketReceivedEvent]
 }
 
-// NewNeighborsEvents returns a new instance of NeighborsEvents.
+// NewNeighborEvents returns a new instance of NeighborEvents.
 func NewNeighborEvents() (new *NeighborEvents) {
 	return &NeighborEvents{
-		Disconnected: event.New[*NeighborDisconnectedEvent](),
+		Disconnected:   event.New[*NeighborDisconnectedEvent](),
+		PacketReceived: event.New[*NeighborPacketReceivedEvent](),
 	}
 }
 
