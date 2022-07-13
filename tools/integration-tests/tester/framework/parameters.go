@@ -90,6 +90,9 @@ func PeerConfig() config.GoShimmer {
 	c.BlockLayer.Enabled = true
 	c.BlockLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
+	c.Notarization.Enabled = true
+	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
+
 	c.RateSetter.Enabled = true
 	c.RateSetter.RateSetterParametersDefinition.Enable = false
 
@@ -106,8 +109,6 @@ func PeerConfig() config.GoShimmer {
 
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
-
-	c.Notarization.Enabled = true
 
 	return c
 }

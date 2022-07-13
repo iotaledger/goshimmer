@@ -158,7 +158,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 			}
 		}
 		return false
-	}, 5*time.Minute, Tick)
+	}, time.Minute, Tick)
 	// give the faucet time to save the latest accepted output
 	time.Sleep(3 * time.Second)
 }

@@ -73,8 +73,8 @@ type SchedulerParametersDefinition struct {
 	ConfirmedBlockThreshold string `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }
 
-// NotarizationParameterDefinition contains the definition of the parameters used by the notarization plugin.
-type NotarizationParameterDefinition struct {
+// NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
+type NotarizationParametersDefinition struct {
 	// MinEpochCommitableAge defines the min age of a commitable epoch.
 	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
 	// BootstrapWindow when notarization manager is considered to be bootstrapped
@@ -96,7 +96,7 @@ var RateSetterParameters = &RateSetterParametersDefinition{}
 var SchedulerParameters = &SchedulerParametersDefinition{}
 
 // NotarizationParameters contains the configuration used by the notarization plugin.
-var NotarizationParameters = &NotarizationParameterDefinition{}
+var NotarizationParameters = &NotarizationParametersDefinition{}
 
 func init() {
 	configuration.BindParameters(Parameters, "blockLayer")
