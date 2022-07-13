@@ -16,11 +16,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/notarization"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -40,7 +40,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle          *tangle.Tangle
-	GossipMgr       *gossip.Manager     `optional:"true"`
+	P2Pmgr          *p2p.Manager        `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
 	NotarizationMgr *notarization.Manager
@@ -100,7 +100,7 @@ func run(_ *node.Plugin) {
 
 	// create a background worker that updates the mana metrics
 	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(ctx context.Context) {
-		if deps.GossipMgr == nil {
+		if deps.P2Pmgr == nil {
 			return
 		}
 		defer log.Infof("Stopping Metrics Mana Updater ... done")
@@ -307,8 +307,8 @@ func registerLocalMetrics() {
 		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.P2Pmgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.P2Pmgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	if deps.Selection != nil {
 		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)

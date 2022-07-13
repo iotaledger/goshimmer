@@ -1,8 +1,9 @@
 package p2p
 
 import (
-	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // NeighborsEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
@@ -35,24 +36,23 @@ type NeighborRemovedEvent struct {
 // NeighborEvents is a collection of events specific to a neighbor.
 type NeighborEvents struct {
 	// Fired when a neighbor disconnects.
-	Disconnected *event.Event[*NeighborDisconnectedEvent]
-
-	// Fired when a packet is received from a neighbor.
+	Disconnected   *event.Event[*NeighborDisconnectedEvent]
 	PacketReceived *event.Event[*NeighborPacketReceivedEvent]
 }
 
 // NewNeighborsEvents returns a new instance of NeighborsEvents.
 func NewNeighborEvents() (new *NeighborEvents) {
 	return &NeighborEvents{
-		Disconnected:   event.New[*NeighborDisconnectedEvent](),
-		PacketReceived: event.New[*NeighborPacketReceivedEvent](),
+		Disconnected: event.New[*NeighborDisconnectedEvent](),
 	}
 }
 
 // NeighborDisconnectedEvent holds data about the disconnected neighbor.
 type NeighborDisconnectedEvent struct{}
 
-// NeighborDisconnectedEvent holds data about the disconnected neighbor.
+// NeighborPacketReceivedEvent holds data about a protocol and packet received from a neighbor.
 type NeighborPacketReceivedEvent struct {
-	Packet *pb.Packet
+	Neighbor *Neighbor
+	Protocol protocol.ID
+	Packet   proto.Message
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
@@ -46,8 +47,8 @@ func init() {
 	}))
 }
 
-func newManager(lPeer *peer.Local, gossipMgr *gossip.Manager) *manualpeering.Manager {
-	return manualpeering.NewManager(gossipMgr, lPeer, logger.NewLogger(PluginName))
+func newManager(lPeer *peer.Local, p2pMgr *p2p.Manager) *manualpeering.Manager {
+	return manualpeering.NewManager(p2pMgr, lPeer, logger.NewLogger(PluginName))
 }
 
 func configure(_ *node.Plugin) {

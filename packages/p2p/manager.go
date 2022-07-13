@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"go.uber.org/atomic"
-
-	"github.com/iotaledger/goshimmer/packages/ratelimiter"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
@@ -21,6 +21,13 @@ type ConnectPeerOption func(conf *connectPeerConfig)
 
 type connectPeerConfig struct {
 	useDefaultTimeout bool
+}
+
+// ProtocolHandler holds callbacks to handle a protocol.
+type ProtocolHandler struct {
+	StreamEstablishFunc func(context.Context, libp2ppeer.ID) (*PacketsStream, error)
+	StreamHandler       func(network.Stream)
+	PacketHandler       func(*Neighbor, proto.Message) error
 }
 
 func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
@@ -43,15 +50,12 @@ func WithNoDefaultTimeout() ConnectPeerOption {
 // The Manager handles the connected neighbors.
 type Manager struct {
 	local      *peer.Local
-	Libp2pHost host.Host
-
-	Events *Events
+	libp2pHost host.Host
 
 	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
-	loadBlockFunc   LoadBlockFunc
 	log             *logger.Logger
 	neighborsEvents map[NeighborsGroup]*NeighborsEvents
 
@@ -61,64 +65,22 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	blocksRateLimiter        *ratelimiter.PeerRateLimiter
-	blockRequestsRateLimiter *ratelimiter.PeerRateLimiter
-
-	pendingCount          atomic.Uint64
-	requesterPendingCount atomic.Uint64
+	protocols map[protocol.ID]*ProtocolHandler
 }
 
-// ManagerOption configures the Manager instance.
-type ManagerOption func(m *Manager)
-
 // NewManager creates a new Manager.
-func NewManager(libp2pHost host.Host, local *peer.Local, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption,
-) *Manager {
-	m := &Manager{
-		Libp2pHost:    libp2pHost,
-		Events:        newEvents(),
-		acceptMap:     map[libp2ppeer.ID]*AcceptMatcher{},
-		local:         local,
-		loadBlockFunc: f,
-		log:           log,
+func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Manager {
+	return &Manager{
+		libp2pHost: libp2pHost,
+		acceptMap:  map[libp2ppeer.ID]*AcceptMatcher{},
+		local:      local,
+		log:        log,
 		neighborsEvents: map[NeighborsGroup]*NeighborsEvents{
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
 		neighbors: map[identity.ID]*Neighbor{},
 	}
-
-	for _, opt := range opts {
-		opt(m)
-	}
-
-	return m
-}
-
-// WithBlocksRateLimiter allows to set a PeerRateLimiter instance
-// to be used as blocks rate limiter in the gossip manager.
-func WithBlocksRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
-	return func(m *Manager) {
-		m.blocksRateLimiter = prl
-	}
-}
-
-// BlocksRateLimiter returns the blocks rate limiter instance used in the gossip manager.
-func (m *Manager) BlocksRateLimiter() *ratelimiter.PeerRateLimiter {
-	return m.blocksRateLimiter
-}
-
-// WithBlockRequestsRateLimiter allows to set a PeerRateLimiter instance
-// to be used as blocks requests rate limiter in the gossip manager.
-func WithBlockRequestsRateLimiter(prl *ratelimiter.PeerRateLimiter) ManagerOption {
-	return func(m *Manager) {
-		m.blockRequestsRateLimiter = prl
-	}
-}
-
-// BlockRequestsRateLimiter returns the block requests rate limiter instance used in the gossip manager.
-func (m *Manager) BlockRequestsRateLimiter() *ratelimiter.PeerRateLimiter {
-	return m.blockRequestsRateLimiter
 }
 
 // Stop stops the manager and closes all established connections.
@@ -143,6 +105,20 @@ func (m *Manager) dropAllNeighbors() {
 // NeighborsEvents returns the events related to the gossip protocol.
 func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 	return m.neighborsEvents[group]
+}
+
+func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
+	m.protocols[protocolID] = protocolHandler
+	m.libp2pHost.SetStreamHandler(protocolID, protocolHandler.StreamHandler)
+}
+
+func (m *Manager) UnregisterProtocol(protocolID protocol.ID) {
+	m.libp2pHost.RemoveStreamHandler(protocolID)
+	delete(m.protocols, protocolID)
+}
+
+func (m *Manager) GetP2PHost() host.Host {
+	return m.libp2pHost
 }
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
@@ -219,7 +195,7 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 }
 
 func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
-	connectorFunc func(context.Context, *peer.Peer, []ConnectPeerOption) (*PacketsStream, error),
+	connectorFunc func(context.Context, *peer.Peer, []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error),
 	connectOpts []ConnectPeerOption,
 ) error {
 	if p.ID() == m.local.ID() {
@@ -234,16 +210,18 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
 
-	ps, err := connectorFunc(ctx, p, connectOpts)
+	streams, err := connectorFunc(ctx, p, connectOpts)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	// create and add the neighbor
-	nbr := NewNeighbor(p, group, ps, m.log)
+	nbr := NewNeighbor(p, group, streams, m.log)
 	if err := m.setNeighbor(nbr); err != nil {
-		if resetErr := ps.Close(); resetErr != nil {
-			err = errors.CombineErrors(err, resetErr)
+		for _, ps := range streams {
+			if resetErr := ps.Close(); resetErr != nil {
+				err = errors.CombineErrors(err, resetErr)
+			}
 		}
 		return errors.WithStack(err)
 	}
@@ -252,7 +230,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))
 	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		if err := m.handlePacket(event.Packet, nbr); err != nil {
+		if err := m.protocols[event.Protocol].PacketHandler(event.Neighbor, event.Packet); err != nil {
 			nbr.Log.Debugw("Can't handle packet", "err", err)
 		}
 	}))

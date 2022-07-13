@@ -5,12 +5,12 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -28,10 +28,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Node      *configuration.Configuration
 	Local     *peer.Local
 	Tangle    *tangle.Tangle
 	GossipMgr *gossip.Manager
+	P2PMgr    *p2p.Manager
 }
 
 func init() {
@@ -57,13 +57,13 @@ func run(plugin *node.Plugin) {
 
 func configureLogging() {
 	// log the gossip events
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *gossip.NeighborAddedEvent) {
+	deps.P2PMgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *p2p.NeighborAddedEvent) {
 		n := event.Neighbor
-		Plugin.LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin.LogInfof("Neighbor added: %s / %s", p2p.GetAddress(n.Peer), n.ID())
 	}))
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *gossip.NeighborRemovedEvent) {
+	deps.P2PMgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		n := event.Neighbor
-		Plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin.LogInfof("Neighbor removed: %s / %s", p2p.GetAddress(n.Peer), n.ID())
 	}))
 	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangle.RequestStartedEvent) {
 		Plugin.LogDebugf("started to request missing Block with %s", event.BlockID)

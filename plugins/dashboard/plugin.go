@@ -22,8 +22,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -49,13 +49,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Node      *configuration.Configuration
-	Local     *peer.Local
-	Tangle    *tangle.Tangle
-	Selection *selection.Protocol `optional:"true"`
-	GossipMgr *gossip.Manager     `optional:"true"`
-	Chat      *chat.Chat          `optional:"true"`
-	Indexer   *indexer.Indexer
+	Node       *configuration.Configuration
+	Local      *peer.Local
+	Tangle     *tangle.Tangle
+	Selection  *selection.Protocol `optional:"true"`
+	P2PManager *p2p.Manager        `optional:"true"`
+	Chat       *chat.Chat          `optional:"true"`
+	Indexer    *indexer.Indexer
 }
 
 func init() {
@@ -276,12 +276,12 @@ type schedulerMetric struct {
 
 func neighborMetrics() []neighbormetric {
 	var stats []neighbormetric
-	if deps.GossipMgr == nil {
+	if deps.P2PManager == nil {
 		return stats
 	}
 
 	// gossip plugin might be disabled
-	neighbors := deps.GossipMgr.AllNeighbors()
+	neighbors := deps.P2PManager.AllNeighbors()
 	if neighbors == nil {
 		return stats
 	}

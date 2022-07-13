@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/mux"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/libp2p/go-yamux/v2"
-
-	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
+	"google.golang.org/protobuf/proto"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -36,71 +36,101 @@ type Neighbor struct {
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
 
-	Ps *PacketsStream
+	protocols map[protocol.ID]*PacketsStream
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
-func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *PacketsStream, log *logger.Logger) *Neighbor {
-	log = log.With(
-		"id", p.ID(),
-		"localAddr", ps.Conn().LocalMultiaddr(),
-		"remoteAddr", ps.Conn().RemoteMultiaddr(),
-	)
-	return &Neighbor{
+func NewNeighbor(p *peer.Peer, group NeighborsGroup, protocols map[protocol.ID]*PacketsStream, log *logger.Logger) *Neighbor {
+	new := &Neighbor{
 		Peer:  p,
 		Group: group,
 
 		Events: NewNeighborEvents(),
 
-		Log: log,
-
-		Ps: ps,
+		protocols: protocols,
 	}
+
+	conn := new.getAnyStream().Conn()
+
+	new.Log = log.With(
+		"id", p.ID(),
+		"localAddr", conn.LocalMultiaddr(),
+		"remoteAddr", conn.RemoteMultiaddr(),
+	)
+
+	return new
+}
+
+func (n *Neighbor) GetStream(protocol protocol.ID) *PacketsStream {
+	return n.protocols[protocol]
+}
+
+func (n *Neighbor) RegisterStream(protocol protocol.ID, ps *PacketsStream) {
+	n.protocols[protocol] = ps
 }
 
 // PacketsRead returns number of packets this neighbor has received.
-func (n *Neighbor) PacketsRead() uint64 {
-	return n.Ps.packetsRead.Load()
+func (n *Neighbor) PacketsRead() (count uint64) {
+	for _, stream := range n.protocols {
+		count += stream.packetsRead.Load()
+	}
+	return count
 }
 
 // PacketsWritten returns number of packets this neighbor has sent.
-func (n *Neighbor) PacketsWritten() uint64 {
-	return n.Ps.packetsWritten.Load()
+func (n *Neighbor) PacketsWritten() (count uint64) {
+	for _, stream := range n.protocols {
+		count += stream.packetsWritten.Load()
+	}
+	return count
 }
 
 // ConnectionEstablished returns the connection established.
 func (n *Neighbor) ConnectionEstablished() time.Time {
-	return n.Ps.Stat().Opened
+	return n.getAnyStream().Stat().Opened
+}
+
+func (n *Neighbor) getAnyStream() *PacketsStream {
+	for _, stream := range n.protocols {
+		return stream
+	}
+	return nil
 }
 
 func (n *Neighbor) readLoop() {
-	n.wg.Add(1)
-	go func() {
-		defer n.wg.Done()
-		for {
-			// This loop gets terminated when we encounter an error on .read() function call.
-			// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
-			// Or by a problem with the connection itself.
-			// In any case we call .disconnect() after encountering the error,
-			// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
-			// we won't execute it twice.
-			packet := &pb.Packet{}
-			err := n.Ps.ReadPacket(packet)
-			if err != nil {
-				if isPermanentError(err) {
-					if disconnectErr := n.disconnect(); disconnectErr != nil {
-						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+	for protocolID, stream := range n.protocols {
+		n.wg.Add(1)
+		go func(protocolID protocol.ID, stream *PacketsStream) {
+			defer n.wg.Done()
+			for {
+				// This loop gets terminated when we encounter an error on .read() function call.
+				// The error might be caused by another goroutine closing the connection by calling .disconnect() function.
+				// Or by a problem with the connection itself.
+				// In any case we call .disconnect() after encountering the error,
+				// the disconnect call is protected with sync.Once, so in case another goroutine called it before us,
+				// we won't execute it twice.
+				var packet proto.Message
+				err := stream.ReadPacket(packet)
+				if err != nil {
+					if isPermanentError(err) {
+						if disconnectErr := n.disconnect(); disconnectErr != nil {
+							n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
+						}
+						return
 					}
-					return
+					if !isTimeoutError(err) {
+						n.Log.Debugw("Read error", "err", err)
+					}
+					continue
 				}
-				if !isTimeoutError(err) {
-					n.Log.Debugw("Read error", "err", err)
-				}
-				continue
+				n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{
+					Neighbor: n,
+					Protocol: protocolID,
+					Packet:   packet,
+				})
 			}
-			n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{packet})
-		}
-	}()
+		}(protocolID, stream)
+	}
 }
 
 func (n *Neighbor) Close() {
@@ -112,11 +142,13 @@ func (n *Neighbor) Close() {
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
-		if streamErr := n.Ps.Close(); streamErr != nil {
-			err = errors.WithStack(streamErr)
+		for _, stream := range n.protocols {
+			if streamErr := stream.Close(); streamErr != nil {
+				err = errors.WithStack(streamErr)
+			}
+			n.Log.Info("Connection closed")
+			n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
 		}
-		n.Log.Info("Connection closed")
-		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
 	})
 	return err
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/protocol"
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
@@ -37,7 +38,7 @@ var (
 	ErrNoGossip = errors.New("peer does not have a gossip service")
 )
 
-func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (*PacketsStream, error) {
+func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
 	conf := buildConnectPeerConfig(opts)
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
@@ -53,7 +54,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if err != nil {
 		return nil, err
 	}
-	m.Libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
+	m.libp2pHost.Peerstore().AddAddr(libp2pID, address, peerstore.ConnectedAddrTTL)
 
 	if conf.useDefaultTimeout {
 		var cancel context.CancelFunc
@@ -61,25 +62,30 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		defer cancel()
 	}
 
-	ps, err := m.newGossipPacketStream(ctx, libp2pID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+	streams := make(map[protocol.ID]*PacketsStream)
+	for protocolID, handlers := range m.protocols {
+		stream, err := handlers.StreamEstablishFunc(ctx, libp2pID)
+		if err != nil {
+			return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+		}
+		m.log.Debugw("outgoing connection established",
+			"id", p.ID(),
+			"addr", stream.Conn().RemoteMultiaddr(),
+			"proto", protocolID,
+		)
+		streams[protocolID] = stream
 	}
-	m.log.Debugw("outgoing connection established",
-		"id", p.ID(),
-		"addr", ps.Conn().RemoteMultiaddr(),
-	)
 
-	return ps, err
+	return streams, err
 }
 
-func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (*PacketsStream, error) {
+func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
 	gossipEndpoint := p.Services().Get(service.GossipKey)
 	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
-	ps, err := func() (*PacketsStream, error) {
+	stream, err := func() (*PacketsStream, error) {
 		// wait for the connection
 		m.acceptWG.Add(1)
 		defer m.acceptWG.Done()
@@ -119,9 +125,9 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 	m.log.Debugw("incoming connection established",
 		"id", p.ID(),
-		"addr", ps.Conn().RemoteMultiaddr(),
+		"addr", stream.Conn().RemoteMultiaddr(),
 	)
-	return ps, nil
+	return map[protocol.ID]*PacketsStream{stream.Protocol(): stream}, nil
 }
 
 type AcceptMatcher struct {
@@ -218,7 +224,6 @@ func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 	ps.packetsRead.Inc()
 	return nil
 }
-
 
 func isDeadlineUnsupportedError(err error) bool {
 	return strings.Contains(err.Error(), "deadline not supported")
