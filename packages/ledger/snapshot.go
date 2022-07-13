@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
@@ -12,7 +13,8 @@ type Snapshot struct {
 	FullEpochIndex      epoch.Index                `serix:"1"`
 	DiffEpochIndex      epoch.Index                `serix:"2"`
 	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"3,lengthPrefixType=uint32"`
-	LatestECRecord      *epoch.ECRecord            `serix:"4"`
+	EpochActiveNodes    tangle.NodesActivityLog    `serix:"4,lengthPrefixType=uint32"`
+	LatestECRecord      *epoch.ECRecord            `serix:"5"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
@@ -29,6 +31,7 @@ func (s *Snapshot) String() (humanReadable string) {
 		stringify.StructField("FullEpochIndex", s.FullEpochIndex),
 		stringify.StructField("DiffEpochIndex", s.DiffEpochIndex),
 		stringify.StructField("EpochDiffs", s.EpochDiffs),
+		stringify.StructField("EpochActiveNodes", s.EpochActiveNodes),
 		stringify.StructField("LatestECRecord", s.LatestECRecord),
 	)
 }

@@ -2,6 +2,7 @@ package notarization
 
 import (
 	"context"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/serix"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// region Committment types ////////////////////////////////////////////////////////////////////////////////////////////
+// region Commitment types ////////////////////////////////////////////////////////////////////////////////////////////
 
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
@@ -30,6 +31,7 @@ type CommitmentRoots struct {
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
+	activityRoot      epoch.MerkleRoot
 }
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -37,6 +39,7 @@ type CommitmentTrees struct {
 	EI                epoch.Index
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
+	activityTree      *smt.SparseMerkleTree
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,10 +101,14 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 
 	root := make([]byte, 0)
 	branch1 := make([]byte, 0)
+	branch1a := make([]byte, 0)
+	branch1b := make([]byte, 0)
 	branch2 := make([]byte, 0)
 
-	branch1Hashed := blake2b.Sum256(append(append(branch1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	branch2Hashed := blake2b.Sum256(append(append(branch2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
+	branch1aHashed := blake2b.Sum256(append(append(branch1a, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
+	branch1bHashed := blake2b.Sum256(append(append(branch1b, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
+	branch1Hashed := blake2b.Sum256(append(append(branch1, branch1aHashed[:]...), branch1bHashed[:]...))
+	branch2Hashed := blake2b.Sum256(append(branch2, epochRoots.activityRoot[:]...))
 	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
@@ -226,6 +233,73 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 	return nil
 }
 
+// insertActivityLeaf inserts nodeID to the Activity sparse merkle tree along with a counter corresponding to
+// the number of accepted blocks issued by this node.
+func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
+	commitment, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
+	}
+
+	var blocksAccepted uint64
+	exists, _ := commitment.activityTree.Has(nodeID.Bytes())
+	if exists {
+		if blocksAcceptedBytes, activeErr := commitment.activityTree.Get(nodeID.Bytes()); activeErr == nil {
+			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), blocksAcceptedBytes, &blocksAccepted, serix.WithValidation())
+			if decodeErr != nil {
+				return errors.Wrap(decodeErr, "could not decode accepted blocks count for activity tree")
+			}
+		}
+	}
+	blocksAccepted++
+	encodedAcceptedBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), blocksAccepted, serix.WithValidation())
+	if encodeErr != nil {
+		return errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
+	}
+	_, updateErr := commitment.tangleTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
+	if updateErr != nil {
+		return errors.Wrap(err, "could not insert leaf to the activity tree")
+	}
+
+	return nil
+}
+
+// removeActivityLeaf removes the nodeID from the Activity sparse merkle tree
+// if node had only one block accepted this far for this epoch.
+func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) (removed bool, err error) {
+	commitment, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return false, errors.Wrap(err, "could not get commitment while deleting tangle leaf")
+	}
+	exists, _ := commitment.activityTree.Has(nodeID.Bytes())
+	if exists {
+		var blocksAccepted uint64
+		if blocksAcceptedBytes, activeErr := commitment.activityTree.Get(nodeID.Bytes()); activeErr == nil {
+			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), blocksAcceptedBytes, &blocksAccepted, serix.WithValidation())
+			if decodeErr != nil {
+				return false, errors.Wrap(decodeErr, "could not decode accepted blocks count for activity tree")
+			}
+			if blocksAccepted == 1 {
+				_, err2 := commitment.tangleTree.Delete(nodeID.Bytes())
+				if err2 != nil {
+					return false, errors.Wrap(err, "could not delete leaf from the tangle tree")
+				}
+				return true, nil
+			}
+			blocksAccepted--
+			encodedAcceptedBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), blocksAccepted, serix.WithValidation())
+			if encodeErr != nil {
+				return false, errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
+			}
+			_, updateErr := commitment.tangleTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
+			if updateErr != nil {
+				return false, errors.Wrap(err, "could not insert leaf to the activity tree")
+			}
+		}
+	}
+	return false, nil
+}
+
 // ecRecord retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
 	ecRecord = f.loadECRecord(ei)
@@ -326,11 +400,14 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 	messageValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
+	activityValueStore := db.NewStore()
+	activityIDStore := db.NewStore()
 
 	commitmentTrees := &CommitmentTrees{
 		EI:                ei,
 		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		activityTree:      smt.NewSparseMerkleTree(activityIDStore, activityValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 
 	return commitmentTrees

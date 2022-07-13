@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"github.com/iotaledger/hive.go/identity"
 	"sync"
 	"time"
 
@@ -60,6 +61,8 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
 			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
+			ActivityTreeInserted:      event.New[*ActivityTreeUpdatedEvent](),
+			ActivityTreeRemoved:       event.New[*ActivityTreeUpdatedEvent](),
 		},
 	}
 
@@ -202,6 +205,15 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 		return
 	}
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
+
+	nodeID := identity.NewID(message.IssuerPublicKey())
+	err = m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID)
+	if err != nil && m.log != nil {
+		m.log.Error(err)
+		return
+	}
+	m.tangle.WeightProvider.Update(ei, nodeID)
+	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
@@ -219,6 +231,17 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 		m.log.Error(err)
 	}
 	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
+
+	nodeID := identity.NewID(message.IssuerPublicKey())
+	removed, err := m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
+	if err != nil && m.log != nil {
+		m.log.Error(err)
+		return
+	}
+	if removed {
+		m.tangle.WeightProvider.Update(ei, nodeID)
+		m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+	}
 
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
@@ -568,6 +591,7 @@ func Log(log *logger.Logger) ManagerOption {
 type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommittable *event.Event[*EpochCommittableEvent]
+	// ManaVectorUpdate is an event that gets triggered when we move to the next epoch and mana vector should be updated.
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Message is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
@@ -581,6 +605,10 @@ type Events struct {
 	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
 	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed from the UTXO smt.
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
+	// ActivityTreeInserted is an event that gets triggered when nodeID is added to the activity tree.
+	ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
+	// ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
+	ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -623,6 +651,14 @@ type ManaVectorUpdateEvent struct {
 	EI               epoch.Index
 	EpochDiffCreated []*ledger.OutputWithMetadata
 	EpochDiffSpent   []*ledger.OutputWithMetadata
+}
+
+// ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
+type ActivityTreeUpdatedEvent struct {
+	// EI is the index of the message.
+	EI epoch.Index
+	// NodeID is the issuer nodeID.
+	NodeID identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
