@@ -3,7 +3,9 @@ package tangle
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -72,7 +74,7 @@ func TestNewBlockID(t *testing.T) {
 		var blkID BlockID
 		err := blkID.FromBase58("O0l")
 		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to decode base58 encoded string"))
+		assert.True(t, strings.Contains(err.Error(), "invalid base58 digit ('O')"))
 		assert.Equal(t, EmptyBlockID, blkID)
 	})
 }
@@ -81,7 +83,7 @@ func TestBlockIDFromBytes(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		buffer := randomBytes(BlockIDLength)
 		var blkID BlockID
-		consumed, err := blkID.Decode(buffer)
+		consumed, err := blkID.FromBytes(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, BlockIDLength, consumed)
 		assert.Equal(t, blkID.Bytes(), buffer)
@@ -90,33 +92,26 @@ func TestBlockIDFromBytes(t *testing.T) {
 	t.Run("CASE: Too few bytes", func(t *testing.T) {
 		buffer := randomBytes(BlockIDLength - 1)
 		var result BlockID
-		consumed, err := result.Decode(buffer)
+		_, err := result.FromBytes(buffer)
 		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "not enough data to decode Identifier"))
-		assert.Equal(t, 0, consumed)
-		assert.Equal(t, EmptyBlockID, result)
+		assert.True(t, strings.Contains(err.Error(), "not enough data for deserialization"))
 	})
 
 	t.Run("CASE: More bytes", func(t *testing.T) {
 		buffer := randomBytes(BlockIDLength + 1)
 		var result BlockID
-		consumed, err := result.Decode(buffer)
+		consumed, err := result.FromBytes(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, BlockIDLength, consumed)
-		assert.Equal(t, buffer[:32], result.Bytes())
+		assert.Equal(t, buffer[:BlockIDLength], result.Bytes())
 	})
-}
-
-func TestBlockID_String(t *testing.T) {
-	randID := randomBlockID()
-	randIDString := randID.String()
-	assert.Equal(t, "BlockID("+base58.Encode(randID.Bytes())+")", randIDString)
 }
 
 func TestBlockID_Base58(t *testing.T) {
 	randID := randomBlockID()
 	randIDString := randID.Base58()
-	assert.Equal(t, base58.Encode(randID.Bytes()), randIDString)
+	fmt.Println(randIDString)
+	assert.Equal(t, fmt.Sprintf("%s:%s", base58.Encode(randID.Identifier.Bytes()), strconv.FormatInt(int64(randID.EpochIndex), 10)), randIDString)
 }
 
 func TestBlock_VerifySignature(t *testing.T) {
@@ -238,7 +233,7 @@ func TestNewBlockWithValidation(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
+	t.Run("CASE: Parent Blocks are unordered", func(t *testing.T) {
 		parents := testSortParents(randomParents(1))
 		parentBlocks := NewParentBlockIDs()
 		parentBlocks.AddAll(StrongParentType, NewBlockIDs(parents...))
@@ -262,9 +257,10 @@ func TestNewBlockWithValidation(t *testing.T) {
 		blkBytes := lo.PanicOnErr(blk.Bytes())
 
 		blkBytes[2] = byte(WeakParentType)
-		blkBytes[36] = byte(StrongParentType)
+		blkBytes[2+BlockIDLength+2] = byte(StrongParentType)
 
 		err = new(Block).FromObjectStorage(blk.IDBytes(), blkBytes)
+		fmt.Println(err)
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 	})
 
@@ -343,7 +339,9 @@ func TestNewBlockWithValidation(t *testing.T) {
 		assert.NoError(t, blk.DetermineID())
 		blkBytes := lo.PanicOnErr(blk.Bytes())
 
-		copy(blkBytes[4:36], blkBytes[36:36+32])
+		// replace blockID with another one in the bytes output
+		bytesOffset := 4
+		copy(blkBytes[bytesOffset:bytesOffset+BlockIDLength], blkBytes[bytesOffset+BlockIDLength:bytesOffset+BlockIDLength+BlockIDLength])
 
 		err = blk.FromObjectStorage(blk.IDBytes(), blkBytes)
 		assert.ErrorContains(t, err, "array elements must be unique")
@@ -370,7 +368,9 @@ func TestNewBlockWithValidation(t *testing.T) {
 		blkBytes := lo.PanicOnErr(blk.Bytes())
 
 		// replace parents in byte structure
-		copy(blkBytes[4:36], blkBytes[36+32:36+64])
+		bytesOffset := 4
+		parent3ByteOffset := bytesOffset + BlockIDLength + BlockIDLength
+		copy(blkBytes[bytesOffset:bytesOffset+BlockIDLength], blkBytes[parent3ByteOffset:parent3ByteOffset+BlockIDLength])
 
 		err = blk.FromObjectStorage(blk.IDBytes(), blkBytes)
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
@@ -590,7 +590,7 @@ func TestBlock_Bytes(t *testing.T) {
 
 		blkBytes := lo.PanicOnErr(blk.Bytes())
 		// 4 full parents blocks - 1 parent block with 1 parent
-		assert.Equal(t, MaxBlockSize-payload.MaxSize+8-(2*(1+1+8*32)+(7*32)), len(blkBytes))
+		assert.Equal(t, MaxBlockSize-payload.MaxSize+8-(2*(1+1+8*BlockIDLength)+(7*BlockIDLength)), len(blkBytes))
 	})
 }
 

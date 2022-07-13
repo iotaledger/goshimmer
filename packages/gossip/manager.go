@@ -372,7 +372,7 @@ func (m *Manager) processBlockRequestPacket(packetBlkReq *pb.Packet_BlockRequest
 		m.blockRequestsRateLimiter.Count(nbr.Peer)
 	}
 	var blkID tangle.BlockID
-	_, err := blkID.Decode(packetBlkReq.BlockRequest.GetId())
+	_, err := blkID.FromBytes(packetBlkReq.BlockRequest.GetId())
 	if err != nil {
 		m.log.Debugw("invalid block id:", "err", err)
 		return

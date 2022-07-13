@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 var (
@@ -48,6 +49,10 @@ func (i Index) Bytes() []byte {
 	}
 
 	return bytes
+}
+
+func (i Index) Length() int {
+	return 8
 }
 
 func (i Index) String() string {
