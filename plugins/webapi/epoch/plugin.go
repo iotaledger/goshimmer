@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
@@ -27,8 +28,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server       *echo.Echo
-	EpochStorage *node.Plugin `name:"epochstorage"`
+	Server          *echo.Echo
+	EpochStorage    *node.Plugin `name:"epochstorage"`
+	NotarizationMgr *notarization.Manager
 }
 
 func init() {
@@ -37,6 +39,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Server.GET("epochs", getAllCommittedEpochs)
+	deps.Server.GET("ec", getCurrentEC)
 	deps.Server.GET("epoch/:ei", getCommittedEpoch)
 	deps.Server.GET("epoch/:ei/utxos", getUTXOs)
 	deps.Server.GET("epoch/:ei/blocks", getBlocks)
@@ -55,6 +58,16 @@ func getAllCommittedEpochs(c echo.Context) error {
 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
 	})
 	return c.JSON(http.StatusOK, allEpochsInfos)
+}
+
+func getCurrentEC(c echo.Context) error {
+	ecRecord, err := deps.NotarizationMgr.GetLatestEC()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
+	ec := notarization.EC(ecRecord)
+
+	return c.JSON(http.StatusOK, ec.Base58())
 }
 
 func getCommittedEpoch(c echo.Context) error {

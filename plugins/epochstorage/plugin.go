@@ -32,6 +32,8 @@ var (
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
+	baseStore kvstore.KVStore
+
 	epochContentsMutex     sync.RWMutex
 	epochContents          = make(map[epoch.Index]*epochContentStorages, 0)
 	committableEpochsMutex sync.RWMutex
@@ -66,6 +68,7 @@ type dependencies struct {
 
 	Tangle          *tangle.Tangle
 	NotarizationMgr *notarization.Manager
+	Storage         kvstore.KVStore
 }
 
 func init() {
@@ -84,6 +87,7 @@ func configure(plugin *node.Plugin) {
 	// get the last committed epoch EI as minEpochIndex
 	snapshotEC, _ := deps.NotarizationMgr.GetLatestEC()
 	minEpochIndex = snapshotEC.EI()
+	baseStore = deps.Storage
 
 	deps.NotarizationMgr.Events.TangleTreeInserted.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
 		epochOrderMutex.Lock()
@@ -144,6 +148,12 @@ func configure(plugin *node.Plugin) {
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("EpochStorage", func(ctx context.Context) {
 		<-ctx.Done()
+		// flush all epoch contents to disc
+		epochContentsMutex.Lock()
+		for _, c := range epochContents {
+			c.flushAndCloseStorage()
+		}
+		epochContentsMutex.Unlock()
 	}, shutdown.PriorityNotarization); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -173,6 +183,9 @@ func checkEpochContentLimit() {
 
 	epochContentsMutex.Lock()
 	for _, i := range epochToRemove {
+		if c, ok := epochContents[i]; ok {
+			c.flushAndCloseStorage()
+		}
 		delete(epochContents, i)
 	}
 	epochContentsMutex.Unlock()
@@ -195,6 +208,18 @@ func checkEpochContentLimit() {
 	committableEpochsMutex.Unlock()
 }
 
+func (c *epochContentStorages) flushAndCloseStorage() {
+	c.createdOutputs.Flush()
+	c.spentOutputs.Flush()
+	c.blockIDs.Flush()
+	c.transactionIDs.Flush()
+
+	c.createdOutputs.Close()
+	c.spentOutputs.Close()
+	c.blockIDs.Close()
+	c.transactionIDs.Close()
+}
+
 func GetCommittableEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
 	ecRecords = make(map[epoch.Index]*epoch.ECRecord, 0)
 
@@ -214,7 +239,7 @@ func GetPendingConflictCount() map[epoch.Index]uint64 {
 func GetEpochblocks(ei epoch.Index) ([]tangle.BlockID, error) {
 	stores, err := getEpochContentStorage(ei)
 	if err != nil {
-		return []tangle.BlockID{}, err
+		return getMessagesFromDisc(ei), nil
 	}
 
 	var blkIDs []tangle.BlockID
@@ -233,7 +258,7 @@ func GetEpochblocks(ei epoch.Index) ([]tangle.BlockID, error) {
 func GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
 	stores, err := getEpochContentStorage(ei)
 	if err != nil {
-		return []utxo.TransactionID{}, err
+		return getTransactionsFromDisc(ei), nil
 	}
 
 	var txIDs []utxo.TransactionID
@@ -252,7 +277,8 @@ func GetEpochTransactions(ei epoch.Index) ([]utxo.TransactionID, error) {
 func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID, err error) {
 	stores, err := getEpochContentStorage(ei)
 	if err != nil {
-		return []utxo.OutputID{}, []utxo.OutputID{}, err
+		spent, created = getUTXOsFromDisc(ei)
+		return spent, created, nil
 	}
 
 	stores.createdOutputs.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
@@ -296,6 +322,56 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
+func getUTXOsFromDisc(ei epoch.Index) (spent, created []utxo.OutputID) {
+	baseStore.IterateKeys(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...), func(key kvstore.Key) bool {
+		var outputID utxo.OutputID
+		if err := outputID.FromBytes(key); err != nil {
+			panic(err)
+		}
+		spent = append(spent, outputID)
+
+		return true
+	})
+
+	baseStore.IterateKeys(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...), func(key kvstore.Key) bool {
+		var outputID utxo.OutputID
+		if err := outputID.FromBytes(key); err != nil {
+			panic(err)
+		}
+		created = append(created, outputID)
+
+		return true
+	})
+
+	return
+}
+
+func getTransactionsFromDisc(ei epoch.Index) (txIDs []utxo.TransactionID) {
+	baseStore.IterateKeys(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...), func(key kvstore.Key) bool {
+		var txID utxo.TransactionID
+		if _, err := txID.Decode(key); err != nil {
+			panic("TransactionID could not be parsed!")
+		}
+		txIDs = append(txIDs, txID)
+		return true
+	})
+
+	return
+}
+
+func getMessagesFromDisc(ei epoch.Index) (blockIDs []tangle.BlockID) {
+	baseStore.IterateKeys(append([]byte{database.PrefixEpochsStorage, prefixMessageIDs}, ei.Bytes()...), func(key kvstore.Key) bool {
+		var blockID tangle.BlockID
+		if _, err := blockID.Decode(key); err != nil {
+			panic("MessageID could not be parsed!")
+		}
+		blockIDs = append(blockIDs, blockID)
+		return true
+	})
+
+	return
+}
+
 func getEpochContentStorage(ei epoch.Index) (*epochContentStorages, error) {
 	if ei < minEpochIndex {
 		return nil, errors.New("Epoch storage no longer exists")
@@ -306,7 +382,7 @@ func getEpochContentStorage(ei epoch.Index) (*epochContentStorages, error) {
 	epochContentsMutex.RUnlock()
 
 	if !ok {
-		stores = newEpochContentStorage()
+		stores = newEpochContentStorage(ei)
 		epochContentsMutex.Lock()
 		epochContents[ei] = stores
 		epochContentsMutex.Unlock()
@@ -315,15 +391,30 @@ func getEpochContentStorage(ei epoch.Index) (*epochContentStorages, error) {
 	return stores, nil
 }
 
-func newEpochContentStorage() *epochContentStorages {
-	db, _ := database.NewMemDB()
+func newEpochContentStorage(ei epoch.Index) *epochContentStorages {
+	spent, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+	created, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+	blockIDs, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixMessageIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+	txIDs, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
 	// keep data in temporary storage
 	return &epochContentStorages{
-		spentOutputs:   db.NewStore(),
-		createdOutputs: db.NewStore(),
-		transactionIDs: db.NewStore(),
-		blockIDs:       db.NewStore(),
+		spentOutputs:   spent,
+		createdOutputs: created,
+		transactionIDs: txIDs,
+		blockIDs:       blockIDs,
 	}
 }
 
@@ -441,3 +532,17 @@ func saveEpochVotersWeight(block *tangle.Block) {
 	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime}
 	epochVotersWeight[epochIndex][ecr][voter] = activeWeights[voter]
 }
+
+// region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	prefixSpentOutput byte = iota
+
+	prefixCreatedOutput
+
+	prefixMessageIDs
+
+	prefixTransactionIDs
+)
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
