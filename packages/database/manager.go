@@ -11,6 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
+// TODO:
+//  - prune old buckets/epochs
+//  - flush epochs based on epoch commitments (link together via plugins)
+//  - prevent GET access to old buckets/epochs; and if still available and accessed, for how long should DB be kept open?
+//  - add functionality for permanent storage
+//  - on node startup: check if buckets are healthy and remove all that are unhealthy -> possibly report latest bucket
+//     to enable seamless startup after a crash/shutdown during an epoch
+
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var healthKey = []byte("bucket_health")
@@ -45,7 +53,6 @@ func NewManager(baseDirectory string, opts ...Option) *Manager {
 	return m
 }
 
-// TODO: we need to introduce a pruning threshold and everything that's below it should be pruned and not accessed.
 func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -94,7 +101,6 @@ func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 	startingIndex := index / epoch.Index(m.opts.granularity) * epoch.Index(m.opts.granularity)
 	db, exists := m.dbs.Get(startingIndex)
 	if !exists {
-		// TODO: this should also check whether there is a DB instance on disk already.
 		db = m.createDBInstance(startingIndex)
 		m.dbs.Set(startingIndex, db)
 	}
@@ -122,6 +128,7 @@ func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
 }
 
 // createDBInstance creates a new DB instance for the given index.
+// If a folder/DB for the given index already exists, it is opened.
 func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
 	db, err := m.opts.dbProvider(filepath.Join(m.baseDir, strconv.FormatInt(int64(index), 10)))
 	if err != nil {
@@ -192,6 +199,7 @@ type DBProvider func(dirname string) (DB, error)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// indexToRealm converts an index to a realm with some shifting magic.
 func indexToRealm(index epoch.Index) kvstore.Realm {
 	return []byte{
 		byte(0xff & index),

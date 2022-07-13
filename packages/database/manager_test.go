@@ -17,8 +17,8 @@ import (
 func TestManager_Get(t *testing.T) {
 	const bucketsCount = 20
 	const granularity = 3
-	// baseDir := t.TempDir()
-	baseDir := "/Users/jonastheis/projects/iota/goshimmer/db"
+	baseDir := t.TempDir()
+
 	m := NewManager(baseDir, WithGranularity(granularity), WithDBProvider(NewDB))
 
 	// Create and write data to buckets.
@@ -73,14 +73,20 @@ func TestManager_Get(t *testing.T) {
 		}
 	}
 
-	// TODO:
-	//  - create a bunch of buckets and check if they are accessible by writing and reading from them
-	//  - flush buckets and see if they are marked as healthy afterwards
-	//  - read again after flushing
+	// Simulate node shutdown.
+	m.Shutdown()
+	m = nil
 
-	//  - shutdown the DB and then see if it restores stuff properly by reading same things as before
-	//  - create new bucket -> should be marked as dirty and empty
-
+	m = NewManager(baseDir, WithGranularity(granularity), WithDBProvider(NewDB))
+	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
+	{
+		for i := 0; i < bucketsCount; i++ {
+			bucket := m.Get(epoch.Index(i), getRealm(i))
+			value, err := bucket.Get(getKey(i))
+			assert.NoError(t, err)
+			assert.Equal(t, getValue(i), value)
+		}
+	}
 }
 
 func getRealm(i int) kvstore.Realm {
