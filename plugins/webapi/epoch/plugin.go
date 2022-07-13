@@ -86,10 +86,7 @@ func getUTXOs(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	spentIDs, createdIDs, err := epochstorage.GetEpochUTXOs(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	spentIDs, createdIDs := epochstorage.GetEpochUTXOs(ei)
 
 	spent := make([]string, len(spentIDs))
 	for i, o := range spentIDs {
@@ -110,10 +107,7 @@ func getBlocks(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	blockIDs, err := epochstorage.GetEpochblocks(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	blockIDs := epochstorage.GetEpochblocks(ei)
 
 	blocks := make([]string, len(blockIDs))
 	for i, m := range blockIDs {
@@ -129,10 +123,7 @@ func getTransactions(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	transactionIDs, err := epochstorage.GetEpochTransactions(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	transactionIDs := epochstorage.GetEpochTransactions(ei)
 
 	transactions := make([]string, len(transactionIDs))
 	for i, t := range transactionIDs {
