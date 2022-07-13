@@ -60,7 +60,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint"}
+	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint", "ManaInitializer"}
 
 	c.GenesisTime = GenesisTime
 
@@ -90,6 +90,10 @@ func PeerConfig() config.GoShimmer {
 	c.BlockLayer.Enabled = true
 	c.BlockLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
+	c.Notarization.Enabled = true
+	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
+	c.Notarization.MinEpochCommitableAge = 10 * time.Second
+
 	c.RateSetter.Enabled = true
 	c.RateSetter.RateSetterParametersDefinition.Enable = false
 
@@ -107,8 +111,6 @@ func PeerConfig() config.GoShimmer {
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
 
-	c.Notarization.Enabled = true
-
 	return c
 }
 
@@ -119,8 +121,8 @@ func EntryNodeConfig() config.GoShimmer {
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
-		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization", "ManaInitializer",
-		"Firewall", "WebAPILedgerstateEndpoint")
+		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization",
+		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
