@@ -242,7 +242,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}))
 	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
 		m.registeredProtocolsMutex.RLock()
-		defer m.registeredProtocolsMutex.RLock()
+		defer m.registeredProtocolsMutex.RUnlock()
 
 		protocolHandler, isRegistered := m.registeredProtocols[event.Protocol]
 		if !isRegistered {
