@@ -127,7 +127,7 @@ func configureGossipIntegration() {
 		}
 	}))
 
-	mgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		deps.Selection.RemoveNeighbor(event.Neighbor.ID())
 	}))
 }

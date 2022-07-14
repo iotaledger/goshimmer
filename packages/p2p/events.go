@@ -6,8 +6,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// NeighborsEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
-type NeighborsEvents struct {
+// NeighborGroupEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
+type NeighborGroupEvents struct {
 	// Fired when a neighbor connection has been established.
 	NeighborAdded *event.Event[*NeighborAddedEvent]
 
@@ -15,9 +15,9 @@ type NeighborsEvents struct {
 	NeighborRemoved *event.Event[*NeighborRemovedEvent]
 }
 
-// NewNeighborsEvents returns a new instance of NeighborsEvents.
-func NewNeighborsEvents() (new *NeighborsEvents) {
-	return &NeighborsEvents{
+// NewNeighborGroupEvents returns a new instance of NeighborGroupEvents.
+func NewNeighborGroupEvents() (new *NeighborGroupEvents) {
+	return &NeighborGroupEvents{
 		NeighborAdded:   event.New[*NeighborAddedEvent](),
 		NeighborRemoved: event.New[*NeighborRemovedEvent](),
 	}

@@ -89,7 +89,7 @@ func getServices(p *peer.Peer) []jsonmodels.PeerService {
 		})
 	}
 
-	gossipService := p.Services().Get(service.GossipKey)
+	gossipService := p.Services().Get(service.P2PKey)
 	if gossipService != nil {
 		services = append(services, jsonmodels.PeerService{
 			ID:      "gossip",

@@ -300,7 +300,7 @@ func neighborMetrics() []neighbormetric {
 		}
 
 		host := neighbor.Peer.IP().String()
-		port := neighbor.Peer.Services().Get(service.GossipKey).Port()
+		port := neighbor.Peer.Services().Get(service.P2PKey).Port()
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
 			Address:          net.JoinHostPort(host, strconv.Itoa(port)),

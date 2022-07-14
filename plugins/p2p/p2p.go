@@ -24,7 +24,7 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 	}
 
 	// announce the service
-	if err := lPeer.UpdateService(service.GossipKey, localAddr.Network(), localAddr.Port); err != nil {
+	if err := lPeer.UpdateService(service.P2PKey, localAddr.Network(), localAddr.Port); err != nil {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
@@ -59,4 +59,3 @@ func start(ctx context.Context) {
 	<-ctx.Done()
 	Plugin.LogInfo("Stopping " + PluginName + " ...")
 }
-

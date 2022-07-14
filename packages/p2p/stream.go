@@ -34,15 +34,18 @@ var (
 	ErrTimeout = errors.New("accept timeout")
 	// ErrDuplicateAccept is returned when the server already registered an accept request for that peer ID.
 	ErrDuplicateAccept = errors.New("accept request for that peer already exists")
-	// ErrNoGossip means that the given peer does not support the gossip service.
-	ErrNoGossip = errors.New("peer does not have a gossip service")
+	// ErrNoP2P means that the given peer does not support the p2p service.
+	ErrNoP2P = errors.New("peer does not have a p2p service")
 )
 
 func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
+
 	conf := buildConnectPeerConfig(opts)
-	p2pEndpoint := p.Services().Get(service.GossipKey)
+	p2pEndpoint := p.Services().Get(service.P2PKey)
 	if p2pEndpoint == nil {
-		return nil, ErrNoGossip
+		return nil, ErrNoP2P
 	}
 	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
@@ -85,9 +88,12 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 }
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	p2pEndpoint := p.Services().Get(service.GossipKey)
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
+
+	p2pEndpoint := p.Services().Get(service.P2PKey)
 	if p2pEndpoint == nil {
-		return nil, ErrNoGossip
+		return nil, ErrNoP2P
 	}
 
 	handleInboundStream := func(protocolID protocol.ID) (*PacketsStream, error) {
@@ -157,7 +163,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 }
 
 func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, protocolID protocol.ID) (*PacketsStream, error) {
-	protocolHandlers, registered := m.registeredProtocols[protocolID]
+	protocolHandler, registered := m.registeredProtocols[protocolID]
 	if !registered {
 		return nil, fmt.Errorf("cannot initiate stream protocol %s is not registered", protocolID)
 	}
@@ -165,8 +171,8 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 	if err != nil {
 		return nil, err
 	}
-	ps := NewPacketsStream(stream, protocolHandlers.PacketFactory)
-	if err := protocolHandlers.NegotiationSend(ps); err != nil {
+	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
+	if err := protocolHandler.NegotiationSend(ps); err != nil {
 		err = errors.Wrap(err, "failed to send negotiation block")
 		err = errors.CombineErrors(err, stream.Close())
 		return nil, err
@@ -175,16 +181,21 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 }
 
 func (m *Manager) handleStream(stream network.Stream) {
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
+
 	protocolID := stream.Protocol()
-	protocolHandlers, registered := m.registeredProtocols[protocolID]
+	protocolHandler, registered := m.registeredProtocols[protocolID]
 	if !registered {
 		m.log.Errorf("cannot accept stream: protocol %s is not registered", protocolID)
 		m.CloseStream(stream)
+		return
 	}
-	ps := NewPacketsStream(stream, protocolHandlers.PacketFactory)
-	if err := protocolHandlers.NegotiationReceive(ps); err != nil {
+	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
+	if err := protocolHandler.NegotiationReceive(ps); err != nil {
 		m.log.Errorw("failed to receive negotiation message", "proto", protocolID, "err", err)
 		m.CloseStream(stream)
+		return
 	}
 	am := m.MatchNewStream(stream)
 	if am != nil {

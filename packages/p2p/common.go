@@ -8,11 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 )
 
-// GetAddress returns the address of the gossip service.
+// GetAddress returns the address of the p2p service.
 func GetAddress(p *peer.Peer) string {
-	gossipEndpoint := p.Services().Get(service.GossipKey)
-	if gossipEndpoint == nil {
-		panic("peer does not support gossipEndpoint")
+	p2pEndpoint := p.Services().Get(service.P2PKey)
+	if p2pEndpoint == nil {
+		panic("peer does not support p2p Endpoint")
 	}
-	return net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
+	return net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port()))
 }

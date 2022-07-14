@@ -24,7 +24,7 @@ const (
 	NeighborsGroupManual
 )
 
-// Neighbor describes the established gossip connection to another peer.
+// Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
@@ -35,6 +35,8 @@ type Neighbor struct {
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
 
+	// protocols is a map of protocol IDs to their respective PacketsStream.
+	// As it is only initialized from the Neighbor constructor, no locking is needed.
 	protocols map[protocol.ID]*PacketsStream
 }
 

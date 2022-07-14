@@ -93,7 +93,7 @@ func packetFactory() proto.Message {
 func newTestPeer(name string) *peer.Peer {
 	services := service.New()
 	services.Update(service.PeeringKey, "tcp", 0)
-	services.Update(service.GossipKey, "tcp", 0)
+	services.Update(service.P2PKey, "tcp", 0)
 
 	var publicKey ed25519.PublicKey
 	copy(publicKey[:], name)

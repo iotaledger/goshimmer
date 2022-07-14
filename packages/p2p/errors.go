@@ -3,9 +3,9 @@ package p2p
 import "github.com/cockroachdb/errors"
 
 var (
-	// ErrNotRunning is returned when a neighbor is added to a stopped or not yet started gossip manager.
+	// ErrNotRunning is returned when a neighbor is added to a stopped or not yet started p2p manager.
 	ErrNotRunning = errors.New("manager not running")
-	// ErrUnknownNeighbor is returned when the specified neighbor is not known to the gossip manager.
+	// ErrUnknownNeighbor is returned when the specified neighbor is not known to the p2p manager.
 	ErrUnknownNeighbor = errors.New("unknown neighbor")
 	// ErrLoopbackNeighbor is returned when the own peer is specified as a neighbor.
 	ErrLoopbackNeighbor = errors.New("loopback connection not allowed")

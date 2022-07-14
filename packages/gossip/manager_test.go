@@ -390,10 +390,10 @@ func TestDropNeighbor(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalA)
-		defer mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalA)
-		mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalB)
-		defer mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalB)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalA)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalA)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalB)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() {
 			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto))
@@ -412,10 +412,10 @@ func TestDropNeighbor(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
-		defer mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-		mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
-		defer mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
 
 		// assure that no p2pManager.DropNeighbor calls are leaking
 		wg.Add(2)
@@ -456,10 +456,10 @@ func TestManager(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
-		defer mgrA.p2pManager.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
-		mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
-		defer mgrB.p2pManager.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() {
 			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupManual))
@@ -542,7 +542,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 		require.NoError(t, err)
 		tcpPort, err := strconv.Atoi(tcpPortStr)
 		require.NoError(t, err)
-		err = local.UpdateService(service.GossipKey, "tcp", tcpPort)
+		err = local.UpdateService(service.P2PKey, "tcp", tcpPort)
 		require.NoError(t, err)
 
 		// start the actual gossipping
@@ -577,8 +577,8 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
-	e.p2pManager.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
+	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
+	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
 	e.Events.BlockReceived.Hook(event.NewClosure(e.blockReceived))
 
 	return e

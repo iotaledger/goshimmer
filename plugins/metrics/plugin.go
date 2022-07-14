@@ -307,8 +307,8 @@ func registerLocalMetrics() {
 		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
-	deps.P2Pmgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	deps.P2Pmgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	if deps.Selection != nil {
 		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
