@@ -8,9 +8,9 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -31,7 +31,7 @@ const (
 	splits = conflictRepetitions * numberOfConflictingOutputs * 2
 )
 
-// TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the GoFs are the same across the network
+// TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the confirmation states are the same across the network
 // and verifies that the Tangle converged to Master
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -50,19 +50,19 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	faucet, peer1 := n.Peers()[0], n.Peers()[1]
 	tokensPerRequest = faucet.Config().TokensPerRequest
 
-	const delayBetweenDataMessages = 100 * time.Millisecond
-	dataMessagesAmount := len(n.Peers()) * 10
+	const delayBetweenDataBlocks = 100 * time.Millisecond
+	dataBlocksAmount := len(n.Peers()) * 10
 
-	t.Logf("Sending %d data messages to confirm Faucet Outputs", dataMessagesAmount)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	fundingAddress := peer1.Address(0)
 	tests.SendFaucetRequest(t, peer1, fundingAddress)
 
-	t.Logf("Sending %d data messages to confirm Faucet Funds", dataMessagesAmount)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+	t.Logf("Sending %d data blocks to confirm Faucet Funds", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
 	require.Eventually(t, func() bool {
 		return tests.Balance(t, peer1, fundingAddress, devnetvm.ColorIOTA) >= uint64(tokensPerRequest)
@@ -89,18 +89,18 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
 
-	t.Logf("Sending data %d messages to confirm Conflicts and make GoF converge on all nodes", dataMessagesAmount*2)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount*2, delayBetweenDataMessages)
+	t.Logf("Sending data %d blocks to confirm Conflicts and make ConfirmationState converge on all nodes", dataBlocksAmount*2)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount*2, delayBetweenDataBlocks)
 
 	t.Logf("number of txs to verify is %d", len(txs))
 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
 
-	msgID, _ := tests.SendDataMessage(t, peer1, []byte("Gimme Master!"), 1)
+	blkID, _ := tests.SendDataBlock(t, peer1, []byte("Gimme Master!"), 1)
 
-	t.Logf("Verifying that %s is on MasterBranch", msgID)
-	messageMetadata, err := peer1.GetMessageMetadata(msgID)
+	t.Logf("Verifying that %s is on MasterConflict", blkID)
+	blockMetadata, err := peer1.GetBlockMetadata(blkID)
 	require.NoError(t, err)
-	require.Empty(t, messageMetadata.BranchIDs)
+	require.Empty(t, blockMetadata.ConflictIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
@@ -110,10 +110,10 @@ func determineOutputSlice(outputs devnetvm.Outputs, i int, size int) devnetvm.Ou
 }
 
 func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*devnetvm.Transaction) {
-	const unknownGoF = 10
+	const unknownConfirmationState = 10
 	for _, tx := range txs {
-		// current value signifies that we don't know what is the previous gof
-		var prevGoF gof.GradeOfFinality = unknownGoF
+		// current value signifies that we don't know what is the previous confirmation state
+		var prevConfirmationState confirmation.State = unknownConfirmationState
 		for i, peer := range peers {
 			var metadata *jsonmodels.TransactionMetadata
 			var err error
@@ -122,14 +122,14 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 				return err == nil && metadata != nil
 			}, 10*time.Second, 10*time.Millisecond, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
 				peer.Name(), tx.ID().Base58(), metadata, err)
-			t.Logf("GoF is %d for tx %s in peer %s", metadata.GradeOfFinality, tx.ID().Base58(), peer.Name())
-			if prevGoF != unknownGoF {
+			t.Logf("ConfirmationState is %s for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
+			if prevConfirmationState != unknownConfirmationState {
 				require.Eventually(t,
-					func() bool { return prevGoF == metadata.GradeOfFinality },
-					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
-					peers[i-1].Name(), prevGoF, peer.Name(), metadata.GradeOfFinality)
+					func() bool { return prevConfirmationState == metadata.ConfirmationState },
+					10*time.Second, 10*time.Millisecond, "Different confirmation states on tx %s between peers %s (ConfirmationState=%s) and %s (ConfirmationState=%s)", tx.ID().Base58(),
+					peers[i-1].Name(), prevConfirmationState, peer.Name(), metadata.ConfirmationState)
 			}
-			prevGoF = metadata.GradeOfFinality
+			prevConfirmationState = metadata.ConfirmationState
 		}
 	}
 }
@@ -138,8 +138,8 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 // It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
 // The conflicts are TX_B<->TX_A<->TX_C
 func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
-
+	keyPairs map[string]*ed25519.KeyPair, iteration int,
+) []*devnetvm.Transaction {
 	t.Logf("send pairwise conflicts on iteration %d", iteration)
 	peerIndex := (iteration + 1) % len(peers)
 
@@ -157,7 +157,8 @@ func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs devnet
 // Creates conflicts as so
 // TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
 func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
+	keyPairs map[string]*ed25519.KeyPair, iteration int,
+) []*devnetvm.Transaction {
 	t.Logf("send triple conflicts on iteration %d", iteration)
 
 	peerIndex := (iteration + 1) % len(peers)

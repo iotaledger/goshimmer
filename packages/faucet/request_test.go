@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -11,35 +10,11 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
-
-func ExampleRequest() {
-	keyPair := ed25519.GenerateKeyPair()
-	address := devnetvm.NewED25519Address(keyPair.PublicKey)
-	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
-	emptyID := identity.ID{}
-
-	// 1. create faucet payload
-	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
-
-	// 2. build actual message
-	tx := tangle.NewMessage(map[tangle.ParentsType]tangle.MessageIDs{
-		tangle.StrongParentType: {
-			tangle.EmptyMessageID: types.Void,
-		},
-	},
-		time.Now(),
-		local.PublicKey(),
-		0,
-		faucetRequest,
-		0,
-		ed25519.EmptySignature,
-	)
-	fmt.Println(tx.String())
-}
 
 func TestRequest(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
@@ -73,10 +48,10 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetMsg := tangle.NewMessage(
-		map[tangle.ParentsType]tangle.MessageIDs{
+	faucetBlk := tangle.NewBlock(
+		map[tangle.ParentsType]tangle.BlockIDs{
 			tangle.StrongParentType: {
-				tangle.EmptyMessageID: types.Void,
+				tangle.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),
@@ -85,12 +60,14 @@ func TestIsFaucetReq(t *testing.T) {
 		faucetRequest,
 		0,
 		ed25519.EmptySignature,
+		0,
+		epoch.NewECRecord(0),
 	)
 
-	dataMsg := tangle.NewMessage(
-		map[tangle.ParentsType]tangle.MessageIDs{
+	dataBlk := tangle.NewBlock(
+		map[tangle.ParentsType]tangle.BlockIDs{
 			tangle.StrongParentType: {
-				tangle.EmptyMessageID: types.Void,
+				tangle.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),
@@ -99,8 +76,10 @@ func TestIsFaucetReq(t *testing.T) {
 		payload.NewGenericDataPayload([]byte("data")),
 		0,
 		ed25519.EmptySignature,
+		0,
+		epoch.NewECRecord(0),
 	)
 
-	assert.Equal(t, true, IsFaucetReq(faucetMsg))
-	assert.Equal(t, false, IsFaucetReq(dataMsg))
+	assert.Equal(t, true, IsFaucetReq(faucetBlk))
+	assert.Equal(t, false, IsFaucetReq(dataBlk))
 }

@@ -22,7 +22,7 @@ func newCollectionLogEvents() *CollectionLogEvents {
 
 // TangleTimeSyncChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
 type TangleTimeSyncChangedEvent struct {
-	// Type defines the type of the message.
+	// Type defines the type of the block.
 	Type string `json:"type" bson:"type"`
 	// NodeID defines the ID of the node.
 	NodeID string `json:"nodeid" bson:"nodeid"`
@@ -34,13 +34,13 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// ATT contains time of the last accepted message
+	// ATT contains time of the last accepted block
 	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
-	// RATT contains relative time of the last accepted message
+	// RATT contains relative time of the last accepted block
 	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
-	// CTT contains time of the last confirmed message
+	// CTT contains time of the last confirmed block
 	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
-	// RCTT contains relative time of the last confirmed message
+	// RCTT contains relative time of the last confirmed block
 	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
@@ -49,13 +49,13 @@ type SchedulerQueryEvent struct {
 	Time time.Time
 }
 
-// MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
-type MessageFinalizedMetrics struct {
+// BlockFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
+type BlockFinalizedMetrics struct {
 	Type                 string    `json:"type" bson:"type"`
 	NodeID               string    `json:"nodeID" bson:"nodeID"`
 	IssuerID             string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel         uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID            string    `json:"messageID" bson:"messageID"`
+	BlockID              string    `json:"blockID" bson:"blockID"`
 	TransactionID        string    `json:"transactionID,omitempty" bson:"transactionID"`
 	IssuedTimestamp      time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
 	SolidTimestamp       time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
@@ -71,27 +71,27 @@ type MessageFinalizedMetrics struct {
 	ShallowLikeEdgeCount int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
-// MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
-type MessageScheduledMetrics struct {
+// BlockScheduledMetrics defines the scheduling block confirmation metrics record that is sent to remote logger.
+type BlockScheduledMetrics struct {
 	Type          string `json:"type" bson:"type"`
 	NodeID        string `json:"nodeID" bson:"nodeID"`
 	IssuerID      string `json:"issuerID" bson:"issuerID"`
 	MetricsLevel  uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID     string `json:"messageID" bson:"messageID"`
+	BlockID       string `json:"blockID" bson:"blockID"`
 	TransactionID string `json:"transactionID,omitempty" bson:"transactionID"`
-	// Time where the message was created by the issuing node
+	// Time where the block was created by the issuing node
 	IssuedTimestamp time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	// Time where the message was first seen by the node
-	ReceivedTimestamp        time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
-	SolidTimestamp           time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp       time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
-	BookedTimestamp          time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	QueuedTimestamp          time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
-	DroppedTimestamp         time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
-	GradeOfFinalityTimestamp time.Time `json:"gradeOfFinalityTimestamp,omitempty" bson:"GradeOfFinalityTimestamp"`
-	GradeOfFinality          uint8     `json:"gradeOfFinality" bson:"GradeOfFinality"`
-	DeltaGradeOfFinalityTime int64     `json:"deltaGradeOfFinalityTime" bson:"deltaGradeOfFinalityTime"`
-	DeltaSolid               int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	// Time where the block was first seen by the node
+	ReceivedTimestamp          time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
+	SolidTimestamp             time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp         time.Time `json:"scheduledTimestamp,omitempty" bson:"scheduledTimestamp"`
+	BookedTimestamp            time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	QueuedTimestamp            time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
+	DroppedTimestamp           time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
+	ConfirmationStateTimestamp time.Time `json:"confirmationStateTimestamp,omitempty" bson:"ConfirmationStateTimestamp"`
+	ConfirmationState          uint8     `json:"confirmationState" bson:"ConfirmationState"`
+	DeltaConfirmationStateTime int64     `json:"deltaConfirmationStateTime" bson:"deltaConfirmationStateTime"`
+	DeltaSolid                 int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
 	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
 	DeltaScheduledIssued int64 `json:"deltaScheduledIssued" bson:"deltaScheduledIssued"`
 	DeltaBooked          int64 `json:"deltaBooked" bson:"deltaBooked"`
@@ -107,23 +107,23 @@ type MessageScheduledMetrics struct {
 	LikeEdgeCount   int   `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
-// MissingMessageMetrics defines message solidification record that is sent to the remote logger.
-type MissingMessageMetrics struct {
+// MissingBlockMetrics defines block solidification record that is sent to the remote logger.
+type MissingBlockMetrics struct {
 	Type         string `json:"type" bson:"type"`
 	NodeID       string `json:"nodeID" bson:"nodeID"`
 	MetricsLevel uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID    string `json:"messageID" bson:"messageID"`
+	BlockID      string `json:"blockID" bson:"blockID"`
 	IssuerID     string `json:"issuerID"  bson:"issuerID"`
 }
 
-// BranchConfirmationMetrics defines the branch confirmation metrics record that is sent to remote logger.
-type BranchConfirmationMetrics struct {
+// ConflictConfirmationMetrics defines the conflict confirmation metrics record that is sent to remote logger.
+type ConflictConfirmationMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
 	IssuerID           string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID          string    `json:"messageID" bson:"messageID"`
-	BranchID           string    `json:"transactionID" bson:"transactionID"`
+	BlockID            string    `json:"blockID" bson:"blockID"`
+	ConflictID         string    `json:"transactionID" bson:"transactionID"`
 	CreatedTimestamp   time.Time `json:"createdTimestamp" bson:"createdTimestamp"`
 	ConfirmedTimestamp time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
 	DeltaConfirmed     int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
@@ -139,22 +139,22 @@ type SchedulerMetrics struct {
 	AManaNormalizedLengthPerNode map[string]float64 `json:"aManaNormalizedQueueLengthPerNode" bson:"aManaNormalizedQueueLengthPerNode"`
 	BufferSize                   uint32             `json:"bufferSize" bson:"bufferSize"`
 	BufferLength                 uint32             `json:"bufferLength" bson:"bufferLength"`
-	ReadyMessagesInBuffer        uint32             `json:"readyMessagesInBuffer" bson:"readyMessagesInBuffer"`
+	ReadyBlocksInBuffer          uint32             `json:"readyBlocksInBuffer" bson:"readyBlocksInBuffer"`
 	Timestamp                    time.Time          `json:"timestamp" bson:"timestamp"`
 }
 
-// BranchCountUpdate defines the branch confirmation metrics record that is sent to remote logger.
-type BranchCountUpdate struct {
-	Type                           string `json:"type" bson:"type"`
-	NodeID                         string `json:"nodeID" bson:"nodeID"`
-	MetricsLevel                   uint8  `json:"metricsLevel" bson:"metricsLevel"`
-	TotalBranchCount               uint64 `json:"totalBranchCount" bson:"totalBranchCount"`
-	FinalizedBranchCount           uint64 `json:"finalizedBranchCount" bson:"finalizedBranchCount"`
-	ConfirmedBranchCount           uint64 `json:"confirmedBranchCount" bson:"confirmedBranchCount"`
-	InitialTotalBranchCount        uint64 `json:"initialTotalBranchCount" bson:"initialTotalBranchCount"`
-	TotalBranchCountSinceStart     uint64 `json:"totalBranchCountSinceStart" bson:"totalBranchCountSinceStart"`
-	InitialConfirmedBranchCount    uint64 `json:"initialConfirmedBranchCount" bson:"initialConfirmedBranchCount"`
-	ConfirmedBranchCountSinceStart uint64 `json:"confirmedBranchCountSinceStart" bson:"confirmedBranchCountSinceStart"`
-	InitialFinalizedBranchCount    uint64 `json:"initialFinalizedBranchCount" bson:"initialFinalizedBranchCount"`
-	FinalizedBranchCountSinceStart uint64 `json:"finalizedBranchCountSinceStart" bson:"finalizedBranchCountSinceStart"`
+// ConflictCountUpdate defines the conflict confirmation metrics record that is sent to remote logger.
+type ConflictCountUpdate struct {
+	Type                             string `json:"type" bson:"type"`
+	NodeID                           string `json:"nodeID" bson:"nodeID"`
+	MetricsLevel                     uint8  `json:"metricsLevel" bson:"metricsLevel"`
+	TotalConflictCount               uint64 `json:"totalConflictCount" bson:"totalConflictCount"`
+	FinalizedConflictCount           uint64 `json:"finalizedConflictCount" bson:"finalizedConflictCount"`
+	ConfirmedConflictCount           uint64 `json:"confirmedConflictCount" bson:"confirmedConflictCount"`
+	InitialTotalConflictCount        uint64 `json:"initialTotalConflictCount" bson:"initialTotalConflictCount"`
+	TotalConflictCountSinceStart     uint64 `json:"totalConflictCountSinceStart" bson:"totalConflictCountSinceStart"`
+	InitialConfirmedConflictCount    uint64 `json:"initialConfirmedConflictCount" bson:"initialConfirmedConflictCount"`
+	ConfirmedConflictCountSinceStart uint64 `json:"confirmedConflictCountSinceStart" bson:"confirmedConflictCountSinceStart"`
+	InitialFinalizedConflictCount    uint64 `json:"initialFinalizedConflictCount" bson:"initialFinalizedConflictCount"`
+	FinalizedConflictCountSinceStart uint64 `json:"finalizedConflictCountSinceStart" bson:"finalizedConflictCountSinceStart"`
 }

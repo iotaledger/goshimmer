@@ -19,6 +19,7 @@ import (
 	"go.uber.org/dig"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/bootstrapmanager"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -26,7 +27,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 const (
@@ -51,8 +52,8 @@ var (
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
-	initDone atomic.Bool
-	synced   chan (bool)
+	initDone     atomic.Bool
+	bootstrapped chan bool
 
 	waitForManaWindow = 5 * time.Second
 	deps              = new(dependencies)
@@ -61,9 +62,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local   *peer.Local
-	Tangle  *tangle.Tangle
-	Indexer *indexer.Indexer
+	Local            *peer.Local
+	Tangle           *tangle.Tangle
+	BootstrapManager *bootstrapmanager.Manager
+	Indexer          *indexer.Indexer
 }
 
 func init() {
@@ -114,18 +116,18 @@ func configure(plugin *node.Plugin) {
 		faucetRequest := task.Param(0).(*faucet.Payload)
 		addr := faucetRequest.Address()
 
-		msg, txID, err := _faucet.FulFillFundingRequest(faucetRequest)
+		blk, txID, err := _faucet.FulFillFundingRequest(faucetRequest)
 		if err != nil {
 			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
 			return
 		}
-		plugin.LogInfof("sent funds to address %s via tx %s and msg %s", addr.Base58(), txID, msg.ID())
+		plugin.LogInfof("sent funds to address %s via tx %s and blk %s", addr.Base58(), txID, blk.ID())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
 		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
 
-	synced = make(chan bool, 1)
+	bootstrapped = make(chan bool, 1)
 
 	configureEvents()
 }
@@ -169,14 +171,14 @@ func run(plugin *node.Plugin) {
 }
 
 func waitUntilBootstrapped(ctx context.Context) bool {
-	// if we are already synced, there is no need to wait for the event
-	if deps.Tangle.TimeManager.Bootstrapped() {
+	// if we are already bootstrapped, there is no need to wait for the event
+	if deps.BootstrapManager.Bootstrapped() {
 		return true
 	}
 
-	// block until we are either synced or shutting down
+	// block until we are either bootstrapped or shutting down
 	select {
-	case <-synced:
+	case <-bootstrapped:
 		return true
 	case <-ctx.Done():
 		return false
@@ -193,7 +195,7 @@ func waitForMana(ctx context.Context) error {
 		default:
 		}
 
-		aMana, _, err := messagelayer.GetAccessMana(nodeID)
+		aMana, _, err := blocklayer.GetAccessMana(nodeID)
 		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
 		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			return err
@@ -207,20 +209,18 @@ func waitForMana(ctx context.Context) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
-		onMessageProcessed(event.MessageID)
+	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
+		onBlockProcessed(event.BlockID)
 	}))
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
-		if event.Synced {
-			synced <- true
-		}
+	deps.BootstrapManager.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
+		bootstrapped <- true
 	}))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	// Do not start picking up request while waiting for initialization.
-	// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
-	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
+	// If faucet nodes crashes and you restart with a clean db, all previous faucet req blks will be enqueued
+	// and addresses will be funded again. Therefore, do not process any faucet request blocks until we are in
 	// sync and initialized.
 	if !initDone.Load() {
 		return errors.New("faucet plugin is not done initializing")
@@ -233,34 +233,37 @@ func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	return nil
 }
 
-func onMessageProcessed(messageID tangle.MessageID) {
+func onBlockProcessed(blockID tangle.BlockID) {
 	// Do not start picking up request while waiting for initialization.
-	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req msgs will be enqueued
-	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
+	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req blks will be enqueued
+	// and addresses will be funded again. Therefore, do not process any faucet request blocks until we are in
 	// sync and initialized.
 	if !initDone.Load() {
 		return
 	}
-	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		if !faucet.IsFaucetReq(message) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+		if !faucet.IsFaucetReq(block) {
 			return
 		}
-		fundingRequest := message.Payload().(*faucet.Payload)
+		fundingRequest := block.Payload().(*faucet.Payload)
 
 		// pledge mana to requester if not specified in the request
 		emptyID := identity.ID{}
+		var aManaPledge identity.ID
 		if fundingRequest.AccessManaPledgeID() == emptyID {
-			fundingRequest.SetAccessManaPledgeID(identity.NewID(message.IssuerPublicKey()))
-		}
-		if fundingRequest.ConsensusManaPledgeID() == emptyID {
-			fundingRequest.SetConsensusManaPledgeID(identity.NewID(message.IssuerPublicKey()))
+			aManaPledge = identity.NewID(block.IssuerPublicKey())
 		}
 
-		_ = handleFaucetRequest(fundingRequest)
+		var cManaPledge identity.ID
+		if fundingRequest.ConsensusManaPledgeID() == emptyID {
+			cManaPledge = identity.NewID(block.IssuerPublicKey())
+		}
+
+		_ = handleFaucetRequest(fundingRequest, aManaPledge, cManaPledge)
 	})
 }
 
-func handleFaucetRequest(fundingRequest *faucet.Payload) error {
+func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) error {
 	addr := fundingRequest.Address()
 
 	if !isFaucetRequestPoWValid(fundingRequest, addr) {
@@ -270,6 +273,16 @@ func handleFaucetRequest(fundingRequest *faucet.Payload) error {
 	if IsAddressBlackListed(addr) {
 		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
 		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
+	}
+
+	emptyID := identity.ID{}
+	if len(pledge) == 2 {
+		if fundingRequest.AccessManaPledgeID() == emptyID {
+			fundingRequest.SetAccessManaPledgeID(pledge[0])
+		}
+		if fundingRequest.ConsensusManaPledgeID() == emptyID {
+			fundingRequest.SetConsensusManaPledgeID(pledge[1])
+		}
 	}
 
 	// finally add it to the faucet to be processed

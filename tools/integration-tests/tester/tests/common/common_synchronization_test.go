@@ -16,14 +16,14 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestCommonSynchronization checks whether messages are relayed through the network,
-// a node that joins later solidifies, stop and start this node again, and whether all messages
+// TestCommonSynchronization checks whether blocks are relayed through the network,
+// a node that joins later solidifies, stop and start this node again, and whether all blocks
 // are available on all nodes at the end (persistence).
 func TestCommonSynchronization(t *testing.T) {
 	const (
-		initialPeers    = 3
-		numMessages     = 100
-		numSyncMessages = 5 * initialPeers
+		initialPeers  = 3
+		numBlocks     = 100
+		numSyncBlocks = 5 * initialPeers
 	)
 	snapshotInfo := tests.EqualSnapshotDetails
 
@@ -37,12 +37,12 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// 1. issue data messages
-	log.Printf("Issuing %d messages to sync...", numMessages)
-	ids := tests.SendDataMessages(t, n.Peers(), numMessages)
-	log.Println("Issuing messages... done")
+	// 1. issue data blocks
+	log.Printf("Issuing %d blocks to sync...", numBlocks)
+	ids := tests.SendDataBlocks(t, n.Peers(), numBlocks)
+	log.Println("Issuing blocks... done")
 
-	// 2. spawn peer without knowledge of previous messages
+	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
 	cfg := createNewPeerConfig(t, snapshotInfo, 2)
@@ -52,14 +52,14 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	log.Println("Spawning new node... done")
 
-	// 3. issue some messages on old peers so that new peer can solidify
-	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
-	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
-	log.Println("Issuing messages... done")
+	// 3. issue some blocks on old peers so that new peer can solidify
+	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
+	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	log.Println("Issuing blocks... done")
 
-	// 4. check whether all issued messages are available on to the new peer
-	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
-	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
+	// 4. check whether all issued blocks are available on to the new peer
+	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	require.True(t, tests.Synced(t, newPeer))
 
 	// 5. shut down newly added peer
@@ -67,11 +67,11 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, newPeer.Stop(ctx))
 	log.Println("Stopping new node... done")
 
-	log.Printf("Issuing %d messages and waiting until they have old tangle time...", numMessages)
-	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numMessages, ids)
+	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
+	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
 	// wait to assure that the new peer is actually out of sync when starting
-	time.Sleep(newPeer.Config().MessageLayer.TangleTimeWindow)
-	log.Println("Issuing messages... done")
+	time.Sleep(newPeer.Config().BlockLayer.TangleTimeWindow)
+	log.Println("Issuing blocks... done")
 
 	// 6. let it startup again
 	log.Println("Restarting new node to sync again...")
@@ -81,17 +81,17 @@ func TestCommonSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	log.Println("Restarting node... done")
 
-	// the node should not be in sync as all the message are outside its sync time window
+	// the node should not be in sync as all the block are outside its sync time window
 	require.False(t, tests.Synced(t, newPeer))
 
-	// 7. issue some messages on old peers so that new peer can sync again
-	log.Printf("Issuing %d messages on the %d initial peers...", numSyncMessages, initialPeers)
-	ids = tests.SendDataMessages(t, n.Peers()[:initialPeers], numSyncMessages, ids)
-	log.Println("Issuing messages... done")
+	// 7. issue some blocks on old peers so that new peer can sync again
+	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
+	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	log.Println("Issuing blocks... done")
 
-	// 9. check whether all issued messages are available on to the new peer
-	tests.RequireMessagesAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
-	tests.RequireMessagesEqual(t, []*framework.Node{newPeer}, ids)
+	// 9. check whether all issued blocks are available on to the new peer
+	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 
 	// check that the new node is synced
 	require.Eventuallyf(t,
@@ -108,7 +108,7 @@ func TestFirewall(t *testing.T) {
 		Snapshot:    tests.EqualSnapshotDetails,
 	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
-			cfg.Gossip.MessagesRateLimit.Limit = 50
+			cfg.Gossip.BlocksRateLimit.Limit = 50
 		}
 		return cfg
 	})
@@ -122,9 +122,9 @@ func TestFirewall(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, got2)
 
-	// Start spamming messages from peer2 to peer1.
+	// Start spamming blocks from peer2 to peer1.
 	for i := 0; i < 51; i++ {
-		tests.SendDataMessage(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
+		tests.SendDataBlock(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
 		require.NoError(t, err)
 	}
 	assert.Eventually(t, func() bool {
@@ -137,7 +137,7 @@ func TestFirewall(t *testing.T) {
 	assert.Equal(t, 0, got2)
 }
 
-func TestConfirmMessage(t *testing.T) {
+func TestConfirmBlock(t *testing.T) {
 	snapshotInfo := tests.ConsensusSnapshotDetails
 
 	ctx, cancel := tests.Context(context.Background(), t)
@@ -152,11 +152,11 @@ func TestConfirmMessage(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// Send a message and wait for it to be confirmed.
+	// Send a block and wait for it to be confirmed.
 	peers := n.Peers()
-	msgID, _ := tests.SendDataMessage(t, peers[0], []byte("Test"), 0)
+	blkID, _ := tests.SendDataBlock(t, peers[0], []byte("Test"), 0)
 
-	tests.TryConfirmMessage(t, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
+	tests.TryConfirmBlock(t, peers[:], blkID, 30*time.Second, 100*time.Millisecond)
 }
 
 func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {
@@ -164,8 +164,8 @@ func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peer
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.MessageLayer.Snapshot.File = snapshotInfo.FilePath
+	conf.BlockLayer.Snapshot.File = snapshotInfo.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
-	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
+	conf.BlockLayer.TangleTimeWindow = 30 * time.Second
 	return conf
 }

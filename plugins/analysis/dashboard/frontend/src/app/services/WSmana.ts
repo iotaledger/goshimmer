@@ -1,30 +1,30 @@
-import {WSMsgTypeDashboard} from "../models/ws/WSMsgTypeDashboard";
-import { WSMessage } from "../models/ws/IWSMsg";
-import {IManaMessage} from "../models/mana/IManaMessage";
-import {INetworkManaMessage} from "../models/mana/INetworkManaMessage";
-import {IPledgeMessage} from "../models/mana/IPledgeMessage";
-import {IRevokeMessage} from "../models/mana/IRevokeMessage";
+import { WSBlkTypeDashboard } from "../models/ws/WSBlkTypeDashboard";
+import { WSBlock } from "../models/ws/IWSBlk";
+import { IManaBlock } from "../models/mana/IManaBlock";
+import { INetworkManaBlock } from "../models/mana/INetworkManaBlock";
+import { IPledgeBlock } from "../models/mana/IPledgeBlock";
+import { IRevokeBlock } from "../models/mana/IRevokeBlock";
 
 type DataHandler<T> = (data: T) => void;
 
-const handlers: { [id in WSMsgTypeDashboard]?: DataHandler<unknown> } = {};
+const handlers: { [id in WSBlkTypeDashboard]?: DataHandler<unknown> } = {};
 
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.Mana, handler: DataHandler<IManaMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaMapOverall, handler: DataHandler<INetworkManaMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaMapOnline, handler: DataHandler<INetworkManaMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaPledge, handler: DataHandler<IPledgeMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitPledge, handler: DataHandler<IPledgeMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaRevoke, handler: DataHandler<IRevokeMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitRevoke, handler: DataHandler<IRevokeMessage>);
-export function registerHandler(msgTypeID: WSMsgTypeDashboard.ManaInitDone, handler: DataHandler<null>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.Mana, handler: DataHandler<IManaBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaMapOverall, handler: DataHandler<INetworkManaBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaMapOnline, handler: DataHandler<INetworkManaBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaPledge, handler: DataHandler<IPledgeBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaInitPledge, handler: DataHandler<IPledgeBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaRevoke, handler: DataHandler<IRevokeBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaInitRevoke, handler: DataHandler<IRevokeBlock>);
+export function registerHandler(blkTypeID: WSBlkTypeDashboard.ManaInitDone, handler: DataHandler<null>);
 
 
-export function registerHandler<T>(msgTypeID: number, handler: DataHandler<T>): void {
-    handlers[msgTypeID] = handler;
+export function registerHandler<T>(blkTypeID: number, handler: DataHandler<T>): void {
+    handlers[blkTypeID] = handler;
 }
 
-export function unregisterHandler(msgTypeID: number): void {
-    delete handlers[msgTypeID];
+export function unregisterHandler(blkTypeID: number): void {
+    delete handlers[blkTypeID];
 }
 
 export function connectDashboardWebSocket(
@@ -47,10 +47,10 @@ export function connectDashboardWebSocket(
     ws.onerror = onError;
 
     ws.onmessage = (e) => {
-        const msg: WSMessage = JSON.parse(e.data) as WSMessage;
-        const handler = handlers[msg.type];
+        const blk: WSBlock = JSON.parse(e.data) as WSBlock;
+        const handler = handlers[blk.type];
         if (handler) {
-            handler(msg.data);
+            handler(blk.data);
         }
     };
 }

@@ -135,6 +135,8 @@ github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8 h1:lCaU8zjlV8f06WK3jlruYmTUPVumZ4sxj0CEyg/k0IU=
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8/go.mod h1:BXwVCA0+rgYcMKC3vVkfjF+2nXYIYq3h/HndbaCuw08=
 github.com/casbin/casbin/v2 v2.1.2/go.mod h1:YcPU1XXisHhLzuxH9coDNf2FbKpjGlbCg3n9yuLkIJQ=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884 h1:iRNKw2WmAbVgGMNYzDH5Y2yY3+jyxwEK9Hc5pwIjZAE=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884/go.mod h1:/sdYDakowo/XaxS2Fl7CBqtuf/O2uTqF2zmAUFAtAiw=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.1.1/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -473,8 +475,14 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20220617100616-12bd6f35b4a1 h1:7eOS9j+1K2M66OLgL/7tYafQIP9d0MMmyn0e72AmRUA=
-github.com/iotaledger/hive.go v0.0.0-20220617100616-12bd6f35b4a1/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220705110659-84be3e28c8ce h1:r6nyywvjxrFwC6qE9NcU/cWaLL8XWyzPtvQ0UfYGGmE=
+github.com/iotaledger/hive.go v0.0.0-20220705110659-84be3e28c8ce/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220713131416-10a47a2d9944 h1:ARmT1GEX1XxOah061u7AXsnegFqYsRu/rge5fuBINts=
+github.com/iotaledger/hive.go v0.0.0-20220713131416-10a47a2d9944/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220714061633-953e10f60c45 h1:tKgADjyZLNzcI5/pd/oW3rhcvGPq9yYODjqwrltqw2M=
+github.com/iotaledger/hive.go v0.0.0-20220714061633-953e10f60c45/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220714071841-4f9c6ffe833a h1:052kOYS5MjFWQrbS3mRzWERRrxAgXaZQBjDQRsWxWNU=
+github.com/iotaledger/hive.go v0.0.0-20220714071841-4f9c6ffe833a/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

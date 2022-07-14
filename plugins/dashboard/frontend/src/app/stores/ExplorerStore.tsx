@@ -12,17 +12,10 @@ import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
-export const GenesisMessageID = "1111111111111111111111111111111111111111111111111111111111111111";
+export const GenesisBlockID = "1111111111111111111111111111111111111111111111111111111111111111";
 export const GenesisTransactionID = "11111111111111111111111111111111";
 
-export enum GoF {
-    None = 0,
-    Low,
-    Medium,
-    High,
-}
-
-export class Message {
+export class Block {
     id: string;
     solidification_timestamp: number;
     issuance_timestamp: number;
@@ -31,19 +24,19 @@ export class Message {
     issuer_short_id: string;
     signature: string;
     parentsByType: Map<string, Array<string>>;
-    strongApprovers: Array<string>;
-    weakApprovers: Array<string>;
-    shallowLikeApprovers: Array<string>;
+    strongChildren: Array<string>;
+    weakChildren: Array<string>;
+    shallowLikeChildren: Array<string>;
     solid: boolean;
-    branchIDs: Array<string>;
-    addedBranchIDs: Array<string>;
-    subtractedBranchIDs: Array<string>;
+    conflictIDs: Array<string>;
+    addedConflictIDs: Array<string>;
+    subtractedConflictIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
     objectivelyInvalid: boolean;
     subjectivelyInvalid: boolean;
-    gradeOfFinality: number;
-    gradeOfFinalityTime: number;
+    confirmationState: number;
+    confirmationStateTime: number;
     payload_type: number;
     payload: any;
     rank: number;
@@ -51,6 +44,11 @@ export class Message {
     isPastMarker: boolean;
     pastMarkerGap: number;
     pastMarkers: string;
+    ec: string;
+    ei: number;
+    ecr: string;
+    prevEC: string;
+    latestConfirmedEpoch: number;
 }
 
 export class AddressResult {
@@ -74,11 +72,11 @@ class OutputID {
 
 export class OutputMetadata {
     outputID: OutputID;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
-    gradeOfFinality: number
-    gradeOfFinalityTime: number
+    confirmationState: number
+    confirmationStateTime: number
 }
 
 class OutputConsumer {
@@ -98,45 +96,44 @@ class PendingMana {
     timestamp: number;
 }
 
-class Branch {
+class Conflict {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number;
-    inclusionState: string;
+    confirmationState: number;
 }
 
-class BranchChildren {
-    branchID: string;
-    childBranches: Array<BranchChild>
+class ConflictChildren {
+    conflictID: string;
+    childConflicts: Array<ConflictChild>
 }
 
-class BranchChild {
-    branchID: string;
+class ConflictChild {
+    conflictID: string;
     type: string;
 }
 
-class BranchConflict {
+class ConflictConflict {
     outputID: OutputID;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
 }
 
-class BranchConflicts {
-    branchID: string;
-    conflicts: Array<BranchConflict>
+class ConflictConflicts {
+    conflictID: string;
+    conflicts: Array<ConflictConflict>
 }
 
-class BranchVoters {
-    branchID: string;
+class ConflictVoters {
+    conflictID: string;
     voters: Array<string>
 }
 
 class SearchResult {
-    message: MessageRef;
+    block: BlockRef;
     address: AddressResult;
 }
 
-class MessageRef {
+class BlockRef {
     id: string;
     payload_type: number;
 }
@@ -150,10 +147,10 @@ enum QueryError {
 
 export class ExplorerStore {
     // live feed
-    @observable latest_messages: Array<MessageRef> = [];
+    @observable latest_blocks: Array<BlockRef> = [];
 
     // queries
-    @observable msg: Message = null;
+    @observable blk: Block = null;
     @observable addr: AddressResult = null;
     @observable tx: any = null;
     @observable txMetadata: any = null;
@@ -162,10 +159,10 @@ export class ExplorerStore {
     @observable outputMetadata: OutputMetadata = null;
     @observable outputConsumers: OutputConsumers = null;
     @observable pendingMana: PendingMana = null;
-    @observable branch: Branch = null;
-    @observable branchChildren: BranchChildren = null;
-    @observable branchConflicts: BranchConflicts = null;
-    @observable branchVoters: BranchVoters = null;
+    @observable conflict: Conflict = null;
+    @observable conflictChildren: ConflictChildren = null;
+    @observable conflictConflicts: ConflictConflicts = null;
+    @observable conflictVoters: ConflictVoters = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -182,7 +179,7 @@ export class ExplorerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        registerHandler(WSMsgType.Message, this.addLiveFeedMessage);
+        registerHandler(WSMsgType.Block, this.addLiveFeedBlock);
     }
 
     searchAny = async () => {
@@ -208,8 +205,8 @@ export class ExplorerStore {
         this.searching = false;
         let search = this.search;
         this.search = '';
-        if (this.search_result.message) {
-            this.routerStore.push(`/explorer/message/${search}`);
+        if (this.search_result.block) {
+            this.routerStore.push(`/explorer/block/${search}`);
             return;
         }
         if (this.search_result.address) {
@@ -227,16 +224,16 @@ export class ExplorerStore {
     @action
     updateSearching = (searching: boolean) => this.searching = searching;
 
-    searchMessage = async (id: string) => {
+    searchBlock = async (id: string) => {
         this.updateQueryLoading(true);
         try {
-            let res = await fetch(`/api/message/${id}`);
+            let res = await fetch(`/api/block/${id}`);
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
             }
-            let msg: Message = await res.json();
-            this.updateMessage(msg);
+            let blk: Block = await res.json();
+            this.updateBlock(blk);
         } catch (err) {
             this.updateQueryError(err);
         }
@@ -266,7 +263,7 @@ export class ExplorerStore {
             }
             let tx = await res.json()
             for(let i = 0; i < tx.inputs.length; i++) {
-                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisMessageID
+                let inputID = tx.inputs[i] ? tx.inputs[i].referencedOutputID.base58 : GenesisBlockID
                 try{
                     let referencedOutputRes = await fetch(`/api/output/${inputID}`)
                     if (referencedOutputRes.status === 404){
@@ -389,9 +386,9 @@ export class ExplorerStore {
         }
     }
 
-    getBranch = async (id: string) => {
+    getConflict = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}`)
+            let res = await fetch(`/api/conflict/${id}`)
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
@@ -400,47 +397,47 @@ export class ExplorerStore {
                 this.updateQueryError(QueryError.BadRequest);
                 return;
             }
-            let branch: Branch = await res.json()
-            this.updateBranch(branch)
+            let conflict: Conflict = await res.json()
+            this.updateConflict(conflict)
         } catch (err) {
             this.updateQueryError(err);
         }
     }
 
-    getBranchChildren = async (id: string) => {
+    getConflictChildren = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/children`)
+            let res = await fetch(`/api/conflict/${id}/children`)
             if (res.status === 404) {
                 return;
             }
-            let children: BranchChildren = await res.json()
-            this.updateBranchChildren(children)
+            let children: ConflictChildren = await res.json()
+            this.updateConflictChildren(children)
         } catch (err) {
             // ignore
         }
     }
 
-    getBranchConflicts = async (id: string) => {
+    getConflictConflicts = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/conflicts`)
+            let res = await fetch(`/api/conflict/${id}/conflicts`)
             if (res.status === 404) {
                 return;
             }
-            let conflicts: BranchConflicts = await res.json()
-            this.updateBranchConflicts(conflicts)
+            let conflicts: ConflictConflicts = await res.json()
+            this.updateConflictConflicts(conflicts)
         } catch (err) {
             // ignore
         }
     }
 
-    getBranchVoters = async (id: string) => {
+    getConflictVoters = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/voters`)
+            let res = await fetch(`/api/conflict/${id}/voters`)
             if (res.status === 404) {
                 return;
             }
-            let branchVoters: BranchVoters = await res.json()
-            this.updateBranchVoters(branchVoters)
+            let conflictVoters: ConflictVoters = await res.json()
+            this.updateConflictVoters(conflictVoters)
         } catch (err) {
             // ignore
         }
@@ -448,7 +445,7 @@ export class ExplorerStore {
 
     @action
     reset = () => {
-        this.msg = null;
+        this.blk = null;
         this.query_err = null;
         // reset all variables
         this.tx = null;
@@ -458,9 +455,9 @@ export class ExplorerStore {
         this.outputMetadata = null;
         this.outputConsumers = null;
         this.pendingMana = null;
-        this.branch = null;
-        this.branchChildren = null;
-        this.branchConflicts = null;
+        this.conflict = null;
+        this.conflictChildren = null;
+        this.conflictConflicts = null;
     };
 
     @action
@@ -506,40 +503,40 @@ export class ExplorerStore {
     }
 
     @action
-    updateBranch = (branch: Branch) => {
-        this.branch = branch;
+    updateConflict = (conflict: Conflict) => {
+        this.conflict = conflict;
     }
 
     @action
-    updateBranchChildren = (children: BranchChildren) => {
-        this.branchChildren = children;
+    updateConflictChildren = (children: ConflictChildren) => {
+        this.conflictChildren = children;
     }
 
     @action
-    updateBranchConflicts = (conflicts: BranchConflicts) => {
-        this.branchConflicts = conflicts;
+    updateConflictConflicts = (conflicts: ConflictConflicts) => {
+        this.conflictConflicts = conflicts;
     }
 
     @action
-    updateBranchVoters = (branchVoters: BranchVoters) => {
-        this.branchVoters = branchVoters;
+    updateConflictVoters = (conflictVoters: ConflictVoters) => {
+        this.conflictVoters = conflictVoters;
     }
 
     @action
-    updateMessage = (msg: Message) => {
-        this.msg = msg;
+    updateBlock = (blk: Block) => {
+        this.blk = blk;
         this.query_err = null;
         this.query_loading = false;
-        switch (msg.payload_type) {
+        switch (blk.payload_type) {
             case PayloadType.Transaction:
-                this.payload = msg.payload as TransactionPayload
+                this.payload = blk.payload as TransactionPayload
                 break;
             case PayloadType.Data:
-                this.payload = msg.payload as BasicPayload
+                this.payload = blk.payload as BasicPayload
                 break;
             case PayloadType.Faucet:
             default:
-                this.payload = msg.payload as BasicPayload
+                this.payload = blk.payload as BasicPayload
                 break;
         }
     };
@@ -555,30 +552,30 @@ export class ExplorerStore {
     };
 
     @action
-    addLiveFeedMessage = (msg: MessageRef) => {
+    addLiveFeedBlock = (blk: BlockRef) => {
         // prevent duplicates (should be fast with only size 10)
-        if (this.latest_messages.findIndex((t) => t.id == msg.id) === -1) {
-            if (this.latest_messages.length >= liveFeedSize) {
-                this.latest_messages.shift();
+        if (this.latest_blocks.findIndex((t) => t.id == blk.id) === -1) {
+            if (this.latest_blocks.length >= liveFeedSize) {
+                this.latest_blocks.shift();
             }
-            this.latest_messages.push(msg);
+            this.latest_blocks.push(blk);
         }
     };
 
     @computed
-    get msgsLiveFeed() {
+    get blksLiveFeed() {
         let feed = [];
-        for (let i = this.latest_messages.length - 1; i >= 0; i--) {
-            let msg = this.latest_messages[i];
+        for (let i = this.latest_blocks.length - 1; i >= 0; i--) {
+            let blk = this.latest_blocks[i];
             feed.push(
-                <tr key={msg.id}>
+                <tr key={blk.id}>
                     <td>
-                        <Link to={`/explorer/message/${msg.id}`}>
-                            {msg.id}
+                        <Link to={`/explorer/block/${blk.id}`}>
+                            {blk.id}
                         </Link>
                     </td>
                     <td>
-                        {getPayloadType(msg.payload_type)}
+                        {getPayloadType(blk.payload_type)}
                     </td>
                 </tr>
             );

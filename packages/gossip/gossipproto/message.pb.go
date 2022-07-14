@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.27.1
 // 	protoc        v3.18.0
-// source: message.proto
+// source: block.proto
 
 package gossipproto
 
@@ -27,8 +27,8 @@ type Packet struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Body:
-	//	*Packet_Message
-	//	*Packet_MessageRequest
+	//	*Packet_Block
+	//	*Packet_BlockRequest
 	//	*Packet_Negotiation
 	Body isPacket_Body `protobuf_oneof:"body"`
 }
@@ -36,7 +36,7 @@ type Packet struct {
 func (x *Packet) Reset() {
 	*x = Packet{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_message_proto_msgTypes[0]
+		mi := &file_block_proto_blkTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -46,10 +46,10 @@ func (x *Packet) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Packet) ProtoMessage() {}
+func (*Packet) ProtoBlock() {}
 
 func (x *Packet) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[0]
+	mi := &file_block_proto_blkTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *Packet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Packet.ProtoReflect.Descriptor instead.
 func (*Packet) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{0}
+	return file_block_proto_rawDescGZIP(), []int{0}
 }
 
 func (m *Packet) GetBody() isPacket_Body {
@@ -72,16 +72,16 @@ func (m *Packet) GetBody() isPacket_Body {
 	return nil
 }
 
-func (x *Packet) GetMessage() *Message {
-	if x, ok := x.GetBody().(*Packet_Message); ok {
-		return x.Message
+func (x *Packet) GetBlock() *Block {
+	if x, ok := x.GetBody().(*Packet_Block); ok {
+		return x.Block
 	}
 	return nil
 }
 
-func (x *Packet) GetMessageRequest() *MessageRequest {
-	if x, ok := x.GetBody().(*Packet_MessageRequest); ok {
-		return x.MessageRequest
+func (x *Packet) GetBlockRequest() *BlockRequest {
+	if x, ok := x.GetBody().(*Packet_BlockRequest); ok {
+		return x.BlockRequest
 	}
 	return nil
 }
@@ -97,25 +97,25 @@ type isPacket_Body interface {
 	isPacket_Body()
 }
 
-type Packet_Message struct {
-	Message *Message `protobuf:"bytes,1,opt,name=message,proto3,oneof"`
+type Packet_Block struct {
+	Block *Block `protobuf:"bytes,1,opt,name=block,proto3,oneof"`
 }
 
-type Packet_MessageRequest struct {
-	MessageRequest *MessageRequest `protobuf:"bytes,2,opt,name=messageRequest,proto3,oneof"`
+type Packet_BlockRequest struct {
+	BlockRequest *BlockRequest `protobuf:"bytes,2,opt,name=blockRequest,proto3,oneof"`
 }
 
 type Packet_Negotiation struct {
 	Negotiation *Negotiation `protobuf:"bytes,3,opt,name=negotiation,proto3,oneof"`
 }
 
-func (*Packet_Message) isPacket_Body() {}
+func (*Packet_Block) isPacket_Body() {}
 
-func (*Packet_MessageRequest) isPacket_Body() {}
+func (*Packet_BlockRequest) isPacket_Body() {}
 
 func (*Packet_Negotiation) isPacket_Body() {}
 
-type Message struct {
+type Block struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -123,23 +123,23 @@ type Message struct {
 	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (x *Message) Reset() {
-	*x = Message{}
+func (x *Block) Reset() {
+	*x = Block{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_message_proto_msgTypes[1]
+		mi := &file_block_proto_blkTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *Message) String() string {
+func (x *Block) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Message) ProtoMessage() {}
+func (*Block) ProtoBlock() {}
 
-func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[1]
+func (x *Block) ProtoReflect() protoreflect.Message {
+	mi := &file_block_proto_blkTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -150,19 +150,19 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Message.ProtoReflect.Descriptor instead.
-func (*Message) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{1}
+// Deprecated: Use Block.ProtoReflect.Descriptor instead.
+func (*Block) Descriptor() ([]byte, []int) {
+	return file_block_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Message) GetData() []byte {
+func (x *Block) GetData() []byte {
 	if x != nil {
 		return x.Data
 	}
 	return nil
 }
 
-type MessageRequest struct {
+type BlockRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -170,23 +170,23 @@ type MessageRequest struct {
 	Id []byte `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 }
 
-func (x *MessageRequest) Reset() {
-	*x = MessageRequest{}
+func (x *BlockRequest) Reset() {
+	*x = BlockRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_message_proto_msgTypes[2]
+		mi := &file_block_proto_blkTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *MessageRequest) String() string {
+func (x *BlockRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*MessageRequest) ProtoMessage() {}
+func (*BlockRequest) ProtoBlock() {}
 
-func (x *MessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[2]
+func (x *BlockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_block_proto_blkTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -197,12 +197,12 @@ func (x *MessageRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MessageRequest.ProtoReflect.Descriptor instead.
-func (*MessageRequest) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{2}
+// Deprecated: Use BlockRequest.ProtoReflect.Descriptor instead.
+func (*BlockRequest) Descriptor() ([]byte, []int) {
+	return file_block_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *MessageRequest) GetId() []byte {
+func (x *BlockRequest) GetId() []byte {
 	if x != nil {
 		return x.Id
 	}
@@ -218,7 +218,7 @@ type Negotiation struct {
 func (x *Negotiation) Reset() {
 	*x = Negotiation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_message_proto_msgTypes[3]
+		mi := &file_block_proto_blkTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -228,10 +228,10 @@ func (x *Negotiation) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Negotiation) ProtoMessage() {}
+func (*Negotiation) ProtoBlock() {}
 
 func (x *Negotiation) ProtoReflect() protoreflect.Message {
-	mi := &file_message_proto_msgTypes[3]
+	mi := &file_block_proto_blkTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -244,12 +244,12 @@ func (x *Negotiation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Negotiation.ProtoReflect.Descriptor instead.
 func (*Negotiation) Descriptor() ([]byte, []int) {
-	return file_message_proto_rawDescGZIP(), []int{3}
+	return file_block_proto_rawDescGZIP(), []int{3}
 }
 
-var File_message_proto protoreflect.FileDescriptor
+var File_block_proto protoreflect.FileDescriptor
 
-var file_message_proto_rawDesc = []byte{
+var file_block_proto_rawDesc = []byte{
 	0x0a, 0x0d, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12,
 	0x0b, 0x67, 0x6f, 0x73, 0x73, 0x69, 0x70, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0xc7, 0x01, 0x0a,
 	0x06, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x12, 0x30, 0x0a, 0x07, 0x6d, 0x65, 0x73, 0x73, 0x61,
@@ -277,30 +277,30 @@ var file_message_proto_rawDesc = []byte{
 }
 
 var (
-	file_message_proto_rawDescOnce sync.Once
-	file_message_proto_rawDescData = file_message_proto_rawDesc
+	file_block_proto_rawDescOnce sync.Once
+	file_block_proto_rawDescData = file_block_proto_rawDesc
 )
 
-func file_message_proto_rawDescGZIP() []byte {
-	file_message_proto_rawDescOnce.Do(func() {
-		file_message_proto_rawDescData = protoimpl.X.CompressGZIP(file_message_proto_rawDescData)
+func file_block_proto_rawDescGZIP() []byte {
+	file_block_proto_rawDescOnce.Do(func() {
+		file_block_proto_rawDescData = protoimpl.X.CompressGZIP(file_block_proto_rawDescData)
 	})
-	return file_message_proto_rawDescData
+	return file_block_proto_rawDescData
 }
 
 var (
-	file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-	file_message_proto_goTypes  = []interface{}{
-		(*Packet)(nil),         // 0: gossipproto.Packet
-		(*Message)(nil),        // 1: gossipproto.Message
-		(*MessageRequest)(nil), // 2: gossipproto.MessageRequest
-		(*Negotiation)(nil),    // 3: gossipproto.Negotiation
+	file_block_proto_blkTypes = make([]protoimpl.MessageInfo, 4)
+	file_block_proto_goTypes  = []interface{}{
+		(*Packet)(nil),       // 0: gossipproto.Packet
+		(*Block)(nil),        // 1: gossipproto.Block
+		(*BlockRequest)(nil), // 2: gossipproto.BlockRequest
+		(*Negotiation)(nil),  // 3: gossipproto.Negotiation
 	}
 )
 
-var file_message_proto_depIdxs = []int32{
-	1, // 0: gossipproto.Packet.message:type_name -> gossipproto.Message
-	2, // 1: gossipproto.Packet.messageRequest:type_name -> gossipproto.MessageRequest
+var file_block_proto_depIdxs = []int32{
+	1, // 0: gossipproto.Packet.block:type_name -> gossipproto.Block
+	2, // 1: gossipproto.Packet.blockRequest:type_name -> gossipproto.BlockRequest
 	3, // 2: gossipproto.Packet.negotiation:type_name -> gossipproto.Negotiation
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
@@ -309,13 +309,13 @@ var file_message_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_message_proto_init() }
-func file_message_proto_init() {
-	if File_message_proto != nil {
+func init() { file_block_proto_init() }
+func file_block_proto_init() {
+	if File_block_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_message_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_block_proto_blkTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Packet); i {
 			case 0:
 				return &v.state
@@ -327,8 +327,8 @@ func file_message_proto_init() {
 				return nil
 			}
 		}
-		file_message_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Message); i {
+		file_block_proto_blkTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Block); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -339,8 +339,8 @@ func file_message_proto_init() {
 				return nil
 			}
 		}
-		file_message_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MessageRequest); i {
+		file_block_proto_blkTypes[2].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*BlockRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -351,7 +351,7 @@ func file_message_proto_init() {
 				return nil
 			}
 		}
-		file_message_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_block_proto_blkTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Negotiation); i {
 			case 0:
 				return &v.state
@@ -364,27 +364,27 @@ func file_message_proto_init() {
 			}
 		}
 	}
-	file_message_proto_msgTypes[0].OneofWrappers = []interface{}{
-		(*Packet_Message)(nil),
-		(*Packet_MessageRequest)(nil),
+	file_block_proto_blkTypes[0].OneofWrappers = []interface{}{
+		(*Packet_Block)(nil),
+		(*Packet_BlockRequest)(nil),
 		(*Packet_Negotiation)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_message_proto_rawDesc,
+			RawDescriptor: file_block_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_message_proto_goTypes,
-		DependencyIndexes: file_message_proto_depIdxs,
-		MessageInfos:      file_message_proto_msgTypes,
+		GoTypes:           file_block_proto_goTypes,
+		DependencyIndexes: file_block_proto_depIdxs,
+		MessageInfos:      file_block_proto_blkTypes,
 	}.Build()
-	File_message_proto = out.File
-	file_message_proto_rawDesc = nil
-	file_message_proto_goTypes = nil
-	file_message_proto_depIdxs = nil
+	File_block_proto = out.File
+	file_block_proto_rawDesc = nil
+	file_block_proto_goTypes = nil
+	file_block_proto_depIdxs = nil
 }

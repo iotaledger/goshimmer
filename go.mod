@@ -7,11 +7,12 @@ require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/beevik/ntp v0.3.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
+	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.8.4
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go v0.0.0-20220617100616-12bd6f35b4a1
+	github.com/iotaledger/hive.go v0.0.0-20220714071841-4f9c6ffe833a
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0

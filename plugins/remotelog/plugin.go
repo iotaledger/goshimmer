@@ -1,4 +1,4 @@
-// Package remotelog is a plugin that enables log messages being sent via UDP to a central ELK stack for debugging.
+// Package remotelog is a plugin that enables log blocks being sent via UDP to a central ELK stack for debugging.
 // It is disabled by default and when enabled, additionally, logger.disableEvents=false in config.json needs to be set.
 // The destination can be set via logger.remotelog.serverAddress.
 // All events according to logger.level in config.json are sent.
@@ -31,19 +31,19 @@ const (
 
 	remoteLogType = "log"
 
-	levelIndex   = 0
-	nameIndex    = 1
-	messageIndex = 2
+	levelIndex = 0
+	nameIndex  = 1
+	blockIndex = 2
 )
 
 var (
 	// Plugin is the plugin instance of the remote plugin instance.
-	Plugin      *node.Plugin
-	deps        = new(dependencies)
-	myID        string
-	myGitHead   string
-	myGitBranch string
-	workerPool  *workerpool.NonBlockingQueuedWorkerPool
+	Plugin        *node.Plugin
+	deps          = new(dependencies)
+	myID          string
+	myGitHead     string
+	myGitConflict string
+	workerPool    *workerpool.NonBlockingQueuedWorkerPool
 )
 
 type dependencies struct {
@@ -82,7 +82,7 @@ func configure(_ *node.Plugin) {
 	getGitInfo()
 
 	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		deps.RemoteLogger.SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(messageIndex).(string))
+		deps.RemoteLogger.SendLogBlk(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(blockIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -116,9 +116,9 @@ func getGitInfo() {
 		return
 	}
 
-	// extract git branch and head
+	// extract git conflict and head
 	if h, err := r.Head(); err == nil {
-		myGitBranch = h.Name().String()
+		myGitConflict = h.Name().String()
 		myGitHead = h.Hash().String()
 	}
 }
@@ -147,14 +147,14 @@ func getGitDir() string {
 	return gitDir
 }
 
-type logMessage struct {
-	Version   string    `json:"version"`
-	GitHead   string    `json:"gitHead,omitempty"`
-	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeID    string    `json:"nodeId"`
-	Level     string    `json:"level"`
-	Name      string    `json:"name"`
-	Msg       string    `json:"msg"`
-	Timestamp time.Time `json:"timestamp"`
-	Type      string    `json:"type"`
+type logBlock struct {
+	Version     string    `json:"version"`
+	GitHead     string    `json:"gitHead,omitempty"`
+	GitConflict string    `json:"gitConflict,omitempty"`
+	NodeID      string    `json:"nodeId"`
+	Level       string    `json:"level"`
+	Name        string    `json:"name"`
+	Blk         string    `json:"blk"`
+	Timestamp   time.Time `json:"timestamp"`
+	Type        string    `json:"type"`
 }

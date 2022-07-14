@@ -19,32 +19,32 @@ import (
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID])
+	type ExpectedLikedConflict func(executionConflictAlias string, actualConflictID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID])
 
-	mustMatch := func(s *Scenario, aliasLikedBranches []string, aliasConflictMembers []string) ExpectedLikedBranch {
-		return func(_ string, actualBranchID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID]) {
-			expectedBranches := set.NewAdvancedSet[utxo.TransactionID]()
+	mustMatch := func(s *Scenario, aliasLikedConflicts []string, aliasConflictMembers []string) ExpectedLikedConflict {
+		return func(_ string, actualConflictID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID]) {
+			expectedConflicts := set.NewAdvancedSet[utxo.TransactionID]()
 			expectedConflictMembers := set.NewAdvancedSet[utxo.TransactionID]()
-			if len(aliasLikedBranches) > 0 {
-				for _, aliasLikedBranch := range aliasLikedBranches {
-					expectedBranches.Add(s.BranchID(aliasLikedBranch))
+			if len(aliasLikedConflicts) > 0 {
+				for _, aliasLikedConflict := range aliasLikedConflicts {
+					expectedConflicts.Add(s.ConflictID(aliasLikedConflict))
 				}
 			} else {
-				expectedBranches.Add(utxo.EmptyTransactionID)
+				expectedConflicts.Add(utxo.EmptyTransactionID)
 			}
 			if len(aliasConflictMembers) > 0 {
 				for _, aliasConflictMember := range aliasConflictMembers {
-					expectedConflictMembers.Add(s.BranchID(aliasConflictMember))
+					expectedConflictMembers.Add(s.ConflictID(aliasConflictMember))
 				}
 			}
-			require.True(t, expectedBranches.Has(actualBranchID), "expected one of: %s, actual: %s", expectedBranches, actualBranchID)
+			require.True(t, expectedConflicts.Has(actualConflictID), "expected one of: %s, actual: %s", expectedConflicts, actualConflictID)
 			require.True(t, expectedConflictMembers.Equal(actualConflictMembers), "expected: %s, actual: %s", expectedConflictMembers, actualConflictMembers)
 		}
 	}
 
 	type execution struct {
-		branchAlias     string
-		wantLikedBranch ExpectedLikedBranch
+		conflictAlias     string
+		wantLikedConflict ExpectedLikedConflict
 	}
 	type test struct {
 		Scenario   Scenario
@@ -63,12 +63,12 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 				}
 
@@ -86,16 +86,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -113,16 +113,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"C"}),
 					},
 				}
 
@@ -140,16 +140,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"C"}),
 					},
 				}
 
@@ -167,16 +167,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -194,16 +194,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -221,20 +221,20 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "D"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "D"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"D"}),
 					},
 				}
 
@@ -252,20 +252,20 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 				}
 
@@ -283,24 +283,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C", "D"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B", "C", "D"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"B", "A"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"B", "A"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"B"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"B"}),
 					},
 				}
 
@@ -318,24 +318,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "E"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "E"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"E"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"E"}),
 					},
 				}
 
@@ -353,16 +353,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 				}
 
@@ -380,24 +380,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"C"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 				}
 
@@ -415,24 +415,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 				}
 
@@ -450,48 +450,48 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{"G"}, []string{"F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{"G"}, []string{"F"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
-						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
+						conflictAlias:     "I",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
-						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
+						conflictAlias:     "J",
+						wantLikedConflict: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 					{
-						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
+						conflictAlias:     "K",
+						wantLikedConflict: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 				}
 
@@ -509,48 +509,48 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"C"}),
 					},
 					{
-						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "D",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
+						conflictAlias:     "E",
+						wantLikedConflict: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"G", "F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"G", "F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "G"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"F", "G"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
-						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
+						conflictAlias:     "I",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
-						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
+						conflictAlias:     "J",
+						wantLikedConflict: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 					{
-						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
+						conflictAlias:     "K",
+						wantLikedConflict: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 				}
 
@@ -568,28 +568,28 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "G", "H"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"F", "G", "H"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "G", "H"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"F", "G", "H"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
 					},
 				}
 
@@ -607,28 +607,28 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"H", "B"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"H", "B"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"H", "F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{"G"}, []string{"H", "F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F", "H"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{"G"}, []string{"F", "H"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B", "F", "G", "H"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"C"}, []string{"B", "F", "G", "H"}),
 					},
 				}
 
@@ -646,56 +646,56 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
 					},
 					{
-						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"O", "I"}),
+						conflictAlias:     "I",
+						wantLikedConflict: mustMatch(&scenario, []string{"J"}, []string{"O", "I"}),
 					},
 					{
-						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"I", "O"}),
+						conflictAlias:     "J",
+						wantLikedConflict: mustMatch(&scenario, []string{"J"}, []string{"I", "O"}),
 					},
 					{
-						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
+						conflictAlias:     "K",
+						wantLikedConflict: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
-						branchAlias:     "L",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
+						conflictAlias:     "L",
+						wantLikedConflict: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
-						branchAlias:     "M",
-						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"O", "M"}),
+						conflictAlias:     "M",
+						wantLikedConflict: mustMatch(&scenario, []string{"N"}, []string{"O", "M"}),
 					},
 					{
-						branchAlias:     "N",
-						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"M", "O"}),
+						conflictAlias:     "N",
+						wantLikedConflict: mustMatch(&scenario, []string{"N"}, []string{"M", "O"}),
 					},
 					{
-						branchAlias:     "O",
-						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"M", "N", "I", "O"}),
+						conflictAlias:     "O",
+						wantLikedConflict: mustMatch(&scenario, []string{"J"}, []string{"M", "N", "I", "O"}),
 					},
 				}
 
@@ -713,56 +713,56 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
 					},
 					{
-						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"J", "I"}),
+						conflictAlias:     "I",
+						wantLikedConflict: mustMatch(&scenario, []string{"O"}, []string{"J", "I"}),
 					},
 					{
-						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"I", "J"}),
+						conflictAlias:     "J",
+						wantLikedConflict: mustMatch(&scenario, []string{"O"}, []string{"I", "J"}),
 					},
 					{
-						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
+						conflictAlias:     "K",
+						wantLikedConflict: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
-						branchAlias:     "L",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
+						conflictAlias:     "L",
+						wantLikedConflict: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
-						branchAlias:     "M",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"N", "M"}),
+						conflictAlias:     "M",
+						wantLikedConflict: mustMatch(&scenario, []string{"O"}, []string{"N", "M"}),
 					},
 					{
-						branchAlias:     "N",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "N"}),
+						conflictAlias:     "N",
+						wantLikedConflict: mustMatch(&scenario, []string{"O"}, []string{"M", "N"}),
 					},
 					{
-						branchAlias:     "O",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "N", "J", "I"}),
+						conflictAlias:     "O",
+						wantLikedConflict: mustMatch(&scenario, []string{"O"}, []string{"M", "N", "J", "I"}),
 					},
 				}
 
@@ -780,36 +780,36 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
+						conflictAlias:     "A",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
-						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
+						conflictAlias:     "B",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
+						conflictAlias:     "C",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
 					},
 					{
-						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"G", "H", "F"}),
+						conflictAlias:     "F",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"G", "H", "F"}),
 					},
 					{
-						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "H", "G"}),
+						conflictAlias:     "G",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"F", "H", "G"}),
 					},
 					{
-						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
+						conflictAlias:     "H",
+						wantLikedConflict: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
 					},
 					{
-						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"J", "I"}),
+						conflictAlias:     "I",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"J", "I"}),
 					},
 					{
-						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"I", "J"}),
+						conflictAlias:     "J",
+						wantLikedConflict: mustMatch(&scenario, []string{}, []string{"I", "J"}),
 					},
 				}
 
@@ -826,12 +826,12 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			ls := ledger.New(ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ls.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, ls.ConflictDAG)
+			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
 			o := NewOnTangleVoting(ls.ConflictDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
-				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.BranchID(e.branchAlias))
-				e.wantLikedBranch(e.branchAlias, liked, conflictMembers)
+				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
+				e.wantLikedConflict(e.conflictAlias, liked, conflictMembers)
 			}
 		})
 	}
@@ -839,36 +839,36 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 // region test helpers /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
-type BranchMeta struct {
-	Order          int
-	BranchID       utxo.TransactionID
-	ParentBranches *set.AdvancedSet[utxo.TransactionID]
-	Conflicting    *set.AdvancedSet[utxo.OutputID]
-	ApprovalWeight float64
+// ConflictMeta describes a conflict in a conflictDAG with its conflicts and approval weight.
+type ConflictMeta struct {
+	Order           int
+	ConflictID      utxo.TransactionID
+	ParentConflicts *set.AdvancedSet[utxo.TransactionID]
+	Conflicting     *set.AdvancedSet[utxo.OutputID]
+	ApprovalWeight  float64
 }
 
-// Scenario is a testing utility representing a branchDAG with additional information such as approval weight for each
-// individual branch.
-type Scenario map[string]*BranchMeta
+// Scenario is a testing utility representing a conflictDAG with additional information such as approval weight for each
+// individual conflict.
+type Scenario map[string]*ConflictMeta
 
-// IDsToNames returns a mapping of BranchIDs to their alias.
+// IDsToNames returns a mapping of ConflictIDs to their alias.
 func (s *Scenario) IDsToNames() map[utxo.TransactionID]string {
 	mapping := map[utxo.TransactionID]string{}
 	for name, m := range *s {
-		mapping[m.BranchID] = name
+		mapping[m.ConflictID] = name
 	}
 	return mapping
 }
 
-// BranchID returns the BranchID of the given branch alias.
-func (s *Scenario) BranchID(alias string) utxo.TransactionID {
-	return (*s)[alias].BranchID
+// ConflictID returns the ConflictID of the given conflict alias.
+func (s *Scenario) ConflictID(alias string) utxo.TransactionID {
+	return (*s)[alias].ConflictID
 }
 
-// BranchIDs returns either all BranchIDs in the scenario or only the ones with the given aliases.
-func (s *Scenario) BranchIDs(aliases ...string) *set.AdvancedSet[utxo.TransactionID] {
-	branchIDs := set.NewAdvancedSet[utxo.TransactionID]()
+// ConflictIDs returns either all ConflictIDs in the scenario or only the ones with the given aliases.
+func (s *Scenario) ConflictIDs(aliases ...string) *set.AdvancedSet[utxo.TransactionID] {
+	conflictIDs := set.NewAdvancedSet[utxo.TransactionID]()
 	for name, meta := range *s {
 		if len(aliases) > 0 {
 			var has bool
@@ -882,13 +882,13 @@ func (s *Scenario) BranchIDs(aliases ...string) *set.AdvancedSet[utxo.Transactio
 				continue
 			}
 		}
-		branchIDs.Add(meta.BranchID)
+		conflictIDs.Add(meta.ConflictID)
 	}
-	return branchIDs
+	return conflictIDs
 }
 
-// CreateBranches orders and creates the branches for the scenario.
-func (s *Scenario) CreateBranches(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
+// CreateConflicts orders and creates the conflicts for the scenario.
+func (s *Scenario) CreateConflicts(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -905,32 +905,32 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *conflictdag.ConflictD
 
 	for _, o := range ordered {
 		m := (*s)[o.name]
-		createTestBranch(t, branchDAG, o.name, m)
+		createTestConflict(t, conflictDAG, o.name, m)
 	}
 }
 
-// creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
-	var newBranchCreated bool
+// creates a conflict and registers a ConflictIDAlias with the name specified in conflictMeta.
+func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, conflictMeta *ConflictMeta) bool {
+	var newConflictCreated bool
 
-	if branchMeta.BranchID == utxo.EmptyTransactionID {
-		panic("a branch must have its ID defined in its BranchMeta")
+	if conflictMeta.ConflictID == utxo.EmptyTransactionID {
+		panic("a conflict must have its ID defined in its ConflictMeta")
 	}
-	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
-	require.True(t, newBranchCreated)
-	branchDAG.Storage.CachedConflict(branchMeta.BranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		branchMeta.BranchID = branch.ID()
+	newConflictCreated = conflictDAG.CreateConflict(conflictMeta.ConflictID, conflictMeta.ParentConflicts, conflictMeta.Conflicting)
+	require.True(t, newConflictCreated)
+	conflictDAG.Storage.CachedConflict(conflictMeta.ConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictMeta.ConflictID = conflict.ID()
 	})
-	branchMeta.BranchID.RegisterAlias(alias)
-	return newBranchCreated
+	conflictMeta.ConflictID.RegisterAlias(alias)
+	return newConflictCreated
 }
 
 // WeightFuncFromScenario creates a WeightFunc from the given scenario so that the approval weight can be mocked
-// according to the branch weight's specified in the scenario.
+// according to the conflict weight's specified in the scenario.
 func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFunc {
-	branchIDsToName := scenario.IDsToNames()
-	return func(branchID utxo.TransactionID) (weight float64) {
-		name, nameOk := branchIDsToName[branchID]
+	conflictIDsToName := scenario.IDsToNames()
+	return func(conflictID utxo.TransactionID) (weight float64) {
+		name, nameOk := conflictIDsToName[conflictID]
 		require.True(t, nameOk)
 		meta, metaOk := scenario[name]
 		require.True(t, metaOk)
@@ -965,796 +965,796 @@ var (
 
 	s1 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.6,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.6,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 	}
 
 	s2 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.6,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.6,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.8,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.8,
 		},
 	}
 
 	s3 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.5,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.5,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.4,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.4,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 	}
 
 	s4 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.3,
 		},
 	}
 
 	s45 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{200}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{200}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.3,
 		},
 	}
 
 	s5 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.1,
 		},
 	}
 
 	s6 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID5),
-			ApprovalWeight: 0.4,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID5),
+			ApprovalWeight:  0.4,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID5),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID5),
+			ApprovalWeight:  0.1,
 		},
 	}
 
 	s7 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.15,
 		},
 	}
 
 	s8 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0),
-			ApprovalWeight: 0.5,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0),
+			ApprovalWeight:  0.5,
 		},
 	}
 
 	s9 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0),
+			ApprovalWeight:  0.1,
 		},
 	}
 
 	s10 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
+			ApprovalWeight:  0.1,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 	}
 
 	s12 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.25,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.25,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.35,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.35,
 		},
 	}
 
 	s13 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.4,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.4,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.35,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.35,
 		},
 	}
 
 	s14 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.4,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.4,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.35,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.35,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.17,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.17,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
-			Conflicting:    set.NewAdvancedSet(conflictID6),
-			ApprovalWeight: 0.1,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:     set.NewAdvancedSet(conflictID6),
+			ApprovalWeight:  0.1,
 		},
 		"I": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
-			Conflicting:    set.NewAdvancedSet(conflictID6),
-			ApprovalWeight: 0.05,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:     set.NewAdvancedSet(conflictID6),
+			ApprovalWeight:  0.05,
 		},
 		"J": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID9),
-			ApprovalWeight: 0.04,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID9),
+			ApprovalWeight:  0.04,
 		},
 		"K": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID9),
-			ApprovalWeight: 0.06,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID9),
+			ApprovalWeight:  0.06,
 		},
 	}
 
 	s15 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"D": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.15,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.15,
 		},
 		"E": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID3),
-			ApprovalWeight: 0.35,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID3),
+			ApprovalWeight:  0.35,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.17,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.17,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
-			Conflicting:    set.NewAdvancedSet(conflictID6),
-			ApprovalWeight: 0.1,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:     set.NewAdvancedSet(conflictID6),
+			ApprovalWeight:  0.1,
 		},
 		"I": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
-			Conflicting:    set.NewAdvancedSet(conflictID6),
-			ApprovalWeight: 0.05,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:     set.NewAdvancedSet(conflictID6),
+			ApprovalWeight:  0.05,
 		},
 		"J": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID9),
-			ApprovalWeight: 0.04,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID9),
+			ApprovalWeight:  0.04,
 		},
 		"K": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID9),
-			ApprovalWeight: 0.06,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID9),
+			ApprovalWeight:  0.06,
 		},
 	}
 
 	s16 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.03,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.03,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight: 0.15,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
+			ApprovalWeight:  0.15,
 		},
 	}
 
 	s17 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.03,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.03,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight: 0.15,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
+			ApprovalWeight:  0.15,
 		},
 	}
 
 	s18 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.05,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.05,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.03,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.03,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight: 0.15,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
+			ApprovalWeight:  0.15,
 		},
 		"K": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID11),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID11),
+			ApprovalWeight:  0.1,
 		},
 		"L": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID11),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID11),
+			ApprovalWeight:  0.2,
 		},
 		"M": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID12),
-			ApprovalWeight: 0.05,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID12),
+			ApprovalWeight:  0.05,
 		},
 		"N": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{13}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID12),
-			ApprovalWeight: 0.06,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{13}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID12),
+			ApprovalWeight:  0.06,
 		},
 		"I": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{14}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8),
-			ApprovalWeight: 0.07,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{14}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8),
+			ApprovalWeight:  0.07,
 		},
 		"J": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{15}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8),
-			ApprovalWeight: 0.08,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{15}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8),
+			ApprovalWeight:  0.08,
 		},
 		"O": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{16}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8, conflictID12),
-			ApprovalWeight: 0.05,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{16}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8, conflictID12),
+			ApprovalWeight:  0.05,
 		},
 	}
 
 	s19 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.3,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.1,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.05,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.05,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.03,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.03,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight: 0.15,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
+			ApprovalWeight:  0.15,
 		},
 		"K": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID11),
-			ApprovalWeight: 0.1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID11),
+			ApprovalWeight:  0.1,
 		},
 		"L": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID11),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID11),
+			ApprovalWeight:  0.2,
 		},
 		"M": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID12),
-			ApprovalWeight: 0.05,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID12),
+			ApprovalWeight:  0.05,
 		},
 		"N": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{13}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID12),
-			ApprovalWeight: 0.06,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{13}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID12),
+			ApprovalWeight:  0.06,
 		},
 		"I": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{14}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8),
-			ApprovalWeight: 0.07,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{14}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8),
+			ApprovalWeight:  0.07,
 		},
 		"J": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{15}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8),
-			ApprovalWeight: 0.08,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{15}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8),
+			ApprovalWeight:  0.08,
 		},
 		"O": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{16}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
-			Conflicting:    set.NewAdvancedSet(conflictID8, conflictID12),
-			ApprovalWeight: 0.09,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{16}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:     set.NewAdvancedSet(conflictID8, conflictID12),
+			ApprovalWeight:  0.09,
 		},
 	}
 
 	s20 = Scenario{
 		"A": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1),
+			ApprovalWeight:  0.2,
 		},
 		"B": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight: 0.3,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
+			ApprovalWeight:  0.3,
 		},
 		"C": {
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
-			Conflicting:    set.NewAdvancedSet(conflictID2),
-			ApprovalWeight: 0.2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:     set.NewAdvancedSet(conflictID2),
+			ApprovalWeight:  0.2,
 		},
 		"F": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.02,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.02,
 		},
 		"G": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID4),
-			ApprovalWeight: 0.03,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID4),
+			ApprovalWeight:  0.03,
 		},
 		"H": {
-			Order:          1,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
-			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
-			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight: 0.15,
+			Order:           1,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
+			ApprovalWeight:  0.15,
 		},
 		"I": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
-			Conflicting:    set.NewAdvancedSet(conflictID7),
-			ApprovalWeight: 0.005,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
+			Conflicting:     set.NewAdvancedSet(conflictID7),
+			ApprovalWeight:  0.005,
 		},
 		"J": {
-			Order:          2,
-			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
-			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
-			Conflicting:    set.NewAdvancedSet(conflictID7),
-			ApprovalWeight: 0.015,
+			Order:           2,
+			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
+			Conflicting:     set.NewAdvancedSet(conflictID7),
+			ApprovalWeight:  0.015,
 		},
 	}
 )

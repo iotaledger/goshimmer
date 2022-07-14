@@ -9,7 +9,7 @@ import (
 // ParametersDefinition contains the definition of configuration parameters used by the relaychecker.
 type ParametersDefinition struct {
 	// TargetNode defines the target node.
-	TargetNode string `default:"http://127.0.0.1:8080" usage:"the target node from the which message will be broadcasted from"`
+	TargetNode string `default:"http://127.0.0.1:8080" usage:"the target node from the which block will be broadcasted from"`
 	// TestNodes defines test nodes.
 	TestNodes []string `usage:"the list of nodes to check after the cooldown"`
 	// CfgData defines the data.

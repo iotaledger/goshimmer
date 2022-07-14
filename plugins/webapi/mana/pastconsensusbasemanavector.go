@@ -6,7 +6,7 @@ package mana
 //
 //	"github.com/labstack/echo"
 //
-//	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+//	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 //	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
 //)
 //

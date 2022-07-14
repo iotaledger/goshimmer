@@ -1,7 +1,7 @@
 export enum WSMsgType {
     Status,
-    MPSMetrics,
-    Message,
+    BPSMetrics,
+    Block,
     NeighborStats,
     ComponentCounterMetrics,
     TipsMetrics,
@@ -16,14 +16,14 @@ export enum WSMsgType {
     ManaRevoke,
     ManaInitRevoke,
     ManaInitDone,
-    MsgManaDashboardAddress,
+    BlkManaDashboardAddress,
     Chat,
     RateSetter,
+    ConflictSet,
     Conflict,
-    Branch
 }
 
-export interface WSMessage {
+export interface WSBlock {
     type: number;
     data: any;
 }
@@ -32,12 +32,12 @@ type DataHandler = (data: any) => void;
 
 let handlers = {};
 
-export function registerHandler(msgTypeID: number, handler: DataHandler) {
-    handlers[msgTypeID] = handler;
+export function registerHandler(blkTypeID: number, handler: DataHandler) {
+    handlers[blkTypeID] = handler;
 }
 
-export function unregisterHandler(msgTypeID: number) {
-    delete handlers[msgTypeID];
+export function unregisterHandler(blkTypeID: number) {
+    delete handlers[blkTypeID];
 }
 
 export function connectWebSocket(path: string, onOpen, onClose, onError) {
@@ -56,11 +56,11 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
     ws.onerror = onError;
 
     ws.onmessage = (e) => {
-        let msg: WSMessage = JSON.parse(e.data);
-        let handler = handlers[msg.type];
+        let blk: WSBlock = JSON.parse(e.data);
+        let handler = handlers[blk.type];
         if (!handler) {
             return;
         }
-        handler(msg.data);
+        handler(blk.data);
     };
 }

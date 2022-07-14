@@ -3,6 +3,8 @@ package mana
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledger"
+
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -13,12 +15,14 @@ type BaseManaVector interface {
 	Type() Type
 	// Size returns the size of the base mana vector.
 	Size() int
-	// Has tells if a certain node is present in the base mana vactor.
+	// Has tells if a certain node is present in the base mana vector.
 	Has(identity.ID) bool
-	// LoadSnapshot loads the initial mana state into the base mana vector.
-	LoadSnapshot(map[identity.ID]*SnapshotNode)
+	// InitializeWithData loads the initial mana state into the base mana vector.
+	InitializeWithData(map[identity.ID]float64)
 	// Book books mana into the base mana vector.
 	Book(*TxInfo)
+	// BookEpoch books all outputs created and spent in an epoch.
+	BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata)
 	// GetMana returns the mana value of a node with default weights.
 	GetMana(identity.ID) (float64, time.Time, error)
 	// GetManaMap returns the map derived from the vector.
@@ -40,6 +44,9 @@ type BaseManaVector interface {
 }
 
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.
-func NewBaseManaVector() BaseManaVector {
-	return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{Vector: make(map[identity.ID]*ManaBase)})
+func NewBaseManaVector(manaType Type) BaseManaVector {
+	return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{
+		Type:   manaType,
+		Vector: make(map[identity.ID]*ManaBase),
+	})
 }

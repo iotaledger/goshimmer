@@ -42,7 +42,7 @@ type Essence struct {
 	Data              string               `json:"data"`
 }
 
-// Conflict is a JSON serializable conflict.
+// Conflict is a JSON serializable conflictSet.
 type Conflict struct {
 	ID      string `json:"tx_id"`
 	Opinion `json:"opinion"`
@@ -50,7 +50,7 @@ type Conflict struct {
 
 // Timestamp is a JSON serializable Timestamp.
 type Timestamp struct {
-	ID      string `json:"msg_id"`
+	ID      string `json:"blk_id"`
 	Opinion `json:"opinion"`
 }
 
@@ -101,9 +101,9 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case chat2.Type:
 		chatPayload := p.(*chat2.Payload)
 		return chat.Request{
-			From:    chatPayload.From(),
-			To:      chatPayload.To(),
-			Message: chatPayload.Message(),
+			From:  chatPayload.From(),
+			To:    chatPayload.To(),
+			Block: chatPayload.Block(),
 		}
 	default:
 		// unknown payload

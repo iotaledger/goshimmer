@@ -1,8 +1,8 @@
 import {IGraph} from './graph';
 import cytoscape from 'cytoscape';
-import {branchDagreOptions, dagreOptions} from 'styles/graphStyle';
+import {conflictDagreOptions, dagreOptions} from 'styles/graphStyle';
 import {utxoVertex} from 'models/utxo';
-import {branchVertex} from 'models/branch';
+import {conflictVertex} from 'models/conflict';
 import {ObservableMap} from 'mobx';
 import {BRANCH, LINE, UTXO} from './../styles/cytoscapeStyles';
 
@@ -145,29 +145,29 @@ export function drawTransaction(
     graph.layoutApi.placeNewNodes(collection);
 }
 
-const drawSingleBranch = function (
-    branch: branchVertex,
+const drawSingleConflict = function (
+    conflict: conflictVertex,
     graph: cytoscapeLib,
-    branchMap: ObservableMap<string, branchVertex>
+    conflictMap: ObservableMap<string, conflictVertex>
 ): any {
-    if (!branch) {
+    if (!conflict) {
         return;
     }
     let v: any;
     try {
         v = graph.cy.add({
             group: 'nodes',
-            data: { id: branch.ID }
+            data: { id: conflict.ID }
         });
     } catch (e) {
         // already drawn
     }
-    branchMap.set(branch.ID, branch);
-    updateConfirmedBranch(branch, graph);
+    conflictMap.set(conflict.ID, conflict);
+    updateConfirmedConflict(conflict, graph);
 
     if (v) {
         graph.layoutApi.placeNewNodes(v);
-        if (branch.isConfirmed) {
+        if (conflict.isConfirmed) {
             v.addClass('confirmed');
         }
     }
@@ -175,54 +175,54 @@ const drawSingleBranch = function (
     return v;
 };
 
-export async function drawBranch(
-    branch: branchVertex,
+export async function drawConflict(
+    conflict: conflictVertex,
     graph: cytoscapeLib,
-    branchMap: ObservableMap<string, branchVertex>
+    conflictMap: ObservableMap<string, conflictVertex>
 ) {
-    if (!branch) {
+    if (!conflict) {
         return;
     }
-    drawSingleBranch(branch, graph, branchMap);
-    branch.parents = branch.parents || [];
-    for (let i = 0; i < branch.parents.length; i++) {
-        const pID = branch.parents[i];
-        const b = branchMap.get(pID);
+    drawSingleConflict(conflict, graph, conflictMap);
+    conflict.parents = conflict.parents || [];
+    for (let i = 0; i < conflict.parents.length; i++) {
+        const pID = conflict.parents[i];
+        const b = conflictMap.get(pID);
         if (b) {
             graph.cy.add({
                 group: 'edges',
-                data: { source: pID, target: branch.ID }
+                data: { source: pID, target: conflict.ID }
             });
         } else {
-            const res = await fetch(`/api/dagsvisualizer/branch/${pID}`);
-            const branches: Array<branchVertex> =
-                (await res.json()) as Array<branchVertex>;
-            drawBranchesUpToMaster(branches, graph, branchMap);
+            const res = await fetch(`/api/dagsvisualizer/conflict/${pID}`);
+            const conflicts: Array<conflictVertex> =
+                (await res.json()) as Array<conflictVertex>;
+            drawConflictsUpToMaster(conflicts, graph, conflictMap);
             graph.cy.add({
                 group: 'edges',
-                data: { source: pID, target: branch.ID }
+                data: { source: pID, target: conflict.ID }
             });
         }
     }
 }
 
-function drawBranchesUpToMaster(
-    branches: Array<branchVertex>,
+function drawConflictsUpToMaster(
+    conflicts: Array<conflictVertex>,
     graph: cytoscapeLib,
-    branchMap: ObservableMap<string, branchVertex>
+    conflictMap: ObservableMap<string, conflictVertex>
 ) {
-    for (let i = 0; i < branches.length; i++) {
-        const branch = branches[i];
-        drawSingleBranch(branch, graph, branchMap);
-        branch.parents?.forEach((parentID) => {
-            const parent = branches.find((b) => b.ID === parentID);
+    for (let i = 0; i < conflicts.length; i++) {
+        const conflict = conflicts[i];
+        drawSingleConflict(conflict, graph, conflictMap);
+        conflict.parents?.forEach((parentID) => {
+            const parent = conflicts.find((b) => b.ID === parentID);
             if (parent) {
-                if (!branchMap.get(parentID)) {
-                    drawSingleBranch(parent, graph, branchMap);
+                if (!conflictMap.get(parentID)) {
+                    drawSingleConflict(parent, graph, conflictMap);
                 }
                 graph.cy.add({
                     group: 'edges',
-                    data: { source: parent.ID, target: branch.ID }
+                    data: { source: parent.ID, target: conflict.ID }
                 });
             }
         });
@@ -244,15 +244,15 @@ export function updateConfirmedTransaction(
     }
 }
 
-export function updateConfirmedBranch(
-    branch: branchVertex,
+export function updateConfirmedConflict(
+    conflict: conflictVertex,
     graph: cytoscapeLib
 ): void {
-    if (!branch)  return;
+    if (!conflict)  return;
 
-    const node = graph.cy.getElementById(branch.ID);
+    const node = graph.cy.getElementById(conflict.ID);
     if (!node) return;
-    if (branch.isConfirmed) {
+    if (conflict.isConfirmed) {
         node.addClass('confirmed');
     } else if (node.hasClass('confirmed')) {
         node.removeClass('confirmed');
@@ -354,7 +354,7 @@ export function initUTXODAG() {
 
 export function initConflictDAG() {
     const cy = cytoscape({
-        container: document.getElementById('branchVisualizer'), // container to render in
+        container: document.getElementById('conflictVisualizer'), // container to render in
         style: [
             // the stylesheet for the graph
             {
@@ -404,7 +404,7 @@ export function initConflictDAG() {
             name: LINE.LAYOUT
         }
     });
-    const layout = branchDagreOptions;
+    const layout = conflictDagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,

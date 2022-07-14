@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -19,9 +20,9 @@ const (
 
 func init() {
 	flag.StringSlice(cfgNodeURI, []string{"http://127.0.0.1:8080"}, "the URI of the node APIs")
-	flag.Int(cfgRate, 100, "spam count in messages per time unit")
+	flag.Int(cfgRate, 100, "spam count in blocks per time unit")
 	flag.Bool(cfgEnable, false, "enable/disable spammer")
-	flag.String(cfgImif, "uniform", "inter message issuing function: uniform or poisson")
+	flag.String(cfgImif, "uniform", "inter block issuing function: uniform or poisson")
 	flag.String(cfgUnit, "mps", "time unit of the spam rate: mpm or mps")
 }
 
@@ -49,7 +50,7 @@ func main() {
 	for _, api := range apis {
 		resp, err := api.ToggleSpammer(enableSpammer, rate, unit, imif)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", ""))
 			continue
 		}
 		fmt.Println(resp)

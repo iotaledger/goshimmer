@@ -10,8 +10,9 @@ import * as React from "react";
 import {SigLockedColoredOutputComponent} from "app/components/SigLockedColoredOutputComponent";
 import {AliasOutputComponent} from "app/components/AliasOutputComponent.tsx";
 import {ExtendedLockedOutputComponent} from "app/components/ExtendedLockedOutput";
-import {ExplorerOutput, GoF} from "app/stores/ExplorerStore";
+import {ExplorerOutput} from "app/stores/ExplorerStore";
 import {Base58EncodedColorIOTA, resolveColor} from "app/utils/color";
+import {ConfirmationState} from "app/utils/confirmation_state";
 
 export function outputToComponent(output: Output) {
     switch (output.type) {
@@ -33,7 +34,7 @@ export function totalBalanceFromExplorerOutputs(outputs: Array<ExplorerOutput>, 
     if (outputs.length === 0) {return totalBalance;}
     for (let i = 0; i < outputs.length; i++) {
         let o = outputs[i];
-        if (o.metadata.gradeOfFinality !== GoF.High) {
+        if (o.metadata.confirmationState < ConfirmationState.Accepted) {
             // ignore all unconfirmed balances
             continue
         }

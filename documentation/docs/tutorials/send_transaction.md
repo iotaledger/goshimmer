@@ -50,7 +50,7 @@ If we use a wallet, this information will be available along with the wallet bal
 ```Go
 resp, _ := goshimAPI.PostAddressUnspentOutputs([]string{myAddr.Base58()}) // ignoring error
 for _, output := range resp.UnspentOutputs[0].Outputs {
-		fmt.Println("outputID:", output.Output.OutputID.Base58, "confirmed:", output.InclusionState.Confirmed)
+		fmt.Println("outputID:", output.Output.OutputID.Base58, "confirmed:", output.ConfirmationState.Confirmed)
 }
 ```
 
@@ -160,7 +160,7 @@ tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock
 ## Sending a Transaction
 
 There are two web API methods that allows us to send the transaction:
-`PostTransaction()` and `IssuePayload()`. The second one is a more general method that sends the attached payload. We are going to use the first one that will additionally check the transaction validity before issuing and wait with sending the response until the message is booked.
+`PostTransaction()` and `IssuePayload()`. The second one is a more general method that sends the attached payload. We are going to use the first one that will additionally check the transaction validity before issuing and wait with sending the response until the block is booked.
 The method accepts a byte array, so we need to call `Bytes()`.
 If the transaction will be booked without any problems, we should be able to get the transaction ID from the API response.
 

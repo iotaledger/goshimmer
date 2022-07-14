@@ -29,10 +29,10 @@ export class TransactionInfo extends React.Component<Props, any> {
                             </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
-                                    Msg ID:
+                                    Blk ID:
                                     <LinkToDashboard
-                                        route={`explorer/messasge/${selectedTx.msgID}`}
-                                        title={selectedTx.msgID}
+                                        route={`explorer/messasge/${selectedTx.blkID}`}
+                                        title={selectedTx.blkID}
                                     />
                                 </ListGroup.Item>
                                 <ListGroup.Item>
@@ -65,17 +65,17 @@ export class TransactionInfo extends React.Component<Props, any> {
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF: {selectedTx.gof}
+                                    ConfirmationState: {selectedTx.confirmationState}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     Confirmed:{' '}
                                     {selectedTx.isConfirmed.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    GoF updated Time: {' '}
+                                    ConfirmationStateTime: {' '}
                                     {dateformat(
                                         new Date(
-                                            selectedTx.gofTime / 1000000
+                                            selectedTx.confirmationStateTime / 1000000
                                         ),
                                         'dd.mm.yyyy HH:MM:ss'
                                     )}

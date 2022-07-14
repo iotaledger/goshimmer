@@ -36,9 +36,9 @@ var (
 	}
 )
 
-// a websocket client with a channel for downstream messages.
+// a websocket client with a channel for downstream blocks.
 type wsclient struct {
-	// downstream message channel.
+	// downstream block channel.
 	channel chan interface{}
 	// a channel which is closed when the websocket client is disconnected.
 	exit chan struct{}
@@ -48,24 +48,24 @@ func configureWebSocketWorkerPool() {
 	wsSendWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
 		case uint64:
-			broadcastWsMessage(&wsmsg{MsgTypeMPSMetric, x})
-			broadcastWsMessage(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
-			broadcastWsMessage(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-			broadcastWsMessage(&wsmsg{MsgTypeTipsMetric, &tipsInfo{
+			broadcastWsBlock(&wsblk{MsgTypeBPSMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
+			broadcastWsBlock(&wsblk{MsgTypeNeighborMetric, neighborMetrics()})
+			broadcastWsBlock(&wsblk{MsgTypeTipsMetric, &tipsInfo{
 				TotalTips: deps.Tangle.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
-			broadcastWsMessage(&wsmsg{MsgTypeComponentCounterMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeComponentCounterMetric, x})
 		case *rateSetterMetric:
-			broadcastWsMessage(&wsmsg{MsgTypeRateSetterMetric, x})
+			broadcastWsBlock(&wsblk{MsgTypeRateSetterMetric, x})
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 }
 
 func runWebSocketStreams() {
-	updateStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) {
-		wsSendWorkerPool.TrySubmit(event.MPS)
+	updateStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) {
+		wsSendWorkerPool.TrySubmit(event.BPS)
 	})
 	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
 		componentStatus := event.ComponentStatus
@@ -86,12 +86,12 @@ func runWebSocketStreams() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(ctx context.Context) {
-		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
+		metrics.Events.ReceivedBPSUpdated.Attach(updateStatus)
 		metrics.Events.ComponentCounterUpdated.Attach(updateComponentCounterStatus)
 		metrics.Events.RateSetterUpdated.Attach(updateRateSetterMetrics)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[StatusUpdate] ...")
-		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
+		metrics.Events.ReceivedBPSUpdated.Detach(updateStatus)
 		metrics.Events.RateSetterUpdated.Detach(updateRateSetterMetrics)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
@@ -127,21 +127,21 @@ func removeWsClient(clientID uint64) {
 	close(wsClient.channel)
 }
 
-// broadcasts the given message to all connected websocket clients.
-func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
+// broadcasts the given block to all connected websocket clients.
+func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 	wsClientsMu.RLock()
 	defer wsClientsMu.RUnlock()
 	for _, wsClient := range wsClients {
 		if len(dontDrop) > 0 {
 			select {
-			case wsClient.channel <- msg:
+			case wsClient.channel <- blk:
 			case <-wsClient.exit:
 				// get unblocked if the websocket connection just got closed
 			}
 			continue
 		}
 		select {
-		case wsClient.channel <- msg:
+		case wsClient.channel <- blk:
 		default:
 			// potentially drop if slow consumer
 		}
@@ -155,7 +155,7 @@ func sendInitialData(ws *websocket.Conn) error {
 	if err := ManaBufferInstance().SendEvents(ws); err != nil {
 		return err
 	}
-	if err := ManaBufferInstance().SendValueMsgs(ws); err != nil {
+	if err := ManaBufferInstance().SendValueBlks(ws); err != nil {
 		return err
 	}
 	if err := ManaBufferInstance().SendMapOverall(ws); err != nil {
@@ -195,8 +195,8 @@ func websocketRoute(c echo.Context) error {
 	}
 
 	for {
-		msg := <-wsClient.channel
-		if err := ws.WriteJSON(msg); err != nil {
+		blk := <-wsClient.channel
+		if err := ws.WriteJSON(blk); err != nil {
 			break
 		}
 		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
@@ -206,8 +206,8 @@ func websocketRoute(c echo.Context) error {
 	return nil
 }
 
-func sendJSON(ws *websocket.Conn, msg *wsmsg) error {
-	if err := ws.WriteJSON(msg); err != nil {
+func sendJSON(ws *websocket.Conn, blk *wsblk) error {
+	if err := ws.WriteJSON(blk); err != nil {
 		return err
 	}
 	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {

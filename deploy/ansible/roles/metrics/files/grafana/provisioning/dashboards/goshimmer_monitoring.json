@@ -56,7 +56,7 @@
         "for": "5m",
         "frequency": "1m",
         "handler": 1,
-        "message": "Some of the GoShimmer instances are out of sync. Please fix ASAP! Below is the list of the nodes currently out of sync.",
+        "block": "Some of the GoShimmer instances are out of sync. Please fix ASAP! Below is the list of the nodes currently out of sync.",
         "name": "GoShimmer Sync Monitoring",
         "noDataState": "alerting",
         "notifications": []
@@ -188,7 +188,7 @@
         "for": "5m",
         "frequency": "1m",
         "handler": 1,
-        "message": "Some of the GoShimmer instances went down. Please fix ASAP! Below is the list of the nodes currently down.",
+        "block": "Some of the GoShimmer instances went down. Please fix ASAP! Below is the list of the nodes currently down.",
         "name": "GoShimmer Node Monitoring alert",
         "noDataState": "alerting",
         "notifications": []

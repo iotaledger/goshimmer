@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -27,85 +27,92 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-// region MessageTestFramework /////////////////////////////////////////////////////////////////////////////////////////
+// region BlockTestFramework /////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageTestFramework implements a framework for conveniently issuing messages in a tangle as part of unit tests in a
+// BlockTestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
 // simplified way.
-type MessageTestFramework struct {
+type BlockTestFramework struct {
 	tangle                   *Tangle
-	branchIDs                map[string]utxo.TransactionID
-	messagesByAlias          map[string]*Message
+	conflictIDs              map[string]utxo.TransactionID
+	blocksByAlias            map[string]*Block
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[devnetvm.Address]wallet
 	inputsByAlias            map[string]devnetvm.Input
 	outputsByAlias           map[string]devnetvm.Output
 	outputsByID              map[utxo.OutputID]devnetvm.Output
-	options                  *MessageTestFrameworkOptions
+	options                  *BlockTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	snapshot                 *ledger.Snapshot
+	outputCounter            uint16
 }
 
-// NewMessageTestFramework is the constructor of the MessageTestFramework.
-func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
-	messageTestFramework = &MessageTestFramework{
+// NewBlockTestFramework is the constructor of the BlockTestFramework.
+func NewBlockTestFramework(tangle *Tangle, options ...BlockTestFrameworkOption) (blockTestFramework *BlockTestFramework) {
+	blockTestFramework = &BlockTestFramework{
 		tangle:           tangle,
-		branchIDs:        make(map[string]utxo.TransactionID),
-		messagesByAlias:  make(map[string]*Message),
+		conflictIDs:      make(map[string]utxo.TransactionID),
+		blocksByAlias:    make(map[string]*Block),
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[devnetvm.Address]wallet),
 		inputsByAlias:    make(map[string]devnetvm.Input),
 		outputsByAlias:   make(map[string]devnetvm.Output),
 		outputsByID:      make(map[utxo.OutputID]devnetvm.Output),
-		options:          NewMessageTestFrameworkOptions(options...),
+		options:          NewBlockTestFrameworkOptions(options...),
 	}
 
-	messageTestFramework.createGenesisOutputs()
+	blockTestFramework.createGenesisOutputs()
 
 	return
 }
 
-// RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
-// also an alias when printing the BranchID.
-func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
-	branchID := m.BranchIDFromMessage(messageAlias)
-	m.branchIDs[alias] = branchID
-	branchID.RegisterAlias(alias)
+// Snapshot returns the Snapshot of the test framework.
+func (m *BlockTestFramework) Snapshot() (snapshot *ledger.Snapshot) {
+	return m.snapshot
 }
 
-func (m *MessageTestFramework) RegisterTransactionID(alias, messageAlias string) {
-	TxID := m.BranchIDFromMessage(messageAlias)
+// RegisterConflictID registers a ConflictID from the given Blocks' transactions with the BlockTestFramework and
+// also an alias when printing the ConflictID.
+func (m *BlockTestFramework) RegisterConflictID(alias, blockAlias string) {
+	conflictID := m.ConflictIDFromBlock(blockAlias)
+	m.conflictIDs[alias] = conflictID
+	conflictID.RegisterAlias(alias)
+}
+
+func (m *BlockTestFramework) RegisterTransactionID(alias, blockAlias string) {
+	TxID := m.ConflictIDFromBlock(blockAlias)
 	TxID.RegisterAlias(alias)
 }
 
-// BranchID returns the BranchID registered with the given alias.
-func (m *MessageTestFramework) BranchID(alias string) (branchID utxo.TransactionID) {
-	branchID, ok := m.branchIDs[alias]
+// ConflictID returns the ConflictID registered with the given alias.
+func (m *BlockTestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
+	conflictID, ok := m.conflictIDs[alias]
 	if !ok {
-		panic("no branch registered with such alias " + alias)
+		panic("no conflict registered with such alias " + alias)
 	}
 
 	return
 }
 
-// BranchIDs returns the BranchIDs registered with the given aliases.
-func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs utxo.TransactionIDs) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// ConflictIDs returns the ConflictIDs registered with the given aliases.
+func (m *BlockTestFramework) ConflictIDs(aliases ...string) (conflictIDs utxo.TransactionIDs) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for _, alias := range aliases {
-		branchID, ok := m.branchIDs[alias]
+		conflictID, ok := m.conflictIDs[alias]
 		if !ok {
-			panic("no branch registered with such alias " + alias)
+			panic("no conflict registered with such alias " + alias)
 		}
-		branchIDs.Add(branchID)
+		conflictIDs.Add(conflictID)
 	}
 
 	return
 }
 
-// CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
-	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
+// CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
+func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...BlockOption) (block *Block) {
+	options := NewBlockTestFrameworkBlockOptions(blockOptions...)
 
-	references := NewParentMessageIDs()
+	references := NewParentBlockIDs()
 
 	if parents := m.strongParentIDs(options); len(parents) > 0 {
 		references.AddAll(StrongParentType, parents)
@@ -117,35 +124,35 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 		references.AddAll(ShallowLikeParentType, parents)
 	}
 
-	if options.reattachmentMessageAlias != "" {
-		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
-		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(reattachmentPayload, references, options)
+	if options.reattachmentBlockAlias != "" {
+		reattachmentPayload := m.Block(options.reattachmentBlockAlias).Payload()
+		m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(reattachmentPayload, references, options)
 	} else {
 		transaction := m.buildTransaction(options)
 		if transaction != nil {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(transaction, references, options)
+			m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(transaction, references, options)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageWithOptions(messageAlias, references, options)
+			m.blocksByAlias[blockAlias] = newTestParentsDataBlockWithOptions(blockAlias, references, options)
 		}
 	}
 
-	if err := m.messagesByAlias[messageAlias].DetermineID(); err != nil {
+	if err := m.blocksByAlias[blockAlias].DetermineID(); err != nil {
 		panic(err)
 	}
 
-	m.messagesByAlias[messageAlias].ID().RegisterAlias(messageAlias)
+	m.blocksByAlias[blockAlias].ID().RegisterAlias(blockAlias)
 
-	return m.messagesByAlias[messageAlias]
+	return m.blocksByAlias[blockAlias]
 }
 
-// IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the MessageTestFramework uses to determine when
-// to assign new Markers to messages.
-func (m *MessageTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
+// IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the BlockTestFramework uses to determine when
+// to assign new Markers to blocks.
+func (m *BlockTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
 	return false
 }
 
-// PreventNewMarkers disables the generation of new Markers for the given Messages.
-func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFramework {
+// PreventNewMarkers disables the generation of new Markers for the given Blocks.
+func (m *BlockTestFramework) PreventNewMarkers(enabled bool) *BlockTestFramework {
 	if enabled && m.oldIncreaseIndexCallback == nil {
 		m.oldIncreaseIndexCallback = m.tangle.Options.IncreaseMarkersIndexCallback
 		m.tangle.Options.IncreaseMarkersIndexCallback = m.IncreaseMarkersIndexCallback
@@ -161,112 +168,126 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 	return m
 }
 
-// IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
-func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
-	for _, messageAlias := range messageAliases {
-		currentMessageAlias := messageAlias
+// LatestCommitment gets the latest commitment.
+func (m *BlockTestFramework) LatestCommitment(blockAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+	return m.tangle.Options.CommitmentFunc()
+}
+
+// IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
+func (m *BlockTestFramework) IssueBlocks(blockAliases ...string) *BlockTestFramework {
+	for _, blockAlias := range blockAliases {
+		currentBlockAlias := blockAlias
 
 		event.Loop.Submit(func() {
-			m.tangle.Storage.StoreMessage(m.messagesByAlias[currentMessageAlias])
+			m.tangle.Storage.StoreBlock(m.blocksByAlias[currentBlockAlias])
 		})
 	}
 
 	return m
 }
 
-func (m *MessageTestFramework) WaitUntilAllTasksProcessed() (self *MessageTestFramework) {
+func (m *BlockTestFramework) WaitUntilAllTasksProcessed() (self *BlockTestFramework) {
 	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
 	return m
 }
 
-// Message retrieves the Messages that is associated with the given alias.
-func (m *MessageTestFramework) Message(alias string) (message *Message) {
-	message, ok := m.messagesByAlias[alias]
+// Block retrieves the Blocks that is associated with the given alias.
+func (m *BlockTestFramework) Block(alias string) (block *Block) {
+	block, ok := m.blocksByAlias[alias]
 	if !ok {
-		panic(fmt.Sprintf("Message alias %s not registered", alias))
+		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
 	return
 }
 
-// Message retrieves the Messages that is associated with the given alias.
-func (m *MessageTestFramework) MessageIDs(aliases ...string) (messageIDs MessageIDs) {
-	messageIDs = NewMessageIDs()
+// Block retrieves the Blocks that is associated with the given alias.
+func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
+	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {
-		messageIDs.Add(m.Message(alias).ID())
+		blockIDs.Add(m.Block(alias).ID())
 	}
 	return
 }
 
-// MessageMetadata retrieves the MessageMetadata that is associated with the given alias.
-func (m *MessageTestFramework) MessageMetadata(alias string) (messageMetadata *MessageMetadata) {
-	m.tangle.Storage.MessageMetadata(m.messagesByAlias[alias].ID()).Consume(func(msgMetadata *MessageMetadata) {
-		messageMetadata = msgMetadata
+// BlockMetadata retrieves the BlockMetadata that is associated with the given alias.
+func (m *BlockTestFramework) BlockMetadata(alias string) (blockMetadata *BlockMetadata) {
+	m.tangle.Storage.BlockMetadata(m.blocksByAlias[alias].ID()).Consume(func(blkMetadata *BlockMetadata) {
+		blockMetadata = blkMetadata
 	})
 
 	return
 }
 
-// TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.TransactionID {
-	messagePayload := m.messagesByAlias[messageAlias].Payload()
-	tx, ok := messagePayload.(*devnetvm.Transaction)
+// TransactionID returns the TransactionID of the Transaction contained in the Block associated with the given alias.
+func (m *BlockTestFramework) TransactionID(blockAlias string) utxo.TransactionID {
+	blockPayload := m.blocksByAlias[blockAlias].Payload()
+	tx, ok := blockPayload.(*devnetvm.Transaction)
 	if !ok {
-		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+		panic(fmt.Sprintf("Block with alias '%s' does not contain a Transaction", blockAlias))
 	}
 
 	return tx.ID()
 }
 
-// TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
-// Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledger.TransactionMetadata) {
-	m.tangle.Ledger.Storage.CachedTransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+// Output retrieves the Output that is associated with the given alias.
+func (m *BlockTestFramework) Output(alias string) (output devnetvm.Output) {
+	output, ok := m.outputsByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Output alias %s not registered", alias))
+	}
+	return
+}
+
+// TransactionMetadata returns the transaction metadata of the transaction contained within the given block.
+// Panics if the block's payload isn't a transaction.
+func (m *BlockTestFramework) TransactionMetadata(blockAlias string) (txMeta *ledger.TransactionMetadata) {
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(m.TransactionID(blockAlias)).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		txMeta = transactionMetadata
 	})
 	return
 }
 
-// Transaction returns the transaction contained within the given message.
-// Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Transaction(messageAlias string) (tx utxo.Transaction) {
-	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction utxo.Transaction) {
+// Transaction returns the transaction contained within the given block.
+// Panics if the block's payload isn't a transaction.
+func (m *BlockTestFramework) Transaction(blockAlias string) (tx utxo.Transaction) {
+	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(blockAlias)).Consume(func(transaction utxo.Transaction) {
 		tx = transaction
 	})
 	return
 }
 
 // OutputMetadata returns the given output metadata.
-func (m *MessageTestFramework) OutputMetadata(outputID utxo.OutputID) (outMeta *ledger.OutputMetadata) {
+func (m *BlockTestFramework) OutputMetadata(outputID utxo.OutputID) (outMeta *ledger.OutputMetadata) {
 	m.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 		outMeta = outputMetadata
 	})
 	return
 }
 
-// BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.TransactionID {
-	messagePayload := m.messagesByAlias[messageAlias].Payload()
-	tx, ok := messagePayload.(utxo.Transaction)
+// ConflictIDFromBlock returns the ConflictID of the Transaction contained in the Block associated with the given alias.
+func (m *BlockTestFramework) ConflictIDFromBlock(blockAlias string) utxo.TransactionID {
+	blockPayload := m.blocksByAlias[blockAlias].Payload()
+	tx, ok := blockPayload.(utxo.Transaction)
 	if !ok {
-		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
+		panic(fmt.Sprintf("Block with alias '%s' does not contain a Transaction", blockAlias))
 	}
 
 	return tx.ID()
 }
 
-// Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledger.Conflict.
-// Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		b = branch
+// Conflict returns the conflict emerging from the transaction contained within the given block.
+// This function thus only works on the block creating ledger.Conflict.
+// Panics if the block's payload isn't a transaction.
+func (m *BlockTestFramework) Conflict(blockAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.ConflictIDFromBlock(blockAlias)).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		b = conflict
 	})
 	return
 }
 
-// createGenesisOutputs initializes the Outputs that are used by the MessageTestFramework as the genesis.
-func (m *MessageTestFramework) createGenesisOutputs() {
+// createGenesisOutputs initializes the Outputs that are used by the BlockTestFramework as the genesis.
+func (m *BlockTestFramework) createGenesisOutputs() {
 	if len(m.options.genesisOutputs) == 0 {
 		return
 	}
@@ -277,43 +298,41 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 	manaPledgeTime := time.Now()
 
-	outputs := utxo.NewOutputs()
-	outputsMetadata := ledger.NewOutputsMetadata()
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	for alias, balance := range m.options.genesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
+	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
+func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet
 
 	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
-	outputs.Add(output)
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
+	m.outputCounter++
 
-	outputMetadata := ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetGradeOfFinality(gof.High)
-	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
-	outputMetadata.SetCreationTime(manaPledgeTime)
-	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
-	outputsMetadata.Add(outputMetadata)
-
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, manaPledgeTime, manaPledgeID, manaPledgeID)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
+
+	return outputWithMetadata
 }
 
-// buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
-// no Transaction related MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *devnetvm.Transaction) {
+// buildTransaction creates a Transaction from the given BlockTestFrameworkBlockOptions. It returns nil if there are
+// no Transaction related BlockTestFrameworkBlockOptions.
+func (m *BlockTestFramework) buildTransaction(options *BlockTestFrameworkBlockOptions) (transaction *devnetvm.Transaction) {
 	if len(options.inputs) == 0 || len(options.outputs) == 0 {
 		return
 	}
@@ -360,33 +379,33 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 	return
 }
 
-// strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
-// MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	return m.parentIDsByMessageAlias(options.strongParents)
+// strongParentIDs returns the BlockIDs that were defined to be the strong parents of the
+// BlockTestFrameworkBlockOptions.
+func (m *BlockTestFramework) strongParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(options.strongParents)
 }
 
-// weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
-// MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	return m.parentIDsByMessageAlias(options.weakParents)
+// weakParentIDs returns the BlockIDs that were defined to be the weak parents of the
+// BlockTestFrameworkBlockOptions.
+func (m *BlockTestFramework) weakParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(options.weakParents)
 }
 
-// shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
-// MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	return m.parentIDsByMessageAlias(options.shallowLikeParents)
+// shallowLikeParentIDs returns the BlockIDs that were defined to be the shallow like parents of the
+// BlockTestFrameworkBlockOptions.
+func (m *BlockTestFramework) shallowLikeParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(options.shallowLikeParents)
 }
 
-func (m *MessageTestFramework) parentIDsByMessageAlias(parentAliases map[string]types.Empty) MessageIDs {
-	parentIDs := NewMessageIDs()
+func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
+	parentIDs := NewBlockIDs()
 	for parentAlias := range parentAliases {
 		if parentAlias == "Genesis" {
-			parentIDs.Add(EmptyMessageID)
+			parentIDs.Add(EmptyBlockID)
 			continue
 		}
 
-		parentIDs.Add(m.messagesByAlias[parentAlias].ID())
+		parentIDs.Add(m.blocksByAlias[parentAlias].ID())
 	}
 
 	return parentIDs
@@ -394,18 +413,18 @@ func (m *MessageTestFramework) parentIDsByMessageAlias(parentAliases map[string]
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
+// region BlockTestFrameworkOptions //////////////////////////////////////////////////////////////////////////////////
 
-// MessageTestFrameworkOptions is a container that holds the values of all configurable options of the
-// MessageTestFramework.
-type MessageTestFrameworkOptions struct {
+// BlockTestFrameworkOptions is a container that holds the values of all configurable options of the
+// BlockTestFramework.
+type BlockTestFrameworkOptions struct {
 	genesisOutputs        map[string]uint64
 	coloredGenesisOutputs map[string]map[devnetvm.Color]uint64
 }
 
-// NewMessageTestFrameworkOptions is the constructor for the MessageTestFrameworkOptions.
-func NewMessageTestFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOptions *MessageTestFrameworkOptions) {
-	frameworkOptions = &MessageTestFrameworkOptions{
+// NewBlockTestFrameworkOptions is the constructor for the BlockTestFrameworkOptions.
+func NewBlockTestFrameworkOptions(options ...BlockTestFrameworkOption) (frameworkOptions *BlockTestFrameworkOptions) {
+	frameworkOptions = &BlockTestFrameworkOptions{
 		genesisOutputs:        make(map[string]uint64),
 		coloredGenesisOutputs: make(map[string]map[devnetvm.Color]uint64),
 	}
@@ -417,14 +436,14 @@ func NewMessageTestFrameworkOptions(options ...MessageTestFrameworkOption) (fram
 	return
 }
 
-// MessageTestFrameworkOption is the type that is used for options that can be passed into the MessageTestFramework to
+// BlockTestFrameworkOption is the type that is used for options that can be passed into the BlockTestFramework to
 // configure its behavior.
-type MessageTestFrameworkOption func(*MessageTestFrameworkOptions)
+type BlockTestFrameworkOption func(*BlockTestFrameworkOptions)
 
-// WithGenesisOutput returns a MessageTestFrameworkOption that defines a genesis Output that is loaded as part of the
+// WithGenesisOutput returns a BlockTestFrameworkOption that defines a genesis Output that is loaded as part of the
 // initial snapshot.
-func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption {
-	return func(options *MessageTestFrameworkOptions) {
+func WithGenesisOutput(alias string, balance uint64) BlockTestFrameworkOption {
+	return func(options *BlockTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
 			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
 		}
@@ -436,10 +455,10 @@ func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption 
 	}
 }
 
-// WithColoredGenesisOutput returns a MessageTestFrameworkOption that defines a genesis Output that is loaded as part of
+// WithColoredGenesisOutput returns a BlockTestFrameworkOption that defines a genesis Output that is loaded as part of
 // the initial snapshot and that supports colored coins.
-func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) MessageTestFrameworkOption {
-	return func(options *MessageTestFrameworkOptions) {
+func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) BlockTestFrameworkOption {
+	return func(options *BlockTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
 			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
 		}
@@ -453,121 +472,139 @@ func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) 
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageTestFrameworkMessageOptions ///////////////////////////////////////////////////////////////////////////
+// region BlockTestFrameworkBlockOptions ///////////////////////////////////////////////////////////////////////////
 
-// MessageTestFrameworkMessageOptions is a struct that represents a collection of options that can be set when creating
-// a Message with the MessageTestFramework.
-type MessageTestFrameworkMessageOptions struct {
-	inputs                   map[string]types.Empty
-	outputs                  map[string]uint64
-	coloredOutputs           map[string]map[devnetvm.Color]uint64
-	strongParents            map[string]types.Empty
-	weakParents              map[string]types.Empty
-	shallowLikeParents       map[string]types.Empty
-	issuer                   ed25519.PublicKey
-	issuingTime              time.Time
-	reattachmentMessageAlias string
-	sequenceNumber           uint64
-	overrideSequenceNumber   bool
+// BlockTestFrameworkBlockOptions is a struct that represents a collection of options that can be set when creating
+// a Block with the BlockTestFramework.
+type BlockTestFrameworkBlockOptions struct {
+	inputs                 map[string]types.Empty
+	outputs                map[string]uint64
+	coloredOutputs         map[string]map[devnetvm.Color]uint64
+	strongParents          map[string]types.Empty
+	weakParents            map[string]types.Empty
+	shallowLikeParents     map[string]types.Empty
+	issuer                 ed25519.PublicKey
+	issuingTime            time.Time
+	reattachmentBlockAlias string
+	sequenceNumber         uint64
+	overrideSequenceNumber bool
+	ecRecord               *epoch.ECRecord
+	latestConfirmedEpoch   epoch.Index
 }
 
-// NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
-func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
-	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:             make(map[string]types.Empty),
-		outputs:            make(map[string]uint64),
-		strongParents:      make(map[string]types.Empty),
-		weakParents:        make(map[string]types.Empty),
-		shallowLikeParents: make(map[string]types.Empty),
+// NewBlockTestFrameworkBlockOptions is the constructor for the BlockTestFrameworkBlockOptions.
+func NewBlockTestFrameworkBlockOptions(options ...BlockOption) (blockOptions *BlockTestFrameworkBlockOptions) {
+	blockOptions = &BlockTestFrameworkBlockOptions{
+		inputs:               make(map[string]types.Empty),
+		outputs:              make(map[string]uint64),
+		strongParents:        make(map[string]types.Empty),
+		weakParents:          make(map[string]types.Empty),
+		shallowLikeParents:   make(map[string]types.Empty),
+		ecRecord:             epoch.NewECRecord(0),
+		latestConfirmedEpoch: 0,
 	}
 
 	for _, option := range options {
-		option(messageOptions)
+		option(blockOptions)
 	}
 
 	return
 }
 
-// MessageOption is the type that is used for options that can be passed into the CreateMessage method to configure its
+// BlockOption is the type that is used for options that can be passed into the CreateBlock method to configure its
 // behavior.
-type MessageOption func(*MessageTestFrameworkMessageOptions)
+type BlockOption func(*BlockTestFrameworkBlockOptions)
 
-// WithInputs returns a MessageOption that is used to provide the Inputs of the Transaction.
-func WithInputs(inputAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithInputs returns a BlockOption that is used to provide the Inputs of the Transaction.
+func WithInputs(inputAliases ...string) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		for _, inputAlias := range inputAliases {
 			options.inputs[inputAlias] = types.Void
 		}
 	}
 }
 
-// WithOutput returns a MessageOption that is used to define a non-colored Output for the Transaction in the Message.
-func WithOutput(alias string, balance uint64) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithOutput returns a BlockOption that is used to define a non-colored Output for the Transaction in the Block.
+func WithOutput(alias string, balance uint64) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		options.outputs[alias] = balance
 	}
 }
 
-// WithColoredOutput returns a MessageOption that is used to define a colored Output for the Transaction in the Message.
-func WithColoredOutput(alias string, balances map[devnetvm.Color]uint64) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithColoredOutput returns a BlockOption that is used to define a colored Output for the Transaction in the Block.
+func WithColoredOutput(alias string, balances map[devnetvm.Color]uint64) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		options.coloredOutputs[alias] = balances
 	}
 }
 
-// WithStrongParents returns a MessageOption that is used to define the strong parents of the Message.
-func WithStrongParents(messageAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		for _, messageAlias := range messageAliases {
-			options.strongParents[messageAlias] = types.Void
+// WithStrongParents returns a BlockOption that is used to define the strong parents of the Block.
+func WithStrongParents(blockAliases ...string) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		for _, blockAlias := range blockAliases {
+			options.strongParents[blockAlias] = types.Void
 		}
 	}
 }
 
-// WithWeakParents returns a MessageOption that is used to define the weak parents of the Message.
-func WithWeakParents(messageAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		for _, messageAlias := range messageAliases {
-			options.weakParents[messageAlias] = types.Void
+// WithWeakParents returns a BlockOption that is used to define the weak parents of the Block.
+func WithWeakParents(blockAliases ...string) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		for _, blockAlias := range blockAliases {
+			options.weakParents[blockAlias] = types.Void
 		}
 	}
 }
 
-// WithShallowLikeParents returns a MessageOption that is used to define the shallow like parents of the Message.
-func WithShallowLikeParents(messageAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		for _, messageAlias := range messageAliases {
-			options.shallowLikeParents[messageAlias] = types.Void
+// WithShallowLikeParents returns a BlockOption that is used to define the shallow like parents of the Block.
+func WithShallowLikeParents(blockAliases ...string) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		for _, blockAlias := range blockAliases {
+			options.shallowLikeParents[blockAlias] = types.Void
 		}
 	}
 }
 
-// WithIssuer returns a MessageOption that is used to define the issuer of the Message.
-func WithIssuer(issuer ed25519.PublicKey) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithIssuer returns a BlockOption that is used to define the issuer of the Block.
+func WithIssuer(issuer ed25519.PublicKey) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		options.issuer = issuer
 	}
 }
 
-// WithIssuingTime returns a MessageOption that is used to set issuing time of the Message.
-func WithIssuingTime(issuingTime time.Time) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithIssuingTime returns a BlockOption that is used to set issuing time of the Block.
+func WithIssuingTime(issuingTime time.Time) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		options.issuingTime = issuingTime
 	}
 }
 
-// WithReattachment returns a MessageOption that is used to select payload of which Message should be reattached.
-func WithReattachment(messageAlias string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		options.reattachmentMessageAlias = messageAlias
+// WithReattachment returns a BlockOption that is used to select payload of which Block should be reattached.
+func WithReattachment(blockAlias string) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		options.reattachmentBlockAlias = blockAlias
 	}
 }
 
-// WithSequenceNumber returns a MessageOption that is used to define the sequence number of the Message.
-func WithSequenceNumber(sequenceNumber uint64) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
+// WithSequenceNumber returns a BlockOption that is used to define the sequence number of the Block.
+func WithSequenceNumber(sequenceNumber uint64) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
 		options.sequenceNumber = sequenceNumber
 		options.overrideSequenceNumber = true
+	}
+}
+
+// WithECRecord returns a BlockOption that is used to define the ecr of the Block.
+func WithECRecord(ecRecord *epoch.ECRecord) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		options.ecRecord = ecRecord
+	}
+}
+
+// WithLatestConfirmedEpoch returns a BlockOption that is used to define the latestConfirmedEpoch of the Block.
+func WithLatestConfirmedEpoch(ei epoch.Index) BlockOption {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		options.latestConfirmedEpoch = ei
 	}
 }
 
@@ -589,15 +626,7 @@ func randomTransactionID() (randomTransactionID utxo.TransactionID) {
 	return randomTransactionID
 }
 
-func randomBranchID() (randomBranchID utxo.TransactionID) {
-	if err := randomBranchID.FromRandomness(); err != nil {
-		panic(err)
-	}
-
-	return randomBranchID
-}
-
-func randomConflictID() (randomConflictID utxo.OutputID) {
+func randomConflictID() (randomConflictID utxo.TransactionID) {
 	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
@@ -605,46 +634,54 @@ func randomConflictID() (randomConflictID utxo.OutputID) {
 	return randomConflictID
 }
 
-func newTestNonceMessage(nonce uint64) *Message {
-	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
-
-	if err := message.DetermineID(); err != nil {
+func randomResourceID() (randomConflictID utxo.OutputID) {
+	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
-	return message
+
+	return randomConflictID
 }
 
-func newTestDataMessage(payloadString string) *Message {
-	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestNonceBlock(nonce uint64) *Block {
+	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	return message
+	return block
 }
 
-func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestDataBlock(payloadString string) *Block {
+	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	return message
+	return block
 }
 
-func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
-	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+func newTestDataBlockPublicKey(payloadString string, publicKey ed25519.PublicKey) *Block {
+	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
+		panic(err)
+	}
+	return block
+}
+
+func newTestParentsDataBlock(payloadString string, references ParentBlockIDs) (block *Block) {
+	block = NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
+
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
 	return
 }
 
-func newTestParentsDataMessageWithOptions(payloadString string, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, options *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
 	if options.overrideSequenceNumber {
 		sequenceNumber = options.sequenceNumber
@@ -652,27 +689,27 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		block = NewBlock(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		block = NewBlock(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
 	return
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
-	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadBlock(p payload.Payload, references ParentBlockIDs) (block *Block) {
+	block = NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
 	return
 }
 
-func newTestParentsPayloadMessageWithOptions(p payload.Payload, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, options *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
 	if options.overrideSequenceNumber {
 		sequenceNumber = options.sequenceNumber
@@ -681,25 +718,25 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message, err = NewMessageWithValidation(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		block = NewBlock(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message, err = NewMessageWithValidation(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		block = NewBlock(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 	if err != nil {
 		panic(err)
 	}
-	if err = message.DetermineID(); err != nil {
+	if err = block.DetermineID(); err != nil {
 		panic(err)
 	}
 	return
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
-	message := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	if err := message.DetermineID(); err != nil {
+func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentBlockIDs, timestamp time.Time) *Block {
+	block := NewBlock(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	return message
+	return block
 }
 
 type wallet struct {
@@ -794,11 +831,11 @@ var (
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
 	testSchedulerParams = SchedulerParams{
-		MaxBufferSize:                     testMaxBuffer,
-		Rate:                              testRate,
-		AccessManaMapRetrieverFunc:        mockAccessManaMapRetriever,
-		TotalAccessManaRetrieveFunc:       mockTotalAccessManaRetriever,
-		ConfirmedMessageScheduleThreshold: time.Minute,
+		MaxBufferSize:                   testMaxBuffer,
+		Rate:                            testRate,
+		AccessManaMapRetrieverFunc:      mockAccessManaMapRetriever,
+		TotalAccessManaRetrieveFunc:     mockTotalAccessManaRetriever,
+		ConfirmedBlockScheduleThreshold: time.Minute,
 	}
 )
 
@@ -828,6 +865,9 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
+	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, epoch.Index, error) {
+		return epoch.NewECRecord(0), 0, nil
+	}))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
@@ -859,13 +899,13 @@ func (m *MockConfirmationOracle) IsMarkerConfirmed(markers.Marker) bool {
 	return false
 }
 
-// IsMessageConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
+// IsBlockConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsBlockConfirmed(blkID BlockID) bool {
 	return false
 }
 
-// IsBranchConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsBranchConfirmed(branchID utxo.TransactionID) bool {
+// IsConflictConfirmed mocks its interface function.
+func (m *MockConfirmationOracle) IsConflictConfirmed(conflictID utxo.TransactionID) bool {
 	return false
 }
 
@@ -892,7 +932,7 @@ func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
 }
 
 // Weight mocks its interface function.
-func (m *MockWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
+func (m *MockWeightProvider) Weight(block *Block) (weight, totalWeight float64) {
 	return 1, 1
 }
 
@@ -913,34 +953,34 @@ type SimpleMockOnTangleVoting struct {
 // LikedConflictMembers is a struct that holds information about which Conflict is the liked one out of a set of
 // ConflictMembers.
 type LikedConflictMembers struct {
-	likedBranch     utxo.TransactionID
+	likedConflict   utxo.TransactionID
 	conflictMembers utxo.TransactionIDs
 }
 
-// LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID utxo.TransactionID) (likedBranchID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
-	likedConflictMembers := o.likedConflictMember[branchID]
+// LikedConflictMember returns conflicts that are liked instead of a disliked conflict as predefined.
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(conflictID utxo.TransactionID) (likedConflictID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
+	likedConflictMembers := o.likedConflictMember[conflictID]
 	innerConflictMembers := likedConflictMembers.conflictMembers.Clone()
-	innerConflictMembers.Delete(branchID)
+	innerConflictMembers.Delete(conflictID)
 
-	return likedConflictMembers.likedBranch, innerConflictMembers
+	return likedConflictMembers.likedConflict, innerConflictMembers
 }
 
-// BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
-func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (branchLiked bool) {
-	likedConflictMembers, ok := o.likedConflictMember[branchID]
+// ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
+func (o *SimpleMockOnTangleVoting) ConflictLiked(conflictID utxo.TransactionID) (conflictLiked bool) {
+	likedConflictMembers, ok := o.likedConflictMember[conflictID]
 	if !ok {
 		return false
 	}
-	return likedConflictMembers.conflictMembers.Has(branchID)
+	return likedConflictMembers.conflictMembers.Has(conflictID)
 }
 
-func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time) (references ParentMessageIDs, err error) {
+func emptyLikeReferences(payload payload.Payload, parents BlockIDs, _ time.Time) (references ParentBlockIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
-func emptyLikeReferencesFromStrongParents(parents MessageIDs) (references ParentMessageIDs) {
-	return NewParentMessageIDs().AddAll(StrongParentType, parents)
+func emptyLikeReferencesFromStrongParents(parents BlockIDs) (references ParentBlockIDs) {
+	return NewParentBlockIDs().AddAll(StrongParentType, parents)
 }
 
 // EventMock acts as a container for event mocks.
@@ -951,8 +991,8 @@ type EventMock struct {
 	test           *testing.T
 
 	attached []struct {
-		*event.Event[*MessageProcessedEvent]
-		*event.Closure[*MessageProcessedEvent]
+		*event.Event[*BlockProcessedEvent]
+		*event.Closure[*BlockProcessedEvent]
 	}
 }
 
@@ -963,9 +1003,9 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	}
 
 	// attach all events
-	approvalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(e.ConflictWeightChanged))
 	approvalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(e.MarkerWeightChanged))
-	approvalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(e.MessageProcessed))
+	approvalWeightManager.Events.BlockProcessed.Hook(event.NewClosure(e.BlockProcessed))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
@@ -1006,9 +1046,9 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	return e.Mock.AssertExpectations(t)
 }
 
-// BranchWeightChanged is the mocked BranchWeightChanged function.
-func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
-	e.Called(event.BranchID, event.Weight)
+// ConflictWeightChanged is the mocked ConflictWeightChanged function.
+func (e *EventMock) ConflictWeightChanged(event *ConflictWeightChangedEvent) {
+	e.Called(event.ConflictID, event.Weight)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
@@ -1020,9 +1060,9 @@ func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
-// MessageProcessed is the mocked MessageProcessed function.
-func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
-	e.Called(event.MessageID)
+// BlockProcessed is the mocked BlockProcessed function.
+func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
+	e.Called(event.BlockID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

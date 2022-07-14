@@ -83,7 +83,7 @@ func NewSpammer(options ...Options) *Spammer {
 	return s
 }
 
-func (s *Spammer) MessagesSent() uint64 {
+func (s *Spammer) BlocksSent() uint64 {
 	return uint64(s.State.txSent.Load())
 }
 
@@ -115,11 +115,11 @@ func (s *Spammer) setupSpamDetails() {
 	if s.SpamDetails.TimeUnit == 0 {
 		s.SpamDetails.TimeUnit = time.Second
 	}
-	// provided only maxMsgSent, calculating the default max for maxDuration
+	// provided only maxBlkSent, calculating the default max for maxDuration
 	if s.SpamDetails.MaxDuration == 0 && s.SpamDetails.MaxBatchesSent > 0 {
 		s.SpamDetails.MaxDuration = time.Hour * 100
 	}
-	// provided only maxDuration, calculating the default max for maxMsgSent
+	// provided only maxDuration, calculating the default max for maxBlkSent
 	if s.SpamDetails.MaxBatchesSent == 0 && s.SpamDetails.MaxDuration > 0 {
 		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
 	}
@@ -141,7 +141,7 @@ func (s *Spammer) initLogTicker() *time.Ticker {
 	return time.NewTicker(s.State.logTickTime)
 }
 
-// Spam runs the spammer. Function will stop after maxDuration time will pass or when maxMsgSent will be exceeded
+// Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded
 func (s *Spammer) Spam() {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 
@@ -153,7 +153,7 @@ func (s *Spammer) Spam() {
 		for {
 			select {
 			case <-s.State.logTicker.C:
-				s.log.Infof("Messages issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
+				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-timeExceeded:
 				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
 				s.StopSpamming()
@@ -180,7 +180,7 @@ func (s *Spammer) Spam() {
 
 func (s *Spammer) CheckIfAllSent() {
 	if s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
-		s.log.Infof("Maximum number of messages sent, stopping spammer...")
+		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
 		s.done <- true
 	}
 }

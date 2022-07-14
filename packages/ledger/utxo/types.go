@@ -58,7 +58,7 @@ type TransactionIDs = *set.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
 func NewTransactionIDs(ids ...TransactionID) (newTransactionIDs TransactionIDs) {
-	return set.NewAdvancedSet[TransactionID](ids...)
+	return set.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,6 +98,14 @@ func (o *OutputID) FromRandomness() (err error) {
 		return errors.Errorf("could not create TransactionID from randomness: %w", err)
 	}
 
+	return nil
+}
+
+// FromBytes un-serializes an OutputID from a []byte.
+func (o *OutputID) FromBytes(outputBytes []byte) (err error) {
+	if _, err := serix.DefaultAPI.Decode(context.Background(), outputBytes, o, serix.WithValidation()); err != nil {
+		return errors.Errorf("Fail to parse outputID from bytes: %w", err)
+	}
 	return nil
 }
 
@@ -175,7 +183,7 @@ type OutputIDs = *set.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
 func NewOutputIDs(ids ...OutputID) (newOutputIDs OutputIDs) {
-	return set.NewAdvancedSet[OutputID](ids...)
+	return set.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

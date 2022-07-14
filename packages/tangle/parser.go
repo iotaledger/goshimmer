@@ -25,42 +25,42 @@ const (
 
 // region Parser ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Parser parses messages and bytes and emits corresponding events for parsed and rejected messages.
+// Parser parses blocks and bytes and emits corresponding events for parsed and rejected blocks.
 type Parser struct {
-	bytesFilters   []BytesFilter
-	messageFilters []MessageFilter
-	Events         *ParserEvents
+	bytesFilters []BytesFilter
+	blockFilters []BlockFilter
+	Events       *ParserEvents
 
-	byteFiltersModified    typeutils.AtomicBool
-	messageFiltersModified typeutils.AtomicBool
-	bytesFiltersMutex      sync.Mutex
-	messageFiltersMutex    sync.Mutex
+	byteFiltersModified  typeutils.AtomicBool
+	blockFiltersModified typeutils.AtomicBool
+	bytesFiltersMutex    sync.Mutex
+	blockFiltersMutex    sync.Mutex
 }
 
-// NewParser creates a new Message parser.
+// NewParser creates a new Block parser.
 func NewParser() (result *Parser) {
 	result = &Parser{
-		bytesFilters:   make([]BytesFilter, 0),
-		messageFilters: make([]MessageFilter, 0),
-		Events:         newParserEvents(),
+		bytesFilters: make([]BytesFilter, 0),
+		blockFilters: make([]BlockFilter, 0),
+		Events:       newParserEvents(),
 	}
 
 	// add builtin filters
 	result.AddBytesFilter(NewRecentlySeenBytesFilter())
-	result.AddMessageFilter(NewMessageSignatureFilter())
-	result.AddMessageFilter(NewTransactionFilter())
+	result.AddBlockFilter(NewBlockSignatureFilter())
+	result.AddBlockFilter(NewTransactionFilter())
 	return
 }
 
 // Setup defines the flow of the parser.
 func (p *Parser) Setup() {
 	p.setupBytesFilterDataFlow()
-	p.setupMessageFilterDataFlow()
+	p.setupBlockFilterDataFlow()
 }
 
-// Parse parses the given message bytes.
-func (p *Parser) Parse(messageBytes []byte, peer *peer.Peer) {
-	p.bytesFilters[0].Filter(messageBytes, peer)
+// Parse parses the given block bytes.
+func (p *Parser) Parse(blockBytes []byte, peer *peer.Peer) {
+	p.bytesFilters[0].Filter(blockBytes, peer)
 }
 
 // AddBytesFilter adds the given bytes filter to the parser.
@@ -71,12 +71,12 @@ func (p *Parser) AddBytesFilter(filter BytesFilter) {
 	p.byteFiltersModified.Set()
 }
 
-// AddMessageFilter adds a new message filter to the parser.
-func (p *Parser) AddMessageFilter(filter MessageFilter) {
-	p.messageFiltersMutex.Lock()
-	p.messageFilters = append(p.messageFilters, filter)
-	p.messageFiltersMutex.Unlock()
-	p.messageFiltersModified.Set()
+// AddBlockFilter adds a new block filter to the parser.
+func (p *Parser) AddBlockFilter(filter BlockFilter) {
+	p.blockFiltersMutex.Lock()
+	p.blockFilters = append(p.blockFilters, filter)
+	p.blockFiltersMutex.Unlock()
+	p.blockFiltersModified.Set()
 }
 
 // sets up the byte filter data flow chain.
@@ -92,7 +92,7 @@ func (p *Parser) setupBytesFilterDataFlow() {
 		numberOfBytesFilters := len(p.bytesFilters)
 		for i := 0; i < numberOfBytesFilters; i++ {
 			if i == numberOfBytesFilters-1 {
-				p.bytesFilters[i].OnAccept(p.parseMessage)
+				p.bytesFilters[i].OnAccept(p.parseBlock)
 			} else {
 				p.bytesFilters[i].OnAccept(p.bytesFilters[i+1].Filter)
 			}
@@ -108,46 +108,45 @@ func (p *Parser) setupBytesFilterDataFlow() {
 	p.bytesFiltersMutex.Unlock()
 }
 
-// sets up the message filter data flow chain.
-func (p *Parser) setupMessageFilterDataFlow() {
-	if !p.messageFiltersModified.IsSet() {
+// sets up the block filter data flow chain.
+func (p *Parser) setupBlockFilterDataFlow() {
+	if !p.blockFiltersModified.IsSet() {
 		return
 	}
 
-	p.messageFiltersMutex.Lock()
-	if p.messageFiltersModified.IsSet() {
-		p.messageFiltersModified.SetTo(false)
+	p.blockFiltersMutex.Lock()
+	if p.blockFiltersModified.IsSet() {
+		p.blockFiltersModified.SetTo(false)
 
-		numberOfMessageFilters := len(p.messageFilters)
-		for i := 0; i < numberOfMessageFilters; i++ {
-			if i == numberOfMessageFilters-1 {
-				p.messageFilters[i].OnAccept(func(msg *Message, peer *peer.Peer) {
-
-					p.Events.MessageParsed.Trigger(&MessageParsedEvent{
-						Message: msg,
-						Peer:    peer,
+		numberOfBlockFilters := len(p.blockFilters)
+		for i := 0; i < numberOfBlockFilters; i++ {
+			if i == numberOfBlockFilters-1 {
+				p.blockFilters[i].OnAccept(func(blk *Block, peer *peer.Peer) {
+					p.Events.BlockParsed.Trigger(&BlockParsedEvent{
+						Block: blk,
+						Peer:  peer,
 					})
 				})
 			} else {
-				p.messageFilters[i].OnAccept(p.messageFilters[i+1].Filter)
+				p.blockFilters[i].OnAccept(p.blockFilters[i+1].Filter)
 			}
-			p.messageFilters[i].OnReject(func(msg *Message, err error, peer *peer.Peer) {
-				p.Events.MessageRejected.Trigger(&MessageRejectedEvent{
-					Message: msg,
-					Peer:    peer,
-					Error:   err,
+			p.blockFilters[i].OnReject(func(blk *Block, err error, peer *peer.Peer) {
+				p.Events.BlockRejected.Trigger(&BlockRejectedEvent{
+					Block: blk,
+					Peer:  peer,
+					Error: err,
 				})
 			})
 		}
 	}
-	p.messageFiltersMutex.Unlock()
+	p.blockFiltersMutex.Unlock()
 }
 
-// parses the given message and emits
-func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
-	// Validation of the message is implicitly done while decoding the bytes with serix.
-	msg := new(Message)
-	if _, err := serix.DefaultAPI.Decode(context.Background(), bytes, msg); err != nil {
+// parses the given block and emits
+func (p *Parser) parseBlock(bytes []byte, peer *peer.Peer) {
+	// Validation of the block is implicitly done while decoding the bytes with serix.
+	blk := new(Block)
+	if _, err := serix.DefaultAPI.Decode(context.Background(), bytes, blk); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer,
@@ -155,15 +154,15 @@ func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
 		})
 	} else {
 		// TODO: this could also be done by directly taking the bytes
-		_ = msg.DetermineID()
-		p.messageFilters[0].Filter(msg, peer)
+		_ = blk.DetermineID()
+		p.blockFilters[0].Filter(blk, peer)
 	}
 }
 
-// Shutdown closes all the message filters.
+// Shutdown closes all the block filters.
 func (p *Parser) Shutdown() {
-	for _, messageFiler := range p.messageFilters {
-		messageFiler.Close()
+	for _, blockFiler := range p.blockFilters {
+		blockFiler.Close()
 	}
 }
 
@@ -184,71 +183,71 @@ type BytesFilter interface {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageFilter ////////////////////////////////////////////////////////////////////////////////////////////////
+// region BlockFilter ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageFilter filters based on messages and peers.
-type MessageFilter interface {
-	// Filter filters up on the given message and peer and calls the acceptance callback
+// BlockFilter filters based on blocks and peers.
+type BlockFilter interface {
+	// Filter filters up on the given block and peer and calls the acceptance callback
 	// if the input passes or the rejection callback if the input is rejected.
-	Filter(msg *Message, peer *peer.Peer)
+	Filter(blk *Block, peer *peer.Peer)
 	// OnAccept registers the given callback as the acceptance function of the filter.
-	OnAccept(callback func(msg *Message, peer *peer.Peer))
+	OnAccept(callback func(blk *Block, peer *peer.Peer))
 	// OnReject registers the given callback as the rejection function of the filter.
-	OnReject(callback func(msg *Message, err error, peer *peer.Peer))
+	OnReject(callback func(blk *Block, err error, peer *peer.Peer))
 	// Closer closes the filter.
 	io.Closer
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageSignatureFilter ///////////////////////////////////////////////////////////////////////////////////////
+// region BlockSignatureFilter ///////////////////////////////////////////////////////////////////////////////////////
 
-// MessageSignatureFilter filters messages based on whether their signatures are valid.
-type MessageSignatureFilter struct {
-	onAcceptCallback func(msg *Message, peer *peer.Peer)
-	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
+// BlockSignatureFilter filters blocks based on whether their signatures are valid.
+type BlockSignatureFilter struct {
+	onAcceptCallback func(blk *Block, peer *peer.Peer)
+	onRejectCallback func(blk *Block, err error, peer *peer.Peer)
 
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
 }
 
-// NewMessageSignatureFilter creates a new message signature filter.
-func NewMessageSignatureFilter() *MessageSignatureFilter {
-	return new(MessageSignatureFilter)
+// NewBlockSignatureFilter creates a new block signature filter.
+func NewBlockSignatureFilter() *BlockSignatureFilter {
+	return new(BlockSignatureFilter)
 }
 
 // Filter filters up on the given bytes and peer and calls the acceptance callback
 // if the input passes or the rejection callback if the input is rejected.
-func (f *MessageSignatureFilter) Filter(msg *Message, peer *peer.Peer) {
-	if valid, _ := msg.VerifySignature(); valid {
-		f.getAcceptCallback()(msg, peer)
+func (f *BlockSignatureFilter) Filter(blk *Block, peer *peer.Peer) {
+	if valid, _ := blk.VerifySignature(); valid {
+		f.getAcceptCallback()(blk, peer)
 		return
 	}
-	f.getRejectCallback()(msg, ErrInvalidSignature, peer)
+	f.getRejectCallback()(blk, ErrInvalidSignature, peer)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (f *MessageSignatureFilter) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) OnAccept(callback func(blk *Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.Lock()
 	f.onAcceptCallback = callback
 	f.onAcceptCallbackMutex.Unlock()
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (f *MessageSignatureFilter) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) OnReject(callback func(blk *Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.Lock()
 	f.onRejectCallback = callback
 	f.onRejectCallbackMutex.Unlock()
 }
 
-func (f *MessageSignatureFilter) getAcceptCallback() (result func(msg *Message, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) getAcceptCallback() (result func(blk *Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.RLock()
 	result = f.onAcceptCallback
 	f.onAcceptCallbackMutex.RUnlock()
 	return
 }
 
-func (f *MessageSignatureFilter) getRejectCallback() (result func(msg *Message, err error, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) getRejectCallback() (result func(blk *Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.RLock()
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.RUnlock()
@@ -256,13 +255,13 @@ func (f *MessageSignatureFilter) getRejectCallback() (result func(msg *Message, 
 }
 
 // Close closes the filter.
-func (f *MessageSignatureFilter) Close() error { return nil }
+func (f *BlockSignatureFilter) Close() error { return nil }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region PowFilter ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// PowFilter is a message bytes filter validating the PoW nonce.
+// PowFilter is a block bytes filter validating the PoW nonce.
 type PowFilter struct {
 	worker     *pow.Worker
 	difficulty int
@@ -281,12 +280,12 @@ func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
 }
 
 // Filter checks whether the given bytes pass the PoW validation and calls the corresponding callback.
-func (f *PowFilter) Filter(msgBytes []byte, p *peer.Peer) {
-	if err := f.validate(msgBytes); err != nil {
-		f.getRejectCallback()(msgBytes, err, p)
+func (f *PowFilter) Filter(blkBytes []byte, p *peer.Peer) {
+	if err := f.validate(blkBytes); err != nil {
+		f.getRejectCallback()(blkBytes, err, p)
 		return
 	}
-	f.getAcceptCallback()(msgBytes, p)
+	f.getAcceptCallback()(blkBytes, p)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
@@ -303,22 +302,22 @@ func (f *PowFilter) OnReject(callback func([]byte, error, *peer.Peer)) {
 	f.rejectCallback = callback
 }
 
-func (f *PowFilter) getAcceptCallback() (result func(msgBytes []byte, peer *peer.Peer)) {
+func (f *PowFilter) getAcceptCallback() (result func(blkBytes []byte, peer *peer.Peer)) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	result = f.acceptCallback
 	return
 }
 
-func (f *PowFilter) getRejectCallback() (result func(msgBytes []byte, err error, p *peer.Peer)) {
+func (f *PowFilter) getRejectCallback() (result func(blkBytes []byte, err error, p *peer.Peer)) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 	result = f.rejectCallback
 	return
 }
 
-func (f *PowFilter) validate(msgBytes []byte) error {
-	content, err := powData(msgBytes)
+func (f *PowFilter) validate(blkBytes []byte) error {
+	content, err := powData(blkBytes)
 	if err != nil {
 		return err
 	}
@@ -333,12 +332,12 @@ func (f *PowFilter) validate(msgBytes []byte) error {
 }
 
 // powData returns the bytes over which PoW should be computed.
-func powData(msgBytes []byte) ([]byte, error) {
-	contentLength := len(msgBytes) - ed25519.SignatureSize
+func powData(blkBytes []byte) ([]byte, error) {
+	contentLength := len(blkBytes) - ed25519.SignatureSize
 	if contentLength < pow.NonceBytes {
-		return nil, ErrMessageTooSmall
+		return nil, ErrBlockTooSmall
 	}
-	return msgBytes[:contentLength], nil
+	return blkBytes[:contentLength], nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -409,54 +408,54 @@ func NewTransactionFilter() *TransactionFilter {
 	return new(TransactionFilter)
 }
 
-// TransactionFilter filters messages based on their timestamps and transaction timestamp.
+// TransactionFilter filters blocks based on their timestamps and transaction timestamp.
 type TransactionFilter struct {
-	onAcceptCallback func(msg *Message, peer *peer.Peer)
-	onRejectCallback func(msg *Message, err error, peer *peer.Peer)
+	onAcceptCallback func(blk *Block, peer *peer.Peer)
+	onRejectCallback func(blk *Block, err error, peer *peer.Peer)
 
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
 }
 
-// Filter compares the timestamps between the message, and it's transaction payload and calls the corresponding callback.
-func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
-	if tx, ok := msg.Payload().(*devnetvm.Transaction); ok {
-		if !isMessageAndTransactionTimestampsValid(tx, msg) {
-			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
+// Filter compares the timestamps between the block, and it's transaction payload and calls the corresponding callback.
+func (f *TransactionFilter) Filter(blk *Block, peer *peer.Peer) {
+	if tx, ok := blk.Payload().(*devnetvm.Transaction); ok {
+		if !isBlockAndTransactionTimestampsValid(tx, blk) {
+			f.getRejectCallback()(blk, ErrInvalidBlockAndTransactionTimestamp, peer)
 			return
 		}
 	}
-	f.getAcceptCallback()(msg, peer)
+	f.getAcceptCallback()(blk, peer)
 }
 
-func isMessageAndTransactionTimestampsValid(transaction *devnetvm.Transaction, message *Message) bool {
+func isBlockAndTransactionTimestampsValid(transaction *devnetvm.Transaction, block *Block) bool {
 	transactionTimestamp := transaction.Essence().Timestamp()
-	messageTimestamp := message.IssuingTime()
-	return messageTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && messageTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin
+	blockTimestamp := block.IssuingTime()
+	return blockTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && blockTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (f *TransactionFilter) OnAccept(callback func(msg *Message, peer *peer.Peer)) {
+func (f *TransactionFilter) OnAccept(callback func(blk *Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.Lock()
 	defer f.onAcceptCallbackMutex.Unlock()
 	f.onAcceptCallback = callback
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (f *TransactionFilter) OnReject(callback func(msg *Message, err error, peer *peer.Peer)) {
+func (f *TransactionFilter) OnReject(callback func(blk *Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.Lock()
 	defer f.onRejectCallbackMutex.Unlock()
 	f.onRejectCallback = callback
 }
 
-func (f *TransactionFilter) getAcceptCallback() (result func(msg *Message, peer *peer.Peer)) {
+func (f *TransactionFilter) getAcceptCallback() (result func(blk *Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.RLock()
 	result = f.onAcceptCallback
 	f.onAcceptCallbackMutex.RUnlock()
 	return
 }
 
-func (f *TransactionFilter) getRejectCallback() (result func(msg *Message, err error, peer *peer.Peer)) {
+func (f *TransactionFilter) getRejectCallback() (result func(blk *Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.RLock()
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.RUnlock()
@@ -471,20 +470,20 @@ func (f *TransactionFilter) Close() error { return nil }
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
-	// ErrInvalidPOWDifficultly is returned when the nonce of a message does not fulfill the PoW difficulty.
+	// ErrInvalidPOWDifficultly is returned when the nonce of a block does not fulfill the PoW difficulty.
 	ErrInvalidPOWDifficultly = errors.New("invalid PoW")
 
-	// ErrMessageTooSmall is returned when the message does not contain enough data for the PoW.
-	ErrMessageTooSmall = errors.New("message too small")
+	// ErrBlockTooSmall is returned when the block does not contain enough data for the PoW.
+	ErrBlockTooSmall = errors.New("block too small")
 
-	// ErrInvalidSignature is returned when a message contains an invalid signature.
+	// ErrInvalidSignature is returned when a block contains an invalid signature.
 	ErrInvalidSignature = fmt.Errorf("invalid signature")
 
 	// ErrReceivedDuplicateBytes is returned when duplicated bytes are rejected.
 	ErrReceivedDuplicateBytes = fmt.Errorf("received duplicate bytes")
 
-	// ErrInvalidMessageAndTransactionTimestamp is returned when the message its transaction timestamps are invalid.
-	ErrInvalidMessageAndTransactionTimestamp = fmt.Errorf("invalid message and transaction timestamp")
+	// ErrInvalidBlockAndTransactionTimestamp is returned when the block its transaction timestamps are invalid.
+	ErrInvalidBlockAndTransactionTimestamp = fmt.Errorf("invalid block and transaction timestamp")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

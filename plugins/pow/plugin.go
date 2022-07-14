@@ -20,8 +20,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle             *tangle.Tangle
-	MessagelayerPlugin *node.Plugin `name:"messagelayer"`
+	Tangle           *tangle.Tangle
+	BlocklayerPlugin *node.Plugin `name:"blocklayer"`
 }
 
 func init() {
@@ -32,8 +32,8 @@ func configure(plugin *node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
 
-	if node.IsSkipped(deps.MessagelayerPlugin) {
-		log.Infof("%s is disabled; skipping %s\n", deps.MessagelayerPlugin.Name, PluginName)
+	if node.IsSkipped(deps.BlocklayerPlugin) {
+		log.Infof("%s is disabled; skipping %s\n", deps.BlocklayerPlugin.Name, PluginName)
 		return
 	}
 
@@ -43,6 +43,6 @@ func configure(plugin *node.Plugin) {
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
 	deps.Tangle.Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
-	deps.Tangle.MessageFactory.SetWorker(tangle.WorkerFunc(DoPOW))
-	deps.Tangle.MessageFactory.SetTimeout(timeout)
+	deps.Tangle.BlockFactory.SetWorker(tangle.WorkerFunc(DoPOW))
+	deps.Tangle.BlockFactory.SetTimeout(timeout)
 }

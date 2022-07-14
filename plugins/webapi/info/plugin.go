@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -49,7 +49,7 @@ func configure(_ *node.Plugin) {
 // {
 // 	"version":"v0.2.0",
 //	"tangleTime":{
-// 		"messageID":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
+// 		"blockID":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
 // 		"time":1595528075204868900,
 // 		"synced":true
 // }
@@ -60,7 +60,7 @@ func configure(_ *node.Plugin) {
 // 		"AutoPeering",
 // 		"Analysis",
 // 		"WebAPIDataEndpoint",
-// 		"MessageLayer",
+// 		"BlockLayer",
 // 		"CLI",
 // 		"Database",
 // 		"WebAPIAutoPeeringEndpoint",
@@ -69,7 +69,7 @@ func configure(_ *node.Plugin) {
 // 		"Dashboard",
 // 		"WebAPI",
 // 		"WebAPIInfoEndpoint",
-// 		"WebAPIMessageEndpoint",
+// 		"WebAPIBlockEndpoint",
 // 		"Banner",
 // 		"Gossip",
 // 		"GracefulShutdown",
@@ -97,19 +97,19 @@ func getInfo(c echo.Context) error {
 
 	// get TangleTime
 	tm := deps.Tangle.TimeManager
-	lcm := tm.LastAcceptedMessage()
+	lcm := tm.LastAcceptedBlock()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:            deps.Tangle.TimeManager.Synced(),
-		AcceptedMessageID: lcm.MessageID.Base58(),
-		ATT:               tm.ATT().UnixNano(),
-		RATT:              tm.RATT().UnixNano(),
-		CTT:               tm.CTT().UnixNano(),
-		RCTT:              tm.RCTT().UnixNano(),
+		Synced:          deps.Tangle.TimeManager.Synced(),
+		AcceptedBlockID: lcm.BlockID.Base58(),
+		ATT:             tm.ATT().UnixNano(),
+		RATT:            tm.RATT().UnixNano(),
+		CTT:             tm.CTT().UnixNano(),
+		RCTT:            tm.RCTT().UnixNano(),
 	}
 
 	t := time.Now()
-	accessMana, tAccess, _ := messagelayer.GetAccessMana(deps.Local.ID(), t)
-	consensusMana, tConsensus, _ := messagelayer.GetConsensusMana(deps.Local.ID(), t)
+	accessMana, tAccess, _ := blocklayer.GetAccessMana(deps.Local.ID(), t)
+	consensusMana, tConsensus, _ := blocklayer.GetConsensusMana(deps.Local.ID(), t)
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -125,17 +125,17 @@ func getInfo(c echo.Context) error {
 	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
-		Version:                 banner.AppVersion,
-		NetworkVersion:          discovery.Parameters.NetworkVersion,
-		TangleTime:              tangleTime,
-		IdentityID:              base58.Encode(deps.Local.Identity.ID().Bytes()),
-		IdentityIDShort:         deps.Local.Identity.ID().String(),
-		PublicKey:               deps.Local.PublicKey().String(),
-		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
-		SolidMessageCount: int(metrics.InitialMessageCountPerComponentGrafana()[metrics.Solidifier] +
-			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
-		TotalMessageCount: int(metrics.InitialMessageCountPerComponentGrafana()[metrics.Store] +
-			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Store]),
+		Version:               banner.AppVersion,
+		NetworkVersion:        discovery.Parameters.NetworkVersion,
+		TangleTime:            tangleTime,
+		IdentityID:            base58.Encode(deps.Local.Identity.ID().Bytes()),
+		IdentityIDShort:       deps.Local.Identity.ID().String(),
+		PublicKey:             deps.Local.PublicKey().String(),
+		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),
+		SolidBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Solidifier] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
+		TotalBlockCount: int(metrics.InitialBlockCountPerComponentGrafana()[metrics.Store] +
+			metrics.BlockCountSinceStartPerComponentGrafana()[metrics.Store]),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,

@@ -14,28 +14,29 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
 const (
-	lastConfirmedKey = "LastAcceptedMessage"
+	lastConfirmedKey = "LastAcceptedBlock"
 )
 
 // region TimeManager //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TimeManager is a Tangle component that keeps track of the TangleTime. The TangleTime can be seen as a clock for the
-// entire network as it tracks the time of the last confirmed message. Comparing the issuing time of the last confirmed
-// message to the node's current wall clock time then yields a reasonable assessment of how much in sync the node is.
+// entire network as it tracks the time of the last confirmed block. Comparing the issuing time of the last confirmed
+// block to the node's current wall clock time then yields a reasonable assessment of how much in sync the node is.
 type TimeManager struct {
 	Events *TimeManagerEvents
 
 	tangle      *Tangle
 	startSynced bool
 
-	lastAcceptedMutex   sync.RWMutex
-	lastAcceptedMessage LastMessage
-	lastSyncedMutex     sync.RWMutex
-	lastSynced          bool
-	bootstrapped        bool
+	lastAcceptedMutex sync.RWMutex
+	lastAcceptedBlock LastBlock
+	lastSyncedMutex   sync.RWMutex
+	lastSynced        bool
+	bootstrapped      bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -51,19 +52,19 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	// initialize with Genesis
-	t.lastAcceptedMessage = LastMessage{
-		MessageID:   EmptyMessageID,
-		MessageTime: time.Unix(DefaultGenesisTime, 0),
-		UpdateTime:  time.Unix(DefaultGenesisTime, 0),
+	t.lastAcceptedBlock = LastBlock{
+		BlockID:    EmptyBlockID,
+		BlockTime:  tangle.Options.GenesisTime,
+		UpdateTime: tangle.Options.GenesisTime,
 	}
 
-	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
+	marshaledLastConfirmedBlock, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
 	if err != nil && !errors.Is(err, kvstore.ErrKeyNotFound) {
 		panic(err)
 	}
 	// load from storage if key was found
-	if marshaledLastConfirmedMessage != nil {
-		if t.lastAcceptedMessage, _, err = lastMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
+	if marshaledLastConfirmedBlock != nil {
+		if t.lastAcceptedBlock, _, err = lastBlockFromBytes(marshaledLastConfirmedBlock); err != nil {
 			panic(err)
 		}
 	}
@@ -81,8 +82,8 @@ func (t *TimeManager) Start() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
-		t.updateTime(event.Message)
+	t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
+		t.updateTime(event.Block)
 		t.updateSyncedState()
 	}))
 	t.Start()
@@ -93,8 +94,8 @@ func (t *TimeManager) Shutdown() {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
 
-	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastAcceptedMessage.Bytes()); err != nil {
-		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastAcceptedMessage (%v): %w", err, cerrors.ErrFatal))
+	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastAcceptedBlock.Bytes()); err != nil {
+		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastAcceptedBlock (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 
@@ -102,31 +103,31 @@ func (t *TimeManager) Shutdown() {
 	t.cancel()
 }
 
-// LastAcceptedMessage returns the last confirmed message.
-func (t *TimeManager) LastAcceptedMessage() LastMessage {
+// LastAcceptedBlock returns the last confirmed block.
+func (t *TimeManager) LastAcceptedBlock() LastBlock {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastAcceptedMessage
+	return t.lastAcceptedBlock
 }
 
-// LastConfirmedMessage returns the last confirmed message.
-func (t *TimeManager) LastConfirmedMessage() LastMessage {
+// LastConfirmedBlock returns the last confirmed block.
+func (t *TimeManager) LastConfirmedBlock() LastBlock {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastAcceptedMessage
+	return t.lastAcceptedBlock
 }
 
-// ATT returns the Acceptance Tangle Time, i.e., the issuing time of the last accepted message.
+// ATT returns the Acceptance Tangle Time, i.e., the issuing time of the last accepted block.
 func (t *TimeManager) ATT() time.Time {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastAcceptedMessage.MessageTime
+	return t.lastAcceptedBlock.BlockTime
 }
 
-// CTT returns the confirmed tangle time, i.e. the issuing time of the last confirmed message.
+// CTT returns the confirmed tangle time, i.e. the issuing time of the last confirmed block.
 // For now, it's just a stub, it actually returns ATT.
 func (t *TimeManager) CTT() time.Time {
 	return t.ATT()
@@ -142,6 +143,14 @@ func (t *TimeManager) RATT() time.Time {
 // For now, it's just a stub, it actually returns RATT.
 func (t *TimeManager) RCTT() time.Time {
 	return t.RATT()
+}
+
+// ActivityTime return the time used for defining nodes' activity window.
+func (t *TimeManager) ActivityTime() time.Time {
+	if t.Bootstrapped() {
+		return t.RATT()
+	}
+	return t.ATT()
 }
 
 // Bootstrapped returns whether the node has bootstrapped based on the difference between CTT and the current wall time which can
@@ -162,7 +171,7 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.CTT().Unix() == DefaultGenesisTime {
+	if t.startSynced && t.CTT().Unix() == epoch.GenesisTime {
 		return true
 	}
 
@@ -180,38 +189,43 @@ func (t *TimeManager) updateSyncedState() {
 		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
 		if newSynced {
 			t.bootstrapped = true
+			t.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 		}
 	}
 }
 
-// updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(message *Message) {
+// updateTime updates the last confirmed block.
+func (t *TimeManager) updateTime(block *Block) {
 	t.lastAcceptedMutex.Lock()
 	defer t.lastAcceptedMutex.Unlock()
 
-	if t.lastAcceptedMessage.MessageTime.After(message.IssuingTime()) {
+	if t.lastAcceptedBlock.BlockTime.After(block.IssuingTime()) {
 		return
 	}
 
-	t.lastAcceptedMessage = LastMessage{
-		MessageID:   message.ID(),
-		MessageTime: message.IssuingTime(),
-		UpdateTime:  time.Now(),
+	t.lastAcceptedBlock = LastBlock{
+		BlockID:    block.ID(),
+		BlockTime:  block.IssuingTime(),
+		UpdateTime: time.Now(),
 	}
 
 	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		BlockID:    t.lastAcceptedBlock.BlockID,
+		ATT:        t.lastAcceptedBlock.BlockTime,
+		UpdateTime: t.lastAcceptedBlock.UpdateTime,
 	})
 
 	t.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
-		NewTime: t.lastAcceptedMessage.UpdateTime,
+		BlockID:    t.lastAcceptedBlock.BlockID,
+		ATT:        t.lastAcceptedBlock.BlockTime,
+		UpdateTime: t.lastAcceptedBlock.UpdateTime,
 	})
 }
 
 func (t *TimeManager) lastAcceptedTime() time.Time {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
-	return t.lastAcceptedMessage.UpdateTime
+	return t.lastAcceptedBlock.UpdateTime
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
@@ -227,19 +241,19 @@ func (t *TimeManager) mainLoop() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LastAcceptedMessage /////////////////////////////////////////////////////////////////////////////////////////
+// region LastAcceptedBlock /////////////////////////////////////////////////////////////////////////////////////////
 
-// LastMessage is a wrapper type for the last confirmed message, consisting of MessageID, MessageTime and UpdateTime.
-type LastMessage struct {
-	MessageID MessageID `serix:"0"`
-	// MessageTime field is the time of the last confirmed message.
-	MessageTime time.Time `serix:"1"`
-	// UpdateTime field is the time when the last confirmed message was updated.
+// LastBlock is a wrapper type for the last confirmed block, consisting of BlockID, BlockTime and UpdateTime.
+type LastBlock struct {
+	BlockID BlockID `serix:"0"`
+	// BlockTime field is the time of the last confirmed block.
+	BlockTime time.Time `serix:"1"`
+	// UpdateTime field is the time when the last confirmed block was updated.
 	UpdateTime time.Time `serix:"2"`
 }
 
-// lastMessageFromBytes unmarshals a LastMessage object from a sequence of bytes.
-func lastMessageFromBytes(data []byte) (lcm LastMessage, consumedBytes int, err error) {
+// lastBlockFromBytes unmarshals a LastBlock object from a sequence of bytes.
+func lastBlockFromBytes(data []byte) (lcm LastBlock, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &lcm, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Background: %w", err)
@@ -248,8 +262,8 @@ func lastMessageFromBytes(data []byte) (lcm LastMessage, consumedBytes int, err 
 	return
 }
 
-// Bytes returns a marshaled version of the LastMessage.
-func (l LastMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
+// Bytes returns a marshaled version of the LastBlock.
+func (l LastBlock) Bytes() (marshaledLastConfirmedBlock []byte) {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -258,11 +272,11 @@ func (l LastMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	return objBytes
 }
 
-// String returns a human-readable version of the LastMessage.
-func (l LastMessage) String() string {
-	return stringify.Struct("LastMessage",
-		stringify.StructField("MessageID", l.MessageID),
-		stringify.StructField("MessageTime", l.MessageTime),
+// String returns a human-readable version of the LastBlock.
+func (l LastBlock) String() string {
+	return stringify.Struct("LastBlock",
+		stringify.StructField("BlockID", l.BlockID),
+		stringify.StructField("BlockTime", l.BlockTime),
 		stringify.StructField("UpdateTime", l.UpdateTime),
 	)
 }

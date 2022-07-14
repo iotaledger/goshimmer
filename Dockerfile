@@ -40,6 +40,7 @@ COPY go.mod .
 COPY go.sum .
 
 ENV GO111MODULE=on
+ENV GOWORK=off
 RUN go mod download
 RUN go mod verify
 

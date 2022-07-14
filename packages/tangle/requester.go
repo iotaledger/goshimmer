@@ -11,32 +11,32 @@ import (
 
 // region Requester ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Requester takes care of requesting messages.
+// Requester takes care of requesting blocks.
 type Requester struct {
 	tangle            *Tangle
 	timedExecutor     *timedexecutor.TimedExecutor
-	scheduledRequests map[MessageID]*timedexecutor.ScheduledTask
+	scheduledRequests map[BlockID]*timedexecutor.ScheduledTask
 	options           RequesterOptions
 	Events            *RequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
 
-// NewRequester creates a new message requester.
+// NewRequester creates a new block requester.
 func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester {
 	requester := &Requester{
 		tangle:            tangle,
 		timedExecutor:     timedexecutor.New(1),
-		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
+		scheduledRequests: make(map[BlockID]*timedexecutor.ScheduledTask),
 		options:           DefaultRequesterOptions.Apply(optionalOptions...),
 		Events:            newRequesterEvents(),
 	}
 
-	// add requests for all missing messages
+	// add requests for all missing blocks
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
-	for _, id := range tangle.Storage.MissingMessages() {
+	for _, id := range tangle.Storage.MissingBlocks() {
 		requester.scheduledRequests[id] = requester.timedExecutor.ExecuteAfter(requester.createReRequest(id, 0), requester.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(requester.options.RetryJitter)))
 	}
 
@@ -45,11 +45,11 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
-		r.StartRequest(event.MessageID)
+	r.tangle.Solidifier.Events.BlockMissing.Hook(event.NewClosure(func(event *BlockMissingEvent) {
+		r.StartRequest(event.BlockID)
 	}))
-	r.tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(event *MissingMessageStoredEvent) {
-		r.StopRequest(event.MessageID)
+	r.tangle.Storage.Events.MissingBlockStored.Hook(event.NewClosure(func(event *MissingBlockStoredEvent) {
+		r.StopRequest(event.BlockID)
 	}))
 }
 
@@ -59,7 +59,7 @@ func (r *Requester) Shutdown() {
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (r *Requester) StartRequest(id MessageID) {
+func (r *Requester) StartRequest(id BlockID) {
 	r.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
@@ -76,8 +76,8 @@ func (r *Requester) StartRequest(id MessageID) {
 	r.Events.RequestIssued.Trigger(&RequestIssuedEvent{id})
 }
 
-// StopRequest stops requests for the given message to further happen.
-func (r *Requester) StopRequest(id MessageID) {
+// StopRequest stops requests for the given block to further happen.
+func (r *Requester) StopRequest(id BlockID) {
 	r.scheduledRequestsMutex.Lock()
 
 	timer, ok := r.scheduledRequests[id]
@@ -93,7 +93,7 @@ func (r *Requester) StopRequest(id MessageID) {
 	r.Events.RequestStopped.Trigger(&RequestStoppedEvent{id})
 }
 
-func (r *Requester) reRequest(id MessageID, count int) {
+func (r *Requester) reRequest(id BlockID, count int) {
 	r.Events.RequestIssued.Trigger(&RequestIssuedEvent{id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -110,7 +110,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 			delete(r.scheduledRequests, id)
 
 			r.Events.RequestFailed.Trigger(&RequestFailedEvent{id})
-			r.tangle.Storage.DeleteMissingMessage(id)
+			r.tangle.Storage.DeleteMissingBlock(id)
 
 			return
 		}
@@ -120,15 +120,15 @@ func (r *Requester) reRequest(id MessageID, count int) {
 	}
 }
 
-// RequestQueueSize returns the number of scheduled message requests.
+// RequestQueueSize returns the number of scheduled block requests.
 func (r *Requester) RequestQueueSize() int {
 	r.scheduledRequestsMutex.RLock()
 	defer r.scheduledRequestsMutex.RUnlock()
 	return len(r.scheduledRequests)
 }
 
-func (r *Requester) createReRequest(msgID MessageID, count int) func() {
-	return func() { r.reRequest(msgID, count) }
+func (r *Requester) createReRequest(blkID BlockID, count int) func() {
+	return func() { r.reRequest(blkID, count) }
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,17 +142,17 @@ var DefaultRequesterOptions = &RequesterOptions{
 	MaxRequestThreshold: 500,
 }
 
-// RequesterOptions holds options for a message requester.
+// RequesterOptions holds options for a block requester.
 type RequesterOptions struct {
 	// RetryInterval represents an option which defines in which intervals the Requester will try to ask for missing
-	// messages.
+	// blocks.
 	RetryInterval time.Duration
 
-	// RetryJitter defines how much the RetryInterval should be randomized, so that the nodes don't always send messages
+	// RetryJitter defines how much the RetryInterval should be randomized, so that the nodes don't always send blocks
 	// at exactly the same interval.
 	RetryJitter time.Duration
 
-	// MaxRequestThreshold represents an option which defines how often the Requester should try to request messages
+	// MaxRequestThreshold represents an option which defines how often the Requester should try to request blocks
 	// before canceling the request
 	MaxRequestThreshold int
 }
@@ -184,7 +184,7 @@ func RetryJitter(retryJitter time.Duration) RequesterOption {
 	}
 }
 
-// MaxRequestThreshold creates an option which defines how often the Requester should try to request messages before
+// MaxRequestThreshold creates an option which defines how often the Requester should try to request blocks before
 // canceling the request.
 func MaxRequestThreshold(maxRequestThreshold int) RequesterOption {
 	return func(args *RequesterOptions) {

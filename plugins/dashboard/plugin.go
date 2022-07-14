@@ -98,9 +98,9 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// run message broker
+	// run block broker
 	runWebSocketStreams()
-	// run the message live feed
+	// run the block live feed
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
@@ -123,9 +123,9 @@ func worker(ctx context.Context) {
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
-	notifyStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.MPS) })
-	metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
-	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
+	notifyStatus := event.NewClosure(func(event *metrics.ReceivedBPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.BPS) })
+	metrics.Events.ReceivedBPSUpdated.Attach(notifyStatus)
+	defer metrics.Events.ReceivedBPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
 	go func() {
@@ -153,58 +153,58 @@ func worker(ctx context.Context) {
 }
 
 const (
-	// MsgTypeNodeStatus is the type of the NodeStatus message.
+	// MsgTypeNodeStatus is the type of the NodeStatus block.
 	MsgTypeNodeStatus byte = iota
-	// MsgTypeMPSMetric is the type of the message per second (MPS) metric message.
-	MsgTypeMPSMetric
-	// MsgTypeMessage is the type of the message.
-	MsgTypeMessage
-	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
+	// MsgTypeBPSMetric is the type of the block per second (BPS) metric block.
+	MsgTypeBPSMetric
+	// MsgTypeBlock is the type of the block.
+	MsgTypeBlock
+	// MsgTypeNeighborMetric is the type of the NeighborMetric block.
 	MsgTypeNeighborMetric
 	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
 	MsgTypeComponentCounterMetric
-	// MsgTypeTipsMetric is the type of the TipsMetric message.
+	// MsgTypeTipsMetric is the type of the TipsMetric block.
 	MsgTypeTipsMetric
-	// MsgTypeVertex defines a vertex message.
+	// MsgTypeVertex defines a vertex block.
 	MsgTypeVertex
-	// MsgTypeTipInfo defines a tip info message.
+	// MsgTypeTipInfo defines a tip info block.
 	MsgTypeTipInfo
-	// MsgTypeManaValue defines a mana value message.
+	// MsgTypeManaValue defines a mana value block.
 	MsgTypeManaValue
-	// MsgTypeManaMapOverall defines a message containing overall mana map.
+	// MsgTypeManaMapOverall defines a block containing overall mana map.
 	MsgTypeManaMapOverall
-	// MsgTypeManaMapOnline defines a message containing online mana map.
+	// MsgTypeManaMapOnline defines a block containing online mana map.
 	MsgTypeManaMapOnline
-	// MsgTypeManaAllowedPledge defines a message containing a list of allowed mana pledge nodeIDs.
+	// MsgTypeManaAllowedPledge defines a block containing a list of allowed mana pledge nodeIDs.
 	MsgTypeManaAllowedPledge
-	// MsgTypeManaPledge defines a message that is sent when mana was pledged to the node.
+	// MsgTypeManaPledge defines a block that is sent when mana was pledged to the node.
 	MsgTypeManaPledge
-	// MsgTypeManaInitPledge defines a message that is sent when initial pledge events are sent to the dashboard.
+	// MsgTypeManaInitPledge defines a block that is sent when initial pledge events are sent to the dashboard.
 	MsgTypeManaInitPledge
-	// MsgTypeManaRevoke defines a message that is sent when mana was revoked from a node.
+	// MsgTypeManaRevoke defines a block that is sent when mana was revoked from a node.
 	MsgTypeManaRevoke
-	// MsgTypeManaInitRevoke defines a message that is sent when initial revoke events are sent to the dashboard.
+	// MsgTypeManaInitRevoke defines a block that is sent when initial revoke events are sent to the dashboard.
 	MsgTypeManaInitRevoke
-	// MsgTypeManaInitDone defines a message that is sent when all initial values are sent.
+	// MsgTypeManaInitDone defines a block that is sent when all initial values are sent.
 	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgTypeChat defines a chat message.
+	// MsgTypeChat defines a chat block.
 	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
 	MsgTypeRateSetterMetric
-	// MsgTypeConflictsConflict defines a message that contains a conflict update for the conflict tab.
+	// MsgTypeConflictsConflictSet defines a websocket message that contains a conflictSet update for the "conflicts" tab.
+	MsgTypeConflictsConflictSet
+	// MsgTypeConflictsConflict defines a websocket message that contains a conflict update for the "conflicts" tab.
 	MsgTypeConflictsConflict
-	// MsgTypeConflictsBranch defines a message that contains a branch update for the conflict tab.
-	MsgTypeConflictsBranch
 )
 
-type wsmsg struct {
+type wsblk struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
 }
 
-type msg struct {
+type blk struct {
 	ID          string `json:"id"`
 	Value       int64  `json:"value"`
 	PayloadType uint32 `json:"payload_type"`
@@ -227,8 +227,8 @@ type tangleTime struct {
 	CTT          int64 `json:"CTT"`
 	RCTT         int64 `json:"RCTT"`
 
-	AcceptedMessageID  string `json:"acceptedMessageID"`
-	ConfirmedMessageID string `json:"confirmedMessageID"`
+	AcceptedBlockID  string `json:"acceptedBlockID"`
+	ConfirmedBlockID string `json:"confirmedBlockID"`
 }
 
 type memmetrics struct {
@@ -336,14 +336,14 @@ func currentNodeStatus() *nodestatus {
 	// get TangleTime
 	tm := deps.Tangle.TimeManager
 	status.TangleTime = tangleTime{
-		Synced:             tm.Synced(),
-		Bootstrapped:       tm.Bootstrapped(),
-		AcceptedMessageID:  tm.LastAcceptedMessage().MessageID.Base58(),
-		ConfirmedMessageID: tm.LastConfirmedMessage().MessageID.Base58(),
-		ATT:                tm.ATT().UnixNano(),
-		RATT:               tm.RATT().UnixNano(),
-		CTT:                tm.CTT().UnixNano(),
-		RCTT:               tm.RCTT().UnixNano(),
+		Synced:           tm.Synced(),
+		Bootstrapped:     tm.Bootstrapped(),
+		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
+		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
+		ATT:              tm.ATT().UnixNano(),
+		RATT:             tm.RATT().UnixNano(),
+		CTT:              tm.CTT().UnixNano(),
+		RCTT:             tm.RCTT().UnixNano(),
 	}
 
 	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()

@@ -31,7 +31,7 @@ export class ChatPayload extends React.Component<Props, any> {
                     </Col>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Message: {payload.message} </ListGroup.Item> 
+                            <ListGroup.Item>Block: {payload.block} </ListGroup.Item> 
                         </ListGroup>
                     </Col>
                 </Row>

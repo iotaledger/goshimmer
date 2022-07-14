@@ -67,12 +67,12 @@ func configure(_ *node.Plugin) {
 		Plugin.LogInfof("%s is disabled; skipping %s\n", remotelog.Plugin.Name, Plugin.Name)
 		return
 	}
-	measureInitialBranchCounts()
+	measureInitialConflictCounts()
 	configureSyncMetrics()
-	configureBranchConfirmationMetrics()
-	configureMessageFinalizedMetrics()
-	configureMessageScheduledMetrics()
-	configureMissingMessageMetrics()
+	configureConflictConfirmationMetrics()
+	configureBlockFinalizedMetrics()
+	configureBlockScheduledMetrics()
+	configureMissingBlockMetrics()
 	configureSchedulerQueryMetrics()
 }
 
@@ -88,7 +88,7 @@ func run(_ *node.Plugin) {
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
 		timeutil.NewTicker(func() { remotemetrics.Events.SchedulerQuery.Trigger(&remotemetrics.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
 
-		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
+		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
 	}, shutdown.PriorityRemoteLog); err != nil {
 		Plugin.Panicf("Failed to start as daemon: %s", err)
@@ -114,69 +114,67 @@ func configureSchedulerQueryMetrics() {
 	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
 }
 
-func configureBranchConfirmationMetrics() {
+func configureConflictConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		onBranchConfirmed(event.BranchID)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		onConflictConfirmed(event.ID)
 	}))
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		activeBranchesMutex.Lock()
-		defer activeBranchesMutex.Unlock()
+		activeConflictsMutex.Lock()
+		defer activeConflictsMutex.Unlock()
 
-		branchID := event.ID
-		if _, exists := activeBranches[branchID]; !exists {
-			branchTotalCountDB.Inc()
-			activeBranches[branchID] = types.Void
-			sendBranchMetrics()
+		conflictID := event.ID
+		if _, exists := activeConflicts[conflictID]; !exists {
+			conflictTotalCountDB.Inc()
+			activeConflicts[conflictID] = types.Void
+			sendConflictMetrics()
 		}
 	}))
 }
 
-func configureMessageFinalizedMetrics() {
+func configureBlockFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		deps.Tangle.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-			onMessageFinalized(event.Message)
+		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+			onBlockFinalized(event.Block)
 		}))
 	}
 }
 
-func configureMessageScheduledMetrics() {
+func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	} else {
-		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageScheduled")
+		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockScheduled")
 		}))
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
-			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	}
 }
 
-func configureMissingMessageMetrics() {
+func configureMissingBlockMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *tangle.MessageMissingEvent) {
-		sendMissingMessageRecord(event.MessageID, "missingMessage")
-
+	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangle.BlockMissingEvent) {
+		sendMissingBlockRecord(event.BlockID, "missingBlock")
 	}))
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *tangle.MissingMessageStoredEvent) {
-		sendMissingMessageRecord(event.MessageID, "missingMessageStored")
-
+	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangle.MissingBlockStoredEvent) {
+		sendMissingBlockRecord(event.BlockID, "missingBlockStored")
 	}))
 }

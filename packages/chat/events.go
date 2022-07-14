@@ -8,21 +8,21 @@ import (
 
 // Events define events occurring within a Chat.
 type Events struct {
-	MessageReceived *event.Event[*MessageReceivedEvent]
+	BlockReceived *event.Event[*BlockReceivedEvent]
 }
 
 // newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
-		MessageReceived: event.New[*MessageReceivedEvent](),
+		BlockReceived: event.New[*BlockReceivedEvent](),
 	}
 }
 
 // Event defines the information passed when a chat event fires.
-type MessageReceivedEvent struct {
+type BlockReceivedEvent struct {
 	From      string
 	To        string
-	Message   string
+	Block     string
 	Timestamp time.Time
-	MessageID string
+	BlockID   string
 }

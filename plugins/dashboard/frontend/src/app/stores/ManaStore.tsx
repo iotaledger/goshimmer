@@ -6,7 +6,7 @@ import Plus from "../../assets/plus.svg";
 import Minus from "../../assets/minus.svg";
 import {displayManaUnit} from "../utils";
 
-class ManaMsg {
+class ManaBlk {
     nodeID: string;
     access: number;
     consensus: number;
@@ -20,13 +20,13 @@ export class Node {
     mana: number;
 }
 
-class NetworkManaMsg {
+class NetworkManaBlk {
     manaType: string;
     totalMana: number;
     nodes: Array<Node>;
 }
 
-export class AllowedPledgeIDsMsg {
+export class AllowedPledgeIDsBlk {
     accessFilter: PledgeIDFilter;
     consensusFilter: PledgeIDFilter;
 }
@@ -41,7 +41,7 @@ export class AllowedNodeStr {
     fullID: string;
 }
 
-class PledgeMsg {
+class PledgeBlk {
     manaType: string;
     nodeID: string;
     time: number;
@@ -49,7 +49,7 @@ class PledgeMsg {
     amount: number;
 }
 
-class RevokeMsg {
+class RevokeBlk {
     manaType: string;
     nodeID: string;
     time: number;
@@ -116,7 +116,7 @@ export class ManaStore {
     @observable public searchNode = "";
     @observable public searchTxID = "";
 
-    @observable public allowedPledgeIDs: AllowedPledgeIDsMsg;
+    @observable public allowedPledgeIDs: AllowedPledgeIDsBlk;
 
     // internal arrays to store mana events
     accessEvents: Array<ManaEvent> = [];
@@ -169,13 +169,13 @@ export class ManaStore {
     }
 
     @action
-    addNewManaValue = (manaMsg: ManaMsg) =>  {
-        this.ownID = this.ownID? this.ownID : manaMsg.nodeID;
+    addNewManaValue = (manaBlk: ManaBlk) =>  {
+        this.ownID = this.ownID? this.ownID : manaBlk.nodeID;
         if (this.manaValues.length === maxStoredManaValues) {
             // shift if we already have enough values
             this.manaValues.shift();
         }
-        let newManaData = [new Date(manaMsg.time*1000), manaMsg.access, manaMsg.consensus];
+        let newManaData = [new Date(manaBlk.time*1000), manaBlk.access, manaBlk.consensus];
         if (this.manaValues.length > 0){
             this.prevManaValues = [this.manaValues[this.manaValues.length -1][1] , this.manaValues[this.manaValues.length -1][2]]
         }
@@ -183,42 +183,42 @@ export class ManaStore {
     }
 
     @action
-    updateNetworkRichest = (msg: NetworkManaMsg) => {
-        switch (msg.manaType) {
+    updateNetworkRichest = (blk: NetworkManaBlk) => {
+        switch (blk.manaType) {
             case "Access":
-                this.totalAccessNetwork = msg.totalMana;
-                this.accessNetworkRichest = msg.nodes;
+                this.totalAccessNetwork = blk.totalMana;
+                this.accessNetworkRichest = blk.nodes;
                 break;
             case "Consensus":
-                this.totalConsensusNetwork = msg.totalMana;
-                this.consensusNetworkRichest = msg.nodes;
+                this.totalConsensusNetwork = blk.totalMana;
+                this.consensusNetworkRichest = blk.nodes;
                 break;
         }
     }
 
     @action
-    updateActiveRichest = (msg: NetworkManaMsg) => {
-        switch (msg.manaType) {
+    updateActiveRichest = (blk: NetworkManaBlk) => {
+        switch (blk.manaType) {
             case "Access":
-                this.totalAccessActive = msg.totalMana;
-                this.accessActiveRichest = msg.nodes;
+                this.totalAccessActive = blk.totalMana;
+                this.accessActiveRichest = blk.nodes;
                 break;
             case "Consensus":
-                this.totalConsensusActive = msg.totalMana;
-                this.consensusActiveRichest = msg.nodes;
+                this.totalConsensusActive = blk.totalMana;
+                this.consensusActiveRichest = blk.nodes;
                 break;
         }
     };
 
     @action
-    updateAllowedPledgeIDs = (msg: AllowedPledgeIDsMsg) => {
-        this.allowedPledgeIDs = msg;
+    updateAllowedPledgeIDs = (blk: AllowedPledgeIDsBlk) => {
+        this.allowedPledgeIDs = blk;
     }
 
     @action
-    addNewInitPledge = (msg: PledgeMsg) => {
+    addNewInitPledge = (blk: PledgeBlk) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Access":
                 store = this.initAccessEvents;
                 if (store.length >= maxEventsStored) {
@@ -237,18 +237,18 @@ export class ManaStore {
                 return
         }
         let newData = new PledgeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount,
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount,
         );
         store.push(newData);
     }
 
     @action
-    addNewPledge = (msg: PledgeMsg) => {
+    addNewPledge = (blk: PledgeBlk) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Access":
                 store = this.accessEvents;
                 if (store.length >= maxEventsStored) {
@@ -267,19 +267,19 @@ export class ManaStore {
                 return
         }
         let newData = new PledgeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount,
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount,
         );
         store.push(newData);
         this.eventsUpdated = true;
     }
 
     @action
-    addNewInitRevoke = (msg: RevokeMsg) => {
+    addNewInitRevoke = (blk: RevokeBlk) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Consensus":
                 store = this.initConsensusEvents;
                 if (store.length >= maxEventsStored) {
@@ -291,18 +291,18 @@ export class ManaStore {
                 return;
         }
         let newData = new RevokeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount
         );
         store.push(newData);
     }
 
     @action
-    addNewRevoke = (msg: RevokeMsg) => {
+    addNewRevoke = (blk: RevokeBlk) => {
         let store: Array<ManaEvent> = [];
-        switch (msg.manaType) {
+        switch (blk.manaType) {
             case "Consensus":
                 store = this.consensusEvents;
                 if (store.length >= maxEventsStored) {
@@ -314,10 +314,10 @@ export class ManaStore {
                 return;
         }
         let newData = new RevokeEvent(
-            msg.nodeID,
-            new Date(msg.time*1000),
-            msg.txID,
-            msg.amount
+            blk.nodeID,
+            new Date(blk.time*1000),
+            blk.txID,
+            blk.amount
         );
         store.push(newData);
         this.eventsUpdated = true;

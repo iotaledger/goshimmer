@@ -5,13 +5,13 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
 )
 
@@ -25,38 +25,27 @@ import (
 // | node2  | empty/burned |
 func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
 	now := time.Now()
-	outputs := utxo.NewOutputs()
-	outputsMetadata := ledger.NewOutputsMetadata()
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
-	outputs.Add(output)
-	outputsMetadata.Add(outputMetadata)
+	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	manaSnapshot := mana.NewSnapshot()
 	for nodeID, value := range nodesToPledge {
-		// pledge to empty ID (burn tokens)
+		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-		outputs.Add(output)
-		outputsMetadata.Add(outputMetadata)
-
-		manaSnapshot.ByNodeID[nodeID] = &mana.SnapshotNode{
-			AccessMana: &mana.AccessManaSnapshot{
-				Value:     float64(value),
-				Timestamp: now,
-			},
-			SortedTxSnapshot: mana.SortedTxSnapshot{
-				&mana.TxSnapshot{
-					TxID:      output.ID().TransactionID,
-					Timestamp: now,
-					Value:     float64(value),
-				},
-			},
-		}
+		outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 	}
 
+	ledgerSnapshot := ledger.NewSnapshot(outputsWithMetadata)
+	ledgerSnapshot.FullEpochIndex = 0
+	ledgerSnapshot.DiffEpochIndex = 0
+	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
+	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
+	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
+
 	return &snapshot.Snapshot{
-		LedgerSnapshot: ledger.NewSnapshot(outputs, outputsMetadata),
-		ManaSnapshot:   manaSnapshot,
+		LedgerSnapshot: ledgerSnapshot,
 	}, nil
 }
 
@@ -68,55 +57,31 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 // | genesisSeed | genesisSeed |
 // | node1       | node1       |
 // | node2       | node2       |
-func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, seedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
+func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
 	now := time.Now()
-	outputs := utxo.NewOutputs()
-	outputsMetadata := ledger.NewOutputsMetadata()
-	manaSnapshot := mana.NewSnapshot()
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
-	genesisIdentity := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
-	output, outputMetadata := createOutput(seed.NewSeed(seedBytes).Address(0).Address(), genesisTokenAmount, genesisIdentity, now)
-	outputs.Add(output)
-	outputsMetadata.Add(outputMetadata)
-
-	manaSnapshot.ByNodeID[genesisIdentity] = &mana.SnapshotNode{
-		AccessMana: &mana.AccessManaSnapshot{
-			Value:     float64(genesisTokenAmount),
-			Timestamp: now,
-		},
-		SortedTxSnapshot: mana.SortedTxSnapshot{
-			&mana.TxSnapshot{
-				TxID:      output.ID().TransactionID,
-				Timestamp: now,
-				Value:     float64(genesisTokenAmount),
-			},
-		},
-	}
+	// This is the same seed used to derive the faucet ID.
+	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
+	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
+	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	for nodeSeedBytes, value := range nodesToPledge {
-		// pledge to empty ID (burn tokens)
-		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeSeedBytes, now)
-		outputs.Add(output)
-		outputsMetadata.Add(outputMetadata)
-
-		manaSnapshot.ByNodeID[identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()] = &mana.SnapshotNode{
-			AccessMana: &mana.AccessManaSnapshot{
-				Value:     float64(value),
-				Timestamp: now,
-			},
-			SortedTxSnapshot: mana.SortedTxSnapshot{
-				&mana.TxSnapshot{
-					TxID:      output.ID().TransactionID,
-					Timestamp: now,
-					Value:     float64(value),
-				},
-			},
-		}
+		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
+		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
+		outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 	}
 
+	ledgerSnapshot := ledger.NewSnapshot(outputsWithMetadata)
+	ledgerSnapshot.FullEpochIndex = 0
+	ledgerSnapshot.DiffEpochIndex = 0
+	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
+	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
+	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
+
 	return &snapshot.Snapshot{
-		LedgerSnapshot: ledger.NewSnapshot(outputs, outputsMetadata),
-		ManaSnapshot:   manaSnapshot,
+		LedgerSnapshot: ledgerSnapshot,
 	}, nil
 }
 
@@ -130,7 +95,8 @@ func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identit
 	outputCounter++
 
 	outputMetadata = ledger.NewOutputMetadata(output.ID())
-	outputMetadata.SetGradeOfFinality(gof.High)
+	outputMetadata.SetConfirmationState(confirmation.Confirmed)
+	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetCreationTime(creationTime)
 

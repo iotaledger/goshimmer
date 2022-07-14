@@ -5,13 +5,13 @@ import (
 )
 
 var (
-	// schedulerRate rate at which messages are scheduled.
+	// schedulerRate rate at which blocks are scheduled.
 	ownRate float64
 
-	// readyMessagesCount number of ready messages in the scheduler buffer.
+	// readyBlocksCount number of ready blocks in the scheduler buffer.
 	rateSetterBufferSize int
 
-	// totalMessagesCount number of  messages in the scheduler buffer.
+	// totalBlocksCount number of  blocks in the scheduler buffer.
 	rateSetterEstimate time.Duration
 )
 
@@ -31,7 +31,7 @@ func OwnRate() float64 {
 	return ownRate
 }
 
-// RateSetterBufferSize number of ready messages in the rate setter buffer.
+// RateSetterBufferSize number of ready blocks in the rate setter buffer.
 func RateSetterBufferSize() int {
 	return rateSetterBufferSize
 }

@@ -7,18 +7,18 @@ import (
 )
 
 const (
-	routeMessage         = "messages/"
-	routeMessageMetadata = "/metadata"
-	routeSendPayload     = "messages/payload"
+	routeBlock         = "blocks/"
+	routeBlockMetadata = "/metadata"
+	routeSendPayload   = "blocks/payload"
 )
 
-// GetMessage is the handler for the /messages/:messageID endpoint.
-func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*jsonmodels.Message, error) {
-	res := &jsonmodels.Message{}
+// GetBlock is the handler for the /blocks/:blockID endpoint.
+func (api *GoShimmerAPI) GetBlock(base58EncodedID string) (*jsonmodels.Block, error) {
+	res := &jsonmodels.Block{}
 
 	if err := api.do(
 		http.MethodGet,
-		routeMessage+base58EncodedID,
+		routeBlock+base58EncodedID,
 		nil,
 		res,
 	); err != nil {
@@ -28,13 +28,13 @@ func (api *GoShimmerAPI) GetMessage(base58EncodedID string) (*jsonmodels.Message
 	return res, nil
 }
 
-// GetMessageMetadata is the handler for the /messages/:messageID/metadata endpoint.
-func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels.MessageMetadata, error) {
-	res := &jsonmodels.MessageMetadata{}
+// GetBlockMetadata is the handler for the /blocks/:blockID/metadata endpoint.
+func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels.BlockMetadata, error) {
+	res := &jsonmodels.BlockMetadata{}
 
 	if err := api.do(
 		http.MethodGet,
-		routeMessage+base58EncodedID+routeMessageMetadata,
+		routeBlock+base58EncodedID+routeBlockMetadata,
 		nil,
 		res,
 	); err != nil {
@@ -44,7 +44,7 @@ func (api *GoShimmerAPI) GetMessageMetadata(base58EncodedID string) (*jsonmodels
 	return res, nil
 }
 
-// SendPayload send a message with the given payload.
+// SendPayload send a block with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,

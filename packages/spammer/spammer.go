@@ -20,12 +20,12 @@ const (
 )
 
 // IssuePayloadFunc is a function which issues a payload.
-type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Message, error)
+type IssuePayloadFunc = func(payload payload.Payload, parentsCount ...int) (*tangle.Block, error)
 
-// EstimateFunc returns the time estimate required for the message to be issued by the rate setter.
+// EstimateFunc returns the time estimate required for the block to be issued by the rate setter.
 type EstimateFunc = func() time.Duration
 
-// Spammer spams messages with a static data payload.
+// Spammer spams blocks with a static data payload.
 type Spammer struct {
 	issuePayloadFunc IssuePayloadFunc
 	estimateFunc     EstimateFunc
@@ -46,8 +46,8 @@ func New(issuePayloadFunc IssuePayloadFunc, log *logger.Logger, estimateFunc Est
 	}
 }
 
-// Start starts the spammer to spam with the given messages per time unit,
-// according to a inter message issuing function (IMIF)
+// Start starts the spammer to spam with the given blocks per time unit,
+// according to a inter block issuing function (IMIF)
 func (s *Spammer) Start(rate int, timeUnit time.Duration, imif string) {
 	// only start if not yet running
 	if s.running.SetToIf(false, true) {
@@ -94,10 +94,10 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 			go func() {
 				s.goroutinesCount.Add(1)
 				defer s.goroutinesCount.Add(-1)
-				// we don't care about errors or the actual issued message
+				// we don't care about errors or the actual issued block
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
 				if errors.Is(err, tangle.ErrNotBootstrapped) {
-					s.log.Info("Stopped spamming messages because node lost sync")
+					s.log.Info("Stopped spamming blocks because node lost sync")
 					s.signalShutdown()
 					return
 				}
