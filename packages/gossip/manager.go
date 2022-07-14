@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
@@ -21,9 +20,7 @@ import (
 )
 
 const (
-	defaultConnectionTimeout = 5 * time.Second // timeout after which the connection must be established.
-	protocolID               = "gossip/0.0.1"
-	ioTimeout                = 4 * time.Second
+	protocolID = "gossip/0.0.1"
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.

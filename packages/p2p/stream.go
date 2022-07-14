@@ -80,8 +80,8 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 }
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
-	gossipEndpoint := p.Services().Get(service.GossipKey)
-	if gossipEndpoint == nil {
+	p2pEndpoint := p.Services().Get(service.GossipKey)
+	if p2pEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
@@ -119,7 +119,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	if err != nil {
 		return nil, fmt.Errorf(
 			"accept %s / %s failed: %w",
-			net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(),
+			net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port())), p.ID(),
 			err,
 		)
 	}
