@@ -24,7 +24,7 @@ const (
 	NeighborsGroupManual
 )
 
-// Neighbor describes the established gossip connection to another peer.
+// Neighbor describes the established p2p connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
