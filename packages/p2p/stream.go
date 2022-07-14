@@ -40,8 +40,8 @@ var (
 
 func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
 	conf := buildConnectPeerConfig(opts)
-	gossipEndpoint := p.Services().Get(service.GossipKey)
-	if gossipEndpoint == nil {
+	p2pEndpoint := p.Services().Get(service.GossipKey)
+	if p2pEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
@@ -49,7 +49,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		return nil, errors.WithStack(err)
 	}
 
-	addressStr := fmt.Sprintf("/ip4/%s/tcp/%d", p.IP(), gossipEndpoint.Port())
+	addressStr := fmt.Sprintf("/ip4/%s/tcp/%d", p.IP(), p2pEndpoint.Port())
 	address, err := multiaddr.NewMultiaddr(addressStr)
 	if err != nil {
 		return nil, err
@@ -63,12 +63,12 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	}
 
 	streams := make(map[protocol.ID]*PacketsStream)
-	for protocolID, handlers := range m.registeredProtocols {
-		stream, err := handlers.StreamEstablishFunc(ctx, libp2pID)
+	for protocolID := range m.registeredProtocols {
+		stream, err := m.initiateStream(ctx, libp2pID, protocolID)
 		if err != nil {
-			return nil, errors.Wrapf(err, "dial %s / %s failed", address, p.ID())
+			m.log.Errorf("dial %s / %s failed for proto %s: %w", address, p.ID(), protocolID, err)
 		}
-		m.log.Debugw("outgoing connection established",
+		m.log.Debugw("outgoing stream negotiated",
 			"id", p.ID(),
 			"addr", stream.Conn().RemoteMultiaddr(),
 			"proto", protocolID,
@@ -76,7 +76,12 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		streams[protocolID] = stream
 	}
 
-	return streams, err
+	if len(streams) == 0 {
+		return nil, fmt.Errorf("no streams initiated with peer %s / %s", address, p.ID())
+
+	}
+
+	return streams, nil
 }
 
 func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeerOption) (map[protocol.ID]*PacketsStream, error) {
@@ -85,10 +90,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		return nil, ErrNoGossip
 	}
 
-	stream, err := func() (*PacketsStream, error) {
-		// wait for the connection
-		m.acceptWG.Add(1)
-		defer m.acceptWG.Done()
+	handleInboundStream := func(protocolID protocol.ID) (*PacketsStream, error) {
 		conf := buildConnectPeerConfig(opts)
 		if conf.useDefaultTimeout {
 			var cancel context.CancelFunc
@@ -105,6 +107,9 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		defer m.removeAcceptMatcher(am)
 		select {
 		case ps := <-am.StreamCh:
+			if ps.Protocol() != protocolID {
+				return nil, fmt.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
+			}
 			return ps, nil
 		case <-ctx.Done():
 			err := ctx.Err()
@@ -115,19 +120,81 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 			m.log.Debugw("context error", "id", am.Peer.ID(), "err", err)
 			return nil, errors.WithStack(err)
 		}
-	}()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"accept %s / %s failed: %w",
-			net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port())), p.ID(),
-			err,
-		)
 	}
-	m.log.Debugw("incoming connection established",
-		"id", p.ID(),
-		"addr", stream.Conn().RemoteMultiaddr(),
-	)
-	return map[protocol.ID]*PacketsStream{stream.Protocol(): stream}, nil
+
+	var acceptWG sync.WaitGroup
+	streams := make(map[protocol.ID]*PacketsStream)
+	for protocolID := range m.registeredProtocols {
+		acceptWG.Add(1)
+		go func(protocolID protocol.ID) {
+			defer acceptWG.Done()
+			stream, err := handleInboundStream(protocolID)
+			if err != nil {
+				m.log.Errorf(
+					"accept %s / %s proto %s failed: %w",
+					net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port())),
+					p.ID(),
+					protocolID,
+					err,
+				)
+				return
+			}
+			m.log.Debugw("incoming stream negotiated",
+				"id", p.ID(),
+				"addr", stream.Conn().RemoteMultiaddr(),
+				"proto", protocolID,
+			)
+			streams[protocolID] = stream
+		}(protocolID)
+	}
+	acceptWG.Wait()
+
+	if len(streams) == 0 {
+		return nil, fmt.Errorf("no streams accepted from peer %s", p.ID())
+	}
+
+	return streams, nil
+}
+
+func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, protocolID protocol.ID) (*PacketsStream, error) {
+	protocolHandlers, registered := m.registeredProtocols[protocolID]
+	if !registered {
+		return nil, fmt.Errorf("cannot initiate stream protocol %s is not registered", protocolID)
+	}
+	stream, err := m.GetP2PHost().NewStream(ctx, libp2pID, protocolID)
+	if err != nil {
+		return nil, err
+	}
+	ps := NewPacketsStream(stream, protocolHandlers.PacketFactory)
+	if err := protocolHandlers.NegotiationSend(ps); err != nil {
+		err = errors.Wrap(err, "failed to send negotiation block")
+		err = errors.CombineErrors(err, stream.Close())
+		return nil, err
+	}
+	return ps, nil
+}
+
+func (m *Manager) handleStream(stream network.Stream) {
+	protocolID := stream.Protocol()
+	protocolHandlers, registered := m.registeredProtocols[protocolID]
+	if !registered {
+		m.log.Errorf("cannot accept stream: protocol %s is not registered", protocolID)
+		m.CloseStream(stream)
+	}
+	ps := NewPacketsStream(stream, protocolHandlers.PacketFactory)
+	if err := protocolHandlers.NegotiationReceive(ps); err != nil {
+		m.log.Errorw("failed to receive negotiation message", "proto", protocolID, "err", err)
+		m.CloseStream(stream)
+	}
+	am := m.MatchNewStream(stream)
+	if am != nil {
+		am.StreamCh <- ps
+	} else {
+		// close the connection if not matched
+		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
+			"id", stream.Conn().RemotePeer())
+		m.CloseStream(stream)
+	}
 }
 
 // AcceptMatcher holds data to match an existing connection with a peer.

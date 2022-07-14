@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"google.golang.org/protobuf/proto"
@@ -25,10 +24,10 @@ type connectPeerConfig struct {
 
 // ProtocolHandler holds callbacks to handle a protocol.
 type ProtocolHandler struct {
-	PacketFactory       func() proto.Message
-	StreamEstablishFunc func(context.Context, libp2ppeer.ID) (*PacketsStream, error)
-	StreamHandler       func(network.Stream)
-	PacketHandler       func(*Neighbor, proto.Message) error
+	PacketFactory      func() proto.Message
+	NegotiationSend    func(ps *PacketsStream) error
+	NegotiationReceive func(ps *PacketsStream) error
+	PacketHandler      func(*Neighbor, proto.Message) error
 }
 
 func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
@@ -53,7 +52,6 @@ type Manager struct {
 	local      *peer.Local
 	libp2pHost host.Host
 
-	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
@@ -112,7 +110,7 @@ func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 // RegisterProtocol registers a new protocol.
 func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
 	m.registeredProtocols[protocolID] = protocolHandler
-	m.libp2pHost.SetStreamHandler(protocolID, protocolHandler.StreamHandler)
+	m.libp2pHost.SetStreamHandler(protocolID, m.handleStream)
 }
 
 // UnregisterProtocol unregisters a protocol.
