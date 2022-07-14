@@ -7,12 +7,12 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 )
 
 // Firewall is a object responsible for taking actions on faulty peers.
 type Firewall struct {
-	gossipMgr                 *gossip.Manager
+	p2pManager                *p2p.Manager
 	autopeering               *selection.Protocol
 	log                       *logger.Logger
 	peersFaultinessCountMutex sync.RWMutex
@@ -20,9 +20,9 @@ type Firewall struct {
 }
 
 // NewFirewall create a new instance of Firewall object.
-func NewFirewall(gossipMgr *gossip.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
+func NewFirewall(p2pManager *p2p.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
 	return &Firewall{
-		gossipMgr:            gossipMgr,
+		p2pManager:           p2pManager,
 		autopeering:          autopeering,
 		log:                  log,
 		peersFaultinessCount: map[identity.ID]int{},
@@ -48,12 +48,12 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 	logKVList := append([]interface{}{"peerId", peerID}, details.toKVList()...)
 	f.log.Infow("Peer is faulty, executing firewall logic to handle the peer", logKVList...)
 	f.incrPeerFaultinessCount(peerID)
-	nbr, err := f.gossipMgr.GetNeighbor(peerID)
+	nbr, err := f.p2pManager.GetNeighbor(peerID)
 	if err != nil {
 		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID, "err", err)
 		return
 	}
-	if nbr.Group == gossip.NeighborsGroupAuto {
+	if nbr.Group == p2p.NeighborsGroupAuto {
 		if f.autopeering != nil {
 			f.log.Infow(
 				"Blocklisting peer in the autopeering selection",
@@ -61,7 +61,7 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 			)
 			f.autopeering.BlockNeighbor(peerID)
 		}
-	} else if nbr.Group == gossip.NeighborsGroupManual {
+	} else if nbr.Group == p2p.NeighborsGroupManual {
 		f.log.Warnw("To the node operator. One of neighbors connected via manual peering acts faulty, no automatic actions taken. Consider removing it from the known peers list.",
 			logKVList...)
 	}

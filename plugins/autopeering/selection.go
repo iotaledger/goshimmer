@@ -26,7 +26,7 @@ func createPeerSel(localID *peer.Local, nbrDiscover *discover.Protocol) *selecti
 // isValidNeighbor checks whether a peer is a valid neighbor.
 func isValidNeighbor(p *peer.Peer) bool {
 	// gossip must be supported
-	gossipService := p.Services().Get(service.GossipKey)
+	gossipService := p.Services().Get(service.P2PKey)
 	if gossipService == nil {
 		return false
 	}

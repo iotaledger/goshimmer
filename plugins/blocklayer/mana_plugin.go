@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/notarization"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 
 	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
@@ -21,7 +22,6 @@ import (
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -350,7 +350,7 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors.
-func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, neighbors []*p2p.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
 	}

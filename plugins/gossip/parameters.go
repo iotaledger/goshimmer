@@ -8,9 +8,6 @@ import (
 
 // ParametersDefinition contains the definition of configuration parameters used by the gossip plugin.
 type ParametersDefinition struct {
-	// BindAddress defines on which address the gossip service should listen.
-	BindAddress string `default:"0.0.0.0:14666" usage:"the bind address for the gossip"`
-
 	// MissingBlockRequestRelayProbability defines the probability of missing block requests being relayed to other neighbors.
 	MissingBlockRequestRelayProbability float64 `default:"0.01" usage:"the probability of missing block requests being relayed to other neighbors"`
 
