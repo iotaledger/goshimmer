@@ -21,6 +21,7 @@ type BufferQueue struct {
 	activeNode map[identity.ID]*ring.Ring
 	ring       *ring.Ring
 	size       int
+	work       int
 }
 
 // NewBufferQueue returns a new BufferQueue.
@@ -38,14 +39,19 @@ func (b *BufferQueue) NumActiveNodes() int {
 	return len(b.activeNode)
 }
 
-// MaxSize returns the max size (in bytes) of all blocks in b.
+// MaxSize returns the max size (in blocks) of all blocks in b.
 func (b *BufferQueue) MaxSize() int {
 	return b.maxBuffer
 }
 
-// Size returns the total size (in bytes) of all blocks in b.
+// Size returns the total number of blocks in b.
 func (b *BufferQueue) Size() int {
 	return b.size
+}
+
+// Work returns the total size (in bytes) of all blocks in b.
+func (b *BufferQueue) Work() int {
+	return b.work
 }
 
 // NodeQueue returns the queue for the corresponding node.
@@ -78,6 +84,7 @@ func (b *BufferQueue) Submit(blk Element, accessManaRetriever func(identity.ID) 
 		b.activeNode[nodeID] = b.ringInsert(nodeQueue)
 	}
 	b.size++
+	b.work += blk.Size()
 
 	// if max buffer size exceeded, drop from head of the longest mana-scaled queue
 	if b.Size() > b.maxBuffer {
@@ -130,6 +137,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (b
 		} else if readyQueueFront != nil {
 			blk := longestQueue.PopFront()
 			b.size--
+			b.work -= blk.Size()
 			blocksDropped = append(blocksDropped, ElementIDFromBytes(blk.IDBytes()))
 		} else {
 			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
@@ -154,6 +162,7 @@ func (b *BufferQueue) Unsubmit(blk Element) bool {
 	}
 
 	b.size--
+	b.work -= blk.Size()
 	return true
 }
 
@@ -221,6 +230,7 @@ func (b *BufferQueue) RemoveNode(nodeID identity.ID) {
 
 	nodeQueue := element.Value.(*NodeQueue)
 	b.size -= nodeQueue.Size()
+	b.work -= nodeQueue.Work()
 
 	b.ringRemove(element)
 	delete(b.activeNode, nodeID)
@@ -248,6 +258,7 @@ func (b *BufferQueue) PopFront() Element {
 	q := b.Current()
 	blk := q.PopFront()
 	b.size--
+	b.work -= blk.Size()
 	return blk
 }
 

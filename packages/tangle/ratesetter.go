@@ -159,9 +159,14 @@ func (r *RateSetter) Rate() float64 {
 	return r.ownRate.Load()
 }
 
-// Size returns the size of the issuing queue.
+// Size returns the size (in blocks) of the issuing queue.
 func (r *RateSetter) Size() int {
 	return r.issuingQueue.Size()
+}
+
+// Size returns the size (in blocks) of the issuing queue.
+func (r *RateSetter) Work() int {
+	return r.issuingQueue.Work()
 }
 
 // Estimate estimates the issuing time of new block.
@@ -179,11 +184,8 @@ func (r *RateSetter) Estimate() time.Duration {
 		// dummy estimate
 		return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
 	} else if r.tangle.Options.RateSetterParams.Mode == "deficit" {
-		if r.tangle.Scheduler.ReadyBlocksCount() == 0 {
-			return time.Duration(0)
-		} else {
-			return time.Duration(lo.Max(0, (float64(r.Size())-r.excessDeficit.Load())/r.ownRate.Load()))
-		}
+		// everything is in units of work (bytes) rather than blocks for deficit-based rate setter
+		return time.Duration(lo.Max(0, (float64(r.Work())-r.excessDeficit.Load())/r.ownRate.Load()))
 	} else {
 		return time.Duration(0) // return no wait if rate setter is disabled
 	}

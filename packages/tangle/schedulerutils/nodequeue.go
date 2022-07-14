@@ -54,6 +54,7 @@ type NodeQueue struct {
 	submitted map[ElementID]*Element
 	inbox     *ElementHeap
 	size      atomic.Int64
+	work      atomic.Int64
 }
 
 // NewNodeQueue returns a new NodeQueue.
@@ -65,13 +66,22 @@ func NewNodeQueue(nodeID identity.ID) *NodeQueue {
 	}
 }
 
-// Size returns the total size of the blocks in the queue.
+// Size returns the total number of the blocks in the queue.
 // This function is thread-safe.
 func (q *NodeQueue) Size() int {
 	if q == nil {
 		return 0
 	}
 	return int(q.size.Load())
+}
+
+// Work returns the total number of the bytes in the queue.
+// This function is thread-safe.
+func (q *NodeQueue) Work() int {
+	if q == nil {
+		return 0
+	}
+	return int(q.work.Load())
 }
 
 // NodeID returns the ID of the node belonging to the queue.
@@ -93,6 +103,7 @@ func (q *NodeQueue) Submit(element Element) bool {
 
 	q.submitted[id] = &element
 	q.size.Inc()
+	q.work.Add(int64(element.Size()))
 	return true
 }
 
@@ -105,6 +116,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 
 	delete(q.submitted, id)
 	q.size.Dec()
+	q.work.Sub(int64(element.Size()))
 	return true
 }
 
@@ -143,6 +155,7 @@ func (q *NodeQueue) Front() Element {
 func (q *NodeQueue) PopFront() Element {
 	blk := heap.Pop(q.inbox).(Element)
 	q.size.Dec()
+	q.work.Sub(int64(blk.Size()))
 	return blk
 }
 
