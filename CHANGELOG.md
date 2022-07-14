@@ -1,3 +1,24 @@
+# v0.9.2 - 2022-07-14
+
+> This release introduces the epoch commitments feature which allows creating proofs-of-inclusion of a block in the tangle. This feature is also the first step to the development of pruning, local snapshots and will allow more efficient way of syncing a node. This release also improves the parameters of rate-setter that should improve user-experience of issuing new blocks. It also contains various bugfixes and improvements, change of terminology e.g. message -> block etc. as well as replacement of grades of finality with confirmation state.
+
+The snapshot has been changed and thus the ledger state is fully reset.
+
+- Update wiki cli (#2327)
+- Trigger all async tasks in a separate goroutine. (#2332)
+- Add bootstrap manager. (#2326)
+- Keep epoch contents in permanent storage in epochstorage plugin (#2328)
+- Terminology renaming (#2320)
+- Fix entrynode config (#2321)
+- Epoch commitment metrics (#2293)
+- Minor fixes (#2319)
+- Build(deps): bump moment in /plugins/dagsvisualizer/frontend (#2317)
+- Build(deps): bump moment in /plugins/dashboard/frontend (#2316)
+- Replace GoF with confirmation state (#2313)
+- Improve rate-setter UX (#2315)
+- Epoch Commitments (#2212)
+- Fix faucet  (#2306)
+
 # v0.9.1 - 2022-06-22
 
 > This release introduces the rate setter which allows nodes to estimate their fair rate of block creation and makes removing proof-of-work possible. Congestion is completely handled by the rate-setter and congestion control algorithms (capped at 30 BPS). Access mana is not decaying and is pledged to the node until it's re-pledged to another node. The release also includes new time concepts which make the network more resilient against mana going offline which in the past caused confirmations to stop permanently.
