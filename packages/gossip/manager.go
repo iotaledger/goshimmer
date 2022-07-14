@@ -1,10 +1,8 @@
 package gossip
 
 import (
-	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
@@ -14,16 +12,12 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/libp2p/go-libp2p-core/network"
-	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
-	defaultConnectionTimeout = 5 * time.Second // timeout after which the connection must be established.
-	protocolID               = "gossip/0.0.1"
-	ioTimeout                = 4 * time.Second
+	protocolID = "gossip/0.0.1"
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.
@@ -61,10 +55,10 @@ func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, op
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
-		PacketFactory:       gossipPacketFactory,
-		StreamEstablishFunc: m.newPacketStream,
-		StreamHandler:       m.streamHandler,
-		PacketHandler:       m.handlePacket,
+		PacketFactory:      gossipPacketFactory,
+		NegotiationSend:    sendNegotiationMessage,
+		NegotiationReceive: receiveNegotiationMessage,
+		PacketHandler:      m.handlePacket,
 	})
 
 	for _, opt := range opts {
@@ -110,38 +104,6 @@ func (m *Manager) Stop() {
 	}
 	m.isStopped = true
 	m.p2pManager.UnregisterProtocol(protocolID)
-}
-
-func (m *Manager) newPacketStream(ctx context.Context, libp2pID libp2ppeer.ID) (*p2p.PacketsStream, error) {
-	stream, err := m.p2pManager.GetP2PHost().NewStream(ctx, libp2pID, protocolID)
-	if err != nil {
-		return nil, err
-	}
-	ps := p2p.NewPacketsStream(stream, gossipPacketFactory)
-	if err := sendNegotiationBlock(ps); err != nil {
-		err = errors.Wrap(err, "failed to send negotiation block")
-		err = errors.CombineErrors(err, stream.Close())
-		return nil, err
-	}
-	return ps, nil
-}
-
-func (m *Manager) streamHandler(stream network.Stream) {
-	ps := p2p.NewPacketsStream(stream, gossipPacketFactory)
-	if err := receiveNegotiationBlock(ps); err != nil {
-		m.log.Warnw("Failed to receive negotiation block", "err", err)
-		m.p2pManager.CloseStream(stream)
-		return
-	}
-	am := m.p2pManager.MatchNewStream(stream)
-	if am != nil {
-		am.StreamCh <- ps
-	} else {
-		// close the connection if not matched
-		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
-			"id", stream.Conn().RemotePeer())
-		m.p2pManager.CloseStream(stream)
-	}
 }
 
 // RequestBlock requests the block with the given id from the neighbors.
@@ -247,12 +209,12 @@ func gossipPacketFactory() proto.Message {
 	return &gp.Packet{}
 }
 
-func sendNegotiationBlock(ps *p2p.PacketsStream) error {
+func sendNegotiationMessage(ps *p2p.PacketsStream) error {
 	packet := &gp.Packet{Body: &gp.Packet_Negotiation{Negotiation: &gp.Negotiation{}}}
 	return errors.WithStack(ps.WritePacket(packet))
 }
 
-func receiveNegotiationBlock(ps *p2p.PacketsStream) (err error) {
+func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
 	packet := &gp.Packet{}
 	if err := ps.ReadPacket(packet); err != nil {
 		return errors.WithStack(err)

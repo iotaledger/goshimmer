@@ -175,8 +175,8 @@ func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 // Calling multiple times has no effect.
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
-		m.p2pm.NeighborsEvents(p2p.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
+		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
+		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
 		m.isStarted.Set()
 	})
 }
@@ -191,8 +191,8 @@ func (m *Manager) Stop() (err error) {
 		defer m.stopMutex.Unlock()
 		m.isStopped = true
 		err = errors.WithStack(m.removeAllKnownPeers())
-		m.p2pm.NeighborsEvents(p2p.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborsEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
+		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
+		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
 	})
 	return err
 }
@@ -215,7 +215,7 @@ func newKnownPeer(p *KnownPeerToAdd, connDirection ConnectionDirection) (*knownP
 	// Peering key is required in order to initialize a peer,
 	// but it's not used in both manual peering and gossip layers so we just specify the default one.
 	services.Update(service.PeeringKey, "tcp", 14626)
-	services.Update(service.GossipKey, tcpAddress.Network(), tcpAddress.Port)
+	services.Update(service.P2PKey, tcpAddress.Network(), tcpAddress.Port)
 	kp := &knownPeer{
 		peer:          peer.NewPeer(identity.New(p.PublicKey), tcpAddress.IP, services),
 		peerAddress:   p.Address,

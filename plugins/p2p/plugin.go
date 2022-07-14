@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
 
-// PluginName is the name of the gossip plugin.
+// PluginName is the name of the p2p plugin.
 const PluginName = "P2P"
 
 var (
-	// Plugin is the plugin instance of the gossip plugin.
+	// Plugin is the plugin instance of the p2p plugin.
 	Plugin *node.Plugin
 
 	deps = new(dependencies)
@@ -44,18 +44,18 @@ func configure(_ *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityP2P); err != nil {
 		plugin.Logger().Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
 func configureLogging() {
-	// log the gossip events
-	deps.P2PMgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *p2p.NeighborAddedEvent) {
+	// log the p2p events
+	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *p2p.NeighborAddedEvent) {
 		n := event.Neighbor
 		Plugin.LogInfof("Neighbor added: %s / %s", p2p.GetAddress(n.Peer), n.ID())
 	}))
-	deps.P2PMgr.NeighborsEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+	deps.P2PMgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		n := event.Neighbor
 		Plugin.LogInfof("Neighbor removed: %s / %s", p2p.GetAddress(n.Peer), n.ID())
 	}))

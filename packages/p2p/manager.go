@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	"google.golang.org/protobuf/proto"
@@ -25,10 +24,10 @@ type connectPeerConfig struct {
 
 // ProtocolHandler holds callbacks to handle a protocol.
 type ProtocolHandler struct {
-	PacketFactory       func() proto.Message
-	StreamEstablishFunc func(context.Context, libp2ppeer.ID) (*PacketsStream, error)
-	StreamHandler       func(network.Stream)
-	PacketHandler       func(*Neighbor, proto.Message) error
+	PacketFactory      func() proto.Message
+	NegotiationSend    func(ps *PacketsStream) error
+	NegotiationReceive func(ps *PacketsStream) error
+	PacketHandler      func(*Neighbor, proto.Message) error
 }
 
 func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
@@ -53,12 +52,11 @@ type Manager struct {
 	local      *peer.Local
 	libp2pHost host.Host
 
-	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
-	log             *logger.Logger
-	neighborsEvents map[NeighborsGroup]*NeighborsEvents
+	log                 *logger.Logger
+	neighborGroupEvents map[NeighborsGroup]*NeighborGroupEvents
 
 	stopMutex sync.RWMutex
 	isStopped bool
@@ -66,7 +64,8 @@ type Manager struct {
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex sync.RWMutex
 
-	registeredProtocols map[protocol.ID]*ProtocolHandler
+	registeredProtocolsMutex sync.RWMutex
+	registeredProtocols      map[protocol.ID]*ProtocolHandler
 }
 
 // NewManager creates a new Manager.
@@ -76,9 +75,9 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 		acceptMap:  map[libp2ppeer.ID]*AcceptMatcher{},
 		local:      local,
 		log:        log,
-		neighborsEvents: map[NeighborsGroup]*NeighborsEvents{
-			NeighborsGroupAuto:   NewNeighborsEvents(),
-			NeighborsGroupManual: NewNeighborsEvents(),
+		neighborGroupEvents: map[NeighborsGroup]*NeighborGroupEvents{
+			NeighborsGroupAuto:   NewNeighborGroupEvents(),
+			NeighborsGroupManual: NewNeighborGroupEvents(),
 		},
 		neighbors:           map[identity.ID]*Neighbor{},
 		registeredProtocols: map[protocol.ID]*ProtocolHandler{},
@@ -104,19 +103,25 @@ func (m *Manager) dropAllNeighbors() {
 	}
 }
 
-// NeighborsEvents returns the events related to the gossip protocol.
-func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
-	return m.neighborsEvents[group]
+// NeighborGroupEvents returns the events related to the neighbor group.
+func (m *Manager) NeighborGroupEvents(group NeighborsGroup) *NeighborGroupEvents {
+	return m.neighborGroupEvents[group]
 }
 
 // RegisterProtocol registers a new protocol.
 func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
+
 	m.registeredProtocols[protocolID] = protocolHandler
-	m.libp2pHost.SetStreamHandler(protocolID, protocolHandler.StreamHandler)
+	m.libp2pHost.SetStreamHandler(protocolID, m.handleStream)
 }
 
 // UnregisterProtocol unregisters a protocol.
 func (m *Manager) UnregisterProtocol(protocolID protocol.ID) {
+	m.registeredProtocolsMutex.Lock()
+	defer m.registeredProtocolsMutex.Unlock()
+
 	m.libp2pHost.RemoveStreamHandler(protocolID)
 	delete(m.registeredProtocols, protocolID)
 }
@@ -233,9 +238,12 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}
 	nbr.Events.Disconnected.Hook(event.NewClosure(func(_ *NeighborDisconnectedEvent) {
 		m.deleteNeighbor(nbr)
-		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
+		m.NeighborGroupEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))
 	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+		m.registeredProtocolsMutex.RLock()
+		defer m.registeredProtocolsMutex.RLock()
+
 		protocolHandler, isRegistered := m.registeredProtocols[event.Protocol]
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
@@ -246,7 +254,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	}))
 	nbr.readLoop()
 	nbr.Log.Info("Connection established")
-	m.neighborsEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr})
+	m.neighborGroupEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr})
 
 	return nil
 }
