@@ -189,6 +189,7 @@ func (t *TimeManager) updateSyncedState() {
 		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
 		if newSynced {
 			t.bootstrapped = true
+			t.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 		}
 	}
 }
