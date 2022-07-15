@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 )
 
 const (
@@ -26,8 +26,8 @@ const (
 )
 
 // GetAddressOutputs gets the spent and unspent outputs of an address.
-func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmodels.GetAddressResponse, error) {
-	res := &jsonmodels.GetAddressResponse{}
+func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmodels2.GetAddressResponse, error) {
+	res := &jsonmodels2.GetAddressResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetAddresses, base58EncodedAddress}, "")
 	}(), nil, res); err != nil {
@@ -37,8 +37,8 @@ func (api *GoShimmerAPI) GetAddressOutputs(base58EncodedAddress string) (*jsonmo
 }
 
 // GetAddressUnspentOutputs gets the unspent outputs of an address.
-func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (*jsonmodels.GetAddressResponse, error) {
-	res := &jsonmodels.GetAddressResponse{}
+func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (*jsonmodels2.GetAddressResponse, error) {
+	res := &jsonmodels2.GetAddressResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetAddresses, base58EncodedAddress, pathUnspentOutputs}, "")
 	}(), nil, res); err != nil {
@@ -48,19 +48,19 @@ func (api *GoShimmerAPI) GetAddressUnspentOutputs(base58EncodedAddress string) (
 }
 
 // PostAddressUnspentOutputs gets the unspent outputs of several addresses.
-func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*jsonmodels.PostAddressesUnspentOutputsResponse, error) {
-	res := &jsonmodels.PostAddressesUnspentOutputsResponse{}
+func (api *GoShimmerAPI) PostAddressUnspentOutputs(base58EncodedAddresses []string) (*jsonmodels2.PostAddressesUnspentOutputsResponse, error) {
+	res := &jsonmodels2.PostAddressesUnspentOutputsResponse{}
 	if err := api.do(http.MethodPost, func() string {
 		return strings.Join([]string{routeGetAddresses, "unspentOutputs"}, "")
-	}(), &jsonmodels.PostAddressesUnspentOutputsRequest{Addresses: base58EncodedAddresses}, res); err != nil {
+	}(), &jsonmodels2.PostAddressesUnspentOutputsRequest{Addresses: base58EncodedAddresses}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
 // GetConflict gets the conflict information.
-func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodels.Conflict, error) {
-	res := &jsonmodels.Conflict{}
+func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodels2.Conflict, error) {
+	res := &jsonmodels2.Conflict{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID}, "")
 	}(), nil, res); err != nil {
@@ -70,8 +70,8 @@ func (api *GoShimmerAPI) GetConflict(base58EncodedConflictID string) (*jsonmodel
 }
 
 // GetConflictChildren gets the children of a conflict.
-func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*jsonmodels.GetConflictChildrenResponse, error) {
-	res := &jsonmodels.GetConflictChildrenResponse{}
+func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*jsonmodels2.GetConflictChildrenResponse, error) {
+	res := &jsonmodels2.GetConflictChildrenResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathChildren}, "")
 	}(), nil, res); err != nil {
@@ -81,8 +81,8 @@ func (api *GoShimmerAPI) GetConflictChildren(base58EncodedConflictID string) (*j
 }
 
 // GetConflictConflicts gets the conflict conflicts of a conflict.
-func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*jsonmodels.GetConflictConflictsResponse, error) {
-	res := &jsonmodels.GetConflictConflictsResponse{}
+func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*jsonmodels2.GetConflictConflictsResponse, error) {
+	res := &jsonmodels2.GetConflictConflictsResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathConflicts}, "")
 	}(), nil, res); err != nil {
@@ -92,8 +92,8 @@ func (api *GoShimmerAPI) GetConflictConflicts(base58EncodedConflictID string) (*
 }
 
 // GetConflictVoters gets the Voters of a conflict.
-func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jsonmodels.GetConflictVotersResponse, error) {
-	res := &jsonmodels.GetConflictVotersResponse{}
+func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jsonmodels2.GetConflictVotersResponse, error) {
+	res := &jsonmodels2.GetConflictVotersResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetConflicts, base58EncodedConflictID, pathVoters}, "")
 	}(), nil, res); err != nil {
@@ -103,8 +103,8 @@ func (api *GoShimmerAPI) GetConflictVoters(base58EncodedConflictID string) (*jso
 }
 
 // GetOutput gets the output corresponding to OutputID.
-func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels.Output, error) {
-	res := &jsonmodels.Output{}
+func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels2.Output, error) {
+	res := &jsonmodels2.Output{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID}, "")
 	}(), nil, res); err != nil {
@@ -114,8 +114,8 @@ func (api *GoShimmerAPI) GetOutput(base58EncodedOutputID string) (*jsonmodels.Ou
 }
 
 // GetOutputConsumers gets the consumers of the output corresponding to OutputID.
-func (api *GoShimmerAPI) GetOutputConsumers(base58EncodedOutputID string) (*jsonmodels.GetOutputConsumersResponse, error) {
-	res := &jsonmodels.GetOutputConsumersResponse{}
+func (api *GoShimmerAPI) GetOutputConsumers(base58EncodedOutputID string) (*jsonmodels2.GetOutputConsumersResponse, error) {
+	res := &jsonmodels2.GetOutputConsumersResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID, pathConsumers}, "")
 	}(), nil, res); err != nil {
@@ -125,8 +125,8 @@ func (api *GoShimmerAPI) GetOutputConsumers(base58EncodedOutputID string) (*json
 }
 
 // GetOutputMetadata gets the metadata of the output corresponding to OutputID.
-func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*jsonmodels.OutputMetadata, error) {
-	res := &jsonmodels.OutputMetadata{}
+func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*jsonmodels2.OutputMetadata, error) {
+	res := &jsonmodels2.OutputMetadata{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetOutputs, base58EncodedOutputID, pathMetadata}, "")
 	}(), nil, res); err != nil {
@@ -136,8 +136,8 @@ func (api *GoShimmerAPI) GetOutputMetadata(base58EncodedOutputID string) (*jsonm
 }
 
 // GetTransaction gets the transaction of the corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*jsonmodels.Transaction, error) {
-	res := &jsonmodels.Transaction{}
+func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*jsonmodels2.Transaction, error) {
+	res := &jsonmodels2.Transaction{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID}, "")
 	}(), nil, res); err != nil {
@@ -147,8 +147,8 @@ func (api *GoShimmerAPI) GetTransaction(base58EncodedTransactionID string) (*jso
 }
 
 // GetTransactionMetadata gets metadata of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID string) (*jsonmodels.TransactionMetadata, error) {
-	res := &jsonmodels.TransactionMetadata{}
+func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID string) (*jsonmodels2.TransactionMetadata, error) {
+	res := &jsonmodels2.TransactionMetadata{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathMetadata}, "")
 	}(), nil, res); err != nil {
@@ -158,8 +158,8 @@ func (api *GoShimmerAPI) GetTransactionMetadata(base58EncodedTransactionID strin
 }
 
 // GetTransactionAttachments gets the attachments (blockIDs) of the transaction corresponding to TransactionID.
-func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID string) (*jsonmodels.GetTransactionAttachmentsResponse, error) {
-	res := &jsonmodels.GetTransactionAttachmentsResponse{}
+func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID string) (*jsonmodels2.GetTransactionAttachmentsResponse, error) {
+	res := &jsonmodels2.GetTransactionAttachmentsResponse{}
 	if err := api.do(http.MethodGet, func() string {
 		return strings.Join([]string{routeGetTransactions, base58EncodedTransactionID, pathAttachments}, "")
 	}(), nil, res); err != nil {
@@ -169,10 +169,10 @@ func (api *GoShimmerAPI) GetTransactionAttachments(base58EncodedTransactionID st
 }
 
 // PostTransaction sends the transaction(bytes) to the Tangle and returns its transaction ID.
-func (api *GoShimmerAPI) PostTransaction(transactionBytes []byte) (*jsonmodels.PostTransactionResponse, error) {
-	res := &jsonmodels.PostTransactionResponse{}
+func (api *GoShimmerAPI) PostTransaction(transactionBytes []byte) (*jsonmodels2.PostTransactionResponse, error) {
+	res := &jsonmodels2.PostTransactionResponse{}
 	if err := api.do(http.MethodPost, routePostTransactions,
-		&jsonmodels.PostTransactionRequest{TransactionBytes: transactionBytes}, res); err != nil {
+		&jsonmodels2.PostTransactionRequest{TransactionBytes: transactionBytes}, res); err != nil {
 		return nil, err
 	}
 

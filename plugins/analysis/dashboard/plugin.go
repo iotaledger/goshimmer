@@ -14,7 +14,7 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 )
 
 // PluginName is the name of the dashboard plugin.

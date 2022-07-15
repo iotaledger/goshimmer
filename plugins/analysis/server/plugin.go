@@ -20,7 +20,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 

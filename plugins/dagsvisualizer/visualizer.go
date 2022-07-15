@@ -16,13 +16,14 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 )
 
 var (
@@ -243,7 +244,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		parents := make(map[string]*conflictVertex)
 		var conflictID utxo.TransactionID
 		if err = conflictID.FromBase58(c.Param("conflictID")); err != nil {
-			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+			err = c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 			return
 		}
 		vertex := newConflictVertex(conflictID)
@@ -365,9 +366,9 @@ func newTangleVertex(block *tangle.Block) (ret *tangleVertex) {
 }
 
 func newUTXOVertex(blkID tangle.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
-	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
+	inputs := make([]*jsonmodels2.Input, len(tx.Essence().Inputs()))
 	for i, input := range tx.Essence().Inputs() {
-		inputs[i] = jsonmodels.NewInput(input)
+		inputs[i] = jsonmodels2.NewInput(input)
 	}
 
 	outputs := make([]string, len(tx.Essence().Outputs()))
@@ -413,7 +414,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 		ret = &conflictVertex{
 			ID:                conflictID.Base58(),
 			Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
-			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
+			Conflicts:         jsonmodels2.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 			IsConfirmed:       deps.AcceptanceGadget.IsConflictConfirmed(conflictID),
 			ConfirmationState: deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID)).String(),
 			AW:                deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID),

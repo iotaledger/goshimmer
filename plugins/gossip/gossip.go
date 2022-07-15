@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/libp2p/go-libp2p"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/libp2putil"
-	"github.com/iotaledger/goshimmer/packages/ratelimiter"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/network/gossip"
+	"github.com/iotaledger/goshimmer/packages/network/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/network/ratelimiter"
 )
 
 // ErrBlockNotFound is returned when a block could not be found in the Tangle.

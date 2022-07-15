@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 )
 
 // RoutePeerFaultinessCount defines the HTTP path for firewall/is-peer-faulty endpoint.

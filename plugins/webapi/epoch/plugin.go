@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
@@ -47,9 +47,9 @@ func configure(_ *node.Plugin) {
 
 func getAllCommittedEpochs(c echo.Context) error {
 	allEpochs := epochstorage.GetCommittableEpochs()
-	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
+	allEpochsInfos := make([]*jsonmodels2.EpochInfo, 0, len(allEpochs))
 	for _, ecr := range allEpochs {
-		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
+		allEpochsInfos = append(allEpochsInfos, jsonmodels2.EpochInfoFromRecord(ecr))
 	}
 	sort.Slice(allEpochsInfos, func(i, j int) bool {
 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
@@ -60,10 +60,10 @@ func getAllCommittedEpochs(c echo.Context) error {
 func getCommittedEpoch(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	allEpochs := epochstorage.GetCommittableEpochs()
-	epochInfo := jsonmodels.EpochInfoFromRecord(allEpochs[ei])
+	epochInfo := jsonmodels2.EpochInfoFromRecord(allEpochs[ei])
 
 	return c.JSON(http.StatusOK, epochInfo)
 }
@@ -71,11 +71,11 @@ func getCommittedEpoch(c echo.Context) error {
 func getUTXOs(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	spentIDs, createdIDs, err := epochstorage.GetEpochUTXOs(ei)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 
 	spent := make([]string, len(spentIDs))
@@ -87,7 +87,7 @@ func getUTXOs(c echo.Context) error {
 		created[i] = o.String()
 	}
 
-	resp := jsonmodels.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created}
+	resp := jsonmodels2.EpochUTXOsResponse{SpentOutputs: spent, CreatedOutputs: created}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -95,18 +95,18 @@ func getUTXOs(c echo.Context) error {
 func getBlocks(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	blockIDs, err := epochstorage.GetEpochblocks(ei)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 
 	blocks := make([]string, len(blockIDs))
 	for i, m := range blockIDs {
 		blocks[i] = m.String()
 	}
-	resp := jsonmodels.EpochBlocksResponse{Blocks: blocks}
+	resp := jsonmodels2.EpochBlocksResponse{Blocks: blocks}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -114,18 +114,18 @@ func getBlocks(c echo.Context) error {
 func getTransactions(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	transactionIDs, err := epochstorage.GetEpochTransactions(ei)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 
 	transactions := make([]string, len(transactionIDs))
 	for i, t := range transactionIDs {
 		transactions[i] = t.String()
 	}
-	resp := jsonmodels.EpochTransactionsResponse{Transactions: transactions}
+	resp := jsonmodels2.EpochTransactionsResponse{Transactions: transactions}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -133,10 +133,10 @@ func getTransactions(c echo.Context) error {
 func getPendingConflictsCount(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	allEpochs := epochstorage.GetPendingConflictCount()
-	resp := jsonmodels.EpochPendingConflictCountResponse{PendingConflictCount: allEpochs[ei]}
+	resp := jsonmodels2.EpochPendingConflictCountResponse{PendingConflictCount: allEpochs[ei]}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -153,20 +153,20 @@ func getEI(c echo.Context) (epoch.Index, error) {
 func getVotersWeight(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
 	}
 	weights := epochstorage.GetEpochVotersWeight(ei)
 
-	respMap := make(map[string]*jsonmodels.NodeWeight)
+	respMap := make(map[string]*jsonmodels2.NodeWeight)
 	for ecr, nw := range weights {
 		ws := make(map[string]float64, 0)
 		for id, w := range nw {
 			ws[id.String()] = w
 		}
-		nodeWeights := &jsonmodels.NodeWeight{Weights: ws}
+		nodeWeights := &jsonmodels2.NodeWeight{Weights: ws}
 		respMap[ecr.Base58()] = nodeWeights
 	}
-	resp := jsonmodels.EpochVotersWeightResponse{VotersWeight: respMap}
+	resp := jsonmodels2.EpochVotersWeightResponse{VotersWeight: respMap}
 
 	return c.JSON(http.StatusOK, resp)
 }

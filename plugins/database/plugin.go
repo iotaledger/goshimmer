@@ -16,8 +16,8 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	database2 "github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 )
 
 // PluginName is the name of the database plugin.
@@ -29,8 +29,8 @@ var (
 	deps   = new(dependencies)
 	log    *logger.Logger
 
-	db                database.DB
-	cacheTimeProvider *database.CacheTimeProvider
+	db                database2.DB
+	cacheTimeProvider *database2.CacheTimeProvider
 	cacheProviderOnce sync.Once
 )
 
@@ -50,13 +50,13 @@ func init() {
 }
 
 // CacheTimeProvider returns the cacheTimeProvider instance.
-func CacheTimeProvider() *database.CacheTimeProvider {
+func CacheTimeProvider() *database2.CacheTimeProvider {
 	cacheProviderOnce.Do(createCacheTimeProvider)
 	return cacheTimeProvider
 }
 
 func createCacheTimeProvider() {
-	cacheTimeProvider = database.NewCacheTimeProvider(Parameters.ForceCacheTime)
+	cacheTimeProvider = database2.NewCacheTimeProvider(Parameters.ForceCacheTime)
 }
 
 func createStore() kvstore.KVStore {
@@ -64,9 +64,9 @@ func createStore() kvstore.KVStore {
 
 	var err error
 	if Parameters.InMemory {
-		db, err = database.NewMemDB()
+		db, err = database2.NewMemDB()
 	} else {
-		db, err = database.NewDB(Parameters.Directory)
+		db, err = database2.NewDB(Parameters.Directory)
 	}
 	if err != nil {
 		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)

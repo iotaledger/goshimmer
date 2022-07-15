@@ -17,17 +17,18 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	mana2 "github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -253,15 +254,15 @@ func parseDuration(durationString string) time.Duration {
 }
 
 func accessManaMapRetriever() map[identity.ID]float64 {
-	nodeMap, _, err := GetManaMap(mana.AccessMana)
+	nodeMap, _, err := GetManaMap(mana2.AccessMana)
 	if err != nil {
-		return mana.NodeMap{}
+		return mana2.NodeMap{}
 	}
 	return nodeMap
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalMana(mana.AccessMana)
+	totalMana, _, err := GetTotalMana(mana2.AccessMana)
 	if err != nil {
 		return 0
 	}

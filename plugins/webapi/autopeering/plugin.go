@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.

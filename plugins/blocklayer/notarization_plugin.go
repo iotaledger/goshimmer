@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	notarization2 "github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 )
 
 const (
@@ -24,7 +24,7 @@ type notarizationPluginDependencies struct {
 	dig.In
 
 	Tangle  *tangle.Tangle
-	Manager *notarization.Manager
+	Manager *notarization2.Manager
 }
 
 type notarizationManagerDependencies struct {
@@ -66,13 +66,13 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager(deps notarizationManagerDependencies) *notarization.Manager {
-	return notarization.NewManager(
-		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
+func newNotarizationManager(deps notarizationManagerDependencies) *notarization2.Manager {
+	return notarization2.NewManager(
+		notarization2.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		deps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
-		notarization.ManaDelay(ManaParameters.EpochDelay),
-		notarization.Log(Plugin.Logger()))
+		notarization2.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
+		notarization2.ManaDelay(ManaParameters.EpochDelay),
+		notarization2.Log(Plugin.Logger()))
 }
 
 // GetLatestEC returns the latest commitment that a new block should commit to.

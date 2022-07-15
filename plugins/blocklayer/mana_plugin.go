@@ -6,10 +6,16 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/notarization"
-
 	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
+
+	db_pkg "github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	mana2 "github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/gossip"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
@@ -19,15 +25,9 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	db_pkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 )
 
 const (
@@ -39,9 +39,9 @@ var (
 	// ManaPlugin is the plugin instance of the mana plugin.
 	ManaPlugin         = node.NewPlugin(PluginName, nil, node.Enabled, configureManaPlugin, runManaPlugin)
 	manaLogger         *logger.Logger
-	baseManaVectors    map[mana.Type]mana.BaseManaVector
-	storages           map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana]
-	allowedPledgeNodes map[mana.Type]AllowedPledge
+	baseManaVectors    map[mana2.Type]mana2.BaseManaVector
+	storages           map[mana2.Type]*objectstorage.ObjectStorage[*mana2.PersistableBaseMana]
+	allowedPledgeNodes map[mana2.Type]AllowedPledge
 	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
@@ -55,7 +55,7 @@ var (
 
 func init() {
 	ManaPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
+		if err := event.Container.Provide(func() mana2.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {
 			Plugin.Panic(err)
@@ -68,24 +68,24 @@ func configureManaPlugin(*node.Plugin) {
 
 	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionAccepted(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
-		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
+		baseManaVectors[mana2.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
-	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
-	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
-	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector(mana.AccessMana)
-	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector(mana.ConsensusMana)
+	allowedPledgeNodes = make(map[mana2.Type]AllowedPledge)
+	baseManaVectors = make(map[mana2.Type]mana2.BaseManaVector)
+	baseManaVectors[mana2.AccessMana] = mana2.NewBaseManaVector(mana2.AccessMana)
+	baseManaVectors[mana2.ConsensusMana] = mana2.NewBaseManaVector(mana2.ConsensusMana)
 
 	// configure storage for each vector type
-	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
+	storages = make(map[mana2.Type]*objectstorage.ObjectStorage[*mana2.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
-	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
+	storages[mana2.AccessMana] = objectstorage.NewStructStorage[mana2.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana2.PrefixAccess))
+	storages[mana2.ConsensusMana] = objectstorage.NewStructStorage[mana2.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana2.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
-		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
+		storages[mana2.ResearchAccess] = objectstorage.NewStructStorage[mana2.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana2.PrefixAccessResearch))
+		storages[mana2.ResearchConsensus] = objectstorage.NewStructStorage[mana2.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana2.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -126,33 +126,33 @@ func configureEvents() {
 func onTransactionAccepted(transactionID utxo.TransactionID) {
 	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
-		var txInfo *mana.TxInfo
+		var txInfo *mana2.TxInfo
 
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
 		totalAmount, inputInfos := gatherInputInfos(devnetTransaction.Essence().Inputs())
 
-		txInfo = &mana.TxInfo{
+		txInfo = &mana2.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
 			TransactionID: transactionID,
 			TotalBalance:  totalAmount,
-			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
-				mana.ConsensusMana: devnetTransaction.Essence().ConsensusPledgeID(),
+			PledgeID: map[mana2.Type]identity.ID{
+				mana2.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
+				mana2.ConsensusMana: devnetTransaction.Essence().ConsensusPledgeID(),
 			},
 			InputInfos: inputInfos,
 		}
 
 		// book in only access mana
-		baseManaVectors[mana.AccessMana].Book(txInfo)
+		baseManaVectors[mana2.AccessMana].Book(txInfo)
 	})
 }
 
-func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []mana.InputInfo) {
-	inputInfos = make([]mana.InputInfo, 0)
+func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []mana2.InputInfo) {
+	inputInfos = make([]mana2.InputInfo, 0)
 	for _, input := range inputs {
-		var inputInfo mana.InputInfo
+		var inputInfo mana2.InputInfo
 
 		outputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
 		deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
@@ -166,9 +166,9 @@ func gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos [
 
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
-				inputInfo.PledgeID = map[mana.Type]identity.ID{
-					mana.AccessMana:    metadata.AccessManaPledgeID(),
-					mana.ConsensusMana: metadata.ConsensusManaPledgeID(),
+				inputInfo.PledgeID = map[mana2.Type]identity.ID{
+					mana2.AccessMana:    metadata.AccessManaPledgeID(),
+					mana2.ConsensusMana: metadata.ConsensusManaPledgeID(),
 				}
 			})
 		})
@@ -239,8 +239,8 @@ func runManaPlugin(_ *node.Plugin) {
 
 func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
-		storages[vectorType].ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
-			cachedObject.Consume(func(p *mana.PersistableBaseMana) {
+		storages[vectorType].ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*mana2.PersistableBaseMana]) bool {
+			cachedObject.Consume(func(p *mana2.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
 					manaLogger.Errorf("error while restoring %s mana vector: %s", vectorType.String(), err.Error())
@@ -280,9 +280,9 @@ func shutdownStorages() {
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, error) {
+func GetHighestManaNodes(manaType mana2.Type, n uint) ([]mana2.Node, time.Time, error) {
 	if !QueryAllowed() {
-		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+		return []mana2.Node{}, time.Now(), ErrQueryNotAllowed
 	}
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodes(n)
@@ -291,25 +291,25 @@ func GetHighestManaNodes(manaType mana.Type, n uint) ([]mana.Node, time.Time, er
 // GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
 // It also updates the mana values for each node.
 // If p is zero or greater than one, it returns all nodes.
-func GetHighestManaNodesFraction(manaType mana.Type, p float64) ([]mana.Node, time.Time, error) {
+func GetHighestManaNodesFraction(manaType mana2.Type, p float64) ([]mana2.Node, time.Time, error) {
 	if !QueryAllowed() {
-		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+		return []mana2.Node{}, time.Now(), ErrQueryNotAllowed
 	}
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodesFraction(p)
 }
 
 // GetManaMap returns type mana perception of the node.
-func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeMap, time.Time, error) {
+func GetManaMap(manaType mana2.Type, optionalUpdateTime ...time.Time) (mana2.NodeMap, time.Time, error) {
 	if !QueryAllowed() {
-		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
+		return mana2.NodeMap{}, time.Now(), ErrQueryNotAllowed
 	}
 	return baseManaVectors[manaType].GetManaMap()
 }
 
 // GetCMana is a wrapper for the approval weight.
 func GetCMana() map[identity.ID]float64 {
-	m, _, err := GetManaMap(mana.ConsensusMana)
+	m, _, err := GetManaMap(mana2.ConsensusMana)
 	if err != nil {
 		panic(err)
 	}
@@ -317,7 +317,7 @@ func GetCMana() map[identity.ID]float64 {
 }
 
 // GetTotalMana returns sum of mana of all nodes in the network.
-func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
+func GetTotalMana(manaType mana2.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
@@ -338,7 +338,7 @@ func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
+	return baseManaVectors[mana2.AccessMana].GetMana(nodeID)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
@@ -346,16 +346,16 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
+	return baseManaVectors[mana2.ConsensusMana].GetMana(nodeID)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors.
-func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana2.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana2.NodeMap, error) {
 	if !QueryAllowed() {
-		return mana.NodeMap{}, ErrQueryNotAllowed
+		return mana2.NodeMap{}, ErrQueryNotAllowed
 	}
 
-	res := make(mana.NodeMap)
+	res := make(mana2.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
 		value, _, _ := baseManaVectors[manaType].GetMana(n.ID())
@@ -365,11 +365,11 @@ func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optional
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap, error) {
+func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana2.Type]mana2.NodeMap, error) {
 	if !QueryAllowed() {
-		return make(map[mana.Type]mana.NodeMap), ErrQueryNotAllowed
+		return make(map[mana2.Type]mana2.NodeMap), ErrQueryNotAllowed
 	}
-	res := make(map[mana.Type]mana.NodeMap)
+	res := make(map[mana2.Type]mana2.NodeMap)
 	for manaType := range baseManaVectors {
 		res[manaType], _, _ = GetManaMap(manaType, optionalUpdateTime...)
 	}
@@ -377,15 +377,15 @@ func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap
 }
 
 // GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
-func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
+func GetAllowedPledgeNodes(manaType mana2.Type) AllowedPledge {
 	return allowedPledgeNodes[manaType]
 }
 
 // GetOnlineNodes gets the list of currently known (and verified) peers in the network, and their respective mana values.
 // Sorted in descending order based on mana. Zero mana nodes are excluded.
-func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Time, err error) {
+func GetOnlineNodes(manaType mana2.Type) (onlineNodesMana []mana2.Node, t time.Time, err error) {
 	if !QueryAllowed() {
-		return []mana.Node{}, time.Now(), ErrQueryNotAllowed
+		return []mana2.Node{}, time.Now(), ErrQueryNotAllowed
 	}
 	if deps.Discover == nil {
 		return
@@ -393,7 +393,7 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 	knownPeers := deps.Discover.GetVerifiedPeers()
 	// consider ourselves as a peer in the network too
 	knownPeers = append(knownPeers, deps.Local.Peer)
-	onlineNodesMana = make([]mana.Node, 0)
+	onlineNodesMana = make([]mana2.Node, 0)
 	for _, peer := range knownPeers {
 		if baseManaVectors[manaType].Has(peer.ID()) {
 			var peerMana float64
@@ -402,7 +402,7 @@ func GetOnlineNodes(manaType mana.Type) (onlineNodesMana []mana.Node, t time.Tim
 				return nil, t, err
 			}
 			if peerMana > 0 {
-				onlineNodesMana = append(onlineNodesMana, mana.Node{ID: peer.ID(), Mana: peerMana})
+				onlineNodesMana = append(onlineNodesMana, mana2.Node{ID: peer.ID(), Mana: peerMana})
 			}
 		}
 	}
@@ -425,7 +425,7 @@ func verifyPledgeNodes() error {
 	access.Allowed.Add(deps.Local.ID())
 	if access.IsFilterEnabled {
 		for _, pubKey := range ManaParameters.AllowedAccessPledge {
-			ID, err := mana.IDFromStr(pubKey)
+			ID, err := mana2.IDFromStr(pubKey)
 			if err != nil {
 				return err
 			}
@@ -438,7 +438,7 @@ func verifyPledgeNodes() error {
 	consensus.Allowed.Add(deps.Local.ID())
 	if consensus.IsFilterEnabled {
 		for _, pubKey := range ManaParameters.AllowedConsensusPledge {
-			ID, err := mana.IDFromStr(pubKey)
+			ID, err := mana2.IDFromStr(pubKey)
 			if err != nil {
 				return err
 			}
@@ -446,8 +446,8 @@ func verifyPledgeNodes() error {
 		}
 	}
 
-	allowedPledgeNodes[mana.AccessMana] = access
-	allowedPledgeNodes[mana.ConsensusMana] = consensus
+	allowedPledgeNodes[mana2.AccessMana] = access
+	allowedPledgeNodes[mana2.ConsensusMana] = consensus
 	return nil
 }
 
@@ -723,10 +723,10 @@ func verifyPledgeNodes() error {
 // }
 
 func cleanupManaVectors() {
-	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
+	vectorTypes := []mana2.Type{mana2.AccessMana, mana2.ConsensusMana}
 	if ManaParameters.EnableResearchVectors {
-		vectorTypes = append(vectorTypes, mana.ResearchAccess)
-		vectorTypes = append(vectorTypes, mana.ResearchConsensus)
+		vectorTypes = append(vectorTypes, mana2.ResearchAccess)
+		vectorTypes = append(vectorTypes, mana2.ResearchConsensus)
 	}
 	for _, vecType := range vectorTypes {
 		baseManaVectors[vecType].RemoveZeroNodes()
@@ -807,8 +807,8 @@ func loadSnapshot(snapshot *ledger.Snapshot) error {
 		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
 	}
 
-	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
-	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
+	baseManaVectors[mana2.ConsensusMana].InitializeWithData(consensusManaByNode)
+	baseManaVectors[mana2.AccessMana].InitializeWithData(accessManaByNode)
 
 	return nil
 }

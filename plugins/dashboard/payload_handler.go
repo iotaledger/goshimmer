@@ -3,12 +3,13 @@ package dashboard
 import (
 	"github.com/iotaledger/hive.go/generics/lo"
 
-	chat2 "github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+
+	chat2 "github.com/iotaledger/goshimmer/packages/apps/chat"
+	"github.com/iotaledger/goshimmer/packages/apps/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
 

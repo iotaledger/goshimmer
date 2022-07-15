@@ -7,10 +7,11 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+
+	"github.com/iotaledger/goshimmer/packages/apps/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
 

@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/models/shutdown"
+	gossip2 "github.com/iotaledger/goshimmer/packages/network/gossip"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -31,7 +31,7 @@ type dependencies struct {
 	Node      *configuration.Configuration
 	Local     *peer.Local
 	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager
+	GossipMgr *gossip2.Manager
 }
 
 func init() {
@@ -57,13 +57,13 @@ func run(plugin *node.Plugin) {
 
 func configureLogging() {
 	// log the gossip events
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *gossip.NeighborAddedEvent) {
+	deps.GossipMgr.NeighborsEvents(gossip2.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *gossip2.NeighborAddedEvent) {
 		n := event.Neighbor
-		Plugin.LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin.LogInfof("Neighbor added: %s / %s", gossip2.GetAddress(n.Peer), n.ID())
 	}))
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *gossip.NeighborRemovedEvent) {
+	deps.GossipMgr.NeighborsEvents(gossip2.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *gossip2.NeighborRemovedEvent) {
 		n := event.Neighbor
-		Plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+		Plugin.LogInfof("Neighbor removed: %s / %s", gossip2.GetAddress(n.Peer), n.ID())
 	}))
 	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangle.RequestStartedEvent) {
 		Plugin.LogDebugf("started to request missing Block with %s", event.BlockID)
@@ -78,7 +78,7 @@ func configureLogging() {
 
 func configureBlockLayer() {
 	// configure flow of incoming blocks
-	deps.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+	deps.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip2.BlockReceivedEvent) {
 		deps.Tangle.ProcessGossipBlock(event.Data, event.Peer)
 	}))
 

@@ -186,7 +186,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/core/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
