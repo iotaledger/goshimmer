@@ -1,7 +1,7 @@
 package dagsvisualizer
 
 import (
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 )
 
 const (
@@ -66,14 +66,14 @@ type tangleTxConfirmationStateChanged struct {
 }
 
 type utxoVertex struct {
-	BlkID                 string               `json:"blkID"`
-	ID                    string               `json:"ID"`
-	Inputs                []*jsonmodels2.Input `json:"inputs"`
-	Outputs               []string             `json:"outputs"`
-	IsConfirmed           bool                 `json:"isConfirmed"`
-	ConfirmationState     string               `json:"confirmationState"`
-	ConflictIDs           []string             `json:"conflictIDs"`
-	ConfirmationStateTime int64                `json:"confirmationStateTime"`
+	BlkID                 string              `json:"blkID"`
+	ID                    string              `json:"ID"`
+	Inputs                []*jsonmodels.Input `json:"inputs"`
+	Outputs               []string            `json:"outputs"`
+	IsConfirmed           bool                `json:"isConfirmed"`
+	ConfirmationState     string              `json:"confirmationState"`
+	ConflictIDs           []string            `json:"conflictIDs"`
+	ConfirmationStateTime int64               `json:"confirmationStateTime"`
 }
 
 type utxoBooked struct {
@@ -89,12 +89,12 @@ type utxoConfirmationStateChanged struct {
 }
 
 type conflictVertex struct {
-	ID                string                                    `json:"ID"`
-	Parents           []string                                  `json:"parents"`
-	IsConfirmed       bool                                      `json:"isConfirmed"`
-	Conflicts         *jsonmodels2.GetConflictConflictsResponse `json:"conflicts"`
-	ConfirmationState string                                    `json:"confirmationState"`
-	AW                float64                                   `json:"aw"`
+	ID                string                                   `json:"ID"`
+	Parents           []string                                 `json:"parents"`
+	IsConfirmed       bool                                     `json:"isConfirmed"`
+	Conflicts         *jsonmodels.GetConflictConflictsResponse `json:"conflicts"`
+	ConfirmationState string                                   `json:"confirmationState"`
+	AW                float64                                  `json:"aw"`
 }
 
 type conflictParentUpdate struct {

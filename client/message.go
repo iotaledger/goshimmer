@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 )
 
 const (
@@ -13,8 +13,8 @@ const (
 )
 
 // GetBlock is the handler for the /blocks/:blockID endpoint.
-func (api *GoShimmerAPI) GetBlock(base58EncodedID string) (*jsonmodels2.Block, error) {
-	res := &jsonmodels2.Block{}
+func (api *GoShimmerAPI) GetBlock(base58EncodedID string) (*jsonmodels.Block, error) {
+	res := &jsonmodels.Block{}
 
 	if err := api.do(
 		http.MethodGet,
@@ -29,8 +29,8 @@ func (api *GoShimmerAPI) GetBlock(base58EncodedID string) (*jsonmodels2.Block, e
 }
 
 // GetBlockMetadata is the handler for the /blocks/:blockID/metadata endpoint.
-func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels2.BlockMetadata, error) {
-	res := &jsonmodels2.BlockMetadata{}
+func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels.BlockMetadata, error) {
+	res := &jsonmodels.BlockMetadata{}
 
 	if err := api.do(
 		http.MethodGet,
@@ -46,9 +46,9 @@ func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels2.
 
 // SendPayload send a block with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &jsonmodels2.PostPayloadResponse{}
+	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&jsonmodels2.PostPayloadRequest{Payload: payload}, res); err != nil {
+		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 

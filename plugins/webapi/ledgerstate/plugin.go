@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/models/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/models/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/models/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -177,12 +177,12 @@ func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
 func GetAddress(c echo.Context) error {
 	address, err := devnetvm.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetAddressResponse(address, outputs))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -193,12 +193,12 @@ func GetAddress(c echo.Context) error {
 func GetAddressUnspentOutputs(c echo.Context) error {
 	address, err := devnetvm.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			isUnspent = !outputMetadata.IsSpent()
 		})
@@ -213,30 +213,30 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 
 // PostAddressUnspentOutputs is the handler for the /ledgerstate/addresses/unspentOutputs endpoint.
 func PostAddressUnspentOutputs(c echo.Context) error {
-	req := new(jsonmodels2.PostAddressesUnspentOutputsRequest)
+	req := new(jsonmodels.PostAddressesUnspentOutputsRequest)
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 	addresses := make([]devnetvm.Address, len(req.Addresses))
 	for i, addressString := range req.Addresses {
 		var err error
 		addresses[i], err = devnetvm.AddressFromBase58EncodedString(addressString)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 		}
 	}
 
-	res := &jsonmodels2.PostAddressesUnspentOutputsResponse{
-		UnspentOutputs: make([]*jsonmodels2.WalletOutputsOnAddress, len(addresses)),
+	res := &jsonmodels.PostAddressesUnspentOutputsResponse{
+		UnspentOutputs: make([]*jsonmodels.WalletOutputsOnAddress, len(addresses)),
 	}
 	for i, addy := range addresses {
-		res.UnspentOutputs[i] = new(jsonmodels2.WalletOutputsOnAddress)
+		res.UnspentOutputs[i] = new(jsonmodels.WalletOutputsOnAddress)
 		outputs := outputsOnAddress(addy)
-		res.UnspentOutputs[i].Address = jsonmodels2.Address{
+		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
 			Base58: addy.Base58(),
 		}
-		res.UnspentOutputs[i].Outputs = make([]jsonmodels2.WalletOutput, 0)
+		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
 		for _, output := range outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
@@ -251,10 +251,10 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo.Transaction) {
 							timestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 						})
-						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels2.WalletOutput{
-							Output:            *jsonmodels2.NewOutput(output),
+						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
+							Output:            *jsonmodels.NewOutput(output),
 							ConfirmationState: outputMetadata.ConfirmationState(),
-							Metadata:          jsonmodels2.WalletOutputMetadata{Timestamp: timestamp},
+							Metadata:          jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
 						})
 					})
 				}
@@ -273,16 +273,16 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 func GetConflict(c echo.Context) (err error) {
 	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels2.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID)))
+		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID)))
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -293,13 +293,13 @@ func GetConflict(c echo.Context) (err error) {
 func GetConflictChildren(c echo.Context) (err error) {
 	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	cachedChildConflicts := deps.Tangle.Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
 	defer cachedChildConflicts.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -310,7 +310,7 @@ func GetConflictChildren(c echo.Context) (err error) {
 func GetConflictConflicts(c echo.Context) (err error) {
 	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
@@ -323,12 +323,12 @@ func GetConflictConflicts(c echo.Context) (err error) {
 			})
 		}
 
-		err = c.JSON(http.StatusOK, jsonmodels2.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictID))
+		err = c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictID))
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -339,13 +339,13 @@ func GetConflictConflicts(c echo.Context) (err error) {
 func GetConflictVoters(c echo.Context) (err error) {
 	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	voters := tangle.NewVoters()
 	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflict(conflictID))
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetConflictVotersResponse(conflictID, voters))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -378,13 +378,13 @@ func GetConflictSequenceIDs(c echo.Context) (err error) {
 func GetOutput(c echo.Context) (err error) {
 	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		err = c.JSON(http.StatusOK, jsonmodels2.NewOutput(output.(devnetvm.Output)))
+		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.(devnetvm.Output)))
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
 	}
 
 	return
@@ -398,13 +398,13 @@ func GetOutput(c echo.Context) (err error) {
 func GetOutputConsumers(c echo.Context) (err error) {
 	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	cachedConsumers := deps.Tangle.Ledger.Storage.CachedConsumers(outputID)
 	defer cachedConsumers.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetOutputConsumersResponse(outputID, cachedConsumers.Unwrap()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetOutputConsumersResponse(outputID, cachedConsumers.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -415,17 +415,17 @@ func GetOutputConsumers(c echo.Context) (err error) {
 func GetOutputMetadata(c echo.Context) (err error) {
 	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if !deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 		confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(outputID)
 
-		jsonOutputMetadata := jsonmodels2.NewOutputMetadata(outputMetadata, confirmedConsumerID)
+		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
 
 		err = c.JSON(http.StatusOK, jsonOutputMetadata)
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load OutputMetadata with %s", outputID)))
 	}
 	return
 }
@@ -438,7 +438,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 func GetTransaction(c echo.Context) (err error) {
 	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	var tx *devnetvm.Transaction
@@ -446,10 +446,10 @@ func GetTransaction(c echo.Context) (err error) {
 	if !deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		tx = transaction.(*devnetvm.Transaction)
 	}) {
-		err = c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
+		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
 		return
 	}
-	return c.JSON(http.StatusOK, jsonmodels2.NewTransaction(tx))
+	return c.JSON(http.StatusOK, jsonmodels.NewTransaction(tx))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -460,13 +460,13 @@ func GetTransaction(c echo.Context) (err error) {
 func GetTransactionMetadata(c echo.Context) (err error) {
 	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if !deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-		err = c.JSON(http.StatusOK, jsonmodels2.NewTransactionMetadata(transactionMetadata))
+		err = c.JSON(http.StatusOK, jsonmodels.NewTransactionMetadata(transactionMetadata))
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
 	}
 
 	return
@@ -480,17 +480,17 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 func GetTransactionAttachments(c echo.Context) (err error) {
 	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	blockIDs := tangle.NewBlockIDs()
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		blockIDs.Add(attachment.BlockID())
 	}) {
-		return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewGetTransactionAttachmentsResponse(transactionID, blockIDs))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, blockIDs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -522,30 +522,30 @@ var ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to 
 
 // PostTransaction sends a transaction.
 func PostTransaction(c echo.Context) error {
-	var request jsonmodels2.PostTransactionRequest
+	var request jsonmodels.PostTransactionRequest
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
 	// parse tx
 	tx := new(devnetvm.Transaction)
 	err := tx.FromBytes(request.TransactionBytes)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
 	// if filter is enabled check if it would introduce a double spend known to the node locally
 	has, conflictingID := FilterHasConflict(tx.Essence().Inputs())
 	if has {
 		err = errors.Errorf("transaction is conflicting with previously submitted transaction %s", conflictingID.Base58())
-		return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
 	// validate allowed mana pledge nodes.
 	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(mana.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
-			return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
 				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
 			})
 		}
@@ -553,7 +553,7 @@ func PostTransaction(c echo.Context) error {
 	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(mana.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
-			return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
 				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
 			})
 		}
@@ -561,18 +561,18 @@ func PostTransaction(c echo.Context) error {
 
 	// check transaction validity
 	if transactionErr := deps.Tangle.Ledger.CheckTransaction(context.Background(), tx); transactionErr != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: transactionErr.Error()})
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
 	}
 
 	// check if transaction is too old
 	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
-		return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
 	}
 
 	// if transaction is in the future we wait until the time arrives
 	if tx.Essence().Timestamp().After(clock.SyncedTime()) {
 		if tx.Essence().Timestamp().Sub(clock.SyncedTime()) > time.Minute {
-			return c.JSON(http.StatusBadRequest, &jsonmodels2.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
+			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: "transaction timestamp is in the future and cannot be issued; please readjust local clock"})
 		}
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
@@ -586,9 +586,9 @@ func PostTransaction(c echo.Context) error {
 	if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		// if we failed to issue the transaction, we remove it
 		FilterRemove(tx.ID())
-		return c.JSON(http.StatusBadRequest, jsonmodels2.PostTransactionResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, &jsonmodels2.PostTransactionResponse{TransactionID: tx.ID().Base58()})
+	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
