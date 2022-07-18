@@ -1,6 +1,7 @@
 package messagelayer
 
 import (
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -29,6 +30,7 @@ func configureFinality() {
 
 	// we need to update the WeightProvider on confirmation
 	acceptanceGadget.Events().MessageAccepted.Attach(event.NewClosure(func(event *tangle.MessageAcceptedEvent) {
-		deps.Tangle.WeightProvider.Update(event.Message.IssuingTime(), identity.NewID(event.Message.IssuerPublicKey()))
+		ei := epoch.IndexFromTime(event.Message.IssuingTime())
+		deps.Tangle.WeightProvider.Update(ei, identity.NewID(event.Message.IssuerPublicKey()))
 	}))
 }
