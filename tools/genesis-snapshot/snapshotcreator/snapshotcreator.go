@@ -1,7 +1,6 @@
 package snapshotcreator
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -41,7 +40,7 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 	ledgerSnapshot.FullEpochIndex = 0
 	ledgerSnapshot.DiffEpochIndex = 0
 	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-	ledgerSnapshot.EpochActiveNodes = make(tangle.NodesActivityLog)
+	ledgerSnapshot.EpochActiveNodes = make(epoch.NodesActivityLog)
 	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
 	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
 	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
@@ -78,7 +77,7 @@ func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, genesisSeedByte
 	ledgerSnapshot.FullEpochIndex = 0
 	ledgerSnapshot.DiffEpochIndex = 0
 	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-	ledgerSnapshot.EpochActiveNodes = make(tangle.NodesActivityLog)
+	ledgerSnapshot.EpochActiveNodes = make(epoch.NodesActivityLog)
 	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
 	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
 	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})

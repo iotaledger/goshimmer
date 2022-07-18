@@ -3,6 +3,11 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/identity"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -38,7 +43,7 @@ func IndexFromTime(t time.Time) Index {
 		return 0
 	}
 
-	return Index(elapsedSeconds / Duration + 1)
+	return Index(elapsedSeconds/Duration + 1)
 }
 
 func (i Index) Bytes() []byte {
@@ -56,13 +61,13 @@ func (i Index) String() string {
 
 // StartTime calculates the start time of the given epoch.
 func (i Index) StartTime() time.Time {
-	startUnix := GenesisTime + int64(i - 1)*Duration
+	startUnix := GenesisTime + int64(i-1)*Duration
 	return time.Unix(startUnix, 0)
 }
 
 // EndTime calculates the end time of the given epoch.
 func (i Index) EndTime() time.Time {
-	endUnix := GenesisTime + int64(i - 1)*Duration + Duration - 1
+	endUnix := GenesisTime + int64(i-1)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
 }
 
@@ -164,3 +169,129 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 	e.M.PrevEC = NewMerkleRoot(prevEC[:])
 	e.SetModified()
 }
+
+type NodesActivityLog map[identity.ID]*ActivityLog
+
+// region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
+// functionality to query for certain timeframes.
+type ActivityLog struct {
+	SetEpochs set.Set[Index] `serix:"0,lengthPrefixType=uint32"`
+}
+
+// NewActivityLog is the constructor for ActivityLog.
+func NewActivityLog() *ActivityLog {
+
+	a := &ActivityLog{
+		SetEpochs: set.New[Index](),
+	}
+
+	return a
+}
+
+// Add adds a node activity to the log.
+func (a *ActivityLog) Add(ei Index) (added bool) {
+	if !a.SetEpochs.Add(ei) {
+		return false
+	}
+
+	return true
+}
+
+// Remove removes a node activity from the log.
+func (a *ActivityLog) Remove(ei Index) (removed bool) {
+	if !a.SetEpochs.Delete(ei) {
+		return false
+	}
+
+	return true
+}
+
+// Active returns true if the node was active between lower and upper bound.
+// It cleans up the log on the fly, meaning that old/stale times are deleted.
+// If the log ends up empty after cleaning up, empty is set to true.
+func (a *ActivityLog) Active(lowerBound, upperBound Index) (active bool) {
+	for ei := lowerBound; ei <= upperBound; ei++ {
+		if a.SetEpochs.Has(ei) {
+			active = true
+		}
+	}
+
+	return
+}
+
+func (a *ActivityLog) Clean(cutoff Index) (empty bool) {
+	// we remove all activity records below lowerBound as we will no longer need it
+	a.SetEpochs.ForEach(func(ei Index) {
+		if ei < cutoff {
+			a.SetEpochs.Delete(ei)
+		}
+	})
+	if a.SetEpochs.Size() == 0 {
+		return true
+	}
+	return
+}
+
+// Epochs returns all epochs stored in this ActivityLog.
+func (a *ActivityLog) Epochs() (epochs []Index) {
+	epochs = make([]Index, 0, a.SetEpochs.Size())
+
+	// insert in order
+	a.SetEpochs.ForEach(func(ei Index) {
+		idx := sort.Search(len(epochs), func(i int) bool { return epochs[i] >= ei })
+		epochs = append(epochs[:idx+1], epochs[idx:]...)
+		epochs[idx] = ei
+	})
+
+	return
+}
+
+// String returns a human-readable version of ActivityLog.
+func (a *ActivityLog) String() string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
+	ordered := a.Epochs()
+	for _, u := range ordered {
+		builder.WriteString(fmt.Sprintf("%d, ", u))
+	}
+	builder.WriteString(")")
+	return builder.String()
+}
+
+// Clone clones the ActivityLog.
+func (a *ActivityLog) Clone() *ActivityLog {
+	clone := NewActivityLog()
+
+	a.SetEpochs.ForEach(func(ei Index) {
+		clone.SetEpochs.Add(ei)
+	})
+
+	return clone
+}
+
+// Encode ActivityLog a serialized byte slice of the object.
+func (a *ActivityLog) Encode() ([]byte, error) {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.SetEpochs, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes, nil
+}
+
+// Decode deserializes bytes into a valid object.
+func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
+
+	a.SetEpochs = set.New[Index]()
+	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.SetEpochs, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ActivityLog: %w", err)
+		return
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

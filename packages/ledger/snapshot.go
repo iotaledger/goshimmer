@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
@@ -13,7 +12,7 @@ type Snapshot struct {
 	FullEpochIndex      epoch.Index                `serix:"1"`
 	DiffEpochIndex      epoch.Index                `serix:"2"`
 	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"3,lengthPrefixType=uint32"`
-	EpochActiveNodes    tangle.NodesActivityLog    `serix:"4,lengthPrefixType=uint32"`
+	EpochActiveNodes    epoch.NodesActivityLog     `serix:"4,lengthPrefixType=uint32"`
 	LatestECRecord      *epoch.ECRecord            `serix:"5"`
 }
 
