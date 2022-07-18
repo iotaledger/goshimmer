@@ -90,8 +90,8 @@ func PeerConfig() config.GoShimmer {
 	c.BlockLayer.Enabled = true
 	c.BlockLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
-	c.RateSetter.Enabled = true
-	c.RateSetter.RateSetterParametersDefinition.Enable = false
+	c.RateSetter.Mode = "disabled"
+	c.RateSetter.RateSetterParametersDefinition.Mode = "disabled"
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
