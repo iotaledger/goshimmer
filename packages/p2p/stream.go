@@ -70,6 +70,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 		stream, err := m.initiateStream(ctx, libp2pID, protocolID)
 		if err != nil {
 			m.log.Errorf("dial %s / %s failed for proto %s: %w", address, p.ID(), protocolID, err)
+			continue
 		}
 		m.log.Debugw("outgoing stream negotiated",
 			"id", p.ID(),
