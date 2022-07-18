@@ -53,9 +53,8 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 
 	// initialize with Genesis
 	t.lastAcceptedBlock = LastBlock{
-		BlockID:    EmptyBlockID,
-		BlockTime:  tangle.Options.GenesisTime,
-		UpdateTime: tangle.Options.GenesisTime,
+		BlockID:   EmptyBlockID,
+		BlockTime: tangle.Options.GenesisTime,
 	}
 
 	marshaledLastConfirmedBlock, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -147,10 +146,11 @@ func (t *TimeManager) RCTT() time.Time {
 
 // ActivityTime return the time used for defining nodes' activity window.
 func (t *TimeManager) ActivityTime() time.Time {
-	if t.Bootstrapped() {
-		return t.RATT()
+	// Until we have accepted any block, return static ATT. After accepting anything, return RATT so that the node can recognize nodes that are not active.
+	if t.lastAcceptedTime().IsZero() {
+		return t.ATT()
 	}
-	return t.ATT()
+	return t.RATT()
 }
 
 // Bootstrapped returns whether the node has bootstrapped based on the difference between CTT and the current wall time which can
@@ -249,7 +249,7 @@ type LastBlock struct {
 	// BlockTime field is the time of the last confirmed block.
 	BlockTime time.Time `serix:"1"`
 	// UpdateTime field is the time when the last confirmed block was updated.
-	UpdateTime time.Time `serix:"2"`
+	UpdateTime time.Time
 }
 
 // lastBlockFromBytes unmarshals a LastBlock object from a sequence of bytes.
