@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -17,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -99,10 +102,10 @@ const (
 	BlockVersion uint8 = 1
 
 	// MaxBlockSize defines the maximum size of a block.
-	MaxBlockSize = 64*1024 + 80
+	MaxBlockSize = 64 * 1024
 
 	// BlockIDLength defines the length of an BlockID.
-	BlockIDLength = types.IdentifierLength
+	BlockIDLength = types.IdentifierLength + 8
 
 	// MinParentsCount defines the minimum number of parents each parents block must have.
 	MinParentsCount = 1
@@ -124,34 +127,116 @@ const (
 
 // BlockID identifies a block via its BLAKE2b-256 hash of its bytes.
 type BlockID struct {
-	types.Identifier `serix:"0"`
+	Identifier types.Identifier `serix:"0"`
+	EpochIndex epoch.Index      `serix:"1"`
 }
 
 // EmptyBlockID is an empty id.
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(bytes [32]byte) (new BlockID) {
-	return BlockID{Identifier: bytes}
+func NewBlockID(identifier [32]byte, epochIndex epoch.Index) (new BlockID) {
+	return BlockID{
+		Identifier: identifier,
+		EpochIndex: epochIndex,
+	}
 }
 
-// Length returns the byte length of a serialized TransactionID.
-func (m BlockID) Length() int {
-	return types.IdentifierLength
+// FromBytes deserializes a BlockID from a byte slice.
+func (b *BlockID) FromBytes(serialized []byte) (consumedBytes int, err error) {
+	return serix.DefaultAPI.Decode(context.Background(), serialized, b, serix.WithValidation())
+}
+
+// FromBase58 un-serializes a BlockID from a base58 encoded string.
+func (b *BlockID) FromBase58(base58EncodedString string) (err error) {
+	s := strings.Split(base58EncodedString, ":")
+	decodedBytes, err := base58.Decode(s[0])
+	if err != nil {
+		return errors.Errorf("could not decode base58 encoded BlockID.Identifier: %w", err)
+	}
+	epochIndex, err := strconv.ParseInt(s[1], 10, 64)
+	if err != nil {
+		return errors.Errorf("could not decode BlockID.EpochIndex from string: %w", err)
+	}
+
+	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, &b.Identifier, serix.WithValidation()); err != nil {
+		return errors.Errorf("failed to decode BlockID: %w", err)
+	}
+	b.EpochIndex = epoch.Index(epochIndex)
+
+	return nil
+}
+
+// FromRandomness generates a random BlockID.
+func (b *BlockID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
+	if err = b.Identifier.FromRandomness(); err != nil {
+		return errors.Errorf("could not create Identifier from randomness: %w", err)
+	}
+
+	if len(optionalEpoch) >= 1 {
+		b.EpochIndex = optionalEpoch[0]
+	}
+
+	return nil
+}
+
+// Alias returns the human-readable alias of the BlockID (or the base58 encoded bytes if no alias was set).
+func (b BlockID) Alias() (alias string) {
+	_BlockIDAliasesMutex.RLock()
+	defer _BlockIDAliasesMutex.RUnlock()
+
+	if existingAlias, exists := _BlockIDAliases[b]; exists {
+		return fmt.Sprintf("%s, %d", existingAlias, int(b.EpochIndex))
+	}
+
+	return fmt.Sprintf("%s, %d", b.Identifier, int(b.EpochIndex))
+}
+
+// RegisterAlias allows to register a human-readable alias for the BlockID which will be used as a replacement for the
+// String method.
+func (b BlockID) RegisterAlias(alias string) {
+	_BlockIDAliasesMutex.Lock()
+	defer _BlockIDAliasesMutex.Unlock()
+
+	_BlockIDAliases[b] = alias
+}
+
+// UnregisterAlias allows to unregister a previously registered alias.
+func (b BlockID) UnregisterAlias() {
+	_BlockIDAliasesMutex.Lock()
+	defer _BlockIDAliasesMutex.Unlock()
+
+	delete(_BlockIDAliases, b)
+}
+
+// Base58 returns a base58 encoded version of the BlockID.
+func (b BlockID) Base58() (base58Encoded string) {
+	return fmt.Sprintf("%s:%s", base58.Encode(b.Identifier[:]), strconv.FormatInt(int64(b.EpochIndex), 10))
+}
+
+// Length returns the byte length of a serialized BlockID.
+func (b BlockID) Length() int {
+	return BlockIDLength
+}
+
+// Bytes returns a serialized version of the BlockID.
+func (b BlockID) Bytes() (serialized []byte) {
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation()))
 }
 
 // String returns a human-readable version of the BlockID.
-func (m BlockID) String() (humanReadable string) {
-	return "BlockID(" + m.Alias() + ")"
+func (b BlockID) String() (humanReadable string) {
+	return "BlockID(" + b.Alias() + ")"
 }
 
 // CompareTo does a lexicographical comparison to another blockID.
 // Returns 0 if equal, -1 if smaller, or 1 if larger than other.
 // Passing nil as other will result in a panic.
-func (m BlockID) CompareTo(other BlockID) int {
-	return bytes.Compare(m.Bytes(), other.Bytes())
+func (b BlockID) CompareTo(other BlockID) int {
+	return bytes.Compare(b.Bytes(), other.Bytes())
 }
 
+// BlockIDFromContext returns the BlockID from the given context.
 func BlockIDFromContext(ctx context.Context) BlockID {
 	blockID, ok := ctx.Value("blockID").(BlockID)
 	if !ok {
@@ -160,9 +245,18 @@ func BlockIDFromContext(ctx context.Context) BlockID {
 	return blockID
 }
 
+// BlockIDToContext adds the BlockID to the given context.
 func BlockIDToContext(ctx context.Context, blockID BlockID) context.Context {
 	return context.WithValue(ctx, "blockID", blockID)
 }
+
+var (
+	// _BlockIDAliases contains a dictionary of BlockIDs associated to their human-readable alias.
+	_BlockIDAliases = make(map[BlockID]string)
+
+	// _BlockIDAliasesMutex is the mutex that is used to synchronize access to the previous map.
+	_BlockIDAliasesMutex = sync.RWMutex{}
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -485,7 +579,7 @@ func (m *Block) DetermineID() (err error) {
 		return errors.Errorf("failed to determine block ID: %w", err)
 	}
 
-	m.SetID(BlockID{Identifier: blake2b.Sum256(b)})
+	m.SetID(NewBlockID(blake2b.Sum256(b), epoch.IndexFromTime(m.IssuingTime())))
 	return nil
 }
 

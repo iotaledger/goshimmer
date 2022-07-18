@@ -307,7 +307,7 @@ func (s *Scheduler) Clear() {
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
 		for _, id := range q.IDs() {
-			blockID := NewBlockID(id)
+			blockID := blockIDFromElementID(id)
 			s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
 				blockMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
@@ -374,10 +374,10 @@ func (s *Scheduler) submit(block *Block) error {
 		panic(errors.Errorf("failed to submit %s: %w", block.ID(), err))
 	}
 	for _, droppedBlkID := range droppedBlockIDs {
-		s.tangle.Storage.BlockMetadata(NewBlockID(droppedBlkID)).Consume(func(blockMetadata *BlockMetadata) {
+		s.tangle.Storage.BlockMetadata(blockIDFromElementID(droppedBlkID)).Consume(func(blockMetadata *BlockMetadata) {
 			blockMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
-		s.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{NewBlockID(droppedBlkID)})
+		s.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockIDFromElementID(droppedBlkID)})
 	}
 	return nil
 }
@@ -417,7 +417,7 @@ func (s *Scheduler) schedule() *Block {
 		// while loop to skip all the confirmed blocks
 		for blk != nil && !clock.SyncedTime().Before(blk.IssuingTime()) {
 			var blkID BlockID
-			if _, err := blkID.Decode(blk.IDBytes()); err != nil {
+			if _, err := blkID.FromBytes(blk.IDBytes()); err != nil {
 				panic("BlockID could not be parsed!")
 			}
 			if s.tangle.ConfirmationOracle.IsBlockConfirmed(blkID) && clock.Since(blk.IssuingTime()) > s.confirmedBlkThreshold {
@@ -581,3 +581,9 @@ func maxRat(x, y *big.Rat) *big.Rat {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func blockIDFromElementID(id schedulerutils.ElementID) (blockID BlockID) {
+	_, _ = blockID.FromBytes(id.Bytes())
+
+	return blockID
+}

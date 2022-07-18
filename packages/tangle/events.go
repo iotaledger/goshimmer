@@ -393,6 +393,7 @@ type RequestFailedEvent struct {
 type TimeManagerEvents struct {
 	// Fired when the nodes sync status changes.
 	SyncChanged           *event.Event[*SyncChangedEvent]
+	Bootstrapped          *event.Event[*BootstrappedEvent]
 	AcceptanceTimeUpdated *event.Event[*TimeUpdate]
 	ConfirmedTimeUpdated  *event.Event[*TimeUpdate]
 }
@@ -402,6 +403,7 @@ func newTimeManagerEvents() (new *TimeManagerEvents) {
 		SyncChanged:           event.New[*SyncChangedEvent](),
 		AcceptanceTimeUpdated: event.New[*TimeUpdate](),
 		ConfirmedTimeUpdated:  event.New[*TimeUpdate](),
+		Bootstrapped:          event.New[*BootstrappedEvent](),
 	}
 }
 
@@ -409,6 +411,9 @@ func newTimeManagerEvents() (new *TimeManagerEvents) {
 type SyncChangedEvent struct {
 	Synced bool
 }
+
+// BootstrappedEvent represents a bootstrapped event.
+type BootstrappedEvent struct{}
 
 // TimeUpdate represents an update in Tangle Time.
 type TimeUpdate struct {

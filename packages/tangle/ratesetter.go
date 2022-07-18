@@ -264,7 +264,7 @@ loop:
 
 	// discard all remaining blocks at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{NewBlockID(id)})
+		r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockIDFromElementID(id)})
 	}
 }
 
