@@ -84,7 +84,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 	}))
 
 	new.tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		new.OnConflictConfirmed(event.ID)
+		new.OnConflictAccepted(event.ID)
 	}))
 
 	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
@@ -293,17 +293,18 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	}
 }
 
-// OnConflictConfirmed is the handler for conflict confirmed event.
-func (m *Manager) OnConflictConfirmed(conflictID utxo.TransactionID) {
-	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictConfirmed(conflictID)
+// OnConflictAccepted is the handler for conflict confirmed event.
+func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
+	epochCommittableEvents, manaVectorUpdateEvents := m.onConflictAccepted(conflictID)
 	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
-func (m *Manager) onConflictConfirmed(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-	ei := m.getConflictEI(conflictID, true)
+
+	ei := m.getConflictEI(conflictID)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("conflict confirmed in already committed epoch %d", ei)
@@ -317,7 +318,7 @@ func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getConflictEI(conflictID, false)
+	ei := m.getConflictEI(conflictID)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("conflict created in already committed epoch %d", ei)
@@ -337,7 +338,7 @@ func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCom
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getConflictEI(conflictID, true)
+	ei := m.getConflictEI(conflictID)
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("conflict rejected in already committed epoch %d", ei)
@@ -472,8 +473,8 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 	return true
 }
 
-func (m *Manager) getConflictEI(conflictID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
-	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(conflictID), earliestAttachmentMustBeBooked)
+func (m *Manager) getConflictEI(conflictID utxo.TransactionID) (ei epoch.Index) {
+	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(conflictID), false)
 	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
 	return
 }
