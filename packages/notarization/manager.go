@@ -198,7 +198,7 @@ func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 	ei := epoch.IndexFromTime(block.IssuingTime())
 
 	if m.isEpochAlreadyCommitted(ei) {
-		m.log.Errorf("block %s confirmed with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
+		m.log.Errorf("block %s accepted with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return
 	}
 	err := m.epochCommitmentFactory.insertTangleLeaf(ei, block.ID())
@@ -247,7 +247,7 @@ func (m *Manager) OnTransactionAccepted(event *ledger.TransactionAcceptedEvent) 
 	txEpoch := epoch.IndexFromTime(txInclusionTime)
 
 	if m.isEpochAlreadyCommitted(txEpoch) {
-		m.log.Errorf("transaction %s confirmed with issuing time %s in already committed epoch %d", event.TransactionID, txInclusionTime, txEpoch)
+		m.log.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", event.TransactionID, txInclusionTime, txEpoch)
 		return
 	}
 

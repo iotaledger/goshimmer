@@ -82,7 +82,6 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 
 	if len(streams) == 0 {
 		return nil, fmt.Errorf("no streams initiated with peer %s / %s", address, p.ID())
-
 	}
 
 	return streams, nil
