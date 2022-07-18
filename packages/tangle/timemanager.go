@@ -249,7 +249,7 @@ type LastBlock struct {
 	// BlockTime field is the time of the last confirmed block.
 	BlockTime time.Time `serix:"1"`
 	// UpdateTime field is the time when the last confirmed block was updated.
-	UpdateTime time.Time `serix:"2"`
+	UpdateTime time.Time
 }
 
 // lastBlockFromBytes unmarshals a LastBlock object from a sequence of bytes.
