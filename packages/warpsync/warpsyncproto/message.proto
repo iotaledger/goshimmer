@@ -6,18 +6,33 @@ package warpsyncproto;
 
 message Packet {
   oneof body {
-    EpochBlocks epochblocks = 1;
-    EpochRequest epochRequest = 2;
-    Negotiation negotiation = 3;
+    EpochBlocks epochBlocks = 1;
+    EpochBlocksRequest epochBlocksRequest = 2;
+    EpochCommittment epochCommitment = 3;
+    EpochCommittmentRequest epochCommitmentRequest = 4;
+    Negotiation negotiation = 5;
   }
 }
 
 message EpochBlocks {
   int64 epoch = 1;
-  repeated bytes blocks = 2;
+  bytes ec = 2;
+  bytes merkleproof = 3;
+  repeated bytes blocks = 4;
 }
 
-message EpochRequest {
+message EpochBlocksRequest {
+  int64 epoch = 1;
+  bytes ec = 2;
+}
+
+message EpochCommittment {
+  int64 epoch = 1;
+  bytes prevEC = 2;
+  bytes ecr = 3;
+}
+
+message EpochCommittmentRequest {
   int64 epoch = 1;
 }
 
