@@ -23,6 +23,8 @@ const (
 	PriorityMetrics
 	// PriorityGossip defines the shutdown priority for gossip.
 	PriorityGossip
+	// PriorityP2P defines the shutdown priority for p2p.
+	PriorityP2P
 	// PriorityAutopeering defines the shutdown priority for autopeering.
 	PriorityAutopeering
 	// PriorityManualpeering defines the shutdown priority for manualpeering.

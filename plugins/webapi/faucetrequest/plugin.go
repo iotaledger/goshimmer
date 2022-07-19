@@ -38,8 +38,8 @@ func configure(_ *node.Plugin) {
 	deps.Server.POST("faucetrequest", requestFunds)
 }
 
-// requestFunds creates a faucet request (0-value) message with the given destination address and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
+// requestFunds creates a faucet request (0-value) block with the given destination address and
+// broadcasts it to the node's neighbors. It returns the block ID if successful.
 func requestFunds(c echo.Context) error {
 	var request jsonmodels.FaucetRequest
 	if err := c.Bind(&request); err != nil {
@@ -73,10 +73,10 @@ func requestFunds(c echo.Context) error {
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 
-	msg, err := deps.Tangle.MessageFactory.IssuePayload(faucetPayload)
+	blk, err := deps.Tangle.BlockFactory.IssuePayload(faucetPayload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetRequestResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.FaucetRequestResponse{ID: msg.ID().Base58()})
+	return c.JSON(http.StatusOK, jsonmodels.FaucetRequestResponse{ID: blk.ID().Base58()})
 }

@@ -28,9 +28,9 @@ var (
 	}
 )
 
-// a websocket client with a channel for downstream messages.
+// a websocket client with a channel for downstream blocks.
 type wsclient struct {
-	// downstream message channel.
+	// downstream block channel.
 	channel chan interface{}
 	// a channel which is closed when the websocket client is disconnected.
 	exit chan struct{}
@@ -60,21 +60,21 @@ func removeWsClient(clientID uint64) {
 	delete(wsClients, clientID)
 }
 
-// broadcasts the given message to all connected websocket clients.
-func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
+// broadcasts the given block to all connected websocket clients.
+func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()
 	for _, wsClient := range wsClients {
 		if len(dontDrop) > 0 {
 			select {
-			case wsClient.channel <- msg:
+			case wsClient.channel <- blk:
 			case <-wsClient.exit:
 				// get unblocked if the websocket connection just got closed
 			}
 			continue
 		}
 		select {
-		case wsClient.channel <- msg:
+		case wsClient.channel <- blk:
 		default:
 			// potentially drop if slow consumer
 		}
@@ -82,7 +82,7 @@ func broadcastWsMessage(msg interface{}, dontDrop ...bool) {
 }
 
 // handles a new websocket connection, registers the client
-// and waits for downstream messages to be sent to the client
+// and waits for downstream blocks to be sent to the client
 func websocketRoute(c echo.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -104,7 +104,7 @@ func websocketRoute(c echo.Context) error {
 
 	// send mana dashboard address info
 	manaDashboardHostAddress := Parameters.ManaDashboardAddress
-	err = sendJSON(ws, &wsmsg{
+	err = sendJSON(ws, &wsblk{
 		Type: dashboard.MsgManaDashboardAddress,
 		Data: manaDashboardHostAddress,
 	})
@@ -116,8 +116,8 @@ func websocketRoute(c echo.Context) error {
 	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
 	for {
-		msg := <-wsClient.channel
-		if err := sendJSON(ws, msg); err != nil {
+		blk := <-wsClient.channel
+		if err := sendJSON(ws, blk); err != nil {
 			// silent
 			break
 		}
@@ -125,8 +125,8 @@ func websocketRoute(c echo.Context) error {
 	return nil
 }
 
-func sendJSON(ws *websocket.Conn, msg interface{}) error {
-	if err := ws.WriteJSON(msg); err != nil {
+func sendJSON(ws *websocket.Conn, blk interface{}) error {
+	if err := ws.WriteJSON(blk); err != nil {
 		return err
 	}
 	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {

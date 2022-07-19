@@ -73,36 +73,36 @@ func newServer() *echo.Echo {
 		log.Warnf("Request failed: %s", err)
 
 		var statusCode int
-		var message string
+		var block string
 
 		switch errors.Unwrap(err) {
 		case echo.ErrUnauthorized:
 			statusCode = http.StatusUnauthorized
-			message = "unauthorized"
+			block = "unauthorized"
 
 		case echo.ErrForbidden:
 			statusCode = http.StatusForbidden
-			message = "access forbidden"
+			block = "access forbidden"
 
 		case echo.ErrInternalServerError:
 			statusCode = http.StatusInternalServerError
-			message = "internal server error"
+			block = "internal server error"
 
 		case echo.ErrNotFound:
 			statusCode = http.StatusNotFound
-			message = "not found"
+			block = "not found"
 
 		case echo.ErrBadRequest:
 			statusCode = http.StatusBadRequest
-			message = "bad request"
+			block = "bad request"
 
 		default:
 			statusCode = http.StatusInternalServerError
-			message = "internal server error"
+			block = "internal server error"
 		}
 
-		message = fmt.Sprintf("%s, error: %+v", message, err)
-		resErr := c.String(statusCode, message)
+		block = fmt.Sprintf("%s, error: %+v", block, err)
+		resErr := c.String(statusCode, block)
 		if resErr != nil {
 			log.Warnf("Failed to send error response: %s", resErr)
 		}

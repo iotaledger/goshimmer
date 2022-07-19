@@ -63,7 +63,7 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 }
 
 func (s *Snapshot) WriteFile(fileName string) (err error) {
-	if err = os.WriteFile(fileName, s.Bytes(), 0644); err != nil {
+	if err = os.WriteFile(fileName, s.Bytes(), 0o644); err != nil {
 		return errors.Errorf("failed to write snapshot file %s: %w", fileName, err)
 	}
 

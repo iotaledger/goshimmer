@@ -23,17 +23,17 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle              *Tangle
-	tips                *randommap.RandomMap[MessageID, MessageID]
+	tips                *randommap.RandomMap[BlockID, BlockID]
 	tipsCleaner         *TipsCleaner
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
-func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
+func NewTipManager(tangle *Tangle, tips ...BlockID) *TipManager {
 	tipManager := &TipManager{
 		tangle:              tangle,
-		tips:                randommap.New[MessageID, MessageID](),
+		tips:                randommap.New[BlockID, BlockID](),
 		tipsConflictTracker: NewTipsConflictTracker(tangle),
 		Events:              newTipManagerEvents(),
 	}
@@ -50,12 +50,12 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
-		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
+	t.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *BlockScheduledEvent) {
+		t.tangle.Storage.Block(event.BlockID).Consume(t.AddTip)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(event.NewClosure(func(event *MessageAcceptedEvent) {
-		t.removeStrongParents(event.Message)
+	t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
+		t.removeStrongParents(event.Block)
 	}))
 
 	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
@@ -66,7 +66,7 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
-	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {
+	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
 		if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
 			return
 		}
@@ -77,28 +77,28 @@ func (t *TipManager) Setup() {
 	t.tipsConflictTracker.Setup()
 }
 
-// set adds the given messageIDs as tips.
-func (t *TipManager) set(tips ...MessageID) {
-	for _, messageID := range tips {
-		t.tips.Set(messageID, messageID)
+// set adds the given blockIDs as tips.
+func (t *TipManager) set(tips ...BlockID) {
+	for _, blockID := range tips {
+		t.tips.Set(blockID, blockID)
 	}
 }
 
-// AddTip adds the message to the tip pool if its issuing time is within the tipLifeGracePeriod.
-// Parents of a message that are currently tip lose the tip status and are removed.
-func (t *TipManager) AddTip(message *Message) {
-	messageID := message.ID()
+// AddTip adds the block to the tip pool if its issuing time is within the tipLifeGracePeriod.
+// Parents of a block that are currently tip lose the tip status and are removed.
+func (t *TipManager) AddTip(block *Block) {
+	blockID := block.ID()
 
-	if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
 		return
 	}
 
-	// Check if any approvers that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its approvers.
-	if t.checkApprovers(messageID) {
+	// Check if any children that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its children.
+	if t.checkChildren(blockID) {
 		return
 	}
 
-	if !t.addTip(message) {
+	if !t.addTip(block) {
 		return
 	}
 
@@ -107,78 +107,78 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	// a tip loses its tip status if it is referenced by another message
-	t.removeStrongParents(message)
+	// a tip loses its tip status if it is referenced by another block
+	t.removeStrongParents(block)
 }
 
-func (t *TipManager) addTip(message *Message) (added bool) {
-	messageID := message.ID()
+func (t *TipManager) addTip(block *Block) (added bool) {
+	blockID := block.ID()
 
 	var invalid bool
-	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		invalid = messageMetadata.IsSubjectivelyInvalid()
+	t.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+		invalid = blockMetadata.IsSubjectivelyInvalid()
 	})
 	if invalid {
-		// fmt.Println("TipManager: skipping adding tip because it is subjectively invalid", messageID)
+		// fmt.Println("TipManager: skipping adding tip because it is subjectively invalid", blockID)
 		return false
 	}
 
-	if t.tips.Set(messageID, messageID) {
-		t.tipsConflictTracker.AddTip(messageID)
+	if t.tips.Set(blockID, blockID) {
+		t.tipsConflictTracker.AddTip(blockID)
 		t.Events.TipAdded.Trigger(&TipEvent{
-			MessageID: messageID,
+			BlockID: blockID,
 		})
 
-		t.tipsCleaner.Add(message.IssuingTime(), messageID)
+		t.tipsCleaner.Add(block.IssuingTime(), blockID)
 		return true
 	}
 
 	return false
 }
 
-func (t *TipManager) deleteTip(msgID MessageID) (deleted bool) {
-	if _, deleted = t.tips.Delete(msgID); deleted {
-		t.tipsConflictTracker.RemoveTip(msgID)
+func (t *TipManager) deleteTip(blkID BlockID) (deleted bool) {
+	if _, deleted = t.tips.Delete(blkID); deleted {
+		t.tipsConflictTracker.RemoveTip(blkID)
 		t.Events.TipRemoved.Trigger(&TipEvent{
-			MessageID: msgID,
+			BlockID: blkID,
 		})
 	}
 	return
 }
 
-// checkApprovers returns true if the message has any confirmed or scheduled approver.
-func (t *TipManager) checkApprovers(messageID MessageID) bool {
-	approverScheduledConfirmed := false
-	t.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-		if approverScheduledConfirmed {
+// checkChildren returns true if the block has any confirmed or scheduled child.
+func (t *TipManager) checkChildren(blockID BlockID) bool {
+	childScheduledConfirmed := false
+	t.tangle.Storage.Children(blockID).Consume(func(child *Child) {
+		if childScheduledConfirmed {
 			return
 		}
 
-		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.ApproverMessageID())
-		if !approverScheduledConfirmed {
-			t.tangle.Storage.MessageMetadata(approver.ApproverMessageID()).Consume(func(messageMetadata *MessageMetadata) {
-				approverScheduledConfirmed = messageMetadata.Scheduled()
+		childScheduledConfirmed = t.tangle.ConfirmationOracle.IsBlockConfirmed(child.ChildBlockID())
+		if !childScheduledConfirmed {
+			t.tangle.Storage.BlockMetadata(child.ChildBlockID()).Consume(func(blockMetadata *BlockMetadata) {
+				childScheduledConfirmed = blockMetadata.Scheduled()
 			})
 		}
 	})
-	return approverScheduledConfirmed
+	return childScheduledConfirmed
 }
 
-func (t *TipManager) removeStrongParents(message *Message) {
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
-		// We do not want to remove the tip if it is the last one representing a pending branch.
-		// if t.isLastTipForBranch(parentMessageID) {
+func (t *TipManager) removeStrongParents(block *Block) {
+	block.ForEachParentByType(StrongParentType, func(parentBlockID BlockID) bool {
+		// We do not want to remove the tip if it is the last one representing a pending conflict.
+		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
 		// }
 
-		t.deleteTip(parentMessageID)
+		t.deleteTip(parentBlockID)
 
 		return true
 	})
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs) {
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents BlockIDs) {
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -196,56 +196,56 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 //
 // This function is optimized through the use of markers and the following assumption:
 //   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
+func (t *TipManager) isPastConeTimestampCorrect(blockID BlockID) (timestampValid bool) {
 	minSupportedTimestamp := t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
 	timestampValid = true
 
-	// skip TSC check if no message has been confirmed to allow attaching to genesis
-	if t.tangle.TimeManager.LastAcceptedMessage().MessageID == EmptyMessageID {
-		// if the genesis message is the last confirmed message, then there is no point in performing tangle walk
-		// return true so that the network can start issuing messages when the tangle starts
+	// skip TSC check if no block has been confirmed to allow attaching to genesis
+	if t.tangle.TimeManager.LastAcceptedBlock().BlockID == EmptyBlockID {
+		// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
+		// return true so that the network can start issuing blocks when the tangle starts
 		return true
 	}
 
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		timestampValid = minSupportedTimestamp.Before(message.IssuingTime())
+	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		timestampValid = minSupportedTimestamp.Before(block.IssuingTime())
 	})
 
 	if !timestampValid {
 		return false
 	}
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		// return true if message is confirmed and has valid timestamp
+	if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
+		// return true if block is confirmed and has valid timestamp
 		return true
 	}
 
 	markerWalker := walker.New[markers.Marker](false)
-	messageWalker := walker.New[MessageID](false)
+	blockWalker := walker.New[BlockID](false)
 
-	t.processMessage(messageID, messageWalker, markerWalker)
-	previousMessageID := messageID
+	t.processBlock(blockID, blockWalker, markerWalker)
+	previousBlockID := blockID
 	for markerWalker.HasNext() && timestampValid {
 		marker := markerWalker.Next()
-		previousMessageID, timestampValid = t.checkMarker(marker, previousMessageID, messageWalker, markerWalker, minSupportedTimestamp)
+		previousBlockID, timestampValid = t.checkMarker(marker, previousBlockID, blockWalker, markerWalker, minSupportedTimestamp)
 	}
 
-	for messageWalker.HasNext() && timestampValid {
-		timestampValid = t.checkMessage(messageWalker.Next(), messageWalker, minSupportedTimestamp)
+	for blockWalker.HasNext() && timestampValid {
+		timestampValid = t.checkBlock(blockWalker.Next(), blockWalker, minSupportedTimestamp)
 	}
 	return timestampValid
 }
 
-func (t *TipManager) processMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker]) {
-	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers().Size() == 0 {
-			// need to walk messages
-			messageWalker.Push(messageID)
+func (t *TipManager) processBlock(blockID BlockID, blockWalker *walker.Walker[BlockID], markerWalker *walker.Walker[markers.Marker]) {
+	t.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
+		if blockMetadata.StructureDetails() == nil || blockMetadata.StructureDetails().PastMarkers().Size() == 0 {
+			// need to walk blocks
+			blockWalker.Push(blockID)
 			return
 		}
-		messageMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		blockMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 			if sequenceID == 0 && index == 0 {
-				// need to walk messages
-				messageWalker.Push(messageID)
+				// need to walk blocks
+				blockWalker.Push(blockID)
 				return false
 			}
 			pastMarker := markers.NewMarker(sequenceID, index)
@@ -255,24 +255,24 @@ func (t *TipManager) processMessage(messageID MessageID, messageWalker *walker.W
 	})
 }
 
-func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID MessageID, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (messageID MessageID, timestampValid bool) {
-	messageID, messageIssuingTime := t.getMarkerMessage(marker)
+func (t *TipManager) checkMarker(marker markers.Marker, previousBlockID BlockID, blockWalker *walker.Walker[BlockID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (blockID BlockID, timestampValid bool) {
+	blockID, blockIssuingTime := t.getMarkerBlock(marker)
 
 	// marker before minSupportedTimestamp
-	if messageIssuingTime.Before(minSupportedTimestamp) {
+	if blockIssuingTime.Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
-		if !t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+		if !t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
 			// if unconfirmed, then incorrect
 			markerWalker.StopWalk()
-			return messageID, false
+			return blockID, false
 		}
-		// if closest past marker is confirmed and before minSupportedTimestamp, then need to walk message past cone of the previously marker message
-		messageWalker.Push(previousMessageID)
-		return messageID, true
+		// if closest past marker is confirmed and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
+		blockWalker.Push(previousBlockID)
+		return blockID, true
 	}
 	// confirmed after minSupportedTimestamp
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		return messageID, true
+	if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
+		return blockID, true
 	}
 
 	// unconfirmed after minSupportedTimestamp
@@ -285,11 +285,11 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID Messag
 	}
 
 	t.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-		// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk message past cone of oldestUnconfirmedMarker.
+		// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk block past cone of oldestUnconfirmedMarker.
 		if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
 			confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index())
 			if t.isMarkerOldAndConfirmed(markers.NewMarker(sequence.ID(), confirmedMarkerIdx), minSupportedTimestamp) {
-				messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
+				blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
 			}
 		}
 
@@ -297,9 +297,9 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID Messag
 		referencedMarkers := sequence.ReferencedMarkers(marker.Index())
 		referencedMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 			referencedMarker := markers.NewMarker(sequenceID, index)
-			// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed message past cone of oldestUnconfirmedMarker
+			// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed block past cone of oldestUnconfirmedMarker
 			if t.isMarkerOldAndConfirmed(referencedMarker, minSupportedTimestamp) {
-				messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
+				blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
 				return false
 			}
 			// otherwise, process the referenced marker
@@ -307,13 +307,13 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID Messag
 			return true
 		})
 	})
-	return messageID, true
+	return blockID, true
 }
 
-// isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk messages in the past cone of the current marker.
+// isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
 func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
-	referencedMarkerMsgID, referenceMarkerMsgIssuingTime := t.getMarkerMessage(previousMarker)
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(referencedMarkerMsgID) && referenceMarkerMsgIssuingTime.Before(minSupportedTimestamp) {
+	referencedMarkerBlkID, referenceMarkerBlkIssuingTime := t.getMarkerBlock(previousMarker)
+	if t.tangle.ConfirmationOracle.IsBlockConfirmed(referencedMarkerBlkID) && referenceMarkerBlkIssuingTime.Before(minSupportedTimestamp) {
 		return true
 	}
 	return false
@@ -325,45 +325,45 @@ func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimest
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
 		return true
 	}
-	_, oldestUnconfirmedMarkerMsgIssuingTime := t.getMarkerMessage(oldestUnconfirmedMarker)
-	return oldestUnconfirmedMarkerMsgIssuingTime.After(minSupportedTimestamp)
+	_, oldestUnconfirmedMarkerBlkIssuingTime := t.getMarkerBlock(oldestUnconfirmedMarker)
+	return oldestUnconfirmedMarkerBlkIssuingTime.After(minSupportedTimestamp)
 }
 
-func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkBlock(blockID BlockID, blockWalker *walker.Walker[BlockID], minSupportedTimestamp time.Time) (timestampValid bool) {
 	timestampValid = true
 
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		// if message is older than TSC then it's incorrect no matter the confirmation status
-		if message.IssuingTime().Before(minSupportedTimestamp) {
+	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		// if block is older than TSC then it's incorrect no matter the confirmation status
+		if block.IssuingTime().Before(minSupportedTimestamp) {
 			timestampValid = false
-			messageWalker.StopWalk()
+			blockWalker.StopWalk()
 			return
 		}
 
-		// if message is younger than TSC and confirmed, then return timestampValid=true
-		if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+		// if block is younger than TSC and confirmed, then return timestampValid=true
+		if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
 			return
 		}
 
-		// if message is younger than TSC and not confirmed, walk through strong parents' past cones
-		for parentID := range message.ParentsByType(StrongParentType) {
-			messageWalker.Push(parentID)
+		// if block is younger than TSC and not confirmed, walk through strong parents' past cones
+		for parentID := range block.ParentsByType(StrongParentType) {
+			blockWalker.Push(parentID)
 		}
 	})
 	return timestampValid
 }
 
-func (t *TipManager) getMarkerMessage(marker markers.Marker) (markerMessageID MessageID, markerMessageIssuingTime time.Time) {
+func (t *TipManager) getMarkerBlock(marker markers.Marker) (markerBlockID BlockID, markerBlockIssuingTime time.Time) {
 	if marker.SequenceID() == 0 && marker.Index() == 0 {
-		return EmptyMessageID, time.Unix(epoch.GenesisTime, 0)
+		return EmptyBlockID, time.Unix(epoch.GenesisTime, 0)
 	}
-	messageID := t.tangle.Booker.MarkersManager.MessageID(marker)
-	if messageID == EmptyMessageID {
-		panic(fmt.Errorf("failed to retrieve marker message for %s", marker.String()))
+	blockID := t.tangle.Booker.MarkersManager.BlockID(marker)
+	if blockID == EmptyBlockID {
+		panic(fmt.Errorf("failed to retrieve marker block for %s", marker.String()))
 	}
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		markerMessageID = message.ID()
-		markerMessageIssuingTime = message.IssuingTime()
+	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+		markerBlockID = block.ID()
+		markerBlockIssuingTime = block.IssuingTime()
 	})
 
 	return
@@ -378,7 +378,7 @@ func (t *TipManager) getOldestUnconfirmedMarker(pastMarker markers.Marker) marke
 		currentMarker := markers.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if t.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID {
+		if t.tangle.Booker.MarkersManager.BlockID(currentMarker) == EmptyBlockID {
 			continue
 		}
 		break
@@ -394,7 +394,7 @@ func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, marke
 		currentMarker := markers.NewMarker(sequence.ID(), markerIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).
-		if msgID := t.tangle.Booker.MarkersManager.MessageID(currentMarker); msgID == EmptyMessageID || !t.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) {
+		if blkID := t.tangle.Booker.MarkersManager.BlockID(currentMarker); blkID == EmptyBlockID || !t.tangle.ConfirmationOracle.IsBlockConfirmed(blkID) {
 			continue
 		}
 		break
@@ -404,36 +404,36 @@ func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, marke
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
-	parents = NewMessageIDs()
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents BlockIDs) {
+	parents = NewBlockIDs()
 
 	tips := t.tips.RandomUniqueEntries(count)
 
 	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
 	// or selected ones had incorrect time-since-confirmation
 	if len(tips) == 0 {
-		parents.Add(EmptyMessageID)
+		parents.Add(EmptyBlockID)
 		return
 	}
 
 	// at least one tip is returned
 	for _, tip := range tips {
-		messageID := tip
-		if !parents.Contains(messageID) && t.isPastConeTimestampCorrect(messageID) {
-			parents.Add(messageID)
+		blockID := tip
+		if !parents.Contains(blockID) && t.isPastConeTimestampCorrect(blockID) {
+			parents.Add(blockID)
 		}
 	}
 	return
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() MessageIDs {
+func (t *TipManager) AllTips() BlockIDs {
 	return retrieveAllTips(t.tips)
 }
 
-func retrieveAllTips(tipsMap *randommap.RandomMap[MessageID, MessageID]) MessageIDs {
+func retrieveAllTips(tipsMap *randommap.RandomMap[BlockID, BlockID]) BlockIDs {
 	mapKeys := tipsMap.Keys()
-	tips := NewMessageIDs()
+	tips := NewBlockIDs()
 
 	for _, key := range mapKeys {
 		tips.Add(key)
@@ -457,7 +457,7 @@ func (t *TipManager) Shutdown() {
 // QueueElement is an element in the TimedQueue. It
 type QueueElement struct {
 	// Value represents the value of the queued element.
-	Value MessageID
+	Value BlockID
 
 	// Key represents the time of the element to be used as a key.
 	Key time.Time
@@ -476,7 +476,7 @@ type TipsCleaner struct {
 }
 
 // Add adds a new element to the heap.
-func (t *TipsCleaner) Add(key time.Time, value MessageID) {
+func (t *TipsCleaner) Add(key time.Time, value BlockID) {
 	t.heapMutex.Lock()
 	defer t.heapMutex.Unlock()
 	heap.Push(&t.heap, &QueueElement{Value: value, Key: key})
@@ -495,8 +495,8 @@ func (t *TipsCleaner) RemoveBefore(minAllowedTime time.Time) {
 
 	}
 	for i := 0; i < popCounter; i++ {
-		message := heap.Pop(&t.heap)
-		t.tipManager.deleteTip(message.(*QueueElement).Value)
+		block := heap.Pop(&t.heap)
+		t.tipManager.deleteTip(block.(*QueueElement).Value)
 	}
 }
 

@@ -16,9 +16,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	net2 "github.com/iotaledger/goshimmer/packages/net"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
@@ -40,7 +40,7 @@ type dependencies struct {
 	Discovery             *discover.Protocol
 	Selection             *selection.Protocol
 	Local                 *peer.Local
-	GossipMgr             *gossip.Manager        `optional:"true"`
+	P2PMgr                *p2p.Manager           `optional:"true"`
 	ManaFunc              mana.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
 	AutoPeeringConnMetric *net2.ConnMetric
 }
@@ -85,7 +85,7 @@ func configure(_ *node.Plugin) {
 		Plugin.LogFatalf("could not update services: %s", err)
 	}
 
-	if deps.GossipMgr != nil {
+	if deps.P2PMgr != nil {
 		configureGossipIntegration()
 	}
 	configureEvents()
@@ -99,11 +99,11 @@ func run(*node.Plugin) {
 
 func configureGossipIntegration() {
 	// assure that the Manager is instantiated
-	mgr := deps.GossipMgr
+	mgr := deps.P2PMgr
 
 	// link to the autopeering events
 	deps.Selection.Events().Dropped.Attach(event.NewClosure(func(ev *selection.DroppedEvent) {
-		if err := mgr.DropNeighbor(ev.DroppedID, gossip.NeighborsGroupAuto); err != nil {
+		if err := mgr.DropNeighbor(ev.DroppedID, p2p.NeighborsGroupAuto); err != nil {
 			Plugin.Logger().Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 		}
 	}))
@@ -111,7 +111,7 @@ func configureGossipIntegration() {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
-			if err := mgr.AddInbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+		if err := mgr.AddInbound(context.Background(), ev.Peer, p2p.NeighborsGroupAuto); err != nil {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 		}
@@ -121,13 +121,13 @@ func configureGossipIntegration() {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
-			if err := mgr.AddOutbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+		if err := mgr.AddOutbound(context.Background(), ev.Peer, p2p.NeighborsGroupAuto); err != nil {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 		}
 	}))
 
-	mgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *gossip.NeighborRemovedEvent) {
+	mgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		deps.Selection.RemoveNeighbor(event.Neighbor.ID())
 	}))
 }

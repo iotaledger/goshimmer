@@ -58,18 +58,18 @@ type Heartbeat struct {
 	InboundIDs [][]byte
 }
 
-// HeartBeatMessageDefinition gets the heartbeatMessageDefinition.
-func HeartBeatMessageDefinition() *message.Definition {
-	// heartbeatMessageDefinition defines a heartbeat message's format.
-	var heartbeatMessageDefinition *message.Definition
+// HeartBeatBlockDefinition gets the heartbeatBlockDefinition.
+func HeartBeatBlockDefinition() *message.Definition {
+	// heartbeatBlockDefinition defines a heartbeat block's format.
+	var heartbeatBlockDefinition *message.Definition
 	heartBeatOnce.Do(func() {
-		heartbeatMessageDefinition = &message.Definition{
+		heartbeatBlockDefinition = &message.Definition{
 			ID:             MessageTypeHeartbeat,
 			MaxBytesLength: uint16(HeartbeatPacketMaxSize),
 			VariableLength: true,
 		}
 	})
-	return heartbeatMessageDefinition
+	return heartbeatBlockDefinition
 }
 
 // ParseHeartbeat parses a slice of bytes (serialized packet) into a heartbeat.
@@ -152,9 +152,9 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	return &Heartbeat{NetworkID: networkID, OwnID: ownID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}, nil
 }
 
-// NewHeartbeatMessage serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
-// message = tlv header + serialized packet
-func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
+// NewHeartbeatBlock serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
+// block = tlv header + serialized packet
+func NewHeartbeatBlock(hb *Heartbeat) ([]byte, error) {
 	if len(hb.NetworkID) > HeartbeatPacketMaxNetworkIDBytesSize {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum length of NetworkID of %d ", ErrInvalidHeartbeat, HeartbeatPacketMaxNetworkIDBytesSize)
 	}

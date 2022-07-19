@@ -14,8 +14,8 @@ type CollectionEvents struct {
 	TangleTimeSynced *event.Event[*TangleTimeSyncedEvent]
 	// ValueTips defines the local value tips count event.
 	ValueTips *event.Event[*ValueTipsEvent]
-	// MessageTips defines the local message tips count event.
-	MessageTips *event.Event[*MessageTipsEvent]
+	// BlockTips defines the local block tips count event.
+	BlockTips *event.Event[*BlockTipsEvent]
 }
 
 func newCollectionEvents() (new *CollectionEvents) {
@@ -25,7 +25,7 @@ func newCollectionEvents() (new *CollectionEvents) {
 		MemUsage:              event.New[*MemUsageEvent](),
 		TangleTimeSynced:      event.New[*TangleTimeSyncedEvent](),
 		ValueTips:             event.New[*ValueTipsEvent](),
-		MessageTips:           event.New[*MessageTipsEvent](),
+		BlockTips:             event.New[*BlockTipsEvent](),
 	}
 }
 
@@ -41,11 +41,8 @@ type MemUsageEvent struct {
 	MemAllocBytes uint64
 }
 
-type TangleTimeSyncedEvent struct {
-}
+type TangleTimeSyncedEvent struct{}
 
-type ValueTipsEvent struct {
-}
+type ValueTipsEvent struct{}
 
-type MessageTipsEvent struct {
-}
+type BlockTipsEvent struct{}

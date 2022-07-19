@@ -14,13 +14,11 @@ var (
 	lastCommittedEpochMutex sync.RWMutex
 )
 
-var (
-	onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		lastCommittedEpochMutex.Lock()
-		defer lastCommittedEpochMutex.Unlock()
-		lastCommittedEpoch = event.ECRecord
-	})
-)
+var onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+	lastCommittedEpochMutex.Lock()
+	defer lastCommittedEpochMutex.Unlock()
+	lastCommittedEpoch = event.ECRecord
+})
 
 // LastCommittedEpoch returns the last committed epoch.
 func LastCommittedEpoch() *epoch.ECRecord {

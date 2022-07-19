@@ -48,7 +48,7 @@ curl --location 'http://localhost:8080/autopeering/neighbors?known=1'
 
 #### Client lib - `GetAutopeeringNeighbors`
 
-Messages can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
+Blocks can be retrieved via `GetAutopeeringNeighbors(knownPeers bool) (*jsonmodels.GetNeighborsResponse, error)`
 ```go
 neighbors, err := goshimAPI.GetAutopeeringNeighbors(false)
 if err != nil {
@@ -106,7 +106,7 @@ fmt.Println(string(neighbors))
 | `known`  | `[]Neighbor` | List of known peers. Only returned when parameter is set. |
 | `chosen`  | `[]Neighbor` | List of chosen peers. |
 | `accepted`  | `[]Neighbor` | List of accepted peers. |
-| `error` | `string` | Error message. Omitted if success.     |
+| `error` | `string` | Error block. Omitted if success.     |
 
 * Type `Neighbor`
 

@@ -35,14 +35,14 @@ type EpochUTXOsResponse struct {
 	CreatedOutputs []string `json:"createdOutputs"`
 }
 
-type EpochMessagesResponse struct {
-	Messages []string `json:"messages"`
+type EpochBlocksResponse struct {
+	Blocks []string `json:"blocks"`
 }
 
 type EpochTransactionsResponse struct {
 	Transactions []string `json:"transactions"`
 }
 
-type EpochPendingBranchCountResponse struct {
-	PendingBranchCount uint64 `json:"pendingBranchCount"`
+type EpochPendingConflictCountResponse struct {
+	PendingConflictCount uint64 `json:"pendingConflictCount"`
 }

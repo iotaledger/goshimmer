@@ -24,7 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 const (
@@ -178,7 +178,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
-func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangle.Message, string, error) {
+func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangle.Block, string, error) {
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared
 		waitForPreparation := s.fundingState.FundingOutputsCount() == 0
@@ -707,24 +707,24 @@ func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devne
 }
 
 // issueTx issues a transaction to the Tangle and waits for it to become booked.
-func (s *StateManager) issueTx(tx *devnetvm.Transaction) (msg *tangle.Message, err error) {
-	// attach to message layer
-	issueTransaction := func() (*tangle.Message, error) {
-		message, e := deps.Tangle.IssuePayload(tx)
+func (s *StateManager) issueTx(tx *devnetvm.Transaction) (blk *tangle.Block, err error) {
+	// attach to block layer
+	issueTransaction := func() (*tangle.Block, error) {
+		block, e := deps.Tangle.IssuePayload(tx)
 		if e != nil {
 			return nil, e
 		}
-		return message, nil
+		return block, nil
 	}
 
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
-	msg, err = messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
+	blk, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), s.maxTxBookedAwaitTime)
 	if err != nil {
 		return nil, errors.Errorf("%w: tx %s", err, tx.ID().String())
 	}
-	return msg, nil
+	return blk, nil
 }
 
 // splittingEnv provides variables used for synchronization during splitting transactions.

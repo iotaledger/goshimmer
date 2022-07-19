@@ -17,7 +17,7 @@ interface Props {
 @observer
 export class ChatLiveFeed extends React.Component<Props, any> {
     render() {
-        let {msgsLiveFeed} = this.props.chatStore;
+        let {blksLiveFeed} = this.props.chatStore;
         return (
             <Row className={"mb-3"}>
                 <Col>
@@ -26,18 +26,18 @@ export class ChatLiveFeed extends React.Component<Props, any> {
                             <Card.Title>Live Feed</Card.Title>
                             <Row className={"mb-3"}>
                                 <Col xs={12} style={{'height':'500px', 'overflow':'auto'}}>
-                                    <h6>Messages</h6>
+                                    <h6>Blocks</h6>
                                     <Table>
                                         <thead>
                                         <tr>
                                             <td>From</td>
-                                            <td>Message</td>
-                                            <td>MessageID</td>
+                                            <td>Block</td>
+                                            <td>BlockID</td>
                                             <td>Timestamp</td>
                                         </tr>
                                         </thead>
                                         <tbody >
-                                        {msgsLiveFeed}
+                                        {blksLiveFeed}
                                         </tbody>
                                     </Table>
                                 </Col>

@@ -1,5 +1,5 @@
 ---
-description: ObjectStorage is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `messageStorage` amongst others.
+description: ObjectStorage is used as a base data structure for many data collection elements such as `conflictStorage`, `conflictStorage`, `blockStorage` amongst others.
 image: /img/logo/goshimmer_light.png
 keywords:
 - storage
@@ -13,7 +13,7 @@ keywords:
 
 # Object Storage
 
-In GoShimmer `ObjectStorage`  is used as a base data structure for many data collection elements such as `branchStorage`, `conflictStorage`, `messageStorage` and others.
+In GoShimmer `ObjectStorage`  is used as a base data structure for many data collection elements such as `conflictStorage`, `conflictStorage`, `blockStorage` and others.
 It can be described by the following characteristics, it:
 - is a manual cache which keeps objects in memory as long as consumers are using it
 - uses key-value storage type 
@@ -111,32 +111,32 @@ func ObjectFromBytes(bytes []byte) (object *ObjectType, consumedBytes int, err e
 The key logic is implemented in `ObjectFromMarshalUtil` that takes the marshaled object and transforms it into the object of specified type.
 Because the data is stored in a sequence of bytes, it has no information about the form of an object and any data types it had before writing to the database.
 Thus, we need to serialize any data into a stream of bytes in order to write it (marshaling), and deserialize the stream of bytes back into correct data structures when reading it (unmarshaling). 
-Let's consider as an example, unmarshaling of the `Approver` object.
+Let's consider as an example, unmarshaling of the `Child` object.
 ```Go
-type Approver struct {
-    approverType            ApproverType    //  8 bytes
-    referencedMessageID     MessageID       // 32 bytes
-    approverMessageID       MessageID       // 32 bytes
+type Child struct {
+    childType            ChildType    //  8 bytes
+    referencedBlockID     BlockID       // 32 bytes
+    childBlockID       BlockID       // 32 bytes
 }
 ```
 
-The order in which we read bytes has to reflect the order in which it was written down during marshaling. As in the example, the order: `referencedMessageID`, `approverType`, `approverMessageID` is the same in both marshalling and unmarshalling.
+The order in which we read bytes has to reflect the order in which it was written down during marshaling. As in the example, the order: `referencedBlockID`, `childType`, `childBlockID` is the same in both marshalling and unmarshalling.
 
 ```Go
 // Unmarshalling
-func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver) {
-    result = &Approver{}
-    result.referencedMessageID = MessageIDFromMarshalUtil(marshalUtil)
-    result.approverType = ApproverTypeFromMarshalUtil(marshalUtil)
-    result.approverMessageID = MessageIDFromMarshalUtil(marshalUtil)
+func ChildFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Child) {
+    result = &Child{}
+    result.referencedBlockID = BlockIDFromMarshalUtil(marshalUtil)
+    result.childType = ChildTypeFromMarshalUtil(marshalUtil)
+    result.childBlockID = BlockIDFromMarshalUtil(marshalUtil)
     return
 }
 // Marshalling
-func (a *Approver) ObjectStorageApprover() []byte {
+func (a *Child) ObjectStorageChild() []byte {
     return marshalutil.New().
-    Write(a.referencedMessageID).
-    Write(a.approverType).
-    Write(a.approverMessageID).
+    Write(a.referencedBlockID).
+    Write(a.childType).
+    Write(a.childBlockID).
     Bytes()
 }
 ```
@@ -150,37 +150,37 @@ type of the struct field. This way, we are able to parse bytes to the correct Go
 After defining marshalling and unmarshalling mechanism for`objectStorage` bytes conversion, 
 we can start using it for its sole purpose, to actually store and read the particular parts of the project elements. 
 
- - `Load` allows retrieving the corresponding object based on the provided id. For example, the method on the message `objectStorage`  
+ - `Load` allows retrieving the corresponding object based on the provided id. For example, the method on the block `objectStorage`  
   is getting the cached object. 
 - To convert an object retrieved in the form of a cache to its own corresponding type, we can use `Unwrap`.
- In the code below it will return the message wrapped by the cached object.
+ In the code below it will return the block wrapped by the cached object.
 - `Exists` - checks weather the object has been deleted. If so it is released from memory with the `Release` method.
     ```Go
-    func (s *Storage) Message(messageID MessageID) *CachedMessage {
-        return &CachedMessage{CachedObject: s.messageStorage.Load(messageID[:])}
+    func (s *Storage) Block(blockID BlockID) *CachedBlock {
+        return &CachedBlock{CachedObject: s.blockStorage.Load(blockID[:])}
     }
     
-    cachedMessage := messagelayer.Tangle().Storage.Message(msgID)
-    if !cachedMessage.Exists() {
-        msgObject.Release()
+    cachedBlock := blocklayer.Tangle().Storage.Block(blkID)
+    if !cachedBlock.Exists() {
+        blkObject.Release()
         }
-    message := cachedMessage.Unwrap()
+    block := cachedBlock.Unwrap()
     ``` 
 - `Consume` will be useful when we want to apply a function on the cached object. `Consume` unwraps the `CachedObject` and passes a type-casted version to the consumer function.
   Right after the object is consumed and when the callback is finished, the object is released.
 
     ```Go
-    cachedMessage.Consume(func(message *tangle.Message) {
-                doSomething(message)
+    cachedBlock.Consume(func(block *tangle.Block) {
+                doSomething(block)
             })
     ```
 - `ForEach` - allows to apply a `Consumer` function for every object residing within the cache and the underlying persistence layer.
-  For example, this is how we can count the number of messages.
+  For example, this is how we can count the number of blocks.
   ```Go
-  messageCount := 0
-  messageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+  blockCount := 0
+  blockStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
-			messageCount++
+			blockCount++
         })
   }
   ```
@@ -188,8 +188,8 @@ we can start using it for its sole purpose, to actually store and read the parti
   that stores an object only if it was not stored before and returns boolean indication if the object was stored. 
   `ComputeIfAbsent` works similarly but does not access the value log. 
     ```Go
-    cachedMessage := messageStorage.Store(newMessage)
-    cachedMessage, stored := messageStorage.StoreIfAbsent(newMessage)
-    cachedMessage := messageStorage.ComputeIfAbsent(newMessage, remappingFunction)
+    cachedBlock := blockStorage.Store(newBlock)
+    cachedBlock, stored := blockStorage.StoreIfAbsent(newBlock)
+    cachedBlock := blockStorage.ComputeIfAbsent(newBlock, remappingFunction)
     ```
   

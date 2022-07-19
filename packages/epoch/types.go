@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 var (
@@ -80,8 +81,10 @@ func CurrentEpochIndex() Index {
 
 type MerkleRoot [blake2b.Size256]byte
 
-type ECR = MerkleRoot
-type EC = MerkleRoot
+type (
+	ECR = MerkleRoot
+	EC  = MerkleRoot
+)
 
 func NewMerkleRoot(bytes []byte) (mr MerkleRoot) {
 	b := [blake2b.Size256]byte{}

@@ -173,8 +173,8 @@ type Client interface {
 	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
-	// PostData sends the given data (payload) by creating a message in the backend.
-	PostData(data []byte) (msgID string, err error)
+	// PostData sends the given data (payload) by creating a block in the backend.
+	PostData(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
@@ -185,7 +185,7 @@ type Client interface {
 	GetOutput(outputID utxo.OutputID) devnetvm.Output
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
 	GetOutputConfirmationState(outputID utxo.OutputID) confirmation.State
-	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
 	BroadcastFaucetRequest(address string) error
 	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
@@ -232,7 +232,7 @@ func (c *WebClient) SleepRateSetterEstimate() (err error) {
 	return nil
 }
 
-// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
 func (c *WebClient) BroadcastFaucetRequest(address string) (err error) {
 	_, err = c.api.BroadcastFaucetRequest(address, -1)
 	return
@@ -256,8 +256,8 @@ func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.Transac
 	return
 }
 
-// PostData sends the given data (payload) by creating a message in the backend.
-func (c *WebClient) PostData(data []byte) (msgID string, err error) {
+// PostData sends the given data (payload) by creating a block in the backend.
+func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 	resp, err := c.api.Data(data)
 	if err != nil {
 		return

@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
@@ -19,8 +20,8 @@ const (
 )
 
 var (
-	// TestBranchConfirmationStateTranslation translates a branch's AW into a confirmation state.
-	TestBranchConfirmationStateTranslation acceptance.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) confirmation.State {
+	// TestConflictAcceptanceStateTranslation translates a conflict's AW into a confirmation state.
+	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -28,8 +29,8 @@ var (
 		return confirmation.Pending
 	}
 
-	// TestMessageConfirmationStateTranslation translates a message's AW into a confirmation state.
-	TestMessageConfirmationStateTranslation acceptance.MessageThresholdTranslation = func(aw float64) confirmation.State {
+	// TestBlockAcceptanceStateTranslation translates a block's AW into a confirmation state.
+	TestBlockAcceptanceStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}
@@ -73,18 +74,21 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	event.Loop.WaitUntilAllTasksProcessed()
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
 
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
-	calledEvents := atomic.LoadUint64(&e.calledEvents)
-	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
-	if calledEvents != expectedEvents {
-		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
-		return false
-	}
+	var calledEvents, expectedEvents uint64
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	assert.Eventuallyf(t, func() bool {
+		calledEvents = atomic.LoadUint64(&e.calledEvents)
+		expectedEvents = atomic.LoadUint64(&e.expectedEvents)
+		return calledEvents == expectedEvents
+	}, 5*time.Second, 1*time.Millisecond, "number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
 
 	defer func() {
 		e.Calls = make([]mock.Call, 0)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
@@ -27,8 +28,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server       *echo.Echo
-	EpochStorage *node.Plugin `name:"epochstorage"`
+	Server          *echo.Echo
+	EpochStorage    *node.Plugin `name:"epochstorage"`
+	NotarizationMgr *notarization.Manager
 }
 
 func init() {
@@ -37,11 +39,12 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Server.GET("epochs", getAllCommittedEpochs)
+	deps.Server.GET("ec", getCurrentEC)
 	deps.Server.GET("epoch/:ei", getCommittedEpoch)
 	deps.Server.GET("epoch/:ei/utxos", getUTXOs)
-	deps.Server.GET("epoch/:ei/messages", getMessages)
+	deps.Server.GET("epoch/:ei/blocks", getBlocks)
 	deps.Server.GET("epoch/:ei/transactions", getTransactions)
-	deps.Server.GET("epoch/:ei/pending-branches-count", getPendingBranchesCount)
+	deps.Server.GET("epoch/:ei/pending-conflict-count", getPendingConflictsCount)
 	deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
 }
 
@@ -55,6 +58,16 @@ func getAllCommittedEpochs(c echo.Context) error {
 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
 	})
 	return c.JSON(http.StatusOK, allEpochsInfos)
+}
+
+func getCurrentEC(c echo.Context) error {
+	ecRecord, err := deps.NotarizationMgr.GetLatestEC()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
+	ec := notarization.EC(ecRecord)
+
+	return c.JSON(http.StatusOK, ec.Base58())
 }
 
 func getCommittedEpoch(c echo.Context) error {
@@ -73,10 +86,7 @@ func getUTXOs(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	spentIDs, createdIDs, err := epochstorage.GetEpochUTXOs(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	spentIDs, createdIDs := epochstorage.GetEpochUTXOs(ei)
 
 	spent := make([]string, len(spentIDs))
 	for i, o := range spentIDs {
@@ -92,21 +102,18 @@ func getUTXOs(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func getMessages(c echo.Context) error {
+func getBlocks(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	messageIDs, err := epochstorage.GetEpochMessages(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	blockIDs := epochstorage.GetEpochblocks(ei)
 
-	messages := make([]string, len(messageIDs))
-	for i, m := range messageIDs {
-		messages[i] = m.String()
+	blocks := make([]string, len(blockIDs))
+	for i, m := range blockIDs {
+		blocks[i] = m.String()
 	}
-	resp := jsonmodels.EpochMessagesResponse{Messages: messages}
+	resp := jsonmodels.EpochBlocksResponse{Blocks: blocks}
 
 	return c.JSON(http.StatusOK, resp)
 }
@@ -116,10 +123,7 @@ func getTransactions(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	transactionIDs, err := epochstorage.GetEpochTransactions(ei)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
+	transactionIDs := epochstorage.GetEpochTransactions(ei)
 
 	transactions := make([]string, len(transactionIDs))
 	for i, t := range transactionIDs {
@@ -130,13 +134,13 @@ func getTransactions(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-func getPendingBranchesCount(c echo.Context) error {
+func getPendingConflictsCount(c echo.Context) error {
 	ei, err := getEI(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	allEpochs := epochstorage.GetPendingBranchCount()
-	resp := jsonmodels.EpochPendingBranchCountResponse{PendingBranchCount: allEpochs[ei]}
+	allEpochs := epochstorage.GetPendingConflictCount()
+	resp := jsonmodels.EpochPendingConflictCountResponse{PendingConflictCount: allEpochs[ei]}
 
 	return c.JSON(http.StatusOK, resp)
 }

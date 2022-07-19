@@ -3,7 +3,7 @@ export class tangleVertex {
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
     shallowLikeParentIDs: Array<string>;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
     isMarker: boolean;
     isTx: boolean;
     txID: string;
@@ -17,7 +17,7 @@ export class tangleVertex {
 export class tangleBooked {
     ID: string;
     isMarker: boolean;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
 }
 
 export class tangleConfirmed {

@@ -51,8 +51,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	const delayBetweenDataMessages = 100 * time.Millisecond
-	dataMessagesAmount := len(n.Peers()) * 3
+	const delayBetweenDataBlocks = 100 * time.Millisecond
+	dataBlocksAmount := len(n.Peers()) * 3
 
 	var (
 		node1 = n.Peers()[0]
@@ -66,7 +66,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	tests.SendDataMessages(t, n.Peers(), 50)
+	tests.SendDataBlocks(t, n.Peers(), 50)
 
 	// split partitions
 	err = n.CreatePartitionsManualPeering(ctx, []*framework.Node{node1}, []*framework.Node{node2})
@@ -93,21 +93,21 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	t.Logf("Sending %d data messages to make ConfirmationState converge", dataMessagesAmount)
-	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+	t.Logf("Sending %d data blocks to make ConfirmationState converge", dataBlocksAmount)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
-	// conflicting txs should have spawned branches
+	// conflicting txs should have spawned conflicts
 	require.Eventually(t, func() bool {
 		res1, err := node1.GetTransactionMetadata(txs1[0].ID().Base58())
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return len(res1.BranchIDs) > 0 && len(res2.BranchIDs) > 0
+		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
 	}, tests.Timeout, tests.Tick)
 
-	// we issue msgs on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
-	// attachments' ConfirmationState. if msgs would only be issued on node 2 or 1, they weight would never surpass 50%.
-	tests.SendDataMessages(t, n.Peers(), 50)
+	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
+	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
+	tests.SendDataBlocks(t, n.Peers(), 50)
 
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		tests.RequireConfirmationStateEqual(t, n.Peers(), tests.ExpectedTxsStates{

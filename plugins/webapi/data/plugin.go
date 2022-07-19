@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -44,8 +44,8 @@ func configure(_ *node.Plugin) {
 	deps.Server.POST("data", broadcastData)
 }
 
-// broadcastData creates a message of the given payload and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
+// broadcastData creates a block of the given payload and
+// broadcasts it to the node's neighbors. It returns the block ID if successful.
 func broadcastData(c echo.Context) error {
 	var request jsonmodels.DataRequest
 	if err := c.Bind(&request); err != nil {
@@ -63,15 +63,15 @@ func broadcastData(c echo.Context) error {
 		})
 	}
 
-	issueData := func() (*tangle.Message, error) {
+	issueData := func() (*tangle.Block, error) {
 		return deps.Tangle.IssuePayload(payload.NewGenericDataPayload(request.Data))
 	}
 
-	// await MessageScheduled event to be triggered.
-	msg, err := messagelayer.AwaitMessageToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
+	// await BlockScheduled event to be triggered.
+	blk, err := blocklayer.AwaitBlockToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: msg.ID().Base58()})
+	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: blk.ID().Base58()})
 }

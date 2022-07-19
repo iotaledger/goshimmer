@@ -25,12 +25,12 @@ func registerWorkerpoolMetrics() {
 }
 
 func collectWorkerpoolMetrics() {
-	name, load := deps.GossipMgr.MessageWorkerPoolStatus()
+	name, load := deps.GossipMgr.BlockWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))
 
-	name, load = deps.GossipMgr.MessageRequestWorkerPoolStatus()
+	name, load = deps.GossipMgr.BlockRequestWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))

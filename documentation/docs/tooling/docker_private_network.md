@@ -50,7 +50,7 @@ Reachable from the host system
 - `faucet's` dashboard: http: http://localhost:8081
 <!-- Running the dashboard and analysis dashboard on the same container causes the dashboard to malfunction -->
 
-It is therefore possible to send messages to the local network via the `peer_master`. Log messages of a specific containter can be followed via 
+It is therefore possible to send blocks to the local network via the `peer_master`. Log blocks of a specific containter can be followed via 
 ```shell
 docker logs --follow CONTAINERNAME
 ```
@@ -61,9 +61,9 @@ A snapshot tool is provided in the tools folder. The snapshot file that is creat
 
 Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the location of the snapshot. Once you have a new snapshot you can simply set `SNAPSHOT_FILE` to the location of your new snapshot and Docker Compose will use your snapshot the next time you run `docker-compose up`.
 
-## How to Use Message Approval Check Tool
+## How to Use Block Approval Check Tool
 
-`get_approval_csv.sh` script helps you conveniently trigger the message approval checks on all nodes in the docker
+`get_approval_csv.sh` script helps you conveniently trigger the block approval checks on all nodes in the docker
 network, and gather their results in the `csv` folder.
 
 Once the network is up and running, execute the script:
@@ -91,14 +91,14 @@ Note, that the record length of the files might differ, since the approval check
 
 ## Spammer Tool
 
-The Spammer tool lets you add messages to the tangle when running GoShimmer in a Docker network.
+The Spammer tool lets you add blocks to the tangle when running GoShimmer in a Docker network.
 In order to start the spammer, you need to send GET requests to a `/spammer` API endpoint with the following parameters:
 * `cmd` - one of two possible values: `start` and `stop`.
 * `unit` - Either `mps` or `mpm`. Only applicable when `cmd=start`. 
 * `rate` - Rate in integer. Only applicable when `cmd=start`. 
-* `imif` - (*optional*) parameter indicating time interval between issued messages. Possible values:
-    * `poisson` - emit messages modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
-    * `uniform` - issues messages at constant rate
+* `imif` - (*optional*) parameter indicating time interval between issued blocks. Possible values:
+    * `poisson` - emit blocks modeled with Poisson point process, whose time intervals are exponential variables with mean 1/rate
+    * `uniform` - issues blocks at constant rate
 
 Example requests:
 
@@ -112,14 +112,14 @@ http://localhost:8080/spammer?cmd=stop
 ## Tangle Width
 
 When running GoShimmer locally in a Docker network, the network delay is so small that only 1 tip will be available most of the time. 
-In order to artificially create a tangle structure with multiple tips you can add a `messageLayer.tangleWidth` property to [config.docker.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/config.docker.json)
+In order to artificially create a tangle structure with multiple tips you can add a `blockLayer.tangleWidth` property to [config.docker.json](https://github.com/iotaledger/goshimmer/blob/develop/tools/docker-network/config.docker.json)
 that specifies the number of tips that nodes should retain. This setting exists only for local testing purposes and should not be used in a distributed testnet.  
 
 Here is an example config that can be added: 
 
 ```json
   {
-  "messageLayer": {
+  "blockLayer": {
     "tangleWidth": 10
   }}
 ```
@@ -143,7 +143,7 @@ These services that are created by default with `docker-compose up -d`.
 
 #### Configuration
 
-- SNAPSHOT_FILE: The full path to the message snapshot file. Defaults to `./goshimmer/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`
+- SNAPSHOT_FILE: The full path to the block snapshot file. Defaults to `./goshimmer/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin`
 - GOSHIMMER_TAG: (Optional) The [iotaledger/goshimmer](https://hub.docker.com/r/iotaledger/goshimmer) tag to use. Defaults to `develop`.
 - GOSHIMMER_CONFIG: The location of the GoShimmer config file. Defaults to `./config.docker.json`.
 

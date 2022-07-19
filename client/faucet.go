@@ -24,7 +24,7 @@ var (
 	powWorker        = pow.New(1)
 )
 
-// BroadcastFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
+// BroadcastFaucetRequest requests funds from faucet nodes by sending a faucet request payload block.
 func (api *GoShimmerAPI) BroadcastFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetRequestResponse, error) {
 	var aManaPledgeID identity.ID
 	var cManaPledgeID identity.ID

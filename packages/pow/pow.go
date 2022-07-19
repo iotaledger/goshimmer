@@ -48,10 +48,10 @@ func New(numWorkers ...int) *Worker {
 }
 
 // Mine performs the PoW.
-// It appends the 8-byte nonce to the provided msg and tries to find a nonce
+// It appends the 8-byte nonce to the provided blk and tries to find a nonce
 // until the target number of leading zeroes is reached.
 // The computation can be be canceled using the provided ctx.
-func (w *Worker) Mine(ctx context.Context, msg []byte, target int) (uint64, error) {
+func (w *Worker) Mine(ctx context.Context, blk []byte, target int) (uint64, error) {
 	var (
 		done    uint32
 		counter uint64
@@ -77,7 +77,7 @@ func (w *Worker) Mine(ctx context.Context, msg []byte, target int) (uint64, erro
 		go func() {
 			defer wg.Done()
 
-			nonce, workerErr := w.worker(msg, startNonce, target, &done, &counter)
+			nonce, workerErr := w.worker(blk, startNonce, target, &done, &counter)
 			if workerErr != nil {
 				return
 			}
@@ -104,18 +104,18 @@ func (w *Worker) LeadingZeros(data []byte) (int, error) {
 }
 
 // LeadingZerosWithNonce returns the number of leading zeros in the digest
-// after the provided 8-byte nonce is appended to msg.
-func (w *Worker) LeadingZerosWithNonce(msg []byte, nonce uint64) (int, error) {
-	buf := make([]byte, len(msg)+NonceBytes)
-	copy(buf, msg)
-	putUint64(buf[len(msg):], nonce)
+// after the provided 8-byte nonce is appended to blk.
+func (w *Worker) LeadingZerosWithNonce(blk []byte, nonce uint64) (int, error) {
+	buf := make([]byte, len(blk)+NonceBytes)
+	copy(buf, blk)
+	putUint64(buf[len(blk):], nonce)
 
 	return w.LeadingZeros(buf)
 }
 
-func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32, counter *uint64) (uint64, error) {
-	buf := make([]byte, len(msg)+NonceBytes)
-	copy(buf, msg)
+func (w *Worker) worker(blk []byte, startNonce uint64, target int, done *uint32, counter *uint64) (uint64, error) {
+	buf := make([]byte, len(blk)+NonceBytes)
+	copy(buf, blk)
 	asAnInt := new(big.Int)
 
 	for nonce := startNonce; ; {
@@ -125,7 +125,7 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 		atomic.AddUint64(counter, 1)
 
 		// write nonce in the buffer
-		putUint64(buf[len(msg):], nonce)
+		putUint64(buf[len(blk):], nonce)
 
 		digest := blake2b.Sum512(buf)
 		asAnInt.SetBytes(digest[:])

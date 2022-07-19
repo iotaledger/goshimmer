@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -124,11 +124,11 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/addresses/:address", GetAddress)
 	deps.Server.GET("ledgerstate/addresses/:address/unspentOutputs", GetAddressUnspentOutputs)
 	deps.Server.POST("ledgerstate/addresses/unspentOutputs", PostAddressUnspentOutputs)
-	deps.Server.GET("ledgerstate/branches/:branchID", GetBranch)
-	deps.Server.GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
-	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
-	deps.Server.GET("ledgerstate/branches/:branchID/voters", GetBranchVoters)
-	deps.Server.GET("ledgerstate/branches/:branchID/sequenceids", GetBranchSequenceIDs)
+	deps.Server.GET("ledgerstate/conflicts/:conflictID", GetConflict)
+	deps.Server.GET("ledgerstate/conflicts/:conflictID/children", GetConflictChildren)
+	deps.Server.GET("ledgerstate/conflicts/:conflictID/conflicts", GetConflictConflicts)
+	deps.Server.GET("ledgerstate/conflicts/:conflictID/voters", GetConflictVoters)
+	deps.Server.GET("ledgerstate/conflicts/:conflictID/sequenceids", GetConflictSequenceIDs)
 	deps.Server.GET("ledgerstate/outputs/:outputID", GetOutput)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
@@ -265,100 +265,100 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranch ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region GetConflict ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranch is the handler for the /ledgerstate/branch/:branchID endpoint.
-func GetBranch(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
+// GetConflict is the handler for the /ledgerstate/conflict/:conflictID endpoint.
+func GetConflict(c echo.Context) (err error) {
+	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branch.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID)))
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", branchID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchChildren ////////////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictChildren ////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchChildren is the handler for the /ledgerstate/branch/:branchID/childBranches endpoint.
-func GetBranchChildren(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
+// GetConflictChildren is the handler for the /ledgerstate/conflict/:conflictID/childConflicts endpoint.
+func GetConflictChildren(c echo.Context) (err error) {
+	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedChildBranches := deps.Tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(branchID)
-	defer cachedChildBranches.Release()
+	cachedChildConflicts := deps.Tangle.Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
+	defer cachedChildConflicts.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchChildrenResponse(branchID, cachedChildBranches.Unwrap()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchConflicts ///////////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictConflicts ///////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchConflicts is the handler for the /ledgerstate/branch/:branchID/conflicts endpoint.
-func GetBranchConflicts(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
+// GetConflictConflicts is the handler for the /ledgerstate/conflict/:conflictID/conflicts endpoint.
+func GetConflictConflicts(c echo.Context) (err error) {
+	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		branchIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
-		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
+		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
-			branchIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
+			conflictIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
 			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
-				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.ConflictID())
+				conflictIDsPerConflictID[conflictID] = append(conflictIDsPerConflictID[conflictID], conflictMember.ConflictID())
 			})
 		}
 
-		err = c.JSON(http.StatusOK, jsonmodels.NewGetBranchConflictsResponse(branchID, branchIDsPerConflictID))
+		err = c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictID))
 	}) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", branchID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchVoters ///////////////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictVoters ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchVoters is the handler for the /ledgerstate/branches/:branchID/voters endpoint.
-func GetBranchVoters(c echo.Context) (err error) {
-	branchID, err := branchIDFromContext(c)
+// GetConflictVoters is the handler for the /ledgerstate/conflicts/:conflictID/voters endpoint.
+func GetConflictVoters(c echo.Context) (err error) {
+	conflictID, err := conflictIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	voters := tangle.NewVoters()
-	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfBranch(branchID))
+	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflict(conflictID))
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchVotersResponse(branchID, voters))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchSequenceIDs /////////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictSequenceIDs /////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchSequenceIDs is the handler for the /ledgerstate/branch/:branchID endpoint.
-func GetBranchSequenceIDs(c echo.Context) (err error) {
-	// branchID, err := branchIDFromContext(c)
+// GetConflictSequenceIDs is the handler for the /ledgerstate/conflict/:conflictID endpoint.
+func GetConflictSequenceIDs(c echo.Context) (err error) {
+	// conflictID, err := conflictIDFromContext(c)
 	// if err != nil {
 	//	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	// }
 	//
 	// sequenceIDs := make([]string, 0)
-	// deps.Tangle.booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	// deps.Tangle.booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(conflictID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
 	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
 	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
 	//		return true
@@ -481,29 +481,29 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	messageIDs := tangle.NewMessageIDs()
+	blockIDs := tangle.NewBlockIDs()
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-		messageIDs.Add(attachment.MessageID())
+		blockIDs.Add(attachment.BlockID())
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, messageIDs))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetTransactionAttachmentsResponse(transactionID, blockIDs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region branchIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
+// region conflictIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
 
-// branchIDFromContext determines the BranchID from the branchID parameter in an echo.Context. It expects it to either
-// be a base58 encoded string or one of the builtin aliases (MasterBranchID, LazyBookedConflictsBranchID or
-// InvalidBranchID)
-func branchIDFromContext(c echo.Context) (branchID utxo.TransactionID, err error) {
-	switch branchIDString := c.Param("branchID"); branchIDString {
-	case "MasterBranchID":
-		branchID = utxo.EmptyTransactionID
+// conflictIDFromContext determines the ConflictID from the conflictID parameter in an echo.Context. It expects it to either
+// be a base58 encoded string or one of the builtin aliases (MasterConflictID, LazyBookedConflictsConflictID or
+// InvalidConflictID)
+func conflictIDFromContext(c echo.Context) (conflictID utxo.TransactionID, err error) {
+	switch conflictIDString := c.Param("conflictID"); conflictIDString {
+	case "MasterConflictID":
+		conflictID = utxo.EmptyTransactionID
 	default:
-		err = branchID.FromBase58(branchIDString)
+		err = conflictID.FromBase58(conflictIDString)
 	}
 
 	return
@@ -540,7 +540,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// validate allowed mana pledge nodes.
-	allowedAccessMana := messagelayer.GetAllowedPledgeNodes(mana.AccessMana)
+	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(mana.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
@@ -548,7 +548,7 @@ func PostTransaction(c echo.Context) error {
 			})
 		}
 	}
-	allowedConsensusMana := messagelayer.GetAllowedPledgeNodes(mana.ConsensusMana)
+	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(mana.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
@@ -575,13 +575,13 @@ func PostTransaction(c echo.Context) error {
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
-	issueTransaction := func() (*tangle.Message, error) {
+	issueTransaction := func() (*tangle.Block, error) {
 		return deps.Tangle.IssuePayload(tx)
 	}
 
 	// add tx to double spend doubleSpendFilter
 	FilterAdd(tx)
-	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+	if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		// if we failed to issue the transaction, we remove it
 		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})

@@ -1,5 +1,5 @@
 import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
+import { registerHandler, unregisterHandler, WSBlkType } from 'utils/WS';
 import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
@@ -36,18 +36,18 @@ export class UTXOStore {
 
     constructor() {
         makeObservable(this);
-        registerHandler(WSMsgType.Transaction, this.addTransaction);
-        registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
+        registerHandler(WSBlkType.Transaction, this.addTransaction);
+        registerHandler(WSBlkType.TransactionBooked, this.setTxConflict);
         registerHandler(
-            WSMsgType.TransactionConfirmationStateChanged,
+            WSBlkType.TransactionConfirmationStateChanged,
             this.transactionConfirmationStateChanged
         );
     }
 
     unregisterHandlers() {
-        unregisterHandler(WSMsgType.Transaction);
-        unregisterHandler(WSMsgType.TransactionBooked);
-        unregisterHandler(WSMsgType.TransactionConfirmationStateChanged);
+        unregisterHandler(WSBlkType.Transaction);
+        unregisterHandler(WSBlkType.TransactionBooked);
+        unregisterHandler(WSBlkType.TransactionConfirmationStateChanged);
     }
 
     @action
@@ -102,13 +102,13 @@ export class UTXOStore {
     };
 
     @action
-    setTxBranch = (bookedTx: utxoBooked) => {
+    setTxConflict = (bookedTx: utxoBooked) => {
         const tx = this.transactions.get(bookedTx.ID);
         if (!tx) {
             return;
         }
 
-        tx.branchID = bookedTx.branchID;
+        tx.conflictID = bookedTx.conflictID;
         this.transactions.set(bookedTx.ID, tx);
     };
 
@@ -191,12 +191,12 @@ export class UTXOStore {
         this.updateSelected(txID);
     };
 
-    getTxsFromBranch = (branchID: string, searchMode: boolean) => {
+    getTxsFromConflict = (conflictID: string, searchMode: boolean) => {
         const txs = [];
 
         if (searchMode) {
             this.foundTxs.forEach((tx: utxoVertex) => {
-                if (tx.branchID === branchID) {
+                if (tx.conflictID === conflictID) {
                     txs.push(tx.ID);
                 }
             });
@@ -205,7 +205,7 @@ export class UTXOStore {
         }
 
         this.transactions.forEach((tx: utxoVertex) => {
-            if (tx.branchID === branchID) {
+            if (tx.conflictID === conflictID) {
                 txs.push(tx.ID);
             }
         });

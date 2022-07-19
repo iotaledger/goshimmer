@@ -92,7 +92,7 @@ func worker(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				broadcastWsMessage(&wsmsg{MsgTypePing, ""})
+				broadcastWsBlock(&wsblk{BlkTypePing, ""})
 			case <-ctx.Done():
 				return
 			case <-stopped:

@@ -9,12 +9,13 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/p2p"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/prometheus"
@@ -39,11 +40,12 @@ type GoShimmer struct {
 
 	// individual plugin configurations
 	Database
+	P2P
 	Gossip
 	POW
 	WebAPI
 	AutoPeering
-	MessageLayer
+	BlockLayer
 	Faucet
 	Mana
 	Consensus
@@ -72,6 +74,13 @@ type Database struct {
 	Enabled bool
 
 	database.ParametersDefinition
+}
+
+// Gossip defines the parameters of the gossip plugin.
+type P2P struct {
+	Enabled bool
+
+	p2p.ParametersDefinition
 }
 
 // Gossip defines the parameters of the gossip plugin.
@@ -114,14 +123,14 @@ type Faucet struct {
 type Mana struct {
 	Enabled bool
 
-	messagelayer.ManaParametersDefinition
+	blocklayer.ManaParametersDefinition
 }
 
-// MessageLayer defines the parameters used by the message layer.
-type MessageLayer struct {
+// BlockLayer defines the parameters used by the block layer.
+type BlockLayer struct {
 	Enabled bool
 
-	messagelayer.ParametersDefinition
+	blocklayer.ParametersDefinition
 }
 
 // Consensus defines the parameters of the consensus plugin.
@@ -140,7 +149,7 @@ type Activity struct {
 type RateSetter struct {
 	Enabled bool
 
-	messagelayer.RateSetterParametersDefinition
+	blocklayer.RateSetterParametersDefinition
 }
 
 // Prometheus defines the parameters of the Prometheus plugin.
@@ -174,6 +183,8 @@ type Dagsvisualizer struct {
 // Notarization defines the parameters of the Notarization plugin.
 type Notarization struct {
 	Enabled bool
+
+	blocklayer.NotarizationParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

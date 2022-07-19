@@ -14,9 +14,9 @@ import (
 )
 
 func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
-	data, err := packet.NewMetricHeartbeatMessage(hb)
+	data, err := packet.NewMetricHeartbeatBlock(hb)
 	if err != nil {
-		log.Debugw("metric heartbeat message skipped", "err", err)
+		log.Debugw("metric heartbeat block skipped", "err", err)
 		return
 	}
 

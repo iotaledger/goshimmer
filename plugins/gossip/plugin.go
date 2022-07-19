@@ -4,13 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -28,10 +27,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Node      *configuration.Configuration
-	Local     *peer.Local
 	Tangle    *tangle.Tangle
 	GossipMgr *gossip.Manager
+	P2PMgr    *p2p.Manager
 }
 
 func init() {
@@ -46,7 +44,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	configureLogging()
-	configureMessageLayer()
+	configureBlockLayer()
 }
 
 func run(plugin *node.Plugin) {
@@ -57,43 +55,35 @@ func run(plugin *node.Plugin) {
 
 func configureLogging() {
 	// log the gossip events
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(func(event *gossip.NeighborAddedEvent) {
-		n := event.Neighbor
-		Plugin.LogInfof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
-	}))
-	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *gossip.NeighborRemovedEvent) {
-		n := event.Neighbor
-		Plugin.LogInfof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
-	}))
 	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangle.RequestStartedEvent) {
-		Plugin.LogDebugf("started to request missing Message with %s", event.MessageID)
+		Plugin.LogDebugf("started to request missing Block with %s", event.BlockID)
 	}))
 	deps.Tangle.Requester.Events.RequestStopped.Attach(event.NewClosure(func(event *tangle.RequestStoppedEvent) {
-		Plugin.LogDebugf("stopped to request missing Message with %s", event.MessageID)
+		Plugin.LogDebugf("stopped to request missing Block with %s", event.BlockID)
 	}))
 	deps.Tangle.Requester.Events.RequestFailed.Attach(event.NewClosure(func(event *tangle.RequestFailedEvent) {
-		Plugin.LogDebugf("failed to request missing Message with %s", event.MessageID)
+		Plugin.LogDebugf("failed to request missing Block with %s", event.BlockID)
 	}))
 }
 
-func configureMessageLayer() {
-	// configure flow of incoming messages
-	deps.GossipMgr.Events.MessageReceived.Attach(event.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		deps.Tangle.ProcessGossipMessage(event.Data, event.Peer)
+func configureBlockLayer() {
+	// configure flow of incoming blocks
+	deps.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+		deps.Tangle.ProcessGossipBlock(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing messages (gossip upon dispatched messages)
-	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			deps.GossipMgr.SendMessage(lo.PanicOnErr(message.Bytes()))
+	// configure flow of outgoing blocks (gossip upon dispatched blocks)
+	deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
+		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
+			deps.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
 		})
 	}))
 
-	// request missing messages
+	// request missing blocks
 	deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangle.RequestIssuedEvent) {
-		id := event.MessageID
-		Plugin.LogDebugf("requesting missing Message with %s", id)
+		id := event.BlockID
+		Plugin.LogDebugf("requesting missing Block with %s", id)
 
-		deps.GossipMgr.RequestMessage(id.Bytes())
+		deps.GossipMgr.RequestBlock(id.Bytes())
 	}))
 }

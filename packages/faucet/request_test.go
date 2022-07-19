@@ -48,10 +48,10 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetMsg := tangle.NewMessage(
-		map[tangle.ParentsType]tangle.MessageIDs{
+	faucetBlk := tangle.NewBlock(
+		map[tangle.ParentsType]tangle.BlockIDs{
 			tangle.StrongParentType: {
-				tangle.EmptyMessageID: types.Void,
+				tangle.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),
@@ -64,10 +64,10 @@ func TestIsFaucetReq(t *testing.T) {
 		epoch.NewECRecord(0),
 	)
 
-	dataMsg := tangle.NewMessage(
-		map[tangle.ParentsType]tangle.MessageIDs{
+	dataBlk := tangle.NewBlock(
+		map[tangle.ParentsType]tangle.BlockIDs{
 			tangle.StrongParentType: {
-				tangle.EmptyMessageID: types.Void,
+				tangle.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),
@@ -80,6 +80,6 @@ func TestIsFaucetReq(t *testing.T) {
 		epoch.NewECRecord(0),
 	)
 
-	assert.Equal(t, true, IsFaucetReq(faucetMsg))
-	assert.Equal(t, false, IsFaucetReq(dataMsg))
+	assert.Equal(t, true, IsFaucetReq(faucetBlk))
+	assert.Equal(t, false, IsFaucetReq(dataBlk))
 }

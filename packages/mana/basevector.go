@@ -1,8 +1,9 @@
 package mana
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledger"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledger"
 
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
@@ -45,7 +46,7 @@ type BaseManaVector interface {
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.
 func NewBaseManaVector(manaType Type) BaseManaVector {
 	return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{
-		Type: manaType,
+		Type:   manaType,
 		Vector: make(map[identity.ID]*ManaBase),
 	})
 }

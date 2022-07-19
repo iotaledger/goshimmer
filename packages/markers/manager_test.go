@@ -9,36 +9,36 @@ import (
 )
 
 func TestManager(t *testing.T) {
-	testMessages := []*message{
-		newMessage("msg1"),
-		newMessage("msg2"),
-		newMessage("msg3", "msg1", "msg2"),
-		newMessage("msg4", "msg3"),
-		newMessage("msg5", "msg1", "msg2"),
-		newMessage("msg6", "msg3", "msg5"),
-		newMessage("msg7", "msg4"),
-		newMessage("msg8", "msg4"),
-		newMessage("msg9", "msg8"),
-		newMessage("msg10", "msg4"),
-		newMessage("msg11", "msg6"),
-		newMessage("msg12", "msg11"),
-		newMessage("msg13", "msg12"),
-		newMessage("msg14", "msg11"),
-		newMessage("msg15", "msg13", "msg14"),
-		newMessage("msg16", "msg9", "msg15"),
-		newMessage("msg17", "msg7", "msg16"),
-		newMessage("msg18", "msg7", "msg13", "msg14"),
-		newMessage("msg19", "msg7", "msg13", "msg14"),
-		newMessage("msg20", "msg7", "msg13", "msg14", "msg11"),
-		newMessage("msg21", "msg20"),
-		newMessage("msg22", "msg21"),
+	testBlocks := []*block{
+		newBlock("blk1"),
+		newBlock("blk2"),
+		newBlock("blk3", "blk1", "blk2"),
+		newBlock("blk4", "blk3"),
+		newBlock("blk5", "blk1", "blk2"),
+		newBlock("blk6", "blk3", "blk5"),
+		newBlock("blk7", "blk4"),
+		newBlock("blk8", "blk4"),
+		newBlock("blk9", "blk8"),
+		newBlock("blk10", "blk4"),
+		newBlock("blk11", "blk6"),
+		newBlock("blk12", "blk11"),
+		newBlock("blk13", "blk12"),
+		newBlock("blk14", "blk11"),
+		newBlock("blk15", "blk13", "blk14"),
+		newBlock("blk16", "blk9", "blk15"),
+		newBlock("blk17", "blk7", "blk16"),
+		newBlock("blk18", "blk7", "blk13", "blk14"),
+		newBlock("blk19", "blk7", "blk13", "blk14"),
+		newBlock("blk20", "blk7", "blk13", "blk14", "blk11"),
+		newBlock("blk21", "blk20"),
+		newBlock("blk22", "blk21"),
 	}
 
-	messageDB := makeMessageDB(testMessages...)
+	blockDB := makeBlockDB(testBlocks...)
 	manager := NewManager(WithCacheTime(0), WithMaxPastMarkerDistance(3))
 
-	for _, m := range testMessages {
-		inheritPastMarkers(m, manager, messageDB)
+	for _, m := range testBlocks {
+		inheritPastMarkers(m, manager, blockDB)
 	}
 
 	type expectedStructureDetailsType struct {
@@ -49,7 +49,7 @@ func TestManager(t *testing.T) {
 	}
 
 	expectedStructureDetails := map[string]expectedStructureDetailsType{
-		"msg1": {
+		"blk1": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 1),
 			),
@@ -61,7 +61,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg2": {
+		"blk2": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 0),
 			),
@@ -73,7 +73,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg3": {
+		"blk3": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
@@ -85,7 +85,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg4": {
+		"blk4": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 3),
 			),
@@ -97,7 +97,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg5": {
+		"blk5": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 1),
 			),
@@ -105,7 +105,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg6": {
+		"blk6": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
@@ -113,7 +113,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg7": {
+		"blk7": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 4),
 			),
@@ -125,7 +125,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg8": {
+		"blk8": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 3),
 			),
@@ -133,7 +133,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg9": {
+		"blk9": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 3),
 			),
@@ -141,7 +141,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg10": {
+		"blk10": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 3),
 			),
@@ -149,7 +149,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg11": {
+		"blk11": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 2),
 			),
@@ -157,7 +157,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg12": {
+		"blk12": {
 			PastMarkers: NewMarkers(
 				NewMarker(1, 3),
 			),
@@ -171,7 +171,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg13": {
+		"blk13": {
 			PastMarkers: NewMarkers(
 				NewMarker(1, 4),
 			),
@@ -185,7 +185,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg14": {
+		"blk14": {
 			PastMarkers: NewMarkers(
 				NewMarker(2, 3),
 			),
@@ -199,7 +199,7 @@ func TestManager(t *testing.T) {
 				NewMarker(3, 5),
 			),
 		},
-		"msg15": {
+		"blk15": {
 			PastMarkers: NewMarkers(
 				NewMarker(2, 5),
 			),
@@ -210,7 +210,7 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg16": {
+		"blk16": {
 			PastMarkers: NewMarkers(
 				NewMarker(2, 6),
 			),
@@ -221,7 +221,7 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg17": {
+		"blk17": {
 			PastMarkers: NewMarkers(
 				NewMarker(2, 7),
 			),
@@ -232,7 +232,7 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg18": {
+		"blk18": {
 			PastMarkers: NewMarkers(
 				NewMarker(1, 5),
 			),
@@ -243,7 +243,7 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg19": {
+		"blk19": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 5),
 			),
@@ -254,7 +254,7 @@ func TestManager(t *testing.T) {
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg20": {
+		"blk20": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 4),
 				NewMarker(1, 4),
@@ -264,7 +264,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg21": {
+		"blk21": {
 			PastMarkers: NewMarkers(
 				NewMarker(0, 4),
 				NewMarker(1, 4),
@@ -274,7 +274,7 @@ func TestManager(t *testing.T) {
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"msg22": {
+		"blk22": {
 			PastMarkers: NewMarkers(
 				NewMarker(3, 5),
 			),
@@ -288,16 +288,16 @@ func TestManager(t *testing.T) {
 		},
 	}
 
-	for messageID, messageExpected := range expectedStructureDetails {
-		assert.Equal(t, messageExpected.PastMarkers, messageDB[messageID].structureDetails.PastMarkers(), messageID+" has unexpected past Markers")
-		assert.Equal(t, messageExpected.PastMarkersGap, messageDB[messageID].structureDetails.PastMarkerGap(), messageID+" has unexpected PastMarkerGap")
+	for blockID, blockExpected := range expectedStructureDetails {
+		assert.Equal(t, blockExpected.PastMarkers, blockDB[blockID].structureDetails.PastMarkers(), blockID+" has unexpected past Markers")
+		assert.Equal(t, blockExpected.PastMarkersGap, blockDB[blockID].structureDetails.PastMarkerGap(), blockID+" has unexpected PastMarkerGap")
 
-		if messageExpected.PastMarkersGap == 0 {
-			pastMarker := messageExpected.PastMarkers.Marker()
+		if blockExpected.PastMarkersGap == 0 {
+			pastMarker := blockExpected.PastMarkers.Marker()
 
 			manager.Sequence(pastMarker.SequenceID()).Consume(func(sequence *Sequence) {
-				assert.Equal(t, messageExpected.ReferencedMarkers, sequence.ReferencedMarkers(pastMarker.Index()), messageID+" has unexpected referenced Markers")
-				assert.Equal(t, messageExpected.ReferencingMarkers, sequence.ReferencingMarkers(pastMarker.Index()), messageID+" has unexpected referencing Markers")
+				assert.Equal(t, blockExpected.ReferencedMarkers, sequence.ReferencedMarkers(pastMarker.Index()), blockID+" has unexpected referenced Markers")
+				assert.Equal(t, blockExpected.ReferencingMarkers, sequence.ReferencingMarkers(pastMarker.Index()), blockID+" has unexpected referencing Markers")
 			})
 		}
 	}
@@ -344,13 +344,13 @@ func alwaysIncreaseIndex(SequenceID, Index) bool {
 	return true
 }
 
-func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB map[string]*message) types.TriBool {
-	for _, parentID := range laterMessage.parents {
-		if parentID == earlierMessage.id {
+func blockReferencesBlock(laterBlock, earlierBlock *block, blockDB map[string]*block) types.TriBool {
+	for _, parentID := range laterBlock.parents {
+		if parentID == earlierBlock.id {
 			return types.True
 		}
 
-		switch messageReferencesMessage(messageDB[parentID], earlierMessage, messageDB) {
+		switch blockReferencesBlock(blockDB[parentID], earlierBlock, blockDB) {
 		case types.True:
 			return types.True
 		case types.Maybe:
@@ -361,44 +361,44 @@ func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB m
 	return types.False
 }
 
-func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) {
+func inheritPastMarkers(block *block, manager *Manager, blockDB map[string]*block) {
 	// merge past Markers of referenced parents
-	pastMarkers := make([]*StructureDetails, len(message.parents))
-	for i, parentID := range message.parents {
-		pastMarkers[i] = messageDB[parentID].structureDetails
+	pastMarkers := make([]*StructureDetails, len(block.parents))
+	for i, parentID := range block.parents {
+		pastMarkers[i] = blockDB[parentID].structureDetails
 	}
 
-	message.structureDetails, _ = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
+	block.structureDetails, _ = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
 
 	return
 }
 
-func makeMessageDB(messages ...*message) (messageDB map[string]*message) {
-	messageDB = make(map[string]*message)
-	for _, msg := range messages {
-		messageDB[msg.id] = msg
+func makeBlockDB(blocks ...*block) (blockDB map[string]*block) {
+	blockDB = make(map[string]*block)
+	for _, blk := range blocks {
+		blockDB[blk.id] = blk
 	}
 
 	return
 }
 
-type message struct {
+type block struct {
 	id               string
 	forceNewMarker   bool
 	parents          []string
 	structureDetails *StructureDetails
 }
 
-func newMessage(id string, parents ...string) *message {
-	return &message{
+func newBlock(id string, parents ...string) *block {
+	return &block{
 		id:               id,
 		parents:          parents,
 		structureDetails: NewStructureDetails(),
 	}
 }
 
-func (m *message) String() string {
-	return stringify.Struct("message",
+func (m *block) String() string {
+	return stringify.Struct("block",
 		stringify.StructField("id", m.id),
 		stringify.StructField("forceNewMarker", m.forceNewMarker),
 		stringify.StructField("parents", m.parents),

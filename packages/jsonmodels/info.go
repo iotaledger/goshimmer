@@ -18,12 +18,12 @@ type InfoResponse struct {
 	IdentityIDShort string `json:"identityIDShort,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publicKey,omitempty"`
-	// MessageRequestQueueSize is the number of messages a node is trying to request from neighbors.
-	MessageRequestQueueSize int `json:"messageRequestQueueSize,omitempty"`
-	// SolidMessageCount is the number of solid messages in the node's database.
-	SolidMessageCount int `json:"solidMessageCount,omitempty"`
-	// TotalMessageCount is the number of messages in the node's database.
-	TotalMessageCount int `json:"totalMessageCount,omitempty"`
+	// BlockRequestQueueSize is the number of blocks a node is trying to request from neighbors.
+	BlockRequestQueueSize int `json:"blockRequestQueueSize,omitempty"`
+	// SolidBlockCount is the number of solid blocks in the node's database.
+	SolidBlockCount int `json:"solidBlockCount,omitempty"`
+	// TotalBlockCount is the number of blocks in the node's database.
+	TotalBlockCount int `json:"totalBlockCount,omitempty"`
 	// list of enabled plugins
 	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
@@ -42,12 +42,12 @@ type InfoResponse struct {
 
 // TangleTime contains the TangleTime sync detailed status.
 type TangleTime struct {
-	AcceptedMessageID string `json:"messageID"`
-	ATT               int64  `json:"ATT"`
-	RATT              int64  `json:"RATT"`
-	CTT               int64  `json:"CTT"`
-	RCTT              int64  `json:"RCTT"`
-	Synced            bool   `json:"synced"`
+	AcceptedBlockID string `json:"blockID"`
+	ATT             int64  `json:"ATT"`
+	RATT            int64  `json:"RATT"`
+	CTT             int64  `json:"CTT"`
+	RCTT            int64  `json:"RCTT"`
+	Synced          bool   `json:"synced"`
 }
 
 // Mana contains the different mana values of the node.

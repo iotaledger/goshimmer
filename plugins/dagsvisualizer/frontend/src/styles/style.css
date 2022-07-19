@@ -47,7 +47,7 @@ h5 {
     height: 60vh;
 }
 
-#branchVisualizer {
+#conflictVisualizer {
     width: 100%;
     height: 60vh;
     overflow-x: scroll;

@@ -30,10 +30,12 @@ const (
 	maxGoroutines = 5
 )
 
-var defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
-var faucetBalance = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
-	devnetvm.ColorIOTA: uint64(faucetTokensPerRequest),
-})
+var (
+	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	faucetBalance      = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: uint64(faucetTokensPerRequest),
+	})
+)
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -463,7 +465,8 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []devnetvm.Inp
 
 // prepareOutputs creates outputs for different scenarios, if no aliases were provided, new empty outputs are created from buildOptions.outputs balances.
 func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm.Output,
-	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error) {
+	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error,
+) {
 	if buildOptions.areOutputsProvidedWithoutAliases() {
 		for _, balance := range buildOptions.outputs {
 			output := devnetvm.NewSigLockedColoredOutput(balance, buildOptions.outputWallet.Address().Address())
@@ -526,7 +529,8 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // that indicates which outputs should be saved to the outputWallet.All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
 func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm.Output,
-	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error) {
+	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error,
+) {
 	err = e.updateOutputBalances(buildOptions)
 	if err != nil {
 		return nil, nil, nil, err
@@ -639,7 +643,6 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 					return true
 				})
 			}
-
 		}
 		balances := SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
 		i := 0

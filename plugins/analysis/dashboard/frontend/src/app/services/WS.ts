@@ -1,33 +1,33 @@
-import { IAddNodeMessage } from "../models/messages/IAddNodeMessage";
-import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
-import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
-import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
-import {WSMsgType} from "../models/ws/wsMsgType";
-import { WSMessage } from "../models/ws/IWSMsg";
+import { IAddNodeBlock } from "../models/blocks/IAddNodeBlock";
+import { IRemoveNodeBlock } from "../models/blocks/IRemoveNodeBlock";
+import { IConnectNodesBlock } from "../models/blocks/IConnectNodesBlock";
+import { IDisconnectNodesBlock } from "../models/blocks/IDisconnectNodesBlock";
+import { WSBlkType } from "../models/ws/wsBlkType";
+import { WSBlock } from "../models/ws/IWSBlk";
 
 type DataHandler<T> = (data: T) => void;
 
-const handlers: { [id in WSMsgType]?: DataHandler<unknown> } = {};
+const handlers: { [id in WSBlkType]?: DataHandler<unknown> } = {};
 
-export function registerHandler(msgTypeID: WSMsgType.addNode, handler: DataHandler<IAddNodeMessage>);
-export function registerHandler(msgTypeID: WSMsgType.removeNode, handler: DataHandler<IRemoveNodeMessage>);
-export function registerHandler(msgTypeID: WSMsgType.connectNodes, handler: DataHandler<IConnectNodesMessage>);
-export function registerHandler(msgTypeID: WSMsgType.disconnectNodes, handler: DataHandler<IDisconnectNodesMessage>);
-export function registerHandler(msgTypeID: WSMsgType.MsgManaDashboardAddress, handler: DataHandler<string>);
+export function registerHandler(blkTypeID: WSBlkType.addNode, handler: DataHandler<IAddNodeBlock>);
+export function registerHandler(blkTypeID: WSBlkType.removeNode, handler: DataHandler<IRemoveNodeBlock>);
+export function registerHandler(blkTypeID: WSBlkType.connectNodes, handler: DataHandler<IConnectNodesBlock>);
+export function registerHandler(blkTypeID: WSBlkType.disconnectNodes, handler: DataHandler<IDisconnectNodesBlock>);
+export function registerHandler(blkTypeID: WSBlkType.BlkManaDashboardAddress, handler: DataHandler<string>);
 
-export function registerHandler<T>(msgTypeID: number, handler: DataHandler<T>): void {
-    handlers[msgTypeID] = handler;
+export function registerHandler<T>(blkTypeID: number, handler: DataHandler<T>): void {
+    handlers[blkTypeID] = handler;
 }
 
-export function unregisterHandler(msgTypeID: number): void {
-    delete handlers[msgTypeID];
+export function unregisterHandler(blkTypeID: number): void {
+    delete handlers[blkTypeID];
 }
 
 let ws: WebSocket | null
 
-export function sendMessage(msg: Object){
-    if(ws){
-        ws.send(JSON.stringify(msg))
+export function sendBlock(blk: Object) {
+    if (ws) {
+        ws.send(JSON.stringify(blk))
     }
 }
 
@@ -37,7 +37,7 @@ export function connectWebSocket(
     onClose: () => void,
     onError: () => void): void {
 
-    if (ws){
+    if (ws) {
         return
     }
     const loc = window.location;
@@ -55,14 +55,14 @@ export function connectWebSocket(
     ws.onerror = onError;
 
     ws.onmessage = (e) => {
-        const msg: WSMessage = JSON.parse(e.data) as WSMessage;
+        const blk: WSBlock = JSON.parse(e.data) as WSBlock;
         // Just a ping, do nothing
-        if (msg.type === WSMsgType.ping) {
+        if (blk.type === WSBlkType.ping) {
             return;
         }
-        const handler = handlers[msg.type];
+        const handler = handlers[blk.type];
         if (handler) {
-            handler(msg.data);
+            handler(blk.data);
         }
     };
 }

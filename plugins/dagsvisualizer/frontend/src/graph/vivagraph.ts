@@ -170,18 +170,18 @@ function setupRenderer(graph: any, graphics: any, layout: any) {
     });
 }
 
-export function drawMessage(
-    msg: tangleVertex,
+export function drawBlock(
+    blk: tangleVertex,
     vivaLib: vivagraphLib,
-    messageMap: ObservableMap<string, tangleVertex>
+    blockMap: ObservableMap<string, tangleVertex>
 ) {
     let node;
-    const existing = vivaLib.graph.getNode(msg.ID);
+    const existing = vivaLib.graph.getNode(blk.ID);
     if (existing) {
         node = existing;
     } else {
-        node = vivaLib.graph.addNode(msg.ID, msg);
-        updateNodeColorOnConfirmation(msg, vivaLib);
+        node = vivaLib.graph.addNode(blk.ID, blk);
+        updateNodeColorOnConfirmation(blk, vivaLib);
     }
 
     const drawVertexParentReference = (
@@ -191,7 +191,7 @@ export function drawMessage(
         if (parentIDs) {
             parentIDs.forEach((value) => {
                 // remove tip status
-                const parent = messageMap.get(value);
+                const parent = blockMap.get(value);
                 if (parent) {
                     parent.isTip = false;
                     updateNodeColorOnConfirmation(parent, vivaLib);
@@ -206,19 +206,19 @@ export function drawMessage(
                     // draw the link only when the parent exists
                     const existing = vivaLib.graph.getNode(value);
                     if (existing) {
-                        const link = vivaLib.graph.addLink(value, msg.ID);
+                        const link = vivaLib.graph.addLink(value, blk.ID);
                         updateParentRefUI(link.id, vivaLib, parentType);
                     }
                 }
             });
         }
     };
-    drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs);
-    drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs);
-    drawVertexParentReference(parentRefType.ShallowLikeRef, msg.shallowLikeParentIDs);
+    drawVertexParentReference(parentRefType.StrongRef, blk.strongParentIDs);
+    drawVertexParentReference(parentRefType.WeakRef, blk.weakParentIDs);
+    drawVertexParentReference(parentRefType.ShallowLikeRef, blk.shallowLikeParentIDs);
 }
 
-export function selectMessage(id: string, vivaLib: vivagraphLib) {
+export function selectBlock(id: string, vivaLib: vivagraphLib) {
     vivaLib.selectVertex(id);
 
     const node = vivaLib.graph.getNode(id);
@@ -261,7 +261,7 @@ export function selectMessage(id: string, vivaLib: vivagraphLib) {
     return node;
 }
 
-export function unselectMessage(
+export function unselectBlock(
     id: string,
     originColor: string,
     vivaLib: vivagraphLib
@@ -309,55 +309,55 @@ export function unselectMessage(
 
 export function updateGraph(
     vivaLib: vivagraphLib,
-    newMsgToAdd: string[],
-    messageMap: ObservableMap<string, tangleVertex>
+    newBlkToAdd: string[],
+    blockMap: ObservableMap<string, tangleVertex>
 ) {
     vivaLib.graph.forEachNode((node) => {
-        const msg = messageMap.get(node.id);
-        if (!msg) {
+        const blk = blockMap.get(node.id);
+        if (!blk) {
             vivaLib.removeVertex(node.id);
         } else {
-            updateNodeDataAndColor(msg.ID, msg, vivaLib);
+            updateNodeDataAndColor(blk.ID, blk, vivaLib);
         }
     });
 
-    // new messages to add after pause.
-    for (const msgID of newMsgToAdd) {
-        const msg = messageMap.get(msgID);
-        if (msg) {
-            drawMessage(msg, vivaLib, messageMap);
-            updateNodeColorOnConfirmation(msg, vivaLib);
+    // new blocks to add after pause.
+    for (const blkID of newBlkToAdd) {
+        const blk = blockMap.get(blkID);
+        if (blk) {
+            drawBlock(blk, vivaLib, blockMap);
+            updateNodeColorOnConfirmation(blk, vivaLib);
         }
     }
 }
 
-// pause was short - clear only the needed part on left from this.lastMsgAddedBeforePause
+// pause was short - clear only the needed part on left from this.lastBlkAddedBeforePause
 export function reloadAfterShortPause(
     vivaLib: vivagraphLib,
-    messageMap: ObservableMap<string, tangleVertex>
+    blockMap: ObservableMap<string, tangleVertex>
 ) {
     vivaLib.graph.forEachNode((node) => {
-        const msg = messageMap.get(node.id);
-        if (!msg) {
+        const blk = blockMap.get(node.id);
+        if (!blk) {
             vivaLib.graph.removeNode(node.id);
         } else {
-            updateNodeDataAndColor(msg.ID, msg, vivaLib);
+            updateNodeDataAndColor(blk.ID, blk, vivaLib);
         }
     });
 }
 
 export function updateNodeDataAndColor(
     nodeID: string,
-    msgData: tangleVertex,
+    blkData: tangleVertex,
     vivaLib: vivagraphLib
 ) {
     const exists = vivaLib.nodeExist(nodeID);
     // replace existing node data
-    if (exists && msgData) {
-        vivaLib.drawVertex(msgData);
-        updateNodeColorOnConfirmation(msgData, vivaLib);
-        if (msgData.isMarker) {
-            drawMarker(msgData.ID, vivaLib);
+    if (exists && blkData) {
+        vivaLib.drawVertex(blkData);
+        updateNodeColorOnConfirmation(blkData, vivaLib);
+        if (blkData.isMarker) {
+            drawMarker(blkData.ID, vivaLib);
         }
 
     }
@@ -432,22 +432,22 @@ function resetLinks(vivaLib: vivagraphLib) {
 }
 
 function updateNodeColorOnConfirmation(
-    msg: tangleVertex,
+    blk: tangleVertex,
     vivaLib: vivagraphLib
 ) {
-    const nodeUI = vivaLib.graphics.getNodeUI(msg.ID);
+    const nodeUI = vivaLib.graphics.getNodeUI(blk.ID);
     if (!nodeUI) return;
-    if (msg.isTip) return;
+    if (blk.isTip) return;
 
     let color = '';
-    color = msg.isTx ? COLOR.TRANSACTION_PENDING : COLOR.MESSAGE_PENDING;
-    if (msg.isConfirmed) {
-        color = msg.isTx
+    color = blk.isTx ? COLOR.TRANSACTION_PENDING : COLOR.MESSAGE_PENDING;
+    if (blk.isConfirmed) {
+        color = blk.isTx
             ? COLOR.TRANSACTION_CONFIRMED
             : COLOR.MESSAGE_CONFIRMED;
     }
-    if (msg.isTx && msg.isConfirmed) {
-        msg.isTxConfirmed ? drawWinnerMark(msg.ID, vivaLib) : drawRejectMark(msg.ID, vivaLib);
+    if (blk.isTx && blk.isConfirmed) {
+        blk.isTxConfirmed ? drawWinnerMark(blk.ID, vivaLib) : drawRejectMark(blk.ID, vivaLib);
     }
     setUINodeColor(nodeUI.childNodes[0], color);
 }

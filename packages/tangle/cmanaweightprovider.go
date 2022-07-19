@@ -15,7 +15,6 @@ import (
 
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
-
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
@@ -93,10 +92,10 @@ func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
 	}
 }
 
-// Weight returns the weight and total weight for the given message.
-func (c *CManaWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
+// Weight returns the weight and total weight for the given block.
+func (c *CManaWeightProvider) Weight(block *Block) (weight, totalWeight float64) {
 	weights, totalWeight := c.WeightsOfRelevantVoters()
-	return weights[identity.NewID(message.IssuerPublicKey())], totalWeight
+	return weights[identity.NewID(block.IssuerPublicKey())], totalWeight
 }
 
 // WeightsOfRelevantVoters returns all relevant weights.

@@ -3,8 +3,8 @@ package packet
 import "github.com/iotaledger/hive.go/protocol/message"
 
 const (
-	// MessageTypeHeartbeat defines the Heartbeat msg type.
+	// MessageTypeHeartbeat defines the Heartbeat blk type.
 	MessageTypeHeartbeat message.Type = iota + 1
-	// MessageTypeMetricHeartbeat defines the Metric Heartbeat msg type.
+	// MessageTypeMetricHeartbeat defines the Metric Heartbeat blk type.
 	MessageTypeMetricHeartbeat
 )

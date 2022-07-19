@@ -56,12 +56,12 @@ func TestMetricHeartbeat(t *testing.T) {
 	require.Equal(t, hb, hbParsed)
 
 	tlvHeaderLength := int(tlv.HeaderMessageDefinition.MaxBytesLength)
-	msg, err := NewMetricHeartbeatMessage(hb)
+	blk, err := NewMetricHeartbeatBlock(hb)
 	require.NoError(t, err)
 
-	require.Equal(t, MessageTypeMetricHeartbeat, message.Type(msg[0]))
+	require.Equal(t, MessageTypeMetricHeartbeat, message.Type(blk[0]))
 
-	hbParsed, err = ParseMetricHeartbeat(msg[tlvHeaderLength:])
+	hbParsed, err = ParseMetricHeartbeat(blk[tlvHeaderLength:])
 	require.NoError(t, err)
 	require.Equal(t, hb, hbParsed)
 }
