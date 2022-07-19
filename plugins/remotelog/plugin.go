@@ -82,7 +82,7 @@ func configure(_ *node.Plugin) {
 	getGitInfo()
 
 	workerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		deps.RemoteLogger.SendLogBlk(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(blockIndex).(string))
+		deps.RemoteLogger.SendLogMsg(task.Param(levelIndex).(logger.Level), task.Param(nameIndex).(string), task.Param(blockIndex).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
@@ -154,7 +154,7 @@ type logBlock struct {
 	NodeID      string    `json:"nodeId"`
 	Level       string    `json:"level"`
 	Name        string    `json:"name"`
-	Blk         string    `json:"blk"`
+	Msg         string    `json:"msg"`
 	Timestamp   time.Time `json:"timestamp"`
 	Type        string    `json:"type"`
 }
