@@ -38,12 +38,12 @@ func TestScheduler_Submit(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.Scheduler.Start()
 
-	msg := newMessage(selfNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
-	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+	blk := newBlock(selfNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
+	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
 	time.Sleep(100 * time.Millisecond)
 	// unsubmit to allow the scheduler to shutdown
-	assert.NoError(t, tangle.Scheduler.Unsubmit(msg.ID()))
+	assert.NoError(t, tangle.Scheduler.Unsubmit(blk.ID()))
 }
 
 func TestScheduler_updateActiveNodeList(t *testing.T) {
@@ -89,29 +89,29 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 }
 
 func TestScheduler_Discarded(t *testing.T) {
-	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
+	t.Skip("Skip test. Zero mana nodes are allowed to issue blocks.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	noAManaNode := identity.GenerateIdentity()
 
-	messageDiscarded := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageDiscarded.Hook(event.NewClosure(func(event *MessageDiscardedEvent) {
-		messageDiscarded <- event.MessageID
+	blockDiscarded := make(chan BlockID, 1)
+	tangle.Scheduler.Events.BlockDiscarded.Hook(event.NewClosure(func(event *BlockDiscardedEvent) {
+		blockDiscarded <- event.BlockID
 	}))
 
 	tangle.Scheduler.Start()
 
-	// this node has no mana so the message will be discarded
-	msg := newMessage(noAManaNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
-	err := tangle.Scheduler.Submit(msg.ID())
+	// this node has no mana so the block will be discarded
+	blk := newBlock(noAManaNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
+	err := tangle.Scheduler.Submit(blk.ID())
 	assert.Truef(t, errors.Is(err, schedulerutils.ErrInsufficientMana), "unexpected error: %v", err)
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageDiscarded:
-			return assert.Equal(t, msg.ID(), id)
+		case id := <-blockDiscarded:
+			return assert.Equal(t, blk.ID(), id)
 		default:
 			return false
 		}
@@ -122,24 +122,24 @@ func TestScheduler_DiscardedAtShutdown(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	messageDiscarded := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageDiscarded.Hook(event.NewClosure(func(event *MessageDiscardedEvent) {
-		messageDiscarded <- event.MessageID
+	blockDiscarded := make(chan BlockID, 1)
+	tangle.Scheduler.Events.BlockDiscarded.Hook(event.NewClosure(func(event *BlockDiscardedEvent) {
+		blockDiscarded <- event.BlockID
 	}))
 
 	tangle.Scheduler.Start()
 
-	msg := newMessage(selfNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
-	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
+	blk := newBlock(selfNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
+	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
 
 	time.Sleep(100 * time.Millisecond)
 	tangle.Scheduler.Shutdown()
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageDiscarded:
-			return assert.Equal(t, msg.ID(), id)
+		case id := <-blockDiscarded:
+			return assert.Equal(t, blk.ID(), id)
 		default:
 			return false
 		}
@@ -159,37 +159,37 @@ func TestScheduler_Schedule(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	messageScheduled := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		messageScheduled <- event.MessageID
+	blockScheduled := make(chan BlockID, 1)
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		blockScheduled <- event.BlockID
 	}))
 
 	tangle.Scheduler.Start()
 
-	// create a new message from a different node
-	msg := newMessage(peerNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
-	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
-	assert.NoError(t, tangle.Scheduler.Ready(msg.ID()))
+	// create a new block from a different node
+	blk := newBlock(peerNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
+	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(blk.ID()))
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageScheduled:
-			return assert.Equal(t, msg.ID(), id)
+		case id := <-blockScheduled:
+			return assert.Equal(t, blk.ID(), id)
 		default:
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
-// MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all messages as confirmed.
+// MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all blocks as confirmed.
 type MockConfirmationOracleConfirmed struct {
 	ConfirmationOracle
 	events *ConfirmationEvents
 }
 
-// IsMessageConfirmed mocks its interface function returning that all messages are confirmed.
-func (m *MockConfirmationOracleConfirmed) IsMessageConfirmed(_ MessageID) bool {
+// IsBlockConfirmed mocks its interface function returning that all blocks are confirmed.
+func (m *MockConfirmationOracleConfirmed) IsBlockConfirmed(_ BlockID) bool {
 	return true
 }
 
@@ -204,73 +204,73 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 		ConfirmationOracle: tangle.ConfirmationOracle,
 		events:             NewConfirmationEvents(),
 	}
-	messageScheduled := make(chan MessageID, 1)
-	messageSkipped := make(chan MessageID, 1)
+	blockScheduled := make(chan BlockID, 1)
+	blockSkipped := make(chan BlockID, 1)
 
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		messageScheduled <- event.MessageID
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		blockScheduled <- event.BlockID
 	}))
-	tangle.Scheduler.Events.MessageSkipped.Hook(event.NewClosure(func(event *MessageSkippedEvent) {
-		messageSkipped <- event.MessageID
+	tangle.Scheduler.Events.BlockSkipped.Hook(event.NewClosure(func(event *BlockSkippedEvent) {
+		blockSkipped <- event.BlockID
 	}))
 
 	tangle.Scheduler.Setup()
 
-	// create a new message from a different node and mark it as ready and confirmed, but younger than 1 minute
-	msgReadyConfirmedNew := newMessage(peerNode.PublicKey())
-	tangle.Storage.StoreMessage(msgReadyConfirmedNew)
-	assert.NoError(t, tangle.Scheduler.Submit(msgReadyConfirmedNew.ID()))
-	assert.NoError(t, tangle.Scheduler.Ready(msgReadyConfirmedNew.ID()))
+	// create a new block from a different node and mark it as ready and confirmed, but younger than 1 minute
+	blkReadyConfirmedNew := newBlock(peerNode.PublicKey())
+	tangle.Storage.StoreBlock(blkReadyConfirmedNew)
+	assert.NoError(t, tangle.Scheduler.Submit(blkReadyConfirmedNew.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(blkReadyConfirmedNew.ID()))
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageScheduled:
-			return assert.Equal(t, msgReadyConfirmedNew.ID(), id)
+		case id := <-blockScheduled:
+			return assert.Equal(t, blkReadyConfirmedNew.ID(), id)
 		default:
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 
-	// create a new message from a different node and mark it as unready and confirmed, but younger than 1 minute
-	msgUnreadyConfirmedNew := newMessage(peerNode.PublicKey())
-	tangle.Storage.StoreMessage(msgUnreadyConfirmedNew)
-	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedNew.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedNew})
-	// make sure that the message was not unsubmitted
-	assert.Equal(t, NewMessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
-	assert.NoError(t, tangle.Scheduler.Ready(msgUnreadyConfirmedNew.ID()))
+	// create a new block from a different node and mark it as unready and confirmed, but younger than 1 minute
+	blkUnreadyConfirmedNew := newBlock(peerNode.PublicKey())
+	tangle.Storage.StoreBlock(blkUnreadyConfirmedNew)
+	assert.NoError(t, tangle.Scheduler.Submit(blkUnreadyConfirmedNew.ID()))
+	tangle.ConfirmationOracle.Events().BlockAccepted.Trigger(&BlockAcceptedEvent{blkUnreadyConfirmedNew})
+	// make sure that the block was not unsubmitted
+	assert.Equal(t, blockIDFromElementID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), blkUnreadyConfirmedNew.ID())
+	assert.NoError(t, tangle.Scheduler.Ready(blkUnreadyConfirmedNew.ID()))
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageScheduled:
-			return assert.Equal(t, msgUnreadyConfirmedNew.ID(), id)
+		case id := <-blockScheduled:
+			return assert.Equal(t, blkUnreadyConfirmedNew.ID(), id)
 		default:
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 
-	// create a new message from a different node and mark it as ready and confirmed, but older than 1 minute
-	msgReadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
-	tangle.Storage.StoreMessage(msgReadyConfirmedOld)
-	assert.NoError(t, tangle.Scheduler.Submit(msgReadyConfirmedOld.ID()))
-	assert.NoError(t, tangle.Scheduler.Ready(msgReadyConfirmedOld.ID()))
+	// create a new block from a different node and mark it as ready and confirmed, but older than 1 minute
+	blkReadyConfirmedOld := newBlockWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
+	tangle.Storage.StoreBlock(blkReadyConfirmedOld)
+	assert.NoError(t, tangle.Scheduler.Submit(blkReadyConfirmedOld.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(blkReadyConfirmedOld.ID()))
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageSkipped:
-			return assert.Equal(t, msgReadyConfirmedOld.ID(), id)
+		case id := <-blockSkipped:
+			return assert.Equal(t, blkReadyConfirmedOld.ID(), id)
 		default:
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 
-	// create a new message from a different node and mark it as unready and confirmed, but older than 1 minute
-	msgUnreadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
-	tangle.Storage.StoreMessage(msgUnreadyConfirmedOld)
-	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedOld.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedOld})
+	// create a new block from a different node and mark it as unready and confirmed, but older than 1 minute
+	blkUnreadyConfirmedOld := newBlockWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
+	tangle.Storage.StoreBlock(blkUnreadyConfirmedOld)
+	assert.NoError(t, tangle.Scheduler.Submit(blkUnreadyConfirmedOld.ID()))
+	tangle.ConfirmationOracle.Events().BlockAccepted.Trigger(&BlockAcceptedEvent{blkUnreadyConfirmedOld})
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageSkipped:
-			return assert.Equal(t, msgUnreadyConfirmedOld.ID(), id)
+		case id := <-blockSkipped:
+			return assert.Equal(t, blkUnreadyConfirmedOld.ID(), id)
 		default:
 			return false
 		}
@@ -282,7 +282,7 @@ func TestScheduler_SetRate(t *testing.T) {
 	defer tangle.Shutdown()
 
 	var scheduled atomic.Bool
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(_ *MessageScheduledEvent) {
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(_ *BlockScheduledEvent) {
 		scheduled.Store(true)
 	}))
 
@@ -293,17 +293,17 @@ func TestScheduler_SetRate(t *testing.T) {
 	// assure that any potential ticks issued before the rate change have been processed
 	time.Sleep(100 * time.Millisecond)
 
-	// submit a new message to the scheduler
-	msg := newMessage(peerNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
-	assert.NoError(t, tangle.Scheduler.Submit(msg.ID()))
-	assert.NoError(t, tangle.Scheduler.Ready(msg.ID()))
+	// submit a new block to the scheduler
+	blk := newBlock(peerNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
+	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
+	assert.NoError(t, tangle.Scheduler.Ready(blk.ID()))
 
-	// the message should not be scheduled as the rate is too low
+	// the block should not be scheduled as the rate is too low
 	time.Sleep(100 * time.Millisecond)
 	assert.False(t, scheduled.Load())
 
-	// after reducing the rate again, the message should eventually be scheduled
+	// after reducing the rate again, the block should eventually be scheduled
 	tangle.Scheduler.SetRate(10 * time.Millisecond)
 	assert.Eventually(t, scheduled.Load, 1*time.Second, 10*time.Millisecond)
 }
@@ -312,27 +312,27 @@ func TestScheduler_Time(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	messageScheduled := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		messageScheduled <- event.MessageID
+	blockScheduled := make(chan BlockID, 1)
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		blockScheduled <- event.BlockID
 	}))
 
 	tangle.Scheduler.Start()
 
-	future := newMessage(peerNode.PublicKey())
+	future := newBlock(peerNode.PublicKey())
 	future.M.IssuingTime = time.Now().Add(time.Second)
-	tangle.Storage.StoreMessage(future)
+	tangle.Storage.StoreBlock(future)
 	assert.NoError(t, tangle.Scheduler.Submit(future.ID()))
 
-	now := newMessage(peerNode.PublicKey())
-	tangle.Storage.StoreMessage(now)
+	now := newBlock(peerNode.PublicKey())
+	tangle.Storage.StoreBlock(now)
 	assert.NoError(t, tangle.Scheduler.Submit(now.ID()))
 
 	assert.NoError(t, tangle.Scheduler.Ready(future.ID()))
 	assert.NoError(t, tangle.Scheduler.Ready(now.ID()))
 
 	done := make(chan struct{})
-	scheduledIDs := NewMessageIDs()
+	scheduledIDs := NewBlockIDs()
 	go func() {
 		defer close(done)
 		timer := time.NewTimer(time.Until(future.IssuingTime()) + 100*time.Millisecond)
@@ -340,9 +340,9 @@ func TestScheduler_Time(t *testing.T) {
 			select {
 			case <-timer.C:
 				return
-			case id := <-messageScheduled:
-				tangle.Storage.Message(id).Consume(func(msg *Message) {
-					assert.Truef(t, time.Now().After(msg.IssuingTime()), "scheduled too early: %s", time.Until(msg.IssuingTime()))
+			case id := <-blockScheduled:
+				tangle.Storage.Block(id).Consume(func(blk *Block) {
+					assert.Truef(t, time.Now().After(blk.IssuingTime()), "scheduled too early: %s", time.Until(blk.IssuingTime()))
 					scheduledIDs.Add(id)
 				})
 			}
@@ -350,7 +350,7 @@ func TestScheduler_Time(t *testing.T) {
 	}()
 
 	<-done
-	assert.Equal(t, NewMessageIDs(now.ID(), future.ID()), scheduledIDs)
+	assert.Equal(t, NewBlockIDs(now.ID(), future.ID()), scheduledIDs)
 }
 
 func TestScheduler_Issue(t *testing.T) {
@@ -363,28 +363,28 @@ func TestScheduler_Issue(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Message))
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Block))
 	}))
 	tangle.Scheduler.Start()
 
-	const numMessages = 5
-	messageScheduled := make(chan MessageID, numMessages)
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		messageScheduled <- event.MessageID
+	const numBlocks = 5
+	blockScheduled := make(chan BlockID, numBlocks)
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		blockScheduled <- event.BlockID
 	}))
 
-	ids := NewMessageIDs()
-	for i := 0; i < numMessages; i++ {
-		msg := newMessage(selfNode.PublicKey())
-		tangle.Storage.StoreMessage(msg)
-		ids.Add(msg.ID())
+	ids := NewBlockIDs()
+	for i := 0; i < numBlocks; i++ {
+		blk := newBlock(selfNode.PublicKey())
+		tangle.Storage.StoreBlock(blk)
+		ids.Add(blk.ID())
 	}
 
-	scheduledIDs := NewMessageIDs()
+	scheduledIDs := NewBlockIDs()
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageScheduled:
+		case id := <-blockScheduled:
 			scheduledIDs.Add(id)
 			return len(scheduledIDs) == len(ids)
 		default:
@@ -406,48 +406,48 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Message))
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Block))
 	}))
 	tangle.Scheduler.Start()
 
 	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
-	messages := make(map[string]*Message)
-	messages["A"] = newMessage(selfNode.PublicKey())
-	messages["B"] = newMessage(peerNode.PublicKey())
+	blocks := make(map[string]*Block)
+	blocks["A"] = newBlock(selfNode.PublicKey())
+	blocks["B"] = newBlock(peerNode.PublicKey())
 
 	// set C to have a timestamp in the future
-	msgC := newMessage(selfNode.PublicKey())
+	blkC := newBlock(selfNode.PublicKey())
 
-	msgC.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	blkC.M.Parents.AddAll(StrongParentType, NewBlockIDs(blocks["A"].ID(), blocks["B"].ID()))
 
-	msgC.M.IssuingTime = time.Now().Add(5 * time.Second)
-	messages["C"] = msgC
+	blkC.M.IssuingTime = time.Now().Add(5 * time.Second)
+	blocks["C"] = blkC
 
-	msgD := newMessage(peerNode.PublicKey())
-	msgD.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
-	messages["D"] = msgD
+	blkD := newBlock(peerNode.PublicKey())
+	blkD.M.Parents.AddAll(StrongParentType, NewBlockIDs(blocks["A"].ID(), blocks["B"].ID()))
+	blocks["D"] = blkD
 
-	msgE := newMessage(selfNode.PublicKey())
-	msgE.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
-	msgE.M.IssuingTime = time.Now().Add(3 * time.Second)
-	messages["E"] = msgE
+	blkE := newBlock(selfNode.PublicKey())
+	blkE.M.Parents.AddAll(StrongParentType, NewBlockIDs(blocks["A"].ID(), blocks["B"].ID()))
+	blkE.M.IssuingTime = time.Now().Add(3 * time.Second)
+	blocks["E"] = blkE
 
-	messageScheduled := make(chan MessageID, len(messages))
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
-		messageScheduled <- event.MessageID
+	blockScheduled := make(chan BlockID, len(blocks))
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
+		blockScheduled <- event.BlockID
 	}))
 
-	for _, message := range messages {
-		tangle.Storage.StoreMessage(message)
+	for _, block := range blocks {
+		tangle.Storage.StoreBlock(block)
 	}
 
-	var scheduledIDs []MessageID
+	var scheduledIDs []BlockID
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageScheduled:
+		case id := <-blockScheduled:
 			scheduledIDs = append(scheduledIDs, id)
-			return len(scheduledIDs) == len(messages)
+			return len(scheduledIDs) == len(blocks)
 		default:
 			return false
 		}
@@ -456,7 +456,7 @@ func TestSchedulerFlow(t *testing.T) {
 
 func TestSchedulerParallelSubmit(t *testing.T) {
 	const (
-		totalMsgCount = 200
+		totalBlkCount = 200
 		tangleWidth   = 250
 		networkDelay  = 5 * time.Millisecond
 	)
@@ -474,58 +474,58 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Message))
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.Block))
 	}))
 	tangle.Scheduler.Start()
 
-	// generate the messages we want to solidify
-	messages := make(map[MessageID]*Message, totalMsgCount)
-	for i := 0; i < totalMsgCount/2; i++ {
-		msg := newMessage(selfNode.PublicKey())
-		messages[msg.ID()] = msg
+	// generate the blocks we want to solidify
+	blocks := make(map[BlockID]*Block, totalBlkCount)
+	for i := 0; i < totalBlkCount/2; i++ {
+		blk := newBlock(selfNode.PublicKey())
+		blocks[blk.ID()] = blk
 	}
 
-	for i := 0; i < totalMsgCount/2; i++ {
-		msg := newMessage(peerNode.PublicKey())
-		messages[msg.ID()] = msg
+	for i := 0; i < totalBlkCount/2; i++ {
+		blk := newBlock(peerNode.PublicKey())
+		blocks[blk.ID()] = blk
 	}
 
-	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		t.Logf(event.Message.ID().Base58(), " solid")
+	tangle.Solidifier.Events.BlockSolid.Hook(event.NewClosure(func(event *BlockSolidEvent) {
+		t.Logf(event.Block.ID().Base58(), " solid")
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
+	tangle.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *BlockScheduledEvent) {
 		n := totalScheduled.Add(1)
-		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
+		t.Logf("scheduled blocks %d/%d", n, totalBlkCount)
 	}))
 
 	// issue tips to start solidification
 	t.Run("ParallelSubmit", func(t *testing.T) {
-		for _, m := range messages {
+		for _, m := range blocks {
 			t.Run(m.ID().Base58(), func(t *testing.T) {
 				m := m
 				t.Parallel()
-				t.Logf("issue message: %s", m.ID().Base58())
-				tangle.Storage.StoreMessage(m)
+				t.Logf("issue block: %s", m.ID().Base58())
+				tangle.Storage.StoreBlock(m)
 			})
 		}
 	})
 
-	// wait for all messages to have a formed opinion
-	assert.Eventually(t, func() bool { return totalScheduled.Load() == totalMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	// wait for all blocks to have a formed opinion
+	assert.Eventually(t, func() bool { return totalScheduled.Load() == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)
 }
 
 func BenchmarkScheduler(b *testing.B) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	msg := newMessage(selfNode.PublicKey())
-	tangle.Storage.StoreMessage(msg)
+	blk := newBlock(selfNode.PublicKey())
+	tangle.Storage.StoreBlock(blk)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if err := tangle.Scheduler.SubmitAndReady(msg); err != nil {
+		if err := tangle.Scheduler.SubmitAndReady(blk); err != nil {
 			b.Fatal(err)
 		}
 		tangle.Scheduler.schedule()
@@ -533,14 +533,16 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
-var timeOffset = 0 * time.Nanosecond
-var timeOffsetMutex = sync.Mutex{}
+var (
+	timeOffset      = 0 * time.Nanosecond
+	timeOffsetMutex = sync.Mutex{}
+)
 
-func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
+func newBlock(issuerPublicKey ed25519.PublicKey) *Block {
 	timeOffsetMutex.Lock()
 	timeOffset++
-	message := NewMessage(
-		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+	block := NewBlock(
+		emptyLikeReferencesFromStrongParents(NewBlockIDs(EmptyBlockID)),
 		time.Now().Add(timeOffset),
 		issuerPublicKey,
 		0,
@@ -551,17 +553,17 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		epoch.NewECRecord(0),
 	)
 	timeOffsetMutex.Unlock()
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	return message
+	return block
 }
 
-func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Message {
-	message := NewMessage(
-		ParentMessageIDs{
+func newBlockWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Block {
+	block := NewBlock(
+		ParentBlockIDs{
 			StrongParentType: {
-				EmptyMessageID: types.Void,
+				EmptyBlockID: types.Void,
 			},
 		},
 		timestamp,
@@ -573,10 +575,10 @@ func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.T
 		0,
 		epoch.NewECRecord(0),
 	)
-	if err := message.DetermineID(); err != nil {
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	return message
+	return block
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

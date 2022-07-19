@@ -20,12 +20,12 @@ func registerRateSetterMetrics() {
 
 	rateSetterBufferSize = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "ratesetter_buffer_size",
-		Help: "number of ready messages in the scheduler buffer.",
+		Help: "number of ready blocks in the scheduler buffer.",
 	})
 
 	rateSetterEstimate = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "ratesetter_estimate",
-		Help: "number of milliseconds until a new message will be issued by the node.",
+		Help: "number of milliseconds until a new block will be issued by the node.",
 	})
 	registry.MustRegister(rateSetterRate)
 	registry.MustRegister(rateSetterBufferSize)

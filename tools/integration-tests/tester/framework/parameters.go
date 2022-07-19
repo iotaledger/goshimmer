@@ -48,7 +48,7 @@ type CreateNetworkConfig struct {
 	Faucet bool
 	// PeerMaster specifies whether the network should include the peer master.
 	PeerMaster bool
-	// Activity specifies whether nodes schedule activity messages in regular intervals.
+	// Activity specifies whether nodes schedule activity blocks in regular intervals.
 	Activity bool
 	// Snapshot to be generated and rendered available for the network.
 	Snapshot SnapshotInfo
@@ -60,7 +60,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
+	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint", "ManaInitializer"}
 
 	c.GenesisTime = GenesisTime
 
@@ -75,6 +75,7 @@ func PeerConfig() config.GoShimmer {
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
+	c.P2P.Enabled = true
 	c.Gossip.Enabled = true
 
 	c.POW.Enabled = true
@@ -87,8 +88,12 @@ func PeerConfig() config.GoShimmer {
 	c.AutoPeering.BindAddress = fmt.Sprintf(":%d", peeringPort)
 	c.AutoPeering.EntryNodes = nil
 
-	c.MessageLayer.Enabled = true
-	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
+	c.BlockLayer.Enabled = true
+	c.BlockLayer.Snapshot.GenesisNode = "" // use the default time based approach
+
+	c.Notarization.Enabled = true
+	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
+	c.Notarization.MinEpochCommitableAge = 10 * time.Second
 
 	c.RateSetter.Enabled = true
 	c.RateSetter.RateSetterParametersDefinition.Enable = false
@@ -107,8 +112,6 @@ func PeerConfig() config.GoShimmer {
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
 
-	c.Notarization.Enabled = true
-
 	return c
 }
 
@@ -117,13 +120,15 @@ func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
-		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIMessageEndpoint",
+		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
-		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization", "ManaInitializer", "Firewall", "WebAPILedgerstateEndpoint")
+		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization",
+		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager")
+	c.P2P.Enabled = false
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
-	c.MessageLayer.Enabled = false
+	c.BlockLayer.Enabled = false
 	c.Faucet.Enabled = false
 	c.Mana.Enabled = false
 	c.Consensus.Enabled = false

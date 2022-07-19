@@ -143,10 +143,10 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 	}
 }
 
-func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
-	if len(optionalErrorMessage) >= 1 {
+func printUsage(command *flag.FlagSet, optionalErrorBlock ...string) {
+	if len(optionalErrorBlock) >= 1 {
 		_, _ = fmt.Fprintf(os.Stderr, "\n")
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR:\n  "+optionalErrorMessage[0]+"\n")
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR:\n  "+optionalErrorBlock[0]+"\n")
 	}
 
 	if command == nil {
@@ -202,7 +202,7 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 
 		flag.PrintDefaults()
 
-		if len(optionalErrorMessage) >= 1 {
+		if len(optionalErrorBlock) >= 1 {
 			panic(Exit{1})
 		}
 
@@ -216,7 +216,7 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	fmt.Println("OPTIONS:")
 	command.PrintDefaults()
 
-	if len(optionalErrorMessage) >= 1 {
+	if len(optionalErrorBlock) >= 1 {
 		panic(Exit{1})
 	}
 

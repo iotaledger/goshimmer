@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -29,15 +29,15 @@ var (
 	visualizerWorkerCount     = 1
 	visualizerWorkerQueueSize = 500
 	visualizerWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	maxWsMessageBufferSize    = 200
-	buffer                    []*wsMessage
+	maxWsBlockBufferSize      = 200
+	buffer                    []*wsBlock
 	bufferMutex               sync.RWMutex
 )
 
 func setupVisualizer() {
 	// create and start workerpool
 	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		broadcastWsMessage(task.Param(0))
+		broadcastWsBlock(task.Param(0))
 	}, workerpool.WorkerCount(visualizerWorkerCount), workerpool.QueueSize(visualizerWorkerQueueSize))
 }
 
@@ -46,7 +46,7 @@ func runVisualizer() {
 		// register to events
 		registerTangleEvents()
 		registerUTXOEvents()
-		registerBranchEvents()
+		registerConflictEvents()
 
 		<-ctx.Done()
 		log.Info("Stopping DAGs Visualizer ...")
@@ -58,203 +58,203 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		wsMsg := &wsMessage{
-			Type: MsgTypeTangleVertex,
-			Data: newTangleVertex(event.Message),
+	storeClosure := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeTangleVertex,
+			Data: newTangleVertex(event.Block),
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
-	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
-		messageID := event.MessageID
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
+	bookedClosure := event.NewClosure(func(event *tangle.BlockBookedEvent) {
+		blockID := event.BlockID
+		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangle.BlockMetadata) {
+			conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(blockID)
 			if err != nil {
-				branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+				conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 			}
 
-			wsMsg := &wsMessage{
-				Type: MsgTypeTangleBooked,
+			wsBlk := &wsBlock{
+				Type: BlkTypeTangleBooked,
 				Data: &tangleBooked{
-					ID:        messageID.Base58(),
-					IsMarker:  msgMetadata.StructureDetails().IsPastMarker(),
-					BranchIDs: lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+					ID:          blockID.Base58(),
+					IsMarker:    blkMetadata.StructureDetails().IsPastMarker(),
+					ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
+			visualizerWorkerPool.TrySubmit(wsBlk)
+			storeWsBlock(wsBlk)
 		})
 	})
 
-	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		messageID := event.Message.ID()
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			wsMsg := &wsMessage{
-				Type: MsgTypeTangleConfirmed,
+	blkConfirmedClosure := event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+		blockID := event.Block.ID()
+		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangle.BlockMetadata) {
+			wsBlk := &wsBlock{
+				Type: BlkTypeTangleConfirmed,
 				Data: &tangleConfirmed{
-					ID:            messageID.Base58(),
-					GoF:           msgMetadata.GradeOfFinality().String(),
-					ConfirmedTime: msgMetadata.GradeOfFinalityTime().UnixNano(),
+					ID:                    blockID.Base58(),
+					ConfirmationState:     blkMetadata.ConfirmationState().String(),
+					ConfirmationStateTime: blkMetadata.ConfirmationStateTime().UnixNano(),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
+			visualizerWorkerPool.TrySubmit(wsBlk)
+			storeWsBlock(wsBlk)
 		})
 	})
 
-	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
-		var msgID tangle.MessageID
+	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		var blkID tangle.BlockID
 		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
-			msgID = a.MessageID()
+			blkID = a.BlockID()
 		})
 
-		wsMsg := &wsMessage{
-			Type: MsgTypeTangleTxGoF,
-			Data: &tangleTxGoFChanged{
-				ID:          msgID.Base58(),
-				IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(event.TransactionID),
+		wsBlk := &wsBlock{
+			Type: BlkTypeTangleTxConfirmationState,
+			Data: &tangleTxConfirmationStateChanged{
+				ID:          blkID.Base58(),
+				IsConfirmed: deps.AcceptanceGadget.IsTransactionConfirmed(event.TransactionID),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
-	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
-	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
+	deps.Tangle.Storage.Events.BlockStored.Attach(storeClosure)
+	deps.Tangle.Booker.Events.BlockBooked.Attach(bookedClosure)
+	deps.AcceptanceGadget.Events().BlockAccepted.Attach(blkConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
 func registerUTXOEvents() {
-	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		if event.Message.Payload().Type() == devnetvm.TransactionType {
-			tx := event.Message.Payload().(*devnetvm.Transaction)
-			wsMsg := &wsMessage{
-				Type: MsgTypeUTXOVertex,
-				Data: newUTXOVertex(event.Message.ID(), tx),
+	storeClosure := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		if event.Block.Payload().Type() == devnetvm.TransactionType {
+			tx := event.Block.Payload().(*devnetvm.Transaction)
+			wsBlk := &wsBlock{
+				Type: BlkTypeUTXOVertex,
+				Data: newUTXOVertex(event.Block.ID(), tx),
 			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
+			visualizerWorkerPool.TrySubmit(wsBlk)
+			storeWsBlock(wsBlk)
 		}
 	})
 
-	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
-		messageID := event.MessageID
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			if message.Payload().Type() == devnetvm.TransactionType {
-				tx := message.Payload().(*devnetvm.Transaction)
+	bookedClosure := event.NewClosure(func(event *tangle.BlockBookedEvent) {
+		blockID := event.BlockID
+		deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+			if block.Payload().Type() == devnetvm.TransactionType {
+				tx := block.Payload().(*devnetvm.Transaction)
 				deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
-					wsMsg := &wsMessage{
-						Type: MsgTypeUTXOBooked,
+					wsBlk := &wsBlock{
+						Type: BlkTypeUTXOBooked,
 						Data: &utxoBooked{
-							ID:        tx.ID().Base58(),
-							BranchIDs: lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58),
+							ID:          tx.ID().Base58(),
+							ConflictIDs: lo.Map(txMetadata.ConflictIDs().Slice(), utxo.TransactionID.Base58),
 						},
 					}
-					visualizerWorkerPool.TrySubmit(wsMsg)
-					storeWsMessage(wsMsg)
+					visualizerWorkerPool.TrySubmit(wsBlk)
+					storeWsBlock(wsBlk)
 				})
 			}
 		})
 	})
 
-	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 		txID := event.TransactionID
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
-			wsMsg := &wsMessage{
-				Type: MsgTypeUTXOGoFChanged,
-				Data: &utxoGoFChanged{
-					ID:          txID.Base58(),
-					GoF:         txMetadata.GradeOfFinality().String(),
-					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
-					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
+			wsBlk := &wsBlock{
+				Type: BlkTypeUTXOConfirmationStateChanged,
+				Data: &utxoConfirmationStateChanged{
+					ID:                    txID.Base58(),
+					ConfirmationState:     txMetadata.ConfirmationState().String(),
+					ConfirmationStateTime: txMetadata.ConfirmationStateTime().UnixNano(),
+					IsConfirmed:           deps.AcceptanceGadget.IsTransactionConfirmed(txID),
 				},
 			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
+			visualizerWorkerPool.TrySubmit(wsBlk)
+			storeWsBlock(wsBlk)
 		})
 	})
 
-	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
-	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
+	deps.Tangle.Storage.Events.BlockStored.Attach(storeClosure)
+	deps.Tangle.Booker.Events.BlockBooked.Attach(bookedClosure)
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
-func registerBranchEvents() {
+func registerConflictEvents() {
 	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		wsMsg := &wsMessage{
-			Type: MsgTypeBranchVertex,
-			Data: newBranchVertex(event.ID),
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictVertex,
+			Data: newConflictVertex(event.ID),
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
-	parentUpdateClosure := event.NewClosure(func(event *conflictdag.BranchParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58)
-		wsMsg := &wsMessage{
-			Type: MsgTypeBranchParentsUpdate,
-			Data: &branchParentUpdate{
-				ID:      event.BranchID.Base58(),
-				Parents: lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58),
+	parentUpdateClosure := event.NewClosure(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictParentsUpdate,
+			Data: &conflictParentUpdate{
+				ID:      event.ConflictID.Base58(),
+				Parents: lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
-	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		wsMsg := &wsMessage{
-			Type: MsgTypeBranchGoFChanged,
-			Data: &branchGoFChanged{
-				ID:          event.ID.Base58(),
-				GoF:         gof.High.String(),
-				IsConfirmed: true,
+	conflictConfirmedClosure := event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictConfirmationStateChanged,
+			Data: &conflictConfirmationStateChanged{
+				ID:                event.ID.Base58(),
+				ConfirmationState: confirmation.Accepted.String(),
+				IsConfirmed:       true,
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
-	branchWeightChangedClosure := event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(e.BranchID)
-		wsMsg := &wsMessage{
-			Type: MsgTypeBranchWeightChanged,
-			Data: &branchWeightChanged{
-				ID:     e.BranchID.Base58(),
-				Weight: e.Weight,
-				GoF:    branchGoF.String(),
+	conflictWeightChangedClosure := event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+		conflictConfirmationState := deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
+		wsBlk := &wsBlock{
+			Type: BlkTypeConflictWeightChanged,
+			Data: &conflictWeightChanged{
+				ID:                e.ConflictID.Base58(),
+				Weight:            e.Weight,
+				ConfirmationState: conflictConfirmationState.String(),
 			},
 		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
 	})
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
-	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(conflictConfirmedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.ApprovalWeightManager.Events.ConflictWeightChanged.Attach(conflictWeightChangedClosure)
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
-	routeGroup.GET("/dagsvisualizer/branch/:branchID", func(c echo.Context) (err error) {
-		parents := make(map[string]*branchVertex)
-		var branchID utxo.TransactionID
-		if err = branchID.FromBase58(c.Param("branchID")); err != nil {
+	routeGroup.GET("/dagsvisualizer/conflict/:conflictID", func(c echo.Context) (err error) {
+		parents := make(map[string]*conflictVertex)
+		var conflictID utxo.TransactionID
+		if err = conflictID.FromBase58(c.Param("conflictID")); err != nil {
 			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 			return
 		}
-		vertex := newBranchVertex(branchID)
+		vertex := newConflictVertex(conflictID)
 		parents[vertex.ID] = vertex
-		getBranchesToMaster(vertex, parents)
+		getConflictsToMaster(vertex, parents)
 
-		var branches []*branchVertex
-		for _, branch := range parents {
-			branches = append(branches, branch)
+		var conflicts []*conflictVertex
+		for _, conflict := range parents {
+			conflicts = append(conflicts, conflict)
 		}
-		return c.JSON(http.StatusOK, branches)
+		return c.JSON(http.StatusOK, conflicts)
 	})
 
 	routeGroup.GET("/dagsvisualizer/search/:start/:end", func(c echo.Context) (err error) {
@@ -266,55 +266,55 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
 
-		messages := []*tangleVertex{}
+		blocks := []*tangleVertex{}
 		txs := []*utxoVertex{}
-		branches := []*branchVertex{}
-		branchMap := set.NewAdvancedSet[utxo.TransactionID]()
-		entryMsgs := tangle.NewMessageIDs()
-		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
-			entryMsgs.Add(approver.ApproverMessageID())
+		conflicts := []*conflictVertex{}
+		conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
+		entryBlks := tangle.NewBlockIDs()
+		deps.Tangle.Storage.Children(tangle.EmptyBlockID).Consume(func(child *tangle.Child) {
+			entryBlks.Add(child.ChildBlockID())
 		})
 
-		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
-			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-				// only keep messages that is issued in the given time interval
-				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
-					// add message
-					tangleNode := newTangleVertex(msg)
-					messages = append(messages, tangleNode)
+		deps.Tangle.Utils.WalkBlockID(func(blockID tangle.BlockID, walker *walker.Walker[tangle.BlockID]) {
+			deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangle.Block) {
+				// only keep blocks that is issued in the given time interval
+				if blk.IssuingTime().After(startTimestamp) && blk.IssuingTime().Before(endTimestamp) {
+					// add block
+					tangleNode := newTangleVertex(blk)
+					blocks = append(blocks, tangleNode)
 
 					// add tx
 					if tangleNode.IsTx {
-						utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*devnetvm.Transaction))
+						utxoNode := newUTXOVertex(blk.ID(), blk.Payload().(*devnetvm.Transaction))
 						txs = append(txs, utxoNode)
 					}
 
-					// add branch
-					branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(msg.ID())
+					// add conflict
+					conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(blk.ID())
 					if err != nil {
-						branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+						conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 					}
-					for it := branchIDs.Iterator(); it.HasNext(); {
-						branchID := it.Next()
-						if branchMap.Has(branchID) {
+					for it := conflictIDs.Iterator(); it.HasNext(); {
+						conflictID := it.Next()
+						if conflictMap.Has(conflictID) {
 							continue
 						}
 
-						branchMap.Add(branchID)
-						branches = append(branches, newBranchVertex(branchID))
+						conflictMap.Add(conflictID)
+						conflicts = append(conflicts, newConflictVertex(conflictID))
 					}
 				}
 
-				// continue walking if the message is issued before endTimestamp
-				if msg.IssuingTime().Before(endTimestamp) {
-					deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
-						walker.Push(approver.ApproverMessageID())
+				// continue walking if the block is issued before endTimestamp
+				if blk.IssuingTime().Before(endTimestamp) {
+					deps.Tangle.Storage.Children(blockID).Consume(func(child *tangle.Child) {
+						walker.Push(child.ChildBlockID())
 					})
 				}
 			})
-		}, entryMsgs)
+		}, entryBlks)
 
-		return c.JSON(http.StatusOK, searchResult{Messages: messages, Txs: txs, Branches: branches})
+		return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
 	})
 }
 
@@ -338,33 +338,33 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 	return true
 }
 
-func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
-	deps.Tangle.Storage.MessageMetadata(message.ID()).Consume(func(msgMetadata *tangle.MessageMetadata) {
-		branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(message.ID())
+func newTangleVertex(block *tangle.Block) (ret *tangleVertex) {
+	deps.Tangle.Storage.BlockMetadata(block.ID()).Consume(func(blkMetadata *tangle.BlockMetadata) {
+		conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(block.ID())
 		if err != nil {
-			branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+			conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 		}
 		ret = &tangleVertex{
-			ID:                   message.ID().Base58(),
-			StrongParentIDs:      message.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParentIDs:        message.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParentIDs: message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			BranchIDs:            lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-			IsMarker:             msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
-			IsTx:                 message.Payload().Type() == devnetvm.TransactionType,
-			IsConfirmed:          deps.FinalityGadget.IsMessageConfirmed(message.ID()),
-			ConfirmedTime:        msgMetadata.GradeOfFinalityTime().UnixNano(),
-			GoF:                  msgMetadata.GradeOfFinality().String(),
+			ID:                    block.ID().Base58(),
+			StrongParentIDs:       block.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParentIDs:         block.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParentIDs:  block.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
+			IsMarker:              blkMetadata.StructureDetails() != nil && blkMetadata.StructureDetails().IsPastMarker(),
+			IsTx:                  block.Payload().Type() == devnetvm.TransactionType,
+			IsConfirmed:           deps.AcceptanceGadget.IsBlockConfirmed(block.ID()),
+			ConfirmationStateTime: blkMetadata.ConfirmationStateTime().UnixNano(),
+			ConfirmationState:     blkMetadata.ConfirmationState().String(),
 		}
 	})
 
 	if ret.IsTx {
-		ret.TxID = message.Payload().(*devnetvm.Transaction).ID().Base58()
+		ret.TxID = block.Payload().(*devnetvm.Transaction).ID().Base58()
 	}
 	return
 }
 
-func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoVertex) {
+func newUTXOVertex(blkID tangle.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
 	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
 	for i, input := range tx.Essence().Inputs() {
 		inputs[i] = jsonmodels.NewInput(input)
@@ -375,34 +375,34 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 		outputs[i] = output.ID().Base58()
 	}
 
-	var gof string
+	var confirmationState string
 	var confirmedTime int64
-	var branchIDs []string
+	var conflictIDs []string
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
-		gof = txMetadata.GradeOfFinality().String()
-		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58)
+		confirmationState = txMetadata.ConfirmationState().String()
+		confirmedTime = txMetadata.ConfirmationStateTime().UnixNano()
+		conflictIDs = lo.Map(txMetadata.ConflictIDs().Slice(), utxo.TransactionID.Base58)
 	})
 
 	ret = &utxoVertex{
-		MsgID:       msgID.Base58(),
-		ID:          tx.ID().Base58(),
-		Inputs:      inputs,
-		Outputs:     outputs,
-		IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
-		BranchIDs:   branchIDs,
-		GoF:         gof,
-		GoFTime:     confirmedTime,
+		BlkID:                 blkID.Base58(),
+		ID:                    tx.ID().Base58(),
+		Inputs:                inputs,
+		Outputs:               outputs,
+		IsConfirmed:           deps.AcceptanceGadget.IsTransactionConfirmed(tx.ID()),
+		ConflictIDs:           conflictIDs,
+		ConfirmationState:     confirmationState,
+		ConfirmationStateTime: confirmedTime,
 	}
 
 	return ret
 }
 
-func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
-		// get conflicts of a branch
-		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+		// get conflicts of a conflict
+		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
 			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
@@ -410,36 +410,35 @@ func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
 			})
 		}
 
-		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
-		ret = &branchVertex{
-			ID:          branchID.Base58(),
-			Parents:     lo.Map(branch.Parents().Slice(), utxo.TransactionID.Base58),
-			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
-			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
-			GoF:         branchGoF.String(),
-			AW:          deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID),
+		ret = &conflictVertex{
+			ID:                conflictID.Base58(),
+			Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
+			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
+			IsConfirmed:       deps.AcceptanceGadget.IsConflictConfirmed(conflictID),
+			ConfirmationState: deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID)).String(),
+			AW:                deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID),
 		}
 	})
 	return
 }
 
-func storeWsMessage(msg *wsMessage) {
+func storeWsBlock(blk *wsBlock) {
 	bufferMutex.Lock()
 	defer bufferMutex.Unlock()
-	if len(buffer) >= maxWsMessageBufferSize {
+	if len(buffer) >= maxWsBlockBufferSize {
 		buffer = buffer[1:]
 	}
-	buffer = append(buffer, msg)
+	buffer = append(buffer, blk)
 }
 
-func getBranchesToMaster(vertex *branchVertex, parents map[string]*branchVertex) {
+func getConflictsToMaster(vertex *conflictVertex, parents map[string]*conflictVertex) {
 	for _, IDBase58 := range vertex.Parents {
 		if _, ok := parents[IDBase58]; !ok {
 			var ID utxo.TransactionID
 			if err := ID.FromBase58(IDBase58); err == nil {
-				parentVertex := newBranchVertex(ID)
+				parentVertex := newConflictVertex(ID)
 				parents[parentVertex.ID] = parentVertex
-				getBranchesToMaster(parentVertex, parents)
+				getConflictsToMaster(parentVertex, parents)
 			}
 		}
 	}

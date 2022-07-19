@@ -27,11 +27,11 @@ export class ExplorerTransactionAttachments extends React.Component<Props, any> 
         return (
             <div style={{marginTop: "20px", marginBottom: "20px"}}>
                 <h4>Attachments</h4>
-                {txAttachments && txAttachments.messageIDs && <Row className={"mb-3"}>
+                {txAttachments && txAttachments.blockIDs && <Row className={"mb-3"}>
                    <Col>
                        <ListGroup>
-                           {txAttachments.messageIDs.map((msgId, i) => {
-                               return <ListGroup.Item key={i}><a href={`/explorer/message/${msgId}`}>{msgId}</a></ListGroup.Item>
+                           {txAttachments.blockIDs.map((blkId, i) => {
+                               return <ListGroup.Item key={i}><a href={`/explorer/block/${blkId}`}>{blkId}</a></ListGroup.Item>
                            })}
                        </ListGroup>
                    </Col>

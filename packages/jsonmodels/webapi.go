@@ -54,22 +54,22 @@ type PostAddressesUnspentOutputsResponse struct {
 
 // endregion
 
-// region GetBranchChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictChildrenResponse ////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchChildrenResponse represents the JSON model of a response from the GetBranchChildren endpoint.
-type GetBranchChildrenResponse struct {
-	BranchID      string         `json:"branchID"`
-	ChildBranches []*ChildBranch `json:"childBranches"`
+// GetConflictChildrenResponse represents the JSON model of a response from the GetConflictChildren endpoint.
+type GetConflictChildrenResponse struct {
+	ConflictID     string           `json:"conflictID"`
+	ChildConflicts []*ChildConflict `json:"childConflicts"`
 }
 
-// NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given details.
-func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*conflictdag.ChildBranch[utxo.TransactionID]) *GetBranchChildrenResponse {
-	return &GetBranchChildrenResponse{
-		BranchID: branchID.Base58(),
-		ChildBranches: func() (mappedChildBranches []*ChildBranch) {
-			mappedChildBranches = make([]*ChildBranch, 0)
-			for _, childBranch := range childBranches {
-				mappedChildBranches = append(mappedChildBranches, NewChildBranch(childBranch))
+// NewGetConflictChildrenResponse returns a GetConflictChildrenResponse from the given details.
+func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts []*conflictdag.ChildConflict[utxo.TransactionID]) *GetConflictChildrenResponse {
+	return &GetConflictChildrenResponse{
+		ConflictID: conflictID.Base58(),
+		ChildConflicts: func() (mappedChildConflicts []*ChildConflict) {
+			mappedChildConflicts = make([]*ChildConflict, 0)
+			for _, childConflict := range childConflicts {
+				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(childConflict))
 			}
 
 			return
@@ -79,22 +79,22 @@ func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchConflictsResponse ///////////////////////////////////////////////////////////////////////////////////
+// region GetConflictConflictsResponse ///////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchConflictsResponse represents the JSON model of a response from the GetBranchConflicts endpoint.
-type GetBranchConflictsResponse struct {
-	BranchID  string      `json:"branchID"`
-	Conflicts []*Conflict `json:"conflicts"`
+// GetConflictConflictsResponse represents the JSON model of a response from the GetConflictConflicts endpoint.
+type GetConflictConflictsResponse struct {
+	ConflictID string      `json:"conflictID"`
+	Conflicts  []*Conflict `json:"conflicts"`
 }
 
-// NewGetBranchConflictsResponse returns a GetBranchConflictsResponse from the given details.
-func NewGetBranchConflictsResponse(branchID utxo.TransactionID, branchIDsPerConflictID map[utxo.OutputID][]utxo.TransactionID) *GetBranchConflictsResponse {
-	return &GetBranchConflictsResponse{
-		BranchID: branchID.Base58(),
+// NewGetConflictConflictsResponse returns a GetConflictConflictsResponse from the given details.
+func NewGetConflictConflictsResponse(conflictID utxo.TransactionID, conflictIDsPerConflictID map[utxo.OutputID][]utxo.TransactionID) *GetConflictConflictsResponse {
+	return &GetConflictConflictsResponse{
+		ConflictID: conflictID.Base58(),
 		Conflicts: func() (mappedConflicts []*Conflict) {
 			mappedConflicts = make([]*Conflict, 0)
-			for conflictID, branchIDs := range branchIDsPerConflictID {
-				mappedConflicts = append(mappedConflicts, NewConflict(conflictID, branchIDs))
+			for conflictID, conflictIDs := range conflictIDsPerConflictID {
+				mappedConflicts = append(mappedConflicts, NewConflict(conflictID, conflictIDs))
 			}
 
 			return
@@ -104,18 +104,18 @@ func NewGetBranchConflictsResponse(branchID utxo.TransactionID, branchIDsPerConf
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchVotersResponse //////////////////////////////////////////////////////////////////////////////////////
+// region GetConflictVotersResponse //////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchVotersResponse represents the JSON model of a response from the GetBranchVoters endpoint.
-type GetBranchVotersResponse struct {
-	BranchID string   `json:"branchID"`
-	Voters   []string `json:"voters"`
+// GetConflictVotersResponse represents the JSON model of a response from the GetConflictVoters endpoint.
+type GetConflictVotersResponse struct {
+	ConflictID string   `json:"conflictID"`
+	Voters     []string `json:"voters"`
 }
 
-// NewGetBranchVotersResponse returns a GetBranchVotersResponse from the given details.
-func NewGetBranchVotersResponse(branchID utxo.TransactionID, voters *tangle.Voters) *GetBranchVotersResponse {
-	return &GetBranchVotersResponse{
-		BranchID: branchID.Base58(),
+// NewGetConflictVotersResponse returns a GetConflictVotersResponse from the given details.
+func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *tangle.Voters) *GetConflictVotersResponse {
+	return &GetConflictVotersResponse{
+		ConflictID: conflictID.Base58(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
 			voters.ForEach(func(voter tangle.Voter) {
@@ -193,19 +193,19 @@ func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*ledger.C
 // GetTransactionAttachmentsResponse represents the JSON model of a response from the GetTransactionAttachments endpoint.
 type GetTransactionAttachmentsResponse struct {
 	TransactionID string   `json:"transactionID"`
-	MessageIDs    []string `json:"messageIDs"`
+	BlockIDs      []string `json:"blockIDs"`
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
-	var messageIDsBase58 []string
-	for messageID := range messageIDs {
-		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())
+func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs tangle.BlockIDs) *GetTransactionAttachmentsResponse {
+	var blockIDsBase58 []string
+	for blockID := range blockIDs {
+		blockIDsBase58 = append(blockIDsBase58, blockID.Base58())
 	}
 
 	return &GetTransactionAttachmentsResponse{
 		TransactionID: transactionID.Base58(),
-		MessageIDs:    messageIDsBase58,
+		BlockIDs:      blockIDsBase58,
 	}
 }
 
@@ -227,10 +227,10 @@ type PostPayloadResponse struct {
 	ID string `json:"id"`
 }
 
-// NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Message.
-func NewPostPayloadResponse(message *tangle.Message) *PostPayloadResponse {
+// NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Block.
+func NewPostPayloadResponse(block *tangle.Block) *PostPayloadResponse {
 	return &PostPayloadResponse{
-		ID: message.ID().Base58(),
+		ID: block.ID().Base58(),
 	}
 }
 

@@ -392,7 +392,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	// create a peer conf from the network conf
 	conf := PeerConfig()
 	if networkConfig.StartSynced {
-		conf.MessageLayer.StartSynced = true
+		conf.BlockLayer.StartSynced = true
 	}
 	if networkConfig.Autopeering {
 		conf.AutoPeering.Enabled = true

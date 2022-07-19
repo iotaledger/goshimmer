@@ -33,7 +33,7 @@ export var dagreOptions = {
     } // on layoutstop
 };
 
-export var branchDagreOptions = {
+export var conflictDagreOptions = {
     name: 'dagre',
     // dagre algo options, uses default value on undefined
     nodeSep: undefined, // the separation between adjacent nodes in the same rank

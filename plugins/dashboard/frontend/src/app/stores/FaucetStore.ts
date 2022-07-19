@@ -2,7 +2,7 @@ import {action, observable} from 'mobx';
 import {RouterStore} from "mobx-react-router";
 
 class SendResult {
-    MsgId: string;
+    BlkId: string;
 }
 
 enum QueryError {

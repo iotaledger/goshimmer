@@ -6,7 +6,7 @@ import (
 
 // region OTVConsensusManager /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OTVConsensusManager is the component in charge of forming opinions about branches.
+// OTVConsensusManager is the component in charge of forming opinions about conflicts.
 type OTVConsensusManager struct {
 	consensus.Mechanism
 }

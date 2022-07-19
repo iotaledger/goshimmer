@@ -13,20 +13,20 @@ import (
 
 // region Options ///////////////////////////////////////////////////////////////////////////
 
-// Options is a struct that represents a collection of options that can be set when creating a message
+// Options is a struct that represents a collection of options that can be set when creating a block
 type Options struct {
-	aliasInputs              map[string]types.Empty
-	inputs                   []utxo.OutputID
-	aliasOutputs             map[string]*devnetvm.ColoredBalances
-	outputs                  []*devnetvm.ColoredBalances
-	inputWallet              *Wallet
-	outputWallet             *Wallet
-	outputBatchAliases       map[string]types.Empty
-	reuse                    bool
-	issuingTime              time.Time
-	reattachmentMessageAlias string
-	sequenceNumber           uint64
-	overrideSequenceNumber   bool
+	aliasInputs            map[string]types.Empty
+	inputs                 []utxo.OutputID
+	aliasOutputs           map[string]*devnetvm.ColoredBalances
+	outputs                []*devnetvm.ColoredBalances
+	inputWallet            *Wallet
+	outputWallet           *Wallet
+	outputBatchAliases     map[string]types.Empty
+	reuse                  bool
+	issuingTime            time.Time
+	reattachmentBlockAlias string
+	sequenceNumber         uint64
+	overrideSequenceNumber bool
 }
 
 type OutputOption struct {
@@ -65,7 +65,7 @@ func NewOptions(options ...Option) (option *Options, err error) {
 	return
 }
 
-// Option is the type that is used for options that can be passed into the CreateMessage method to configure its
+// Option is the type that is used for options that can be passed into the CreateBlock method to configure its
 // behavior.
 type Option func(*Options)
 
@@ -142,7 +142,7 @@ func WithInputs(inputs interface{}) Option {
 	}
 }
 
-// WithOutput returns an Option that is used to define a non-colored Output for the Transaction in the Message.
+// WithOutput returns an Option that is used to define a non-colored Output for the Transaction in the Block.
 func WithOutput(output *OutputOption) Option {
 	return func(options *Options) {
 		if output.aliasName != "" {
@@ -157,7 +157,7 @@ func WithOutput(output *OutputOption) Option {
 	}
 }
 
-// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Message.
+// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Block.
 func WithOutputs(outputs []*OutputOption) Option {
 	return func(options *Options) {
 		for _, output := range outputs {
@@ -174,35 +174,35 @@ func WithOutputs(outputs []*OutputOption) Option {
 	}
 }
 
-// WithIssuer returns a MessageOption that is used to define the inputWallet of the Message.
+// WithIssuer returns a BlockOption that is used to define the inputWallet of the Block.
 func WithIssuer(issuer *Wallet) Option {
 	return func(options *Options) {
 		options.inputWallet = issuer
 	}
 }
 
-// WithOutputWallet returns a MessageOption that is used to define the inputWallet of the Message.
+// WithOutputWallet returns a BlockOption that is used to define the inputWallet of the Block.
 func WithOutputWallet(wallet *Wallet) Option {
 	return func(options *Options) {
 		options.outputWallet = wallet
 	}
 }
 
-// WithOutputBatchAliases returns a MessageOption that is used to determine which outputs should be added to the outWallet.
+// WithOutputBatchAliases returns a BlockOption that is used to determine which outputs should be added to the outWallet.
 func WithOutputBatchAliases(outputAliases map[string]types.Empty) Option {
 	return func(options *Options) {
 		options.outputBatchAliases = outputAliases
 	}
 }
 
-// WithReuseOutputs returns a MessageOption that is used to enable deep spamming with Reuse wallet outputs.
+// WithReuseOutputs returns a BlockOption that is used to enable deep spamming with Reuse wallet outputs.
 func WithReuseOutputs() Option {
 	return func(options *Options) {
 		options.reuse = true
 	}
 }
 
-// WithIssuingTime returns a MessageOption that is used to set issuing time of the Message.
+// WithIssuingTime returns a BlockOption that is used to set issuing time of the Block.
 func WithIssuingTime(issuingTime time.Time) Option {
 	return func(options *Options) {
 		options.issuingTime = issuingTime

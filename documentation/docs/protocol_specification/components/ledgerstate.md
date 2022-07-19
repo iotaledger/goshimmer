@@ -10,8 +10,8 @@ keywords:
 - input
 - signature unlock block
 - reference unlock block
-- conflict branch
-- aggregate branch
+- conflict conflict
+- aggregate conflict
 ---
 ## UTXO model
 
@@ -168,7 +168,7 @@ This validation can commence as soon as the transaction data has been received i
 The following criteria define whether the transaction passes the syntactical validation:
 * Transaction Essence:
     * `Transaction Essence Version` value must be 0.
-    * The `timestamp` of the _Transaction Essence_ must be older than (or equal to) the `timestamp` of the message
+    * The `timestamp` of the _Transaction Essence_ must be older than (or equal to) the `timestamp` of the block
       containing the transaction by at most 10 minutes.
     * A _Transaction Essence_ must contain at least one input and output.
 * Inputs:
@@ -196,7 +196,7 @@ The following criteria define whether the transaction passes the syntactical val
 * `Signature Unlock Blocks` must define either an `Ed25519`- or `BLS Signature`.
 * A `Signature Unlock Block` unlocking multiple inputs must only appear once (be unique) and be positioned at the same index of the first input it unlocks. All other inputs unlocked by the same `Signature Unlock Block` must have a companion `Reference Unlock Block` at the same index as the corresponding input that points to the origin `Signature Unlock Block`.
 * `Reference Unlock Blocks` must specify a previous `Unlock Block` that is not of type `Reference Unlock Block`. The referenced index must therefore be smaller than the index of the `Reference Unlock Block`.
-* Given the type and length information, the _Transaction_ must consume the entire byte array the `Payload Length` field in the _Message_ defines.
+* Given the type and length information, the _Transaction_ must consume the entire byte array the `Payload Length` field in the _Block_ defines.
 
 
 ### Transaction Semantic Validation
@@ -209,7 +209,7 @@ The following criteria define whether the transaction passes the semantic valida
 
 If a transaction passes the semantic validation, its referenced UTXOs *shall* be marked as spent and the corresponding new outputs *shall* be booked/specified in the ledger. 
 
-Transactions that do not pass semantic validation *shall* be discarded. Their UTXOs are not marked as spent and neither are their outputs booked into the ledger. Moreover, their messages *shall* be considered invalid.
+Transactions that do not pass semantic validation *shall* be discarded. Their UTXOs are not marked as spent and neither are their outputs booked into the ledger. Moreover, their blocks *shall* be considered invalid.
 
 # Ledger State
 
@@ -225,26 +225,26 @@ To deal with double spends and leverage on certain properties of UTXO, we introd
 In the Realities Ledger State, we model the different perceptions of the ledger state that exist in the Tangle. In each “reality” on its own there are zero conflicting transactions. 
 Each reality thus forms an in itself consistent UTXO sub-DAG, where every transaction references any other transaction correctly.
 
-Since outputs of transactions can only be consumed once, a transaction that double spends outputs creates a persistent branch in a corresponding UTXO DAG. Each branch receives a unique identifier `branchID`. These branches cannot be merged by any vertices (transactions). 
-A transaction that attempts to merge incompatible branches fails to pass a validity check and is marked as invalid.
+Since outputs of transactions can only be consumed once, a transaction that double spends outputs creates a persistent conflict in a corresponding UTXO DAG. Each conflict receives a unique identifier `conflictID`. These conflicts cannot be merged by any vertices (transactions). 
+A transaction that attempts to merge incompatible conflicts fails to pass a validity check and is marked as invalid.
 
 The composition of all realities defines the Realities Ledger State. 
 
-From this composition nodes are able to know which possible outcomes for the Tangle exist, where they split, how they relate to each other, if they can be merged and which messages are valid tips. All of this information can be retrieved in a fast and efficient way without having to walk the Tangle. 
+From this composition nodes are able to know which possible outcomes for the Tangle exist, where they split, how they relate to each other, if they can be merged and which blocks are valid tips. All of this information can be retrieved in a fast and efficient way without having to walk the Tangle. 
 
-Ultimately, for a set of competing realities, only one reality can survive. It is then up to the consensus protocol to determine which branch is part of the eventually accepted reality.
+Ultimately, for a set of competing realities, only one reality can survive. It is then up to the consensus protocol to determine which conflict is part of the eventually accepted reality.
 
 In total the ledger state thus involves three different layers:
 * the UTXO DAG,
-* its extension to the corresponding branch DAG,
-* the Tangle which maps the parent relations between messages and thus also transactions.
+* its extension to the corresponding conflict DAG,
+* the Tangle which maps the parent relations between blocks and thus also transactions.
 
 ## The UTXO DAG
 
 The UTXO DAG models the relationship between transactions, by tracking which outputs have been spent by what transaction. Since outputs can only be spent once, we use this property to detect double spends. 
 
 Instead of permitting immediately only one transaction into to the ledger state, we allow for different versions of the ledger to coexist temporarily. 
-This is enabled by extending the UTXO DAG by the introduction of branches, see the following section. We can then determine which conflicting versions of the ledger state exist in the presence of conflicts.
+This is enabled by extending the UTXO DAG by the introduction of conflicts, see the following section. We can then determine which conflicting versions of the ledger state exist in the presence of conflicts.
 
 ### Conflict Sets and Detection of Double Spends
 
@@ -252,76 +252,76 @@ We maintain a list of consumers `consumerList` associated with every output, tha
 
 If there is more than one consumer in the consumer list we *shall* create a conflict set list `conflictSet`, which is identical to the consumer list. The `conflictSet` is uniquely identified by the unique identifier `conflictSetID`. Since the `outputID` is directly and uniquely linked to the conflict set, we set `conflictSetID=outputID`.
 
-## Branches
+## Conflicts
 
-The UTXO model and the concept of solidification, makes all non-conflicting transactions converge to the same ledger state no matter in which order the transactions are received. Messages containing these transactions could always reference each other in the Tangle without limitations.
+The UTXO model and the concept of solidification, makes all non-conflicting transactions converge to the same ledger state no matter in which order the transactions are received. Blocks containing these transactions could always reference each other in the Tangle without limitations.
 
-However, every double spend creates a new possible version of the ledger state that will no longer converge. Whenever a double spend is detected, see the previous section, we track the outputs created by the conflicting transactions and all of the transactions that spend these outputs, by creating a container for them in the ledger which we call a branch. 
+However, every double spend creates a new possible version of the ledger state that will no longer converge. Whenever a double spend is detected, see the previous section, we track the outputs created by the conflicting transactions and all of the transactions that spend these outputs, by creating a container for them in the ledger which we call a conflict. 
 
-More specifically a container `branch` *shall* be created for each transaction that double spends one or several outputs, or if transactions aggregated those branches.
-Every transaction that spends directly or indirectly from a transaction in a given `branch`, i.e. is in the future cone in the UTXO DAG of the double-spending transaction that created `branch`, is also contained in this `branch` or one of the child branches.
-A branch that was created by a transaction that spends multiple outputs can be part of multiple conflict sets.
+More specifically a container `conflict` *shall* be created for each transaction that double spends one or several outputs, or if transactions aggregated those conflicts.
+Every transaction that spends directly or indirectly from a transaction in a given `conflict`, i.e. is in the future cone in the UTXO DAG of the double-spending transaction that created `conflict`, is also contained in this `conflict` or one of the child conflicts.
+A conflict that was created by a transaction that spends multiple outputs can be part of multiple conflict sets.
 
-Every branch *shall* be identified by the unique identifier `branchID`. We consider two kinds of branches: conflict branches and aggregated branches, which are explained in the following sections.
+Every conflict *shall* be identified by the unique identifier `conflictID`. We consider two kinds of conflicts: conflict conflicts and aggregated conflicts, which are explained in the following sections.
 
-### Conflict Branches 
+### Conflict Conflicts 
 
-A conflict branch is created by a corresponding double spend transaction. Since the transaction identifier is unique, we choose the transaction id `transactionID` of the double spending transaction as the `branchID`.
+A conflict conflict is created by a corresponding double spend transaction. Since the transaction identifier is unique, we choose the transaction id `transactionID` of the double spending transaction as the `conflictID`.
 
-Outputs inside a branch can be double spent again, recursively forming sub-branches. 
+Outputs inside a conflict can be double spent again, recursively forming sub-conflicts. 
 
-On solidification of a message, we *shall* store the corresponding branch identifier together with every output, as well as the transaction metadata to enable instant lookups of this information. Thus, on solidification, a transaction can be immediately associated with a branch. 
+On solidification of a block, we *shall* store the corresponding conflict identifier together with every output, as well as the transaction metadata to enable instant lookups of this information. Thus, on solidification, a transaction can be immediately associated with a conflict. 
 
 
-### Aggregated Branches
+### Aggregated Conflicts
 
-A transaction that does not create a double spend inherits the branches of the input's branches. In the simplest case, where there is only one input branch the transaction inherits that branch. 
+A transaction that does not create a double spend inherits the conflicts of the input's conflicts. In the simplest case, where there is only one input conflict the transaction inherits that conflict. 
 
-If outputs from multiple non-conflicting branches are spent in the same transaction, then the transaction and its resulting outputs are part of an aggregated branch. This type of branch is not part of any conflict set. Rather it simply combines the perception that the individual conflict branches associated to the transaction's inputs are the ones that will be accepted by the network. Each aggregated branch *shall* have a unique identifier `branchID`, which is the same type as for conflict branches. Furthermore the container for an aggregated branch is also of type `branch`. 
+If outputs from multiple non-conflicting conflicts are spent in the same transaction, then the transaction and its resulting outputs are part of an aggregated conflict. This type of conflict is not part of any conflict set. Rather it simply combines the perception that the individual conflict conflicts associated to the transaction's inputs are the ones that will be accepted by the network. Each aggregated conflict *shall* have a unique identifier `conflictID`, which is the same type as for conflict conflicts. Furthermore the container for an aggregated conflict is also of type `conflict`. 
 
-To calculate the unique identifier of a new aggregated branch, we take the identifiers of the branches that were aggregated, sort them lexicographically and hash the concatenated identifiers once
+To calculate the unique identifier of a new aggregated conflict, we take the identifiers of the conflicts that were aggregated, sort them lexicographically and hash the concatenated identifiers once
 
-An aggregated branch can't aggregate other aggregated branches. However, it can aggregate the conflict branches that are part of the referenced aggregated branch. 
-Thus aggregated branches have no further branches as their children and they remain tips in the branch DAG. Furthermore, the sortation of the `branchID`s in the function `AggregatedBranchID()` ensures that even though messages can attach at different points in the Tangle and aggregate different aggregated branches they are treated as if they are in the same aggregated branch **if** the referenced conflict branches are the same. 
+An aggregated conflict can't aggregate other aggregated conflicts. However, it can aggregate the conflict conflicts that are part of the referenced aggregated conflict. 
+Thus aggregated conflicts have no further conflicts as their children and they remain tips in the conflict DAG. Furthermore, the sortation of the `conflictID`s in the function `AggregatedConflictID()` ensures that even though blocks can attach at different points in the Tangle and aggregate different aggregated conflicts they are treated as if they are in the same aggregated conflict **if** the referenced conflict conflicts are the same. 
 
-These properties allow for an efficient reduction of a set of branches. In the following we will require the following fields as part of the branch data: 
-* `isConflictBranch` is a boolean flat that is `TRUE` if the branch is a conflict branch or `FALSE` if its an aggregated branch.
-* `parentBranches` contains the list of parent conflict branches of the branch, i.e. the conflict branches that are directly referenced by this branch.
+These properties allow for an efficient reduction of a set of conflicts. In the following we will require the following fields as part of the conflict data: 
+* `isConflictConflict` is a boolean flat that is `TRUE` if the conflict is a conflict conflict or `FALSE` if its an aggregated conflict.
+* `parentConflicts` contains the list of parent conflict conflicts of the conflict, i.e. the conflict conflicts that are directly referenced by this conflict.
 
-Then the following function takes a list of branches (which can be either conflict or aggregated branches) and returns a unique set of conflict branches that these branches represent. This is done by replacing duplicates and extracting the parent conflict branches from aggregated branches. 
+Then the following function takes a list of conflicts (which can be either conflict or aggregated conflicts) and returns a unique set of conflict conflicts that these conflicts represent. This is done by replacing duplicates and extracting the parent conflict conflicts from aggregated conflicts. 
 
 
 ```vbnet
-FUNCTION reducedBranches = ReduceBranches(branches)
-    FOR branch IN branches
-        IF branch.isConflictBranch
-            Append(reducedBranches,branch)
+FUNCTION reducedConflicts = ReduceConflicts(conflicts)
+    FOR conflict IN conflicts
+        IF conflict.isConflictConflict
+            Append(reducedConflicts,conflict)
         ELSE
-            FOR parentBranch IN branch.parentBranches
-                IF NOT (parentBranch IN reducedBranches)
-                    Append(reducedBranches,parentBranch)
+            FOR parentConflict IN conflict.parentConflicts
+                IF NOT (parentConflict IN reducedConflicts)
+                    Append(reducedConflicts,parentConflict)
     
-    RETURN reducedBranches
+    RETURN reducedConflicts
 ```
 
-### The Branch DAG
+### The Conflict DAG
 
-A new branch is created for each transaction that is part of a conflict set, or if a transaction aggregates branches.
-In the branch DAG, branches constitute the vertices of the DAG. A branch that is created by a transaction that is spending outputs from other branches has edges pointing to those branches.
-The branch DAG maps the UTXO DAG to a simpler structure that ignores details about relations between transactions inside the branches and instead retains only details about the interrelations of conflicts.
-The set of all non-conflicting transactions form the master branch. Thus, at its root the branch DAG has the master branch, which consists of non-conflicting transaction and resolved transactions. From this root of the branch DAG the various branches emerge. 
-In other words the conflict branches and the aggregated branches appear as the children of the master branch. 
+A new conflict is created for each transaction that is part of a conflict set, or if a transaction aggregates conflicts.
+In the conflict DAG, conflicts constitute the vertices of the DAG. A conflict that is created by a transaction that is spending outputs from other conflicts has edges pointing to those conflicts.
+The conflict DAG maps the UTXO DAG to a simpler structure that ignores details about relations between transactions inside the conflicts and instead retains only details about the interrelations of conflicts.
+The set of all non-conflicting transactions form the master conflict. Thus, at its root the conflict DAG has the master conflict, which consists of non-conflicting transaction and resolved transactions. From this root of the conflict DAG the various conflicts emerge. 
+In other words the conflict conflicts and the aggregated conflicts appear as the children of the master conflict. 
 
-### Detecting Conflicting Branches
+### Detecting Conflicting Conflicts
 
-Branches are conflicting if they, or any of their ancestors, are part of the same conflict set.
-The branch DAG can be used to check if branches are conflicting, by applying an operation called normalization, to a set of input branches.
-From this information we can identify messages or transactions that are trying to combine branches belonging to conflicting double spends, and thus introduce an invalid perception of the ledger state.
+Conflicts are conflicting if they, or any of their ancestors, are part of the same conflict set.
+The conflict DAG can be used to check if conflicts are conflicting, by applying an operation called normalization, to a set of input conflicts.
+From this information we can identify blocks or transactions that are trying to combine conflicts belonging to conflicting double spends, and thus introduce an invalid perception of the ledger state.
 
-Since branches represent the ledger state associated with a double spend and sub-branches implicitly share the perception of their parents, we define an operation to normalize a list of branches that gets rid of all branches that are referenced by other branches in that list. The function returns `NULL` if the branches are conflicting and can not be merged.
+Since conflicts represent the ledger state associated with a double spend and sub-conflicts implicitly share the perception of their parents, we define an operation to normalize a list of conflicts that gets rid of all conflicts that are referenced by other conflicts in that list. The function returns `NULL` if the conflicts are conflicting and can not be merged.
 
-### Merging of Branches Into the Master Branch
+### Merging of Conflicts Into the Master Conflict
 
-A branch gains approval weight when messages from (previously non-attached) `nodeID`s attach to messages in the future cone of that branch. Once the approval weight exceeds a certain threshold we consider the branch as confirmed.
-Once a conflict branch is confirmed, it can be merged back into the master branch. Since the approval weight is monotonically increasing for branches from the past to the future, branches are only merged into the master branch.
-The loosing branches and all their children branches are booked into the container `rejectedBranch` that has the identifier `rejectedBranchID`.
+A conflict gains approval weight when blocks from (previously non-attached) `nodeID`s attach to blocks in the future cone of that conflict. Once the approval weight exceeds a certain threshold we consider the conflict as confirmed.
+Once a conflict conflict is confirmed, it can be merged back into the master conflict. Since the approval weight is monotonically increasing for conflicts from the past to the future, conflicts are only merged into the master conflict.
+The loosing conflicts and all their children conflicts are booked into the container `rejectedConflict` that has the identifier `rejectedConflictID`.

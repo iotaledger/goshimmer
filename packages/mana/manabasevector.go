@@ -20,17 +20,20 @@ type ManaBaseVector struct {
 }
 
 type manaBaseVectorModel struct {
-	Vector map[identity.ID]*ManaBase `serix:"0"`
+	Type   Type                      `serix:"0"`
+	Vector map[identity.ID]*ManaBase `serix:"1"`
 }
 
-// Vector returns the ConsensusBaseMana vector.
+// Vector returns the ManaBase vector.
 func (m *ManaBaseVector) Vector() map[identity.ID]*ManaBase {
+	m.RLock()
+	defer m.RUnlock()
 	return m.M.Vector
 }
 
 // Type returns the type of this mana vector.
 func (m *ManaBaseVector) Type() Type {
-	return ConsensusMana
+	return m.M.Type
 }
 
 // Size returns the size of this mana vector.
@@ -81,26 +84,6 @@ func (m *ManaBaseVector) Has(nodeID identity.ID) bool {
 //	}
 //	return nil
 // }
-
-func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
-	return &TxInfo{
-		TimeStamp:     ev.Time,
-		TransactionID: ev.TransactionID,
-		TotalBalance:  ev.Amount,
-		PledgeID: map[Type]identity.ID{
-			ConsensusMana: ev.NodeID,
-		},
-		InputInfos: []InputInfo{
-			{
-				TimeStamp: ev.Time,
-				Amount:    ev.Amount,
-				PledgeID: map[Type]identity.ID{
-					ConsensusMana: ev.NodeID,
-				},
-			},
-		},
-	}
-}
 
 // InitializeWithData initializes the mana vector data.
 func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) {
@@ -177,6 +160,7 @@ func (m *ManaBaseVector) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeE
 	}
 }
 
+// BookEpoch takes care of the booking of consensus mana for the given committed epoch.
 func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
 	var revokeEvents []*RevokedEvent
 	var pledgeEvents []*PledgedEvent
@@ -199,7 +183,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 			revokeEvents = append(revokeEvents, &RevokedEvent{
 				NodeID:        idToRevoke,
 				Amount:        float64(outputIOTAs),
-				Time:          output.OutputMetadata().CreationTime(),
+				Time:          output.CreationTime(),
 				ManaType:      m.Type(),
 				TransactionID: output.ID().TransactionID,
 				InputID:       output.ID(),
@@ -223,7 +207,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 			pledgeEvents = append(pledgeEvents, &PledgedEvent{
 				NodeID:        idToPledge,
 				Amount:        float64(outputIOTAs),
-				Time:          output.OutputMetadata().CreationTime(),
+				Time:          output.CreationTime(),
 				ManaType:      m.Type(),
 				TransactionID: output.Output().ID().TransactionID,
 			})
@@ -241,11 +225,9 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 
 func (m *ManaBaseVector) getIDBasedOnManaType(output *ledger.OutputWithMetadata) (pledgeID identity.ID) {
 	if m.Type() == ConsensusMana {
-		pledgeID = output.OutputMetadata().ConsensusManaPledgeID()
-	} else {
-		pledgeID = output.OutputMetadata().AccessManaPledgeID()
+		return output.ConsensusManaPledgeID()
 	}
-	return
+	return output.AccessManaPledgeID()
 }
 
 func (m *ManaBaseVector) getOldManaAndRevoke(oldPledgeNodeID identity.ID, amount float64) (oldMana ManaBase) {
@@ -417,12 +399,8 @@ func (m *ManaBaseVector) ToPersistables() []*PersistableBaseMana {
 	return result
 }
 
-// FromPersistable fills the ConsensusBaseManaVector from persistable mana objects.
+// FromPersistable fills the BaseManaVector from persistable mana objects.
 func (m *ManaBaseVector) FromPersistable(p *PersistableBaseMana) (err error) {
-	if p.ManaType() != ConsensusMana {
-		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType().String(), ConsensusMana.String())
-		return
-	}
 	if len(p.BaseValues()) != 1 {
 		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues()))
 		return

@@ -39,6 +39,7 @@ func (p *Printer) PrintlnPoint(s string, indent int) {
 func (p *Printer) PrintlnInput(s string) {
 	fmt.Println("█▓>>", s)
 }
+
 func (p *Printer) PrintThickLine() {
 	fmt.Println("\n  ooo▄▄▓░░▀▀▀▀▄▓▓░░▄▄▄▓▓░░▄▒▄▀█▒▓▄▓▓░░▄▄▒▄▄█▒▓▄▄▀▀▄▓▒▄▄█▒▓▓▀▓▓░░░░█▒▄▄█▒▓░▄▄ooo")
 	fmt.Println()
@@ -64,7 +65,7 @@ func (p *Printer) EvilWalletStatus() {
 	p.Println(p.colorString("Evil Wallet status:", "cyan"), 2)
 	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Fresh)), 2)
 	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Reuse)), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed messages: %d", p.mode.msgSent.Load()), 2)
+	p.PrintlnPoint(fmt.Sprintf("Spammed blocks: %d", p.mode.blkSent.Load()), 2)
 	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", p.mode.txSent.Load()), 2)
 	p.PrintlnPoint(fmt.Sprintf("Spammed scenario batches: %d", p.mode.scenariosSent.Load()), 2)
 
@@ -87,7 +88,7 @@ func (p *Printer) SpammerSettings() {
 	fmt.Println()
 }
 
-func (p *Printer) FarewellMessage() {
+func (p *Printer) FarewellBlock() {
 	p.PrintTopLine()
 	fmt.Println("           ups... we're forgetting all your private keys ;)")
 	p.PrintLine()
@@ -107,13 +108,11 @@ func (p *Printer) FundsWarning() {
 func (p *Printer) UrlWarning() {
 	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), 2)
 	fmt.Println()
-
 }
 
 func (p *Printer) UrlExists() {
 	p.Println(p.colorString("The url already exists.", "red"), 2)
 	fmt.Println()
-
 }
 
 func (p *Printer) DevNetFundsWarning() {
@@ -159,7 +158,6 @@ func (p *Printer) Settings() {
 	p.clients()
 	p.PrintLine()
 	fmt.Println()
-
 }
 
 func (p *Printer) MaxSpamWarning() {
@@ -224,14 +222,14 @@ func (p *Printer) FundsCurrentlyPreparedWarning() {
 	fmt.Println()
 }
 
-func (p *Printer) StartedPreparingMessage(numToPrepareStr string) {
+func (p *Printer) StartedPreparingBlock(numToPrepareStr string) {
 	p.Println("", 2)
 	p.Println(p.colorString("Start preparing "+numToPrepareStr+" faucet outputs.", "green"), 1)
 	p.Println("", 2)
 	fmt.Println()
 }
 
-func (p *Printer) SpammerStartedMessage() {
+func (p *Printer) SpammerStartedBlock() {
 	p.Println("", 2)
 	p.Println(p.colorString("Spammer started", "green"), 1)
 	p.Println("", 2)

@@ -7,20 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	"github.com/iotaledger/hive.go/generics/lo"
-
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -68,7 +65,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
-// ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
+// ConsensusSnapshotDetails defines info for consensus integration test snapshot
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
 	// node ID: 2GtxMQD9
@@ -93,7 +90,7 @@ func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex i
 // If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
 func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
 	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
-		conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		conf.BlockLayer.Snapshot.File = snaphotInfo.FilePath
 		if isPeerMaster {
 			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
 			require.NoError(t, err)
@@ -112,8 +109,8 @@ func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, 
 	}
 }
 
-// DataMessageSent defines a struct to identify from which issuer a data message was sent.
-type DataMessageSent struct {
+// DataBlockSent defines a struct to identify from which issuer a data block was sent.
+type DataBlockSent struct {
 	number          int
 	id              string
 	data            []byte
@@ -157,26 +154,26 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
 	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
 
-	confirmed := make(map[int]types.Empty)
+	accepted := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		if len(confirmed) == supplyOutputsCount*splittingMultiplier {
+		if len(accepted) == supplyOutputsCount*splittingMultiplier {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
 		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
-			if _, ok := confirmed[fundingIndex]; !ok {
+			if _, ok := accepted[fundingIndex]; !ok {
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)
 				if len(resp.UnspentOutputs[0].Outputs) != 0 {
-					if resp.UnspentOutputs[0].Outputs[0].GradeOfFinality == gof.High {
-						confirmed[fundingIndex] = types.Void
+					if resp.UnspentOutputs[0].Outputs[0].ConfirmationState.IsAccepted() {
+						accepted[fundingIndex] = types.Void
 					}
 				}
 			}
 		}
 		return false
 	}, time.Minute, Tick)
-	// give the faucet time to save the latest confirmed output
+	// give the faucet time to save the latest accepted output
 	time.Sleep(3 * time.Second)
 }
 
@@ -207,9 +204,9 @@ func Balance(t *testing.T, node *framework.Node, address devnetvm.Address, color
 	return sum
 }
 
-// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
+// SendFaucetRequest sends a data block on a given peer and returns the id and a DataBlockSent struct. By default,
 // it pledges mana to the peer making the request.
-func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address, manaPledgeIDs ...string) (string, DataBlockSent) {
 	nodeID := base58.Encode(node.ID().Bytes())
 	aManaPledgeID, cManaPledgeID := nodeID, nodeID
 	if len(manaPledgeIDs) > 1 {
@@ -219,14 +216,14 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 	resp, err := node.BroadcastFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
 	require.NoErrorf(t, err, "node=%s, address=%s, BroadcastFaucetRequest failed", node, addr.Base58())
 	fmt.Println("faucet resp ", resp.ID)
-	sent := DataMessageSent{
+	sent := DataBlockSent{
 		id:              resp.ID,
 		data:            nil,
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 
-	// Make sure the message is available on the peer itself and has gof.Low.
-	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.Low)
+	// Make sure the block is available on the peer itself and has confirmation.State Pending.
+	RequireBlocksAvailable(t, []*framework.Node{node}, map[string]DataBlockSent{sent.id: sent}, Timeout, Tick, confirmation.Pending)
 
 	return resp.ID, sent
 }
@@ -284,12 +281,12 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 
 // endregion
 
-// SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
+// SendDataBlock sends a data block on a given peer and returns the id and a DataBlockSent struct.
+func SendDataBlock(t *testing.T, node *framework.Node, data []byte, number int) (string, DataBlockSent) {
 	id, err := node.Data(data)
 	require.NoErrorf(t, err, "node=%s, 'Data' failed with error %s", node, err)
 
-	sent := DataMessageSent{
+	sent := DataBlockSent{
 		number: number,
 		id:     id,
 		// save payload to be able to compare API response
@@ -299,36 +296,36 @@ func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int
 	return id, sent
 }
 
-// SendDataMessages sends a total of numMessages data messages and saves the sent message to a map.
-// It chooses the peers to send the messages from in a round-robin fashion.
-func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
-	var result map[string]DataMessageSent
+// SendDataBlocks sends a total of numBlocks data blocks and saves the sent block to a map.
+// It chooses the peers to send the blocks from in a round-robin fashion.
+func SendDataBlocks(t *testing.T, peers []*framework.Node, numBlocks int, idsMap ...map[string]DataBlockSent) map[string]DataBlockSent {
+	var result map[string]DataBlockSent
 	if len(idsMap) > 0 {
 		result = idsMap[0]
 	} else {
-		result = make(map[string]DataMessageSent, numMessages)
+		result = make(map[string]DataBlockSent, numBlocks)
 	}
 
-	for i := 0; i < numMessages; i++ {
+	for i := 0; i < numBlocks; i++ {
 		data := []byte(fmt.Sprintf("Test: %d", i))
 
-		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
+		id, sent := SendDataBlock(t, peers[i%len(peers)], data, i)
 		result[id] = sent
 	}
 	return result
 }
 
-// SendDataMessagesWithDelay sends a total of numMessages data messages, each after a delay interval, and saves the sent message to a map.
-// It chooses the peers to send the messages from in a round-robin fashion.
-func SendDataMessagesWithDelay(t *testing.T, peers []*framework.Node, numMessages int, delay time.Duration) (result map[string]DataMessageSent) {
-	result = make(map[string]DataMessageSent, numMessages)
+// SendDataBlocksWithDelay sends a total of numBlocks data blocks, each after a delay interval, and saves the sent block to a map.
+// It chooses the peers to send the blocks from in a round-robin fashion.
+func SendDataBlocksWithDelay(t *testing.T, peers []*framework.Node, numBlocks int, delay time.Duration) (result map[string]DataBlockSent) {
+	result = make(map[string]DataBlockSent, numBlocks)
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 
-	for i := 0; i < numMessages; i++ {
+	for i := 0; i < numBlocks; i++ {
 		data := []byte(fmt.Sprintf("Test: %d", i))
 
-		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
+		id, sent := SendDataBlock(t, peers[i%len(peers)], data, i)
 		result[id] = sent
 		<-ticker.C
 	}
@@ -401,48 +398,48 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	return resp.TransactionID, nil
 }
 
-// RequireMessagesAvailable asserts that all nodes have received MessageIDs in waitFor time, periodically checking each tick.
-// Optionally, a GradeOfFinality can be specified, which then requires the messages to reach this GradeOfFinality.
-func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration, gradeOfFinality ...gof.GradeOfFinality) {
+// RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
+// Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
+func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
-		for messageID := range messageIDs {
-			missing[node.ID()][messageID] = struct{}{}
+		missing[node.ID()] = make(map[string]struct{}, len(blockIDs))
+		for blockID := range blockIDs {
+			missing[node.ID()][blockID] = struct{}{}
 		}
 	}
 
 	condition := func() bool {
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
-			for messageID := range nodeMissing {
-				msg, err := node.GetMessageMetadata(messageID)
-				// retry, when the message could not be found
+			for blockID := range nodeMissing {
+				blk, err := node.GetBlockMetadata(blockID)
+				// retry, when the block could not be found
 				if errors.Is(err, client.ErrNotFound) {
-					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
+					log.Printf("node=%s, blockID=%s; block not found", node, blockID)
 					continue
 				}
-				// retry, if the message has not yet reached the specified GoF
-				if len(gradeOfFinality) > 0 {
-					if msg.GradeOfFinality < gradeOfFinality[0] {
-						for sequenceID, markerIndex := range msg.StructureDetails.PastMarkers.Markers {
+				// retry, if the block has not yet reached the specified ConfirmationState
+				if len(confirmationState) > 0 {
+					if blk.ConfirmationState < confirmationState[0] {
+						for sequenceID, markerIndex := range blk.StructureDetails.PastMarkers.Markers {
 							voters, err := node.GoShimmerAPI.GetMarkerVoters(sequenceID, markerIndex)
-							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerVoters' failed", node, messageID)
-							log.Printf("node=%s, messageID=%s, pastMarkerVoters=%+v; GoF not reached", node, messageID, voters)
+							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerVoters' failed", node, blockID)
+							log.Printf("node=%s, blockID=%s, pastMarkerVoters=%+v; GoF not reached", node, blockID, voters)
 
 							weight, err := node.GoShimmerAPI.GetMarkerWeight(sequenceID, markerIndex)
-							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerWeight' failed", node, messageID)
-							log.Printf("node=%s, messageID=%s, pastMarkerWeight=%+v; GoF not reached", node, messageID, weight)
+							require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMarkerWeight' failed", node, blockID)
+							log.Printf("node=%s, blockID=%s, pastMarkerWeight=%+v; GoF not reached", node, blockID, weight)
 
 						}
-						log.Printf("node=%s, messageID=%s, expected GoF=%s, actual GoF=%s; GoF not reached", node, messageID, gradeOfFinality[0], msg.GradeOfFinality)
+						log.Printf("node=%s, blockID=%s, expected ConfirmationState=%s, actual ConfirmationState=%s; ConfirmationState not reached", node, blockID, confirmationState[0], blk.ConfirmationState)
 						continue
 					}
 				}
 
-				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
-				require.Equal(t, messageID, msg.ID)
-				delete(nodeMissing, messageID)
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+				require.Equal(t, blockID, blk.ID)
+				delete(nodeMissing, blockID)
 				if len(nodeMissing) == 0 {
 					delete(missing, node.ID())
 				}
@@ -451,10 +448,10 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 		return len(missing) == 0
 	}
 
-	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
+	log.Printf("Waiting for %d blocks to become available...", len(blockIDs))
 	require.Eventuallyf(t, condition, waitFor, tick,
-		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
-	log.Println("Waiting for messages... done")
+		"%d out of %d nodes did not receive all blocks", len(missing), len(nodes))
+	log.Println("Waiting for blocks... done")
 }
 
 // RequireMessagesOrphaned asserts that all nodes have received MessageIDs and marked them as orphaned in waitFor time, periodically checking each tick.
@@ -496,29 +493,29 @@ func RequireMessagesOrphaned(t *testing.T, nodes []*framework.Node, messageIDs m
 	log.Println("Waiting for messages... done")
 }
 
-// RequireMessagesEqual asserts that all nodes return the correct data messages as specified in messagesByID.
-func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+// RequireBlocksEqual asserts that all nodes return the correct data blocks as specified in blocksByID.
+func RequireBlocksEqual(t *testing.T, nodes []*framework.Node, blocksByID map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
-			for messageID := range messagesByID {
-				resp, err := node.GetMessage(messageID)
-				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
-				require.Equal(t, resp.ID, messageID)
+			for blockID := range blocksByID {
+				resp, err := node.GetBlock(blockID)
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlock' failed", node, blockID)
+				require.Equal(t, resp.ID, blockID)
 
-				respMetadata, err := node.GetMessageMetadata(messageID)
-				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
-				require.Equal(t, respMetadata.ID, messageID)
+				respMetadata, err := node.GetBlockMetadata(blockID)
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+				require.Equal(t, respMetadata.ID, blockID)
 
 				// check for general information
-				msgSent := messagesByID[messageID]
+				blkSent := blocksByID[blockID]
 
-				require.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
-				if msgSent.data != nil {
-					require.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+				require.Equalf(t, blkSent.issuerPublicKey, resp.IssuerPublicKey, "blockID=%s, issuer=%s not correct issuer in %s.", blkSent.id, blkSent.issuerPublicKey, node)
+				if blkSent.data != nil {
+					require.Equalf(t, blkSent.data, resp.Payload, "blockID=%s, issuer=%s data not equal in %s.", blkSent.id, blkSent.issuerPublicKey, node)
 				}
 
 				if !respMetadata.Solid {
-					log.Printf("messageID=%s, issuer=%s not solid yet on %s", msgSent.id, msgSent.issuerPublicKey, node)
+					log.Printf("blockID=%s, issuer=%s not solid yet on %s", blkSent.id, blkSent.issuerPublicKey, node)
 					return false
 				}
 			}
@@ -526,9 +523,9 @@ func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID ma
 		return true
 	}
 
-	log.Printf("Waiting for %d messages to become consistent across peers...", len(messagesByID))
+	log.Printf("Waiting for %d blocks to become consistent across peers...", len(blocksByID))
 	require.Eventuallyf(t, condition, waitFor, tick, "Nodes are not consistent")
-	log.Println("Waiting for messages... done")
+	log.Println("Waiting for blocks... done")
 }
 
 // ExpectedAddrsBalances is a map of base58 encoded addresses to the balances they should hold.
@@ -561,8 +558,8 @@ func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ..
 // ExpectedState is an expected state.
 // All fields are optional.
 type ExpectedState struct {
-	// The optional grade of finality state to check against.
-	GradeOfFinality *gof.GradeOfFinality
+	// The optional confirmation state to check against.
+	ConfirmationState confirmation.State
 	// The optional solid state to check against.
 	Solid *bool
 }
@@ -577,11 +574,6 @@ func True() *bool {
 func False() *bool {
 	x := false
 	return &x
-}
-
-// GoFPointer returns a pointer to the given grade of finality value.
-func GoFPointer(gradeOfFinality gof.GradeOfFinality) *gof.GradeOfFinality {
-	return &gradeOfFinality
 }
 
 // ExpectedTransaction defines the expected data of a transaction.
@@ -619,9 +611,9 @@ func RequireTransactionsEqual(t *testing.T, nodes []*framework.Node, transaction
 // ExpectedTxsStates is a map of base58 encoded transactionIDs to their ExpectedState(s).
 type ExpectedTxsStates map[string]ExpectedState
 
-// RequireGradeOfFinalityEqual asserts that all nodes have received the transaction and have correct expectedStates
+// RequireConfirmationStateEqual asserts that all nodes have received the transaction and have correct expectedStates
 // in waitFor time, periodically checking each tick.
-func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
+func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expectedStates ExpectedTxsStates, waitFor time.Duration, tick time.Duration) {
 	condition := func() bool {
 		for _, node := range nodes {
 			for txID, expInclState := range expectedStates {
@@ -632,22 +624,22 @@ func RequireGradeOfFinalityEqual(t *testing.T, nodes framework.Nodes, expectedSt
 				}
 				require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransaction' failed", node, txID)
 
-				// the grade of finality can change, so we should check all transactions every time
-				stateEqual, gof := txMetadataStateEqual(t, node, txID, expInclState)
+				// the confirmation state can change, so we should check all transactions every time
+				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+					t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 					return false
 				}
-				t.Logf("Current grade of finality for txId %s is %d", txID, gof)
+				t.Logf("Current ConfirmationState for txId %s is %s", txID, confirmationState)
 
 			}
 		}
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct grade of finality...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct ConfirmationState...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for grade of finality... done")
+	log.Println("Waiting for ConfirmationState... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.
@@ -667,35 +659,35 @@ func OutputIndex(transaction *devnetvm.Transaction, address devnetvm.Address) in
 	panic("invalid address")
 }
 
-func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, gof.GradeOfFinality) {
+func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expInclState ExpectedState) (bool, confirmation.State) {
 	metadata, err := node.GetTransactionMetadata(txID)
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
-	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
+	if (expInclState.ConfirmationState != confirmation.Undefined && metadata.ConfirmationState < expInclState.ConfirmationState) ||
 		(expInclState.Solid != nil && *expInclState.Solid != metadata.Booked) {
-		return false, metadata.GradeOfFinality
+		return false, metadata.ConfirmationState
 	}
-	return true, metadata.GradeOfFinality
+	return true, metadata.ConfirmationState
 }
 
-// ConfirmedOnAllPeers checks if the msg is confirmed on all supplied peers.
-func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
+// AcceptedOnAllPeers checks if the blk is accepted on all supplied peers.
+func AcceptedOnAllPeers(blkID string, peers []*framework.Node) bool {
 	for _, peer := range peers {
-		metadata, err := peer.GetMessageMetadata(msgID)
+		metadata, err := peer.GetBlockMetadata(blkID)
 		if err != nil {
 			return false
 		}
-		if metadata.GradeOfFinality != gof.High {
+		if !metadata.ConfirmationState.IsAccepted() {
 			return false
 		}
 	}
 	return true
 }
 
-// TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
-func TryConfirmMessage(t *testing.T, peers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
-	log.Printf("waiting for msg %s to become confirmed...", msgID)
-	defer log.Printf("waiting for msg %s to become confirmed... done", msgID)
+// TryConfirmBlock tries to confirm the block on all the peers provided within the time limit provided.
+func TryConfirmBlock(t *testing.T, peers []*framework.Node, blkID string, waitFor time.Duration, tick time.Duration) {
+	log.Printf("waiting for blk %s to become confirmed...", blkID)
+	defer log.Printf("waiting for blk %s to become confirmed... done", blkID)
 
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
@@ -705,81 +697,19 @@ func TryConfirmMessage(t *testing.T, peers []*framework.Node, msgID string, wait
 	for {
 		select {
 		case <-timer.C:
-			log.Printf("failed to confirm msg %s within the time limit", msgID)
+			log.Printf("failed to confirm blk %s within the time limit", blkID)
 			t.FailNow()
 		case <-ticker.C:
-			// Issue a new message on each peer to make msg confirmed.
+			// Issue a new block on each peer to make blk confirmed.
 			for i, peer := range peers {
-				id, _ := SendDataMessage(t, peer, []byte("test"), i)
-				log.Printf("send message %s on node %s", id, peer.ID())
+				id, _ := SendDataBlock(t, peer, []byte("test"), i)
+				log.Printf("send block %s on node %s", id, peer.ID())
 			}
 
-			if ConfirmedOnAllPeers(msgID, peers) {
-				log.Printf("msg %s is confirmed on all peers", msgID)
+			if AcceptedOnAllPeers(blkID, peers) {
+				log.Printf("blk %s is confirmed on all peers", blkID)
 				return
 			}
 		}
 	}
-}
-
-// IsBranchConfirmedOnAllPeers returns true if the branch is confirmed on all supplied nodes.
-func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool {
-	for _, peer := range peers {
-		branch, err := peer.GetBranch(branchID)
-		if err != nil {
-			return false
-		}
-		if branch.GradeOfFinality != gof.High {
-			return false
-		}
-	}
-	return true
-}
-
-func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.Message, err error) {
-	branch, err := peer.GetBranch(branchID)
-	if err != nil {
-		return
-	}
-	attachments, err := peer.GetTransactionAttachments(branchID)
-	if err != nil {
-		return
-	}
-	approversWalker := walker.New(false)
-	for _, msgID := range attachments.MessageIDs {
-		approversWalker.Push(msgID)
-	}
-	for approversWalker.HasNext() {
-		tip, err = peer.GetMessage(approversWalker.Next().(string))
-		if err != nil {
-			return
-		}
-		for _, approverMsgID := range tip.StrongApprovers {
-			var (
-				approverMsg *jsonmodels.Message
-				metadata    *jsonmodels.MessageMetadata
-			)
-			if approverMsg, err = peer.GetMessage(approverMsgID); err == nil {
-				if metadata, err = peer.GetMessageMetadata(approverMsgID); err == nil {
-					if metadata.BranchIDs[0] == branch.ID {
-						approversWalker.Push(approverMsgID)
-						continue
-					}
-
-					approverLikes := false
-					for _, like := range approverMsg.ShallowLikeParents {
-						if like == tip.ID {
-							approverLikes = true
-							break
-						}
-					}
-					if approverLikes {
-						approversWalker.Push(approverMsgID)
-						continue
-					}
-				}
-			}
-		}
-	}
-	return
 }

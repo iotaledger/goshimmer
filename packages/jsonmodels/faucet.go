@@ -1,6 +1,6 @@
 package jsonmodels
 
-// FaucetRequestResponse contains the ID of the message sent.
+// FaucetRequestResponse contains the ID of the block sent.
 type FaucetRequestResponse struct {
 	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`

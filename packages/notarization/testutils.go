@@ -1,51 +1,40 @@
 package notarization
 
 import (
-	"reflect"
 	"sync/atomic"
 	"testing"
+	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/finality"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 const (
-	testingLowBound    = 0.2
-	testingMediumBound = 0.3
-	testingHighBound   = 0.4
+	testingAcceptanceThreshold = 0.4
 )
 
 var (
-	// TestBranchGoFTranslation translates a branch's AW into a grade of finality.
-	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	// TestConflictAcceptanceStateTranslation translates a conflict's AW into a confirmation state.
+	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 
-	// TestMessageGoFTranslation translates a message's AW into a grade of finality.
-	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
-		switch {
-		case aw >= testingLowBound && aw < testingMediumBound:
-			return gof.Low
-		case aw >= testingMediumBound && aw < testingHighBound:
-			return gof.Medium
-		case aw >= testingHighBound:
-			return gof.High
-		default:
-			return gof.None
+	// TestBlockAcceptanceStateTranslation translates a block's AW into a confirmation state.
+	TestBlockAcceptanceStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
+		if aw >= testingAcceptanceThreshold {
+			return confirmation.Accepted
 		}
+
+		return confirmation.Pending
 	}
 )
 
@@ -72,10 +61,6 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	notarizationManager.Events.EpochCommittable.Hook(event.NewClosure(e.EpochCommittable))
 	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
 
-	// assure that all available events are mocked
-	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
-
 	return e
 }
 
@@ -88,18 +73,21 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	event.Loop.WaitUntilAllTasksProcessed()
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
 
 // AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
-	calledEvents := atomic.LoadUint64(&e.calledEvents)
-	expectedEvents := atomic.LoadUint64(&e.expectedEvents)
-	if calledEvents != expectedEvents {
-		t.Errorf("number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
-		return false
-	}
+	var calledEvents, expectedEvents uint64
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	assert.Eventuallyf(t, func() bool {
+		calledEvents = atomic.LoadUint64(&e.calledEvents)
+		expectedEvents = atomic.LoadUint64(&e.expectedEvents)
+		return calledEvents == expectedEvents
+	}, 5*time.Second, 1*time.Millisecond, "number of called (%d) events is not equal to number of expected events (%d)", calledEvents, expectedEvents)
 
 	defer func() {
 		e.Calls = make([]mock.Call, 0)

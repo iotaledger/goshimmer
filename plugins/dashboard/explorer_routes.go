@@ -6,10 +6,10 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -22,41 +22,41 @@ import (
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 )
 
-// ExplorerMessage defines the struct of the ExplorerMessage.
-type ExplorerMessage struct {
-	// ID is the message ID.
+// ExplorerBlock defines the struct of the ExplorerBlock.
+type ExplorerBlock struct {
+	// ID is the block ID.
 	ID string `json:"id"`
-	// SolidificationTimestamp is the timestamp of the message.
+	// SolidificationTimestamp is the timestamp of the block.
 	SolidificationTimestamp int64 `json:"solidification_timestamp"`
-	// The time when this message was issued
+	// The time when this block was issued
 	IssuanceTimestamp int64 `json:"issuance_timestamp"`
-	// The issuer's sequence number of this message.
+	// The issuer's sequence number of this block.
 	SequenceNumber uint64 `json:"sequence_number"`
-	// The public key of the issuer who issued this message.
+	// The public key of the issuer who issued this block.
 	IssuerPublicKey string `json:"issuer_public_key"`
 	// The shortID of the issuer.
 	IssuerShortID string `json:"issuer_short_id"`
-	// The signature of the message.
+	// The signature of the block.
 	Signature string `json:"signature"`
 	// ParentsByType is the map of parents group by type
 	ParentsByType map[string][]string `json:"parentsByType"`
-	// StrongApprovers are the strong approvers of the message.
-	StrongApprovers []string `json:"strongApprovers"`
-	// WeakApprovers are the weak approvers of the message.
-	WeakApprovers []string `json:"weakApprovers"`
-	// ShallowLikeApprovers are the shallow like approvers of the message.
-	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
-	// Solid defines the solid status of the message.
-	Solid               bool                `json:"solid"`
-	BranchIDs           []string            `json:"branchIDs"`
-	AddedBranchIDs      []string            `json:"addedBranchIDs"`
-	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
-	Scheduled           bool                `json:"scheduled"`
-	Booked              bool                `json:"booked"`
-	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
-	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
-	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
-	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
+	// StrongChildren are the strong children of the block.
+	StrongChildren []string `json:"strongChildren"`
+	// WeakChildren are the weak children of the block.
+	WeakChildren []string `json:"weakChildren"`
+	// ShallowLikeChildren are the shallow like children of the block.
+	ShallowLikeChildren []string `json:"shallowLikeChildren"`
+	// Solid defines the solid status of the block.
+	Solid                 bool               `json:"solid"`
+	ConflictIDs           []string           `json:"conflictIDs"`
+	AddedConflictIDs      []string           `json:"addedConflictIDs"`
+	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
+	Scheduled             bool               `json:"scheduled"`
+	Booked                bool               `json:"booked"`
+	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
+	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`
+	ConfirmationState     confirmation.State `json:"confirmationState"`
+	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -76,50 +76,50 @@ type ExplorerMessage struct {
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
-func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
-	messageID := msg.ID()
-	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
-	defer cachedMessageMetadata.Release()
-	messageMetadata, _ := cachedMessageMetadata.Unwrap()
+func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
+	blockID := blk.ID()
+	cachedBlockMetadata := deps.Tangle.Storage.BlockMetadata(blockID)
+	defer cachedBlockMetadata.Release()
+	blockMetadata, _ := cachedBlockMetadata.Unwrap()
 
-	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
+	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)
 
-	ecRecord := epoch.NewECRecord(msg.EI())
-	ecRecord.SetECR(msg.ECR())
-	ecRecord.SetPrevEC(msg.PrevEC())
+	ecRecord := epoch.NewECRecord(blk.EI())
+	ecRecord.SetECR(blk.ECR())
+	ecRecord.SetPrevEC(blk.PrevEC())
 
-	t := &ExplorerMessage{
-		ID:                      messageID.Base58(),
-		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
-		IssuanceTimestamp:       msg.IssuingTime().Unix(),
-		IssuerPublicKey:         msg.IssuerPublicKey().String(),
-		IssuerShortID:           identity.NewID(msg.IssuerPublicKey()).String(),
-		Signature:               msg.Signature().String(),
-		SequenceNumber:          msg.SequenceNumber(),
-		ParentsByType:           prepareParentReferences(msg),
-		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).Base58(),
-		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).Base58(),
-		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).Base58(),
-		Solid:                   messageMetadata.IsSolid(),
-		BranchIDs:               lo.Map(lo.Map(branchIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		AddedBranchIDs:          lo.Map(lo.Map(messageMetadata.AddedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		SubtractedBranchIDs:     lo.Map(lo.Map(messageMetadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		Scheduled:               messageMetadata.Scheduled(),
-		Booked:                  messageMetadata.IsBooked(),
-		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
-		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
-		GradeOfFinality:         messageMetadata.GradeOfFinality(),
-		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
-		PayloadType:             uint32(msg.Payload().Type()),
-		Payload:                 ProcessPayload(msg.Payload()),
-		EC:                   	 notarization.EC(ecRecord).Base58(),
-		EI:                      uint64(msg.EI()),
-		ECR:                     msg.ECR().Base58(),
-		PrevEC:                  msg.PrevEC().Base58(),
-		LatestConfirmedEpoch:    uint64(msg.LatestConfirmedEpoch()),
+	t := &ExplorerBlock{
+		ID:                      blockID.Base58(),
+		SolidificationTimestamp: blockMetadata.SolidificationTime().Unix(),
+		IssuanceTimestamp:       blk.IssuingTime().Unix(),
+		IssuerPublicKey:         blk.IssuerPublicKey().String(),
+		IssuerShortID:           identity.NewID(blk.IssuerPublicKey()).String(),
+		Signature:               blk.Signature().String(),
+		SequenceNumber:          blk.SequenceNumber(),
+		ParentsByType:           prepareParentReferences(blk),
+		StrongChildren:          deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.StrongChild).Base58(),
+		WeakChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.WeakChild).Base58(),
+		ShallowLikeChildren:     deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.ShallowLikeChild).Base58(),
+		Solid:                   blockMetadata.IsSolid(),
+		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		Scheduled:               blockMetadata.Scheduled(),
+		Booked:                  blockMetadata.IsBooked(),
+		ObjectivelyInvalid:      blockMetadata.IsObjectivelyInvalid(),
+		SubjectivelyInvalid:     blockMetadata.IsSubjectivelyInvalid(),
+		ConfirmationState:       blockMetadata.ConfirmationState(),
+		ConfirmationStateTime:   blockMetadata.ConfirmationStateTime().Unix(),
+		PayloadType:             uint32(blk.Payload().Type()),
+		Payload:                 ProcessPayload(blk.Payload()),
+		EC:                      notarization.EC(ecRecord).Base58(),
+		EI:                      uint64(blk.EI()),
+		ECR:                     blk.ECR().Base58(),
+		PrevEC:                  blk.PrevEC().Base58(),
+		LatestConfirmedEpoch:    uint64(blk.LatestConfirmedEpoch()),
 	}
 
-	if d := messageMetadata.StructureDetails(); d != nil {
+	if d := blockMetadata.StructureDetails(); d != nil {
 		t.Rank = d.Rank()
 		t.PastMarkerGap = d.PastMarkerGap()
 		t.IsPastMarker = d.IsPastMarker()
@@ -129,9 +129,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	return t
 }
 
-func prepareParentReferences(msg *tangle.Message) map[string][]string {
+func prepareParentReferences(blk *tangle.Block) map[string][]string {
 	parentsByType := make(map[string][]string)
-	msg.ForEachParent(func(parent tangle.Parent) {
+	blk.ForEachParent(func(parent tangle.Parent) {
 		if _, ok := parentsByType[parent.Type.String()]; !ok {
 			parentsByType[parent.Type.String()] = make([]string, 0)
 		}
@@ -148,30 +148,30 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	ID              *jsonmodels.OutputID       `json:"id"`
-	Output          *jsonmodels.Output         `json:"output"`
-	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
-	TxTimestamp     int                        `json:"txTimestamp"`
-	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
+	ID                *jsonmodels.OutputID       `json:"id"`
+	Output            *jsonmodels.Output         `json:"output"`
+	Metadata          *jsonmodels.OutputMetadata `json:"metadata"`
+	TxTimestamp       int                        `json:"txTimestamp"`
+	ConfirmationState confirmation.State         `json:"confirmationState"`
 }
 
 // SearchResult defines the struct of the SearchResult.
 type SearchResult struct {
-	// Message is the *ExplorerMessage.
-	Message *ExplorerMessage `json:"message"`
+	// Block is the *ExplorerBlock.
+	Block *ExplorerBlock `json:"block"`
 	// Address is the *ExplorerAddress.
 	Address *ExplorerAddress `json:"address"`
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
-	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		var messageID tangle.MessageID
-		err = messageID.FromBase58(c.Param("id"))
+	routeGroup.GET("/block/:id", func(c echo.Context) (err error) {
+		var blockID tangle.BlockID
+		err = blockID.FromBase58(c.Param("id"))
 		if err != nil {
 			return
 		}
 
-		t, err := findMessage(messageID)
+		t, err := findBlock(blockID)
 		if err != nil {
 			return
 		}
@@ -193,11 +193,11 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
 	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
 	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
-	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
-	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
-	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
-	routeGroup.GET("/branch/:branchID/voters", ledgerstateAPI.GetBranchVoters)
-	routeGroup.POST("/chat", chat.SendChatMessage)
+	routeGroup.GET("/conflict/:conflictID", ledgerstateAPI.GetConflict)
+	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
+	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
+	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
+	routeGroup.POST("/chat", chat.SendChatBlock)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
@@ -215,16 +215,16 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case tangle.MessageIDLength:
-			var messageID tangle.MessageID
-			err = messageID.FromBase58(c.Param("id"))
+		case tangle.BlockIDLength:
+			var blockID tangle.BlockID
+			err = blockID.FromBase58(c.Param("id"))
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
 
-			msg, err := findMessage(messageID)
+			blk, err := findBlock(blockID)
 			if err == nil {
-				result.Message = msg
+				result.Block = blk
 			}
 
 		default:
@@ -235,11 +235,11 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
-	if !deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		explorerMsg = createExplorerMessage(msg)
+func findBlock(blockID tangle.BlockID) (explorerBlk *ExplorerBlock, err error) {
+	if !deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangle.Block) {
+		explorerBlk = createExplorerBlock(blk)
 	}) {
-		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.Base58())
+		err = fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())
 	}
 
 	return
@@ -259,14 +259,13 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
-		// get output metadata + grade of finality status from branch of the output
+		// get output metadata + confirmation status from conflict of the output
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		var txID utxo.TransactionID
 		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
-
 			if output, ok := output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
@@ -281,14 +280,13 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
-					ID:              jsonmodels.NewOutputID(output.ID()),
-					Output:          jsonmodels.NewOutput(output),
-					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
-					TxTimestamp:     int(timestamp),
-					GradeOfFinality: metaData.GradeOfFinality(),
+					ID:                jsonmodels.NewOutputID(output.ID()),
+					Output:            jsonmodels.NewOutput(output),
+					Metadata:          jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
+					TxTimestamp:       int(timestamp),
+					ConfirmationState: metaData.ConfirmationState(),
 				})
 			}
-
 		})
 	})
 

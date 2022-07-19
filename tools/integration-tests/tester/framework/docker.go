@@ -131,7 +131,6 @@ func (d *DockerContainer) createSocatContainer(ctx context.Context, name string,
 	}
 
 	return d.CreateContainer(ctx, name, containerConfig, hostConfig)
-
 }
 
 // CreatePumba creates a new container with Pumba configuration blocking all traffic.

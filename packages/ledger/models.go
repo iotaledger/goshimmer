@@ -8,10 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -23,8 +22,8 @@ type TransactionMetadata struct {
 }
 
 type transactionMetadata struct {
-	// BranchIDs contains the conflicting BranchIDs that this Transaction depends on.
-	BranchIDs utxo.TransactionIDs `serix:"0"`
+	// ConflictIDs contains the conflicting ConflictIDs that this Transaction depends on.
+	ConflictIDs utxo.TransactionIDs `serix:"0"`
 
 	// Booked contains a boolean flag that indicates if the Transaction was Booked already.
 	Booked bool `serix:"1"`
@@ -38,42 +37,43 @@ type transactionMetadata struct {
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
 	OutputIDs utxo.OutputIDs `serix:"4"`
 
-	// GradeOfFinality contains the confirmation status of the Transaction.
-	GradeOfFinality gof.GradeOfFinality `serix:"5"`
+	// ConfirmationState contains the confirmation state of the Transaction.
+	ConfirmationState confirmation.State `serix:"5"`
 
-	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"6"`
+	// ConfirmationStateTime contains the last time the ConfirmationState was updated.
+	ConfirmationStateTime time.Time `serix:"6"`
 }
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
 func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
 	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
-		BranchIDs: utxo.NewTransactionIDs(),
-		OutputIDs: utxo.NewOutputIDs(),
+		ConflictIDs:       utxo.NewTransactionIDs(),
+		OutputIDs:         utxo.NewOutputIDs(),
+		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(txID)
 
 	return new
 }
 
-// BranchIDs returns the conflicting BranchIDs that the Transaction depends on.
-func (t *TransactionMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+// ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
+func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.BranchIDs.Clone()
+	return t.M.ConflictIDs.Clone()
 }
 
-// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+// SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
+func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.M.BranchIDs.Equal(branchIDs) {
+	if t.M.ConflictIDs.Equal(conflictIDs) {
 		return false
 	}
 
-	t.M.BranchIDs = branchIDs.Clone()
+	t.M.ConflictIDs = conflictIDs.Clone()
 	t.SetModified()
 
 	return true
@@ -161,41 +161,41 @@ func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified b
 	return true
 }
 
-// GradeOfFinality returns the confirmation status of the Transaction.
-func (t *TransactionMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
+// ConfirmationState returns the confirmation status of the Transaction.
+func (t *TransactionMetadata) ConfirmationState() (confirmationState confirmation.State) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.GradeOfFinality
+	return t.M.ConfirmationState
 }
 
-// SetGradeOfFinality sets the confirmation status of the Transaction.
-func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+// SetConfirmationState sets the confirmation status of the Transaction.
+func (t *TransactionMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
-	if t.M.GradeOfFinality == gradeOfFinality {
+	if t.M.ConfirmationState == confirmationState {
 		return
 	}
 
-	t.M.GradeOfFinality = gradeOfFinality
-	t.M.GradeOfFinalityTime = clock.SyncedTime()
+	t.M.ConfirmationState = confirmationState
+	t.M.ConfirmationStateTime = clock.SyncedTime()
 	t.SetModified()
 
 	return true
 }
 
-// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
-func (t *TransactionMetadata) GradeOfFinalityTime() (gradeOfFinalityTime time.Time) {
+// ConfirmationStateTime returns the last time the ConfirmationState was updated.
+func (t *TransactionMetadata) ConfirmationStateTime() (confirmationStateTime time.Time) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.M.GradeOfFinalityTime
+	return t.M.ConfirmationStateTime
 }
 
-// IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Branch).
+// IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Conflict).
 func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
-	return t.BranchIDs().Is(t.ID())
+	return t.ConflictIDs().Is(t.ID())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -217,8 +217,8 @@ type outputMetadata struct {
 	// CreationTime contains the time when the Output was created.
 	CreationTime time.Time `serix:"2"`
 
-	// BranchIDs contains the conflicting BranchIDs that this Output depends on.
-	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
+	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
+	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
 	FirstConsumer utxo.TransactionID `serix:"4"`
@@ -226,17 +226,18 @@ type outputMetadata struct {
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
 	FirstConsumerForked bool `serix:"5"`
 
-	// GradeOfFinality contains the confirmation status of the Output.
-	GradeOfFinality gof.GradeOfFinality `serix:"6"`
+	// ConfirmationState contains the confirmation status of the Output.
+	ConfirmationState confirmation.State `serix:"6"`
 
-	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"7"`
+	// ConfirmationStateTime contains the last time the ConfirmationState was updated.
+	ConfirmationStateTime time.Time `serix:"7"`
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
-		BranchIDs: utxo.NewTransactionIDs(),
+		ConflictIDs:       utxo.NewTransactionIDs(),
+		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(outputID)
 
@@ -312,24 +313,24 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 	return true
 }
 
-// BranchIDs returns the conflicting BranchIDs that the Output depends on.
-func (o *OutputMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+// ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
+func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.BranchIDs.Clone()
+	return o.M.ConflictIDs.Clone()
 }
 
-// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (o *OutputMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+// SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
+func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.BranchIDs.Equal(branchIDs) {
+	if o.M.ConflictIDs.Equal(conflictIDs) {
 		return false
 	}
 
-	o.M.BranchIDs = branchIDs.Clone()
+	o.M.ConflictIDs = conflictIDs.Clone()
 	o.SetModified()
 
 	return true
@@ -363,36 +364,36 @@ func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (is
 	return true, o.M.FirstConsumer
 }
 
-// GradeOfFinality returns the confirmation status of the Output.
-func (o *OutputMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
+// ConfirmationState returns the confirmation state of the Output.
+func (o *OutputMetadata) ConfirmationState() (confirmationState confirmation.State) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.GradeOfFinality
+	return o.M.ConfirmationState
 }
 
-// SetGradeOfFinality sets the confirmation status of the Output.
-func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+// SetConfirmationState sets the confirmation state of the Output.
+func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.State) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.GradeOfFinality == gradeOfFinality {
+	if o.M.ConfirmationState == confirmationState {
 		return false
 	}
 
-	o.M.GradeOfFinality = gradeOfFinality
-	o.M.GradeOfFinalityTime = clock.SyncedTime()
+	o.M.ConfirmationState = confirmationState
+	o.M.ConfirmationStateTime = clock.SyncedTime()
 	o.SetModified()
 
 	return true
 }
 
-// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
-func (o *OutputMetadata) GradeOfFinalityTime() (gradeOfFinality time.Time) {
+// ConfirmationStateTime returns the last time the ConfirmationState was updated.
+func (o *OutputMetadata) ConfirmationStateTime() (confirmationState time.Time) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.GradeOfFinalityTime
+	return o.M.ConfirmationStateTime
 }
 
 // IsSpent returns true if the Output has been spent.
@@ -457,15 +458,15 @@ func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 	return ids
 }
 
-// BranchIDs returns a union of all BranchIDs of the contained OutputMetadata objects.
-func (o *OutputsMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
+func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
-		branchIDs.AddAll(outputMetadata.BranchIDs())
+		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil
 	})
 
-	return branchIDs
+	return conflictIDs
 }
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
@@ -549,44 +550,70 @@ func (c *Consumer) SetBooked() (updated bool) {
 
 // region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type EpochDiffs struct {
-	orderedmap.OrderedMap[epoch.Index, *OutputWithMetadata] `serix:"0"`
+// EpochDiff represents the collection of OutputWithMetadata objects that have been included in an epoch.
+type EpochDiff struct {
+	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
 }
 
-func (e *EpochDiffs) String() string {
-	structBuilder := stringify.StructBuilder("EpochDiffs")
-	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *OutputWithMetadata) bool {
-		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
-		return true
+type epochDiffModel struct {
+	Spent   []*OutputWithMetadata `serix:"0"`
+	Created []*OutputWithMetadata `serix:"1"`
+}
+
+// NewEpochDiff returns a new EpochDiff object.
+func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
+	return model.NewImmutable[EpochDiff](&epochDiffModel{
+		Spent:   spent,
+		Created: created,
 	})
-
-	return structBuilder.String()
 }
 
+// Spent returns the outputs spent for this epoch diff.
+func (e *EpochDiff) Spent() []*OutputWithMetadata {
+	return e.M.Spent
+}
+
+// Created returns the outputs created for this epoch diff.
+func (e *EpochDiff) Created() []*OutputWithMetadata {
+	return e.M.Spent
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputWithMetadata ///////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
 type OutputWithMetadata struct {
 	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
 }
 
 type outputWithMetadataModel struct {
-	OutputID       utxo.OutputID   `serix:"0"`
-	Output         utxo.Output     `serix:"1"`
-	OutputMetadata *OutputMetadata `serix:"2"`
+	OutputID              utxo.OutputID `serix:"0"`
+	Output                utxo.Output   `serix:"1"`
+	CreationTime          time.Time     `serix:"2"`
+	ConsensusManaPledgeID identity.ID   `serix:"3"`
+	AccessManaPledgeID    identity.ID   `serix:"4"`
 }
 
+// String returns a human-readable version of the OutputWithMetadata.
 func (o *OutputWithMetadata) String() string {
 	structBuilder := stringify.StructBuilder("OutputWithMetadata")
 	structBuilder.AddField(stringify.StructField("OutputID", o.ID()))
 	structBuilder.AddField(stringify.StructField("Output", o.Output()))
-	structBuilder.AddField(stringify.StructField("OutputMetadata", o.OutputMetadata()))
+	structBuilder.AddField(stringify.StructField("CreationTime", o.CreationTime()))
+	structBuilder.AddField(stringify.StructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
+	structBuilder.AddField(stringify.StructField("AccessPledgeID", o.AccessManaPledgeID()))
 
 	return structBuilder.String()
 }
 
-func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata) (new *OutputWithMetadata) {
+// NewOutputWithMetadata returns a new OutputWithMetadata object.
+func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
 	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
-		OutputID:       outputID,
-		Output:         output,
-		OutputMetadata: outputMetadata,
+		OutputID:              outputID,
+		Output:                output,
+		ConsensusManaPledgeID: consensusManaPledgeID,
+		AccessManaPledgeID:    accessManaPledgeID,
 	})
 	new.SetID(outputID)
 	return
@@ -596,7 +623,6 @@ func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMet
 func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 	err := o.Storable.FromObjectStorage(key, value)
 	o.M.Output.SetID(o.ID())
-	o.M.OutputMetadata.SetID(o.ID())
 
 	return err
 }
@@ -605,11 +631,11 @@ func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 func (o *OutputWithMetadata) FromBytes(data []byte) error {
 	err := o.Storable.FromBytes(data)
 	o.M.Output.SetID(o.ID())
-	o.M.OutputMetadata.SetID(o.ID())
 
 	return err
 }
 
+// Output returns the Output field.
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
 	defer o.RUnlock()
@@ -617,6 +643,7 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	return o.M.Output
 }
 
+// SetOutput sets the Output field.
 func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 	o.Lock()
 	defer o.Unlock()
@@ -627,45 +654,52 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 	return
 }
 
-func (o *OutputWithMetadata) OutputMetadata() (outputMetadata *OutputMetadata) {
+// CreationTime returns the CreationTime field.
+func (o *OutputWithMetadata) CreationTime() (creationTime time.Time) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.OutputMetadata
+	return o.M.CreationTime
 }
 
-func (o *OutputWithMetadata) SetOutputMetadata(outputMetadata *OutputMetadata) {
+// SetCreationTime sets the CreationTime field.
+func (o *OutputWithMetadata) SetCreationTime(creationTime time.Time) {
 	o.Lock()
 	defer o.Unlock()
 
-	o.M.OutputMetadata = outputMetadata
-	o.SetModified()
-
-	return
+	o.M.CreationTime = creationTime
 }
 
-type EpochDiff struct {
-	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
+// ConsensusManaPledgeID returns the consensus pledge id of the output.
+func (o *OutputWithMetadata) ConsensusManaPledgeID() (consensuPledgeID identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.ConsensusManaPledgeID
 }
 
-type epochDiffModel struct {
-	Spent   []*OutputWithMetadata `serix:"0"`
-	Created []*OutputWithMetadata `serix:"1"`
+// SetConsensusManaPledgeID sets the consensus pledge id of the output.
+func (o *OutputWithMetadata) SetConsensusManaPledgeID(consensusPledgeID identity.ID) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.M.ConsensusManaPledgeID = consensusPledgeID
 }
 
-func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
-	return model.NewImmutable[EpochDiff](&epochDiffModel{
-		Spent:   spent,
-		Created: created,
-	})
+// AccessManaPledgeID returns the access pledge id of the output.
+func (o *OutputWithMetadata) AccessManaPledgeID() (consensuPledgeID identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.AccessManaPledgeID
 }
 
-func (e *EpochDiff) Spent() []*OutputWithMetadata {
-	return e.M.Spent
-}
+// SetAccessManaPledgeID sets the access pledge id of the output.
+func (o *OutputWithMetadata) SetAccessManaPledgeID(accessPledgeID identity.ID) {
+	o.Lock()
+	defer o.Unlock()
 
-func (e *EpochDiff) Created() []*OutputWithMetadata {
-	return e.M.Spent
+	o.M.AccessManaPledgeID = accessPledgeID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

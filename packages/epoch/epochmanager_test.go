@@ -16,7 +16,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 0
 		testTime := genesisTime.Add(5 * time.Second)
 		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(0))
+		assert.Equal(t, ei, Index(1))
 
 		startTime := ei.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Unix(), 0))
@@ -28,7 +28,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 1
 		testTime := genesisTime.Add(10 * time.Second)
 		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(1))
+		assert.Equal(t, ei, Index(2))
 
 		startTime := ei.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(10*time.Second).Unix(), 0))
@@ -40,7 +40,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 3
 		testTime := genesisTime.Add(35 * time.Second)
 		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(3))
+		assert.Equal(t, ei, Index(4))
 
 		startTime := ei.StartTime()
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(30*time.Second).Unix(), 0))
@@ -52,7 +52,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 4
 		testTime := genesisTime.Add(49 * time.Second)
 		ei := IndexFromTime(testTime)
-		assert.Equal(t, ei, Index(4))
+		assert.Equal(t, ei, Index(5))
 
 	}
 

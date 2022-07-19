@@ -12,22 +12,22 @@ import (
 var ErrMalformedPacket = errors.New("malformed packet")
 
 var (
-	// analysisMsgRegistry holds all message definitions for analysis server related messages
-	analysisMsgRegistry *message.Registry
+	// analysisBlkRegistry holds all block definitions for analysis server related blocks
+	analysisBlkRegistry *message.Registry
 	heartBeatOnce       sync.Once
 )
 
 func init() {
-	// message definitions to be registered in registry
+	// block definitions to be registered in registry
 	definitions := []*message.Definition{
 		tlv.HeaderMessageDefinition,
-		HeartBeatMessageDefinition(),
-		MetricHeartbeatMessageDefinition,
+		HeartBeatBlockDefinition(),
+		MetricHeartbeatBlockDefinition,
 	}
-	analysisMsgRegistry = message.NewRegistry(definitions)
+	analysisBlkRegistry = message.NewRegistry(definitions)
 }
 
-// AnalysisMsgRegistry gets the analysisMsgRegistry.
-func AnalysisMsgRegistry() *message.Registry {
-	return analysisMsgRegistry
+// AnalysisBlkRegistry gets the analysisBlkRegistry.
+func AnalysisBlkRegistry() *message.Registry {
+	return analysisBlkRegistry
 }

@@ -17,24 +17,24 @@ var (
 	chatLiveFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
 )
 
-type chatMsg struct {
+type chatBlk struct {
 	From      string `json:"from"`
 	To        string `json:"to"`
-	Message   string `json:"message"`
-	MessageID string `json:"messageID"`
+	Block     string `json:"block"`
+	BlockID   string `json:"blockID"`
 	Timestamp string `json:"timestamp"`
 }
 
 func configureChatLiveFeed() {
 	chatLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		newMessage := task.Param(0).(*chat.MessageReceivedEvent)
+		newBlock := task.Param(0).(*chat.BlockReceivedEvent)
 
-		broadcastWsMessage(&wsmsg{MsgTypeChat, &chatMsg{
-			From:      newMessage.From,
-			To:        newMessage.To,
-			Message:   newMessage.Message,
-			MessageID: newMessage.MessageID,
-			Timestamp: newMessage.Timestamp.Format("2 Jan 2006 15:04:05"),
+		broadcastWsBlock(&wsblk{MsgTypeChat, &chatBlk{
+			From:      newBlock.From,
+			To:        newBlock.To,
+			Block:     newBlock.Block,
+			BlockID:   newBlock.BlockID,
+			Timestamp: newBlock.Timestamp.Format("2 Jan 2006 15:04:05"),
 		}})
 
 		task.Return(nil)
@@ -43,16 +43,16 @@ func configureChatLiveFeed() {
 
 func runChatLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(ctx context.Context) {
-		notifyNewMessages := event.NewClosure(func(event *chat.MessageReceivedEvent) {
+		notifyNewBlocks := event.NewClosure(func(event *chat.BlockReceivedEvent) {
 			chatLiveFeedWorkerPool.TrySubmit(event)
 		})
-		deps.Chat.Events.MessageReceived.Attach(notifyNewMessages)
+		deps.Chat.Events.BlockReceived.Attach(notifyNewBlocks)
 
 		defer chatLiveFeedWorkerPool.Stop()
 
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[ChatUpdater] ...")
-		deps.Chat.Events.MessageReceived.Detach(notifyNewMessages)
+		deps.Chat.Events.BlockReceived.Detach(notifyNewBlocks)
 		log.Info("Stopping Dashboard[ChatUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

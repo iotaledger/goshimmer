@@ -14,8 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
 
-// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
-var ErrMessageTooSmall = errors.New("message too small")
+// ErrBlockTooSmall is returned when the block is smaller than the 8-byte nonce.
+var ErrBlockTooSmall = errors.New("block too small")
 
 // parameters
 var (
@@ -50,9 +50,9 @@ func Worker() *pow.Worker {
 	return worker
 }
 
-// DoPOW performs the PoW on the provided msg and returns the nonce.
-func DoPOW(msg []byte) (uint64, error) {
-	content, err := powData(msg)
+// DoPOW performs the PoW on the provided blk and returns the nonce.
+func DoPOW(blk []byte) (uint64, error) {
+	content, err := powData(blk)
 	if err != nil {
 		return 0, err
 	}
@@ -72,10 +72,10 @@ func DoPOW(msg []byte) (uint64, error) {
 }
 
 // powData returns the bytes over which PoW should be computed.
-func powData(msgBytes []byte) ([]byte, error) {
-	contentLength := len(msgBytes) - ed25519.SignatureSize
+func powData(blkBytes []byte) ([]byte, error) {
+	contentLength := len(blkBytes) - ed25519.SignatureSize
 	if contentLength < pow.NonceBytes {
-		return nil, ErrMessageTooSmall
+		return nil, ErrBlockTooSmall
 	}
-	return msgBytes[:contentLength], nil
+	return blkBytes[:contentLength], nil
 }

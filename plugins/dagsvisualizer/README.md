@@ -9,7 +9,7 @@ DAGs visualizer is a React App that implemented in TypeScript.
 Here are the main directories in `/src`:
 * **components**: contains React components.
 * **stores**: contains [stores](https://learn.co/lessons/react-stores) that will be injected to components via [`mobx`](https://mobx.js.org/README.html). Stores handle data from the back-end, and each DAG manages its own store.
-* **models**: contains data structures of different types of websocket messages.
+* **models**: contains data structures of different types of websocket blocks.
 * **graph**: contains the interface and implementations of visualization, currently there are [VivaGraphJS](https://github.com/anvaka/VivaGraphJS) and [Cytoscape.js](https://js.cytoscape.org/).
 * **styles**: contains files related to styling.
 * **utils**: contains utility functions.

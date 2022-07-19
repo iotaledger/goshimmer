@@ -6,9 +6,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -25,18 +25,18 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
-func (u *Utils) BranchIDsInFutureCone(branchIDs utxo.TransactionIDs) (branchIDsInFutureCone utxo.TransactionIDs) {
-	branchIDsInFutureCone = utxo.NewTransactionIDs()
+func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (conflictIDsInFutureCone utxo.TransactionIDs) {
+	conflictIDsInFutureCone = utxo.NewTransactionIDs()
 
-	for branchIDWalker := branchIDs.Iterator(); branchIDWalker.HasNext(); {
-		branchID := branchIDWalker.Next()
+	for conflictIDWalker := conflictIDs.Iterator(); conflictIDWalker.HasNext(); {
+		conflictID := conflictIDWalker.Next()
 
-		branchIDsInFutureCone.Add(branchID)
+		conflictIDsInFutureCone.Add(conflictID)
 
-		if u.ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(branchID)) == conflictdag.Confirmed {
-			u.ledger.Storage.CachedTransactionMetadata(branchID).Consume(func(txMetadata *TransactionMetadata) {
+		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsAccepted() {
+			u.ledger.Storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
+					conflictIDsInFutureCone.AddAll(txMetadata.ConflictIDs())
 
 					walker.PushAll(txMetadata.OutputIDs().Slice()...)
 				})
@@ -44,12 +44,12 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs utxo.TransactionIDs) (branchIDsI
 			continue
 		}
 
-		u.ledger.ConflictDAG.Utils.ForEachChildBranchID(branchID, func(childBranchID utxo.TransactionID) {
-			branchIDWalker.Push(childBranchID)
+		u.ledger.ConflictDAG.Utils.ForEachChildConflictID(conflictID, func(childConflictID utxo.TransactionID) {
+			conflictIDWalker.Push(childConflictID)
 		})
 	}
 
-	return branchIDsInFutureCone
+	return conflictIDsInFutureCone
 }
 
 // ResolveInputs returns the OutputIDs that were referenced by the given Inputs.
@@ -112,16 +112,16 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 	})
 }
 
-// TransactionBranchIDs returns the BranchIDs of the given TransactionID.
-func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+// TransactionConflictIDs returns the ConflictIDs of the given TransactionID.
+func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
-		branchIDs = metadata.BranchIDs()
+		conflictIDs = metadata.ConflictIDs()
 	}) {
 		return nil, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
 	}
 
-	return branchIDs, nil
+	return conflictIDs, nil
 }
 
 func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
@@ -136,8 +136,8 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 				if conflictMember.ConflictID() == transactionID {
 					return
@@ -151,27 +151,18 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 	return
 }
 
-// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
-func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-		gradeOfFinality = txMetadata.GradeOfFinality()
-	}) {
-		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
-	}
-
+// TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
+func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
+	u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		confirmationState = txMetadata.ConfirmationState()
+	})
 	return
 }
 
-// BranchGradeOfFinality returns the GradeOfFinality of the Conflict with the given BranchID.
-func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == utxo.EmptyTransactionID {
-		return gof.High, nil
-	}
-
-	branchGof, gofErr := u.TransactionGradeOfFinality(utxo.TransactionID{branchID.Identifier})
-	if gofErr != nil {
-		return gof.None, errors.Errorf("failed to retrieve GoF of branch %s: %w", branchID, err)
-	}
-
-	return branchGof, nil
+// OutputConfirmationState returns the ConfirmationState of the Output.
+func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
+	u.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+		confirmationState = outputMetadata.ConfirmationState()
+	})
+	return
 }

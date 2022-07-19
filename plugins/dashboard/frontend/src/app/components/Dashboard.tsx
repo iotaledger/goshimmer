@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Uptime from "app/components/Uptime";
 import Version from "app/components/Version";
-import MPSChart from "app/components/MPSChart";
+import BPSChart from "app/components/BPSChart";
 import TipsChart from "app/components/TipsChart";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
@@ -57,7 +57,7 @@ export class Dashboard extends React.Component<Props, any> {
                     <Col><TangleTime/></Col>
                 </Row>
                 <Row className={"mb-3"}>
-                    <Col><MPSChart/></Col>
+                    <Col><BPSChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><TipsChart/></Col>

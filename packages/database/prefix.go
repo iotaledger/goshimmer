@@ -19,7 +19,7 @@ const (
 	// PrefixIndexer defines the storage prefix for the indexer package.
 	PrefixIndexer
 
-	// PrefixConflictDAG defines the storage prefix for the branchDAG package.
+	// PrefixConflictDAG defines the storage prefix for the conflictDAG package.
 	PrefixConflictDAG
 
 	// PrefixMana defines the storage prefix for the mana package.
@@ -27,4 +27,7 @@ const (
 
 	// PrefixNotarization defines the storage prefix for the epochs package.
 	PrefixNotarization
+
+	// PrefixEpochsStorage defines the storage prefix for the epoch storage plugin.
+	PrefixEpochsStorage
 )

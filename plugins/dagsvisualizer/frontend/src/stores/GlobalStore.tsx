@@ -4,14 +4,14 @@ import TangleStore from './TangleStore';
 import { tangleVertex } from 'models/tangle';
 import UTXOStore from './UTXOStore';
 import { utxoVertex } from 'models/utxo';
-import BranchStore from './BranchStore';
-import { branchVertex } from 'models/branch';
+import ConflictStore from './ConflictStore';
+import { conflictVertex } from 'models/conflict';
 import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
 
 export class searchResult {
-    messages: Array<tangleVertex>;
+    blocks: Array<tangleVertex>;
     txs: Array<utxoVertex>;
-    branches: Array<branchVertex>;
+    conflicts: Array<conflictVertex>;
     error: string;
 }
 
@@ -27,18 +27,18 @@ export class GlobalStore {
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
-    branchStore: BranchStore;
+    conflictStore: ConflictStore;
 
     constructor(
         tangleStore: TangleStore,
         utxoStore: UTXOStore,
-        branchStore: BranchStore
+        conflictStore: ConflictStore
     ) {
         makeObservable(this);
 
         this.tangleStore = tangleStore;
         this.utxoStore = utxoStore;
-        this.branchStore = branchStore;
+        this.conflictStore = conflictStore;
     }
 
     @action
@@ -51,20 +51,20 @@ export class GlobalStore {
         this.manualPicker[1] = b;
     };
 
-    syncWithMsg = () => {
-        const msg = this.tangleStore.selectedMsg;
-        if (!msg) return;
+    syncWithBlk = () => {
+        const blk = this.tangleStore.selectedBlk;
+        if (!blk) return;
 
         this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
-        this.branchStore.clearSelected(true);
-        this.branchStore.clearHighlightedBranches();
+        this.conflictStore.clearSelected(true);
+        this.conflictStore.clearHighlightedConflicts();
 
-        if (msg.isTx) {
-            this.utxoStore.selectTx(msg.txID);
-            this.utxoStore.centerTx(msg.txID);
+        if (blk.isTx) {
+            this.utxoStore.selectTx(blk.txID);
+            this.utxoStore.centerTx(blk.txID);
         }
-        this.branchStore.highlightBranches(msg.branchIDs);
+        this.conflictStore.highlightConflicts(blk.conflictIDs);
     };
 
     syncWithTx = () => {
@@ -73,36 +73,36 @@ export class GlobalStore {
 
         // clear previous highlight and selected
         this.tangleStore.clearSelected();
-        this.tangleStore.clearHighlightedMsgs();
-        this.branchStore.clearSelected(true);
+        this.tangleStore.clearHighlightedBlks();
+        this.conflictStore.clearSelected(true);
 
-        const msg = this.tangleStore.getTangleVertex(tx.msgID);
-        if (msg) {
-            this.tangleStore.selectMsg(tx.msgID);
-            this.tangleStore.centerMsg(tx.msgID);
+        const blk = this.tangleStore.getTangleVertex(tx.blkID);
+        if (blk) {
+            this.tangleStore.selectBlk(tx.blkID);
+            this.tangleStore.centerBlk(tx.blkID);
         }
 
-        const branch = this.branchStore.getBranchVertex(tx.branchID);
-        if (branch) {
-            this.branchStore.selectBranch(tx.branchID);
-            this.branchStore.centerBranch(tx.branchID);
+        const conflict = this.conflictStore.getConflictVertex(tx.conflictID);
+        if (conflict) {
+            this.conflictStore.selectConflict(tx.conflictID);
+            this.conflictStore.centerConflict(tx.conflictID);
         }
     };
 
-    syncWithBranch = () => {
-        const branch = this.branchStore.selectedBranch;
-        if (!branch) return;
+    syncWithConflict = () => {
+        const conflict = this.conflictStore.selectedConflict;
+        if (!conflict) return;
 
-        // iterate messages to highlight all messages lies in that branch
-        const msgs = this.tangleStore.getMsgsFromBranch(
-            branch.ID,
+        // iterate blocks to highlight all blocks lies in that conflict
+        const blks = this.tangleStore.getBlksFromConflict(
+            conflict.ID,
             this.searchMode
         );
         this.tangleStore.clearSelected();
-        this.tangleStore.clearHighlightedMsgs();
-        this.tangleStore.highlightMsgs(msgs);
+        this.tangleStore.clearHighlightedBlks();
+        this.tangleStore.highlightBlks(blks);
 
-        const txs = this.utxoStore.getTxsFromBranch(branch.ID, this.searchMode);
+        const txs = this.utxoStore.getTxsFromConflict(conflict.ID, this.searchMode);
         this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
         this.utxoStore.highlightTxs(txs);
@@ -110,10 +110,10 @@ export class GlobalStore {
 
     clearSync = () => {
         this.tangleStore.clearSelected();
-        this.tangleStore.clearHighlightedMsgs();
+        this.tangleStore.clearHighlightedBlks();
         this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
-        this.branchStore.clearSelected(true);
+        this.conflictStore.clearSelected(true);
     };
 
     get SearchStartingTime() {
@@ -145,8 +145,8 @@ export class GlobalStore {
     };
 
     @action
-    updatePreviewSearchResponse = (msg: string) => {
-        this.previewResponseSize = msg;
+    updatePreviewSearchResponse = (blk: string) => {
+        this.previewResponseSize = blk;
     };
 
     updateSearchResults = (results: searchResult) => {
@@ -155,12 +155,12 @@ export class GlobalStore {
 
     @action
     updatePreviewResponseSize = (response: searchResult) => {
-        const numOfBranches = response.branches.length;
-        const numOfMessages = response.messages.length;
+        const numOfConflicts = response.conflicts.length;
+        const numOfBlocks = response.blocks.length;
         const numOfTransactions = response.txs.length;
-        this.updatePreviewSearchResponse(`Found: messages: ${numOfMessages};
+        this.updatePreviewSearchResponse(`Found: blocks: ${numOfBlocks};
             transactions: ${numOfTransactions};
-            branches: ${numOfBranches};`);
+            conflicts: ${numOfConflicts};`);
     };
 
     @action
@@ -180,14 +180,14 @@ export class GlobalStore {
                 this.updatePreviewResponseSize(result);
             }
 
-            if (result.messages.length === 0) {
-                this.updateSearchResponse('no messages found!');
+            if (result.blocks.length === 0) {
+                this.updateSearchResponse('no blocks found!');
                 return;
             }
             this.updateSearchResults(result);
         } catch (err) {
             console.log(
-                'Fail to fetch messages/txs/branches with the given interval',
+                'Fail to fetch blocks/txs/conflicts with the given interval',
                 err
             );
         }
@@ -203,9 +203,9 @@ export class GlobalStore {
         this.stopDrawNewVertices();
         this.clearGraphs();
 
-        (this.searchResult.messages || []).forEach((msg) => {
-            this.tangleStore.addFoundMsg(msg);
-            this.tangleStore.drawVertex(msg);
+        (this.searchResult.blocks || []).forEach((blk) => {
+            this.tangleStore.addFoundBlk(blk);
+            this.tangleStore.drawVertex(blk);
         });
 
         (this.searchResult.txs || []).forEach((tx) => {
@@ -213,12 +213,12 @@ export class GlobalStore {
             this.utxoStore.drawFoundVertex(tx);
         });
 
-        const branches = this.searchResult.branches || [];
-        for (let i = 0; i < branches.length; i++) {
-            this.branchStore.addFoundBranch(branches[i]);
-            await this.branchStore.drawVertex(branches[i]);
-            this.branchStore.graph.cy
-                .getElementById(branches[i].ID)
+        const conflicts = this.searchResult.conflicts || [];
+        for (let i = 0; i < conflicts.length; i++) {
+            this.conflictStore.addFoundConflict(conflicts[i]);
+            await this.conflictStore.drawVertex(conflicts[i]);
+            this.conflictStore.graph.cy
+                .getElementById(conflicts[i].ID)
                 .addClass('search');
         }
 
@@ -236,9 +236,9 @@ export class GlobalStore {
         this.clearSelectedVertices();
 
         // re-draw all existed latest vertices.
-        this.tangleStore.drawExistedMsgs();
+        this.tangleStore.drawExistedBlks();
         this.utxoStore.drawExistedTxs();
-        this.branchStore.drawExistedBranches();
+        this.conflictStore.drawExistedConflicts();
 
         this.drawNewVertices();
         this.updateSearchResponse('');
@@ -249,31 +249,31 @@ export class GlobalStore {
         // resume need redraw all existed vertices
         this.tangleStore.updateDrawStatus(true);
         this.utxoStore.updateDrawStatus(true);
-        this.branchStore.updateDrawStatus(true);
+        this.conflictStore.updateDrawStatus(true);
     }
 
     stopDrawNewVertices() {
         this.tangleStore.updateDrawStatus(false);
         this.utxoStore.updateDrawStatus(false);
-        this.branchStore.updateDrawStatus(false);
+        this.conflictStore.updateDrawStatus(false);
     }
 
     clearSelectedVertices() {
         this.tangleStore.clearSelected();
         this.utxoStore.clearSelected();
-        this.branchStore.clearSelected();
+        this.conflictStore.clearSelected();
     }
 
     clearGraphs() {
         this.tangleStore.clearGraph();
-        this.branchStore.clearGraph();
+        this.conflictStore.clearGraph();
         this.utxoStore.clearGraph();
     }
 
     clearFoundVertices() {
-        this.tangleStore.clearFoundMsgs();
+        this.tangleStore.clearFoundBlks();
         this.utxoStore.clearFoundTxs();
-        this.branchStore.clearFoundBranches();
+        this.conflictStore.clearFoundConflicts();
     }
 }
 

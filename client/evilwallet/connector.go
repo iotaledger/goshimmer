@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -173,19 +173,19 @@ type Client interface {
 	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
-	// PostData sends the given data (payload) by creating a message in the backend.
-	PostData(data []byte) (msgID string, err error)
+	// PostData sends the given data (payload) by creating a block in the backend.
+	PostData(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
 	GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error)
-	// GetTransactionGoF returns the GoF of a given transaction ID.
-	GetTransactionGoF(txID string) gof.GradeOfFinality
+	// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
+	GetTransactionConfirmationState(txID string) confirmation.State
 	// GetOutput gets the output of a given outputID.
 	GetOutput(outputID utxo.OutputID) devnetvm.Output
-	// GetOutputGoF gets the first unspent outputs of a given address.
-	GetOutputGoF(outputID utxo.OutputID) gof.GradeOfFinality
-	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+	// GetOutputConfirmationState gets the first unspent outputs of a given address.
+	GetOutputConfirmationState(outputID utxo.OutputID) confirmation.State
+	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
 	BroadcastFaucetRequest(address string) error
 	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
@@ -232,7 +232,7 @@ func (c *WebClient) SleepRateSetterEstimate() (err error) {
 	return nil
 }
 
-// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
 func (c *WebClient) BroadcastFaucetRequest(address string) (err error) {
 	_, err = c.api.BroadcastFaucetRequest(address, -1)
 	return
@@ -256,8 +256,8 @@ func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.Transac
 	return
 }
 
-// PostData sends the given data (payload) by creating a message in the backend.
-func (c *WebClient) PostData(data []byte) (msgID string, err error) {
+// PostData sends the given data (payload) by creating a block in the backend.
+func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 	resp, err := c.api.Data(data)
 	if err != nil {
 		return
@@ -288,14 +288,14 @@ func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodel
 	return nil
 }
 
-// GetOutputGoF gets the first unspent outputs of a given address.
-func (c *WebClient) GetOutputGoF(outputID utxo.OutputID) gof.GradeOfFinality {
+// GetOutputConfirmationState gets the first unspent outputs of a given address.
+func (c *WebClient) GetOutputConfirmationState(outputID utxo.OutputID) confirmation.State {
 	res, err := c.api.GetOutputMetadata(outputID.Base58())
 	if err != nil {
-		return gof.None
+		return confirmation.Pending
 	}
 
-	return res.GradeOfFinality
+	return res.ConfirmationState
 }
 
 // GetOutput gets the output of a given outputID.
@@ -308,13 +308,13 @@ func (c *WebClient) GetOutput(outputID utxo.OutputID) devnetvm.Output {
 	return output
 }
 
-// GetTransactionGoF returns the GoF of a given transaction ID.
-func (c *WebClient) GetTransactionGoF(txID string) gof.GradeOfFinality {
+// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
+func (c *WebClient) GetTransactionConfirmationState(txID string) confirmation.State {
 	resp, err := c.api.GetTransactionMetadata(txID)
 	if err != nil {
-		return gof.None
+		return confirmation.Pending
 	}
-	return resp.GradeOfFinality
+	return resp.ConfirmationState
 }
 
 // GetTransactionOutputs returns the outputs the transaction created.

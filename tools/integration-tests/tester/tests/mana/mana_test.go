@@ -2,7 +2,6 @@ package mana
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math"
 	"testing"
@@ -22,8 +21,6 @@ var (
 	startAccessMana    = 2_500_000_000_000_000.
 	faucetPledgeAmount = 1_000_000.
 	minConsensusMana   = 0.0
-
-	emptyNodeID = identity.ID{}
 )
 
 //
@@ -90,7 +87,7 @@ var (
 //	require.NoError(t, err)
 //
 //	faucetConfig := framework.PeerConfig()
-//	faucetConfig.MessageLayer.StartSynced = true
+//	faucetConfig.BlockLayer.StartSynced = true
 //	faucetConfig.Faucet.Enabled = true
 //	faucetConfig.Mana.Enabled = true
 //	faucetConfig.Mana.AllowedAccessPledge = []string{accessPeerID}
@@ -99,7 +96,7 @@ var (
 //	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
 //	faucetConfig.Activity.Enabled = true
 //	faucetConfig.Seed = seedBytes
-//	faucetConfig.MessageLayer.Snapshot.File = snapshotInfo.FilePath
+//	faucetConfig.BlockLayer.Snapshot.File = snapshotInfo.FilePath
 //
 //	faucet, err := n.CreatePeer(ctx, faucetConfig)
 //	require.NoError(t, err)
@@ -148,7 +145,7 @@ func TestManaApis(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
-		Activity:    true, // we need to issue regular activity messages
+		Activity:    true, // we need to issue regular activity blocks
 		PeerMaster:  true,
 		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
@@ -191,10 +188,10 @@ func TestManaApis(t *testing.T) {
 
 	// Test /mana/access/nhighest and /mana/consensus/nhighest
 	t.Run("mana/*/nhighest access", func(t *testing.T) {
-		aResp, err := faucet.GetNHighestAccessMana(3)
+		aResp, err := faucet.GetNHighestAccessMana(len(n.Peers()))
 		require.NoError(t, err)
 		t.Logf("/mana/access/nhighest %+v", aResp)
-		require.Len(t, aResp.Nodes, 3)
+		require.Len(t, aResp.Nodes, len(n.Peers()))
 		prevMana := math.Inf(1)
 		for i := range aResp.Nodes {
 			require.LessOrEqual(t, aResp.Nodes[i].Mana, prevMana)
@@ -208,8 +205,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", percResp)
 		require.Equal(t, fullID(faucet.ID()), percResp.NodeID)
-		fmt.Println(percResp.Access)
-		require.InDelta(t, 20.0, percResp.Access, 0.01)
+		require.InDelta(t, 0, percResp.Access, 0.01)
 	})
 
 	// Test /mana/access/online
@@ -263,8 +259,15 @@ func TestManaApis(t *testing.T) {
 		}
 		require.Len(t, nodeIDs, len(n.Peers()))
 		for _, peer := range n.Peers() {
+			// the faucet does not have any consensus mana.
+			if peer.ID() == faucet.ID() {
+				continue
+			}
 			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
+
+		require.NotContains(t, nodeIDs, faucet.ID)
+		require.Contains(t, nodeIDs, identity.ID{}.EncodeBase58())
 	})
 
 	// Test /mana/percentile
@@ -273,7 +276,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", respPerc)
 		require.Equal(t, faucet.ID().EncodeBase58(), respPerc.NodeID)
-		require.InDelta(t, 80., respPerc.Consensus, 0.01)
+		require.InDelta(t, 0, respPerc.Consensus, 0.01)
 	})
 
 	// Test /mana/consensus/online
@@ -281,15 +284,20 @@ func TestManaApis(t *testing.T) {
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/online %+v", cResp)
-		require.Len(t, cResp.Online, len(n.Peers()))
+		// the faucet does not have any consensus mana.
+		require.Len(t, cResp.Online, len(n.Peers())-1)
 		nodeIDs := make([]string, len(cResp.Online))
 		for i := range cResp.Online {
 			nodeIDs[i] = cResp.Online[i].ID
 		}
-		require.Len(t, nodeIDs, len(n.Peers()))
 		for _, peer := range n.Peers() {
+			// the faucet does not have any consensus mana.
+			if peer.ID() == faucet.ID() {
+				continue
+			}
 			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
+		require.NotContains(t, nodeIDs, faucet.ID)
 	})
 
 	// Test /mana/allowedManaPledge
@@ -300,7 +308,6 @@ func TestManaApis(t *testing.T) {
 		require.Equal(t, false, respAll.Consensus.IsFilterEnabled)
 		require.Equal(t, []string{fullID(faucet.ID())}, respAll.Consensus.Allowed)
 	})
-
 }
 
 func fullID(id identity.ID) string {

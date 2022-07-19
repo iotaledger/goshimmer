@@ -135,7 +135,6 @@ func (w *Wallets) addWallet(wallet *Wallet) {
 	defer w.mu.Unlock()
 
 	w.wallets[wallet.ID] = wallet
-
 }
 
 // addReuseWallet stores newly created wallet.

@@ -10,7 +10,7 @@ import (
 
 var (
 	ErrFailPostTransaction = errors.New("failed to post transaction")
-	ErrFailSendDataMessage = errors.New("failed to send a data message")
+	ErrFailSendDataBlock   = errors.New("failed to send a data block")
 
 	ErrTransactionIsNil    = errors.New("provided transaction is nil")
 	ErrFailToPrepareBatch  = errors.New("custom conflict batch could not be prepared")
@@ -54,9 +54,9 @@ func (e *ErrorCounter) GetErrorsSummary() string {
 	if len(e.errorsMap) == 0 {
 		return "No errors encountered"
 	}
-	msg := "Errors encountered during spam:\n"
+	blk := "Errors encountered during spam:\n"
 	for key, value := range e.errorsMap {
-		msg += fmt.Sprintf("%s: %d\n", key.Error(), value.Load())
+		blk += fmt.Sprintf("%s: %d\n", key.Error(), value.Load())
 	}
-	return msg
+	return blk
 }

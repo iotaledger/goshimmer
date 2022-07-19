@@ -12,13 +12,13 @@ import (
 
 // region OrphanageManager /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OrphanageManager is a manager that tracks orphaned messages.
+// OrphanageManager is a manager that tracks orphaned blocks.
 type OrphanageManager struct {
 	Events *OrphanageManagerEvents
 
 	unconfirmedBlocks   TimedHeap
 	tangle              *Tangle
-	strongChildCounters map[MessageID]int
+	strongChildCounters map[BlockID]int
 	sync.Mutex
 }
 
@@ -27,31 +27,31 @@ func NewOrphanageManager(tangle *Tangle) *OrphanageManager {
 	return &OrphanageManager{
 		Events: &OrphanageManagerEvents{
 			BlockOrphaned:       event.New[*BlockOrphanedEvent](),
-			AllChildrenOrphaned: event.New[*Message](),
+			AllChildrenOrphaned: event.New[*Block](),
 		},
 
 		tangle:              tangle,
-		strongChildCounters: make(map[MessageID]int),
+		strongChildCounters: make(map[BlockID]int),
 	}
 }
 
 func (o *OrphanageManager) Setup() {
-	o.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
+	o.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
 		o.Lock()
 		defer o.Unlock()
-		o.tangle.Storage.Message(event.MessageID).Consume(func(message *Message) {
-			o.addUnconfirmedMessage(message)
+		o.tangle.Storage.Block(event.BlockID).Consume(func(block *Block) {
+			o.addUnconfirmedBlock(block)
 		})
 	}))
 
 	// Handle this event synchronously to guarantee that confirmed block is removed from orphanage manager before
 	// acceptance time is updated for this block as this could lead to some inconsistencies and manager trying to
 	// orphan confirmed messages.
-	o.tangle.ConfirmationOracle.Events().MessageConfirmed.Hook(event.NewClosure(func(event *MessageConfirmedEvent) {
+	o.tangle.ConfirmationOracle.Events().BlockAccepted.Hook(event.NewClosure(func(event *BlockAcceptedEvent) {
 		o.Lock()
 		defer o.Unlock()
-		delete(o.strongChildCounters, event.Message.ID())
-		o.removeElementFromHeap(event.Message.ID())
+		delete(o.strongChildCounters, event.Block.ID())
+		o.removeElementFromHeap(event.Block.ID())
 	}))
 
 	o.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
@@ -62,22 +62,22 @@ func (o *OrphanageManager) Setup() {
 
 }
 
-func (o *OrphanageManager) addUnconfirmedMessage(message *Message) {
-	heap.Push(&o.unconfirmedBlocks, &QueueElement{Value: message.ID(), Key: message.IssuingTime()})
-	for strongParent := range message.ParentsByType(StrongParentType) {
-		if strongParent != EmptyMessageID {
+func (o *OrphanageManager) addUnconfirmedBlock(block *Block) {
+	heap.Push(&o.unconfirmedBlocks, &QueueElement{Value: block.ID(), Key: block.IssuingTime()})
+	for strongParent := range block.ParentsByType(StrongParentType) {
+		if strongParent != EmptyBlockID {
 			o.strongChildCounters[strongParent]++
 		}
 	}
 }
 
-func (o *OrphanageManager) OrphanBlock(blockID MessageID, reason error) {
+func (o *OrphanageManager) OrphanBlock(blockID BlockID, reason error) {
 	o.Lock()
 	defer o.Unlock()
 	o.orphanBlockFutureCone(blockID, reason)
 }
-func (o *OrphanageManager) orphanBlockFutureCone(blockID MessageID, reason error) {
-	futureConeWalker := walker.New[MessageID](false).Push(blockID)
+func (o *OrphanageManager) orphanBlockFutureCone(blockID BlockID, reason error) {
+	futureConeWalker := walker.New[BlockID](false).Push(blockID)
 	for futureConeWalker.HasNext() {
 		blockID = futureConeWalker.Next()
 		if reason == nil {
@@ -85,20 +85,20 @@ func (o *OrphanageManager) orphanBlockFutureCone(blockID MessageID, reason error
 		}
 
 		o.orphanBlock(blockID, reason)
-		o.tangle.Storage.Approvers(blockID).Consume(func(approver *Approver) {
-			futureConeWalker.Push(approver.ApproverMessageID())
+		o.tangle.Storage.Children(blockID).Consume(func(approver *Child) {
+			futureConeWalker.Push(approver.ChildBlockID())
 		})
 		reason = nil
 	}
 }
 
-func (o *OrphanageManager) orphanBlock(blockID MessageID, reason error) {
+func (o *OrphanageManager) orphanBlock(blockID BlockID, reason error) {
 	o.Events.BlockOrphaned.Trigger(&BlockOrphanedEvent{
 		BlockID: blockID,
 		Reason:  reason,
 	})
 
-	o.tangle.Storage.MessageMetadata(blockID).Consume(func(metadata *MessageMetadata) {
+	o.tangle.Storage.BlockMetadata(blockID).Consume(func(metadata *BlockMetadata) {
 		metadata.SetOrphaned(true)
 	})
 
@@ -106,20 +106,21 @@ func (o *OrphanageManager) orphanBlock(blockID MessageID, reason error) {
 	o.removeElementFromHeap(blockID)
 	delete(o.strongChildCounters, blockID)
 
-	o.tangle.Storage.Message(blockID).Consume(func(block *Message) {
+	o.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 		for strongParent := range block.ParentsByType(StrongParentType) {
-			if strongParent != EmptyMessageID {
+			if strongParent != EmptyBlockID {
 				o.decreaseStrongChildCounter(strongParent)
 			}
 		}
 	})
 }
 
-func (o *OrphanageManager) decreaseStrongChildCounter(blockID MessageID) {
+func (o *OrphanageManager) decreaseStrongChildCounter(blockID BlockID) {
+	o.Lock()
+	defer o.Unlock()
 	if _, exists := o.strongChildCounters[blockID]; !exists {
 		return
 	}
-
 	o.strongChildCounters[blockID]--
 
 	if o.strongChildCounters[blockID] <= 0 {
@@ -127,7 +128,7 @@ func (o *OrphanageManager) decreaseStrongChildCounter(blockID MessageID) {
 		// as it still might get more approvers and be confirmed or orphaned due to TSC threshold
 		delete(o.strongChildCounters, blockID)
 
-		o.tangle.Storage.Message(blockID).Consume(func(block *Message) {
+		o.tangle.Storage.Block(blockID).Consume(func(block *Block) {
 			o.Events.AllChildrenOrphaned.Trigger(block)
 		})
 	}
@@ -144,7 +145,7 @@ func (o *OrphanageManager) orphanBeforeTSC(minAllowedTime time.Time) {
 }
 
 // removeElement removes the block from OrphanageManager
-func (o *OrphanageManager) removeElementFromHeap(blockID MessageID) {
+func (o *OrphanageManager) removeElementFromHeap(blockID BlockID) {
 	for i := 0; i < len(o.unconfirmedBlocks); i++ {
 		if o.unconfirmedBlocks[i].Value == blockID {
 			heap.Remove(&o.unconfirmedBlocks, o.unconfirmedBlocks[i].index)
@@ -159,11 +160,11 @@ func (o *OrphanageManager) removeElementFromHeap(blockID MessageID) {
 
 type OrphanageManagerEvents struct {
 	BlockOrphaned       *event.Event[*BlockOrphanedEvent]
-	AllChildrenOrphaned *event.Event[*Message]
+	AllChildrenOrphaned *event.Event[*Block]
 }
 
 type BlockOrphanedEvent struct {
-	BlockID MessageID
+	BlockID BlockID
 	Reason  error
 }
 

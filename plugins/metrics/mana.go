@@ -7,7 +7,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -173,7 +173,7 @@ func measureMana() {
 	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
 	consensusPercentile.Store(cPer)
-	neighbors := deps.GossipMgr.AllNeighbors()
+	neighbors := deps.P2Pmgr.AllNeighbors()
 	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {

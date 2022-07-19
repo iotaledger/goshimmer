@@ -133,7 +133,7 @@ const (
 var timeUnits = []string{mpm, mps}
 
 var (
-	scenarios     = []string{"msg", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
+	scenarios     = []string{"blk", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
 	confirms      = []string{"enable", "disable"}
 	outputNumbers = []string{"100", "10000", "50000", "100000", "cancel"}
 )
@@ -161,7 +161,7 @@ func Run() {
 		case <-mode.mainMenu:
 			mode.menu()
 		case <-mode.shutdown:
-			printer.FarewellMessage()
+			printer.FarewellBlock()
 			mode.saveConfigsToFile()
 			os.Exit(0)
 			return
@@ -177,7 +177,6 @@ func configure(mode *Mode) {
 	case requestAmount10k:
 		minSpamOutputs = 2000
 	}
-
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +195,7 @@ type Mode struct {
 	preparingFunds bool
 
 	Config        InteractiveConfig
-	msgSent       *atomic.Uint64
+	blkSent       *atomic.Uint64
 	txSent        *atomic.Uint64
 	scenariosSent *atomic.Uint64
 
@@ -216,7 +215,7 @@ func NewInteractiveMode() *Mode {
 		spamFinished: make(chan int),
 
 		Config:        defaultConfig,
-		msgSent:       atomic.NewUint64(0),
+		blkSent:       atomic.NewUint64(0),
 		txSent:        atomic.NewUint64(0),
 		scenariosSent: atomic.NewUint64(0),
 
@@ -252,7 +251,6 @@ func (m *Mode) runBackgroundTasks() {
 			}
 		}
 	}
-
 }
 
 func (m *Mode) walletDetails() {
@@ -290,7 +288,6 @@ func (m *Mode) onMenuAction() {
 	case actions[shutdown]:
 		m.action <- shutdown
 	}
-
 }
 
 func (m *Mode) prepareFundsIfNeeded() {
@@ -311,7 +308,6 @@ func (m *Mode) prepareFundsIfNeeded() {
 }
 
 func (m *Mode) onSettings() {
-
 }
 
 func (m *Mode) prepareFunds() {
@@ -362,7 +358,7 @@ func (m *Mode) prepareFunds() {
 		}()
 	}
 
-	printer.StartedPreparingMessage(numToPrepareStr)
+	printer.StartedPreparingBlock(numToPrepareStr)
 }
 
 func (m *Mode) spamMenu() {
@@ -437,7 +433,7 @@ func (m *Mode) areEnoughFundsAvailable() bool {
 	if m.Config.timeUnit == time.Minute {
 		outputsNeeded = int(float64(m.Config.Rate) * m.Config.duration.Minutes())
 	}
-	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != "msg"
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != "blk"
 }
 
 func (m *Mode) startSpam() {
@@ -445,8 +441,8 @@ func (m *Mode) startSpam() {
 	defer m.spamMutex.Unlock()
 
 	var spammer *evilspammer.Spammer
-	if m.Config.Scenario == "msg" {
-		spammer = SpamMessages(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0, m.Config.UseRateSetter)
+	if m.Config.Scenario == "blk" {
+		spammer = SpamBlocks(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0, m.Config.UseRateSetter)
 	} else {
 		s, _ := evilwallet.GetScenario(m.Config.Scenario)
 		spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse, m.Config.UseRateSetter)
@@ -460,7 +456,7 @@ func (m *Mode) startSpam() {
 		spammer.Spam()
 		m.spamFinished <- id
 	}(spamID)
-	printer.SpammerStartedMessage()
+	printer.SpammerStartedBlock()
 }
 
 func (m *Mode) settingsMenu() {
@@ -670,7 +666,6 @@ func (m *Mode) parseIdToRemove(answer string) {
 		return
 	}
 	m.summarizeSpam(id)
-
 }
 
 func (m *Mode) summarizeSpam(id int) {
@@ -684,12 +679,12 @@ func (m *Mode) summarizeSpam(id int) {
 }
 
 func (m *Mode) updateSentStatistic(spammer *evilspammer.Spammer, id int) {
-	msgSent := spammer.MessagesSent()
+	blkSent := spammer.BlocksSent()
 	scenariosCreated := spammer.BatchesPrepared()
-	if m.spammerLog.SpamDetails(id).Scenario == "msg" {
-		m.msgSent.Add(msgSent)
+	if m.spammerLog.SpamDetails(id).Scenario == "blk" {
+		m.blkSent.Add(blkSent)
 	} else {
-		m.txSent.Add(msgSent)
+		m.txSent.Add(blkSent)
 	}
 	m.scenariosSent.Add(scenariosCreated)
 }
@@ -802,8 +797,10 @@ func timeUnitToString(d time.Duration) string {
 
 // region SpammerLog ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var historyHeader = "scenario\tstart\tstop\tdeep\treuse\trate\tduration"
-var historyLineFmt = "%s\t%s\t%s\t%v\t%v\t%d\t%d\n"
+var (
+	historyHeader  = "scenario\tstart\tstop\tdeep\treuse\trate\tduration"
+	historyLineFmt = "%s\t%s\t%s\t%v\t%v\t%d\t%d\n"
+)
 
 type SpammerLog struct {
 	spamDetails   []InteractiveConfig

@@ -74,7 +74,7 @@ func handleConnection(conn net.Conn, log *node.Plugin, shutdownSignal <-chan str
 
 	idx := int(index.Load())
 	connectionList[idx] = connection{
-		bufferedConn: buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize),
+		bufferedConn: buffconn.NewBufferedConnection(conn, tangle.MaxBlockSize),
 		log:          log,
 		active:       true,
 	}

@@ -184,16 +184,6 @@ func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge map[[32]byte]uint
 		nodesToPledge[seed] = snapshotInfo.PeersAmountsPledged[i]
 	}
 
-	// Pledge genesis token amount to master seed
-	seedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
-	if err != nil {
-		return nil, err
-	}
-
-	var seed [32]byte
-	copy(seed[:], seedBytes)
-	nodesToPledge[seed] = snapshotInfo.GenesisTokenAmount
-
 	return nodesToPledge, nil
 }
 

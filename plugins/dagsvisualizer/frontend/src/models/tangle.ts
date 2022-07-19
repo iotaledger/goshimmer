@@ -3,30 +3,30 @@ export class tangleVertex {
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
     shallowLikeParentIDs: Array<string>;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
     isMarker: boolean;
     isTx: boolean;
     txID: string;
     isTip: boolean;
     isConfirmed: boolean;
     isTxConfirmed: boolean;
-    gof: string;
-    confirmedTime: number;
+    confirmationState: string;
+    confirmationStateTime: number;
 }
 
 export class tangleBooked {
     ID: string;
     isMarker: boolean;
-    branchIDs: Array<string>;
+    conflictIDs: Array<string>;
 }
 
 export class tangleConfirmed {
     ID: string;
-    gof: string;
-    confirmedTime: number;
+    confirmationState: string;
+    confirmationStateTime: number;
 }
 
-export class tangleTxGoFChanged {
+export class tangleTxConfirmationStateChanged {
     ID: string;
     isConfirmed: boolean;
 }

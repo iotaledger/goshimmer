@@ -63,7 +63,7 @@ func WithEvilWallet(initWallets *evilwallet.EvilWallet) Options {
 	}
 }
 
-// WithEvilScenario provides initWallet of spammer, if omitted spammer will prepare funds based on maxMsgSent parameter
+// WithEvilScenario provides initWallet of spammer, if omitted spammer will prepare funds based on maxBlkSent parameter
 func WithEvilScenario(scenario *evilwallet.EvilScenario) Options {
 	return func(s *Spammer) {
 		s.EvilScenario = scenario

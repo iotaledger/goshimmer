@@ -21,9 +21,9 @@ type CommitmentProof struct {
 }
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
-func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
+func (m *Manager) GetBlockInclusionProof(blockID tangle.BlockID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
+	m.tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
 		t := block.IssuingTime()
 		ei = epoch.IndexFromTime(t)
 	})
@@ -79,7 +79,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 }
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.MessageID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.BlockID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -95,7 +95,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.
 }
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
-func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangle.MessageID) bool {
+func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangle.BlockID) bool {
 	key := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }

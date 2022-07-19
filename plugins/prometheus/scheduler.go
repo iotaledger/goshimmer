@@ -7,14 +7,14 @@ import (
 )
 
 var (
-	queueSizePerNode   *prometheus.GaugeVec
-	manaAmountPerNode  *prometheus.GaugeVec
-	schedulerRate      prometheus.Gauge
-	readyMessagesCount prometheus.Gauge
-	totalMessagesCount prometheus.Gauge
-	bufferSize         prometheus.Gauge
-	maxBufferSize      prometheus.Gauge
-	schedulerDeficit   prometheus.Gauge
+	queueSizePerNode  *prometheus.GaugeVec
+	manaAmountPerNode *prometheus.GaugeVec
+	schedulerRate     prometheus.Gauge
+	readyBlocksCount  prometheus.Gauge
+	totalBlocksCount  prometheus.Gauge
+	bufferSize        prometheus.Gauge
+	maxBufferSize     prometheus.Gauge
+	schedulerDeficit  prometheus.Gauge
 )
 
 func registerSchedulerMetrics() {
@@ -36,17 +36,17 @@ func registerSchedulerMetrics() {
 
 	schedulerRate = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "scheduler_rate",
-		Help: "rate at which messages are scheduled (in millisecond).",
+		Help: "rate at which blocks are scheduled (in millisecond).",
 	})
 
-	readyMessagesCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "scheduler_buffer_ready_msg_count",
-		Help: "number of ready messages in the scheduler buffer.",
+	readyBlocksCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "scheduler_buffer_ready_blk_count",
+		Help: "number of ready blocks in the scheduler buffer.",
 	})
 
-	totalMessagesCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "scheduler_buffer_total_msg_count",
-		Help: "number of  messages in the scheduler buffer.",
+	totalBlocksCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "scheduler_buffer_total_blk_count",
+		Help: "number of  blocks in the scheduler buffer.",
 	})
 
 	bufferSize = prometheus.NewGauge(prometheus.GaugeOpts{
@@ -67,8 +67,8 @@ func registerSchedulerMetrics() {
 	registry.MustRegister(queueSizePerNode)
 	registry.MustRegister(manaAmountPerNode)
 	registry.MustRegister(schedulerRate)
-	registry.MustRegister(readyMessagesCount)
-	registry.MustRegister(totalMessagesCount)
+	registry.MustRegister(readyBlocksCount)
+	registry.MustRegister(totalBlocksCount)
 	registry.MustRegister(bufferSize)
 	registry.MustRegister(maxBufferSize)
 	registry.MustRegister(schedulerDeficit)
@@ -88,8 +88,8 @@ func collectSchedulerMetrics() {
 		manaAmountPerNode.WithLabelValues(currentNodeID).Set(aMana)
 	}
 	schedulerRate.Set(float64(metrics.SchedulerRate()))
-	readyMessagesCount.Set(float64(metrics.SchedulerReadyMessagesCount()))
-	totalMessagesCount.Set(float64(metrics.SchedulerTotalBufferMessagesCount()))
+	readyBlocksCount.Set(float64(metrics.SchedulerReadyBlocksCount()))
+	totalBlocksCount.Set(float64(metrics.SchedulerTotalBufferBlocksCount()))
 	bufferSize.Set(float64(metrics.SchedulerBufferSize()))
 	maxBufferSize.Set(float64(metrics.SchedulerMaxBufferSize()))
 	schedulerDeficit.Set(metrics.SchedulerDeficit())
