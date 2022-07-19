@@ -13,12 +13,12 @@ func (m *Manager) SyncRange(start, end epoch.Index) {
 }
 
 func (m *Manager) RequestEpoch(index epoch.Index) {
-	blkReq := &wp.EpochRequest{Epoch: int64(index)}
-	packet := &wp.Packet{Body: &wp.Packet_EpochRequest{EpochRequest: blkReq}}
+	epochBlocksReq := &wp.EpochBlocksRequest{Epoch: int64(index)}
+	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksRequest{EpochBlocksRequest: epochBlocksReq}}
 	m.send(packet)
 }
 
-func (m *Manager) processEpochRequestPacket(packetEpochRequest *wp.Packet_EpochRequest, nbr *p2p.Neighbor) {
+func (m *Manager) processEpochRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
 	// TOOD
 	/*
 		var blkID tangle.BlockID

@@ -35,6 +35,9 @@ type Manager struct {
 	isStopped bool
 
 	concurrency int
+
+	validationInProgress bool
+	commitmentsChan      chan (*epoch.ECRecord)
 }
 
 // ManagerOption configures the Manager instance.
