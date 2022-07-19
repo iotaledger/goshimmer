@@ -14,8 +14,9 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

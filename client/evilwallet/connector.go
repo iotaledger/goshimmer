@@ -9,9 +9,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -176,7 +176,7 @@ type Client interface {
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
+	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels2.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
 	GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error)
 	// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
@@ -190,7 +190,7 @@ type Client interface {
 	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
 	// GetTransaction gets the transaction.
-	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
+	GetTransaction(txID string) (resp *jsonmodels2.Transaction, err error)
 	// GetOutputSolidity checks if the transaction is solid.
 	GetOutputSolidity(outID string) (solid bool, err error)
 }
@@ -276,7 +276,7 @@ func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []utxo.O
 }
 
 // GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput {
+func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels2.WalletOutput {
 	resp, err := c.api.PostAddressUnspentOutputs([]string{addr.Base58()})
 	if err != nil {
 		return nil
@@ -334,7 +334,7 @@ func (c *WebClient) GetTransactionOutputs(txID string) (outputs devnetvm.Outputs
 }
 
 // GetTransaction gets the transaction.
-func (c *WebClient) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
+func (c *WebClient) GetTransaction(txID string) (resp *jsonmodels2.Transaction, err error) {
 	resp, err = c.api.GetTransaction(txID)
 	if err != nil {
 		return

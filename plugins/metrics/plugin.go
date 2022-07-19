@@ -14,15 +14,17 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	metrics2 "github.com/iotaledger/goshimmer/packages/app/metrics"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	p2p2 "github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
@@ -40,7 +42,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle          *tangle.Tangle
-	P2Pmgr          *p2p.Manager        `optional:"true"`
+	P2Pmgr          *p2p2.Manager       `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
 	NotarizationMgr *notarization.Manager
@@ -297,18 +299,18 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
+	metrics2.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics2.AnalysisOutboundBytesEvent) {
 		analysisOutboundBytes.Add(event.AmountBytes)
 	}))
-	metrics.Events.CPUUsage.Attach(event.NewClosure(func(evnet *metrics.CPUUsageEvent) {
+	metrics2.Events.CPUUsage.Attach(event.NewClosure(func(evnet *metrics2.CPUUsageEvent) {
 		cpuUsage.Store(evnet.CPUPercent)
 	}))
-	metrics.Events.MemUsage.Attach(event.NewClosure(func(event *metrics.MemUsageEvent) {
+	metrics2.Events.MemUsage.Attach(event.NewClosure(func(event *metrics2.MemUsageEvent) {
 		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
-	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.P2Pmgr.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.P2Pmgr.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	if deps.Selection != nil {
 		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)

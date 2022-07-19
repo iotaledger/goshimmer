@@ -1,6 +1,8 @@
 package dagsvisualizer
 
-import "github.com/iotaledger/goshimmer/packages/jsonmodels"
+import (
+	jsonmodels2 "github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+)
 
 const (
 	// BlkTypeTangleVertex is the type of the Tangle DAG vertex.
@@ -65,9 +67,9 @@ type tangleTxConfirmationStateChanged struct {
 
 type utxoVertex struct {
 	BlkID                 string              `json:"blkID"`
-	ID                    string              `json:"ID"`
-	Inputs                []*jsonmodels.Input `json:"inputs"`
-	Outputs               []string            `json:"outputs"`
+	ID                    string               `json:"ID"`
+	Inputs                []*jsonmodels2.Input `json:"inputs"`
+	Outputs               []string             `json:"outputs"`
 	IsConfirmed           bool                `json:"isConfirmed"`
 	ConfirmationState     string              `json:"confirmationState"`
 	ConflictIDs           []string            `json:"conflictIDs"`
@@ -89,9 +91,9 @@ type utxoConfirmationStateChanged struct {
 type conflictVertex struct {
 	ID                string                                   `json:"ID"`
 	Parents           []string                                 `json:"parents"`
-	IsConfirmed       bool                                     `json:"isConfirmed"`
-	Conflicts         *jsonmodels.GetConflictConflictsResponse `json:"conflicts"`
-	ConfirmationState string                                   `json:"confirmationState"`
+	IsConfirmed       bool                                      `json:"isConfirmed"`
+	Conflicts         *jsonmodels2.GetConflictConflictsResponse `json:"conflicts"`
+	ConfirmationState string                                    `json:"confirmationState"`
 	AW                float64                                  `json:"aw"`
 }
 

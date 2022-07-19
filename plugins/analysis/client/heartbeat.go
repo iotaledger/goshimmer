@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
+	metrics2 "github.com/iotaledger/goshimmer/packages/app/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -45,7 +45,7 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
-	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{uint64(len(data))})
+	metrics2.Events.AnalysisOutboundBytes.Trigger(&metrics2.AnalysisOutboundBytesEvent{uint64(len(data))})
 }
 
 func createHeartbeat() *packet.Heartbeat {

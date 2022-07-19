@@ -8,10 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	gossip2 "github.com/iotaledger/goshimmer/packages/node/gossip"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -28,7 +29,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager
+	GossipMgr *gossip2.Manager
 	P2PMgr    *p2p.Manager
 }
 
@@ -68,7 +69,7 @@ func configureLogging() {
 
 func configureBlockLayer() {
 	// configure flow of incoming blocks
-	deps.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+	deps.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip2.BlockReceivedEvent) {
 		deps.Tangle.ProcessGossipBlock(event.Data, event.Peer)
 	}))
 
