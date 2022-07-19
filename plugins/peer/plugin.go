@@ -22,8 +22,8 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 
-	databasePkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	databasePkg "github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 

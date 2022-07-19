@@ -3,7 +3,7 @@ package createnftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 )
 
 // CreateNFTOption is a function that provides options.

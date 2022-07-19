@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/schedulerutils"
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/syncutils"

@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
 )
 
