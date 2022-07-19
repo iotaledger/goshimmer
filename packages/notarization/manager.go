@@ -70,8 +70,8 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		},
 	}
 
-	new.tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		new.OnMessageStored(event.Message)
+	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		new.OnBlockStored(event.Block)
 	}))
 
 	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
@@ -228,7 +228,7 @@ func (m *Manager) OnBlockStored(block *tangle.Block) {
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 }
 
-// OnBlockOrphaned is the handler for message orphaned event.
+// OnBlockOrphaned is the handler for block orphaned event.
 func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -245,7 +245,6 @@ func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
 
 	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 
-
 	transaction, isTransaction := block.Payload().(utxo.Transaction)
 	nodeID := identity.NewID(block.IssuerPublicKey())
 	removed, err := m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
@@ -258,7 +257,7 @@ func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
 		m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 	}
 
-	transaction, isTransaction := message.Payload().(utxo.Transaction)
+	transaction, isTransaction = block.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
@@ -739,7 +738,7 @@ type ManaVectorUpdateEvent struct {
 
 // ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
 type ActivityTreeUpdatedEvent struct {
-	// EI is the index of the message.
+	// EI is the index of the epoch.
 	EI epoch.Index
 	// NodeID is the issuer nodeID.
 	NodeID identity.ID

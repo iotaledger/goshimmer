@@ -112,10 +112,10 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangle.BlockBookedEvent) {
 		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
-			ei := epoch.IndexFromTime(event.Message.IssuingTime())
+			ei := epoch.IndexFromTime(block.IssuingTime())
 			deps.Tangle.WeightProvider.Update(ei, identity.NewID(block.IssuerPublicKey()))
 		})
-	}
+	}))
 
 	deps.Tangle.Parser.Events.BlockRejected.Attach(event.NewClosure(func(event *tangle.BlockRejectedEvent) {
 		plugin.LogInfof("block with %s rejected in Parser: %v", event.Block.ID().Base58(), event.Error)

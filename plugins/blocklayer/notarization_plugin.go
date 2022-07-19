@@ -85,9 +85,3 @@ func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, 
 	latestConfirmedEpoch, err = notarizationDeps.Manager.LatestConfirmedEpochIndex()
 	return
 }
-
-// GetLatestCommittableEI returns the latest committable epoch index.
-func GetLatestCommittableEI() (latestCommittableEI epoch.Index) {
-	latestCommittableEI, _ = notarizationDeps.Manager.LatestCommittableEpochIndex()
-	return
-}
