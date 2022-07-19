@@ -418,10 +418,10 @@ func (s *Scheduler) schedule() *Block {
 			if _, err := blkID.FromBytes(blk.IDBytes()); err != nil {
 				panic("BlockID could not be parsed!")
 			}
-			if s.skipBlock(msgID, msg) {
+			if s.skipBlock(blkID, blk) {
 				// if a block is confirmed, and issued some time ago OR is older than TSC threshold, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
-				s.Events.BlockSkipped.Trigger(&BlockSkippedEvent{msgID})
+				s.Events.BlockSkipped.Trigger(&BlockSkippedEvent{blkID})
 				s.buffer.PopFront()
 				blk = q.Front()
 			} else {
