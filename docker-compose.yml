@@ -45,7 +45,6 @@ services:
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
-      --manaInitializer.FaucetAPI=faucet-01.devnet.shimmer.iota.cafe:8080
       --logger.level=info
       --logger.disableEvents=false
       --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213

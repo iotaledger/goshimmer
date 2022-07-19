@@ -5,11 +5,12 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 
 func sendBlockSchedulerRecord(blockID tangle.BlockID, recordType string) {

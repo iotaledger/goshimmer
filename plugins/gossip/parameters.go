@@ -17,7 +17,7 @@ type ParametersDefinition struct {
 
 type blocksLimitParameters struct {
 	Interval time.Duration `default:"10s" usage:"the time interval for which we count the blocks rate"`
-	Limit    int           `default:"3000" usage:"the base limit of blocks per interval"`
+	Limit    int           `default:"50000" usage:"the base limit of blocks per interval"`
 }
 
 type blockRequestsLimitParameters struct {
