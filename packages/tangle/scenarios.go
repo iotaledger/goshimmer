@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -88,7 +89,7 @@ func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
@@ -446,7 +447,7 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),

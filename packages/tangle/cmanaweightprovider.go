@@ -32,21 +32,19 @@ const (
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
-	store               kvstore.KVStore
-	mutex               sync.RWMutex
-	activeNodes         epoch.NodesActivityLog
-	manaRetrieverFunc   ManaRetrieverFunc
-	epochRetrieverFunc  EpochRetrieverFunc
-	manaEpochDelayParam uint
+	store             kvstore.KVStore
+	mutex             sync.RWMutex
+	activeNodes       epoch.NodesActivityLog
+	manaRetrieverFunc ManaRetrieverFunc
+	timeRetrieverFunc TimeRetrieverFunc
 }
 
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
-func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, epochRetrieverFunc EpochRetrieverFunc, manaEpochDelay uint, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
+func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:         make(epoch.NodesActivityLog),
-		manaRetrieverFunc:   manaRetrieverFunc,
-		epochRetrieverFunc:  epochRetrieverFunc,
-		manaEpochDelayParam: manaEpochDelay,
+		activeNodes:       make(epoch.NodesActivityLog),
+		manaRetrieverFunc: manaRetrieverFunc,
+		timeRetrieverFunc: timeRetrieverFunc,
 	}
 
 	if len(store) == 0 {
@@ -107,9 +105,9 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 
 	mana := c.manaRetrieverFunc()
 
-	latestCommutableEI := c.epochRetrieverFunc()
-	lowerBoundEpoch := latestCommutableEI - activeEpochThreshold - epoch.Index(c.manaEpochDelayParam)
-	upperBoundEpoch := latestCommutableEI - epoch.Index(c.manaEpochDelayParam)
+	currentTime := c.timeRetrieverFunc()
+	upperBoundEpoch := epoch.IndexFromTime(currentTime)
+	lowerBoundEpoch := upperBoundEpoch - activeEpochThreshold
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -164,9 +162,6 @@ type ManaRetrieverFunc func() map[identity.ID]float64
 
 // TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
-
-// EpochRetrieverFunc is a function type to retrieve the latest committable epoch index
-type EpochRetrieverFunc func() epoch.Index
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

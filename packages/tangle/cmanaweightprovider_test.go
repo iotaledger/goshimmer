@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestActiveNodesMarshalling(t *testing.T) {
@@ -56,8 +57,7 @@ func TestCManaWeightProvider(t *testing.T) {
 		ei: 0,
 	}
 	epochRetrieverFunc := func() epoch.Index { return epochManager.ei }
-
-	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, epochRetrieverFunc, 0)
+	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, time.Now)
 
 	// Add node1 as active in the genesis epoch.
 	{

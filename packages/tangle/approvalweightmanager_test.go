@@ -3,6 +3,7 @@ package tangle
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"testing"
 	"time"
 
@@ -28,13 +29,14 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
+		ei := epoch.IndexFromTime(time.Now())
 		for _, s := range voters {
-			weightProvider.Update(mockEpochRetriever(), s.ID())
+			weightProvider.Update(ei, s.ID())
 			m[s.ID()] = 100
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -101,12 +103,14 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		nodeID := identity.NewID(keyPair.PublicKey)
-		weightProvider.Update(mockEpochRetriever(), nodeID)
+		ei := epoch.IndexFromTime(time.Now())
+
+		weightProvider.Update(ei, nodeID)
 		return map[identity.ID]float64{
 			nodeID: 100,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -250,12 +254,14 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
 		for _, s := range voters {
-			weightProvider.Update(mockEpochRetriever(), s.ID())
+			ei := epoch.IndexFromTime(time.Now())
+
+			weightProvider.Update(ei, s.ID())
 			m[s.ID()] = 100
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -402,7 +408,8 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(mockEpochRetriever(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -412,7 +419,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -494,7 +501,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(mockEpochRetriever(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -504,7 +512,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, mockEpochRetriever, 0)
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3

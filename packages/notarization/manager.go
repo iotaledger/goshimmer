@@ -66,6 +66,10 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		},
 	}
 
+	new.tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		new.OnMessageStored(event.Message)
+	}))
+
 	new.tangle.ConfirmationOracle.Events().MessageAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.MessageAcceptedEvent) {
 		new.OnMessageConfirmed(event.Message)
 	}))
@@ -213,14 +217,17 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 		return
 	}
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, MessageID: message.ID()})
+}
+
+func (m *Manager) OnMessageStored(message *tangle.Message) {
+	ei := epoch.IndexFromTime(message.IssuingTime())
 
 	nodeID := identity.NewID(message.IssuerPublicKey())
-	err = m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID)
+	err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID)
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 		return
 	}
-	m.tangle.WeightProvider.Update(ei, nodeID)
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 }
 

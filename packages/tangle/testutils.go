@@ -860,11 +860,6 @@ func mockTotalAccessManaRetriever() float64 {
 	return totalAMana
 }
 
-// mockEpochRetriever returns mocked latest committable epoch index.
-func mockEpochRetriever() epoch.Index {
-	return 0
-}
-
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)

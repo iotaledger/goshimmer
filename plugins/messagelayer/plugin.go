@@ -110,6 +110,11 @@ func configure(plugin *node.Plugin) {
 		deps.Tangle.ProcessGossipMessage(lo.PanicOnErr(event.Message.Bytes()), deps.Local.Peer)
 	}))
 
+	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		ei := epoch.IndexFromTime(event.Message.IssuingTime())
+		deps.Tangle.WeightProvider.Update(ei, identity.NewID(event.Message.IssuerPublicKey()))
+	}))
+
 	deps.Tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *tangle.MessageRejectedEvent) {
 		plugin.LogInfof("message with %s rejected in Parser: %v", event.Message.ID().Base58(), event.Error)
 	}))
@@ -216,7 +221,7 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, GetLatestCommittableEI, ManaParameters.EpochDelay, tangleDeps.Storage)
+	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RATT, tangleDeps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	acceptanceGadget = acceptance.NewSimpleFinalityGadget(tangleInstance)

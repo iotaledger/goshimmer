@@ -83,7 +83,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 		}
 	}
 
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	genesisTime := time.Now().Add(-25 * time.Minute)
 	epochDuration := 5 * time.Minute
@@ -144,7 +144,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			nodes["D"].ID(): 25,
 		}
 	}
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	epochInterval := 1 * time.Second
 
@@ -282,7 +282,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
 	epochInterval := 1 * time.Second
 
@@ -456,7 +456,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
 
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -621,7 +621,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
 
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -791,7 +791,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
 
-	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, epochRetrieverMock, 0)
+	weightProvider = tangle.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangle.ApprovalWeights(weightProvider), tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
