@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
