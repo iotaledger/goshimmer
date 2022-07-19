@@ -18,15 +18,16 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/pow"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/bootstrapmanager"
-	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

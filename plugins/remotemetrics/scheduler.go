@@ -3,8 +3,9 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 
 func obtainSchedulerStats(timestamp time.Time) {

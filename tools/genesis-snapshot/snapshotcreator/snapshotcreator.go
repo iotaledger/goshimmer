@@ -7,12 +7,13 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the

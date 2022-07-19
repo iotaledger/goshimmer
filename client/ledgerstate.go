@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
 const (

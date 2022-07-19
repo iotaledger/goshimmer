@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 )
 
 const (

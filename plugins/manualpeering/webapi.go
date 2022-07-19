@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 

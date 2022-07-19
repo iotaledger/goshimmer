@@ -12,8 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 const (

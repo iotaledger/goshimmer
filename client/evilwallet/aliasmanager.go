@@ -6,7 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 )
 
 // region AliasManager /////////////////////////////////////////////////////////////////////////////////////////////////

@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 var acceptanceGadget *acceptance.Gadget

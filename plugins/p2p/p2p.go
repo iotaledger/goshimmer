@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/libp2putil"
-	"github.com/iotaledger/goshimmer/packages/p2p"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p"
+
+	"github.com/iotaledger/goshimmer/packages/node/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 var localAddr *net.TCPAddr

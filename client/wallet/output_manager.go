@@ -2,7 +2,7 @@ package wallet
 
 import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
 // OutputManager keeps track of the outputs.
