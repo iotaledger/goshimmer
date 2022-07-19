@@ -1,5 +1,22 @@
 # v0.9.2 - 2022-07-14
 
+> This release introduces bugfixes and improvements found in the previous release.
+
+The snapshot has been changed and thus the ledger state is fully reset.
+
+- Fix remote log collection (#2343)
+- Fix marker walk during tip fishing (#2346)
+- Fix: P2P protocol initialization (#2340)
+- Update default TSC threshold (#2342)
+- Improve tangle time used to calculate active cMana nodes. (#2338)
+- Fix: do not trigger BlockRateLimiter if not bootstrapped (#2341)
+- Notarization: do not care if attachment is booked when dealing with conflict events (#2336)
+- Introduce by epoch index localized BlockID (#2331)
+- Update docker-compose params (#2335)
+- Support additional protocols on top of P2P connection (#2330)
+
+# v0.9.2 - 2022-07-14
+
 > This release introduces the epoch commitments feature which allows creating proofs-of-inclusion of a block in the tangle. This feature is also the first step to the development of pruning, local snapshots and will allow more efficient way of syncing a node. This release also improves the parameters of rate-setter that should improve user-experience of issuing new blocks. It also contains various bugfixes and improvements, change of terminology e.g. message -> block etc. as well as replacement of grades of finality with confirmation state.
 
 The snapshot has been changed and thus the ledger state is fully reset.
