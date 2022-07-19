@@ -75,7 +75,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Bl
 	}
 
 	if len(references[StrongParentType]) == 0 {
-		return nil, errors.Errorf("none of the provided strong parents can be referenced")
+		return nil, errors.Errorf("none of the provided strong parents can be referenced. Strong parents provided: %+v.", strongParents)
 	}
 
 	return references, nil

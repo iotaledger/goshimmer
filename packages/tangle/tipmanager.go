@@ -208,7 +208,7 @@ func (t *TipManager) isPastConeTimestampCorrect(blockID BlockID) (timestampValid
 	}
 
 	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		timestampValid = minSupportedTimestamp.Before(block.IssuingTime())
+		timestampValid = block.IssuingTime().After(minSupportedTimestamp)
 	})
 
 	if !timestampValid {
@@ -296,6 +296,11 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlockID BlockID,
 		// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
 		referencedMarkers := sequence.ReferencedMarkers(marker.Index())
 		referencedMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
+			if sequenceID == 0 && index == 0 {
+				return true
+			}
+
 			referencedMarker := markers.NewMarker(sequenceID, index)
 			// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed block past cone of oldestUnconfirmedMarker
 			if t.isMarkerOldAndConfirmed(referencedMarker, minSupportedTimestamp) {
