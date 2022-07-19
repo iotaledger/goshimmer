@@ -108,13 +108,14 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	currentTime := c.timeRetrieverFunc()
 	upperBoundEpoch := epoch.IndexFromTime(currentTime)
 	lowerBoundEpoch := upperBoundEpoch - activeEpochThreshold
-
+	fmt.Println("upperBoundEpoch ", upperBoundEpoch, " lowerBoundEpoch ", lowerBoundEpoch)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	for nodeID, al := range c.activeNodes {
 		nodeMana := mana[nodeID]
 
+		fmt.Println("Nodes ", nodeID.String())
 		// Determine whether node was active in time window.
 		if active := al.Active(lowerBoundEpoch, upperBoundEpoch); !active {
 			if empty := al.Clean(lowerBoundEpoch); empty {
@@ -122,7 +123,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 			}
 			continue
 		}
-
+		fmt.Println("WAS Active")
 		// Do this check after determining whether a node was active because otherwise we would never clean up
 		// the ActivityLog of nodes lower than the threshold.
 		// Skip node if it does not fulfill minimumManaThreshold.

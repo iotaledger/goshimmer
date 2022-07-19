@@ -51,13 +51,15 @@ func TestCManaWeightProvider(t *testing.T) {
 		}
 	}
 
+	startEpoch := epoch.IndexFromTime(time.Now())
 	epochManager := &struct {
 		ei epoch.Index
 	}{
-		ei: 0,
+		ei: startEpoch,
 	}
 	epochRetrieverFunc := func() epoch.Index { return epochManager.ei }
-	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, time.Now)
+	timeRetrieverFunc := func() time.Time { return epochRetrieverFunc().StartTime() }
+	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc)
 
 	// Add node1 as active in the genesis epoch.
 	{
@@ -79,7 +81,7 @@ func TestCManaWeightProvider(t *testing.T) {
 	// Advance LatestCommittableEpoch by one epoch -> all nodes are active.
 	{
 
-		epochManager.ei = epoch.Index(1)
+		epochManager.ei = epochRetrieverFunc() + 1
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 			"2": 50,
@@ -89,7 +91,7 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Advance LatestCommittableEpoch by two epochs -> node1 and node2 are active.
 	{
-		epochManager.ei = epoch.Index(3)
+		epochManager.ei = epochRetrieverFunc() + 2
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"2": 50,
 			"3": 30,
@@ -98,7 +100,7 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Advance LatestCommittableEpoch by three epochs -> no node is active anymore.
 	{
-		epochManager.ei = epoch.Index(4)
+		epochManager.ei = epochRetrieverFunc() + 2
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{})
 	}
 }
