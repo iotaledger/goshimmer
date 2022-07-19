@@ -42,7 +42,7 @@ type gossipTrafficMetric struct {
 }
 
 func gossipCurrentTraffic() (g gossipTrafficMetric) {
-	neighbors := deps.GossipMgr.AllNeighbors()
+	neighbors := deps.P2Pmgr.AllNeighbors()
 
 	currentNeighbors := make(map[identity.ID]bool)
 	for _, neighbor := range neighbors {

@@ -11,7 +11,7 @@ import (
 )
 
 // ElementIDLength defines the length of an ElementID.
-const ElementIDLength = 32
+const ElementIDLength = 32 + 8
 
 // ElementID defines the ID of element.
 type ElementID [ElementIDLength]byte

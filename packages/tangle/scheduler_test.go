@@ -236,7 +236,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	assert.NoError(t, tangle.Scheduler.Submit(blkUnreadyConfirmedNew.ID()))
 	tangle.ConfirmationOracle.Events().BlockAccepted.Trigger(&BlockAcceptedEvent{blkUnreadyConfirmedNew})
 	// make sure that the block was not unsubmitted
-	assert.Equal(t, NewBlockID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), blkUnreadyConfirmedNew.ID())
+	assert.Equal(t, blockIDFromElementID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), blkUnreadyConfirmedNew.ID())
 	assert.NoError(t, tangle.Scheduler.Ready(blkUnreadyConfirmedNew.ID()))
 	assert.Eventually(t, func() bool {
 		select {

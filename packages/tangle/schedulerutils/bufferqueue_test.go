@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
+
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -318,7 +320,7 @@ func newLargeTestBlock(pubKey ed25519.PublicKey, payload []byte) *testBlock {
 
 func (m *testBlock) IDBytes() []byte {
 	tmp := blake2b.Sum256(m.Bytes())
-	return tmp[:]
+	return byteutils.ConcatBytes(tmp[:], marshalutil.New(marshalutil.Int64Size).WriteInt64(int64(m.idx)).Bytes())
 }
 
 func (m *testBlock) Bytes() []byte {

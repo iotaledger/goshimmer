@@ -195,7 +195,7 @@ func GetEpochblocks(ei epoch.Index) (blockIDs []tangle.BlockID) {
 
 	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
 		var blockID tangle.BlockID
-		if _, err := blockID.Decode(key); err != nil {
+		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
 		}
 		blockIDs = append(blockIDs, blockID)

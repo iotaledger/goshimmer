@@ -33,7 +33,7 @@
   "database": {
     "directory": "mainnetdb"
   },
-  "gossip": {
+  "p2p": {
     "port": 14666
   },
   "logger": {

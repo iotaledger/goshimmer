@@ -75,6 +75,7 @@ func PeerConfig() config.GoShimmer {
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
 
+	c.P2P.Enabled = true
 	c.Gossip.Enabled = true
 
 	c.POW.Enabled = true
@@ -123,6 +124,7 @@ func EntryNodeConfig() config.GoShimmer {
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
 		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization",
 		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager")
+	c.P2P.Enabled = false
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
