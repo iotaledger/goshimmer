@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 	gp "github.com/iotaledger/goshimmer/packages/node/gossip/gossipproto"
-	p2p2 "github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 const (
@@ -27,7 +27,7 @@ type LoadBlockFunc func(blockId tangle.BlockID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	p2pManager *p2p2.Manager
+	p2pManager *p2p.Manager
 
 	Events *Events
 
@@ -48,7 +48,7 @@ type Manager struct {
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p2.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
 		p2pManager:    p2pManager,
 		Events:        newEvents(),
@@ -56,7 +56,7 @@ func NewManager(p2pManager *p2p2.Manager, f LoadBlockFunc, log *logger.Logger, o
 		log:           log,
 	}
 
-	m.p2pManager.RegisterProtocol(protocolID, &p2p2.ProtocolHandler{
+	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
 		PacketFactory:      gossipPacketFactory,
 		NegotiationSend:    sendNegotiationMessage,
 		NegotiationReceive: receiveNegotiationMessage,
@@ -130,7 +130,7 @@ func (m *Manager) SendBlock(blkData []byte, to ...identity.ID) {
 	m.send(packet, to...)
 }
 
-func (m *Manager) send(packet *gp.Packet, to ...identity.ID) []*p2p2.Neighbor {
+func (m *Manager) send(packet *gp.Packet, to ...identity.ID) []*p2p.Neighbor {
 	neighbors := m.p2pManager.GetNeighborsByID(to)
 	if len(neighbors) == 0 {
 		neighbors = m.p2pManager.AllNeighbors()
@@ -145,7 +145,7 @@ func (m *Manager) send(packet *gp.Packet, to ...identity.ID) []*p2p2.Neighbor {
 	return neighbors
 }
 
-func (m *Manager) handlePacket(nbr *p2p2.Neighbor, packet proto.Message) error {
+func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	gpPacket := packet.(*gp.Packet)
 	switch packetBody := gpPacket.GetBody().(type) {
 	case *gp.Packet_Block:
@@ -175,14 +175,14 @@ func (m *Manager) BlockRequestWorkerPoolStatus() (name string, load uint64) {
 	return "blockRequestWorkerPool", m.requesterPendingCount.Load()
 }
 
-func (m *Manager) processBlockPacket(packetBlk *gp.Packet_Block, nbr *p2p2.Neighbor) {
+func (m *Manager) processBlockPacket(packetBlk *gp.Packet_Block, nbr *p2p.Neighbor) {
 	if m.blocksRateLimiter != nil {
 		m.blocksRateLimiter.Count(nbr.Peer)
 	}
 	m.Events.BlockReceived.Trigger(&BlockReceivedEvent{Data: packetBlk.Block.GetData(), Peer: nbr.Peer})
 }
 
-func (m *Manager) processBlockRequestPacket(packetBlkReq *gp.Packet_BlockRequest, nbr *p2p2.Neighbor) {
+func (m *Manager) processBlockRequestPacket(packetBlkReq *gp.Packet_BlockRequest, nbr *p2p.Neighbor) {
 	if m.blockRequestsRateLimiter != nil {
 		m.blockRequestsRateLimiter.Count(nbr.Peer)
 	}
@@ -211,12 +211,12 @@ func gossipPacketFactory() proto.Message {
 	return &gp.Packet{}
 }
 
-func sendNegotiationMessage(ps *p2p2.PacketsStream) error {
+func sendNegotiationMessage(ps *p2p.PacketsStream) error {
 	packet := &gp.Packet{Body: &gp.Packet_Negotiation{Negotiation: &gp.Negotiation{}}}
 	return errors.WithStack(ps.WritePacket(packet))
 }
 
-func receiveNegotiationMessage(ps *p2p2.PacketsStream) (err error) {
+func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
 	packet := &gp.Packet{}
 	if err := ps.ReadPacket(packet); err != nil {
 		return errors.WithStack(err)

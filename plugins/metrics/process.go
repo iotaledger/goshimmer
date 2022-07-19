@@ -7,7 +7,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"go.uber.org/atomic"
 
-	metrics2 "github.com/iotaledger/goshimmer/packages/app/metrics"
+	"github.com/iotaledger/goshimmer/packages/app/metrics"
 )
 
 var (
@@ -28,13 +28,13 @@ func measureCPUUsage() {
 	if err == nil && len(percent) > 0 {
 		p = percent[0]
 	}
-	metrics2.Events.CPUUsage.Trigger(&metrics2.CPUUsageEvent{p})
+	metrics.Events.CPUUsage.Trigger(&metrics.CPUUsageEvent{p})
 }
 
 func measureMemUsage() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	metrics2.Events.MemUsage.Trigger(&metrics2.MemUsageEvent{m.Alloc})
+	metrics.Events.MemUsage.Trigger(&metrics.MemUsageEvent{m.Alloc})
 }
 
 // MemUsage returns the current memory allocated as bytes.

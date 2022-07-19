@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/labstack/echo"
 
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
@@ -36,7 +36,7 @@ func addPeersHandler(c echo.Context) error {
 		Plugin.Logger().Errorw("Failed to parse peers from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
-			jsonmodels2.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid add peers request")),
 		)
 	}
 	if err := deps.ManualPeeringMgr.AddPeer(peers...); err != nil {
@@ -44,7 +44,7 @@ func addPeersHandler(c echo.Context) error {
 			"Can't add some of the peers from the HTTP request to manualpeering manager",
 			"err", err,
 		)
-		return c.JSON(http.StatusInternalServerError, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -58,12 +58,12 @@ An example of the HTTP JSON request:
 ].
 */
 func removePeersHandler(c echo.Context) error {
-	var peersToRemove []*jsonmodels2.PeerToRemove
+	var peersToRemove []*jsonmodels.PeerToRemove
 	if err := webapi.ParseJSONRequest(c, &peersToRemove); err != nil {
 		Plugin.Logger().Errorw("Failed to parse peers to remove from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
-			jsonmodels2.NewErrorResponse(errors.Wrap(err, "Invalid remove peers request")),
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid remove peers request")),
 		)
 	}
 	if err := removePeers(peersToRemove); err != nil {
@@ -71,12 +71,12 @@ func removePeersHandler(c echo.Context) error {
 			"Can't remove some of the peers from the HTTP request",
 			"err", err,
 		)
-		return c.JSON(http.StatusInternalServerError, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
 	return c.NoContent(http.StatusNoContent)
 }
 
-func removePeers(peers []*jsonmodels2.PeerToRemove) error {
+func removePeers(peers []*jsonmodels.PeerToRemove) error {
 	keys := make([]ed25519.PublicKey, len(peers))
 	for i, p := range peers {
 		keys[i] = p.PublicKey
@@ -93,7 +93,7 @@ func getPeersHandler(c echo.Context) error {
 		Plugin.Logger().Errorw("Failed to parse get peers config from the request", "err", err)
 		return c.JSON(
 			http.StatusBadRequest,
-			jsonmodels2.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
+			jsonmodels.NewErrorResponse(errors.Wrap(err, "Invalid get peers request")),
 		)
 	}
 	peers := deps.ManualPeeringMgr.GetPeers(conf.ToOptions()...)

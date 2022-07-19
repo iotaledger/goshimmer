@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
 
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
@@ -59,7 +59,7 @@ func configure(_ *node.Plugin) {
 func GetSequence(c echo.Context) (err error) {
 	sequenceID, err := sequenceIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
@@ -74,7 +74,7 @@ func GetSequence(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -85,7 +85,7 @@ func GetSequence(c echo.Context) (err error) {
 func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 	sequenceID, err := sequenceIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangle.MarkerIndexConflictIDMapping) {
@@ -94,7 +94,7 @@ func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +105,7 @@ func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 func GetBlock(c echo.Context) (err error) {
 	blockID, err := blockIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
@@ -116,7 +116,7 @@ func GetBlock(c echo.Context) (err error) {
 		ecRecord.SetECR(block.ECR())
 		ecRecord.SetPrevEC(block.PrevEC())
 
-		err = c.JSON(http.StatusOK, jsonmodels2.Block{
+		err = c.JSON(http.StatusOK, jsonmodels.Block{
 			ID:                  block.ID().Base58(),
 			StrongParents:       block.ParentsByType(tangle.StrongParentType).Base58(),
 			WeakParents:         block.ParentsByType(tangle.WeakParentType).Base58(),
@@ -147,7 +147,7 @@ func GetBlock(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load Block with %s", blockID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Block with %s", blockID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -158,7 +158,7 @@ func GetBlock(c echo.Context) (err error) {
 func GetBlockMetadata(c echo.Context) (err error) {
 	blockID, err := blockIDFromContext(c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
@@ -167,19 +167,19 @@ func GetBlockMetadata(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels2.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
 }
 
 // NewBlockMetadata returns BlockMetadata from the given tangle.BlockMetadata.
-func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels2.BlockMetadata {
+func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels.BlockMetadata {
 	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(metadata.ID())
 
-	return jsonmodels2.BlockMetadata{
+	return jsonmodels.BlockMetadata{
 		ID:                    metadata.ID().Base58(),
 		ReceivedTime:          metadata.ReceivedTime().Unix(),
 		Solid:                 metadata.IsSolid(),
 		SolidificationTime:    metadata.SolidificationTime().Unix(),
-		StructureDetails:      jsonmodels2.NewStructureDetails(metadata.StructureDetails()),
+		StructureDetails:      jsonmodels.NewStructureDetails(metadata.StructureDetails()),
 		ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 		AddedConflictIDs:      lo.Map(metadata.AddedConflictIDs().Slice(), utxo.TransactionID.Base58),
 		SubtractedConflictIDs: lo.Map(metadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Base58),
@@ -200,23 +200,23 @@ func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels2.BlockMetadata 
 
 // PostPayload is the handler for the /blocks/payload endpoint.
 func PostPayload(c echo.Context) error {
-	var request jsonmodels2.PostPayloadRequest
+	var request jsonmodels.PostPayloadRequest
 	if err := c.Bind(&request); err != nil {
 		Plugin.LogInfo(err.Error())
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	parsedPayload, _, err := payload.FromBytes(request.Payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	blk, err := deps.Tangle.IssuePayload(parsedPayload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels2.NewPostPayloadResponse(blk))
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

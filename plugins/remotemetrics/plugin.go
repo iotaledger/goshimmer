@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 
-	remotemetrics2 "github.com/iotaledger/goshimmer/packages/app/remotemetrics"
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
@@ -87,7 +87,7 @@ func run(_ *node.Plugin) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
-		timeutil.NewTicker(func() { remotemetrics2.Events.SchedulerQuery.Trigger(&remotemetrics2.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
+		timeutil.NewTicker(func() { remotemetrics.Events.SchedulerQuery.Trigger(&remotemetrics.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
 
 		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
 		<-ctx.Done()
@@ -100,10 +100,10 @@ func configureSyncMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics2.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics2.TangleTimeSyncChangedEvent) {
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		isTangleTimeSynced.Store(event.CurrentStatus)
 	}))
-	remotemetrics2.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics2.TangleTimeSyncChangedEvent) {
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
 		sendSyncStatusChangedEvent(event)
 	}))
 }
@@ -112,7 +112,7 @@ func configureSchedulerQueryMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics2.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics2.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
+	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
 }
 
 func configureConflictConfirmationMetrics() {

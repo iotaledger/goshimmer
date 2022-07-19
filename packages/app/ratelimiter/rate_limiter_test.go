@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
-	ratelimiter2 "github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 )
 
 const (
@@ -50,11 +50,11 @@ func TestPeerRateLimiter_ExtendLimit(t *testing.T) {
 	testCount(t, prl, testPeer, defaultTestLimit+limitExtensionCount)
 }
 
-func testCount(t testing.TB, prl *ratelimiter2.PeerRateLimiter, testPeer *peer.Peer, testLimit int) {
+func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Peer, testLimit int) {
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
-	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter2.HitEvent) {
+	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter.HitEvent) {
 		p := event.Peer
 		rl := event.RateLimit
 		eventCalled.Inc()
@@ -75,8 +75,8 @@ func testCount(t testing.TB, prl *ratelimiter2.PeerRateLimiter, testPeer *peer.P
 	assert.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
 }
 
-func newTestRateLimiter(t testing.TB) *ratelimiter2.PeerRateLimiter {
-	prl, err := ratelimiter2.NewPeerRateLimiter(defaultTestInterval, defaultTestLimit, logger.NewNopLogger())
+func newTestRateLimiter(t testing.TB) *ratelimiter.PeerRateLimiter {
+	prl, err := ratelimiter.NewPeerRateLimiter(defaultTestInterval, defaultTestLimit, logger.NewNopLogger())
 	require.NoError(t, err)
 	return prl
 }

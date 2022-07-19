@@ -3,7 +3,7 @@ package dashboard
 import (
 	"github.com/iotaledger/hive.go/generics/lo"
 
-	chat2 "github.com/iotaledger/goshimmer/packages/app/chat"
+	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -98,8 +98,8 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "address",
 			Content:      p.(*faucet.Payload).Address().Base58(),
 		}
-	case chat2.Type:
-		chatPayload := p.(*chat2.Payload)
+	case chatPkg.Type:
+		chatPayload := p.(*chatPkg.Payload)
 		return chat.Request{
 			From:  chatPayload.From(),
 			To:    chatPayload.To(),

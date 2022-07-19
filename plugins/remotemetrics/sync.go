@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
-	remotemetrics2 "github.com/iotaledger/goshimmer/packages/app/remotemetrics"
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 
 var isTangleTimeSynced atomic.Bool
@@ -18,7 +18,7 @@ func checkSynced() {
 		if deps.Local != nil {
 			myID = deps.Local.ID().String()
 		}
-		syncStatusChangedEvent := &remotemetrics2.TangleTimeSyncChangedEvent{
+		syncStatusChangedEvent := &remotemetrics.TangleTimeSyncChangedEvent{
 			Type:           "sync",
 			NodeID:         myID,
 			MetricsLevel:   Parameters.MetricsLevel,
@@ -30,10 +30,10 @@ func checkSynced() {
 			CurrentStatus:  tts,
 			PreviousStatus: oldTangleTimeSynced,
 		}
-		remotemetrics2.Events.TangleTimeSyncChanged.Trigger(syncStatusChangedEvent)
+		remotemetrics.Events.TangleTimeSyncChanged.Trigger(syncStatusChangedEvent)
 	}
 }
 
-func sendSyncStatusChangedEvent(syncUpdate *remotemetrics2.TangleTimeSyncChangedEvent) {
+func sendSyncStatusChangedEvent(syncUpdate *remotemetrics.TangleTimeSyncChangedEvent) {
 	_ = deps.RemoteLogger.Send(syncUpdate)
 }

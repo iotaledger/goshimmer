@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
-	jsonmodels2 "github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
@@ -244,7 +244,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		parents := make(map[string]*conflictVertex)
 		var conflictID utxo.TransactionID
 		if err = conflictID.FromBase58(c.Param("conflictID")); err != nil {
-			err = c.JSON(http.StatusBadRequest, jsonmodels2.NewErrorResponse(err))
+			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 			return
 		}
 		vertex := newConflictVertex(conflictID)
@@ -366,9 +366,9 @@ func newTangleVertex(block *tangle.Block) (ret *tangleVertex) {
 }
 
 func newUTXOVertex(blkID tangle.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
-	inputs := make([]*jsonmodels2.Input, len(tx.Essence().Inputs()))
+	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
 	for i, input := range tx.Essence().Inputs() {
-		inputs[i] = jsonmodels2.NewInput(input)
+		inputs[i] = jsonmodels.NewInput(input)
 	}
 
 	outputs := make([]string, len(tx.Essence().Outputs()))
@@ -414,7 +414,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 		ret = &conflictVertex{
 			ID:                conflictID.Base58(),
 			Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
-			Conflicts:         jsonmodels2.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
+			Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
 			IsConfirmed:       deps.AcceptanceGadget.IsConflictConfirmed(conflictID),
 			ConfirmationState: deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(conflictID)).String(),
 			AW:                deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID),
