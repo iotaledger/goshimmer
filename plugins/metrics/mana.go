@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

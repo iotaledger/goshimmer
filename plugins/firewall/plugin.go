@@ -11,11 +11,13 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/firewall"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/ratelimiter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/app/firewall"
+	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/goshimmer/packages/node/gossip"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -34,6 +36,7 @@ type dependencies struct {
 	GossipMgr *gossip.Manager
 	Server    *echo.Echo
 	Firewall  *firewall.Firewall
+	Tangle    *tangle.Tangle
 }
 
 type firewallDeps struct {
@@ -75,6 +78,9 @@ func start(ctx context.Context) {
 
 	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+			if !deps.Tangle.Bootstrapped() {
+				return
+			}
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
 				Reason: "Blocks rate limit hit",
 				Info: map[string]interface{}{

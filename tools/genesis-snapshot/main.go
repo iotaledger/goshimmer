@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/mr-tron/base58"
