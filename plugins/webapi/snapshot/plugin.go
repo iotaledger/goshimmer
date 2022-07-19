@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"net/http"
 	"os"
 
 	"go.uber.org/dig"
@@ -8,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -49,7 +51,11 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	nodeSnapshot := new(snapshot.Snapshot)
 	nodeSnapshot.FromNode(deps.Tangle.Ledger)
 
-	snapshotBytes := nodeSnapshot.Bytes()
+	snapshotBytes, err := nodeSnapshot.Bytes()
+	if err != nil {
+		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
 	if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
 		Plugin.LogErrorf("unable to create snapshot file %s", err)
 	}

@@ -107,7 +107,12 @@ func main() {
 	fmt.Println("created", createdSnapshot)
 
 	u := new(snapshot.Snapshot)
-	err = u.FromBytes(createdSnapshot.Bytes())
+	sBytes, err := createdSnapshot.Bytes()
+	if err != nil {
+		panic(err)
+	}
+
+	err = u.FromBytes(sBytes)
 	if err != nil {
 		panic(err)
 	}

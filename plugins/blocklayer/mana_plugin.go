@@ -192,7 +192,7 @@ func runManaPlugin(_ *node.Plugin) {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
 				nodeSnapshot := new(snapshot.Snapshot)
-				if err := nodeSnapshot.FromFile(Parameters.Snapshot.File); err != nil {
+				if err := nodeSnapshot.LoadSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 

@@ -145,12 +145,10 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
 		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
+		err := nodeSnapshot.LoadSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}
-
-		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 
 		// Add outputs to Indexer.
 		for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {

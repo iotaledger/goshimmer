@@ -1,22 +1,22 @@
 package snapshot
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 type Snapshot struct {
@@ -24,7 +24,7 @@ type Snapshot struct {
 }
 
 // CreateSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) CreateSnapshot(ctx context.Context, filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+func (s *Snapshot) CreateSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to create snapshot file")
@@ -46,7 +46,7 @@ func (s *Snapshot) CreateSnapshot(ctx context.Context, filePath string, t *tangl
 }
 
 // LoadSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) LoadSnapshot(ctx context.Context, filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+func (s *Snapshot) LoadSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to open snapshot file")
@@ -55,7 +55,9 @@ func (s *Snapshot) LoadSnapshot(ctx context.Context, filePath string, t *tangle.
 	outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 		t.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
 		nmgr.LoadOutputWithMetadatas(outputsWithMetadatas)
+		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputsWithMetadatas...)
 	}
+	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
 
 	epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
 		err := t.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
@@ -64,6 +66,7 @@ func (s *Snapshot) LoadSnapshot(ctx context.Context, filePath string, t *tangle.
 		}
 
 		nmgr.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
+		s.LedgerSnapshot.EpochDiffs = epochDiffs
 		return nil
 	}
 
@@ -80,47 +83,13 @@ func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
 	s.LedgerSnapshot = ledger.TakeSnapshot()
 }
 
-func (s *Snapshot) FromFile(fileName string) (err error) {
-	bytes, err := os.ReadFile(fileName)
-	if err != nil {
-		return errors.Errorf("failed to read file %s: %w", fileName, err)
-	}
-
-	if err = s.FromBytes(bytes); err != nil {
-		return errors.Errorf("failed to unmarshal Snapshot: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Snapshot) FromBytes(bytes []byte) (err error) {
-	s.LedgerSnapshot = new(ledger.Snapshot)
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s.LedgerSnapshot)
-	if err != nil {
-		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
-	}
-
-	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
-		output.SetID(output.M.OutputID)
-		output.Output().SetID(output.M.OutputID)
-	}
-
-	for _, epochdiff := range s.LedgerSnapshot.EpochDiffs {
-		for _, spentOutput := range epochdiff.Spent() {
-			spentOutput.SetID(spentOutput.M.OutputID)
-			spentOutput.Output().SetID(spentOutput.M.OutputID)
-		}
-		for _, createdOutput := range epochdiff.Created() {
-			createdOutput.SetID(createdOutput.M.OutputID)
-			createdOutput.Output().SetID(createdOutput.M.OutputID)
-		}
-	}
-
-	return nil
-}
-
 func (s *Snapshot) WriteFile(fileName string) (err error) {
-	if err = os.WriteFile(fileName, s.Bytes(), 0o644); err != nil {
+	data, err := s.Bytes()
+	if err != nil {
+		return err
+	}
+
+	if err = os.WriteFile(fileName, data, 0o644); err != nil {
 		return errors.Errorf("failed to write snapshot file %s: %w", fileName, err)
 	}
 
@@ -128,17 +97,94 @@ func (s *Snapshot) WriteFile(fileName string) (err error) {
 }
 
 // Bytes returns a serialized version of the Snapshot.
-func (s *Snapshot) Bytes() (serialized []byte) {
-	return marshalutil.New().
-		WriteBytes(lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot))).
-		Bytes()
+func (s *Snapshot) Bytes() (serialized []byte, err error) {
+	marshaler := marshalutil.New()
+
+	marshaler.
+		WriteInt64(int64(s.LedgerSnapshot.OutputWithMetadataCount)).
+		WriteInt64(int64(s.LedgerSnapshot.FullEpochIndex)).
+		WriteInt64(int64(s.LedgerSnapshot.DiffEpochIndex))
+
+	// write epochDiffs
+	data, err := serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.EpochDiffs, serix.WithValidation())
+	if err != nil {
+		return nil, err
+	}
+	marshaler.WriteBytes(data).WriteByte(';')
+
+	// write outputWithMetadata
+	var outputChunkCounter int
+	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
+		outputChunkCounter++
+		outputBytes, err := output.Bytes()
+		if err != nil {
+			return nil, fmt.Errorf("unable to serialize outputWithMetadata to bytes: %w", err)
+		}
+
+		marshaler.WriteBytes(outputBytes)
+
+		// put a delimeter every 100 outputs
+		if outputChunkCounter == 100 {
+			marshaler.WriteByte(';')
+		}
+	}
+	marshaler.WriteByte(';')
+
+	return marshaler.Bytes(), nil
 }
 
-func (s *Snapshot) String() (humanReadable string) {
-	return stringify.Struct("Snapshot",
-		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
-	)
+// FromBytes returns a serialized version of the Snapshot.
+func (s *Snapshot) FromBytes(data []byte) (err error) {
+	reader := bytes.NewReader(data)
+
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.OutputWithMetadataCount); err != nil {
+		return fmt.Errorf("unable to read outputWithMetadata length: %w", err)
+	}
+
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.FullEpochIndex); err != nil {
+		return fmt.Errorf("unable to read fullEpochIndex: %w", err)
+	}
+
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.DiffEpochIndex); err != nil {
+		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
+	}
+
+	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(reader)
+	if err != nil {
+		return err
+	}
+
+	chunkReader := bufio.NewReader(reader)
+	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
+	data, err = chunkReader.ReadBytes(byte(';'))
+	if err != nil {
+		return err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, epochDiffs)
+	s.LedgerSnapshot.EpochDiffs = epochDiffs
+
+	if err != nil {
+		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	}
+
+	for i := 0; uint64(i) < s.LedgerSnapshot.OutputWithMetadataCount; {
+		outputs, err := ReadOutputWithMetadata(chunkReader)
+		if err != nil {
+			return err
+		}
+		i += len(outputs)
+		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputs...)
+	}
+
+	return nil
 }
+
+// func (s *Snapshot) String() (humanReadable string) {
+// 	return stringify.Struct("Snapshot",
+// 		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
+// 	)
+// }
 
 func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
 	pledgedValue := float64(0)
