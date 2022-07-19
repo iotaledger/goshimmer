@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -173,7 +173,7 @@ func measureMana() {
 	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
 	consensusPercentile.Store(cPer)
-	neighbors := deps.GossipMgr.AllNeighbors()
+	neighbors := deps.P2Pmgr.AllNeighbors()
 	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {

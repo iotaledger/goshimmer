@@ -6,7 +6,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
 	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
@@ -19,15 +22,13 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	db_pkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 const (
@@ -350,7 +351,7 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors.
-func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
+func GetNeighborsMana(manaType mana.Type, neighbors []*p2p.Neighbor, optionalUpdateTime ...time.Time) (mana.NodeMap, error) {
 	if !QueryAllowed() {
 		return mana.NodeMap{}, ErrQueryNotAllowed
 	}

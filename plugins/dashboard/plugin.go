@@ -21,11 +21,12 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/app/chat"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
@@ -49,13 +50,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Node      *configuration.Configuration
-	Local     *peer.Local
-	Tangle    *tangle.Tangle
-	Selection *selection.Protocol `optional:"true"`
-	GossipMgr *gossip.Manager     `optional:"true"`
-	Chat      *chat.Chat          `optional:"true"`
-	Indexer   *indexer.Indexer
+	Node       *configuration.Configuration
+	Local      *peer.Local
+	Tangle     *tangle.Tangle
+	Selection  *selection.Protocol `optional:"true"`
+	P2PManager *p2p.Manager        `optional:"true"`
+	Chat       *chat.Chat          `optional:"true"`
+	Indexer    *indexer.Indexer
 }
 
 func init() {
@@ -276,12 +277,12 @@ type schedulerMetric struct {
 
 func neighborMetrics() []neighbormetric {
 	var stats []neighbormetric
-	if deps.GossipMgr == nil {
+	if deps.P2PManager == nil {
 		return stats
 	}
 
 	// gossip plugin might be disabled
-	neighbors := deps.GossipMgr.AllNeighbors()
+	neighbors := deps.P2PManager.AllNeighbors()
 	if neighbors == nil {
 		return stats
 	}
@@ -300,7 +301,7 @@ func neighborMetrics() []neighbormetric {
 		}
 
 		host := neighbor.Peer.IP().String()
-		port := neighbor.Peer.Services().Get(service.GossipKey).Port()
+		port := neighbor.Peer.Services().Get(service.P2PKey).Port()
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
 			Address:          net.JoinHostPort(host, strconv.Itoa(port)),

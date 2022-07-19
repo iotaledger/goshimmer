@@ -11,7 +11,7 @@ type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed blocks in its past cone will not be selected.
-	TimeSinceConfirmationThreshold time.Duration `default:"1m" usage:"Time Since Confirmation (TSC) threshold"`
+	TimeSinceConfirmationThreshold time.Duration `default:"30s" usage:"Time Since Confirmation (TSC) threshold"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
@@ -21,7 +21,7 @@ type ParametersDefinition struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"20m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`
@@ -73,10 +73,12 @@ type SchedulerParametersDefinition struct {
 	ConfirmedBlockThreshold string `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }
 
-// NotarizationParameterDefinition contains the definition of the parameters used by the notarization plugin.
-type NotarizationParameterDefinition struct {
+// NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
+type NotarizationParametersDefinition struct {
 	// MinEpochCommitableAge defines the min age of a commitable epoch.
 	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
+	// BootstrapWindow when notarization manager is considered to be bootstrapped
+	BootstrapWindow time.Duration `default:"2m" usage:"when notarization manager is considered to be bootstrapped"`
 	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
 	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 }
@@ -94,7 +96,7 @@ var RateSetterParameters = &RateSetterParametersDefinition{}
 var SchedulerParameters = &SchedulerParametersDefinition{}
 
 // NotarizationParameters contains the configuration used by the notarization plugin.
-var NotarizationParameters = &NotarizationParameterDefinition{}
+var NotarizationParameters = &NotarizationParametersDefinition{}
 
 func init() {
 	configuration.BindParameters(Parameters, "blockLayer")

@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	blocklayer "github.com/iotaledger/goshimmer/plugins/blocklayer"
+	"github.com/iotaledger/goshimmer/plugins/bootstrapmanager"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/clock"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -19,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/manainitializer"
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/p2p"
 	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
@@ -42,10 +44,12 @@ var Core = node.Plugins(
 	pow.Plugin,
 	clock.Plugin,
 	blocklayer.Plugin,
+	p2p.Plugin,
 	gossip.Plugin,
 	firewall.Plugin,
 	blocklayer.ManaPlugin,
 	blocklayer.NotarizationPlugin,
+	bootstrapmanager.Plugin,
 	faucet.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,

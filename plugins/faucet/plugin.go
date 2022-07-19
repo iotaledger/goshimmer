@@ -18,14 +18,16 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/pow"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -51,8 +53,8 @@ var (
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
-	initDone atomic.Bool
-	synced   chan (bool)
+	initDone     atomic.Bool
+	bootstrapped chan bool
 
 	waitForManaWindow = 5 * time.Second
 	deps              = new(dependencies)
@@ -61,9 +63,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local   *peer.Local
-	Tangle  *tangle.Tangle
-	Indexer *indexer.Indexer
+	Local            *peer.Local
+	Tangle           *tangle.Tangle
+	BootstrapManager *bootstrapmanager.Manager
+	Indexer          *indexer.Indexer
 }
 
 func init() {
@@ -125,7 +128,7 @@ func configure(plugin *node.Plugin) {
 	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
 		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
 
-	synced = make(chan bool, 1)
+	bootstrapped = make(chan bool, 1)
 
 	configureEvents()
 }
@@ -169,14 +172,14 @@ func run(plugin *node.Plugin) {
 }
 
 func waitUntilBootstrapped(ctx context.Context) bool {
-	// if we are already synced, there is no need to wait for the event
-	if deps.Tangle.TimeManager.Bootstrapped() {
+	// if we are already bootstrapped, there is no need to wait for the event
+	if deps.BootstrapManager.Bootstrapped() {
 		return true
 	}
 
-	// block until we are either synced or shutting down
+	// block until we are either bootstrapped or shutting down
 	select {
-	case <-synced:
+	case <-bootstrapped:
 		return true
 	case <-ctx.Done():
 		return false
@@ -210,10 +213,8 @@ func configureEvents() {
 	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
 		onBlockProcessed(event.BlockID)
 	}))
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
-		if event.Synced {
-			synced <- true
-		}
+	deps.BootstrapManager.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
+		bootstrapped <- true
 	}))
 }
 

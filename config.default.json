@@ -32,7 +32,7 @@
     "directory": "mainnetdb",
     "inMemory": false
   },
-  "gossip": {
+  "p2p": {
     "bindAddress": "0.0.0.0:14666"
   },
   "logger": {
@@ -93,8 +93,5 @@
   },
   "networkdelay": {
     "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
-  },
-  "manaInitializer": {
-    "FaucetAPI": "faucet-01.devnet.shimmer.iota.cafe:8080"
   }
 }

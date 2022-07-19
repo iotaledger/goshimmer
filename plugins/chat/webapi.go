@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/chat"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
 const (
