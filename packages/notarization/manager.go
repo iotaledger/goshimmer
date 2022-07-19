@@ -206,6 +206,8 @@ func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 		m.log.Error(err)
 		return
 	}
+	m.updateEpochsBootstrapped(ei)
+
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
@@ -566,7 +568,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
 	for _, epochCommittableEvent := range epochCommittableEvents {
-		m.updateEpochsBootstrapped(epochCommittableEvent.EI)
 		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
 	}
 	for _, manaVectorUpdateEvent := range manaVectorUpdateEvents {
