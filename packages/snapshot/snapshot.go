@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/cockroachdb/errors"
@@ -10,13 +11,69 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/notarization"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
+}
+
+// CreateSnapshot creates a full snapshot for the given target milestone index.
+func (s *Snapshot) CreateSnapshot(ctx context.Context, filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+	f, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("fail to create snapshot file")
+	}
+
+	outputProd := NewUTXOOutputProducer(t.Ledger)
+	committableEC, fullEpochIndex, err := t.Options.CommitmentFunc()
+	if err != nil {
+		return err
+	}
+
+	err = StreamSnapshotDataTo(f, outputProd, fullEpochIndex, committableEC.EI(), nmgr.SnapshotEpochDiffs)
+	if err != nil {
+		return err
+	}
+	f.Close()
+
+	return err
+}
+
+// LoadSnapshot creates a full snapshot for the given target milestone index.
+func (s *Snapshot) LoadSnapshot(ctx context.Context, filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("fail to open snapshot file")
+	}
+
+	outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+		t.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
+		nmgr.LoadOutputWithMetadatas(outputsWithMetadatas)
+	}
+
+	epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+		err := t.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
+		if err != nil {
+			return err
+		}
+
+		nmgr.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
+		return nil
+	}
+
+	err = StreamSnapshotDataFrom(f, outputConsumer, epochConsumer, nmgr.LoadECandEIs)
+	if err != nil {
+		return err
+	}
+	f.Close()
+
+	return err
 }
 
 func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
@@ -96,3 +153,13 @@ func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, o
 		Timestamp: outputMetadata.CreationTime(),
 	})
 }
+
+type OutputProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
+
+type OutputConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
+
+type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
+
+type EpochDiffsConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error
+
+type NotarizationConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord)

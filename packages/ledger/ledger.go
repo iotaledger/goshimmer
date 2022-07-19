@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -83,6 +85,44 @@ func New(options ...Option) (ledger *Ledger) {
 	}))
 
 	return ledger
+}
+
+func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetadata) {
+	for _, outputWithMetadata := range outputsWithMetadatas {
+		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
+		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
+		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
+		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
+		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
+	}
+}
+
+func (l *Ledger) LoadEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*EpochDiff) error {
+	for ei := fullEpochIndex + 1; ei <= diffEpochIndex; ei++ {
+		epochdiff, exists := epochDiffs[ei]
+		if !exists {
+			return fmt.Errorf("epoch diff not found for epoch")
+		}
+
+		for _, spent := range epochdiff.Spent() {
+			l.Storage.outputStorage.Delete(spent.ID().Bytes())
+			l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
+		}
+
+		for _, created := range epochdiff.Created() {
+			outputMetadata := NewOutputMetadata(created.ID())
+			outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
+			outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
+			outputMetadata.SetConfirmationState(confirmation.Confirmed)
+
+			l.Storage.outputStorage.Store(created.Output()).Release()
+			l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+		}
+	}
+
+	return nil
 }
 
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
@@ -178,6 +218,23 @@ func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transac
 // pruneFutureCone flag is true, then we do not just remove the named Transaction but also its future cone.
 func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
 	l.Storage.pruneTransaction(txID, pruneFutureCone)
+}
+
+func (l *Ledger) ForEachOutputWithMetadata(consumer func(*OutputWithMetadata)) {
+	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
+		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
+			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
+				return
+			}
+
+			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
+				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
+				consumer(outputWithMetadata)
+			})
+		})
+
+		return true
+	})
 }
 
 // Shutdown shuts down the stateful elements of the Ledger (the Storage and the ConflictDAG).
