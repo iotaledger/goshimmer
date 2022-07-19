@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -165,4 +166,15 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 
 	e.M.PrevEC = NewMerkleRoot(prevEC[:])
 	e.SetModified()
+}
+
+// FromBytes sets the PrevEC of an ECRecord.
+func (e *ECRecord) FromBytes(data []byte) error {
+	e.Lock()
+	defer e.Unlock()
+
+	if _, err := serix.DefaultAPI.Decode(context.Background(), data, e, serix.WithValidation()); err != nil {
+		return errors.Errorf("Fail to parse ECRecord from bytes: %w", err)
+	}
+	return nil
 }

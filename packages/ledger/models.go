@@ -635,6 +635,13 @@ func (o *OutputWithMetadata) FromBytes(data []byte) error {
 	return err
 }
 
+// Bytes marshals an OutputWithMetadata to a sequence of bytes.
+func (o *OutputWithMetadata) Bytes() (bytes []byte, err error) {
+	bytes, err = o.Storable.Bytes()
+
+	return
+}
+
 // Output returns the Output field.
 func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
