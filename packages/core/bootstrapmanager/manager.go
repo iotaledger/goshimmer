@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,12 +18,12 @@ type Events struct {
 // Manager is the bootstrap manager.
 type Manager struct {
 	Events              *Events
-	tangle              *tangle.Tangle
+	tangle              *tangleold.Tangle
 	notarizationManager *notarization.Manager
 }
 
 // New creates and returns a new notarization manager.
-func New(t *tangle.Tangle, notarizationManager *notarization.Manager) (new *Manager) {
+func New(t *tangleold.Tangle, notarizationManager *notarization.Manager) (new *Manager) {
 	new = &Manager{
 		tangle:              t,
 		notarizationManager: notarizationManager,
@@ -33,7 +33,7 @@ func New(t *tangle.Tangle, notarizationManager *notarization.Manager) (new *Mana
 }
 
 func (m *Manager) Setup() {
-	m.tangle.TimeManager.Events.Bootstrapped.Attach(event.NewClosure(func(_ *tangle.BootstrappedEvent) {
+	m.tangle.TimeManager.Events.Bootstrapped.Attach(event.NewClosure(func(_ *tangleold.BootstrappedEvent) {
 		if m.notarizationManager.Bootstrapped() {
 			m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 		}

@@ -23,7 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -178,7 +178,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
-func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangle.Block, string, error) {
+func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangleold.Block, string, error) {
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared
 		waitForPreparation := s.fundingState.FundingOutputsCount() == 0
@@ -707,9 +707,9 @@ func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devne
 }
 
 // issueTx issues a transaction to the Tangle and waits for it to become booked.
-func (s *StateManager) issueTx(tx *devnetvm.Transaction) (blk *tangle.Block, err error) {
+func (s *StateManager) issueTx(tx *devnetvm.Transaction) (blk *tangleold.Block, err error) {
 	// attach to block layer
-	issueTransaction := func() (*tangle.Block, error) {
+	issueTransaction := func() (*tangleold.Block, error) {
 		block, e := deps.Tangle.IssuePayload(tx)
 		if e != nil {
 			return nil, e

@@ -24,7 +24,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -53,7 +53,7 @@ type dependencies struct {
 	dig.In
 
 	Local        *peer.Local
-	Tangle       *tangle.Tangle
+	Tangle       *tangleold.Tangle
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
@@ -144,7 +144,7 @@ func configureBlockFinalizedMetrics() {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 			onBlockFinalized(event.Block)
 		}))
 	}
@@ -154,14 +154,14 @@ func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	} else {
-		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
+		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockScheduled")
 		}))
-		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	}
@@ -172,10 +172,10 @@ func configureMissingBlockMetrics() {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangle.BlockMissingEvent) {
+	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangleold.BlockMissingEvent) {
 		sendMissingBlockRecord(event.BlockID, "missingBlock")
 	}))
-	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangle.MissingBlockStoredEvent) {
+	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangleold.MissingBlockStoredEvent) {
 		sendMissingBlockRecord(event.BlockID, "missingBlockStored")
 	}))
 }

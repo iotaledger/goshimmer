@@ -4,7 +4,7 @@ import "github.com/iotaledger/hive.go/types/confirmation"
 
 // region Block ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Block represents the JSON model of a tangle.Block.
+// Block represents the JSON model of a tangleold.Block.
 type Block struct {
 	ID                   string   `json:"id"`
 	StrongParents        []string `json:"strongParents"`
@@ -31,7 +31,7 @@ type Block struct {
 
 // region BlockMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
-// BlockMetadata represents the JSON model of the tangle.BlockMetadata.
+// BlockMetadata represents the JSON model of the tangleold.BlockMetadata.
 type BlockMetadata struct {
 	ID                    string             `json:"id"`
 	ReceivedTime          int64              `json:"receivedTime"`
