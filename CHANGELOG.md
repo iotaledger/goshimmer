@@ -1,4 +1,4 @@
-# v0.9.2 - 2022-07-14
+# v0.9.3 - 2022-07-19
 
 > This release introduces bugfixes and improvements found in the previous release.
 
