@@ -35,7 +35,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 }
 
 func configure(_ *node.Plugin) {
