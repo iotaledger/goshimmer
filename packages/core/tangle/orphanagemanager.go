@@ -47,17 +47,21 @@ func (o *OrphanageManager) Setup() {
 	// Handle this event synchronously to guarantee that confirmed block is removed from orphanage manager before
 	// acceptance time is updated for this block as this could lead to some inconsistencies and manager trying to
 	// orphan confirmed messages.
-	o.tangle.ConfirmationOracle.Events().BlockAccepted.Hook(event.NewClosure(func(event *BlockAcceptedEvent) {
+	o.tangle.ConfirmationOracle.Events().BlockAccepted.Hook(event.NewClosure(func(evt *BlockAcceptedEvent) {
 		o.Lock()
 		defer o.Unlock()
-		delete(o.strongChildCounters, event.Block.ID())
-		o.removeElementFromHeap(event.Block.ID())
+		// if block has not been orphaned, remove it from the orphanage manager
+		delete(o.strongChildCounters, evt.Block.ID())
+		o.removeElementFromHeap(evt.Block.ID())
+
+		// if block has been orphaned before acceptance, remove the flag from the block and it's future cone if it satisfies the TSC threshold. Also add tips if possible
+		o.deorphanBlockFutureCone(evt.Block.ID())
 	}))
 
-	o.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
+	o.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(evt *TimeUpdate) {
 		o.Lock()
 		defer o.Unlock()
-		o.orphanBeforeTSC(event.ATT.Add(-o.tangle.Options.TimeSinceConfirmationThreshold))
+		o.orphanBeforeTSC(evt.ATT.Add(-o.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
 }
@@ -76,6 +80,37 @@ func (o *OrphanageManager) OrphanBlock(blockID BlockID, reason error) {
 	defer o.Unlock()
 	o.orphanBlockFutureCone(blockID, reason)
 }
+
+// deorphanBlockFutureCone handles the block that has been orphaned before acceptance
+// 1. Remove the flag from the block
+// 2. Remove orphaned flag from its future cone if it satisfies the TSC threshold.
+// 3. Add orphaned tips to the tip pool
+func (o *OrphanageManager) deorphanBlockFutureCone(blockID BlockID) {
+	futureConeWalker := walker.New[BlockID](false).Push(blockID)
+	minSupportedTime := o.tangle.TimeManager.ATT().Add(-o.tangle.Options.TimeSinceConfirmationThreshold)
+
+	for futureConeWalker.HasNext() {
+		blockID = futureConeWalker.Next()
+		o.tangle.Storage.Block(blockID).Consume(func(block *Block) {
+			o.tangle.Storage.BlockMetadata(blockID).Consume(func(metadata *BlockMetadata) {
+				if metadata.IsOrphaned() && (metadata.ConfirmationState().IsAccepted() || block.IssuingTime().After(minSupportedTime)) {
+					metadata.SetOrphaned(false)
+					childrenCount := 0
+					o.tangle.Storage.Children(blockID).Consume(func(approver *Child) {
+						futureConeWalker.Push(approver.ChildBlockID())
+						childrenCount++
+					})
+
+					// if block has been orphaned and then confirmed and has no children, add it to the tip pool
+					if childrenCount == 0 {
+						o.tangle.TipManager.AddTip(block)
+					}
+				}
+			})
+		})
+	}
+}
+
 func (o *OrphanageManager) orphanBlockFutureCone(blockID BlockID, reason error) {
 	futureConeWalker := walker.New[BlockID](false).Push(blockID)
 	for futureConeWalker.HasNext() {

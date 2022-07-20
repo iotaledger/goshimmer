@@ -1055,7 +1055,12 @@ func (m *BlockMetadata) SetOrphaned(orphaned bool) (modified bool) {
 	}
 
 	m.M.Orphaned = orphaned
-	m.M.OrphanedTime = clock.SyncedTime()
+	if orphaned {
+		m.M.OrphanedTime = clock.SyncedTime()
+	} else {
+		// reset the orphaned time if block is no longer orphaned (i.e. it was orphaned and then accepted)
+		m.M.OrphanedTime = time.Time{}
+	}
 	m.SetModified()
 	return true
 }
