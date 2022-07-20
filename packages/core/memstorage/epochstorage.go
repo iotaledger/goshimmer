@@ -1,0 +1,47 @@
+package memstorage
+
+import (
+	"sync"
+
+	"github.com/iotaledger/hive.go/generics/shrinkingmap"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+)
+
+type EpochStorage[K comparable, V any] struct {
+	cache *shrinkingmap.ShrinkingMap[epoch.Index, *Storage[K, V]]
+
+	sync.RWMutex
+}
+
+func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
+	return &EpochStorage[K, V]{
+		cache: shrinkingmap.New[epoch.Index, *Storage[K, V]](),
+	}
+}
+
+func (e *EpochStorage[K, V]) Drop(index epoch.Index) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.cache.Delete(index)
+}
+
+func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *Storage[K, V], exists bool) {
+	e.Lock()
+	defer e.Unlock()
+
+	if storage, exists = e.cache.Get(index); exists {
+		return
+	}
+
+	if len(createIfMissing) == 0 || !createIfMissing[0] {
+		return
+	}
+
+	storage = New[K, V]()
+	e.cache.Set(index, storage)
+
+	return storage, true
+
+}
