@@ -455,7 +455,7 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 }
 
 // RequireMessagesOrphaned asserts that all nodes have received MessageIDs and marked them as orphaned in waitFor time, periodically checking each tick.
-func RequireMessagesOrphaned(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+func RequireMessagesOrphaned(t *testing.T, nodes []*framework.Node, messageIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
 	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = make(map[string]struct{}, len(messageIDs))
@@ -468,7 +468,7 @@ func RequireMessagesOrphaned(t *testing.T, nodes []*framework.Node, messageIDs m
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
 			for messageID := range nodeMissing {
-				msg, err := node.GetMessageMetadata(messageID)
+				msg, err := node.GetBlockMetadata(messageID)
 				// retry, when the message could not be found
 				if errors.Is(err, client.ErrNotFound) {
 					log.Printf("node=%s, messageID=%s; message not found", node, messageID)
