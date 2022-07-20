@@ -182,9 +182,10 @@ func (m *Manager) LoadECandEIs(fullEpochIndex, diffEpochIndex epoch.Index, ec *e
 }
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
-	m.epochCommitmentFactoryMutex.Lock()
-	defer m.epochCommitmentFactoryMutex.Unlock()
+func (m *Manager) LoadSnapshot(s *ledger.Snapshot) {
+	m.LoadOutputWithMetadatas(s.OutputsWithMetadata)
+	m.LoadEpochDiffs(s.FullEpochIndex, s.DiffEpochIndex, s.EpochDiffs)
+	m.LoadECandEIs(s.FullEpochIndex, s.DiffEpochIndex, s.LatestECRecord)
 }
 
 func (m *Manager) SnapshotEpochDiffs() (map[epoch.Index]*ledger.EpochDiff, error) {
