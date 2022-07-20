@@ -6,7 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/node/gossip"
@@ -16,9 +16,9 @@ import (
 // ErrBlockNotFound is returned when a block could not be found in the Tangle.
 var ErrBlockNotFound = errors.New("block not found")
 
-func createManager(p2pManager *p2p.Manager, t *tangle.Tangle) *gossip.Manager {
+func createManager(p2pManager *p2p.Manager, t *tangleold.Tangle) *gossip.Manager {
 	// loads the given block from the block layer and returns it or an error if not found.
-	loadBlock := func(blkID tangle.BlockID) ([]byte, error) {
+	loadBlock := func(blkID tangleold.BlockID) ([]byte, error) {
 		cachedBlock := t.Storage.Block(blkID)
 		defer cachedBlock.Release()
 		if !cachedBlock.Exists() {

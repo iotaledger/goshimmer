@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 )
 
@@ -112,12 +112,12 @@ type GetConflictVotersResponse struct {
 }
 
 // NewGetConflictVotersResponse returns a GetConflictVotersResponse from the given details.
-func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *tangle.Voters) *GetConflictVotersResponse {
+func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *tangleold.Voters) *GetConflictVotersResponse {
 	return &GetConflictVotersResponse{
 		ConflictID: conflictID.Base58(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
-			voters.ForEach(func(voter tangle.Voter) {
+			voters.ForEach(func(voter tangleold.Voter) {
 				votersStr = append(votersStr, voter.String())
 			})
 			return
@@ -163,7 +163,7 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs tangle.BlockIDs) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs tangleold.BlockIDs) *GetTransactionAttachmentsResponse {
 	var blockIDsBase58 []string
 	for blockID := range blockIDs {
 		blockIDsBase58 = append(blockIDsBase58, blockID.Base58())
@@ -193,8 +193,8 @@ type PostPayloadResponse struct {
 	ID string `json:"id"`
 }
 
-// NewPostPayloadResponse returns a PostPayloadResponse from the given tangle.Block.
-func NewPostPayloadResponse(block *tangle.Block) *PostPayloadResponse {
+// NewPostPayloadResponse returns a PostPayloadResponse from the given tangleold.Block.
+func NewPostPayloadResponse(block *tangleold.Block) *PostPayloadResponse {
 	return &PostPayloadResponse{
 		ID: block.ID().Base58(),
 	}

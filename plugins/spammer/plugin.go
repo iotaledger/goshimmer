@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/spammer"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
@@ -30,7 +30,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 	Server *echo.Echo
 }
 

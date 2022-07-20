@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
@@ -68,7 +68,7 @@ func onConflictConfirmed(conflictID utxo.TransactionID) {
 		ConfirmedTimestamp: clock.SyncedTime(),
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
-	deps.Tangle.Storage.Block(oldestAttachmentBlockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Block(oldestAttachmentBlockID).Consume(func(block *tangleold.Block) {
 		issuerID := identity.NewID(block.IssuerPublicKey())
 		record.IssuerID = issuerID.String()
 	})
@@ -103,10 +103,10 @@ func sendConflictMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (time.Time, tangle.BlockID, error) {
+func updateMetricCounts(conflictID utxo.TransactionID, transactionID utxo.TransactionID) (time.Time, tangleold.BlockID, error) {
 	oldestAttachmentTime, oldestAttachmentBlockID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
 	if err != nil {
-		return time.Time{}, tangle.BlockID{}, err
+		return time.Time{}, tangleold.BlockID{}, err
 	}
 	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 		if conflictingConflictID != conflictID {
