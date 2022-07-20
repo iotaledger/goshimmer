@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
@@ -24,6 +24,7 @@ type LoadBlockFunc func(blockId tangle.BlockID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
+	tangle     *tangle.Tangle
 	p2pManager *p2p.Manager
 
 	Events *Events
@@ -38,14 +39,19 @@ type Manager struct {
 
 	validationInProgress bool
 	commitmentsChan      chan (*epoch.ECRecord)
+
+	syncingInProgress  bool
+	epochSyncBlockChan chan (*epochSyncBlock)
+	epochSyncEndChan   chan (*epochSyncEnd)
 }
 
 // ManagerOption configures the Manager instance.
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(tangle *tangle.Tangle, p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
+		tangle:        tangle,
 		p2pManager:    p2pManager,
 		Events:        newEvents(),
 		loadBlockFunc: f,
@@ -112,11 +118,11 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
 		}
 	case *wp.Packet_EpochCommitmentRequest:
-		if added := event.Loop.TrySubmit(func() { m.processEpochRequestPacket(packetBody, nbr) }); !added {
+		if added := event.Loop.TrySubmit(func() { m.processEpochCommittmentRequestPacket(packetBody, nbr) }); !added {
 			return fmt.Errorf("blockWorkerPool full: packet block discarded")
 		}
 	case *wp.Packet_EpochCommitment:
-		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksPacket(packetBody, nbr) }); !added {
+		if added := event.Loop.TrySubmit(func() { m.processEpochCommittmentPacket(packetBody, nbr) }); !added {
 			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
 		}
 	default:

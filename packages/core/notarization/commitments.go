@@ -98,15 +98,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 		return epoch.MerkleRoot{}, errors.Wrap(err, "ECR could not be created")
 	}
 
-	root := make([]byte, 0)
-	conflict1 := make([]byte, 0)
-	conflict2 := make([]byte, 0)
-
-	conflict1Hashed := blake2b.Sum256(append(append(conflict1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	conflict2Hashed := blake2b.Sum256(append(append(conflict2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
-
-	return epoch.NewMerkleRoot(rootHashed[:]), nil
+	return ECR(epochRoots.tangleRoot, epochRoots.stateMutationRoot, epochRoots.stateRoot, epochRoots.manaRoot), nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
@@ -446,6 +438,19 @@ func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 	ecHash := blake2b.Sum256(concatenated)
 
 	return epoch.NewMerkleRoot(ecHash[:])
+}
+
+// ECR calculates an ECR from the tree roots.
+func ECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot epoch.MerkleRoot) epoch.ECR {
+	root := make([]byte, 0)
+	branch1 := make([]byte, 0)
+	branch2 := make([]byte, 0)
+
+	conflict1Hashed := blake2b.Sum256(append(append(branch1, tangleRoot[:]...), stateMutationRoot[:]...))
+	conflict2Hashed := blake2b.Sum256(append(append(branch2, stateRoot[:]...), manaRoot[:]...))
+	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
+
+	return epoch.NewMerkleRoot(rootHashed[:])
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

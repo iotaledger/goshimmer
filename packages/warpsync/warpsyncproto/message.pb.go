@@ -147,10 +147,9 @@ type EpochBlocks struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ei          int64    `protobuf:"varint,1,opt,name=ei,proto3" json:"ei,omitempty"`
-	EC          []byte   `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
-	MerkleProof []byte   `protobuf:"bytes,3,opt,name=merkleProof,proto3" json:"merkleProof,omitempty"`
-	Blocks      [][]byte `protobuf:"bytes,4,rep,name=blocks,proto3" json:"blocks,omitempty"`
+	EI     int64    `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EC     []byte   `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
+	Blocks [][]byte `protobuf:"bytes,3,rep,name=blocks,proto3" json:"blocks,omitempty"`
 }
 
 func (x *EpochBlocks) Reset() {
@@ -185,9 +184,9 @@ func (*EpochBlocks) Descriptor() ([]byte, []int) {
 	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *EpochBlocks) GetEi() int64 {
+func (x *EpochBlocks) GetEI() int64 {
 	if x != nil {
-		return x.Ei
+		return x.EI
 	}
 	return 0
 }
@@ -199,16 +198,72 @@ func (x *EpochBlocks) GetEC() []byte {
 	return nil
 }
 
-func (x *EpochBlocks) GetMerkleProof() []byte {
+func (x *EpochBlocks) GetBlocks() [][]byte {
 	if x != nil {
-		return x.MerkleProof
+		return x.Blocks
 	}
 	return nil
 }
 
-func (x *EpochBlocks) GetBlocks() [][]byte {
+type EpochBlocksEnd struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	EI          int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EC          []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
+	MerkleProof []byte `protobuf:"bytes,3,opt,name=merkleProof,proto3" json:"merkleProof,omitempty"`
+}
+
+func (x *EpochBlocksEnd) Reset() {
+	*x = EpochBlocksEnd{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *EpochBlocksEnd) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EpochBlocksEnd) ProtoMessage() {}
+
+func (x *EpochBlocksEnd) ProtoReflect() protoreflect.Message {
+	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EpochBlocksEnd.ProtoReflect.Descriptor instead.
+func (*EpochBlocksEnd) Descriptor() ([]byte, []int) {
+	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *EpochBlocksEnd) GetEI() int64 {
 	if x != nil {
-		return x.Blocks
+		return x.EI
+	}
+	return 0
+}
+
+func (x *EpochBlocksEnd) GetEC() []byte {
+	if x != nil {
+		return x.EC
+	}
+	return nil
+}
+
+func (x *EpochBlocksEnd) GetMerkleProof() []byte {
+	if x != nil {
+		return x.MerkleProof
 	}
 	return nil
 }
@@ -218,14 +273,14 @@ type EpochBlocksRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Epoch int64  `protobuf:"varint,1,opt,name=epoch,proto3" json:"epoch,omitempty"`
-	EC    []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
+	EI int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EC []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 }
 
 func (x *EpochBlocksRequest) Reset() {
 	*x = EpochBlocksRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[2]
+		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -238,7 +293,7 @@ func (x *EpochBlocksRequest) String() string {
 func (*EpochBlocksRequest) ProtoMessage() {}
 
 func (x *EpochBlocksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[2]
+	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,12 +306,12 @@ func (x *EpochBlocksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EpochBlocksRequest.ProtoReflect.Descriptor instead.
 func (*EpochBlocksRequest) Descriptor() ([]byte, []int) {
-	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{2}
+	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *EpochBlocksRequest) GetEpoch() int64 {
+func (x *EpochBlocksRequest) GetEI() int64 {
 	if x != nil {
-		return x.Epoch
+		return x.EI
 	}
 	return 0
 }
@@ -273,7 +328,7 @@ type EpochCommittment struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ei     int64  `protobuf:"varint,1,opt,name=ei,proto3" json:"ei,omitempty"`
+	EI     int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
 	PrevEC []byte `protobuf:"bytes,2,opt,name=prevEC,proto3" json:"prevEC,omitempty"`
 	ECR    []byte `protobuf:"bytes,3,opt,name=ECR,proto3" json:"ECR,omitempty"`
 }
@@ -281,7 +336,7 @@ type EpochCommittment struct {
 func (x *EpochCommittment) Reset() {
 	*x = EpochCommittment{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[3]
+		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -294,7 +349,7 @@ func (x *EpochCommittment) String() string {
 func (*EpochCommittment) ProtoMessage() {}
 
 func (x *EpochCommittment) ProtoReflect() protoreflect.Message {
-	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[3]
+	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -307,12 +362,12 @@ func (x *EpochCommittment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EpochCommittment.ProtoReflect.Descriptor instead.
 func (*EpochCommittment) Descriptor() ([]byte, []int) {
-	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{3}
+	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *EpochCommittment) GetEi() int64 {
+func (x *EpochCommittment) GetEI() int64 {
 	if x != nil {
-		return x.Ei
+		return x.EI
 	}
 	return 0
 }
@@ -336,14 +391,14 @@ type EpochCommittmentRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ei int64  `protobuf:"varint,1,opt,name=ei,proto3" json:"ei,omitempty"`
+	EI int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
 	EC []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 }
 
 func (x *EpochCommittmentRequest) Reset() {
 	*x = EpochCommittmentRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[4]
+		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -356,7 +411,7 @@ func (x *EpochCommittmentRequest) String() string {
 func (*EpochCommittmentRequest) ProtoMessage() {}
 
 func (x *EpochCommittmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[4]
+	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,12 +424,12 @@ func (x *EpochCommittmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EpochCommittmentRequest.ProtoReflect.Descriptor instead.
 func (*EpochCommittmentRequest) Descriptor() ([]byte, []int) {
-	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{4}
+	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *EpochCommittmentRequest) GetEi() int64 {
+func (x *EpochCommittmentRequest) GetEI() int64 {
 	if x != nil {
-		return x.Ei
+		return x.EI
 	}
 	return 0
 }
@@ -395,7 +450,7 @@ type Negotiation struct {
 func (x *Negotiation) Reset() {
 	*x = Negotiation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[5]
+		mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -408,7 +463,7 @@ func (x *Negotiation) String() string {
 func (*Negotiation) ProtoMessage() {}
 
 func (x *Negotiation) ProtoReflect() protoreflect.Message {
-	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[5]
+	mi := &file_packages_warpsync_warpsyncproto_message_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +476,7 @@ func (x *Negotiation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Negotiation.ProtoReflect.Descriptor instead.
 func (*Negotiation) Descriptor() ([]byte, []int) {
-	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{5}
+	return file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP(), []int{6}
 }
 
 var File_packages_warpsync_warpsyncproto_message_proto protoreflect.FileDescriptor
@@ -456,31 +511,34 @@ var file_packages_warpsync_warpsyncproto_message_proto_rawDesc = []byte{
 	0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x77, 0x61, 0x72, 0x70, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x2e, 0x4e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00,
 	0x52, 0x0b, 0x6e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x06, 0x0a,
-	0x04, 0x62, 0x6f, 0x64, 0x79, 0x22, 0x67, 0x0a, 0x0b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x6c,
-	0x6f, 0x63, 0x6b, 0x73, 0x12, 0x0e, 0x0a, 0x02, 0x65, 0x69, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
-	0x52, 0x02, 0x65, 0x69, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c,
-	0x52, 0x02, 0x45, 0x43, 0x12, 0x20, 0x0a, 0x0b, 0x6d, 0x65, 0x72, 0x6b, 0x6c, 0x65, 0x50, 0x72,
-	0x6f, 0x6f, 0x66, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0b, 0x6d, 0x65, 0x72, 0x6b, 0x6c,
-	0x65, 0x50, 0x72, 0x6f, 0x6f, 0x66, 0x12, 0x16, 0x0a, 0x06, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x73,
-	0x18, 0x04, 0x20, 0x03, 0x28, 0x0c, 0x52, 0x06, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x22, 0x3a,
-	0x0a, 0x12, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x03, 0x52, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x43,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x45, 0x43, 0x22, 0x4c, 0x0a, 0x10, 0x45, 0x70,
-	0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x0e,
-	0x0a, 0x02, 0x65, 0x69, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x02, 0x65, 0x69, 0x12, 0x16,
-	0x0a, 0x06, 0x70, 0x72, 0x65, 0x76, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06,
-	0x70, 0x72, 0x65, 0x76, 0x45, 0x43, 0x12, 0x10, 0x0a, 0x03, 0x45, 0x43, 0x52, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x03, 0x45, 0x43, 0x52, 0x22, 0x39, 0x0a, 0x17, 0x45, 0x70, 0x6f, 0x63,
-	0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x65, 0x69, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52,
-	0x02, 0x65, 0x69, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52,
-	0x02, 0x45, 0x43, 0x22, 0x0d, 0x0a, 0x0b, 0x4e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74, 0x69,
-	0x6f, 0x6e, 0x42, 0x41, 0x5a, 0x3f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d,
-	0x2f, 0x69, 0x6f, 0x74, 0x61, 0x6c, 0x65, 0x64, 0x67, 0x65, 0x72, 0x2f, 0x67, 0x6f, 0x73, 0x68,
-	0x69, 0x6d, 0x6d, 0x65, 0x72, 0x2f, 0x70, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x73, 0x2f, 0x77,
-	0x61, 0x72, 0x70, 0x73, 0x79, 0x6e, 0x63, 0x2f, 0x77, 0x61, 0x72, 0x70, 0x73, 0x79, 0x6e, 0x63,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x04, 0x62, 0x6f, 0x64, 0x79, 0x22, 0x45, 0x0a, 0x0b, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x6c,
+	0x6f, 0x63, 0x6b, 0x73, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x49, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03,
+	0x52, 0x02, 0x45, 0x49, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c,
+	0x52, 0x02, 0x45, 0x43, 0x12, 0x16, 0x0a, 0x06, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x18, 0x03,
+	0x20, 0x03, 0x28, 0x0c, 0x52, 0x06, 0x62, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x22, 0x52, 0x0a, 0x0e,
+	0x45, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x45, 0x6e, 0x64, 0x12, 0x0e,
+	0x0a, 0x02, 0x45, 0x49, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x02, 0x45, 0x49, 0x12, 0x0e,
+	0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x45, 0x43, 0x12, 0x20,
+	0x0a, 0x0b, 0x6d, 0x65, 0x72, 0x6b, 0x6c, 0x65, 0x50, 0x72, 0x6f, 0x6f, 0x66, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0c, 0x52, 0x0b, 0x6d, 0x65, 0x72, 0x6b, 0x6c, 0x65, 0x50, 0x72, 0x6f, 0x6f, 0x66,
+	0x22, 0x34, 0x0a, 0x12, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x42, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x49, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x03, 0x52, 0x02, 0x45, 0x49, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0c, 0x52, 0x02, 0x45, 0x43, 0x22, 0x4c, 0x0a, 0x10, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x43,
+	0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x0e, 0x0a, 0x02, 0x45, 0x49,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x02, 0x45, 0x49, 0x12, 0x16, 0x0a, 0x06, 0x70, 0x72,
+	0x65, 0x76, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x70, 0x72, 0x65, 0x76,
+	0x45, 0x43, 0x12, 0x10, 0x0a, 0x03, 0x45, 0x43, 0x52, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52,
+	0x03, 0x45, 0x43, 0x52, 0x22, 0x39, 0x0a, 0x17, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d,
+	0x6d, 0x69, 0x74, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
+	0x0e, 0x0a, 0x02, 0x45, 0x49, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x02, 0x45, 0x49, 0x12,
+	0x0e, 0x0a, 0x02, 0x45, 0x43, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x45, 0x43, 0x22,
+	0x0d, 0x0a, 0x0b, 0x4e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x41,
+	0x5a, 0x3f, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74,
+	0x61, 0x6c, 0x65, 0x64, 0x67, 0x65, 0x72, 0x2f, 0x67, 0x6f, 0x73, 0x68, 0x69, 0x6d, 0x6d, 0x65,
+	0x72, 0x2f, 0x70, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x73, 0x2f, 0x77, 0x61, 0x72, 0x70, 0x73,
+	0x79, 0x6e, 0x63, 0x2f, 0x77, 0x61, 0x72, 0x70, 0x73, 0x79, 0x6e, 0x63, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -495,21 +553,22 @@ func file_packages_warpsync_warpsyncproto_message_proto_rawDescGZIP() []byte {
 	return file_packages_warpsync_warpsyncproto_message_proto_rawDescData
 }
 
-var file_packages_warpsync_warpsyncproto_message_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_packages_warpsync_warpsyncproto_message_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_packages_warpsync_warpsyncproto_message_proto_goTypes = []interface{}{
 	(*Packet)(nil),                  // 0: warpsyncproto.Packet
 	(*EpochBlocks)(nil),             // 1: warpsyncproto.EpochBlocks
-	(*EpochBlocksRequest)(nil),      // 2: warpsyncproto.EpochBlocksRequest
-	(*EpochCommittment)(nil),        // 3: warpsyncproto.EpochCommittment
-	(*EpochCommittmentRequest)(nil), // 4: warpsyncproto.EpochCommittmentRequest
-	(*Negotiation)(nil),             // 5: warpsyncproto.Negotiation
+	(*EpochBlocksEnd)(nil),          // 2: warpsyncproto.EpochBlocksEnd
+	(*EpochBlocksRequest)(nil),      // 3: warpsyncproto.EpochBlocksRequest
+	(*EpochCommittment)(nil),        // 4: warpsyncproto.EpochCommittment
+	(*EpochCommittmentRequest)(nil), // 5: warpsyncproto.EpochCommittmentRequest
+	(*Negotiation)(nil),             // 6: warpsyncproto.Negotiation
 }
 var file_packages_warpsync_warpsyncproto_message_proto_depIdxs = []int32{
 	1, // 0: warpsyncproto.Packet.epochBlocks:type_name -> warpsyncproto.EpochBlocks
-	2, // 1: warpsyncproto.Packet.epochBlocksRequest:type_name -> warpsyncproto.EpochBlocksRequest
-	3, // 2: warpsyncproto.Packet.epochCommitment:type_name -> warpsyncproto.EpochCommittment
-	4, // 3: warpsyncproto.Packet.epochCommitmentRequest:type_name -> warpsyncproto.EpochCommittmentRequest
-	5, // 4: warpsyncproto.Packet.negotiation:type_name -> warpsyncproto.Negotiation
+	3, // 1: warpsyncproto.Packet.epochBlocksRequest:type_name -> warpsyncproto.EpochBlocksRequest
+	4, // 2: warpsyncproto.Packet.epochCommitment:type_name -> warpsyncproto.EpochCommittment
+	5, // 3: warpsyncproto.Packet.epochCommitmentRequest:type_name -> warpsyncproto.EpochCommittmentRequest
+	6, // 4: warpsyncproto.Packet.negotiation:type_name -> warpsyncproto.Negotiation
 	5, // [5:5] is the sub-list for method output_type
 	5, // [5:5] is the sub-list for method input_type
 	5, // [5:5] is the sub-list for extension type_name
@@ -548,7 +607,7 @@ func file_packages_warpsync_warpsyncproto_message_proto_init() {
 			}
 		}
 		file_packages_warpsync_warpsyncproto_message_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EpochBlocksRequest); i {
+			switch v := v.(*EpochBlocksEnd); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -560,7 +619,7 @@ func file_packages_warpsync_warpsyncproto_message_proto_init() {
 			}
 		}
 		file_packages_warpsync_warpsyncproto_message_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EpochCommittment); i {
+			switch v := v.(*EpochBlocksRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -572,7 +631,7 @@ func file_packages_warpsync_warpsyncproto_message_proto_init() {
 			}
 		}
 		file_packages_warpsync_warpsyncproto_message_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EpochCommittmentRequest); i {
+			switch v := v.(*EpochCommittment); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -584,6 +643,18 @@ func file_packages_warpsync_warpsyncproto_message_proto_init() {
 			}
 		}
 		file_packages_warpsync_warpsyncproto_message_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*EpochCommittmentRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_packages_warpsync_warpsyncproto_message_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Negotiation); i {
 			case 0:
 				return &v.state
@@ -609,7 +680,7 @@ func file_packages_warpsync_warpsyncproto_message_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_packages_warpsync_warpsyncproto_message_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

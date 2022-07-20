@@ -15,25 +15,30 @@ message Packet {
 }
 
 message EpochBlocks {
-  int64 ei = 1;
+  int64 EI = 1;
+  bytes EC = 2;
+  repeated bytes blocks = 3;
+}
+
+message EpochBlocksEnd {
+  int64 EI = 1;
   bytes EC = 2;
   bytes merkleProof = 3;
-  repeated bytes blocks = 4;
 }
 
 message EpochBlocksRequest {
-  int64 epoch = 1;
+  int64 EI = 1;
   bytes EC = 2;
 }
 
 message EpochCommittment {
-  int64 ei = 1;
+  int64 EI = 1;
   bytes prevEC = 2;
   bytes ECR = 3;
 }
 
 message EpochCommittmentRequest {
-  int64 ei = 1;
+  int64 EI = 1;
   bytes EC = 2;
 }
 

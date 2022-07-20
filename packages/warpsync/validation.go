@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/p2p"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
 )
 
@@ -23,11 +23,17 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 	}
 
 	ecRecords := make(map[epoch.Index]*epoch.ECRecord)
+	toReceive := end - start
 
+readLoop:
 	for {
 		select {
 		case ecRecord := <-m.commitmentsChan:
 			ecRecords[ecRecord.EI()] = ecRecord
+			toReceive--
+			if toReceive == 0 {
+				break readLoop
+			}
 		case <-ctx.Done():
 			return false, fmt.Errorf("cancelled while validating epoch range %d to %d", start, end)
 		}
@@ -50,7 +56,7 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 }
 
 func (m *Manager) RequestEpochCommittment(index epoch.Index) {
-	committmentReq := &wp.EpochCommittmentRequest{Epoch: int64(index)}
+	committmentReq := &wp.EpochCommittmentRequest{EI: int64(index)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
 	m.send(packet)
 }
@@ -86,7 +92,7 @@ func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packe
 		return
 	}
 
-	ei := epoch.Index(packetEpochCommittment.EpochCommitment.GetEpoch())
+	ei := epoch.Index(packetEpochCommittment.EpochCommitment.GetEI())
 	ecr := epoch.NewMerkleRoot(packetEpochCommittment.EpochCommitment.GetECR())
 	prevEC := epoch.NewMerkleRoot(packetEpochCommittment.EpochCommitment.GetPrevEC())
 
