@@ -101,8 +101,8 @@ func TestRateSetter_SkipOlderThanTSC(t *testing.T) {
 	defer tangle.Shutdown()
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
-	msg := NewMessage(
-		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+	msg := NewBlock(
+		emptyLikeReferencesFromStrongParents(NewBlockIDs(EmptyBlockID)),
 		time.Now(),
 		localNode.PublicKey(),
 		0,
@@ -117,12 +117,12 @@ func TestRateSetter_SkipOlderThanTSC(t *testing.T) {
 
 	tangle.TimeManager.updateTime(msg)
 
-	messageDiscarded := make(chan MessageID, MaxLocalQueueSize-1)
-	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
-	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
+	messageDiscarded := make(chan BlockID, MaxLocalQueueSize-1)
+	discardedCounter := event.NewClosure(func(event *BlockDiscardedEvent) { messageDiscarded <- event.BlockID })
+	rateSetter.Events.BlockDiscarded.Hook(discardedCounter)
 	for i := 0; i < MaxLocalQueueSize-1; i++ {
-		msg := NewMessage(
-			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+		msg := NewBlock(
+			emptyLikeReferencesFromStrongParents(NewBlockIDs(EmptyBlockID)),
 			time.Now().Add(-10*time.Minute),
 			localNode.PublicKey(),
 			0,

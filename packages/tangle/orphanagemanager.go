@@ -116,8 +116,6 @@ func (o *OrphanageManager) orphanBlock(blockID BlockID, reason error) {
 }
 
 func (o *OrphanageManager) decreaseStrongChildCounter(blockID BlockID) {
-	o.Lock()
-	defer o.Unlock()
 	if _, exists := o.strongChildCounters[blockID]; !exists {
 		return
 	}

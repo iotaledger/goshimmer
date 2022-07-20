@@ -729,6 +729,8 @@ type blockMetadataModel struct {
 	DiscardedTime         time.Time                 `serix:"14"`
 	QueuedTime            time.Time                 `serix:"15"`
 	SubjectivelyInvalid   bool                      `serix:"16"`
+	Orphaned              bool                      `serix:"17"`
+	OrphanedTime          time.Time                 `serix:"18"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata from the specified blockID.
@@ -1039,6 +1041,38 @@ func (m *BlockMetadata) ConfirmationStateTime() time.Time {
 	defer m.RUnlock()
 
 	return m.M.ConfirmationStateTime
+}
+
+// SetOrphaned sets the message associated with this metadata as orphaned.
+// It returns true if the orphanage status is modified. False otherwise.
+func (m *BlockMetadata) SetOrphaned(orphaned bool) (modified bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.M.Orphaned == orphaned {
+		return false
+	}
+
+	m.M.Orphaned = orphaned
+	m.M.OrphanedTime = clock.SyncedTime()
+	m.SetModified()
+	return true
+}
+
+// IsOrphaned returns true if the message represented by this metadata is orphaned. False otherwise.
+func (m *BlockMetadata) IsOrphaned() (result bool) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.Orphaned
+}
+
+// OrphanedTime returns the time when the message represented by this metadata was orphaned.
+func (m *BlockMetadata) OrphanedTime() time.Time {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.OrphanedTime
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

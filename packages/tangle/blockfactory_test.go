@@ -367,7 +367,7 @@ func TestBlockFactory_PrepareLikedReferences_3(t *testing.T) {
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
-		fmt.Println(event.Block.ID())
+		fmt.Println(event.BlockID)
 	}))
 
 	references, err := tangle.BlockFactory.ReferenceProvider.References(nil, NewBlockIDs(testFramework.Block("3").ID(), testFramework.Block("2").ID()), time.Now())
