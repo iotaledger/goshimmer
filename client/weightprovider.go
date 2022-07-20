@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 )
 
 const (
