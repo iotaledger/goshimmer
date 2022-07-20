@@ -16,6 +16,7 @@ func StreamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
 	outputProd OutputProducerFunc,
 	fullEpochIndex, diffEpochIndex epoch.Index,
+	latestECRecord *epoch.ECRecord,
 	epochDiffsProd EpochDiffProducerFunc) error {
 
 	writeFunc := func(name string, value any, offsetsToIncrease ...*int64) error {
@@ -35,20 +36,33 @@ func StreamSnapshotDataTo(
 		return err
 	}
 
+	data, err := serix.DefaultAPI.Encode(context.Background(), latestECRecord, serix.WithValidation())
+	if err != nil {
+		return err
+	}
+
+	if err := writeFunc("latestECRecord", data); err != nil {
+		return err
+	}
+	if err := writeFunc("delimeter", "\n"); err != nil {
+		return err
+	}
+
 	// write epochDiffs
 	epochDiffs, err := epochDiffsProd()
 	if err != nil {
 		return err
 	}
 
-	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithValidation())
+	typeSet := new(serix.TypeSettings)
+	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return err
 	}
 	if err := writeFunc(fmt.Sprintf("diffEpoch"), bytes); err != nil {
 		return err
 	}
-	if err := writeFunc("delimeter", ";"); err != nil {
+	if err := writeFunc("delimeter", "\n"); err != nil {
 		return err
 	}
 
@@ -57,7 +71,7 @@ func StreamSnapshotDataTo(
 	for {
 		output := outputProd()
 		if output == nil {
-			if err := writeFunc("delimeter", ";"); err != nil {
+			if err := writeFunc("delimeter", "\n"); err != nil {
 				return err
 			}
 			break
@@ -76,7 +90,7 @@ func StreamSnapshotDataTo(
 
 		// put a delimeter every 100 outputs
 		if outputChunkCounter == 100 {
-			if err := writeFunc("delimeter", ";"); err != nil {
+			if err := writeFunc("delimeter", "\n"); err != nil {
 				return err
 			}
 		}

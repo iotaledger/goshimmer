@@ -145,7 +145,7 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
 		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.LoadSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr)
+		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

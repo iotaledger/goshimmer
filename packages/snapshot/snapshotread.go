@@ -10,9 +10,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
-	"golang.org/x/crypto/blake2b"
 )
 
 // StreamSnapshotDataFrom consumes a full snapshot from the given reader.
@@ -37,24 +35,20 @@ func StreamSnapshotDataFrom(
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 
-	ecRecord, err := ReadECRecord(reader)
+	chunkReader := bufio.NewReader(reader)
+	ecRecord, err := ReadECRecord(chunkReader)
 	if err != nil {
 		return err
 	}
 	notarizationConsumer(epoch.Index(fullEpochIndex), epoch.Index(diffEpochIndex), ecRecord)
 
-	chunkReader := bufio.NewReader(reader)
 	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
-	bytes, err := chunkReader.ReadBytes(byte(';'))
-	if err != nil {
-		return err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, epochDiffs)
+	epochDiffs, err = ReadEpochDiffs(chunkReader)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 
+	// read outputWithMetadata
 	for i := 0; uint64(i) < outputWithMetadataCounter; {
 		outputs, err := ReadOutputWithMetadata(chunkReader)
 		if err != nil {
@@ -71,29 +65,52 @@ func StreamSnapshotDataFrom(
 }
 
 func ReadOutputWithMetadata(reader *bufio.Reader) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
-	chunk, err := reader.ReadBytes(byte(';'))
+	chunk, err := reader.ReadBytes('\n')
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), chunk, outputMetadatas)
-	if err != nil {
-		return nil, err
+	if len(chunk) > 0 {
+		typeSet := new(serix.TypeSettings)
+		outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
+		_, err = serix.DefaultAPI.Decode(context.Background(), chunk, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return
 }
 
-func ReadECRecord(reader io.ReadSeeker) (ecRecord *epoch.ECRecord, err error) {
-	var size = blake2b.Size256*2 + marshalutil.Int64Size
+func ReadEpochDiffs(reader *bufio.Reader) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
+	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 
-	ecRecordBytes := make([]byte, size)
-	if _, err := io.ReadFull(reader, ecRecordBytes); err != nil {
-		return nil, fmt.Errorf("unable to read LS ECRecord: %w", err)
+	data, err := reader.ReadBytes('\n')
+	if err != nil {
+		return nil, err
 	}
 
+	if len(data) > 0 {
+		typeSet := new(serix.TypeSettings)
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+		if err != nil {
+			return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		}
+	}
+
+	return
+}
+
+func ReadECRecord(reader *bufio.Reader) (ecRecord *epoch.ECRecord, err error) {
+	data, err := reader.ReadBytes('\n')
+	if err != nil {
+		return nil, err
+	}
 	ecRecord = &epoch.ECRecord{}
-	err = ecRecord.FromBytes(ecRecordBytes)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, ecRecord)
+	if err != nil {
+		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	}
 
 	return
 }

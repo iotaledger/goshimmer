@@ -23,8 +23,8 @@ type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
 }
 
-// CreateSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) CreateSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+// CreateStreamableSnapshot creates a full snapshot for the given target milestone index.
+func (s *Snapshot) CreateStreamableSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to create snapshot file")
@@ -36,7 +36,7 @@ func (s *Snapshot) CreateSnapshot(filePath string, t *tangle.Tangle, nmgr *notar
 		return err
 	}
 
-	err = StreamSnapshotDataTo(f, outputProd, fullEpochIndex, committableEC.EI(), nmgr.SnapshotEpochDiffs)
+	err = StreamSnapshotDataTo(f, outputProd, fullEpochIndex, committableEC.EI(), committableEC, nmgr.SnapshotEpochDiffs)
 	if err != nil {
 		return err
 	}
@@ -45,8 +45,12 @@ func (s *Snapshot) CreateSnapshot(filePath string, t *tangle.Tangle, nmgr *notar
 	return err
 }
 
-// LoadSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) LoadSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+// LoadStreamableSnapshot creates a full snapshot for the given target milestone index.
+func (s *Snapshot) LoadStreamableSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+	if s.LedgerSnapshot == nil {
+		s.LedgerSnapshot = new(ledger.Snapshot)
+	}
+
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to open snapshot file")
@@ -57,7 +61,6 @@ func (s *Snapshot) LoadSnapshot(filePath string, t *tangle.Tangle, nmgr *notariz
 		nmgr.LoadOutputWithMetadatas(outputsWithMetadatas)
 		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputsWithMetadatas...)
 	}
-	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
 
 	epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
 		err := t.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
@@ -74,6 +77,7 @@ func (s *Snapshot) LoadSnapshot(filePath string, t *tangle.Tangle, nmgr *notariz
 	if err != nil {
 		return err
 	}
+	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
 	f.Close()
 
 	return err
@@ -105,36 +109,41 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 		WriteInt64(int64(s.LedgerSnapshot.FullEpochIndex)).
 		WriteInt64(int64(s.LedgerSnapshot.DiffEpochIndex))
 
-	// write epochDiffs
-	data, err := serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.EpochDiffs, serix.WithValidation())
+	data, err := serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.LatestECRecord, serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
-	marshaler.WriteBytes(data).WriteByte(';')
+	marshaler.WriteBytes(data).WriteByte('\n')
+
+	// write epochDiffs
+	typeSet := new(serix.TypeSettings)
+	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.EpochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	if err != nil {
+		return nil, err
+	}
+	marshaler.WriteBytes(data).WriteByte('\n')
 
 	// write outputWithMetadata
-	var outputChunkCounter int
-	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
-		outputChunkCounter++
-		outputBytes, err := output.Bytes()
-		if err != nil {
-			return nil, fmt.Errorf("unable to serialize outputWithMetadata to bytes: %w", err)
-		}
-
-		marshaler.WriteBytes(outputBytes)
-
-		// put a delimeter every 100 outputs
-		if outputChunkCounter == 100 {
-			marshaler.WriteByte(';')
-		}
+	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.OutputsWithMetadata, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	if err != nil {
+		return nil, err
 	}
-	marshaler.WriteByte(';')
+	marshaler.WriteBytes(data).WriteByte('\n')
+
+	// TODO: debug session, the index of outputID is not deserialized correctly
+	outputMetadatas := make([]*ledger.OutputWithMetadata, 0)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(outputMetadatas)
 
 	return marshaler.Bytes(), nil
 }
 
 // FromBytes returns a serialized version of the Snapshot.
 func (s *Snapshot) FromBytes(data []byte) (err error) {
+	s.LedgerSnapshot = new(ledger.Snapshot)
 	reader := bytes.NewReader(data)
 
 	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.OutputWithMetadataCount); err != nil {
@@ -149,33 +158,27 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 
-	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(reader)
-	if err != nil {
-		return err
-	}
-
 	chunkReader := bufio.NewReader(reader)
-	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
-	data, err = chunkReader.ReadBytes(byte(';'))
+
+	// read LatestECRecord
+	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(chunkReader)
 	if err != nil {
 		return err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, epochDiffs)
-	s.LedgerSnapshot.EpochDiffs = epochDiffs
-
+	// read epochDiffs
+	s.LedgerSnapshot.EpochDiffs, err = ReadEpochDiffs(chunkReader)
 	if err != nil {
-		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		return err
 	}
 
-	for i := 0; uint64(i) < s.LedgerSnapshot.OutputWithMetadataCount; {
-		outputs, err := ReadOutputWithMetadata(chunkReader)
-		if err != nil {
-			return err
-		}
-		i += len(outputs)
-		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputs...)
+	outputs, err := ReadOutputWithMetadata(chunkReader)
+	if err != nil {
+		return err
 	}
+	s.LedgerSnapshot.OutputsWithMetadata = outputs
+
+	// check if the file is consumed
 
 	return nil
 }
