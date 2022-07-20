@@ -95,6 +95,7 @@ func PeerConfig() config.GoShimmer {
 	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
 	c.Notarization.MinEpochCommitableAge = 10 * time.Second
 
+	// enable rate setter and set to disabled mode ;)
 	c.RateSetter.Enabled = true
 	c.RateSetter.Mode = "disabled"
 	c.RateSetter.RateSetterParametersDefinition.Mode = "disabled"
