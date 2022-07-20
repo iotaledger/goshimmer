@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -28,7 +28,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle    *tangle.Tangle
+	Tangle    *tangleold.Tangle
 	GossipMgr *gossip.Manager
 	P2PMgr    *p2p.Manager
 }
@@ -56,13 +56,13 @@ func run(plugin *node.Plugin) {
 
 func configureLogging() {
 	// log the gossip events
-	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangle.RequestStartedEvent) {
+	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangleold.RequestStartedEvent) {
 		Plugin.LogDebugf("started to request missing Block with %s", event.BlockID)
 	}))
-	deps.Tangle.Requester.Events.RequestStopped.Attach(event.NewClosure(func(event *tangle.RequestStoppedEvent) {
+	deps.Tangle.Requester.Events.RequestStopped.Attach(event.NewClosure(func(event *tangleold.RequestStoppedEvent) {
 		Plugin.LogDebugf("stopped to request missing Block with %s", event.BlockID)
 	}))
-	deps.Tangle.Requester.Events.RequestFailed.Attach(event.NewClosure(func(event *tangle.RequestFailedEvent) {
+	deps.Tangle.Requester.Events.RequestFailed.Attach(event.NewClosure(func(event *tangleold.RequestFailedEvent) {
 		Plugin.LogDebugf("failed to request missing Block with %s", event.BlockID)
 	}))
 }
@@ -74,14 +74,14 @@ func configureBlockLayer() {
 	}))
 
 	// configure flow of outgoing blocks (gossip upon dispatched blocks)
-	deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
+		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
 			deps.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
 		})
 	}))
 
 	// request missing blocks
-	deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangle.RequestIssuedEvent) {
+	deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangleold.RequestIssuedEvent) {
 		id := event.BlockID
 		Plugin.LogDebugf("requesting missing Block with %s", id)
 

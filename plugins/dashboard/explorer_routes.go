@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 )
@@ -76,7 +76,7 @@ type ExplorerBlock struct {
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
-func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
+func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 	blockID := blk.ID()
 	cachedBlockMetadata := deps.Tangle.Storage.BlockMetadata(blockID)
 	defer cachedBlockMetadata.Release()
@@ -97,9 +97,9 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 		Signature:               blk.Signature().String(),
 		SequenceNumber:          blk.SequenceNumber(),
 		ParentsByType:           prepareParentReferences(blk),
-		StrongChildren:          deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.StrongChild).Base58(),
-		WeakChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.WeakChild).Base58(),
-		ShallowLikeChildren:     deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangle.ShallowLikeChild).Base58(),
+		StrongChildren:          deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.StrongChild).Base58(),
+		WeakChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.WeakChild).Base58(),
+		ShallowLikeChildren:     deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.ShallowLikeChild).Base58(),
 		Solid:                   blockMetadata.IsSolid(),
 		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
@@ -129,9 +129,9 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 	return t
 }
 
-func prepareParentReferences(blk *tangle.Block) map[string][]string {
+func prepareParentReferences(blk *tangleold.Block) map[string][]string {
 	parentsByType := make(map[string][]string)
-	blk.ForEachParent(func(parent tangle.Parent) {
+	blk.ForEachParent(func(parent tangleold.Parent) {
 		if _, ok := parentsByType[parent.Type.String()]; !ok {
 			parentsByType[parent.Type.String()] = make([]string, 0)
 		}
@@ -165,7 +165,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/block/:id", func(c echo.Context) (err error) {
-		var blockID tangle.BlockID
+		var blockID tangleold.BlockID
 		err = blockID.FromBase58(c.Param("id"))
 		if err != nil {
 			return
@@ -215,8 +215,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case tangle.BlockIDLength:
-			var blockID tangle.BlockID
+		case tangleold.BlockIDLength:
+			var blockID tangleold.BlockID
 			err = blockID.FromBase58(c.Param("id"))
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
@@ -235,8 +235,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findBlock(blockID tangle.BlockID) (explorerBlk *ExplorerBlock, err error) {
-	if !deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangle.Block) {
+func findBlock(blockID tangleold.BlockID) (explorerBlk *ExplorerBlock, err error) {
+	if !deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
 		explorerBlk = createExplorerBlock(blk)
 	}) {
 		err = fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())

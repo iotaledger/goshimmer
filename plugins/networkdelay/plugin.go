@@ -13,7 +13,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -40,7 +40,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle       *tangle.Tangle
+	Tangle       *tangleold.Tangle
 	Local        *peer.Local
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	Server       *echo.Echo
@@ -79,15 +79,15 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to block-layer
-	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
+	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangleold.BlockProcessedEvent) {
 		onReceiveBlockFromBlockLayer(event.BlockID)
 	}))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
-func onReceiveBlockFromBlockLayer(blockID tangle.BlockID) {
-	deps.Tangle.Storage.Block(blockID).Consume(func(solidBlock *tangle.Block) {
+func onReceiveBlockFromBlockLayer(blockID tangleold.BlockID) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(solidBlock *tangleold.Block) {
 		blockPayload := solidBlock.Payload()
 		if blockPayload.Type() != Type {
 			return
