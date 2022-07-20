@@ -21,7 +21,7 @@ type ParametersDefinition struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"20m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`

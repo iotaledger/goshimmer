@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/chat"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 const (

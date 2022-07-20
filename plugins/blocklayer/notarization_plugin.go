@@ -9,10 +9,11 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 const (

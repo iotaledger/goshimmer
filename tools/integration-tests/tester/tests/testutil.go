@@ -18,9 +18,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )

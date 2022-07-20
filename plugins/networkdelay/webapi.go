@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 func configureWebAPI() {

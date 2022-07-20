@@ -3,8 +3,9 @@ package remotemetrics
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 
 var isTangleTimeSynced atomic.Bool

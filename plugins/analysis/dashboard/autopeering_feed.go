@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 

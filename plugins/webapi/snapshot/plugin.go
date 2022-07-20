@@ -8,8 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////

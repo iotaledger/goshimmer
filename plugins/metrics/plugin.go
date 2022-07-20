@@ -14,15 +14,17 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
+
+	"github.com/iotaledger/goshimmer/packages/app/metrics"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
