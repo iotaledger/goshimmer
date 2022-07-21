@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/serix"

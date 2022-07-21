@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 

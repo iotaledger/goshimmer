@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"google.golang.org/protobuf/proto"
