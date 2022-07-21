@@ -379,8 +379,8 @@ func saveEpochVotersWeight(block *tangle.Block) {
 
 	epochVotersWeightMutex.Lock()
 	defer epochVotersWeightMutex.Unlock()
-	epochIndex := block.M.EI
-	ecr := block.M.ECR
+	epochIndex := block.EI()
+	ecr := block.ECR()
 	if _, ok := epochVotersWeight.Get(epochIndex); !ok {
 		epochVotersWeight.Set(epochIndex, make(map[epoch.ECR]map[identity.ID]float64))
 	}
@@ -391,13 +391,13 @@ func saveEpochVotersWeight(block *tangle.Block) {
 
 	vote, ok := epochVotersLatestVote.Get(voter)
 	if ok {
-		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.M.IssuingTime) {
+		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.IssuingTime()) {
 			epochVoters, _ := epochVotersWeight.Get(vote.ei)
 			delete(epochVoters[vote.ecr], voter)
 		}
 	}
 
-	epochVotersLatestVote.Set(voter, &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime})
+	epochVotersLatestVote.Set(voter, &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.IssuingTime()})
 	epochVoters[ecr][voter] = activeWeights[voter]
 }
 
