@@ -191,8 +191,16 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
+				outputConsumer := func([]*ledger.OutputWithMetadata) {}
+
+				epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+					return nil
+				}
+
+				notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
+
 				nodeSnapshot := new(snapshot.Snapshot)
-				if err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr); err != nil {
+				if err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 

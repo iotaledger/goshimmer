@@ -46,7 +46,10 @@ func (s *Snapshot) CreateStreamableSnapshot(filePath string, t *tangle.Tangle, n
 }
 
 // LoadStreamableSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) LoadStreamableSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
+func (s *Snapshot) LoadStreamableSnapshot(filePath string,
+	outputConsumer OutputConsumerFunc,
+	epochDiffsConsumer EpochDiffsConsumerFunc,
+	notarizationConsumer NotarizationConsumerFunc) error {
 	if s.LedgerSnapshot == nil {
 		s.LedgerSnapshot = new(ledger.Snapshot)
 	}
@@ -56,24 +59,7 @@ func (s *Snapshot) LoadStreamableSnapshot(filePath string, t *tangle.Tangle, nmg
 		return fmt.Errorf("fail to open snapshot file")
 	}
 
-	outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
-		t.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
-		nmgr.LoadOutputWithMetadatas(outputsWithMetadatas)
-		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputsWithMetadatas...)
-	}
-
-	epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
-		err := t.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
-		if err != nil {
-			return err
-		}
-
-		nmgr.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
-		s.LedgerSnapshot.EpochDiffs = epochDiffs
-		return nil
-	}
-
-	err = StreamSnapshotDataFrom(f, outputConsumer, epochConsumer, nmgr.LoadECandEIs)
+	err = s.StreamSnapshotDataFrom(f, outputConsumer, epochDiffsConsumer, notarizationConsumer)
 	if err != nil {
 		return err
 	}

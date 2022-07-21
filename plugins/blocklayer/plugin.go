@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -144,21 +145,32 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, deps.Tangle, deps.NotarizationMgr)
-		if err != nil {
-			plugin.Panic("could not load snapshot file:", err)
-		}
-
-		// Add outputs to Indexer.
-		for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
-			deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
-		}
-
-		for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
-			for _, outputWithMetadata := range epochDiff.Created() {
+		outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
+			for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
+		}
+
+		epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+			err := deps.Tangle.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
+			if err != nil {
+				return err
+			}
+			for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
+				for _, outputWithMetadata := range epochDiff.Created() {
+					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
+				}
+			}
+			return nil
+		}
+
+		notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
+
+		nodeSnapshot = new(snapshot.Snapshot)
+		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
 		}
 
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)

@@ -15,24 +15,21 @@ import (
 )
 
 // StreamSnapshotDataFrom consumes a full snapshot from the given reader.
-func StreamSnapshotDataFrom(
+func (s *Snapshot) StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	outputConsumer OutputConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) error {
 
-	var outputWithMetadataCounter uint64
-	if err := binary.Read(reader, binary.LittleEndian, &outputWithMetadataCounter); err != nil {
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.OutputWithMetadataCount); err != nil {
 		return fmt.Errorf("unable to read outputWithMetadata length: %w", err)
 	}
 
-	var fullEpochIndex int64
-	if err := binary.Read(reader, binary.LittleEndian, &fullEpochIndex); err != nil {
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.FullEpochIndex); err != nil {
 		return fmt.Errorf("unable to read fullEpochIndex: %w", err)
 	}
 
-	var diffEpochIndex int64
-	if err := binary.Read(reader, binary.LittleEndian, &diffEpochIndex); err != nil {
+	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.DiffEpochIndex); err != nil {
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 
@@ -42,26 +39,29 @@ func StreamSnapshotDataFrom(
 	if err != nil {
 		return err
 	}
-	notarizationConsumer(epoch.Index(fullEpochIndex), epoch.Index(diffEpochIndex), ecRecord)
+	s.LedgerSnapshot.LatestECRecord = ecRecord
+	notarizationConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, ecRecord)
 
 	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
 	epochDiffs, err = ReadEpochDiffs(scanner)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
+	s.LedgerSnapshot.EpochDiffs = epochDiffs
 
 	// read outputWithMetadata
-	for i := 0; uint64(i) < outputWithMetadataCounter; {
+	for i := 0; uint64(i) < s.LedgerSnapshot.OutputWithMetadataCount; {
 		outputs, err := ReadOutputWithMetadata(scanner)
 		if err != nil {
 			return err
 		}
 		i += len(outputs)
+		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputs...)
 
 		outputConsumer(outputs)
 	}
 
-	epochDiffsConsumer(epoch.Index(fullEpochIndex), epoch.Index(diffEpochIndex), epochDiffs)
+	epochDiffsConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, epochDiffs)
 
 	return nil
 }
