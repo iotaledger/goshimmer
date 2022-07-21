@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -35,22 +36,23 @@ func StreamSnapshotDataFrom(
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 
-	chunkReader := bufio.NewReader(reader)
-	ecRecord, err := ReadECRecord(chunkReader)
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(scanDelimiter)
+	ecRecord, err := ReadECRecord(scanner)
 	if err != nil {
 		return err
 	}
 	notarizationConsumer(epoch.Index(fullEpochIndex), epoch.Index(diffEpochIndex), ecRecord)
 
 	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
-	epochDiffs, err = ReadEpochDiffs(chunkReader)
+	epochDiffs, err = ReadEpochDiffs(scanner)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < outputWithMetadataCounter; {
-		outputs, err := ReadOutputWithMetadata(chunkReader)
+		outputs, err := ReadOutputWithMetadata(scanner)
 		if err != nil {
 			return err
 		}
@@ -64,16 +66,14 @@ func StreamSnapshotDataFrom(
 	return nil
 }
 
-func ReadOutputWithMetadata(reader *bufio.Reader) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
-	chunk, err := reader.ReadBytes('\n')
-	if err != nil {
-		return nil, err
-	}
+func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
+	scanner.Scan()
+	data := scanner.Bytes()
 
-	if len(chunk) > 0 {
+	if len(data) > 0 {
 		typeSet := new(serix.TypeSettings)
 		outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
-		_, err = serix.DefaultAPI.Decode(context.Background(), chunk, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
 		if err != nil {
 			return nil, err
 		}
@@ -82,14 +82,11 @@ func ReadOutputWithMetadata(reader *bufio.Reader) (outputMetadatas []*ledger.Out
 	return
 }
 
-func ReadEpochDiffs(reader *bufio.Reader) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
+func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 
-	data, err := reader.ReadBytes('\n')
-	if err != nil {
-		return nil, err
-	}
-
+	scanner.Scan()
+	data := scanner.Bytes()
 	if len(data) > 0 {
 		typeSet := new(serix.TypeSettings)
 		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
@@ -101,16 +98,29 @@ func ReadEpochDiffs(reader *bufio.Reader) (epochDiffs map[epoch.Index]*ledger.Ep
 	return
 }
 
-func ReadECRecord(reader *bufio.Reader) (ecRecord *epoch.ECRecord, err error) {
-	data, err := reader.ReadBytes('\n')
-	if err != nil {
-		return nil, err
-	}
+func ReadECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) {
+	scanner.Scan()
+
 	ecRecord = &epoch.ECRecord{}
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, ecRecord)
+	_, err = serix.DefaultAPI.Decode(context.Background(), scanner.Bytes(), ecRecord)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 
 	return
+}
+
+func scanDelimiter(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.Index(data, delimiter); i >= 0 {
+		return i + 2, data[0:i], nil
+	}
+	// at EOF, return rest of data.
+	if atEOF {
+		return len(data), data, nil
+	}
+
+	return 0, nil, nil
 }

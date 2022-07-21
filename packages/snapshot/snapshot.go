@@ -113,7 +113,7 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	marshaler.WriteBytes(data).WriteByte('\n')
+	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
 	// write epochDiffs
 	typeSet := new(serix.TypeSettings)
@@ -121,18 +121,18 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	if err != nil {
 		return nil, err
 	}
-	marshaler.WriteBytes(data).WriteByte('\n')
+	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
 	// write outputWithMetadata
 	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.OutputsWithMetadata, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
-	marshaler.WriteBytes(data).WriteByte('\n')
+	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
 	// TODO: debug session, the index of outputID is not deserialized correctly
 	outputMetadatas := make([]*ledger.OutputWithMetadata, 0)
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
@@ -158,21 +158,22 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 
-	chunkReader := bufio.NewReader(reader)
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(scanDelimiter)
 
 	// read LatestECRecord
-	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(chunkReader)
+	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(scanner)
 	if err != nil {
 		return err
 	}
 
 	// read epochDiffs
-	s.LedgerSnapshot.EpochDiffs, err = ReadEpochDiffs(chunkReader)
+	s.LedgerSnapshot.EpochDiffs, err = ReadEpochDiffs(scanner)
 	if err != nil {
 		return err
 	}
 
-	outputs, err := ReadOutputWithMetadata(chunkReader)
+	outputs, err := ReadOutputWithMetadata(scanner)
 	if err != nil {
 		return err
 	}
