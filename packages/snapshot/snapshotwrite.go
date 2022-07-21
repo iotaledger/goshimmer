@@ -46,7 +46,7 @@ func StreamSnapshotDataTo(
 	if err := writeFunc("latestECRecord", data); err != nil {
 		return err
 	}
-	if err := writeFunc("delimeter", delimiter); err != nil {
+	if err := writeFunc("delimiter", delimiter); err != nil {
 		return err
 	}
 
@@ -64,7 +64,7 @@ func StreamSnapshotDataTo(
 	if err := writeFunc(fmt.Sprintf("diffEpoch"), bytes); err != nil {
 		return err
 	}
-	if err := writeFunc("delimeter", delimiter); err != nil {
+	if err := writeFunc("delimiter", delimiter); err != nil {
 		return err
 	}
 
@@ -73,7 +73,7 @@ func StreamSnapshotDataTo(
 	for {
 		output := outputProd()
 		if output == nil {
-			if err := writeFunc("delimeter", delimiter); err != nil {
+			if err := writeFunc("delimiter", delimiter); err != nil {
 				return err
 			}
 			break
@@ -92,7 +92,7 @@ func StreamSnapshotDataTo(
 
 		// put a delimeter every 100 outputs
 		if outputChunkCounter == 100 {
-			if err := writeFunc("delimeter", delimiter); err != nil {
+			if err := writeFunc("delimiter", delimiter); err != nil {
 				return err
 			}
 		}
