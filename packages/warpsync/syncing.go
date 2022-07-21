@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/serix"
 	"golang.org/x/crypto/blake2b"
@@ -25,12 +26,16 @@ type epochSyncBlock struct {
 type epochSyncEnd struct {
 	ei                epoch.Index
 	ec                epoch.EC
-	stateMutationRoot []byte
-	stateRoot         []byte
-	manaRoot          []byte
+	stateMutationRoot epoch.MerkleRoot
+	stateRoot         epoch.MerkleRoot
+	manaRoot          epoch.MerkleRoot
 }
 
 func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain map[epoch.Index]*epoch.ECRecord) error {
+	if m.syncingInProgress {
+		return fmt.Errorf("epoch syncing already in progress")
+	}
+
 	m.syncingInProgress = true
 	defer func() { m.syncingInProgress = false }()
 
@@ -86,9 +91,9 @@ readLoop:
 			ecRecord := epoch.NewECRecord(ei)
 			ecRecord.SetECR(notarization.ECR(
 				epoch.NewMerkleRoot(tangleRoot),
-				epoch.NewMerkleRoot(epochSyncEnd.stateMutationRoot),
-				epoch.NewMerkleRoot(epochSyncEnd.stateRoot),
-				epoch.NewMerkleRoot(epochSyncEnd.manaRoot),
+				epochSyncEnd.stateMutationRoot,
+				epochSyncEnd.stateRoot,
+				epochSyncEnd.manaRoot,
 			))
 			ecRecord.SetPrevEC(notarization.EC(ecChain[ei-1]))
 
@@ -120,33 +125,41 @@ readLoop:
 func (m *Manager) RequestEpoch(index epoch.Index) {
 	epochBlocksReq := &wp.EpochBlocksRequest{EI: int64(index)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksRequest{EpochBlocksRequest: epochBlocksReq}}
-	m.send(packet)
+	m.p2pManager.Send(packet, protocolID)
 }
 
 func (m *Manager) processEpochRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
-	// TOOD
-	/*
-		var blkID tangle.BlockID
-		_, err := blkID.Decode(packetEpochBlocks.BlockRequest.GetId())
-		if err != nil {
-			m.log.Debugw("invalid block id:", "err", err)
-			return
+	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
+	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochBlocksRequest.GetEC())
+
+	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
+	if !exists || ec != notarization.EC(ecRecord) {
+		return
+	}
+	blockIDs := epochstorage.GetEpochBlockIDs(ei)
+
+	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
+		blocksBytes := make([][]byte, 0)
+		for i := batchNum * m.blockBatchSize; i < len(blockIDs) && i < (batchNum+1)*m.blockBatchSize; i++ {
+			m.tangle.Storage.Block(blockIDs[i]).Consume(func(block *tangle.Block) {
+				blockBytes, err := block.Bytes()
+				if err != nil {
+					m.log.Errorf("failed to serialize block %s: %s", block.ID().String(), err)
+					return
+				}
+				blocksBytes = append(blocksBytes, blockBytes)
+			})
 		}
 
-		blkBytes, err := m.loadBlockFunc(blkID)
-		if err != nil {
-			m.log.Debugw("error loading block", "blk-id", blkID, "err", err)
-			return
+		blocksRes := &wp.EpochBlocks{
+			EI:     int64(ei),
+			EC:     ec.Bytes(),
+			Blocks: blocksBytes,
 		}
+		packet := &wp.Packet{Body: &wp.Packet_EpochBlocks{EpochBlocks: blocksRes}}
 
-		// send the loaded block directly to the neighbor
-		packet := &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: blkBytes}}}
-		if err := nbr.GetStream(protocolID).WritePacket(packet); err != nil {
-			nbr.Log.Warnw("Failed to send requested block back to the neighbor", "err", err)
-			nbr.Close()
-		}
-		m.Events.BlockReceived.Trigger(&BlockReceivedEvent{Data: packetEpochRequest.Block.GetData(), Peer: nbr.Peer})
-	*/
+		m.p2pManager.Send(packet, protocolID, nbr.ID())
+	}
 }
 
 func (m *Manager) processEpochBlocksPacket(packetEpochBlocks *wp.Packet_EpochBlocks, nbr *p2p.Neighbor) {
@@ -163,5 +176,18 @@ func (m *Manager) processEpochBlocksPacket(packetEpochBlocks *wp.Packet_EpochBlo
 			ec:    epoch.NewMerkleRoot(packetEpochBlocks.EpochBlocks.GetEC()),
 			block: block,
 		}
+	}
+}
+
+func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, nbr *p2p.Neighbor) {
+	if !m.syncingInProgress {
+		return
+	}
+	m.epochSyncEndChan <- &epochSyncEnd{
+		ei:                epoch.Index(packetEpochBlocksEnd.EpochBlocksEnd.GetEI()),
+		ec:                epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
+		stateMutationRoot: epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
+		stateRoot:         epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
+		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
 	}
 }

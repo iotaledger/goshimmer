@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"google.golang.org/protobuf/proto"
 )
@@ -35,7 +34,8 @@ type Manager struct {
 	stopMutex sync.RWMutex
 	isStopped bool
 
-	concurrency int
+	concurrency    int
+	blockBatchSize int
 
 	validationInProgress bool
 	commitmentsChan      chan (*epoch.ECRecord)
@@ -79,6 +79,13 @@ func WithConcurrency(concurrency int) ManagerOption {
 	}
 }
 
+// WithBlockBatchSize allows to set the size of the block batch returned as part of epoch blocks response.
+func WithBlockBatchSize(blockBatchSize int) ManagerOption {
+	return func(m *Manager) {
+		m.blockBatchSize = blockBatchSize
+	}
+}
+
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
 	m.stopMutex.Lock()
@@ -91,30 +98,19 @@ func (m *Manager) Stop() {
 	m.p2pManager.UnregisterProtocol(protocolID)
 }
 
-func (m *Manager) send(packet *wp.Packet, to ...identity.ID) []*p2p.Neighbor {
-	neighbors := m.p2pManager.GetNeighborsByID(to)
-	if len(neighbors) == 0 {
-		neighbors = m.p2pManager.AllNeighbors()
-	}
-
-	for _, nbr := range neighbors {
-		if err := nbr.GetStream(protocolID).WritePacket(packet); err != nil {
-			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
-			nbr.Close()
-		}
-	}
-	return neighbors
-}
-
 func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
-	gpPacket := packet.(*wp.Packet)
-	switch packetBody := gpPacket.GetBody().(type) {
+	wpPacket := packet.(*wp.Packet)
+	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
 		if added := event.Loop.TrySubmit(func() { m.processEpochRequestPacket(packetBody, nbr) }); !added {
 			return fmt.Errorf("blockWorkerPool full: packet block discarded")
 		}
 	case *wp.Packet_EpochBlocks:
 		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksPacket(packetBody, nbr) }); !added {
+			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
+		}
+	case *wp.Packet_EpochBlocksEnd:
+		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksEndPacket(packetBody, nbr) }); !added {
 			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
 		}
 	case *wp.Packet_EpochCommitmentRequest:
@@ -126,7 +122,7 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 			return fmt.Errorf("blockRequestWorkerPool full: block request discarded")
 		}
 	default:
-		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", gpPacket, packetBody, packetBody)
+		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}
 
 	return nil

@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
@@ -37,16 +38,16 @@ var (
 	baseStore kvstore.KVStore
 
 	committableEpochsMutex sync.RWMutex
-	committableEpochs      = make([]*epoch.ECRecord, 0)
+	committableEpochs      = shrinkingmap.New[epoch.Index, *epoch.ECRecord]()
 	epochVotersWeightMutex sync.RWMutex
-	epochVotersWeight      = make(map[epoch.Index]map[epoch.ECR]map[identity.ID]float64, 0)
-	epochVotersLatestVote  = make(map[identity.ID]*latestVote, 0)
+	epochVotersWeight      = shrinkingmap.New[epoch.Index, map[epoch.ECR]map[identity.ID]float64]()
+	epochVotersLatestVote  = shrinkingmap.New[identity.ID, *latestVote]()
 
 	maxEpochContentsToKeep   = 100
 	numEpochContentsToRemove = 20
 
 	epochOrderMutex sync.RWMutex
-	epochOrderMap   = make(map[epoch.Index]types.Empty, 0)
+	epochOrderMap   = shrinkingmap.New[epoch.Index, types.Empty]()
 	epochOrder      = make([]epoch.Index, 0)
 )
 
@@ -80,8 +81,8 @@ func configure(plugin *node.Plugin) {
 
 	deps.NotarizationMgr.Events.TangleTreeInserted.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
 		epochOrderMutex.Lock()
-		if _, ok := epochOrderMap[event.EI]; !ok {
-			epochOrderMap[event.EI] = types.Void
+		if _, ok := epochOrderMap.Get(event.EI); !ok {
+			epochOrderMap.Set(event.EI, types.Void)
 			epochOrder = append(epochOrder, event.EI)
 			checkEpochContentLimit()
 		}
@@ -125,7 +126,7 @@ func configure(plugin *node.Plugin) {
 	deps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		committableEpochsMutex.Lock()
 		defer committableEpochsMutex.Unlock()
-		committableEpochs = append(committableEpochs, event.ECRecord)
+		committableEpochs.Set(event.EI, event.ECRecord)
 	}))
 
 	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
@@ -147,6 +148,16 @@ func checkEpochContentLimit() {
 		return
 	}
 
+	epochOrderMutex.Lock()
+	epochVotersWeightMutex.Lock()
+	committableEpochsMutex.Lock()
+
+	defer func() {
+		epochOrderMutex.Unlock()
+		epochVotersWeightMutex.Unlock()
+		committableEpochsMutex.Unlock()
+	}()
+
 	// sort the order list to remove the oldest ones.
 	sort.Slice(epochOrder, func(i, j int) bool {
 		return epochOrder[i] < epochOrder[j]
@@ -158,41 +169,37 @@ func checkEpochContentLimit() {
 	epochOrder = epochOrder[numEpochContentsToRemove:]
 
 	for _, i := range epochToRemove {
-		delete(epochOrderMap, i)
+		epochOrderMap.Delete(i)
+		epochVotersWeight.Delete(i)
+		committableEpochs.Delete(i)
 	}
-
-	epochVotersWeightMutex.Lock()
-	for _, i := range epochToRemove {
-		delete(epochVotersWeight, i)
-	}
-	epochVotersWeightMutex.Unlock()
-
-	committableEpochsMutex.Lock()
-	if len(committableEpochs) < maxEpochContentsToKeep {
-		committableEpochsMutex.Unlock()
-		return
-	}
-	committableEpochs = committableEpochs[len(committableEpochs)-maxEpochContentsToKeep:]
-	committableEpochsMutex.Unlock()
 }
 
 func GetCommittableEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
-	ecRecords = make(map[epoch.Index]*epoch.ECRecord, 0)
-
 	committableEpochsMutex.RLock()
-	for _, record := range committableEpochs {
-		ecRecords[record.EI()] = record
-	}
-	committableEpochsMutex.RUnlock()
+	defer committableEpochsMutex.RUnlock()
+
+	ecRecords = make(map[epoch.Index]*epoch.ECRecord, committableEpochs.Size())
+	committableEpochs.ForEach(func(ei epoch.Index, ecRecord *epoch.ECRecord) bool {
+		ecRecords[ei] = ecRecord
+		return true
+	})
 
 	return
+}
+
+func GetEpochCommittment(ei epoch.Index) (ecRecord *epoch.ECRecord, exists bool) {
+	committableEpochsMutex.RLock()
+	defer committableEpochsMutex.RUnlock()
+
+	return committableEpochs.Get(ei)
 }
 
 func GetPendingConflictCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochblocks(ei epoch.Index) (blockIDs []tangle.BlockID) {
+func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangle.BlockID) {
 	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
 
 	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
@@ -250,12 +257,13 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID]float64) {
 	epochVotersWeightMutex.RLock()
 	defer epochVotersWeightMutex.RUnlock()
-	if _, ok := epochVotersWeight[ei]; !ok {
+	if _, ok := epochVotersWeight.Get(ei); !ok {
 		return
 	}
 
-	weights = make(map[epoch.ECR]map[identity.ID]float64, len(epochVotersWeight[ei]))
-	for ecr, voterWeights := range epochVotersWeight[ei] {
+	weights = make(map[epoch.ECR]map[identity.ID]float64, epochVotersWeight.Size())
+	epochVoters, _ := epochVotersWeight.Get(ei)
+	for ecr, voterWeights := range epochVoters {
 		subDuplicate := make(map[identity.ID]float64, len(voterWeights))
 		for id, w := range voterWeights {
 			subDuplicate[id] = w
@@ -373,21 +381,24 @@ func saveEpochVotersWeight(block *tangle.Block) {
 	defer epochVotersWeightMutex.Unlock()
 	epochIndex := block.M.EI
 	ecr := block.M.ECR
-	if _, ok := epochVotersWeight[epochIndex]; !ok {
-		epochVotersWeight[epochIndex] = make(map[epoch.ECR]map[identity.ID]float64)
+	if _, ok := epochVotersWeight.Get(epochIndex); !ok {
+		epochVotersWeight.Set(epochIndex, make(map[epoch.ECR]map[identity.ID]float64))
 	}
-	if _, ok := epochVotersWeight[epochIndex][ecr]; !ok {
-		epochVotersWeight[epochIndex][ecr] = make(map[identity.ID]float64)
+	epochVoters, _ := epochVotersWeight.Get(epochIndex)
+	if _, ok := epochVoters[ecr]; !ok {
+		epochVoters[ecr] = make(map[identity.ID]float64)
 	}
 
-	vote, ok := epochVotersLatestVote[voter]
+	vote, ok := epochVotersLatestVote.Get(voter)
 	if ok {
 		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.M.IssuingTime) {
-			delete(epochVotersWeight[vote.ei][vote.ecr], voter)
+			epochVoters, _ := epochVotersWeight.Get(vote.ei)
+			delete(epochVoters[vote.ecr], voter)
 		}
 	}
-	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime}
-	epochVotersWeight[epochIndex][ecr][voter] = activeWeights[voter]
+
+	epochVotersLatestVote.Set(voter, &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime})
+	epochVoters[ecr][voter] = activeWeights[voter]
 }
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////

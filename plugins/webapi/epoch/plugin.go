@@ -107,7 +107,7 @@ func getBlocks(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	blockIDs := epochstorage.GetEpochblocks(ei)
+	blockIDs := epochstorage.GetEpochBlockIDs(ei)
 
 	blocks := make([]string, len(blockIDs))
 	for i, m := range blockIDs {

@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/warpsync/warpsyncproto"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
 func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (bool, error) {
@@ -19,7 +20,7 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 	defer func() { m.validationInProgress = false }()
 
 	for ei := end - 1; ei >= start; ei-- {
-		m.RequestEpochCommittment(ei)
+		m.requestEpochCommittment(ei)
 	}
 
 	ecRecords := make(map[epoch.Index]*epoch.ECRecord)
@@ -29,6 +30,9 @@ readLoop:
 	for {
 		select {
 		case ecRecord := <-m.commitmentsChan:
+			if ecRecords[ecRecord.EI()] != nil {
+				continue
+			}
 			ecRecords[ecRecord.EI()] = ecRecord
 			toReceive--
 			if toReceive == 0 {
@@ -55,36 +59,29 @@ readLoop:
 	return startEC == notarization.EC(ecRecords[start]), nil
 }
 
-func (m *Manager) RequestEpochCommittment(index epoch.Index) {
+func (m *Manager) requestEpochCommittment(index epoch.Index) {
 	committmentReq := &wp.EpochCommittmentRequest{EI: int64(index)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
-	m.send(packet)
+	m.p2pManager.Send(packet, protocolID)
 }
 
 func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Packet_EpochCommitmentRequest, nbr *p2p.Neighbor) {
-	// TOOD
-	/*
-		var blkID tangle.BlockID
-		_, err := blkID.Decode(packetEpochBlocks.BlockRequest.GetId())
-		if err != nil {
-			m.log.Debugw("invalid block id:", "err", err)
-			return
-		}
+	ei := epoch.Index(packetEpochRequest.EpochCommitmentRequest.GetEI())
+	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochCommitmentRequest.GetEC())
 
-		blkBytes, err := m.loadBlockFunc(blkID)
-		if err != nil {
-			m.log.Debugw("error loading block", "blk-id", blkID, "err", err)
-			return
-		}
+	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
+	if !exists || ec != notarization.EC(ecRecord) {
+		return
+	}
 
-		// send the loaded block directly to the neighbor
-		packet := &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: blkBytes}}}
-		if err := nbr.GetStream(protocolID).WritePacket(packet); err != nil {
-			nbr.Log.Warnw("Failed to send requested block back to the neighbor", "err", err)
-			nbr.Close()
-		}
-		m.Events.BlockReceived.Trigger(&BlockReceivedEvent{Data: packetEpochRequest.Block.GetData(), Peer: nbr.Peer})
-	*/
+	committmentRes := &wp.EpochCommittment{
+		EI:     int64(ei),
+		ECR:    ecRecord.ECR().Bytes(),
+		PrevEC: ecRecord.PrevEC().Bytes(),
+	}
+	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: committmentRes}}
+
+	m.p2pManager.Send(packet, protocolID, nbr.ID())
 }
 
 func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {

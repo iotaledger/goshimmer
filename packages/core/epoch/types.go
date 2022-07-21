@@ -81,7 +81,7 @@ type (
 	EC  = MerkleRoot
 )
 
-func NewMerkleRoot(bytes []byte) (mr MerkleRoot) {
+func NewMerkleRoot(bytes []byte) MerkleRoot {
 	b := [blake2b.Size256]byte{}
 	copy(b[:], bytes[:])
 	return b

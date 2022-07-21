@@ -7,10 +7,11 @@ package warpsyncproto;
 message Packet {
   oneof body {
     EpochBlocks epochBlocks = 1;
-    EpochBlocksRequest epochBlocksRequest = 2;
-    EpochCommittment epochCommitment = 3;
-    EpochCommittmentRequest epochCommitmentRequest = 4;
-    Negotiation negotiation = 5;
+    EpochBlocksEnd epochBlocksEnd = 2;
+    EpochBlocksRequest epochBlocksRequest = 3;
+    EpochCommittment epochCommitment = 4;
+    EpochCommittmentRequest epochCommitmentRequest = 5;
+    Negotiation negotiation = 6;
   }
 }
 
@@ -23,7 +24,9 @@ message EpochBlocks {
 message EpochBlocksEnd {
   int64 EI = 1;
   bytes EC = 2;
-  bytes merkleProof = 3;
+  bytes stateMutationRoot = 3;
+  bytes stateRoot = 4;
+  bytes manaRoot = 5;
 }
 
 message EpochBlocksRequest {

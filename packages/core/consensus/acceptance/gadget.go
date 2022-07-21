@@ -26,7 +26,7 @@ const (
 
 var (
 	// DefaultConflictTranslation is the default function to translate the approval weight to confirmation.State of a conflict.
-	DefaultConflictTranslation ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
+	DefaultConflictTranslation ConflictThresholdTranslation = func(_ utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= acceptanceThreshold {
 			return confirmation.Accepted
 		}
