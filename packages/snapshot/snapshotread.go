@@ -77,6 +77,11 @@ func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.O
 		if err != nil {
 			return nil, err
 		}
+
+		for _, o := range outputMetadatas {
+			o.SetID(o.M.OutputID)
+			o.Output().SetID(o.M.OutputID)
+		}
 	}
 
 	return
@@ -92,6 +97,17 @@ func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.
 		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
 		if err != nil {
 			return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		}
+
+		for _, epochdiff := range epochDiffs {
+			for _, spentOutput := range epochdiff.Spent() {
+				spentOutput.SetID(spentOutput.M.OutputID)
+				spentOutput.Output().SetID(spentOutput.M.OutputID)
+			}
+			for _, createdOutput := range epochdiff.Created() {
+				createdOutput.SetID(createdOutput.M.OutputID)
+				createdOutput.Output().SetID(createdOutput.M.OutputID)
+			}
 		}
 	}
 

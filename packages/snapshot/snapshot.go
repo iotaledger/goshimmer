@@ -130,14 +130,6 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	}
 	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
-	// TODO: debug session, the index of outputID is not deserialized correctly
-	outputMetadatas := make([]*ledger.OutputWithMetadata, 0)
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
-	if err != nil {
-		return nil, err
-	}
-	fmt.Println(outputMetadatas)
-
 	return marshaler.Bytes(), nil
 }
 
