@@ -715,12 +715,8 @@ type BlockMetadata struct {
 	likedInsteadChildren []*BlockMetadata
 }
 
-func NewBlockMetadata() *BlockMetadata {
-	return &BlockMetadata{}
-}
-
 func (b *BlockMetadata) ID() BlockID {
-
+	return b.id
 }
 
 func NewBlockMetadata(block *Block) *BlockMetadata {

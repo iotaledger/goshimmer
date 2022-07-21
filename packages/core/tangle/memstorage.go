@@ -7,7 +7,7 @@ type MemStorage struct {
 }
 
 func (s *MemStorage) GetBlockMetadata(blockID BlockID) *BlockMetadata {
-	epochStorage, _ := s.metadataStorage.Get(blockID.Epoch(), true)
+	epochStorage, _ := s.metadataStorage.Get(blockID.EpochIndex, true)
 
 	// lock
 	blockMetadata, exists := epochStorage.Get(blockID)
@@ -31,16 +31,33 @@ func (s *MemStorage) GetBlockMetadata(blockID BlockID) *BlockMetadata {
 	return newBlockMetadata
 }
 
-func (s *MemStorage) PutBlockMetadata(blockMetadata *BlockMetadata) (added bool) {
+func (s *MemStorage) PutBlockMetadata(blockMetadataNew *BlockMetadata) (added bool) {
 
-	epochStorage, _ := s.metadataStorage.Get(blockMetadata.ID().Epoch(), true)
+	epochStorage, _ := s.metadataStorage.Get(blockMetadataNew.ID().EpochIndex, true)
 
 	// lock
-	blockMetadata, exists := epochStorage.Get(blockMetadata.ID())
+	epochStorage.Lock()
+	defer epochStorage.Unlock()
+
+	blockMetadataRetrieved, exists := epochStorage.Get(blockMetadataNew.ID())
+
 	if !exists {
-		epochStorage.Set(blockMetadata.ID(), blockMetadata)
-		added = true
+		epochStorage.Set(blockMetadataNew.ID(), blockMetadataNew)
+		return true
 	}
+
+	if !blockMetadataRetrieved.missing {
+		return
+	}
+
+	blockMetadataRetrieved.missing = false
+	blockMetadataRetrieved.likedInsteadParents = blockMetadataNew.likedInsteadParents
+	blockMetadataRetrieved.strongParents = blockMetadataNew.strongParents
+	blockMetadataRetrieved.weakParents = blockMetadataNew.weakParents
+
+	// TODO: trigger missing block received
+
+	return true
 
 	// Lock
 	// GET METADATA OBJECT
@@ -51,6 +68,4 @@ func (s *MemStorage) PutBlockMetadata(blockMetadata *BlockMetadata) (added bool)
 	//   }
 	// }
 	// STORE + RETURN TRUE
-
-	return epochStorage.StoreIfAbsent(blockMetadata.ID(), blockMetadata)
 }
