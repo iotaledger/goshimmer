@@ -105,7 +105,7 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	marshaler := marshalutil.New()
 
 	marshaler.
-		WriteInt64(int64(s.LedgerSnapshot.OutputWithMetadataCount)).
+		WriteUint64(s.LedgerSnapshot.OutputWithMetadataCount).
 		WriteInt64(int64(s.LedgerSnapshot.FullEpochIndex)).
 		WriteInt64(int64(s.LedgerSnapshot.DiffEpochIndex))
 
