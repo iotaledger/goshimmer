@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -42,7 +42,7 @@ type dependencies struct {
 	dig.In
 
 	Server  *echo.Echo
-	Tangle  *tangle.Tangle
+	Tangle  *tangleold.Tangle
 	Indexer *indexer.Indexer
 }
 
@@ -341,7 +341,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	voters := tangle.NewVoters()
+	voters := tangleold.NewVoters()
 	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflict(conflictID))
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
@@ -482,8 +482,8 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	blockIDs := tangle.NewBlockIDs()
-	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
+	blockIDs := tangleold.NewBlockIDs()
+	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangleold.Attachment) {
 		blockIDs.Add(attachment.BlockID())
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
@@ -564,8 +564,8 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// check if transaction is too old
-	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangle.MaxReattachmentTimeMin)) {
-		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangle.MaxReattachmentTimeMin)})
+	if tx.Essence().Timestamp().Before(clock.SyncedTime().Add(-tangleold.MaxReattachmentTimeMin)) {
+		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangleold.MaxReattachmentTimeMin)})
 	}
 
 	// if transaction is in the future we wait until the time arrives
@@ -576,7 +576,7 @@ func PostTransaction(c echo.Context) error {
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
-	issueTransaction := func() (*tangle.Block, error) {
+	issueTransaction := func() (*tangleold.Block, error) {
 		return deps.Tangle.IssuePayload(tx)
 	}
 

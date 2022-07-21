@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -24,14 +24,14 @@ const (
 type notarizationPluginDependencies struct {
 	dig.In
 
-	Tangle  *tangle.Tangle
+	Tangle  *tangleold.Tangle
 	Manager *notarization.Manager
 }
 
 type notarizationManagerDependencies struct {
 	dig.In
 
-	Tangle  *tangle.Tangle
+	Tangle  *tangleold.Tangle
 	Storage kvstore.KVStore
 }
 

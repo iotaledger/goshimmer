@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 var (
@@ -21,7 +21,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 func init() {
@@ -34,7 +34,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getNodesHandler(c echo.Context) (err error) {
-	activeNodes := deps.Tangle.WeightProvider.(*tangle.CManaWeightProvider).ActiveNodes()
+	activeNodes := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).ActiveNodes()
 
 	activeNodesString := make(map[string][]epoch.Index)
 	for nodeID, al := range activeNodes {

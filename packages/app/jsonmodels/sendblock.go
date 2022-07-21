@@ -1,6 +1,6 @@
 package jsonmodels
 
-// ParentBlockIDs is a json representation of tangle.ParentBlockIDs.
+// ParentBlockIDs is a json representation of tangleold.ParentBlockIDs.
 type ParentBlockIDs struct {
 	Type     uint8    `json:"type"`
 	BlockIDs []string `json:"blockIDs"`

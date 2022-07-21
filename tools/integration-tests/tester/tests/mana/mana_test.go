@@ -10,14 +10,14 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 var (
 	// minAccessMana is minimal amout of mana required to access the network
-	minAccessMana      = tangle.MinMana
+	minAccessMana      = tangleold.MinMana
 	startAccessMana    = 2_500_000_000_000_000.
 	faucetPledgeAmount = 1_000_000.
 	minConsensusMana   = 0.0

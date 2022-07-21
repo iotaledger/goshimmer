@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Commitment types ////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ type EpochCommitmentFactory struct {
 	commitmentTrees map[epoch.Index]*CommitmentTrees
 
 	storage *EpochCommitmentStorage
-	tangle  *tangle.Tangle
+	tangle  *tangleold.Tangle
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
@@ -65,7 +65,7 @@ type EpochCommitmentFactory struct {
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle, snapshotDepth int) *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangleold.Tangle, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
 	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
@@ -207,7 +207,7 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 }
 
 // InsertTangleLeaf inserts blk to the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangle.BlockID) error {
+func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
@@ -220,7 +220,7 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangle.B
 }
 
 // RemoveTangleLeaf removes the block ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangle.BlockID) error {
+func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")

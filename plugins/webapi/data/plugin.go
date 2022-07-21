@@ -11,8 +11,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -25,7 +25,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 var (
@@ -63,7 +63,7 @@ func broadcastData(c echo.Context) error {
 		})
 	}
 
-	issueData := func() (*tangle.Block, error) {
+	issueData := func() (*tangleold.Block, error) {
 		return deps.Tangle.IssuePayload(payload.NewGenericDataPayload(request.Data))
 	}
 
