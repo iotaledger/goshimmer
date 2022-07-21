@@ -171,7 +171,7 @@ func (m *BlockTestFramework) PreventNewMarkers(enabled bool) *BlockTestFramework
 }
 
 // LatestCommitment gets the latest commitment.
-func (m *BlockTestFramework) LatestCommitment(blockAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+func (m *BlockTestFramework) LatestCommitment() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 	return m.tangle.Options.CommitmentFunc()
 }
 
@@ -203,7 +203,7 @@ func (m *BlockTestFramework) Block(alias string) (block *Block) {
 	return
 }
 
-// Block retrieves the Blocks that is associated with the given alias.
+// BlockIDs retrieves the Blocks that is associated with the given alias.
 func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {

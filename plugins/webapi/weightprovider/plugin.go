@@ -1,7 +1,7 @@
 package weightprovider
 
 import (
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/node"

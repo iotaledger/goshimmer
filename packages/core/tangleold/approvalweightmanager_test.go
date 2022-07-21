@@ -3,7 +3,7 @@ package tangleold
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"testing"
 	"time"
 
@@ -138,20 +138,20 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 		"Conflict 4.2":   set.NewAdvancedSet(randomConflictID()),
 	}
 
-	createConflict(t, tangle, "Conflict 1", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
-	createConflict(t, tangle, "Conflict 2", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
-	createConflict(t, tangle, "Conflict 3", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
-	createConflict(t, tangle, "Conflict 4", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
+	createConflict(tangle, "Conflict 1", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(tangle, "Conflict 2", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(tangle, "Conflict 3", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
+	createConflict(tangle, "Conflict 4", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
 
-	createConflict(t, tangle, "Conflict 1.1", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
-	createConflict(t, tangle, "Conflict 1.2", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
-	createConflict(t, tangle, "Conflict 1.3", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.1", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.2", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.3", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
 
-	createConflict(t, tangle, "Conflict 4.1", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
-	createConflict(t, tangle, "Conflict 4.2", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
+	createConflict(tangle, "Conflict 4.1", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
+	createConflict(tangle, "Conflict 4.2", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
 
-	createConflict(t, tangle, "Conflict 4.1.1", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
-	createConflict(t, tangle, "Conflict 4.1.2", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
+	createConflict(tangle, "Conflict 4.1.1", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
+	createConflict(tangle, "Conflict 4.1.2", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
 
 	conflictIDs["Conflict 1.1 + Conflict 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
 	conflictIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(conflictIDs["Conflict 1.1"])
@@ -892,7 +892,7 @@ func getSingleConflict(conflictes map[string]*set.AdvancedSet[utxo.TransactionID
 	return utxo.EmptyTransactionID
 }
 
-func createConflict(t *testing.T, tangle *Tangle, conflictAlias string, conflictIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentConflictIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
+func createConflict(tangle *Tangle, conflictAlias string, conflictIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentConflictIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
 	conflict := getSingleConflict(conflictIDs, conflictAlias)
 	tangle.Ledger.ConflictDAG.CreateConflict(conflict, parentConflictIDs, set.NewAdvancedSet(conflictID))
 	conflict.RegisterAlias(conflictAlias)

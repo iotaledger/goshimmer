@@ -3,7 +3,7 @@ package tangleold
 import (
 	"context"
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"sync"
 	"time"
 

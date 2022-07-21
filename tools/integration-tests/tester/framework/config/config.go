@@ -76,7 +76,7 @@ type Database struct {
 	database.ParametersDefinition
 }
 
-// Gossip defines the parameters of the gossip plugin.
+// P2P defines the parameters of the gossip plugin.
 type P2P struct {
 	Enabled bool
 
@@ -97,14 +97,14 @@ type POW struct {
 	pow.ParametersDefinition
 }
 
-// Webapi defines the parameters of the Web API plugin.
+// WebAPI defines the parameters of the Web API plugin.
 type WebAPI struct {
 	Enabled bool
 
 	webapi.ParametersDefinition
 }
 
-// Autopeering defines the parameters of the autopeering plugin.
+// AutoPeering defines the parameters of the autopeering plugin.
 type AutoPeering struct {
 	Enabled bool
 

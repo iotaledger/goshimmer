@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -71,7 +71,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 		},
 	}
 
-	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		new.OnBlockStored(event.Block)
 	}))
 
@@ -219,7 +219,7 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
-func (m *Manager) OnBlockStored(block *tangle.Block) {
+func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	ei := epoch.IndexFromTime(block.IssuingTime())
 
 	nodeID := identity.NewID(block.IssuerPublicKey())

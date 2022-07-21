@@ -18,12 +18,12 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -886,7 +886,7 @@ func (p *replenishmentState) SetRemainderOutput(output *FaucetOutput) {
 	p.remainderOutput = output
 }
 
-// nextSupplyOutput returns the first supply address in the list.
+// NextSupplyOutput returns the first supply address in the list.
 func (p *replenishmentState) NextSupplyOutput() (supplyOutput *FaucetOutput, err error) {
 	p.Lock()
 	defer p.Unlock()
@@ -936,7 +936,7 @@ func (p *replenishmentState) GetLastFundingOutputAddressIndex() uint64 {
 	return p.lastFundingOutputAddressIndex
 }
 
-// GetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
+// SetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
 func (p *replenishmentState) SetLastFundingOutputAddressIndex(index uint64) {
 	p.Lock()
 	defer p.Unlock()

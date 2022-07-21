@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -110,8 +109,4 @@ func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
 	e.Called(event.EI, event.EpochDiffCreated, event.EpochDiffSpent)
 	atomic.AddUint64(&e.calledEvents, 1)
-}
-
-func epochRetrieverMock() epoch.Index {
-	return epoch.IndexFromTime(time.Now())
 }

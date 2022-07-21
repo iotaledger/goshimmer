@@ -18,7 +18,7 @@ func newEvents() (new *Events) {
 	}
 }
 
-// Event defines the information passed when a chat event fires.
+// BlockReceivedEvent defines the information passed when a chat event fires.
 type BlockReceivedEvent struct {
 	From      string
 	To        string
