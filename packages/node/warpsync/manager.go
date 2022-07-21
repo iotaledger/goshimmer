@@ -28,8 +28,7 @@ type Manager struct {
 
 	Events *Events
 
-	loadBlockFunc LoadBlockFunc
-	log           *logger.Logger
+	log *logger.Logger
 
 	stopMutex sync.RWMutex
 	isStopped bool
@@ -49,13 +48,15 @@ type Manager struct {
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(tangle *tangle.Tangle, p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(tangle *tangle.Tangle, p2pManager *p2p.Manager, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
-		tangle:        tangle,
-		p2pManager:    p2pManager,
-		Events:        newEvents(),
-		loadBlockFunc: f,
-		log:           log,
+		tangle:             tangle,
+		p2pManager:         p2pManager,
+		Events:             newEvents(),
+		log:                log,
+		commitmentsChan:    make(chan *epoch.ECRecord),
+		epochSyncBlockChan: make(chan *epochSyncBlock),
+		epochSyncEndChan:   make(chan *epochSyncEnd),
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
@@ -94,6 +95,11 @@ func (m *Manager) Stop() {
 	if m.isStopped {
 		return
 	}
+
+	close(m.commitmentsChan)
+	close(m.epochSyncBlockChan)
+	close(m.epochSyncEndChan)
+
 	m.isStopped = true
 	m.p2pManager.UnregisterProtocol(protocolID)
 }

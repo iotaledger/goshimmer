@@ -16,6 +16,10 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 		return false, fmt.Errorf("epoch validation already in progress")
 	}
 
+	if m.isStopped {
+		return false, fmt.Errorf("warpsync manager is stopped")
+	}
+
 	m.validationInProgress = true
 	defer func() { m.validationInProgress = false }()
 

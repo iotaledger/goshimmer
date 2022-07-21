@@ -36,6 +36,10 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain
 		return fmt.Errorf("epoch syncing already in progress")
 	}
 
+	if m.isStopped {
+		return fmt.Errorf("warpsync manager is stopped")
+	}
+
 	m.syncingInProgress = true
 	defer func() { m.syncingInProgress = false }()
 
@@ -45,7 +49,7 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain
 	for ei := start; ei <= end; ei++ {
 		db, _ := database.NewMemDB()
 		tangleRoots[ei] = smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
-		m.RequestEpoch(ei)
+		m.requestEpoch(ei)
 	}
 
 	toReceive := end - start
@@ -122,7 +126,7 @@ readLoop:
 	return nil
 }
 
-func (m *Manager) RequestEpoch(index epoch.Index) {
+func (m *Manager) requestEpoch(index epoch.Index) {
 	epochBlocksReq := &wp.EpochBlocksRequest{EI: int64(index)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksRequest{EpochBlocksRequest: epochBlocksReq}}
 	m.p2pManager.Send(packet, protocolID)
