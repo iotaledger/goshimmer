@@ -24,6 +24,19 @@ func (s *Storage[K, V]) Get(key K) (value V, exists bool) {
 	return s.storage.Get(key)
 }
 
+func (s *Storage[K, V]) RetrieveOrCreate(key K, defaultValueFunc func() V) (value V, retrieved bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	if value, retrieved = s.storage.Get(key); retrieved {
+		return
+	}
+	value = defaultValueFunc()
+	s.storage.Set(key, value)
+
+	return value, false
+}
+
 func (s *Storage[K, V]) Set(key K, value V) (exists bool) {
 	s.Lock()
 	defer s.Unlock()

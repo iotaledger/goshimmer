@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -707,12 +708,16 @@ func (p ParentBlockIDs) Clone() ParentBlockIDs {
 type BlockMetadata struct {
 	id                   BlockID
 	missing              bool
-	strongParents        []*BlockMetadata
-	weakParents          []*BlockMetadata
-	likedInsteadParents  []*BlockMetadata
+	strongParents        BlockIDs
+	weakParents          BlockIDs
+	likedInsteadParents  BlockIDs
 	strongChildren       []*BlockMetadata
 	weakChildren         []*BlockMetadata
 	likedInsteadChildren []*BlockMetadata
+
+	transactionMutex *syncutils.StarvingMutex
+	missingParents   uint8
+	solid            bool
 }
 
 func (b *BlockMetadata) ID() BlockID {
@@ -720,7 +725,29 @@ func (b *BlockMetadata) ID() BlockID {
 }
 
 func NewBlockMetadata(block *Block) *BlockMetadata {
-	return &BlockMetadata{}
+	// create fresh metadata
+	return &BlockMetadata{id: block.ID()}
+}
+
+func (b *BlockMetadata) ParentIDs() BlockIDs {
+	parents := b.strongParents.Clone()
+	parents.AddAll(b.weakParents)
+	parents.AddAll(b.likedInsteadParents)
+	return parents
+}
+
+func (b *BlockMetadata) Transaction(callback func()) {
+	b.transactionMutex.Lock()
+	defer b.transactionMutex.Unlock()
+
+	callback()
+}
+
+func (b *BlockMetadata) RTransaction(callback func()) {
+	b.transactionMutex.RLock()
+	defer b.transactionMutex.RUnlock()
+
+	callback()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
