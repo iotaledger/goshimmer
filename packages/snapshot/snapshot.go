@@ -27,7 +27,7 @@ type Snapshot struct {
 func (s *Snapshot) CreateStreamableSnapshot(filePath string, t *tangle.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("fail to create snapshot file")
+		return fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
 	outputProd := NewUTXOOutputProducer(t.Ledger)
