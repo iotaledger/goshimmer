@@ -191,22 +191,72 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				outputConsumer := func([]*ledger.OutputWithMetadata) {}
+				var cManaTargetEpoch epoch.Index
+				consensusManaByNode := map[identity.ID]float64{}
+				accessManaByNode := map[identity.ID]float64{}
+				processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
+					for _, outputWithMetadata := range outputsWithMetadata {
+						devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+						balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+						if !exists {
+							continue
+						}
+						consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
+						if areCreated {
+							baseVector[consensusManaPledgeID] += float64(balance)
+						} else {
+							baseVector[consensusManaPledgeID] -= float64(balance)
+						}
+					}
+
+					return
+				}
+
+				outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+					processOutputs(outputsWithMetadatas, consensusManaByNode, true /* areCreated */)
+					processOutputs(outputsWithMetadatas, accessManaByNode, true /* areCreated */)
+
+				}
 
 				epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+					for ei := fullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
+						diff, exists := epochDiffs[ei]
+						if !exists {
+							return errors.Errorf("diff with index %d missing from snapshot", ei)
+						}
+						processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+						processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+					}
+
+					// Only the aMana will be loaded until the latest snapshot's epoch
+					for ei := cManaTargetEpoch + 1; ei <= diffEpochIndex; ei++ {
+						diff, exists := epochDiffs[ei]
+						if !exists {
+							return errors.Errorf("diff with index %d missing from snapshot", ei)
+						}
+						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+					}
 					return nil
 				}
 
-				notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
+				notarizationConsumer := func(_, diffEpochIndex epoch.Index, _ *epoch.ECRecord) {
+					cManaTargetEpoch = diffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+					if cManaTargetEpoch < 0 {
+						cManaTargetEpoch = 0
+					}
+
+				}
 
 				nodeSnapshot := new(snapshot.Snapshot)
 				if err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
-
-				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
-					Plugin.Panicf("Couldn't load snapshot: %s", err)
-				}
+				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
 
 				// initialize cMana WeightProvider with snapshot
 				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
@@ -761,62 +811,4 @@ func QueryAllowed() (allowed bool) {
 
 	// query allowed only when base mana vectors have been initialized
 	return len(baseManaVectors) > 0
-}
-
-// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledger.Snapshot) error {
-	consensusManaByNode := map[identity.ID]float64{}
-	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
-		for _, outputWithMetadata := range outputsWithMetadata {
-			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
-			balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
-			if !exists {
-				continue
-			}
-			consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
-			if areCreated {
-				baseVector[consensusManaPledgeID] += float64(balance)
-			} else {
-				baseVector[consensusManaPledgeID] -= float64(balance)
-			}
-		}
-
-		return
-	}
-
-	processOutputs(snapshot.OutputsWithMetadata, consensusManaByNode, true /* areCreated */)
-	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
-
-	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
-	if cManaTargetEpoch < 0 {
-		cManaTargetEpoch = 0
-	}
-
-	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	// Only the aMana will be loaded until the latest snapshot's epoch
-	for ei := cManaTargetEpoch + 1; ei <= snapshot.DiffEpochIndex; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
-	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
-
-	return nil
 }

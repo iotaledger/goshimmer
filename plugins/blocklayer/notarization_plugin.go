@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -50,8 +51,15 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	if nodeSnapshot != nil {
-		notarizationDeps.Manager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+	if Parameters.Snapshot.File != "" {
+		nodeSnapshot = new(snapshot.Snapshot)
+		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File,
+			notarizationDeps.Manager.LoadOutputWithMetadatas,
+			notarizationDeps.Manager.LoadEpochDiffs,
+			notarizationDeps.Manager.LoadECandEIs)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
+		}
 	}
 	// attach mana plugin event after notarization manager has been initialized
 	notarizationDeps.Manager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)

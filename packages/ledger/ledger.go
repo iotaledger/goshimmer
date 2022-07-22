@@ -127,37 +127,8 @@ func (l *Ledger) LoadEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index, epoc
 
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
-	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
-		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
-		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
-		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
-		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
-	}
-
-	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
-		epochdiff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			panic("epoch diff not found for epoch")
-		}
-
-		for _, spent := range epochdiff.Spent() {
-			l.Storage.outputStorage.Delete(spent.ID().Bytes())
-			l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
-		}
-
-		for _, created := range epochdiff.Created() {
-			outputMetadata := NewOutputMetadata(created.ID())
-			outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
-			outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
-			outputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-			l.Storage.outputStorage.Store(created.Output()).Release()
-			l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-		}
-	}
+	l.LoadOutputWithMetadatas(snapshot.OutputsWithMetadata)
+	l.LoadEpochDiffs(snapshot.FullEpochIndex, snapshot.DiffEpochIndex, snapshot.EpochDiffs)
 }
 
 // TakeSnapshot returns a snapshot of the Ledger state.

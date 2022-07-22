@@ -147,7 +147,7 @@ func configure(plugin *node.Plugin) {
 
 		outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
-			for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
+			for _, outputWithMetadata := range outputsWithMetadatas {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
@@ -157,7 +157,7 @@ func configure(plugin *node.Plugin) {
 			if err != nil {
 				return err
 			}
-			for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
+			for _, epochDiff := range epochDiffs {
 				for _, outputWithMetadata := range epochDiff.Created() {
 					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 				}
