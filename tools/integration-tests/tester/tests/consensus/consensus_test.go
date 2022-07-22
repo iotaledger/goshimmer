@@ -78,7 +78,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	var txs1 []*devnetvm.Transaction
 	var txs2 []*devnetvm.Transaction
-	// send transactions on the seperate partitions
+	// send transactions on the separate partitions
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		t.Logf("issuing conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the first partition.
@@ -103,7 +103,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
 		return len(res1.ConflictIDs) > 0 && len(res2.ConflictIDs) > 0
-	}, tests.Timeout, tests.Tick)
+	}, tests.Timeout*2, tests.Tick)
 
 	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
 	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
@@ -119,7 +119,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 				ConfirmationState: confirmation.Rejected,
 				Solid:             tests.True(),
 			},
-		}, time.Minute, tests.Tick)
+		}, time.Minute*2, tests.Tick)
 	}
 }
 
