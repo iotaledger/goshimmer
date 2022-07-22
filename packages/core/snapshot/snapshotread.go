@@ -58,8 +58,7 @@ func StreamSnapshotDataFrom(
 		outputConsumer(outputs)
 	}
 
-	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
-	epochDiffs, err = ReadEpochDiffs(scanner)
+	epochDiffs, err := ReadEpochDiffs(scanner)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
