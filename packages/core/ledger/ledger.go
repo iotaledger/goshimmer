@@ -191,7 +191,7 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 	l.Storage.pruneTransaction(txID, pruneFutureCone)
 }
 
-func (l *Ledger) ForEachOutputWithMetadata(consumer func(*OutputWithMetadata)) {
+func (l *Ledger) ForEachAcceptedUnSpentOutputWithMetadata(consumer func(*OutputWithMetadata)) {
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
 			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {

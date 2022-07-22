@@ -120,7 +120,7 @@ func NewUTXOOutputProducer(l *ledger.Ledger) OutputProducerFunc {
 	prodChan := make(chan interface{})
 
 	go func() {
-		l.ForEachOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
+		l.ForEachAcceptedUnSpentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
 			prodChan <- o
 		})
 
