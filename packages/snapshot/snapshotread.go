@@ -42,13 +42,6 @@ func (s *Snapshot) StreamSnapshotDataFrom(
 	s.LedgerSnapshot.LatestECRecord = ecRecord
 	notarizationConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, ecRecord)
 
-	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
-	epochDiffs, err = ReadEpochDiffs(scanner)
-	if err != nil {
-		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
-	}
-	s.LedgerSnapshot.EpochDiffs = epochDiffs
-
 	// read outputWithMetadata
 	for i := 0; uint64(i) < s.LedgerSnapshot.OutputWithMetadataCount; {
 		outputs, err := ReadOutputWithMetadata(scanner)
@@ -56,11 +49,15 @@ func (s *Snapshot) StreamSnapshotDataFrom(
 			return err
 		}
 		i += len(outputs)
-		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputs...)
 
 		outputConsumer(outputs)
 	}
 
+	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
+	epochDiffs, err = ReadEpochDiffs(scanner)
+	if err != nil {
+		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	}
 	epochDiffsConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, epochDiffs)
 
 	return nil

@@ -25,7 +25,23 @@ func StreamSnapshotDataTo(
 		return writeFunc(writeSeeker, name, value, offsetsToIncrease...)
 	}
 
-	outputWithMetadataCounter := 0
+	writeOutputWithMetadatasFunc := func(chunks []*ledger.OutputWithMetadata) error {
+		if len(chunks) == 0 {
+			return nil
+		}
+
+		typeSet := new(serix.TypeSettings)
+		data, err := serix.DefaultAPI.Encode(context.Background(), chunks, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+		if err != nil {
+			return err
+		}
+		if err := writeFunc("outputs", append(data, delimiter...)); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	var outputWithMetadataCounter uint64 = 0
 	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
 		return err
 	}
@@ -43,11 +59,35 @@ func StreamSnapshotDataTo(
 		return err
 	}
 
-	if err := writeFunc("latestECRecord", data); err != nil {
+	if err := writeFunc("latestECRecord", append(data, delimiter...)); err != nil {
 		return err
 	}
-	if err := writeFunc("delimiter", delimiter); err != nil {
-		return err
+
+	// write outputWithMetadata
+	var outputChunkCounter int
+	chunksOutputWithMetadata := make([]*ledger.OutputWithMetadata, 0)
+	for {
+		output := outputProd()
+		if output == nil {
+			// write rests of outputWithMetadatas
+			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
+			if err != nil {
+				return err
+			}
+			break
+		}
+
+		outputWithMetadataCounter++
+		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
+
+		// put a delimeter every 100 outputs
+		if outputChunkCounter == 100 {
+			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
+			if err != nil {
+				return err
+			}
+			chunksOutputWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+		}
 	}
 
 	// write epochDiffs
@@ -61,44 +101,11 @@ func StreamSnapshotDataTo(
 	if err != nil {
 		return err
 	}
-	if err := writeFunc(fmt.Sprintf("diffEpoch"), bytes); err != nil {
-		return err
-	}
-	if err := writeFunc("delimiter", delimiter); err != nil {
+	if err := writeFunc(fmt.Sprintf("diffEpoch"), append(bytes, delimiter...)); err != nil {
 		return err
 	}
 
-	// write outputWithMetadata
-	var outputChunkCounter int
-	for {
-		output := outputProd()
-		if output == nil {
-			if err := writeFunc("delimiter", delimiter); err != nil {
-				return err
-			}
-			break
-		}
-
-		outputWithMetadataCounter++
-		outputChunkCounter++
-		outputBytes, err := output.Bytes()
-		if err != nil {
-			return fmt.Errorf("unable to serialize outputWithMetadata to bytes: %w", err)
-		}
-
-		if err := writeFunc(fmt.Sprintf("output #%d", outputWithMetadataCounter), outputBytes); err != nil {
-			return err
-		}
-
-		// put a delimeter every 100 outputs
-		if outputChunkCounter == 100 {
-			if err := writeFunc("delimiter", delimiter); err != nil {
-				return err
-			}
-		}
-	}
-
-	// seek back to the file position of the counter
+	// seek back to the file position of the outputWithMetadata counter
 	if _, err := writeSeeker.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("unable to seek to LS counter placeholders: %w", err)
 	}

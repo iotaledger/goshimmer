@@ -1,10 +1,8 @@
 package snapshot
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -17,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Snapshot struct {
@@ -101,16 +100,16 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	}
 	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
-	// write epochDiffs
+	// write outputWithMetadata
 	typeSet := new(serix.TypeSettings)
-	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.EpochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.OutputsWithMetadata, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
 	marshaler.WriteBytes(data).WriteBytes(delimiter)
 
-	// write outputWithMetadata
-	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.OutputsWithMetadata, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	// write epochDiffs
+	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.EpochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
@@ -124,49 +123,25 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	s.LedgerSnapshot = new(ledger.Snapshot)
 	reader := bytes.NewReader(data)
 
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.OutputWithMetadataCount); err != nil {
-		return fmt.Errorf("unable to read outputWithMetadata length: %w", err)
+	outputConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
 	}
-
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.FullEpochIndex); err != nil {
-		return fmt.Errorf("unable to read fullEpochIndex: %w", err)
+	epochDiffsConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+		s.LedgerSnapshot.EpochDiffs = epochDiffs
+		return nil
 	}
+	notarizationConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord) {}
 
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.DiffEpochIndex); err != nil {
-		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
-	}
-
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(scanDelimiter)
-
-	// read LatestECRecord
-	s.LedgerSnapshot.LatestECRecord, err = ReadECRecord(scanner)
-	if err != nil {
-		return err
-	}
-
-	// read epochDiffs
-	s.LedgerSnapshot.EpochDiffs, err = ReadEpochDiffs(scanner)
-	if err != nil {
-		return err
-	}
-
-	outputs, err := ReadOutputWithMetadata(scanner)
-	if err != nil {
-		return err
-	}
-	s.LedgerSnapshot.OutputsWithMetadata = outputs
-
-	// check if the file is consumed
+	s.StreamSnapshotDataFrom(reader, outputConsumer, epochDiffsConsumer, notarizationConsumer)
 
 	return nil
 }
 
-// func (s *Snapshot) String() (humanReadable string) {
-// 	return stringify.Struct("Snapshot",
-// 		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
-// 	)
-// }
+func (s *Snapshot) String() (humanReadable string) {
+	return stringify.Struct("Snapshot",
+		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
+	)
+}
 
 func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
 	pledgedValue := float64(0)
