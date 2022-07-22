@@ -15,35 +15,40 @@ import (
 )
 
 // StreamSnapshotDataFrom consumes a full snapshot from the given reader.
-func (s *Snapshot) StreamSnapshotDataFrom(
+func StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	outputConsumer OutputConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) error {
 
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.OutputWithMetadataCount); err != nil {
+	var outputWithMetadataCount uint64
+	if err := binary.Read(reader, binary.LittleEndian, &outputWithMetadataCount); err != nil {
 		return fmt.Errorf("unable to read outputWithMetadata length: %w", err)
 	}
 
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.FullEpochIndex); err != nil {
+	var index int64
+	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
 		return fmt.Errorf("unable to read fullEpochIndex: %w", err)
 	}
+	fullEpochIndex := epoch.Index(index)
 
-	if err := binary.Read(reader, binary.LittleEndian, &s.LedgerSnapshot.DiffEpochIndex); err != nil {
+	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
 		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
 	}
+	diffEpochIndex := epoch.Index(index)
 
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(scanDelimiter)
+
+	// read latest ECRecord
 	ecRecord, err := ReadECRecord(scanner)
 	if err != nil {
 		return err
 	}
-	s.LedgerSnapshot.LatestECRecord = ecRecord
-	notarizationConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, ecRecord)
+	notarizationConsumer(fullEpochIndex, diffEpochIndex, ecRecord)
 
 	// read outputWithMetadata
-	for i := 0; uint64(i) < s.LedgerSnapshot.OutputWithMetadataCount; {
+	for i := 0; uint64(i) < outputWithMetadataCount; {
 		outputs, err := ReadOutputWithMetadata(scanner)
 		if err != nil {
 			return err
@@ -58,7 +63,7 @@ func (s *Snapshot) StreamSnapshotDataFrom(
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
-	epochDiffsConsumer(s.LedgerSnapshot.FullEpochIndex, s.LedgerSnapshot.DiffEpochIndex, epochDiffs)
+	epochDiffsConsumer(fullEpochIndex, diffEpochIndex, epochDiffs)
 
 	return nil
 }

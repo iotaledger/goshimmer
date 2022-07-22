@@ -53,8 +53,7 @@ func init() {
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
-		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File,
+		err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File,
 			notarizationDeps.Manager.LoadOutputWithMetadatas,
 			notarizationDeps.Manager.LoadEpochDiffs,
 			notarizationDeps.Manager.LoadECandEIs)

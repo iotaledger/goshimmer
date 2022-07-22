@@ -49,9 +49,8 @@ var (
 
 var (
 	// Plugin is the plugin instance of the blocklayer plugin.
-	Plugin       *node.Plugin
-	deps         = new(dependencies)
-	nodeSnapshot *snapshot.Snapshot
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -169,8 +168,7 @@ func configure(plugin *node.Plugin) {
 
 		notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
 
-		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer)
+		err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

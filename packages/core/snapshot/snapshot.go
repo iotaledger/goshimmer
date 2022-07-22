@@ -24,7 +24,7 @@ type Snapshot struct {
 }
 
 // CreateStreamableSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) error {
+func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to create snapshot file: %s", err)
@@ -46,27 +46,20 @@ func (s *Snapshot) CreateStreamableSnapshot(filePath string, t *tangleold.Tangle
 }
 
 // LoadStreamableSnapshot creates a full snapshot for the given target milestone index.
-func (s *Snapshot) LoadStreamableSnapshot(filePath string,
+func LoadStreamableSnapshot(filePath string,
 	outputConsumer OutputConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
-	notarizationConsumer NotarizationConsumerFunc) error {
-	if s.LedgerSnapshot == nil {
-		s.LedgerSnapshot = new(ledger.Snapshot)
-	}
+	notarizationConsumer NotarizationConsumerFunc) (err error) {
 
 	f, err := os.Open(filePath)
+	defer f.Close()
 	if err != nil {
 		return fmt.Errorf("fail to open snapshot file")
 	}
 
-	err = s.StreamSnapshotDataFrom(f, outputConsumer, epochDiffsConsumer, notarizationConsumer)
-	if err != nil {
-		return err
-	}
-	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
-	f.Close()
+	err = StreamSnapshotDataFrom(f, outputConsumer, epochDiffsConsumer, notarizationConsumer)
 
-	return err
+	return
 }
 
 func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
@@ -121,7 +114,10 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 
 // FromBytes returns a serialized version of the Snapshot.
 func (s *Snapshot) FromBytes(data []byte) (err error) {
-	s.LedgerSnapshot = new(ledger.Snapshot)
+	if s.LedgerSnapshot == nil {
+		s.LedgerSnapshot = new(ledger.Snapshot)
+	}
+
 	reader := bytes.NewReader(data)
 
 	outputConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
@@ -131,11 +127,16 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 		s.LedgerSnapshot.EpochDiffs = epochDiffs
 		return nil
 	}
-	notarizationConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord) {}
+	notarizationConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord) {
+		s.LedgerSnapshot.FullEpochIndex = fullEpochIndex
+		s.LedgerSnapshot.DiffEpochIndex = diffEpochIndex
+		s.LedgerSnapshot.LatestECRecord = latestECRecord
+	}
 
-	s.StreamSnapshotDataFrom(reader, outputConsumer, epochDiffsConsumer, notarizationConsumer)
+	err = StreamSnapshotDataFrom(reader, outputConsumer, epochDiffsConsumer, notarizationConsumer)
+	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
 
-	return nil
+	return
 }
 
 func (s *Snapshot) String() (humanReadable string) {
