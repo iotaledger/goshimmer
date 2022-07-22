@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/syncutils"
 
@@ -14,6 +15,13 @@ type Tangle struct {
 	Events          Events
 	metadataStorage *memstorage.EpochStorage[BlockID, *BlockMetadata]
 	dbManager       *database.Manager
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (t *Tangle) Setup() {
+	t.Events.BlockSolid.Attach(event.NewClosure(func(event *BlockSolidEvent) {
+		t.updateMissingParents(event.BlockMetadata)
+	}))
 }
 
 func (t *Tangle) AttachBlock(block *Block) {
@@ -49,7 +57,7 @@ func (t *Tangle) publishNewBlock(block *Block) (blockMetadata *BlockMetadata, pu
 		return blockMetadata, false
 	}
 
-	t.registerAsChild(block, blockMetadata)
+	t.registerAsChild(blockMetadata)
 
 	return blockMetadata, true
 }
@@ -79,10 +87,25 @@ func (t *Tangle) solidify(blockMetadata *BlockMetadata) {
 			blockMetadata.solid = true
 
 			t.Events.BlockSolid.Trigger(&BlockSolidEvent{BlockMetadata: blockMetadata})
-
-			// TODO: Traverse children, decrease counter and trigger solid as well?
 		}
 	})
+}
+
+func (t *Tangle) updateMissingParents(metadata *BlockMetadata) {
+	t.processChildren(metadata.strongChildren)
+	t.processChildren(metadata.weakChildren)
+	t.processChildren(metadata.likedInsteadChildren)
+}
+
+func (t *Tangle) processChildren(childrenMetadata []*BlockMetadata) {
+	for _, childMetadata := range childrenMetadata {
+		childMetadata.Transaction(func() {
+			childMetadata.missingParents--
+			if childMetadata.missingParents == 0 {
+				t.Events.BlockSolid.Trigger(&BlockSolidEvent{BlockMetadata: childMetadata})
+			}
+		})
+	}
 }
 
 func (t *Tangle) missingParents(blockMetadata *BlockMetadata) (missingParents uint8) {
@@ -103,17 +126,30 @@ func (t *Tangle) epochStorage(blockID BlockID) (epochStorage *memstorage.Storage
 	return t.metadataStorage.Get(blockID.EpochIndex, true)
 }
 
-func (t *Tangle) registerAsChild(block *Block, metadata *BlockMetadata) {
-	for parentID := range block.ParentsByType(StrongParentType) {
-		if t.isGenesisBlock(parentID) {
+func (t *Tangle) registerAsChild(metadata *BlockMetadata) {
+	t.updateParentsMetadata(metadata.strongParents, func(parentMetadata *BlockMetadata) {
+		parentMetadata.strongChildren = append(parentMetadata.strongChildren, metadata)
+	})
+
+	t.updateParentsMetadata(metadata.weakParents, func(parentMetadata *BlockMetadata) {
+		parentMetadata.weakChildren = append(parentMetadata.weakChildren, metadata)
+	})
+
+	t.updateParentsMetadata(metadata.likedInsteadParents, func(parentMetadata *BlockMetadata) {
+		parentMetadata.likedInsteadChildren = append(parentMetadata.likedInsteadChildren, metadata)
+	})
+}
+
+func (t *Tangle) updateParentsMetadata(blockIDs BlockIDs, updateFunc func(metadata *BlockMetadata)) {
+	for blockID := range blockIDs {
+		if t.isGenesisBlock(blockID) {
 			continue
 		}
 
-		parentMetadata, _ := t.epochStorage(parentID).RetrieveOrCreate(parentID, func() *BlockMetadata {
-			t.Events.BlockMissing.Trigger(&BlockMissingEvent{BlockID: parentID})
-
+		parentMetadata, _ := t.epochStorage(blockID).RetrieveOrCreate(blockID, func() *BlockMetadata {
+			t.Events.BlockMissing.Trigger(&BlockMissingEvent{BlockID: blockID})
 			return &BlockMetadata{
-				id:                   parentID,
+				id:                   blockID,
 				missing:              true,
 				strongChildren:       make([]*BlockMetadata, 0),
 				weakChildren:         make([]*BlockMetadata, 0),
@@ -122,50 +158,7 @@ func (t *Tangle) registerAsChild(block *Block, metadata *BlockMetadata) {
 			}
 		})
 		parentMetadata.Transaction(func() {
-			parentMetadata.strongChildren = append(parentMetadata.strongChildren, metadata)
-		})
-	}
-
-	for parentID := range block.ParentsByType(WeakParentType) {
-		if t.isGenesisBlock(parentID) {
-			continue
-		}
-
-		parentMetadata, _ := t.epochStorage(parentID).RetrieveOrCreate(parentID, func() *BlockMetadata {
-			t.Events.BlockMissing.Trigger(&BlockMissingEvent{BlockID: parentID})
-
-			return &BlockMetadata{
-				id:                   parentID,
-				missing:              true,
-				strongChildren:       make([]*BlockMetadata, 0),
-				weakChildren:         make([]*BlockMetadata, 0),
-				likedInsteadChildren: make([]*BlockMetadata, 0),
-				transactionMutex:     syncutils.NewStarvingMutex(),
-			}
-		})
-		parentMetadata.Transaction(func() {
-			parentMetadata.weakChildren = append(parentMetadata.weakChildren, metadata)
-		})
-	}
-
-	for parentID := range block.ParentsByType(ShallowLikeParentType) {
-		if t.isGenesisBlock(parentID) {
-			continue
-		}
-
-		parentMetadata, _ := t.epochStorage(parentID).RetrieveOrCreate(parentID, func() *BlockMetadata {
-			t.Events.BlockMissing.Trigger(&BlockMissingEvent{BlockID: parentID})
-			return &BlockMetadata{
-				id:                   parentID,
-				missing:              true,
-				strongChildren:       make([]*BlockMetadata, 0),
-				weakChildren:         make([]*BlockMetadata, 0),
-				likedInsteadChildren: make([]*BlockMetadata, 0),
-				transactionMutex:     syncutils.NewStarvingMutex(),
-			}
-		})
-		parentMetadata.Transaction(func() {
-			parentMetadata.likedInsteadChildren = append(parentMetadata.likedInsteadChildren, metadata)
+			updateFunc(parentMetadata)
 		})
 	}
 }

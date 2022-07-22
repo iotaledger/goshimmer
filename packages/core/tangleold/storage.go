@@ -86,12 +86,13 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	cacheProvider := tangle.Options.CacheTimeProvider
 
 	storage = &Storage{
-		tangle:                              tangle,
-		shutdown:                            make(chan struct{}),
-		blockStorage:                        objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		blockMetadataStorage:                objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		childStorage:                        objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChildren), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingBlockStorage:                 objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		tangle:               tangle,
+		shutdown:             make(chan struct{}),
+		blockStorage:         objectstorage.NewStructStorage[Block](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		blockMetadataStorage: objectstorage.NewStructStorage[BlockMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBlockMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		childStorage:         objectstorage.NewStructStorage[Child](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixChildren), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(BlockIDLength, ChildTypeLength, BlockIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingBlockStorage:  objectstorage.NewStructStorage[MissingBlock](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingBlock), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+
 		attachmentStorage:                   objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexConflictIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexConflictIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerConflictIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		conflictVotersStorage:               objectstorage.NewStructStorage[ConflictVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixConflictVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
