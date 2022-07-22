@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
-	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -219,12 +218,12 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+				epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
 					for ei := fullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
 						diff, exists := epochDiffs[ei]
 						if !exists {
-							return errors.Errorf("diff with index %d missing from snapshot", ei)
+							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
 						}
 						processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
 						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
@@ -236,12 +235,11 @@ func runManaPlugin(_ *node.Plugin) {
 					for ei := cManaTargetEpoch + 1; ei <= diffEpochIndex; ei++ {
 						diff, exists := epochDiffs[ei]
 						if !exists {
-							return errors.Errorf("diff with index %d missing from snapshot", ei)
+							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
 						}
 						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
 						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
 					}
-					return nil
 				}
 
 				notarizationConsumer := func(_, diffEpochIndex epoch.Index, _ *epoch.ECRecord) {

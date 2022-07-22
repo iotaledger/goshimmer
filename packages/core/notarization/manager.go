@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -130,7 +130,7 @@ func (m *Manager) LoadOutputWithMetadatas(outputsWithMetadatas []*ledger.OutputW
 }
 
 // LoadEpochDiffs initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadEpochDiffs(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+func (m *Manager) LoadEpochDiffs(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -156,7 +156,7 @@ func (m *Manager) LoadEpochDiffs(fullEpochIndex epoch.Index, diffEpochIndex epoc
 			}
 		}
 	}
-	return nil
+	return
 }
 
 // LoadEpochDiffs initiates the state and mana trees from a given snapshot.

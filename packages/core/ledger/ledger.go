@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -103,7 +102,7 @@ func (l *Ledger) LoadEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index, epoc
 	for ei := fullEpochIndex + 1; ei <= diffEpochIndex; ei++ {
 		epochdiff, exists := epochDiffs[ei]
 		if !exists {
-			return fmt.Errorf("epoch diff not found for epoch")
+			panic("epoch diff not found for epoch")
 		}
 
 		for _, spent := range epochdiff.Spent() {

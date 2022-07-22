@@ -153,17 +153,16 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+		epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 			err := deps.Tangle.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
 			if err != nil {
-				return err
+				panic(err)
 			}
 			for _, epochDiff := range epochDiffs {
 				for _, outputWithMetadata := range epochDiff.Created() {
 					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 				}
 			}
-			return nil
 		}
 
 		notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}

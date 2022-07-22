@@ -175,7 +175,7 @@ func (e *ECRecord) FromBytes(data []byte) error {
 	defer e.Unlock()
 
 	if _, err := serix.DefaultAPI.Decode(context.Background(), data, e, serix.WithValidation()); err != nil {
-		return errors.Errorf("Fail to parse ECRecord from bytes: %w", err)
+		return errors.Errorf("Fail to parse ECRecord from bytes: %s", err)
 	}
 	return nil
 }

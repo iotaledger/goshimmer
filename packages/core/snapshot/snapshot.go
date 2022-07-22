@@ -123,9 +123,8 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	outputConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
 	}
-	epochDiffsConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error {
+	epochDiffsConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 		s.LedgerSnapshot.EpochDiffs = epochDiffs
-		return nil
 	}
 	notarizationConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord) {
 		s.LedgerSnapshot.FullEpochIndex = fullEpochIndex
@@ -165,6 +164,6 @@ type OutputConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
 type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
 
-type EpochDiffsConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) error
+type EpochDiffsConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
 type NotarizationConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord)
