@@ -37,7 +37,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin("Snapshot", deps, node.Enabled, configure)
+	Plugin = node.NewPlugin("Snapshot", deps, node.Disabled, configure)
 }
 
 func configure(_ *node.Plugin) {
@@ -56,22 +56,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	//nodeSnapshot.FromNode(deps.Tangle.Ledger)
-
-	// snapshotBytes, err := nodeSnapshot.Bytes()
-	// if err != nil {
-	// 	Plugin.LogErrorf("unable to get snapshot bytes %s", err)
-	// 	return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
-	// }
-	// if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
-	// 	Plugin.LogErrorf("unable to create snapshot file %s", err)
-	// }
-
-	// Plugin.LogInfo("Snapshot information: ")
-	// Plugin.LogInfo("     Number of outputs: ", len(nodeSnapshot.LedgerSnapshot.OutputsWithMetadata))
-	// Plugin.LogInfo("     Number of epochdiffs: ", len(nodeSnapshot.LedgerSnapshot.EpochDiffs))
-
-	// Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
