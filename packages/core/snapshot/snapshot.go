@@ -19,18 +19,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
+// Snapshot contains the data to be put in a snapshot file.
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
 }
 
-// CreateStreamableSnapshot creates a full snapshot for the given target milestone index.
+// CreateStreamableSnapshot creates a snapshot file to the given file path.
 func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) error {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	outputProd := NewUTXOOutputProducer(t.Ledger)
+	outputProd := NewLedgerOutputWithMetadataProducer(t.Ledger)
 	committableEC, fullEpochIndex, err := t.Options.CommitmentFunc()
 	if err != nil {
 		return err
@@ -45,7 +46,9 @@ func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notari
 	return err
 }
 
-// LoadStreamableSnapshot creates a full snapshot for the given target milestone index.
+// LoadStreamableSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
+// will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
+// consumer functions. To construct a snapshot struct from a file, use FromBytes([]byte).
 func LoadStreamableSnapshot(filePath string,
 	outputConsumer OutputConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
@@ -62,10 +65,7 @@ func LoadStreamableSnapshot(filePath string,
 	return
 }
 
-func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
-	s.LedgerSnapshot = ledger.TakeSnapshot()
-}
-
+// Write a snapshot struct in to a file with the given file name.
 func (s *Snapshot) WriteFile(fileName string) (err error) {
 	data, err := s.Bytes()
 	if err != nil {
@@ -112,7 +112,7 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	return marshaler.Bytes(), nil
 }
 
-// FromBytes returns a serialized version of the Snapshot.
+// FromBytes returns a Snapshot struct.
 func (s *Snapshot) FromBytes(data []byte) (err error) {
 	if s.LedgerSnapshot == nil {
 		s.LedgerSnapshot = new(ledger.Snapshot)
@@ -138,6 +138,7 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	return
 }
 
+// String returns a human readable snapshot.
 func (s *Snapshot) String() (humanReadable string) {
 	return stringify.Struct("Snapshot",
 		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
@@ -158,12 +159,17 @@ func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, o
 	})
 }
 
+// OutputProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
 type OutputProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
 
+// OutputConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
 type OutputConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
+// EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
 type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
 
+// EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
 type EpochDiffsConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
+// NotarizationConsumerFunc is the type of function that consumes ECRecord when loading a snapshot.
 type NotarizationConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord)

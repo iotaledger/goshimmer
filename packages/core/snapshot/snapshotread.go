@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 )
 
-// StreamSnapshotDataFrom consumes a full snapshot from the given reader.
+// StreamSnapshotDataFrom consumes a snapshot from the given reader.
 func StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	outputConsumer OutputConsumerFunc,
@@ -67,6 +67,7 @@ func StreamSnapshotDataFrom(
 	return nil
 }
 
+// ReadOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
 func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
 	scanner.Scan()
 	data := scanner.Bytes()
@@ -88,6 +89,7 @@ func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.O
 	return
 }
 
+// ReadEpochDiffs consumes a map of EpochDiff from the given reader.
 func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 
@@ -115,6 +117,7 @@ func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.
 	return
 }
 
+// ReadECRecord consumes the latest ECRecord from the given reader.
 func ReadECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) {
 	scanner.Scan()
 

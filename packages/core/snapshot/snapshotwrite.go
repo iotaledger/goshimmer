@@ -116,7 +116,8 @@ func StreamSnapshotDataTo(
 	return nil
 }
 
-func NewUTXOOutputProducer(l *ledger.Ledger) OutputProducerFunc {
+// NewLedgerOutputWithMetadataProducer returns a OutputProducerFunc that provide OutputWithMetadatas from the ledger.
+func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputProducerFunc {
 	prodChan := make(chan interface{})
 
 	go func() {
@@ -137,7 +138,6 @@ func NewUTXOOutputProducer(l *ledger.Ledger) OutputProducerFunc {
 	}
 }
 
-// returns a function which tries to read from the given producer and error channels up on each invocation.
 func producerFromChannels(prodChan <-chan interface{}) func() interface{} {
 	return func() interface{} {
 		select {
