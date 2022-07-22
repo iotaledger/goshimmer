@@ -8,10 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,7 +25,7 @@ type dependencies struct {
 	dig.In
 
 	Server          *echo.Echo
-	Tangle          *tangle.Tangle
+	Tangle          *tangleold.Tangle
 	NotarizationMgr *notarization.Manager
 }
 

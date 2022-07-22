@@ -11,7 +11,7 @@ type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed blocks in its past cone will not be selected.
-	TimeSinceConfirmationThreshold time.Duration `default:"1m" usage:"Time Since Confirmation (TSC) threshold"`
+	TimeSinceConfirmationThreshold time.Duration `default:"30s" usage:"Time Since Confirmation (TSC) threshold"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
@@ -21,7 +21,7 @@ type ParametersDefinition struct {
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
-	TangleTimeWindow time.Duration `default:"20m" usage:"the time window in which the node considers itself as synced according to TangleTime"`
+	TangleTimeWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as synced according to TangleTime"`
 
 	// StartSynced defines if the node should start as synced.
 	StartSynced bool `default:"false" usage:"start as synced"`

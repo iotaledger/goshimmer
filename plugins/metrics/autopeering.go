@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"go.uber.org/atomic"
 
-	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 var (
@@ -25,14 +25,14 @@ var (
 )
 
 var (
-	onNeighborRemoved = event.NewClosure(func(event *gossipPkg.NeighborRemovedEvent) {
+	onNeighborRemoved = event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		neighborMutex.Lock()
 		defer neighborMutex.Unlock()
 		neighborDropCount++
 		neighborConnectionsLifeTime += time.Since(event.Neighbor.ConnectionEstablished())
 	})
 
-	onNeighborAdded = event.NewClosure(func(_ *gossipPkg.NeighborAddedEvent) {
+	onNeighborAdded = event.NewClosure(func(_ *p2p.NeighborAddedEvent) {
 		neighborConnectionsCount.Inc()
 	})
 

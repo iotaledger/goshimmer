@@ -9,11 +9,12 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -24,14 +25,14 @@ const (
 type notarizationPluginDependencies struct {
 	dig.In
 
-	Tangle  *tangle.Tangle
+	Tangle  *tangleold.Tangle
 	Manager *notarization.Manager
 }
 
 type notarizationManagerDependencies struct {
 	dig.In
 
-	Tangle  *tangle.Tangle
+	Tangle  *tangleold.Tangle
 	Storage kvstore.KVStore
 }
 

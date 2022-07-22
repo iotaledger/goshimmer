@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 type connection struct {
@@ -74,7 +74,7 @@ func handleConnection(conn net.Conn, log *node.Plugin, shutdownSignal <-chan str
 
 	idx := int(index.Load())
 	connectionList[idx] = connection{
-		bufferedConn: buffconn.NewBufferedConnection(conn, tangle.MaxBlockSize),
+		bufferedConn: buffconn.NewBufferedConnection(conn, tangleold.MaxBlockSize),
 		log:          log,
 		active:       true,
 	}

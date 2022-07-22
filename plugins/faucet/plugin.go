@@ -18,15 +18,16 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/pow"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/bootstrapmanager"
-	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -63,7 +64,7 @@ type dependencies struct {
 	dig.In
 
 	Local            *peer.Local
-	Tangle           *tangle.Tangle
+	Tangle           *tangleold.Tangle
 	BootstrapManager *bootstrapmanager.Manager
 	Indexer          *indexer.Indexer
 }
@@ -200,16 +201,16 @@ func waitForMana(ctx context.Context) error {
 		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			return err
 		}
-		if aMana >= tangle.MinMana {
+		if aMana >= tangleold.MinMana {
 			return nil
 		}
-		Plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangle.MinMana)
+		Plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
 		time.Sleep(waitForManaWindow)
 	}
 }
 
 func configureEvents() {
-	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangle.BlockProcessedEvent) {
+	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangleold.BlockProcessedEvent) {
 		onBlockProcessed(event.BlockID)
 	}))
 	deps.BootstrapManager.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
@@ -233,7 +234,7 @@ func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	return nil
 }
 
-func onBlockProcessed(blockID tangle.BlockID) {
+func onBlockProcessed(blockID tangleold.BlockID) {
 	// Do not start picking up request while waiting for initialization.
 	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req blks will be enqueued
 	// and addresses will be funded again. Therefore, do not process any faucet request blocks until we are in
@@ -241,7 +242,7 @@ func onBlockProcessed(blockID tangle.BlockID) {
 	if !initDone.Load() {
 		return
 	}
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 		if !faucet.IsFaucetReq(block) {
 			return
 		}

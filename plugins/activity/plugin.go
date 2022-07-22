@@ -10,9 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 
 type dependencies struct {
 	dig.In
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 func init() {

@@ -11,10 +11,13 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/firewall"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ratelimiter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/app/firewall"
+	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/goshimmer/packages/node/gossip"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -33,18 +36,19 @@ type dependencies struct {
 	GossipMgr *gossip.Manager
 	Server    *echo.Echo
 	Firewall  *firewall.Firewall
+	Tangle    *tangleold.Tangle
 }
 
 type firewallDeps struct {
 	dig.In
 	AutopeeringMgr *selection.Protocol `optional:"true"`
-	GossipMgr      *gossip.Manager
+	P2PMgr         *p2p.Manager
 }
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createFirewall); err != nil {
 			Plugin.Panic(err)
 		}
@@ -52,7 +56,7 @@ func init() {
 }
 
 func createFirewall(fDeps firewallDeps) *firewall.Firewall {
-	f, err := firewall.NewFirewall(fDeps.GossipMgr, fDeps.AutopeeringMgr, Plugin.Logger())
+	f, err := firewall.NewFirewall(fDeps.P2PMgr, fDeps.AutopeeringMgr, Plugin.Logger())
 	if err != nil {
 		Plugin.LogFatalf("Couldn't initialize firewall instance: %+v", err)
 	}
@@ -74,6 +78,9 @@ func start(ctx context.Context) {
 
 	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+			if !deps.Tangle.Bootstrapped() {
+				return
+			}
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
 				Reason: "Blocks rate limit hit",
 				Info: map[string]interface{}{

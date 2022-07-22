@@ -11,8 +11,8 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
@@ -27,7 +27,7 @@ type dependencies struct {
 
 	Server *echo.Echo
 	Local  *peer.Local
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 var (

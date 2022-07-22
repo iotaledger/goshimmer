@@ -16,13 +16,15 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +58,7 @@ type latestVote struct {
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangle.Tangle
+	Tangle          *tangleold.Tangle
 	NotarizationMgr *notarization.Manager
 	Storage         kvstore.KVStore
 }
@@ -126,7 +128,7 @@ func configure(plugin *node.Plugin) {
 		committableEpochs = append(committableEpochs, event.ECRecord)
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 		block := event.Block
 		saveEpochVotersWeight(block)
 	}))
@@ -190,12 +192,12 @@ func GetPendingConflictCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochblocks(ei epoch.Index) (blockIDs []tangle.BlockID) {
+func GetEpochblocks(ei epoch.Index) (blockIDs []tangleold.BlockID) {
 	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
 
 	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
-		var blockID tangle.BlockID
-		if _, err := blockID.Decode(key); err != nil {
+		var blockID tangleold.BlockID
+		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
 		}
 		blockIDs = append(blockIDs, blockID)
@@ -263,7 +265,7 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
-func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func insertblockToEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -275,7 +277,7 @@ func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	return nil
 }
 
-func removeblockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func removeblockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -363,7 +365,7 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 	return nil
 }
 
-func saveEpochVotersWeight(block *tangle.Block) {
+func saveEpochVotersWeight(block *tangleold.Block) {
 	voter := identity.NewID(block.IssuerPublicKey())
 	activeWeights, _ := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 

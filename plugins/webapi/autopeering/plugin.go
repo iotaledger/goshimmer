@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
 // PluginName is the name of the web API autopeering endpoint plugin.
@@ -89,7 +89,7 @@ func getServices(p *peer.Peer) []jsonmodels.PeerService {
 		})
 	}
 
-	gossipService := p.Services().Get(service.GossipKey)
+	gossipService := p.Services().Get(service.P2PKey)
 	if gossipService != nil {
 		services = append(services, jsonmodels.PeerService{
 			ID:      "gossip",

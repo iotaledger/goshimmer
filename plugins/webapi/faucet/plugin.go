@@ -8,11 +8,11 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	faucetpkg "github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 )
 
@@ -26,7 +26,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 // Plugin gets the plugin instance.

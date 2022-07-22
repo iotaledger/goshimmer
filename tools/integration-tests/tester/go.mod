@@ -7,7 +7,7 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go v0.0.0-20220705110659-84be3e28c8ce
+	github.com/iotaledger/hive.go v0.0.0-20220714132400-7fd91bb37663
 	github.com/mr-tron/base58 v1.2.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
