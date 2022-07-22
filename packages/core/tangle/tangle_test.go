@@ -16,12 +16,10 @@ import (
 
 func TestTangleAttach(t *testing.T) {
 	tangle := Tangle{
-		Events:          *newEvents(),
-		metadataStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
-		dbManager:       database.NewManager("/tmp/"),
+		Events:     *newEvents(),
+		memStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+		dbManager:  database.NewManager("/tmp/"),
 	}
-
-	tangle.Setup()
 
 	refs := NewParentBlockIDs()
 	refs.AddStrong(EmptyBlockID)
@@ -58,16 +56,16 @@ func TestTangleAttach(t *testing.T) {
 	)
 	assert.NoError(t, err)
 	assert.NoError(t, block2.DetermineID())
-	tangle.Events.BlockMissing.Hook(event.NewClosure[*BlockMissingEvent](func(evt *BlockMissingEvent) {
-		t.Logf("block %s is missing", evt.BlockID)
+	tangle.Events.BlockMissing.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
+		t.Logf("block %s is missing", metadata.id)
 	}))
 
-	tangle.Events.BlockSolid.Hook(event.NewClosure[*BlockSolidEvent](func(evt *BlockSolidEvent) {
-		t.Logf("block %s is solid", evt.BlockMetadata.ID())
+	tangle.Events.BlockSolid.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
+		t.Logf("block %s is solid", metadata.id)
 	}))
 
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*MissingBlockStoredEvent](func(evt *MissingBlockStoredEvent) {
-		t.Logf("missing block %s is stored", evt.BlockID)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
+		t.Logf("missing block %s is stored", metadata.id)
 	}))
 	tangle.AttachBlock(block2)
 

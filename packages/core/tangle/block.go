@@ -706,48 +706,80 @@ func (p ParentBlockIDs) Clone() ParentBlockIDs {
 // region BlockMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type BlockMetadata struct {
-	id                   BlockID
-	missing              bool
-	strongParents        BlockIDs
-	weakParents          BlockIDs
-	likedInsteadParents  BlockIDs
-	strongChildren       []*BlockMetadata
-	weakChildren         []*BlockMetadata
-	likedInsteadChildren []*BlockMetadata
+	id                    BlockID
+	missing               bool
+	strongParents         BlockIDs
+	weakParents           BlockIDs
+	likedInsteadParents   BlockIDs
+	strongChildren        []*BlockMetadata
+	weakChildren          []*BlockMetadata
+	likedInsteadChildren  []*BlockMetadata
+	unsolidParentsCounter uint8
+	solid                 bool
+	invalid               bool
 
-	transactionMutex *syncutils.StarvingMutex
-	missingParents   uint8
-	solid            bool
+	*syncutils.StarvingMutex
 }
 
-func (b *BlockMetadata) ID() BlockID {
-	return b.id
+func fullMetadataFromBlock(block *Block) func() *BlockMetadata {
+	return func() *BlockMetadata {
+		return &BlockMetadata{
+			id:                   block.ID(),
+			strongParents:        block.ParentsByType(StrongParentType),
+			weakParents:          block.ParentsByType(WeakParentType),
+			likedInsteadParents:  block.ParentsByType(ShallowLikeParentType),
+			strongChildren:       make([]*BlockMetadata, 0),
+			weakChildren:         make([]*BlockMetadata, 0),
+			likedInsteadChildren: make([]*BlockMetadata, 0),
+			StarvingMutex:        syncutils.NewStarvingMutex(),
+		}
+	}
 }
 
-func NewBlockMetadata(block *Block) *BlockMetadata {
-	// create fresh metadata
-	return &BlockMetadata{id: block.ID()}
+func (b *BlockMetadata) Initialized() bool {
+	return b.solid || b.unsolidParentsCounter != 0 || b.invalid
+}
+
+func (b *BlockMetadata) setInvalid() (updated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.invalid {
+		return false
+	}
+
+	b.invalid = true
+
+	return true
 }
 
 func (b *BlockMetadata) ParentIDs() BlockIDs {
 	parents := b.strongParents.Clone()
 	parents.AddAll(b.weakParents)
 	parents.AddAll(b.likedInsteadParents)
+
 	return parents
 }
 
-func (b *BlockMetadata) Transaction(callback func()) {
-	b.transactionMutex.Lock()
-	defer b.transactionMutex.Unlock()
+func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
+	b.RLock()
+	defer b.RUnlock()
 
-	callback()
-}
+	seenBlockIDs := make(map[BlockID]types.Empty)
+	for _, parentsByType := range [][]*BlockMetadata{
+		b.strongChildren,
+		b.weakChildren,
+		b.likedInsteadChildren,
+	} {
+		for _, childMetadata := range parentsByType {
+			if _, exists := seenBlockIDs[childMetadata.id]; !exists {
+				childrenMetadata = append(childrenMetadata, childMetadata)
+				seenBlockIDs[childMetadata.id] = types.Void
+			}
+		}
+	}
 
-func (b *BlockMetadata) RTransaction(callback func()) {
-	b.transactionMutex.RLock()
-	defer b.transactionMutex.RUnlock()
-
-	callback()
+	return childrenMetadata
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -774,5 +806,5 @@ var GenesisMetadata = &BlockMetadata{
 	weakChildren:         make([]*BlockMetadata, 0),
 	likedInsteadChildren: make([]*BlockMetadata, 0),
 	solid:                true,
-	transactionMutex:     syncutils.NewStarvingMutex(),
+	StarvingMutex:        syncutils.NewStarvingMutex(),
 }
