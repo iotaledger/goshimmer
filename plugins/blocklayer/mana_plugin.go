@@ -107,7 +107,7 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionAcceptedClosure)
-	// mana.Events().Revoked.Attach(onRevokeEventClosure)
+	// mana.Events().Revoked.AttachBlock(onRevokeEventClosure)
 }
 
 // func logPledgeEvent(ev *mana.PledgedEvent) {

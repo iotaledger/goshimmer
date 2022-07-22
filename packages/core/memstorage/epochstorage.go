@@ -27,21 +27,22 @@ func (e *EpochStorage[K, V]) Drop(index epoch.Index) {
 	e.cache.Delete(index)
 }
 
-func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *Storage[K, V], exists bool) {
+func (e *EpochStorage[K, V]) Get(index epoch.Index, createIfMissing ...bool) (storage *Storage[K, V]) {
 	e.Lock()
 	defer e.Unlock()
 
-	if storage, exists = e.cache.Get(index); exists {
-		return
+	storage, exists := e.cache.Get(index)
+	if exists {
+		return storage
 	}
 
 	if len(createIfMissing) == 0 || !createIfMissing[0] {
-		return
+		return nil
 	}
 
 	storage = New[K, V]()
 	e.cache.Set(index, storage)
 
-	return storage, true
+	return storage
 
 }

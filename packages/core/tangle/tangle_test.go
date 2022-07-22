@@ -15,7 +15,7 @@ import (
 
 func TestTangleAttach(t *testing.T) {
 	tangle := Tangle{
-		Events:          *NewEvents(),
+		Events:          *newEvents(),
 		metadataStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
 		dbManager:       database.NewManager("/tmp/"),
 	}
@@ -56,10 +56,10 @@ func TestTangleAttach(t *testing.T) {
 	block2.DetermineID()
 
 	assert.NoError(t, err)
-	tangle.Attach(block2)
+	tangle.AttachBlock(block2)
 
 	//assert some stuff
 
-	tangle.Attach(block1)
+	tangle.AttachBlock(block1)
 
 }

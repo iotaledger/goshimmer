@@ -413,7 +413,7 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 					}
 				}
 
-				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
 				require.Equal(t, blockID, blk.ID)
 				delete(nodeMissing, blockID)
 				if len(nodeMissing) == 0 {
@@ -440,7 +440,7 @@ func RequireBlocksEqual(t *testing.T, nodes []*framework.Node, blocksByID map[st
 				require.Equal(t, resp.ID, blockID)
 
 				respMetadata, err := node.GetBlockMetadata(blockID)
-				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
 				require.Equal(t, respMetadata.ID, blockID)
 
 				// check for general information

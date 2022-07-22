@@ -764,3 +764,15 @@ var (
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var GenesisMetadata = &BlockMetadata{
+	id:                   EmptyBlockID,
+	strongParents:        make(BlockIDs),
+	weakParents:          make(BlockIDs),
+	likedInsteadParents:  make(BlockIDs),
+	strongChildren:       make([]*BlockMetadata, 0),
+	weakChildren:         make([]*BlockMetadata, 0),
+	likedInsteadChildren: make([]*BlockMetadata, 0),
+	solid:                true,
+	transactionMutex:     syncutils.NewStarvingMutex(),
+}
