@@ -168,13 +168,12 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 	e.SetModified()
 }
 
-// FromBytes sets the PrevEC of an ECRecord.
-func (e *ECRecord) FromBytes(data []byte) error {
-	e.Lock()
-	defer e.Unlock()
+func (e *ECRecord) Bytes() (bytes []byte, err error) {
+	bytes, err = e.Storable.Bytes()
+	return
+}
 
-	if _, err := serix.DefaultAPI.Decode(context.Background(), data, e, serix.WithValidation()); err != nil {
-		return err
-	}
-	return nil
+func (e *ECRecord) FromBytes(bytes []byte) (err error) {
+	err = e.Storable.FromBytes(bytes)
+	return
 }

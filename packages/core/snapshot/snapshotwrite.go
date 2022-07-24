@@ -54,7 +54,7 @@ func StreamSnapshotDataTo(
 		return err
 	}
 
-	data, err := serix.DefaultAPI.Encode(context.Background(), latestECRecord, serix.WithValidation())
+	data, err := latestECRecord.Bytes()
 	if err != nil {
 		return err
 	}

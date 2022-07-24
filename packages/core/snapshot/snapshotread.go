@@ -122,7 +122,7 @@ func ReadECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 	scanner.Scan()
 
 	ecRecord = &epoch.ECRecord{}
-	_, err = serix.DefaultAPI.Decode(context.Background(), scanner.Bytes(), ecRecord)
+	err = ecRecord.FromBytes(scanner.Bytes())
 	if err != nil {
 		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
