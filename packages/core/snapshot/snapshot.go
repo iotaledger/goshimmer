@@ -88,7 +88,7 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 		WriteInt64(int64(s.LedgerSnapshot.FullEpochIndex)).
 		WriteInt64(int64(s.LedgerSnapshot.DiffEpochIndex))
 
-	data, err := serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.LatestECRecord, serix.WithValidation())
+	data, err := s.LedgerSnapshot.LatestECRecord.Bytes()
 	if err != nil {
 		return nil, err
 	}
