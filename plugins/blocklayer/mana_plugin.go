@@ -212,13 +212,13 @@ func runManaPlugin(_ *node.Plugin) {
 					return
 				}
 
-				outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+				outputWithMetadataConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 					processOutputs(outputsWithMetadatas, consensusManaByNode, true /* areCreated */)
 					processOutputs(outputsWithMetadatas, accessManaByNode, true /* areCreated */)
 
 				}
 
-				epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+				epochDiffsConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
 					for ei := fullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
 						diff, exists := epochDiffs[ei]
@@ -250,7 +250,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				if err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer); err != nil {
+				if err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)

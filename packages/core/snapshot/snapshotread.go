@@ -17,7 +17,7 @@ import (
 // StreamSnapshotDataFrom consumes a snapshot from the given reader.
 func StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
-	outputConsumer OutputConsumerFunc,
+	outputConsumer OutputWithMetadataConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) error {
 

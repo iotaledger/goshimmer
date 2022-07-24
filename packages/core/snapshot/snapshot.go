@@ -31,13 +31,13 @@ func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notari
 		return fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	outputProd := NewLedgerOutputWithMetadataProducer(t.Ledger)
+	outputWithMetadataProd := NewLedgerOutputWithMetadataProducer(t.Ledger)
 	committableEC, fullEpochIndex, err := t.Options.CommitmentFunc()
 	if err != nil {
 		return err
 	}
 
-	err = StreamSnapshotDataTo(f, outputProd, fullEpochIndex, committableEC.EI(), committableEC, nmgr.SnapshotEpochDiffs)
+	err = StreamSnapshotDataTo(f, outputWithMetadataProd, fullEpochIndex, committableEC.EI(), committableEC, nmgr.SnapshotEpochDiffs)
 	if err != nil {
 		return err
 	}
@@ -50,17 +50,17 @@ func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notari
 // will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
 // consumer functions. To construct a snapshot struct from a file, use FromBytes([]byte).
 func LoadStreamableSnapshot(filePath string,
-	outputConsumer OutputConsumerFunc,
+	outputWithMetadataConsumer OutputWithMetadataConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) (err error) {
 
 	f, err := os.Open(filePath)
 	defer f.Close()
 	if err != nil {
-		return fmt.Errorf("fail to open snapshot file")
+		return fmt.Errorf("fail to open the snapshot file")
 	}
 
-	err = StreamSnapshotDataFrom(f, outputConsumer, epochDiffsConsumer, notarizationConsumer)
+	err = StreamSnapshotDataFrom(f, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
 
 	return
 }
@@ -120,7 +120,7 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 
 	reader := bytes.NewReader(data)
 
-	outputConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
 	}
 	epochDiffsConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
@@ -132,7 +132,7 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 		s.LedgerSnapshot.LatestECRecord = latestECRecord
 	}
 
-	err = StreamSnapshotDataFrom(reader, outputConsumer, epochDiffsConsumer, notarizationConsumer)
+	err = StreamSnapshotDataFrom(reader, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
 	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
 
 	return
@@ -159,11 +159,11 @@ func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, o
 	})
 }
 
-// OutputProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
-type OutputProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
+// OutputWithMetadataProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
+type OutputWithMetadataProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
 
-// OutputConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
-type OutputConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
+// OutputWithMetadataConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
+type OutputWithMetadataConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
 // EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
 type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)

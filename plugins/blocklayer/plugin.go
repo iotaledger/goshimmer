@@ -146,14 +146,14 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		outputConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+		outputWithMetadataConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
 			for _, outputWithMetadata := range outputsWithMetadatas {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
 
-		epochConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+		epochDiffsConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 			err := deps.Tangle.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
 			if err != nil {
 				panic(err)
@@ -167,7 +167,7 @@ func configure(plugin *node.Plugin) {
 
 		notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
 
-		err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputConsumer, epochConsumer, notarizationConsumer)
+		err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

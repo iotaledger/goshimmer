@@ -16,7 +16,7 @@ var delimiter = []byte{';', ';'}
 // StreamSnapshotDataTo writes snapshot to a given writer.
 func StreamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
-	outputProd OutputProducerFunc,
+	outputProd OutputWithMetadataProducerFunc,
 	fullEpochIndex, diffEpochIndex epoch.Index,
 	latestECRecord *epoch.ECRecord,
 	epochDiffsProd EpochDiffProducerFunc) error {
@@ -116,8 +116,8 @@ func StreamSnapshotDataTo(
 	return nil
 }
 
-// NewLedgerOutputWithMetadataProducer returns a OutputProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputProducerFunc {
+// NewLedgerOutputWithMetadataProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
+func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputWithMetadataProducerFunc {
 	prodChan := make(chan interface{})
 
 	go func() {
