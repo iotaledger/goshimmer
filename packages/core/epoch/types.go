@@ -14,8 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 var (
@@ -70,11 +68,6 @@ func (i Index) StartTime() time.Time {
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i-1)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
-}
-
-// CurrentEpochIndex returns the EI at the current RATT time.
-func CurrentEpochIndex() Index {
-	return IndexFromTime(clock.SyncedTime())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,7 +170,7 @@ type NodesActivityLog map[identity.ID]*ActivityLog
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
+// ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
 	SetEpochs set.Set[Index] `serix:"0,lengthPrefixType=uint32"`
@@ -195,20 +188,13 @@ func NewActivityLog() *ActivityLog {
 
 // Add adds a node activity to the log.
 func (a *ActivityLog) Add(ei Index) (added bool) {
-	if !a.SetEpochs.Add(ei) {
-		return false
-	}
+	return a.SetEpochs.Add(ei)
 
-	return true
 }
 
 // Remove removes a node activity from the log.
 func (a *ActivityLog) Remove(ei Index) (removed bool) {
-	if !a.SetEpochs.Delete(ei) {
-		return false
-	}
-
-	return true
+	return a.SetEpochs.Delete(ei)
 }
 
 // Active returns true if the node was active between lower and upper bound.

@@ -102,16 +102,16 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 	}
 
 	root := make([]byte, 0)
-	conflict1 := make([]byte, 0)
-	conflict1a := make([]byte, 0)
-	conflict1b := make([]byte, 0)
-	conflict2 := make([]byte, 0)
+	branch1 := make([]byte, 0)
+	branch1a := make([]byte, 0)
+	branch1b := make([]byte, 0)
+	branch2 := make([]byte, 0)
 
-	conflict1aHashed := blake2b.Sum256(append(append(conflict1a, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	conflict1bHashed := blake2b.Sum256(append(append(conflict1b, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
-	conflict1Hashed := blake2b.Sum256(append(append(conflict1, conflict1aHashed[:]...), conflict1bHashed[:]...))
-	conflict2Hashed := blake2b.Sum256(append(conflict2, epochRoots.activityRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
+	branch1aHashed := blake2b.Sum256(append(append(branch1a, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
+	branch1bHashed := blake2b.Sum256(append(append(branch1b, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
+	branch1Hashed := blake2b.Sum256(append(append(branch1, branch1aHashed[:]...), branch1bHashed[:]...))
+	branch2Hashed := blake2b.Sum256(append(branch2, epochRoots.activityRoot[:]...))
+	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
 }

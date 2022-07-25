@@ -257,7 +257,7 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 	}
 	if removed {
 		m.tangle.WeightProvider.Remove(ei, nodeID)
-		m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+		m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 	}
 
 	transaction, isTransaction = block.Payload().(utxo.Transaction)
