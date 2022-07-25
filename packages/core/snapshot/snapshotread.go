@@ -22,6 +22,9 @@ func StreamSnapshotDataFrom(
 	notarizationConsumer NotarizationConsumerFunc) error {
 
 	header, err := ReadSnapshotHeader(reader)
+	if err != nil {
+		return err
+	}
 
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(scanDelimiter)
