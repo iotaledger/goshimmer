@@ -184,7 +184,7 @@ func (b BlockID) Alias() (alias string) {
 	defer _BlockIDAliasesMutex.RUnlock()
 
 	if existingAlias, exists := _BlockIDAliases[b]; exists {
-		return fmt.Sprintf("%s, %d", existingAlias, int(b.EpochIndex))
+		return fmt.Sprintf("%s", existingAlias)
 	}
 
 	return fmt.Sprintf("%s, %d", b.Identifier, int(b.EpochIndex))

@@ -1,61 +1,27 @@
 package tangle
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 func TestTangleAttach(t *testing.T) {
-	tangle := Tangle{
-		Events:     *newEvents(),
-		memStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
-		dbManager:  database.NewManager("/tmp/"),
-	}
+	tangle := NewTangle(func(t *Tangle) {
+		t.dbManagerPath = "/tmp/"
+	})
 
-	refs := NewParentBlockIDs()
-	refs.AddStrong(EmptyBlockID)
+	testFramework := NewBlockTestFramework(tangle)
 
-	block1, err := NewBlockWithValidation(
-		refs,
-		time.Now(),
-		ed25519.PublicKey{},
-		0,
-		payload.NewGenericDataPayload([]byte("")),
-		0,
-		ed25519.Signature{},
-		0,
-		epoch.NewECRecord(0),
-		BlockVersion,
-	)
-	assert.NoError(t, block1.DetermineID())
-	assert.NoError(t, err)
+	block1 := testFramework.CreateBlock("msg1", WithStrongParents("Genesis"))
 
-	refs2 := NewParentBlockIDs()
-	refs2.AddStrong(block1.ID())
+	block2 := testFramework.CreateBlock("msg2", WithStrongParents("msg1"))
 
-	block2, err := NewBlockWithValidation(
-		refs2,
-		time.Now(),
-		ed25519.PublicKey{},
-		0,
-		payload.NewGenericDataPayload([]byte("")),
-		0,
-		ed25519.Signature{},
-		0,
-		epoch.NewECRecord(0),
-		BlockVersion,
-	)
-	assert.NoError(t, err)
-	assert.NoError(t, block2.DetermineID())
 	tangle.Events.BlockMissing.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
 		t.Logf("block %s is missing", metadata.id)
 	}))
@@ -67,12 +33,125 @@ func TestTangleAttach(t *testing.T) {
 	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
 		t.Logf("missing block %s is stored", metadata.id)
 	}))
+
 	tangle.AttachBlock(block2)
-
-	//assert some stuff
-
 	tangle.AttachBlock(block1)
 
 	event.Loop.WaitUntilAllTasksProcessed()
+}
 
+func TestTangle_AttachBlock(t *testing.T) {
+	blockTangle := NewTestTangle()
+	defer blockTangle.Shutdown()
+
+	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		fmt.Println("SOLID:", metadata.id)
+	}))
+
+	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		fmt.Println("MISSING:", metadata.id)
+	}))
+
+	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		fmt.Println("REMOVED:", metadata.id)
+	}))
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		fmt.Println("INVALID:", metadata.id)
+	}))
+
+	newBlockOne := newTestDataBlock("some data")
+	newBlockTwo := newTestDataBlock("some other data")
+
+	blockTangle.AttachBlock(newBlockTwo)
+
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	blockTangle.AttachBlock(newBlockOne)
+}
+
+func TestTangle_MissingBlocks(t *testing.T) {
+	const (
+		blockCount  = 2000
+		tangleWidth = 250
+		storeDelay  = 5 * time.Millisecond
+	)
+
+	// create the tangle
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+	testFramework := NewBlockTestFramework(tangle)
+
+	// map to keep track of the tips
+	tips := randommap.New[BlockID, BlockID]()
+	tips.Set(EmptyBlockID, EmptyBlockID)
+
+	// create a helper function that creates the blocks
+	i := 0
+	createNewBlock := func() *Block {
+		// issue the payload
+		strongParents := make([]string, 0)
+		for _, selectedTip := range tips.RandomUniqueEntries(2) {
+			if selectedTip == EmptyBlockID {
+				strongParents = append(strongParents, "Genesis")
+				continue
+			}
+			strongParents = append(strongParents, selectedTip.Alias())
+		}
+		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", i), WithStrongParents(strongParents...))
+		i++
+		// remove a tip if the width of the tangle is reached
+		if tips.Size() >= tangleWidth {
+			tips.Delete(blk.ParentsByType(StrongParentType).First())
+		}
+
+		// add current block as a tip
+		tips.Set(blk.ID(), blk.ID())
+
+		// return the constructed block
+		return blk
+	}
+
+	// generate the blocks we want to solidify
+	blocks := make(map[BlockID]*Block, blockCount)
+	for i = 0; i < blockCount; i++ {
+		blk := createNewBlock()
+		blocks[blk.ID()] = blk
+	}
+
+	// counter for the different stages
+	var (
+		missingBlocks int32
+		solidBlocks   int32
+	)
+
+	// increase the counter when a missing block was detected
+	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *BlockMetadata) {
+		atomic.AddInt32(&missingBlocks, 1)
+		// store the block after it has been requested
+		//go func() {
+		time.Sleep(storeDelay)
+		tangle.AttachBlock(blocks[metadata.id])
+		//}()
+	}))
+
+	// decrease the counter when a missing block was received
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(_ *BlockMetadata) {
+		//n := atomic.AddInt32(&missingBlocks, -1)
+		//t.Logf("missing blocks %d", n)
+	}))
+
+	tangle.Events.BlockSolid.Hook(event.NewClosure(func(_ *BlockMetadata) {
+		n := atomic.AddInt32(&solidBlocks, 1)
+		t.Logf("solid blocks %d/%d", n, blockCount)
+	}))
+
+	// issue tips to start solidification
+	tips.ForEach(func(key BlockID, _ BlockID) { tangle.AttachBlock(blocks[key]) })
+
+	// wait until all blocks are solidified
+	event.Loop.WaitUntilAllTasksProcessed()
+	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidBlocks) == blockCount }, 3*time.Second, 100*time.Millisecond)
+
+	assert.EqualValues(t, blockCount, atomic.LoadInt32(&solidBlocks))
+	assert.EqualValues(t, 0, atomic.LoadInt32(&missingBlocks))
 }

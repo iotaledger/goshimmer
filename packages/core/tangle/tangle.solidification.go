@@ -23,7 +23,7 @@ func (t *Tangle) becameSolidOrInvalid(metadata *BlockMetadata) (becameSolid, bec
 
 func (t *Tangle) checkParents(metadata *BlockMetadata) (unsolidParents uint8, anyParentInvalid bool) {
 	for parentID := range metadata.ParentIDs() {
-		parentMetadata, exists := t.BlockMetadata(parentID)
+		parentMetadata, exists := t.blockMetadata(parentID)
 		if !exists {
 			// Should never happen as parent's metadata is always created before this point.
 			panic(errors.Errorf("parent block %s of block %s does not exist", parentID, metadata.id))

@@ -15,16 +15,37 @@ import (
 )
 
 type Tangle struct {
-	Events            Events
+	Events            *Events
 	memStorage        *memstorage.EpochStorage[BlockID, *BlockMetadata]
 	dbManager         *database.Manager
+	dbManagerPath     string
 	isSolidEntryPoint func(BlockID) bool
 	maxDroppedEpoch   epoch.Index
 	pruningMutex      sync.RWMutex
 }
 
-func NewTangle(opts ...options.Option[Tangle]) {
+func NewTangle(opts ...options.Option[Tangle]) *Tangle {
+	t := &Tangle{
+		Events:     newEvents(),
+		memStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+		isSolidEntryPoint: func(id BlockID) bool {
+			return id == EmptyBlockID
+		},
+	}
 
+	options.Apply(t, opts)
+
+	if t.isSolidEntryPoint == nil {
+		panic("isSolidEntryPoint is not set")
+	}
+
+	if t.dbManagerPath == "" {
+		panic("dbManagerPath is not set")
+	}
+
+	t.dbManager = database.NewManager(t.dbManagerPath)
+
+	return t
 }
 
 func (t *Tangle) AttachBlock(block *Block) {
@@ -32,6 +53,7 @@ func (t *Tangle) AttachBlock(block *Block) {
 	defer t.pruningMutex.RUnlock()
 
 	if t.isTooOld(block) {
+		// TODO: propagate invalidity to any existing futurecone of the block
 		return
 	}
 
@@ -61,7 +83,12 @@ func (t *Tangle) AttachBlock(block *Block) {
 }
 
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
-	// TODO: lock the epoch storage
+	t.pruningMutex.RLock()
+	defer t.pruningMutex.RUnlock()
+	return t.blockMetadata(blockID)
+}
+
+func (t *Tangle) blockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
 	if t.isBlockIDTooOld(blockID) {
 		return nil, false
 	}
@@ -85,6 +112,10 @@ func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 
 func (t *Tangle) IsGenesisBlock(blockID BlockID) (isGenesisBlock bool) {
 	return blockID == EmptyBlockID
+}
+
+func (t *Tangle) Shutdown() {
+	t.dbManager.Shutdown()
 }
 
 func (t *Tangle) publishNewBlock(block *Block) (blockMetadata *BlockMetadata, published bool) {
@@ -171,7 +202,7 @@ func (t *Tangle) isTooOld(block *Block) (isTooOld bool) {
 }
 
 func (t *Tangle) isBlockIDTooOld(blockID BlockID) bool {
-	return blockID.EpochIndex <= t.maxDroppedEpoch
+	return !t.IsGenesisBlock(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
 }
 
 func (t *Tangle) epochStorage(blockID BlockID) (epochStorage *memstorage.Storage[BlockID, *BlockMetadata]) {
