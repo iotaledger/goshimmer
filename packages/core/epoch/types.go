@@ -175,5 +175,7 @@ func (e *ECRecord) Bytes() (bytes []byte, err error) {
 
 func (e *ECRecord) FromBytes(bytes []byte) (err error) {
 	err = e.Storable.FromBytes(bytes)
+	e.SetID(e.EI())
+
 	return
 }
