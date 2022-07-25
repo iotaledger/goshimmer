@@ -9,8 +9,8 @@ import (
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
 	Header              *SnapshotHeader            `serix:"0"`
-	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"1,lengthPrefixType=uint32"`
-	OutputsWithMetadata []*OutputWithMetadata      `serix:"2,lengthPrefixType=uint32"`
+	OutputsWithMetadata []*OutputWithMetadata      `serix:"1,lengthPrefixType=uint32"`
+	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"2,lengthPrefixType=uint32"`
 }
 
 // SnapshotHeader represents the info of a snapshot.

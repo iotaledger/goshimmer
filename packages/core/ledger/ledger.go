@@ -86,6 +86,7 @@ func New(options ...Option) (ledger *Ledger) {
 	return ledger
 }
 
+// LoadOutputWithMetadatas loads OutputWithMetadatas from a snapshot file to the storage.
 func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
@@ -98,6 +99,7 @@ func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetad
 	}
 }
 
+// LoadEpochDiffs loads EpochDiffs from a snapshot file to the storage.
 func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Index]*EpochDiff) error {
 	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
 		epochdiff, exists := epochDiffs[ei]
