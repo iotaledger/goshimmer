@@ -50,11 +50,16 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	err = snapshot.CreateStreamableSnapshot(snapshotFileName, deps.Tangle, deps.NotarizationMgr)
+	header, err := snapshot.CreateStreamableSnapshot(snapshotFileName, deps.Tangle, deps.NotarizationMgr)
 	if err != nil {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
+	Plugin.LogInfo("Snapshot information: ")
+	Plugin.LogInfo("     Number of outputs: ", header.OutputWithMetadataCount)
+	Plugin.LogInfo("     FullEpochIndex: ", header.FullEpochIndex)
+	Plugin.LogInfo("     DiffEpochIndex: ", header.DiffEpochIndex)
+	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }

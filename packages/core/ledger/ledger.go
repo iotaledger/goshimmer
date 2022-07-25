@@ -98,8 +98,8 @@ func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetad
 	}
 }
 
-func (l *Ledger) LoadEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*EpochDiff) error {
-	for ei := fullEpochIndex + 1; ei <= diffEpochIndex; ei++ {
+func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Index]*EpochDiff) error {
+	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
 		epochdiff, exists := epochDiffs[ei]
 		if !exists {
 			panic("epoch diff not found for epoch")
@@ -127,7 +127,7 @@ func (l *Ledger) LoadEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index, epoc
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 	l.LoadOutputWithMetadatas(snapshot.OutputsWithMetadata)
-	l.LoadEpochDiffs(snapshot.FullEpochIndex, snapshot.DiffEpochIndex, snapshot.EpochDiffs)
+	l.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
 }
 
 // TakeSnapshot returns a snapshot of the Ledger state.

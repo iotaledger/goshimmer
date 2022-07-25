@@ -38,12 +38,12 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 	}
 
 	ledgerSnapshot := ledger.NewSnapshot(outputsWithMetadata)
-	ledgerSnapshot.FullEpochIndex = 0
-	ledgerSnapshot.DiffEpochIndex = 0
+	ledgerSnapshot.Header.FullEpochIndex = 0
+	ledgerSnapshot.Header.DiffEpochIndex = 0
 	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
-	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
-	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
+	ledgerSnapshot.Header.LatestECRecord = epoch.NewECRecord(0)
+	ledgerSnapshot.Header.LatestECRecord.SetECR(epoch.MerkleRoot{})
+	ledgerSnapshot.Header.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
 
 	return &snapshot.Snapshot{
 		LedgerSnapshot: ledgerSnapshot,
@@ -74,12 +74,12 @@ func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, genesisSeedByte
 	}
 
 	ledgerSnapshot := ledger.NewSnapshot(outputsWithMetadata)
-	ledgerSnapshot.FullEpochIndex = 0
-	ledgerSnapshot.DiffEpochIndex = 0
+	ledgerSnapshot.Header.FullEpochIndex = 0
+	ledgerSnapshot.Header.DiffEpochIndex = 0
 	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
-	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
-	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
+	ledgerSnapshot.Header.LatestECRecord = epoch.NewECRecord(0)
+	ledgerSnapshot.Header.LatestECRecord.SetECR(epoch.MerkleRoot{})
+	ledgerSnapshot.Header.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
 
 	return &snapshot.Snapshot{
 		LedgerSnapshot: ledgerSnapshot,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/hive.go/serix"
 )
@@ -16,9 +15,8 @@ var delimiter = []byte{';', ';'}
 // StreamSnapshotDataTo writes snapshot to a given writer.
 func StreamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
+	header *ledger.SnapshotHeader,
 	outputProd OutputWithMetadataProducerFunc,
-	fullEpochIndex, diffEpochIndex epoch.Index,
-	latestECRecord *epoch.ECRecord,
 	epochDiffsProd EpochDiffProducerFunc) error {
 
 	writeFunc := func(name string, value any, offsetsToIncrease ...*int64) error {
@@ -41,29 +39,13 @@ func StreamSnapshotDataTo(
 		return nil
 	}
 
-	var outputWithMetadataCounter uint64 = 0
-	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
-		return err
-	}
-
-	if err := writeFunc(fmt.Sprintf("fullEpochIndex %d", fullEpochIndex), fullEpochIndex); err != nil {
-		return err
-	}
-
-	if err := writeFunc(fmt.Sprintf("diffEpochIndex %d", diffEpochIndex), diffEpochIndex); err != nil {
-		return err
-	}
-
-	data, err := latestECRecord.Bytes()
+	err := writeSnapshotHeader(writeSeeker, header)
 	if err != nil {
 		return err
 	}
 
-	if err := writeFunc("latestECRecord", append(data, delimiter...)); err != nil {
-		return err
-	}
-
 	// write outputWithMetadata
+	var outputWithMetadataCounter uint64 = 0
 	var outputChunkCounter int
 	chunksOutputWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 	for {
@@ -112,6 +94,7 @@ func StreamSnapshotDataTo(
 	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
 		return err
 	}
+	header.OutputWithMetadataCount = outputWithMetadataCounter
 
 	return nil
 }
@@ -136,6 +119,35 @@ func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputWithMetadataPro
 		}
 		return obj.(*ledger.OutputWithMetadata)
 	}
+}
+
+func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHeader) error {
+	writeFunc := func(name string, value any, offsetsToIncrease ...*int64) error {
+		return writeFunc(writeSeeker, name, value, offsetsToIncrease...)
+	}
+
+	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", header.OutputWithMetadataCount), header.OutputWithMetadataCount); err != nil {
+		return err
+	}
+
+	if err := writeFunc(fmt.Sprintf("fullEpochIndex %d", header.FullEpochIndex), header.FullEpochIndex); err != nil {
+		return err
+	}
+
+	if err := writeFunc(fmt.Sprintf("diffEpochIndex %d", header.DiffEpochIndex), header.DiffEpochIndex); err != nil {
+		return err
+	}
+
+	data, err := header.LatestECRecord.Bytes()
+	if err != nil {
+		return err
+	}
+
+	if err := writeFunc("latestECRecord", append(data, delimiter...)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func producerFromChannels(prodChan <-chan interface{}) func() interface{} {

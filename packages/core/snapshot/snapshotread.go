@@ -21,21 +21,7 @@ func StreamSnapshotDataFrom(
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) error {
 
-	var outputWithMetadataCount uint64
-	if err := binary.Read(reader, binary.LittleEndian, &outputWithMetadataCount); err != nil {
-		return fmt.Errorf("unable to read outputWithMetadata length: %w", err)
-	}
-
-	var index int64
-	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return fmt.Errorf("unable to read fullEpochIndex: %w", err)
-	}
-	fullEpochIndex := epoch.Index(index)
-
-	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return fmt.Errorf("unable to read diffEpochIndex: %w", err)
-	}
-	diffEpochIndex := epoch.Index(index)
+	header, err := ReadSnapshotHeader(reader)
 
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(scanDelimiter)
@@ -45,10 +31,11 @@ func StreamSnapshotDataFrom(
 	if err != nil {
 		return err
 	}
-	notarizationConsumer(fullEpochIndex, diffEpochIndex, ecRecord)
+	header.LatestECRecord = ecRecord
+	notarizationConsumer(header)
 
 	// read outputWithMetadata
-	for i := 0; uint64(i) < outputWithMetadataCount; {
+	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
 		outputs, err := ReadOutputWithMetadata(scanner)
 		if err != nil {
 			return err
@@ -62,9 +49,30 @@ func StreamSnapshotDataFrom(
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
-	epochDiffsConsumer(fullEpochIndex, diffEpochIndex, epochDiffs)
+	epochDiffsConsumer(header, epochDiffs)
 
 	return nil
+}
+
+func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
+	header := &ledger.SnapshotHeader{}
+
+	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
+		return nil, fmt.Errorf("unable to read outputWithMetadata length: %w", err)
+	}
+
+	var index int64
+	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
+		return nil, fmt.Errorf("unable to read fullEpochIndex: %w", err)
+	}
+	header.FullEpochIndex = epoch.Index(index)
+
+	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
+		return nil, fmt.Errorf("unable to read diffEpochIndex: %w", err)
+	}
+	header.DiffEpochIndex = epoch.Index(index)
+
+	return header, nil
 }
 
 // ReadOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.

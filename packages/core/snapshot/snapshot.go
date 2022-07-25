@@ -25,25 +25,31 @@ type Snapshot struct {
 }
 
 // CreateStreamableSnapshot creates a snapshot file to the given file path.
-func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) error {
+func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("fail to create snapshot file: %s", err)
+		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
 	outputWithMetadataProd := NewLedgerOutputWithMetadataProducer(t.Ledger)
 	committableEC, fullEpochIndex, err := t.Options.CommitmentFunc()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = StreamSnapshotDataTo(f, outputWithMetadataProd, fullEpochIndex, committableEC.EI(), committableEC, nmgr.SnapshotEpochDiffs)
+	header := &ledger.SnapshotHeader{
+		FullEpochIndex: fullEpochIndex,
+		DiffEpochIndex: committableEC.EI(),
+		LatestECRecord: committableEC,
+	}
+
+	err = StreamSnapshotDataTo(f, header, outputWithMetadataProd, nmgr.SnapshotEpochDiffs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	f.Close()
 
-	return err
+	return header, err
 }
 
 // LoadStreamableSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
@@ -82,13 +88,14 @@ func (s *Snapshot) WriteFile(fileName string) (err error) {
 // Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte, err error) {
 	marshaler := marshalutil.New()
+	header := s.LedgerSnapshot.Header
 
 	marshaler.
-		WriteUint64(s.LedgerSnapshot.OutputWithMetadataCount).
-		WriteInt64(int64(s.LedgerSnapshot.FullEpochIndex)).
-		WriteInt64(int64(s.LedgerSnapshot.DiffEpochIndex))
+		WriteUint64(header.OutputWithMetadataCount).
+		WriteInt64(int64(header.FullEpochIndex)).
+		WriteInt64(int64(header.DiffEpochIndex))
 
-	data, err := s.LedgerSnapshot.LatestECRecord.Bytes()
+	data, err := header.LatestECRecord.Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -114,27 +121,26 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 
 // FromBytes returns a Snapshot struct.
 func (s *Snapshot) FromBytes(data []byte) (err error) {
-	if s.LedgerSnapshot == nil {
-		s.LedgerSnapshot = new(ledger.Snapshot)
-	}
+	header := new(ledger.SnapshotHeader)
+	ledgerSnapshot := new(ledger.Snapshot)
 
 	reader := bytes.NewReader(data)
 
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
-		s.LedgerSnapshot.OutputsWithMetadata = append(s.LedgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
+		ledgerSnapshot.OutputsWithMetadata = append(ledgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
 	}
-	epochDiffsConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
-		s.LedgerSnapshot.EpochDiffs = epochDiffs
+	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+		ledgerSnapshot.EpochDiffs = epochDiffs
 	}
-	notarizationConsumer := func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord) {
-		s.LedgerSnapshot.FullEpochIndex = fullEpochIndex
-		s.LedgerSnapshot.DiffEpochIndex = diffEpochIndex
-		s.LedgerSnapshot.LatestECRecord = latestECRecord
+	notarizationConsumer := func(h *ledger.SnapshotHeader) {
+		header = h
 	}
 
 	err = StreamSnapshotDataFrom(reader, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
-	s.LedgerSnapshot.OutputWithMetadataCount = uint64(len(s.LedgerSnapshot.OutputsWithMetadata))
+	header.OutputWithMetadataCount = uint64(len(ledgerSnapshot.OutputsWithMetadata))
 
+	ledgerSnapshot.Header = header
+	s.LedgerSnapshot = ledgerSnapshot
 	return
 }
 
@@ -169,7 +175,7 @@ type OutputWithMetadataConsumerFunc func(outputWithMetadatas []*ledger.OutputWit
 type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
 
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
-type EpochDiffsConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff)
+type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
 // NotarizationConsumerFunc is the type of function that consumes ECRecord when loading a snapshot.
-type NotarizationConsumerFunc func(fullEpochIndex, diffEpochIndex epoch.Index, latestECRecord *epoch.ECRecord)
+type NotarizationConsumerFunc func(header *ledger.SnapshotHeader)

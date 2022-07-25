@@ -153,8 +153,8 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		epochDiffsConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
-			err := deps.Tangle.Ledger.LoadEpochDiffs(fullEpochIndex, diffEpochIndex, epochDiffs)
+		epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiffs(header, epochDiffs)
 			if err != nil {
 				panic(err)
 			}
@@ -165,7 +165,7 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		notarizationConsumer := func(epoch.Index, epoch.Index, *epoch.ECRecord) {}
+		notarizationConsumer := func(*ledger.SnapshotHeader) {}
 
 		err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
 		if err != nil {

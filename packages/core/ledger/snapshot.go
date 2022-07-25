@@ -8,30 +8,42 @@ import (
 
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
-	OutputWithMetadataCount uint64                     `serix:"0"`
-	FullEpochIndex          epoch.Index                `serix:"1"`
-	DiffEpochIndex          epoch.Index                `serix:"2"`
-	LatestECRecord          *epoch.ECRecord            `serix:"3"`
-	EpochDiffs              map[epoch.Index]*EpochDiff `serix:"4,lengthPrefixType=uint32"`
-	OutputsWithMetadata     []*OutputWithMetadata      `serix:"5,lengthPrefixType=uint32"`
+	Header              *SnapshotHeader            `serix:"0"`
+	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"1,lengthPrefixType=uint32"`
+	OutputsWithMetadata []*OutputWithMetadata      `serix:"2,lengthPrefixType=uint32"`
+}
+
+// SnapshotHeader represents the info of a snapshot.
+type SnapshotHeader struct {
+	OutputWithMetadataCount uint64          `serix:"0"`
+	FullEpochIndex          epoch.Index     `serix:"1"`
+	DiffEpochIndex          epoch.Index     `serix:"2"`
+	LatestECRecord          *epoch.ECRecord `serix:"3"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
 func NewSnapshot(outputsWithMetadata []*OutputWithMetadata) (new *Snapshot) {
 	return &Snapshot{
-		OutputWithMetadataCount: uint64(len(outputsWithMetadata)),
-		OutputsWithMetadata:     outputsWithMetadata,
+		Header:              &SnapshotHeader{OutputWithMetadataCount: uint64(len(outputsWithMetadata))},
+		OutputsWithMetadata: outputsWithMetadata,
 	}
 }
 
 // String returns a human-readable version of the Snapshot.
 func (s *Snapshot) String() (humanReadable string) {
+	structBuilder := stringify.StructBuilder("Snapshot")
+	structBuilder.AddField(stringify.StructField("SnapshotHeader", s.Header))
+	structBuilder.AddField(stringify.StructField("OutputsWithMetadata", s.OutputsWithMetadata))
+	structBuilder.AddField(stringify.StructField("EpochDiffs", s.EpochDiffs))
+	return structBuilder.String()
+}
+
+// String returns a human-readable version of the Snapshot.
+func (h *SnapshotHeader) String() (humanReadable string) {
 	return stringify.Struct("Snapshot",
-		stringify.StructField("OutputWithMetadataCount", s.OutputWithMetadataCount),
-		stringify.StructField("OutputsWithMetadata", s.OutputsWithMetadata),
-		stringify.StructField("FullEpochIndex", s.FullEpochIndex),
-		stringify.StructField("DiffEpochIndex", s.DiffEpochIndex),
-		stringify.StructField("EpochDiffs", s.EpochDiffs),
-		stringify.StructField("LatestECRecord", s.LatestECRecord),
+		stringify.StructField("OutputWithMetadataCount", h.OutputWithMetadataCount),
+		stringify.StructField("FullEpochIndex", h.FullEpochIndex),
+		stringify.StructField("DiffEpochIndex", h.DiffEpochIndex),
+		stringify.StructField("LatestECRecord", h.LatestECRecord),
 	)
 }

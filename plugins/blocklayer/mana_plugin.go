@@ -218,9 +218,9 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				epochDiffsConsumer := func(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+				epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-					for ei := fullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
+					for ei := header.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
 						diff, exists := epochDiffs[ei]
 						if !exists {
 							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
@@ -232,7 +232,7 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 
 					// Only the aMana will be loaded until the latest snapshot's epoch
-					for ei := cManaTargetEpoch + 1; ei <= diffEpochIndex; ei++ {
+					for ei := cManaTargetEpoch + 1; ei <= header.DiffEpochIndex; ei++ {
 						diff, exists := epochDiffs[ei]
 						if !exists {
 							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
@@ -242,8 +242,8 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 				}
 
-				notarizationConsumer := func(_, diffEpochIndex epoch.Index, _ *epoch.ECRecord) {
-					cManaTargetEpoch = diffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+				notarizationConsumer := func(header *ledger.SnapshotHeader) {
+					cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
 					if cManaTargetEpoch < 0 {
 						cManaTargetEpoch = 0
 					}

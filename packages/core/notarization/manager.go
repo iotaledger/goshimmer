@@ -130,11 +130,11 @@ func (m *Manager) LoadOutputWithMetadatas(outputsWithMetadatas []*ledger.OutputW
 }
 
 // LoadEpochDiffs initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadEpochDiffs(fullEpochIndex epoch.Index, diffEpochIndex epoch.Index, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	for ei := fullEpochIndex + 1; ei <= diffEpochIndex; ei++ {
+	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
 		epochDiff := epochDiffs[ei]
 		for _, spentOutputWithMetadata := range epochDiff.Spent() {
 			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
@@ -160,33 +160,33 @@ func (m *Manager) LoadEpochDiffs(fullEpochIndex epoch.Index, diffEpochIndex epoc
 }
 
 // LoadEpochDiffs initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadECandEIs(fullEpochIndex, diffEpochIndex epoch.Index, ec *epoch.ECRecord) {
+func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(diffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(header.DiffEpochIndex); err != nil {
 		panic("could not set last committed epoch index")
 	}
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(diffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(header.DiffEpochIndex); err != nil {
 		panic("could not set last confirmed epoch index")
 	}
 
 	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed block will arrive.
-	if err := m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(diffEpochIndex + 1); err != nil {
+	if err := m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(header.DiffEpochIndex + 1); err != nil {
 		panic("could not set current epoch index")
 	}
 
-	m.epochCommitmentFactory.storage.ecRecordStorage.Store(ec).Release()
+	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
 }
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(s *ledger.Snapshot) {
 	m.LoadOutputWithMetadatas(s.OutputsWithMetadata)
-	m.LoadEpochDiffs(s.FullEpochIndex, s.DiffEpochIndex, s.EpochDiffs)
-	m.LoadECandEIs(s.FullEpochIndex, s.DiffEpochIndex, s.LatestECRecord)
+	m.LoadEpochDiffs(s.Header, s.EpochDiffs)
+	m.LoadECandEIs(s.Header)
 }
 
 func (m *Manager) SnapshotEpochDiffs() (map[epoch.Index]*ledger.EpochDiff, error) {
