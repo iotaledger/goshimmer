@@ -22,6 +22,12 @@ type Tangle struct {
 	isSolidEntryPoint func(BlockID) bool
 	maxDroppedEpoch   epoch.Index
 	pruningMutex      sync.RWMutex
+
+	childDependencies          map[BlockID][]*BlockMetadata
+	unsolidDependenciesCounter map[BlockID]uint8
+
+	unsolidDependenciesCounterMutex sync.Mutex
+	childDependenciesMutex          sync.Mutex
 }
 
 func NewTangle(opts ...options.Option[Tangle]) *Tangle {
@@ -31,6 +37,9 @@ func NewTangle(opts ...options.Option[Tangle]) *Tangle {
 		isSolidEntryPoint: func(id BlockID) bool {
 			return id == EmptyBlockID
 		},
+
+		childDependencies:          make(map[BlockID][]*BlockMetadata),
+		unsolidDependenciesCounter: make(map[BlockID]uint8),
 	}
 
 	options.Apply(t, opts)
@@ -68,18 +77,9 @@ func (t *Tangle) AttachBlock(block *Block) {
 		return
 	}
 
-	becameSolid, becameInvalid := t.becameSolidOrInvalid(blockMetadata)
-	if becameInvalid {
-		t.Events.BlockInvalid.Trigger(blockMetadata)
+	t.Events.BlockStored.Trigger(blockMetadata)
 
-		t.propagateInvalidityToChildren(blockMetadata)
-	}
-
-	if becameSolid {
-		t.Events.BlockSolid.Trigger(blockMetadata)
-
-		t.propagateSolidityToChildren(blockMetadata)
-	}
+	t.solidify(blockMetadata)
 }
 
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {

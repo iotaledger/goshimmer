@@ -706,17 +706,16 @@ func (p ParentBlockIDs) Clone() ParentBlockIDs {
 // region BlockMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type BlockMetadata struct {
-	id                    BlockID
-	missing               bool
-	strongParents         BlockIDs
-	weakParents           BlockIDs
-	likedInsteadParents   BlockIDs
-	strongChildren        []*BlockMetadata
-	weakChildren          []*BlockMetadata
-	likedInsteadChildren  []*BlockMetadata
-	unsolidParentsCounter uint8
-	solid                 bool
-	invalid               bool
+	id                   BlockID
+	missing              bool
+	strongParents        BlockIDs
+	weakParents          BlockIDs
+	likedInsteadParents  BlockIDs
+	strongChildren       []*BlockMetadata
+	weakChildren         []*BlockMetadata
+	likedInsteadChildren []*BlockMetadata
+	solid                bool
+	invalid              bool
 
 	*syncutils.StarvingMutex
 }
@@ -737,7 +736,7 @@ func fullMetadataFromBlock(block *Block) func() *BlockMetadata {
 }
 
 func (b *BlockMetadata) Initialized() bool {
-	return b.solid || b.unsolidParentsCounter != 0 || b.invalid
+	return b.solid || b.invalid
 }
 
 func (b *BlockMetadata) setInvalid() (updated bool) {
