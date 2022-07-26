@@ -126,12 +126,6 @@ func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Ind
 	return nil
 }
 
-// LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
-func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
-	l.LoadOutputWithMetadatas(snapshot.OutputsWithMetadata)
-	l.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
-}
-
 // TakeSnapshot returns a snapshot of the Ledger state.
 func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 	snapshot = NewSnapshot([]*OutputWithMetadata{})

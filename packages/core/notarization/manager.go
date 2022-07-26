@@ -182,13 +182,6 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
 }
 
-// LoadSnapshot initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadSnapshot(s *ledger.Snapshot) {
-	m.LoadOutputWithMetadatas(s.OutputsWithMetadata)
-	m.LoadEpochDiffs(s.Header, s.EpochDiffs)
-	m.LoadECandEIs(s.Header)
-}
-
 func (m *Manager) SnapshotEpochDiffs() (map[epoch.Index]*ledger.EpochDiff, error) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()

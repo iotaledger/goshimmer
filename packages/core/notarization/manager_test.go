@@ -1095,7 +1095,9 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	header.LatestECRecord = ecRecord
 	snapshot.Header = header
 
-	m.LoadSnapshot(snapshot)
+	m.LoadOutputWithMetadatas(snapshot.OutputsWithMetadata)
+	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
+	m.LoadECandEIs(snapshot.Header)
 }
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {
