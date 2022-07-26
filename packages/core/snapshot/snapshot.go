@@ -82,5 +82,5 @@ type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[e
 // HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
 type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)
 
-// HeaderConsumerFunc is the type of function that consumes ECRecord when loading a snapshot.
+// HeaderConsumerFunc is the type of function that consumes snapshot header when loading a snapshot.
 type HeaderConsumerFunc func(header *ledger.SnapshotHeader)
