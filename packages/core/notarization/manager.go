@@ -112,6 +112,7 @@ func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(
 	})
 }
 
+// LoadOutputWithMetadatas initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadOutputWithMetadatas(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -129,7 +130,7 @@ func (m *Manager) LoadOutputWithMetadatas(outputsWithMetadatas []*ledger.OutputW
 	}
 }
 
-// LoadEpochDiffs initiates the state and mana trees from a given snapshot.
+// LoadEpochDiffs updates the state tree from a given snapshot.
 func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -182,20 +183,17 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
 }
 
+// SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
 func (m *Manager) SnapshotEpochDiffs() (map[epoch.Index]*ledger.EpochDiff, error) {
-	m.epochCommitmentFactoryMutex.Lock()
-	defer m.epochCommitmentFactoryMutex.Unlock()
-
 	start, err := m.LatestConfirmedEpochIndex()
 	if err != nil {
 		return nil, err
 	}
 
-	ec, err := m.GetLatestEC()
-	if err != nil {
-		return nil, err
-	}
-	end := ec.EI()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	end, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 
 	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
 	for ei := start + 1; ei <= end; ei++ {
