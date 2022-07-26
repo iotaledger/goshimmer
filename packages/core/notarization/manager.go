@@ -194,6 +194,9 @@ func (m *Manager) SnapshotEpochDiffs() (map[epoch.Index]*ledger.EpochDiff, error
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	end, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	if err != nil {
+		return nil, err
+	}
 
 	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
 	for ei := start + 1; ei <= end; ei++ {
