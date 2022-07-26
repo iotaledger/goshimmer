@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/hive.go/serix"
 )
@@ -100,12 +101,15 @@ func StreamSnapshotDataTo(
 }
 
 // NewLedgerOutputWithMetadataProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputWithMetadataProducerFunc {
+func NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch epoch.Index, l *ledger.Ledger) OutputWithMetadataProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
 
 	go func() {
 		l.ForEachAcceptedUnSpentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
-			prodChan <- o
+			index := epoch.IndexFromTime(o.CreationTime())
+			if index <= lastConfirmedEpoch {
+				prodChan <- o
+			}
 		})
 
 		close(prodChan)

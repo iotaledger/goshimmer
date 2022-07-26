@@ -31,7 +31,11 @@ func CreateSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Man
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	outputWithMetadataProd := NewLedgerOutputWithMetadataProducer(t.Ledger)
+	lastConfirmedEpoch, err := nmgr.LatestConfirmedEpochIndex()
+	if err != nil {
+		return nil, err
+	}
+	outputWithMetadataProd := NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch, t.Ledger)
 	committableEC, fullEpochIndex, err := t.Options.CommitmentFunc()
 	if err != nil {
 		return nil, err
