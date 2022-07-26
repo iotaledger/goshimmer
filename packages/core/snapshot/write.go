@@ -20,8 +20,8 @@ func StreamSnapshotDataTo(
 	outputProd OutputWithMetadataProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc) error {
 
-	writeFunc := func(name string, value any, offsetsToIncrease ...*int64) error {
-		return writeFunc(writeSeeker, name, value, offsetsToIncrease...)
+	writeFunc := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
 	}
 
 	writeOutputWithMetadatasFunc := func(chunks []*ledger.OutputWithMetadata) error {
@@ -126,8 +126,8 @@ func NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch epoch.Index, l *ledg
 }
 
 func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHeader) error {
-	writeFunc := func(name string, value any, offsetsToIncrease ...*int64) error {
-		return writeFunc(writeSeeker, name, value, offsetsToIncrease...)
+	writeFunc := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
 	}
 
 	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", header.OutputWithMetadataCount), header.OutputWithMetadataCount); err != nil {
@@ -154,13 +154,7 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 	return nil
 }
 
-func increaseOffsets(amount int64, offsets ...*int64) {
-	for _, offset := range offsets {
-		*offset += amount
-	}
-}
-
-func writeFunc(writeSeeker io.WriteSeeker, variableName string, value any, offsetsToIncrease ...*int64) error {
+func writeFunc(writeSeeker io.WriteSeeker, variableName string, value any) error {
 	length := binary.Size(value)
 	if length == -1 {
 		return fmt.Errorf("unable to determine length of %s", variableName)
@@ -169,8 +163,6 @@ func writeFunc(writeSeeker io.WriteSeeker, variableName string, value any, offse
 	if err := binary.Write(writeSeeker, binary.LittleEndian, value); err != nil {
 		return fmt.Errorf("unable to write LS %s: %w", variableName, err)
 	}
-
-	increaseOffsets(int64(length), offsetsToIncrease...)
 
 	return nil
 }
