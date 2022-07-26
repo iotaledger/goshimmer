@@ -25,7 +25,7 @@ type CausalOrderer[IDType comparable, EntityType CausallyOrderedEntity[IDType]] 
 	ElementInvalid *event.Event[EntityType]
 
 	entityProvider               EntityProvider[IDType, EntityType]
-	orderedFlagGetter            func(EntityType) bool
+	isOrdered                    func(EntityType) bool
 	setOrdered                   func(EntityType, bool) bool
 	unorderedParentsCounter      map[IDType]uint8
 	unorderedParentsCounterMutex sync.Mutex
@@ -40,66 +40,71 @@ func NewCausalOrderer[IDType comparable, EntityType CausallyOrderedEntity[IDType
 ) *CausalOrderer[IDType, EntityType] {
 	return &CausalOrderer[IDType, EntityType]{
 		entityProvider:          entityProvider,
-		orderedFlagGetter:       orderedFlagGetter,
+		isOrdered:               orderedFlagGetter,
 		setOrdered:              orderedFlagSetter,
 		unorderedParentsCounter: make(map[IDType]uint8),
 		unorderedChildren:       make(map[IDType][]EntityType),
 	}
 }
 
-func (t *CausalOrderer[IDType, EntityType]) Solidify(entity EntityType) {
-	becameSolid, becameInvalid := t.becameSolidOrInvalid(entity)
-	if becameInvalid {
-		t.propagateInvalidityToChildren(entity)
+func (c *CausalOrderer[IDType, EntityType]) Queue(entity EntityType) (ordered bool) {
+	if ordered = c.wasOrdered(entity); ordered {
+		c.propagateCausalOrder(entity)
 	}
 
-	if becameSolid {
-		t.propagateSolidity(entity)
-	}
+	return ordered
 }
 
-func (t *CausalOrderer[IDType, EntityType]) becameSolidOrInvalid(entity EntityType) (becameSolid, becameInvalid bool) {
-	t.lockEntity(entity)
-	defer t.unlockEntity(entity)
+func (c *CausalOrderer[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrdered bool) {
+	c.lockEntity(entity)
+	defer c.unlockEntity(entity)
 
-	t.unorderedParentsCounterMutex.Lock()
-	t.unorderedParentsCounter[entity.ID()], entity.invalid = t.checkParents(entity)
-	if !entity.invalid && t.unorderedParentsCounter[entity.ID()] == 0 {
-		t.setOrdered(entity, true)
+	isInvalid := false
+
+	c.unorderedParentsCounterMutex.Lock()
+	c.unorderedParentsCounter[entity.ID()], isInvalid = c.checkParents(entity)
+	if !isInvalid && c.unorderedParentsCounter[entity.ID()] == 0 {
+		c.setOrdered(entity, true)
 	}
-	t.unorderedParentsCounterMutex.Unlock()
+	c.unorderedParentsCounterMutex.Unlock()
 
-	if entity.invalid {
-		t.ElementInvalid.Trigger(entity)
-	}
-
-	if entity.solid {
-		t.Events.BlockSolid.Trigger(entity)
+	if isInvalid {
+		c.ElementInvalid.Trigger(entity)
 	}
 
-	// only one of the returned values can be true
-	return entity.solid, entity.invalid
+	if wasOrdered = c.isOrdered(entity); wasOrdered {
+		c.ElementOrdered.Trigger(entity)
+	}
+
+	return
 }
 
-func (t *CausalOrderer[IDType, EntityType]) checkParents(metadata EntityType) (unsolidParents uint8, anyParentInvalid bool) {
-	for parentID := range metadata.ParentIDs() {
-		parentMetadata := t.entity(parentID)
+func (c *CausalOrderer[IDType, EntityType]) checkParents(metadata EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
+	for _, parentID := range metadata.ParentIDs() {
+		parentMetadata := c.entity(parentID)
 		if parentMetadata.invalid {
-			return unsolidParents, true
+			return unorderedParentsCount, true
 		}
-		if parentMetadata.missing || !parentMetadata.solid {
-			t.childDependenciesMutex.Lock()
-			t.childDependencies[parentID] = append(t.childDependencies[parentID], metadata)
-			t.childDependenciesMutex.Unlock()
 
-			unsolidParents++
+		if parentMetadata.missing || !c.isOrdered(parentMetadata) {
+			unorderedParentsCount++
+
+			c.registerUnorderedChild(parentID, metadata)
 		}
 	}
 
-	return unsolidParents, false
+	return unorderedParentsCount, false
 }
 
-func (c *CausalOrderer[IDType, EntityType]) pendingChildren(entityID IDType) (pendingChildren []EntityType) {
+func (c *CausalOrderer[IDType, EntityType]) registerUnorderedChild(entityID IDType, child EntityType) {
+	c.unorderedChildrenMutex.Lock()
+	defer c.unorderedChildrenMutex.Unlock()
+
+	c.unorderedChildren[entityID] = append(c.unorderedChildren[entityID], child)
+
+}
+
+func (c *CausalOrderer[IDType, EntityType]) popUnorderedChildren(entityID IDType) (pendingChildren []EntityType) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
@@ -109,66 +114,61 @@ func (c *CausalOrderer[IDType, EntityType]) pendingChildren(entityID IDType) (pe
 	return pendingChildren
 }
 
-func (t *CausalOrderer[IDType, EntityType]) propagateSolidity(metadata EntityType) {
+func (c *CausalOrderer[IDType, EntityType]) propagateCausalOrder(metadata EntityType) {
 	for childWalker := walker.New[IDType](true).Push(metadata.ID()); childWalker.HasNext(); {
-		for _, child := range t.pendingChildren(childWalker.Next()) {
-			if t.decreaseUnsolidParentsCounter(child) {
+		for _, child := range c.popUnorderedChildren(childWalker.Next()) {
+			if c.triggerChildIfReady(child) {
 				childWalker.Push(child.ID())
 			}
 		}
 	}
 }
 
-func (t *CausalOrderer[IDType, EntityType]) propagateInvalidityToChildren(entity EntityType) {
-	for propagationWalker := walker.New[EntityType](true).Push(entity); propagationWalker.HasNext(); {
-		for _, childMetadata := range propagationWalker.Next().Children() {
-			if childMetadata.setInvalid() {
-				t.Events.BlockInvalid.Trigger(childMetadata)
-
-				propagationWalker.Push(childMetadata)
-			}
-		}
-	}
-}
-
-func (t *CausalOrderer[IDType, EntityType]) decreaseUnsolidParentsCounter(metadata EntityType) bool {
+func (c *CausalOrderer[IDType, EntityType]) triggerChildIfReady(metadata EntityType) (eventTriggered bool) {
 	metadata.Lock()
 	defer metadata.Unlock()
 
-	t.unsolidDependenciesCounterMutex.Lock()
-	t.unsolidDependenciesCounter[metadata.id]--
-	metadata.solid = t.unsolidDependenciesCounter[metadata.id] == 0
-	t.unsolidDependenciesCounterMutex.Unlock()
-
-	if !metadata.solid {
+	if !c.isReady(metadata) {
 		return false
 	}
 
-	t.Events.BlockSolid.Trigger(metadata)
+	c.setOrdered(metadata, true)
+
+	c.ElementOrdered.Trigger(metadata)
 
 	return true
 }
 
-func (s *CausalOrderer[IDType, EntityType]) lockEntity(entity EntityType) {
-	for parentID := range entity.ParentIDs() {
-		s.entityProvider(parentID).RLock()
+func (c *CausalOrderer[IDType, EntityType]) isReady(metadata EntityType) bool {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	c.unorderedParentsCounter[metadata.ID()]--
+
+	return c.unorderedParentsCounter[metadata.ID()] == 0
+}
+
+func (c *CausalOrderer[IDType, EntityType]) lockEntity(entity EntityType) {
+	for _, parentID := range entity.ParentIDs() {
+		c.entity(parentID).RLock()
 	}
 
 	entity.Lock()
 }
 
-func (s *CausalOrderer[IDType, EntityType]) unlockEntity(metadata EntityType) {
-	for parentID := range metadata.ParentIDs() {
-		s.entityProvider(parentID).RUnlock()
+func (c *CausalOrderer[IDType, EntityType]) unlockEntity(metadata EntityType) {
+	for _, parentID := range metadata.ParentIDs() {
+		c.entity(parentID).RUnlock()
 	}
 
 	metadata.Unlock()
 }
 
-func (s *CausalOrderer[IDType, EntityType]) entity(blockID IDType) (entity EntityType) {
-	if entity, exists := s.entityProvider(blockID); exists {
-		return entity
+func (c *CausalOrderer[IDType, EntityType]) entity(blockID IDType) (entity EntityType) {
+	entity, exists := c.entityProvider(blockID)
+	if !exists {
+		panic(errors.Errorf("block %s does not exist", blockID))
 	}
 
-	panic(errors.Errorf("block %s does not exist", blockID))
+	return entity
 }

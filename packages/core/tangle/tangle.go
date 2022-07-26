@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/options"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -42,14 +43,9 @@ func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 }
 
 func (t *Tangle) Setup() {
-	t.solidifier.ElementOrdered.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
-		if blockMetadata.invalid {
-			t.Events.BlockInvalid.Trigger(blockMetadata)
-		}
-
-		if blockMetadata.solid {
-			t.Events.BlockSolid.Trigger(blockMetadata)
-		}
+	t.solidifier.ElementOrdered.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
+	t.solidifier.ElementInvalid.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
+		t.SetInvalid(blockMetadata)
 	}))
 }
 
@@ -74,7 +70,7 @@ func (t *Tangle) AttachBlock(block *Block) {
 
 	t.Events.BlockStored.Trigger(blockMetadata)
 
-	t.solidifier.Solidify(blockMetadata)
+	t.solidifier.Queue(blockMetadata)
 }
 
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
@@ -103,6 +99,18 @@ func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 	}
 
 	return
+}
+
+func (t *Tangle) propagateInvalidityToChildren(entity *BlockMetadata) {
+	for propagationWalker := walker.New[*BlockMetadata](true).Push(entity); propagationWalker.HasNext(); {
+		for _, childMetadata := range propagationWalker.Next().Children() {
+			if childMetadata.setInvalid() {
+				t.Events.BlockInvalid.Trigger(childMetadata)
+
+				propagationWalker.Push(childMetadata)
+			}
+		}
+	}
 }
 
 func (t *Tangle) IsGenesisBlock(blockID BlockID) (isGenesisBlock bool) {
