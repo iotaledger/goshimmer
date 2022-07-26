@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -633,13 +633,6 @@ func (o *OutputWithMetadata) FromBytes(data []byte) error {
 	o.M.Output.SetID(o.ID())
 
 	return err
-}
-
-// Bytes marshals an OutputWithMetadata to a sequence of bytes.
-func (o *OutputWithMetadata) Bytes() (bytes []byte, err error) {
-	bytes, err = o.Storable.Bytes()
-
-	return
 }
 
 // Output returns the Output field.
