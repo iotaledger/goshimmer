@@ -160,7 +160,7 @@ func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[e
 	return
 }
 
-// LoadEpochDiffs initiates the state and mana trees from a given snapshot.
+// LoadECandEIs initiates the ECRecord, latest committable EI, last confirmed EI and acceptance EI from a given snapshot.
 func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
