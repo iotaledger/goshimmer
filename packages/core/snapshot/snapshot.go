@@ -24,8 +24,8 @@ type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
 }
 
-// CreateStreamableSnapshot creates a snapshot file to the given file path.
-func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) (*ledger.SnapshotHeader, error) {
+// CreateSnapshot creates a snapshot file to the given file path.
+func CreateSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Manager) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
@@ -52,10 +52,10 @@ func CreateStreamableSnapshot(filePath string, t *tangleold.Tangle, nmgr *notari
 	return header, err
 }
 
-// LoadStreamableSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
+// LoadSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
 // will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
 // consumer functions. To construct a snapshot struct from a file, use FromBytes([]byte).
-func LoadStreamableSnapshot(filePath string,
+func LoadSnapshot(filePath string,
 	outputWithMetadataConsumer OutputWithMetadataConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	notarizationConsumer NotarizationConsumerFunc) (err error) {

@@ -250,7 +250,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				if err := snapshot.LoadStreamableSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer); err != nil {
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
