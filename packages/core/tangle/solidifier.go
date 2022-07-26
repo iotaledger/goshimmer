@@ -39,6 +39,9 @@ func NewCausalOrderer[IDType comparable, EntityType CausallyOrderedEntity[IDType
 	orderedFlagSetter func(EntityType, bool) bool,
 ) *CausalOrderer[IDType, EntityType] {
 	return &CausalOrderer[IDType, EntityType]{
+		ElementOrdered: event.New[EntityType](),
+		ElementInvalid: event.New[EntityType](),
+
 		entityProvider:          entityProvider,
 		isOrdered:               orderedFlagGetter,
 		setOrdered:              orderedFlagSetter,
@@ -82,11 +85,11 @@ func (c *CausalOrderer[IDType, EntityType]) wasOrdered(entity EntityType) (wasOr
 func (c *CausalOrderer[IDType, EntityType]) checkParents(metadata EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
 	for _, parentID := range metadata.ParentIDs() {
 		parentMetadata := c.entity(parentID)
-		if parentMetadata.invalid {
-			return unorderedParentsCount, true
-		}
+		// if parentMetadata.invalid {
+		//	return unorderedParentsCount, true
+		//}
 
-		if parentMetadata.missing || !c.isOrdered(parentMetadata) {
+		if !c.isOrdered(parentMetadata) {
 			unorderedParentsCount++
 
 			c.registerUnorderedChild(parentID, metadata)
@@ -128,24 +131,22 @@ func (c *CausalOrderer[IDType, EntityType]) triggerChildIfReady(metadata EntityT
 	metadata.Lock()
 	defer metadata.Unlock()
 
-	if !c.isReady(metadata) {
+	if c.decreaseUnorderedParentsCounter(metadata) != 0 || !c.setOrdered(metadata, true) {
 		return false
 	}
-
-	c.setOrdered(metadata, true)
 
 	c.ElementOrdered.Trigger(metadata)
 
 	return true
 }
 
-func (c *CausalOrderer[IDType, EntityType]) isReady(metadata EntityType) bool {
+func (c *CausalOrderer[IDType, EntityType]) decreaseUnorderedParentsCounter(metadata EntityType) (unorderedParentsCounter uint8) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
 	c.unorderedParentsCounter[metadata.ID()]--
 
-	return c.unorderedParentsCounter[metadata.ID()] == 0
+	return c.unorderedParentsCounter[metadata.ID()]
 }
 
 func (c *CausalOrderer[IDType, EntityType]) lockEntity(entity EntityType) {

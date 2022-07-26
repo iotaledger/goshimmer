@@ -721,8 +721,7 @@ type BlockMetadata struct {
 }
 
 func (b *BlockMetadata) ID() BlockID {
-	// TODO implement me
-	panic("implement me")
+	return b.id
 }
 
 func fullMetadataFromBlock(block *Block) func() *BlockMetadata {

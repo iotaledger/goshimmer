@@ -39,14 +39,12 @@ func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	newTangle.dbManager = database.NewManager(newTangle.dbManagerPath)
 	newTangle.solidifier = NewCausalOrderer(newTangle.BlockMetadata, (*BlockMetadata).isSolid, (*BlockMetadata).setSolid)
 
-	return newTangle
-}
-
-func (t *Tangle) Setup() {
-	t.solidifier.ElementOrdered.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
-	t.solidifier.ElementInvalid.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
-		t.SetInvalid(blockMetadata)
+	newTangle.solidifier.ElementOrdered.Hook(event.NewClosure(newTangle.Events.BlockSolid.Trigger))
+	newTangle.solidifier.ElementInvalid.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
+		newTangle.SetInvalid(blockMetadata)
 	}))
+
+	return newTangle
 }
 
 func (t *Tangle) AttachBlock(block *Block) {
