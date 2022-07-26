@@ -14,14 +14,14 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 )
 
-// StreamSnapshotDataFrom consumes a snapshot from the given reader.
-func StreamSnapshotDataFrom(
+// streamSnapshotDataFrom consumes a snapshot from the given reader.
+func streamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	headerConsumer HeaderConsumerFunc,
 	outputConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc) error {
 
-	header, err := ReadSnapshotHeader(reader)
+	header, err := readSnapshotHeader(reader)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func StreamSnapshotDataFrom(
 	scanner.Split(scanDelimiter)
 
 	// read latest ECRecord
-	ecRecord, err := ReadECRecord(scanner)
+	ecRecord, err := readECRecord(scanner)
 	if err != nil {
 		return err
 	}
@@ -39,7 +39,7 @@ func StreamSnapshotDataFrom(
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, err := ReadOutputWithMetadata(scanner)
+		outputs, err := readOutputWithMetadata(scanner)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func StreamSnapshotDataFrom(
 		outputConsumer(outputs)
 	}
 
-	epochDiffs, err := ReadEpochDiffs(scanner)
+	epochDiffs, err := readEpochDiffs(scanner)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
@@ -57,7 +57,7 @@ func StreamSnapshotDataFrom(
 	return nil
 }
 
-func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
+func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
@@ -78,8 +78,8 @@ func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	return header, nil
 }
 
-// ReadOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
-func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
+// readOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
+func readOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
 	scanner.Scan()
 	data := scanner.Bytes()
 
@@ -100,8 +100,8 @@ func ReadOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.O
 	return
 }
 
-// ReadEpochDiffs consumes a map of EpochDiff from the given reader.
-func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
+// readEpochDiffs consumes a map of EpochDiff from the given reader.
+func readEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 
 	scanner.Scan()
@@ -128,8 +128,8 @@ func ReadEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.
 	return
 }
 
-// ReadECRecord consumes the latest ECRecord from the given reader.
-func ReadECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) {
+// readECRecord consumes the latest ECRecord from the given reader.
+func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) {
 	scanner.Scan()
 
 	ecRecord = &epoch.ECRecord{}

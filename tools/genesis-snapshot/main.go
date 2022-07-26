@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/iotaledger/hive.go/identity"
 
@@ -137,11 +136,6 @@ func init() {
 }
 
 func readSnapshotFromFile(filePath string) (err error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("fail to create snapshot file: %s", err)
-	}
-
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
@@ -152,7 +146,7 @@ func readSnapshotFromFile(filePath string) (err error) {
 		fmt.Println(h)
 	}
 
-	err = snapshot.StreamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = snapshot.LoadSnapshot(filePath, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
 }

@@ -25,7 +25,7 @@ func CreateSnapshot(filePath string,
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	header, err := StreamSnapshotDataTo(f, headerProd, utxoStatesProd, epochDiffsProd)
+	header, err := streamSnapshotDataTo(f, headerProd, utxoStatesProd, epochDiffsProd)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func LoadSnapshot(filePath string,
 		return fmt.Errorf("fail to open the snapshot file")
 	}
 
-	err = StreamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = streamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
 }

@@ -15,8 +15,8 @@ const utxoStatesChunkSize = 100
 
 var delimiter = []byte{';', ';'}
 
-// StreamSnapshotDataTo writes snapshot to a given writer.
-func StreamSnapshotDataTo(
+// streamSnapshotDataTo writes snapshot to a given writer.
+func streamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
 	headerProd HeaderProducerFunc,
 	outputProd UTXOStatesProducerFunc,
