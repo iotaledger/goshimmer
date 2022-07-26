@@ -18,22 +18,23 @@ import (
 )
 
 type Tangle struct {
-	Events            *Events
-	memStorage        *memstorage.EpochStorage[BlockID, *BlockMetadata]
-	dbManager         *database.Manager
-	dbManagerPath     string
-	isSolidEntryPoint func(BlockID) bool
-	maxDroppedEpoch   epoch.Index
-	pruningMutex      sync.RWMutex
-	solidifier        *causalorder.CausalOrder[BlockID, *BlockMetadata]
+	Events          *Events
+	memStorage      *memstorage.EpochStorage[BlockID, *BlockMetadata]
+	dbManager       *database.Manager
+	maxDroppedEpoch epoch.Index
+	pruningMutex    sync.RWMutex
+	solidifier      *causalorder.CausalOrder[BlockID, *BlockMetadata]
+
+	optsDbManagerPath     string
+	optsIsSolidEntryPoint func(BlockID) bool
 }
 
 func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
-		Events:        newEvents(),
-		memStorage:    memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
-		dbManagerPath: "/tmp/",
-		isSolidEntryPoint: func(id BlockID) bool {
+		Events:            newEvents(),
+		memStorage:        memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+		optsDbManagerPath: "/tmp/",
+		optsIsSolidEntryPoint: func(id BlockID) bool {
 			return id == EmptyBlockID
 		},
 	}, opts).
@@ -91,7 +92,7 @@ func (t *Tangle) Shutdown() {
 }
 
 func (t *Tangle) initDBManager() (self *Tangle) {
-	t.dbManager = database.NewManager(t.dbManagerPath)
+	t.dbManager = database.NewManager(t.optsDbManagerPath)
 
 	return t
 }

@@ -336,7 +336,7 @@ func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkB
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle() *Tangle {
 	t := NewTangle(func(t *Tangle) {
-		t.dbManagerPath = "/tmp/"
+		t.optsDbManagerPath = "/tmp/"
 	})
 
 	t.Events.Error.Hook(event.NewClosure(func(e error) {

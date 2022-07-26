@@ -13,7 +13,7 @@ import (
 
 func TestTangleAttach(t *testing.T) {
 	tangle := NewTangle(func(t *Tangle) {
-		t.dbManagerPath = "/tmp/"
+		t.optsDbManagerPath = "/tmp/"
 	})
 
 	testFramework := NewBlockTestFramework(tangle)
@@ -71,8 +71,8 @@ func TestTangle_AttachBlock(t *testing.T) {
 
 func TestTangle_MissingBlocks(t *testing.T) {
 	const (
-		blockCount  = 1000
-		tangleWidth = 50
+		blockCount  = 10000
+		tangleWidth = 500
 		storeDelay  = 5 * time.Millisecond
 	)
 
