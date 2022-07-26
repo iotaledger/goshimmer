@@ -75,7 +75,7 @@ func LoadSnapshot(filePath string,
 	return
 }
 
-// Write a snapshot struct in to a file with the given file name.
+// WriteFile a snapshot struct in to a file with a given file name.
 func (s *Snapshot) WriteFile(fileName string) (err error) {
 	data, err := s.Bytes()
 	if err != nil {
