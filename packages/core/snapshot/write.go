@@ -116,10 +116,9 @@ func NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch epoch.Index, l *ledg
 		close(prodChan)
 	}()
 
-	binder := producerFromChannels(prodChan)
 	return func() *ledger.OutputWithMetadata {
-		obj := binder()
-		if obj == nil {
+		obj, ok := <-prodChan
+		if !ok {
 			return nil
 		}
 		return obj
@@ -153,16 +152,6 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 	}
 
 	return nil
-}
-
-func producerFromChannels(prodChan <-chan *ledger.OutputWithMetadata) func() *ledger.OutputWithMetadata {
-	return func() *ledger.OutputWithMetadata {
-		obj, ok := <-prodChan
-		if !ok {
-			return nil
-		}
-		return obj
-	}
 }
 
 func increaseOffsets(amount int64, offsets ...*int64) {
