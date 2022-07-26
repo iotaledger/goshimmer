@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/options"
 	"github.com/iotaledger/hive.go/syncutils"
@@ -22,39 +23,34 @@ type Tangle struct {
 	isSolidEntryPoint func(BlockID) bool
 	maxDroppedEpoch   epoch.Index
 	pruningMutex      sync.RWMutex
-
-	childDependencies          map[BlockID][]*BlockMetadata
-	unsolidDependenciesCounter map[BlockID]uint8
-
-	unsolidDependenciesCounterMutex sync.Mutex
-	childDependenciesMutex          sync.Mutex
+	solidifier        *CausalOrderer[BlockID, *BlockMetadata]
 }
 
-func NewTangle(opts ...options.Option[Tangle]) *Tangle {
-	t := &Tangle{
-		Events:     newEvents(),
-		memStorage: memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
+	newTangle = options.Apply(&Tangle{
+		Events:        newEvents(),
+		memStorage:    memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+		dbManagerPath: "/tmp/",
 		isSolidEntryPoint: func(id BlockID) bool {
 			return id == EmptyBlockID
 		},
+	}, opts)
+	newTangle.dbManager = database.NewManager(newTangle.dbManagerPath)
+	newTangle.solidifier = NewCausalOrderer(newTangle.BlockMetadata, (*BlockMetadata).isSolid, (*BlockMetadata).setSolid)
 
-		childDependencies:          make(map[BlockID][]*BlockMetadata),
-		unsolidDependenciesCounter: make(map[BlockID]uint8),
-	}
+	return newTangle
+}
 
-	options.Apply(t, opts)
+func (t *Tangle) Setup() {
+	t.solidifier.ElementOrdered.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
+		if blockMetadata.invalid {
+			t.Events.BlockInvalid.Trigger(blockMetadata)
+		}
 
-	if t.isSolidEntryPoint == nil {
-		panic("isSolidEntryPoint is not set")
-	}
-
-	if t.dbManagerPath == "" {
-		panic("dbManagerPath is not set")
-	}
-
-	t.dbManager = database.NewManager(t.dbManagerPath)
-
-	return t
+		if blockMetadata.solid {
+			t.Events.BlockSolid.Trigger(blockMetadata)
+		}
+	}))
 }
 
 func (t *Tangle) AttachBlock(block *Block) {
@@ -67,7 +63,6 @@ func (t *Tangle) AttachBlock(block *Block) {
 	}
 
 	blockMetadata, isNew := t.publishNewBlock(block)
-
 	if !isNew {
 		return
 	}
@@ -79,7 +74,7 @@ func (t *Tangle) AttachBlock(block *Block) {
 
 	t.Events.BlockStored.Trigger(blockMetadata)
 
-	t.solidify(blockMetadata)
+	t.solidifier.Solidify(blockMetadata)
 }
 
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {

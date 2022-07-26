@@ -2,32 +2,60 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-func (t *Tangle) existingBlockMetadata(blockID BlockID) *BlockMetadata {
-	parentMetadata, exists := t.blockMetadata(blockID)
-	if !exists {
-		panic(errors.Errorf("block %s does not exist", blockID))
-	}
-	return parentMetadata
+type RWLock interface {
+	RLock()
+	RUnlock()
+	Lock()
+	Unlock()
 }
 
-func (t *Tangle) rLockParents(metadata *BlockMetadata) {
+type Solidifier struct {
+	tangle *Tangle
+
+	lockProvider func(blockID BlockID) RWLock
+
+	childDependencies          map[BlockID][]*BlockMetadata
+	unsolidDependenciesCounter map[BlockID]uint8
+
+	unsolidDependenciesCounterMutex sync.Mutex
+	childDependenciesMutex          sync.Mutex
+}
+
+func NewSolidifier() {
+
+}
+
+func (s *Solidifier) lockEntity(metadata *BlockMetadata) {
 	for parentID := range metadata.ParentIDs() {
-		t.existingBlockMetadata(parentID).RLock()
+		s.lockProvider(parentID).RLock()
 	}
+
+	metadata.Lock()
 }
 
-func (t *Tangle) rUnlockParents(metadata *BlockMetadata) {
+func (s *Solidifier) unlockEntity(metadata *BlockMetadata) {
 	for parentID := range metadata.ParentIDs() {
-		t.existingBlockMetadata(parentID).RUnlock()
+		s.blockMetadata(parentID).RUnlock()
 	}
+
+	metadata.Unlock()
 }
 
-func (t *Tangle) solidify(metadata *BlockMetadata) {
+func (s *Solidifier) blockMetadata(blockID BlockID) *BlockMetadata {
+	if parentMetadata, exists := s.tangle.blockMetadata(blockID); !exists {
+		return parentMetadata
+	}
+
+	panic(errors.Errorf("block %s does not exist", blockID))
+}
+
+func (t *Solidifier) solidify(metadata *BlockMetadata) {
 	becameSolid, becameInvalid := t.becameSolidOrInvalid(metadata)
 	if becameInvalid {
 		t.propagateInvalidityToChildren(metadata)
@@ -38,11 +66,9 @@ func (t *Tangle) solidify(metadata *BlockMetadata) {
 	}
 }
 
-func (t *Tangle) becameSolidOrInvalid(metadata *BlockMetadata) (becameSolid, becameInvalid bool) {
-	t.rLockParents(metadata)
-	defer t.rUnlockParents(metadata)
-	metadata.Lock()
-	defer metadata.Unlock()
+func (t *Solidifier) becameSolidOrInvalid(metadata *BlockMetadata) (becameSolid, becameInvalid bool) {
+	t.lockEntity(metadata)
+	defer t.unlockEntity(metadata)
 
 	t.unsolidDependenciesCounterMutex.Lock()
 	t.unsolidDependenciesCounter[metadata.id], metadata.invalid = t.checkParents(metadata)
@@ -64,7 +90,7 @@ func (t *Tangle) becameSolidOrInvalid(metadata *BlockMetadata) (becameSolid, bec
 	return metadata.solid, metadata.invalid
 }
 
-func (t *Tangle) checkParents(metadata *BlockMetadata) (unsolidParents uint8, anyParentInvalid bool) {
+func (t *Solidifier) checkParents(metadata *BlockMetadata) (unsolidParents uint8, anyParentInvalid bool) {
 	for parentID := range metadata.ParentIDs() {
 		parentMetadata, exists := t.blockMetadata(parentID)
 		if !exists {
@@ -87,7 +113,7 @@ func (t *Tangle) checkParents(metadata *BlockMetadata) (unsolidParents uint8, an
 	return unsolidParents, false
 }
 
-func (t *Tangle) propagateSolidityToChildren(metadata *BlockMetadata) {
+func (t *Solidifier) propagateSolidityToChildren(metadata *BlockMetadata) {
 	for propagationWalker := walker.New[*BlockMetadata](true).Push(metadata); propagationWalker.HasNext(); {
 		childID := propagationWalker.Next().id
 
@@ -105,7 +131,7 @@ func (t *Tangle) propagateSolidityToChildren(metadata *BlockMetadata) {
 	}
 }
 
-func (t *Tangle) propagateInvalidityToChildren(metadata *BlockMetadata) {
+func (t *Solidifier) propagateInvalidityToChildren(metadata *BlockMetadata) {
 	for propagationWalker := walker.New[*BlockMetadata](true).Push(metadata); propagationWalker.HasNext(); {
 		for _, childMetadata := range propagationWalker.Next().Children() {
 			if childMetadata.setInvalid() {
@@ -117,7 +143,7 @@ func (t *Tangle) propagateInvalidityToChildren(metadata *BlockMetadata) {
 	}
 }
 
-func (t *Tangle) decreaseUnsolidParentsCounter(metadata *BlockMetadata) bool {
+func (t *Solidifier) decreaseUnsolidParentsCounter(metadata *BlockMetadata) bool {
 	metadata.Lock()
 	defer metadata.Unlock()
 

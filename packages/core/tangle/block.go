@@ -720,6 +720,11 @@ type BlockMetadata struct {
 	*syncutils.StarvingMutex
 }
 
+func (b *BlockMetadata) ID() BlockID {
+	// TODO implement me
+	panic("implement me")
+}
+
 func fullMetadataFromBlock(block *Block) func() *BlockMetadata {
 	return func() *BlockMetadata {
 		return &BlockMetadata{
@@ -739,6 +744,27 @@ func (b *BlockMetadata) Initialized() bool {
 	return b.solid || b.invalid
 }
 
+func (b *BlockMetadata) IsSolid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.isSolid()
+}
+
+func (b *BlockMetadata) isSolid() bool {
+	return b.solid
+}
+
+func (b *BlockMetadata) setSolid(solid bool) (updated bool) {
+	if b.solid == solid {
+		return false
+	}
+
+	b.solid = solid
+
+	return true
+}
+
 func (b *BlockMetadata) setInvalid() (updated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -752,12 +778,12 @@ func (b *BlockMetadata) setInvalid() (updated bool) {
 	return true
 }
 
-func (b *BlockMetadata) ParentIDs() BlockIDs {
+func (b *BlockMetadata) ParentIDs() []BlockID {
 	parents := b.strongParents.Clone()
 	parents.AddAll(b.weakParents)
 	parents.AddAll(b.likedInsteadParents)
 
-	return parents
+	return parents.Slice()
 }
 
 func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
