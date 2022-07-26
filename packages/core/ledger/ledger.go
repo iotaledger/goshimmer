@@ -186,8 +186,8 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 	l.Storage.pruneTransaction(txID, pruneFutureCone)
 }
 
-// ForEachAcceptedUnSpentOutputWithMetadata returns the Accepted unspent OutputWithMetadata before a latest confirmed epoch.
-func (l *Ledger) ForEachAcceptedUnSpentOutputWithMetadata(consumer func(*OutputWithMetadata)) {
+// ForEachAcceptedUnspentOutputWithMetadata returns the Accepted unspent OutputWithMetadata before a latest confirmed epoch.
+func (l *Ledger) ForEachAcceptedUnspentOutputWithMetadata(consumer func(*OutputWithMetadata)) {
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
 			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {

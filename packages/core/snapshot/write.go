@@ -106,7 +106,7 @@ func NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch epoch.Index, l *ledg
 	prodChan := make(chan *ledger.OutputWithMetadata)
 
 	go func() {
-		l.ForEachAcceptedUnSpentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
+		l.ForEachAcceptedUnspentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
 			index := epoch.IndexFromTime(o.CreationTime())
 			if index <= lastConfirmedEpoch {
 				prodChan <- o
