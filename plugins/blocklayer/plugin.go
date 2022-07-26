@@ -146,8 +146,8 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		outputWithMetadataConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
-			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
+		utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+			deps.Tangle.Ledger.LoadFullUTXOStates(outputsWithMetadatas)
 			for _, outputWithMetadata := range outputsWithMetadatas {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
@@ -167,7 +167,7 @@ func configure(plugin *node.Plugin) {
 
 		headerConsumer := func(*ledger.SnapshotHeader) {}
 
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

@@ -107,7 +107,7 @@ func (s *Snapshot) Bytes() (serialized []byte, err error) {
 
 	// write outputWithMetadata
 	typeSet := new(serix.TypeSettings)
-	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.OutputsWithMetadata, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	data, err = serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot.FullUTXOStates, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	reader := bytes.NewReader(data)
 
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
-		ledgerSnapshot.OutputsWithMetadata = append(ledgerSnapshot.OutputsWithMetadata, outputWithMetadatas...)
+		ledgerSnapshot.FullUTXOStates = append(ledgerSnapshot.FullUTXOStates, outputWithMetadatas...)
 	}
 	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 		ledgerSnapshot.EpochDiffs = epochDiffs
@@ -141,7 +141,7 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	}
 
 	err = StreamSnapshotDataFrom(reader, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
-	header.OutputWithMetadataCount = uint64(len(ledgerSnapshot.OutputsWithMetadata))
+	header.OutputWithMetadataCount = uint64(len(ledgerSnapshot.FullUTXOStates))
 
 	ledgerSnapshot.Header = header
 	s.LedgerSnapshot = ledgerSnapshot

@@ -112,8 +112,8 @@ func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(
 	})
 }
 
-// LoadOutputWithMetadatas initiates the state and mana trees from a given snapshot.
-func (m *Manager) LoadOutputWithMetadatas(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+// LoadFullUTXOStates initiates the state and mana trees from a given snapshot.
+func (m *Manager) LoadFullUTXOStates(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 

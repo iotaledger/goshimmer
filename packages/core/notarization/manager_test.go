@@ -1082,10 +1082,10 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	header.FullEpochIndex = epoch.Index(0)
 
 	var createMetadata []*ledger.OutputWithMetadata
-	for _, metadata := range snapshot.OutputsWithMetadata {
+	for _, metadata := range snapshot.FullUTXOStates {
 		createMetadata = append(createMetadata, metadata)
 	}
-	header.OutputWithMetadataCount = uint64(len(snapshot.OutputsWithMetadata))
+	header.OutputWithMetadataCount = uint64(len(snapshot.FullUTXOStates))
 	snapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
 
@@ -1095,7 +1095,7 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	header.LatestECRecord = ecRecord
 	snapshot.Header = header
 
-	m.LoadOutputWithMetadatas(snapshot.OutputsWithMetadata)
+	m.LoadFullUTXOStates(snapshot.FullUTXOStates)
 	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
 	m.LoadECandEIs(snapshot.Header)
 }

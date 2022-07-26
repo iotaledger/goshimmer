@@ -212,7 +212,7 @@ func runManaPlugin(_ *node.Plugin) {
 					return
 				}
 
-				outputWithMetadataConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+				utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 					processOutputs(outputsWithMetadatas, consensusManaByNode, true /* areCreated */)
 					processOutputs(outputsWithMetadatas, accessManaByNode, true /* areCreated */)
 
@@ -250,7 +250,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer); err != nil {
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)

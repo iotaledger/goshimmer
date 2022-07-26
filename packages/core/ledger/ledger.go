@@ -86,8 +86,8 @@ func New(options ...Option) (ledger *Ledger) {
 	return ledger
 }
 
-// LoadOutputWithMetadatas loads OutputWithMetadatas from a snapshot file to the storage.
-func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetadata) {
+// LoadFullUTXOStates loads OutputWithMetadatas from a snapshot file to the storage.
+func (l *Ledger) LoadFullUTXOStates(outputsWithMetadatas []*OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
@@ -137,7 +137,7 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 
 			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
 				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-				snapshot.OutputsWithMetadata = append(snapshot.OutputsWithMetadata, outputWithMetadata)
+				snapshot.FullUTXOStates = append(snapshot.FullUTXOStates, outputWithMetadata)
 			})
 		})
 
