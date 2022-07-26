@@ -101,7 +101,7 @@ func StreamSnapshotDataTo(
 
 // NewLedgerOutputWithMetadataProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputWithMetadataProducerFunc {
-	prodChan := make(chan interface{})
+	prodChan := make(chan *ledger.OutputWithMetadata)
 
 	go func() {
 		l.ForEachAcceptedUnSpentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
@@ -117,7 +117,7 @@ func NewLedgerOutputWithMetadataProducer(l *ledger.Ledger) OutputWithMetadataPro
 		if obj == nil {
 			return nil
 		}
-		return obj.(*ledger.OutputWithMetadata)
+		return obj
 	}
 }
 
@@ -150,15 +150,13 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 	return nil
 }
 
-func producerFromChannels(prodChan <-chan interface{}) func() interface{} {
-	return func() interface{} {
-		select {
-		case obj, ok := <-prodChan:
-			if !ok {
-				return nil
-			}
-			return obj
+func producerFromChannels(prodChan <-chan *ledger.OutputWithMetadata) func() *ledger.OutputWithMetadata {
+	return func() *ledger.OutputWithMetadata {
+		obj, ok := <-prodChan
+		if !ok {
+			return nil
 		}
+		return obj
 	}
 }
 
