@@ -60,9 +60,9 @@ func CreateSnapshot(filePath string, t *tangleold.Tangle, nmgr *notarization.Man
 // will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
 // consumer functions. To construct a snapshot struct from a file, use FromBytes([]byte).
 func LoadSnapshot(filePath string,
+	headerConsumer HeaderConsumerFunc,
 	outputWithMetadataConsumer OutputWithMetadataConsumerFunc,
-	epochDiffsConsumer EpochDiffsConsumerFunc,
-	notarizationConsumer NotarizationConsumerFunc) (err error) {
+	epochDiffsConsumer EpochDiffsConsumerFunc) (err error) {
 
 	f, err := os.Open(filePath)
 	defer f.Close()
@@ -70,7 +70,7 @@ func LoadSnapshot(filePath string,
 		return fmt.Errorf("fail to open the snapshot file")
 	}
 
-	err = StreamSnapshotDataFrom(f, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
+	err = StreamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
 }
@@ -136,11 +136,11 @@ func (s *Snapshot) FromBytes(data []byte) (err error) {
 	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 		ledgerSnapshot.EpochDiffs = epochDiffs
 	}
-	notarizationConsumer := func(h *ledger.SnapshotHeader) {
+	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
 	}
 
-	err = StreamSnapshotDataFrom(reader, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
+	err = StreamSnapshotDataFrom(reader, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 	header.OutputWithMetadataCount = uint64(len(ledgerSnapshot.OutputsWithMetadata))
 
 	ledgerSnapshot.Header = header
@@ -181,5 +181,5 @@ type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff,
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
 type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
-// NotarizationConsumerFunc is the type of function that consumes ECRecord when loading a snapshot.
-type NotarizationConsumerFunc func(header *ledger.SnapshotHeader)
+// HeaderConsumerFunc is the type of function that consumes ECRecord when loading a snapshot.
+type HeaderConsumerFunc func(header *ledger.SnapshotHeader)

@@ -54,9 +54,9 @@ func init() {
 func configureNotarizationPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
+			notarizationDeps.Manager.LoadECandEIs,
 			notarizationDeps.Manager.LoadOutputWithMetadatas,
-			notarizationDeps.Manager.LoadEpochDiffs,
-			notarizationDeps.Manager.LoadECandEIs)
+			notarizationDeps.Manager.LoadEpochDiffs)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

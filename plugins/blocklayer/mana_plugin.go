@@ -242,7 +242,7 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 				}
 
-				notarizationConsumer := func(header *ledger.SnapshotHeader) {
+				headerConsumer := func(header *ledger.SnapshotHeader) {
 					cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
 					if cManaTargetEpoch < 0 {
 						cManaTargetEpoch = 0
@@ -250,7 +250,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer); err != nil {
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)

@@ -17,9 +17,9 @@ import (
 // StreamSnapshotDataFrom consumes a snapshot from the given reader.
 func StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
+	headerConsumer HeaderConsumerFunc,
 	outputConsumer OutputWithMetadataConsumerFunc,
-	epochDiffsConsumer EpochDiffsConsumerFunc,
-	notarizationConsumer NotarizationConsumerFunc) error {
+	epochDiffsConsumer EpochDiffsConsumerFunc) error {
 
 	header, err := ReadSnapshotHeader(reader)
 	if err != nil {
@@ -35,7 +35,7 @@ func StreamSnapshotDataFrom(
 		return err
 	}
 	header.LatestECRecord = ecRecord
-	notarizationConsumer(header)
+	headerConsumer(header)
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {

@@ -165,9 +165,9 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		notarizationConsumer := func(*ledger.SnapshotHeader) {}
+		headerConsumer := func(*ledger.SnapshotHeader) {}
 
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, outputWithMetadataConsumer, epochDiffsConsumer, notarizationConsumer)
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}
