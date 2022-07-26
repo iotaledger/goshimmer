@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
+	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
@@ -24,27 +25,20 @@ type Tangle struct {
 	isSolidEntryPoint func(BlockID) bool
 	maxDroppedEpoch   epoch.Index
 	pruningMutex      sync.RWMutex
-	solidifier        *CausalOrderer[BlockID, *BlockMetadata]
+	solidifier        *causalorder.CausalOrder[BlockID, *BlockMetadata]
 }
 
 func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
-	newTangle = options.Apply(&Tangle{
+	return options.Apply(&Tangle{
 		Events:        newEvents(),
 		memStorage:    memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
 		dbManagerPath: "/tmp/",
 		isSolidEntryPoint: func(id BlockID) bool {
 			return id == EmptyBlockID
 		},
-	}, opts)
-	newTangle.dbManager = database.NewManager(newTangle.dbManagerPath)
-	newTangle.solidifier = NewCausalOrderer(newTangle.BlockMetadata, (*BlockMetadata).isSolid, (*BlockMetadata).setSolid)
-
-	newTangle.solidifier.ElementOrdered.Hook(event.NewClosure(newTangle.Events.BlockSolid.Trigger))
-	newTangle.solidifier.ElementInvalid.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
-		newTangle.SetInvalid(blockMetadata)
-	}))
-
-	return newTangle
+	}, opts).
+		initDBManager().
+		initSolidifier()
 }
 
 func (t *Tangle) AttachBlock(block *Block) {
@@ -74,19 +68,8 @@ func (t *Tangle) AttachBlock(block *Block) {
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
 	t.pruningMutex.RLock()
 	defer t.pruningMutex.RUnlock()
+
 	return t.blockMetadata(blockID)
-}
-
-func (t *Tangle) blockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
-	if t.isBlockIDTooOld(blockID) {
-		return nil, false
-	}
-
-	if t.IsGenesisBlock(blockID) {
-		return GenesisMetadata, true
-	}
-
-	return t.epochStorage(blockID).Get(blockID)
 }
 
 func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
@@ -99,24 +82,48 @@ func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 	return
 }
 
-func (t *Tangle) propagateInvalidityToChildren(entity *BlockMetadata) {
-	for propagationWalker := walker.New[*BlockMetadata](true).Push(entity); propagationWalker.HasNext(); {
-		for _, childMetadata := range propagationWalker.Next().Children() {
-			if childMetadata.setInvalid() {
-				t.Events.BlockInvalid.Trigger(childMetadata)
-
-				propagationWalker.Push(childMetadata)
-			}
-		}
-	}
-}
-
 func (t *Tangle) IsGenesisBlock(blockID BlockID) (isGenesisBlock bool) {
 	return blockID == EmptyBlockID
 }
 
 func (t *Tangle) Shutdown() {
 	t.dbManager.Shutdown()
+}
+
+func (t *Tangle) initDBManager() (self *Tangle) {
+	t.dbManager = database.NewManager(t.dbManagerPath)
+
+	return t
+}
+
+func (t *Tangle) initSolidifier() (self *Tangle) {
+	t.solidifier = causalorder.New(
+		t.BlockMetadata,
+		(*BlockMetadata).isSolid,
+		(*BlockMetadata).setSolid,
+		causalorder.WithReferenceValidator[BlockID](func(entity *BlockMetadata, parent *BlockMetadata) bool {
+			return !parent.invalid
+		}),
+	)
+
+	t.solidifier.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
+	t.solidifier.Drop.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
+		t.SetInvalid(blockMetadata)
+	}))
+
+	return t
+}
+
+func (t *Tangle) blockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
+	if t.IsGenesisBlock(blockID) {
+		return GenesisMetadata, true
+	}
+
+	if t.isBlockIDTooOld(blockID) {
+		return nil, false
+	}
+
+	return t.epochStorage(blockID).Get(blockID)
 }
 
 func (t *Tangle) publishNewBlock(block *Block) (blockMetadata *BlockMetadata, published bool) {
@@ -185,6 +192,18 @@ func (t *Tangle) updateParentsMetadata(blockIDs BlockIDs, updateParentsFunc func
 		parentMetadata.Lock()
 		updateParentsFunc(parentMetadata)
 		parentMetadata.Unlock()
+	}
+}
+
+func (t *Tangle) propagateInvalidityToChildren(entity *BlockMetadata) {
+	for propagationWalker := walker.New[*BlockMetadata](true).Push(entity); propagationWalker.HasNext(); {
+		for _, childMetadata := range propagationWalker.Next().Children() {
+			if childMetadata.setInvalid() {
+				t.Events.BlockInvalid.Trigger(childMetadata)
+
+				propagationWalker.Push(childMetadata)
+			}
+		}
 	}
 }
 

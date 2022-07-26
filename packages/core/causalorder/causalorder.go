@@ -1,56 +1,53 @@
-package tangle
+package causalorder
 
 import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/options"
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-type CausallyOrderedEntity[IDType comparable] interface {
-	ID() IDType
-	ParentIDs() []IDType
+type CausalOrder[IDType comparable, EntityType Entity[IDType]] struct {
+	Emit *event.Event[EntityType]
+	Drop *event.Event[EntityType]
 
-	RLock()
-	RUnlock()
-	Lock()
-	Unlock()
-}
+	entityProvider EntityProvider[IDType, EntityType]
+	isOrdered      func(EntityType) bool
+	setOrdered     func(EntityType, bool) bool
 
-type EntityProvider[IDType comparable, EntityType CausallyOrderedEntity[IDType]] func(IDType) (entity EntityType, exists bool)
-
-type CausalOrderer[IDType comparable, EntityType CausallyOrderedEntity[IDType]] struct {
-	ElementOrdered *event.Event[EntityType]
-	ElementInvalid *event.Event[EntityType]
-
-	entityProvider               EntityProvider[IDType, EntityType]
-	isOrdered                    func(EntityType) bool
-	setOrdered                   func(EntityType, bool) bool
 	unorderedParentsCounter      map[IDType]uint8
 	unorderedParentsCounterMutex sync.Mutex
 	unorderedChildren            map[IDType][]EntityType
 	unorderedChildrenMutex       sync.Mutex
+
+	optsReferenceValidator func(entity EntityType, parent EntityType) bool
 }
 
-func NewCausalOrderer[IDType comparable, EntityType CausallyOrderedEntity[IDType]](
+func New[IDType comparable, EntityType Entity[IDType]](
 	entityProvider EntityProvider[IDType, EntityType],
 	orderedFlagGetter func(EntityType) bool,
 	orderedFlagSetter func(EntityType, bool) bool,
-) *CausalOrderer[IDType, EntityType] {
-	return &CausalOrderer[IDType, EntityType]{
-		ElementOrdered: event.New[EntityType](),
-		ElementInvalid: event.New[EntityType](),
+	opts ...options.Option[CausalOrder[IDType, EntityType]],
+) *CausalOrder[IDType, EntityType] {
+	return options.Apply(&CausalOrder[IDType, EntityType]{
+		Emit: event.New[EntityType](),
+		Drop: event.New[EntityType](),
 
 		entityProvider:          entityProvider,
 		isOrdered:               orderedFlagGetter,
 		setOrdered:              orderedFlagSetter,
 		unorderedParentsCounter: make(map[IDType]uint8),
 		unorderedChildren:       make(map[IDType][]EntityType),
-	}
+
+		optsReferenceValidator: func(entity EntityType, parent EntityType) bool {
+			return true
+		},
+	}, opts)
 }
 
-func (c *CausalOrderer[IDType, EntityType]) Queue(entity EntityType) (ordered bool) {
+func (c *CausalOrder[IDType, EntityType]) Queue(entity EntityType) (ordered bool) {
 	if ordered = c.wasOrdered(entity); ordered {
 		c.propagateCausalOrder(entity)
 	}
@@ -58,7 +55,7 @@ func (c *CausalOrderer[IDType, EntityType]) Queue(entity EntityType) (ordered bo
 	return ordered
 }
 
-func (c *CausalOrderer[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrdered bool) {
+func (c *CausalOrder[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrdered bool) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
@@ -67,39 +64,41 @@ func (c *CausalOrderer[IDType, EntityType]) wasOrdered(entity EntityType) (wasOr
 	c.unorderedParentsCounterMutex.Lock()
 	c.unorderedParentsCounter[entity.ID()], isInvalid = c.checkParents(entity)
 	if !isInvalid && c.unorderedParentsCounter[entity.ID()] == 0 {
-		c.setOrdered(entity, true)
+		wasOrdered = c.setOrdered(entity, true)
 	}
 	c.unorderedParentsCounterMutex.Unlock()
 
 	if isInvalid {
-		c.ElementInvalid.Trigger(entity)
+		c.Drop.Trigger(entity)
+		return
 	}
 
-	if wasOrdered = c.isOrdered(entity); wasOrdered {
-		c.ElementOrdered.Trigger(entity)
+	if wasOrdered {
+		c.Emit.Trigger(entity)
 	}
 
 	return
 }
 
-func (c *CausalOrderer[IDType, EntityType]) checkParents(metadata EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
-	for _, parentID := range metadata.ParentIDs() {
-		parentMetadata := c.entity(parentID)
-		// if parentMetadata.invalid {
-		//	return unorderedParentsCount, true
-		//}
+func (c *CausalOrder[IDType, EntityType]) checkParents(entity EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
+	for _, parentID := range entity.ParentIDs() {
+		parentEntity := c.entity(parentID)
 
-		if !c.isOrdered(parentMetadata) {
+		if !c.optsReferenceValidator(entity, parentEntity) {
+			return unorderedParentsCount, true
+		}
+
+		if !c.isOrdered(parentEntity) {
 			unorderedParentsCount++
 
-			c.registerUnorderedChild(parentID, metadata)
+			c.registerUnorderedChild(parentID, entity)
 		}
 	}
 
 	return unorderedParentsCount, false
 }
 
-func (c *CausalOrderer[IDType, EntityType]) registerUnorderedChild(entityID IDType, child EntityType) {
+func (c *CausalOrder[IDType, EntityType]) registerUnorderedChild(entityID IDType, child EntityType) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
@@ -107,7 +106,7 @@ func (c *CausalOrderer[IDType, EntityType]) registerUnorderedChild(entityID IDTy
 
 }
 
-func (c *CausalOrderer[IDType, EntityType]) popUnorderedChildren(entityID IDType) (pendingChildren []EntityType) {
+func (c *CausalOrder[IDType, EntityType]) popUnorderedChildren(entityID IDType) (pendingChildren []EntityType) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
@@ -117,7 +116,7 @@ func (c *CausalOrderer[IDType, EntityType]) popUnorderedChildren(entityID IDType
 	return pendingChildren
 }
 
-func (c *CausalOrderer[IDType, EntityType]) propagateCausalOrder(metadata EntityType) {
+func (c *CausalOrder[IDType, EntityType]) propagateCausalOrder(metadata EntityType) {
 	for childWalker := walker.New[IDType](true).Push(metadata.ID()); childWalker.HasNext(); {
 		for _, child := range c.popUnorderedChildren(childWalker.Next()) {
 			if c.triggerChildIfReady(child) {
@@ -127,7 +126,7 @@ func (c *CausalOrderer[IDType, EntityType]) propagateCausalOrder(metadata Entity
 	}
 }
 
-func (c *CausalOrderer[IDType, EntityType]) triggerChildIfReady(metadata EntityType) (eventTriggered bool) {
+func (c *CausalOrder[IDType, EntityType]) triggerChildIfReady(metadata EntityType) (eventTriggered bool) {
 	metadata.Lock()
 	defer metadata.Unlock()
 
@@ -135,12 +134,12 @@ func (c *CausalOrderer[IDType, EntityType]) triggerChildIfReady(metadata EntityT
 		return false
 	}
 
-	c.ElementOrdered.Trigger(metadata)
+	c.Emit.Trigger(metadata)
 
 	return true
 }
 
-func (c *CausalOrderer[IDType, EntityType]) decreaseUnorderedParentsCounter(metadata EntityType) (unorderedParentsCounter uint8) {
+func (c *CausalOrder[IDType, EntityType]) decreaseUnorderedParentsCounter(metadata EntityType) (unorderedParentsCounter uint8) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
@@ -149,7 +148,7 @@ func (c *CausalOrderer[IDType, EntityType]) decreaseUnorderedParentsCounter(meta
 	return c.unorderedParentsCounter[metadata.ID()]
 }
 
-func (c *CausalOrderer[IDType, EntityType]) lockEntity(entity EntityType) {
+func (c *CausalOrder[IDType, EntityType]) lockEntity(entity EntityType) {
 	for _, parentID := range entity.ParentIDs() {
 		c.entity(parentID).RLock()
 	}
@@ -157,7 +156,7 @@ func (c *CausalOrderer[IDType, EntityType]) lockEntity(entity EntityType) {
 	entity.Lock()
 }
 
-func (c *CausalOrderer[IDType, EntityType]) unlockEntity(metadata EntityType) {
+func (c *CausalOrder[IDType, EntityType]) unlockEntity(metadata EntityType) {
 	for _, parentID := range metadata.ParentIDs() {
 		c.entity(parentID).RUnlock()
 	}
@@ -165,7 +164,7 @@ func (c *CausalOrderer[IDType, EntityType]) unlockEntity(metadata EntityType) {
 	metadata.Unlock()
 }
 
-func (c *CausalOrderer[IDType, EntityType]) entity(blockID IDType) (entity EntityType) {
+func (c *CausalOrder[IDType, EntityType]) entity(blockID IDType) (entity EntityType) {
 	entity, exists := c.entityProvider(blockID)
 	if !exists {
 		panic(errors.Errorf("block %s does not exist", blockID))
