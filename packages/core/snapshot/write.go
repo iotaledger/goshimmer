@@ -46,7 +46,7 @@ func StreamSnapshotDataTo(
 	}
 
 	// write outputWithMetadata
-	var outputWithMetadataCounter uint64 = 0
+	var outputWithMetadataCounter uint64
 	var outputChunkCounter int
 	chunksOutputWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 	for {
@@ -70,6 +70,7 @@ func StreamSnapshotDataTo(
 				return err
 			}
 			chunksOutputWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+			outputChunkCounter = 0
 		}
 	}
 
