@@ -11,7 +11,6 @@ import (
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -112,7 +111,7 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 		ConfirmationStateTime:   blockMetadata.ConfirmationStateTime().Unix(),
 		PayloadType:             uint32(blk.Payload().Type()),
 		Payload:                 ProcessPayload(blk.Payload()),
-		EC:                      notarization.EC(ecRecord).Base58(),
+		EC:                      epoch.ComputeEC(ecRecord).Base58(),
 		EI:                      uint64(blk.EI()),
 		ECR:                     blk.ECR().Base58(),
 		PrevEC:                  blk.PrevEC().Base58(),

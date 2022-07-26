@@ -5,19 +5,18 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
-func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (bool, error) {
+func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]*epoch.ECRecord, err error) {
 	if m.validationInProgress {
-		return false, fmt.Errorf("epoch validation already in progress")
+		return nil, fmt.Errorf("epoch validation already in progress")
 	}
 
 	if m.isStopped {
-		return false, fmt.Errorf("warpsync manager is stopped")
+		return nil, fmt.Errorf("warpsync manager is stopped")
 	}
 
 	m.validationInProgress = true
@@ -27,40 +26,45 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 		m.requestEpochCommittment(ei)
 	}
 
-	ecRecords := make(map[epoch.Index]*epoch.ECRecord)
+	ecChain = make(map[epoch.Index]*epoch.ECRecord)
 	toReceive := end - start
 
 readLoop:
 	for {
 		select {
 		case ecRecord := <-m.commitmentsChan:
-			if ecRecords[ecRecord.EI()] != nil {
+			if ecChain[ecRecord.EI()] != nil {
 				continue
 			}
-			ecRecords[ecRecord.EI()] = ecRecord
+			ecChain[ecRecord.EI()] = ecRecord
 			toReceive--
 			if toReceive == 0 {
 				break readLoop
 			}
 		case <-ctx.Done():
-			return false, fmt.Errorf("cancelled while validating epoch range %d to %d", start, end)
+			return nil, fmt.Errorf("cancelled while validating epoch range %d to %d", start, end)
 		}
 	}
 
-	ecRecords[end] = epoch.NewECRecord(end)
-	ecRecords[end].SetPrevEC(endPrevEC)
+	ecChain[end] = epoch.NewECRecord(end)
+	ecChain[end].SetPrevEC(endPrevEC)
 
 	for ei := end - 1; ei >= start; ei-- {
-		ecRecord, exists := ecRecords[ei]
+		ecRecord, exists := ecChain[ei]
 		if !exists {
-			return false, fmt.Errorf("did not receive epoch commitment for epoch %d", ei)
+			return nil, fmt.Errorf("did not receive epoch commitment for epoch %d", ei)
 		}
-		if ecRecords[ei+1].PrevEC() != notarization.EC(ecRecord) {
-			return false, fmt.Errorf("epoch EC of epoch %d does not match PrevEC of epoch %d", ecRecord.EI(), ei+1)
+		if ecChain[ei+1].PrevEC() != epoch.ComputeEC(ecRecord) {
+			return nil, fmt.Errorf("epoch EC of epoch %d does not match PrevEC of epoch %d", ecRecord.EI(), ei+1)
 		}
 	}
 
-	return startEC == notarization.EC(ecRecords[start]), nil
+	actualEC := epoch.ComputeEC(ecChain[start])
+	if startEC != actualEC {
+		return nil, fmt.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, actualEC)
+	}
+
+	return ecChain, nil
 }
 
 func (m *Manager) requestEpochCommittment(index epoch.Index) {
@@ -74,7 +78,7 @@ func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Pa
 	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochCommitmentRequest.GetEC())
 
 	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
-	if !exists || ec != notarization.EC(ecRecord) {
+	if !exists || ec != epoch.ComputeEC(ecRecord) {
 		return
 	}
 

@@ -98,7 +98,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 		return epoch.MerkleRoot{}, errors.Wrap(err, "ECR could not be created")
 	}
 
-	return ECR(epochRoots.tangleRoot, epochRoots.stateMutationRoot, epochRoots.stateRoot, epochRoots.manaRoot), nil
+	return epoch.ComputeECR(epochRoots.tangleRoot, epochRoots.stateMutationRoot, epochRoots.stateRoot, epochRoots.manaRoot), nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
@@ -239,7 +239,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	// Store and return.
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
-		e.SetPrevEC(EC(prevECRecord))
+		e.SetPrevEC(epoch.ComputeEC(prevECRecord))
 		ecRecord = e
 	})
 
@@ -422,35 +422,6 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	}
 
 	return f.StateRoot(), f.ManaRoot(), nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region extra functions //////////////////////////////////////////////////////////////////////////////////////////////
-
-// EC calculates the epoch commitment hash from the given ECRecord.
-func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
-	concatenated := make([]byte, 0)
-	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
-	concatenated = append(concatenated, ecRecord.ECR().Bytes()...)
-	concatenated = append(concatenated, ecRecord.PrevEC().Bytes()...)
-
-	ecHash := blake2b.Sum256(concatenated)
-
-	return epoch.NewMerkleRoot(ecHash[:])
-}
-
-// ECR calculates an ECR from the tree roots.
-func ECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot epoch.MerkleRoot) epoch.ECR {
-	root := make([]byte, 0)
-	branch1 := make([]byte, 0)
-	branch2 := make([]byte, 0)
-
-	conflict1Hashed := blake2b.Sum256(append(append(branch1, tangleRoot[:]...), stateMutationRoot[:]...))
-	conflict2Hashed := blake2b.Sum256(append(append(branch2, stateRoot[:]...), manaRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
-
-	return epoch.NewMerkleRoot(rootHashed[:])
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

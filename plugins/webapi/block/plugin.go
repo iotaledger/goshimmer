@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
@@ -135,7 +134,7 @@ func GetBlock(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			EC:                   notarization.EC(ecRecord).Base58(),
+			EC:                   epoch.ComputeEC(ecRecord).Base58(),
 			EI:                   uint64(block.EI()),
 			ECR:                  block.ECR().Base58(),
 			PrevEC:               block.PrevEC().Base58(),

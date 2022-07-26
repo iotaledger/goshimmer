@@ -6,12 +6,12 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/serix"
 	"golang.org/x/crypto/blake2b"
@@ -21,6 +21,7 @@ type epochSyncBlock struct {
 	ei    epoch.Index
 	ec    epoch.EC
 	block *tangle.Block
+	peer  *peer.Peer
 }
 
 type epochSyncEnd struct {
@@ -29,6 +30,11 @@ type epochSyncEnd struct {
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
+}
+
+type blockReceived struct {
+	block *tangle.Block
+	peer  *peer.Peer
 }
 
 func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain map[epoch.Index]*epoch.ECRecord) error {
@@ -43,7 +49,7 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain
 	m.syncingInProgress = true
 	defer func() { m.syncingInProgress = false }()
 
-	epochBlocks := make(map[epoch.Index][]*tangle.Block)
+	epochBlocks := make(map[epoch.Index][]*blockReceived)
 	tangleRoots := make(map[epoch.Index]*smt.SparseMerkleTree)
 	epochVerified := make(map[epoch.Index]bool)
 	for ei := start; ei <= end; ei++ {
@@ -63,7 +69,7 @@ readLoop:
 				m.log.Warnf("received block for epoch %d while we are syncing from %d to %d", ei, start, end)
 				continue
 			}
-			if epochSyncBlock.ec != notarization.EC(ecChain[ei]) {
+			if epochSyncBlock.ec != epoch.ComputeEC(ecChain[ei]) {
 				m.log.Warnf("received block on wrong EC chain")
 				continue
 			}
@@ -71,10 +77,16 @@ readLoop:
 				m.log.Warnf("received block for already-verified epoch %d", ei)
 				continue
 			}
+			if epochBlocks[ei] == nil {
+				epochBlocks[ei] = make([]*blockReceived, 0)
+			}
 
 			block := epochSyncBlock.block
 			tangleRoots[ei].Update(block.IDBytes(), block.IDBytes())
-			epochBlocks[ei] = append(epochBlocks[ei], block)
+			epochBlocks[ei] = append(epochBlocks[ei], &blockReceived{
+				block: block,
+				peer:  epochSyncBlock.peer,
+			})
 		case epochSyncEnd := <-m.epochSyncEndChan:
 			ei := epochSyncEnd.ei
 			ec := epochSyncEnd.ec
@@ -82,7 +94,7 @@ readLoop:
 				m.log.Warnf("received epoch terminator for epoch %d while we are syncing from %d to %d", ei, start, end)
 				continue
 			}
-			if ec != notarization.EC(ecChain[ei]) {
+			if ec != epoch.ComputeEC(ecChain[ei]) {
 				m.log.Warnf("received epoch terminator on wrong EC chain")
 				continue
 			}
@@ -93,15 +105,15 @@ readLoop:
 
 			tangleRoot := tangleRoots[ei].Root()
 			ecRecord := epoch.NewECRecord(ei)
-			ecRecord.SetECR(notarization.ECR(
+			ecRecord.SetECR(epoch.ComputeECR(
 				epoch.NewMerkleRoot(tangleRoot),
 				epochSyncEnd.stateMutationRoot,
 				epochSyncEnd.stateRoot,
 				epochSyncEnd.manaRoot,
 			))
-			ecRecord.SetPrevEC(notarization.EC(ecChain[ei-1]))
+			ecRecord.SetPrevEC(epoch.ComputeEC(ecChain[ei-1]))
 
-			if notarization.EC(ecChain[ei]) != notarization.EC(ecRecord) {
+			if epoch.ComputeEC(ecChain[ei]) != epoch.ComputeEC(ecRecord) {
 				return fmt.Errorf("epoch %d EC record is not correct", ei)
 			}
 
@@ -116,10 +128,14 @@ readLoop:
 		}
 	}
 
-	// We verified the epochs contents for the range, we can now store them.
+	// We verified the epochs contents for the range, we can now parse them.
 	for ei := start; ei <= end; ei++ {
-		for _, block := range epochBlocks[ei] {
-			m.tangle.Storage.StoreBlock(block)
+		for _, blockReceived := range epochBlocks[ei] {
+			blockBytes, err := blockReceived.block.Bytes()
+			if err != nil {
+				m.log.Warnf("received block from %s failed to serialize: %s", blockReceived.peer.ID(), err)
+			}
+			m.tangle.ProcessGossipBlock(blockBytes, blockReceived.peer)
 		}
 	}
 
@@ -137,7 +153,7 @@ func (m *Manager) processEpochRequestPacket(packetEpochRequest *wp.Packet_EpochB
 	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochBlocksRequest.GetEC())
 
 	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
-	if !exists || ec != notarization.EC(ecRecord) {
+	if !exists || ec != epoch.ComputeEC(ecRecord) {
 		return
 	}
 	blockIDs := epochstorage.GetEpochBlockIDs(ei)
@@ -178,6 +194,7 @@ func (m *Manager) processEpochBlocksPacket(packetEpochBlocks *wp.Packet_EpochBlo
 		m.epochSyncBlockChan <- &epochSyncBlock{
 			ei:    epoch.Index(packetEpochBlocks.EpochBlocks.GetEI()),
 			ec:    epoch.NewMerkleRoot(packetEpochBlocks.EpochBlocks.GetEC()),
+			peer:  nbr.Peer,
 			block: block,
 		}
 	}

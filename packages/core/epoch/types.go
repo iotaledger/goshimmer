@@ -167,3 +167,32 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 	e.M.PrevEC = NewMerkleRoot(prevEC[:])
 	e.SetModified()
 }
+
+// region hashing functions ////////////////////////////////////////////////////////////////////////////////////////////
+
+// ComputeEC calculates the epoch commitment hash from the given ECRecord.
+func ComputeEC(ecRecord *ECRecord) (ec EC) {
+	concatenated := make([]byte, 0)
+	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
+	concatenated = append(concatenated, ecRecord.ECR().Bytes()...)
+	concatenated = append(concatenated, ecRecord.PrevEC().Bytes()...)
+
+	ecHash := blake2b.Sum256(concatenated)
+
+	return NewMerkleRoot(ecHash[:])
+}
+
+// ComputeECR calculates an ECR from the tree roots.
+func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) ECR {
+	root := make([]byte, 0)
+	branch1 := make([]byte, 0)
+	branch2 := make([]byte, 0)
+
+	conflict1Hashed := blake2b.Sum256(append(append(branch1, tangleRoot[:]...), stateMutationRoot[:]...))
+	conflict2Hashed := blake2b.Sum256(append(append(branch2, stateRoot[:]...), manaRoot[:]...))
+	rootHashed := blake2b.Sum256(append(append(root, conflict1Hashed[:]...), conflict2Hashed[:]...))
+
+	return NewMerkleRoot(rootHashed[:])
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

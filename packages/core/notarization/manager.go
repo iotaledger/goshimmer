@@ -7,10 +7,11 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -65,6 +66,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
 			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
 			Bootstrapped:              event.New[*BootstrappedEvent](),
+			SyncRange:                 event.New[*SyncRangeEvent](),
 		},
 	}
 
@@ -98,6 +100,10 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 
 	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.TimeUpdate) {
 		new.OnAcceptanceTimeUpdated(event.ATT)
+	}))
+
+	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
+		new.OnBlockStored(event.Block)
 	}))
 
 	return new
@@ -189,6 +195,24 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
+}
+
+func (m *Manager) OnBlockStored(block *tangle.Block) {
+	blockEI := block.EI()
+	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
+	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
+
+	m.log.Debugf("block committing to epoch %d stored, latest committable epoch is %d", blockEI, latestCommittableEI)
+
+	// If we are too far behind, we will warpsync
+	if epochDeltaSeconds > m.options.BootstrapWindow {
+		m.Events.SyncRange.Trigger(&SyncRangeEvent{
+			StartEI:   latestCommittableEI,
+			EndEI:     blockEI,
+			StartEC:   epoch.ComputeEC(m.epochCommitmentFactory.loadECRecord(latestCommittableEI)),
+			EndPrevEC: block.PrevEC(),
+		})
+	}
 }
 
 // OnBlockAccepted is the handler for block confirmed event.
@@ -636,6 +660,7 @@ func Log(log *logger.Logger) ManagerOption {
 type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommittable *event.Event[*EpochCommittableEvent]
+	// ManaVectorUpdate is an event that gets triggered whenever the consensus mana vector needs to be updated.
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
@@ -651,6 +676,8 @@ type Events struct {
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
 	// Bootstrapped is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
 	Bootstrapped *event.Event[*BootstrappedEvent]
+	// SyncRange is an event that gets triggered when an entire range of epochs needs to be requested, validated and solidified
+	SyncRange *event.Event[*SyncRangeEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -699,6 +726,13 @@ type ManaVectorUpdateEvent struct {
 	EI               epoch.Index
 	EpochDiffCreated []*ledger.OutputWithMetadata
 	EpochDiffSpent   []*ledger.OutputWithMetadata
+}
+
+type SyncRangeEvent struct {
+	StartEI   epoch.Index
+	EndEI     epoch.Index
+	StartEC   epoch.EC
+	EndPrevEC epoch.EC
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

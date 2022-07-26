@@ -137,7 +137,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 			stream, err := handleInboundStream(protocolID)
 			if err != nil {
 				m.log.Errorf(
-					"accept %s / %s proto %s failed: %w",
+					"accept %s / %s proto %s failed: %s",
 					net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port())),
 					p.ID(),
 					protocolID,

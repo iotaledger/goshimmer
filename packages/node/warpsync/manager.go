@@ -87,6 +87,11 @@ func WithBlockBatchSize(blockBatchSize int) ManagerOption {
 	}
 }
 
+// IsActive returns true if the manager is not stopped and it is currently performing a validation or syncing operation.
+func (m *Manager) IsActive() bool {
+	return !m.isStopped && (m.syncingInProgress || m.validationInProgress)
+}
+
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
 	m.stopMutex.Lock()

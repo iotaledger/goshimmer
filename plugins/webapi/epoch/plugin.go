@@ -65,7 +65,7 @@ func getCurrentEC(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	ec := notarization.EC(ecRecord)
+	ec := epoch.ComputeEC(ecRecord)
 
 	return c.JSON(http.StatusOK, ec.Base58())
 }

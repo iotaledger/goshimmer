@@ -1,6 +1,8 @@
 package warpsync
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
@@ -10,6 +12,8 @@ type ParametersDefinition struct {
 	Concurrency int `default:"10" usage:"the amount of epochs to attempt to sync at the same time"`
 	// BlockBatchSize defines the amount of blocks to send in a single epoch blocks response"`
 	BlockBatchSize int `default:"100" usage:"the amount of blocks to send in a single epoch blocks response"`
+	// SyncRangeTimeOut defines the time after which a sync range is considered as failed.
+	SyncRangeTimeOut time.Duration `default:"30s" usage:"the time after which a sync range is considered as failed"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.
