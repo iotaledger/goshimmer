@@ -36,7 +36,7 @@ func CreateSnapshot(filePath string,
 
 // LoadSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
 // will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
-// consumer functions. To construct a snapshot struct from a file, use FromBytes([]byte).
+// consumer functions.
 func LoadSnapshot(filePath string,
 	headerConsumer HeaderConsumerFunc,
 	outputWithMetadataConsumer UTXOStatesConsumerFunc,

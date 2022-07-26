@@ -97,7 +97,7 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	_, err = snapshotcreator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	err = snapshotcreator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
 		return

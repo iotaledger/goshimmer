@@ -159,7 +159,7 @@ func createSnapshot(snapshotInfo SnapshotInfo) error {
 		snapshotInfo.FilePath = "/assets/snapshot.bin"
 	}
 
-	_, err = snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
+	err = snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
 	if err != nil {
 		return err
 	}
