@@ -116,35 +116,28 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 	fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
-	// counter for the different stages
-	var (
-		missingBlocks int32
-		solidBlocks   int32
-		storedBlocks  int32
-	)
 
+	missingBlocks := int32(0)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.id)
+	}))
+
+	storedBlocks := int32(0)
 	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		n := atomic.AddInt32(&storedBlocks, 1)
-		t.Logf("stored blocks %d, %s", n, metadata.id)
+		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.id)
+	}))
+
+	solidBlocks := int32(0)
+	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.id)
 	}))
 
 	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *BlockMetadata) {
 		atomic.AddInt32(&missingBlocks, 1)
-		// store the block after it has been requested
+
 		time.Sleep(storeDelay)
+
 		tangle.AttachBlock(blocks[metadata.id])
-		//}()
-	}))
-
-	// decrease the counter when a missing block was received
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		n := atomic.AddInt32(&missingBlocks, -1)
-		t.Logf("missing blocks %d, %s", n, metadata.id)
-	}))
-
-	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		n := atomic.AddInt32(&solidBlocks, 1)
-		t.Logf("solid blocks %d/%d, %s", n, blockCount, metadata.id)
 	}))
 
 	// issue tips to start solidification
