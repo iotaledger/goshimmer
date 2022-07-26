@@ -20,13 +20,17 @@ const (
 	// RateSettingIncrease is the global additive increase parameter.
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "A".
 	RateSettingIncrease = 0.075
-	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
+	// RateSettingDecrease global multiplicative decrease parameter (value between 0 and 1).
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "β".
 	RateSettingDecrease = 0.7
 	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
 	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
 	Wmin = 5
+	// The rate setter can be in one of three modes: aimd, deficit or disabled.
+	aimdMode     = "aimd"
+	deficitMode  = "deficit"
+	disabledMode = "disabled"
 )
 
 var (
@@ -49,8 +53,53 @@ type RateSetterParams struct {
 
 // region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// RateSetter is a Tangle component that takes care of congestion control of local node.
-type RateSetter struct {
+type RateSetter interface {
+	Setup()
+	Issue(block *Block)
+	Shutdown()
+	IssuerLoop()
+}
+
+// AIMD rate setter adjusts local issuing rate by increasing rate additively
+// and then multiplicatively decreasing when congestion is detected.
+type AIMDRateSetter struct {
+	tangle              *Tangle
+	Events              *RateSetterEvents
+	self                identity.ID
+	issuingQueue        *schedulerutils.NodeQueue
+	issueChan           chan *Block
+	deficitChan         chan float64
+	excessDeficit       *atomic.Float64
+	ownRate             *atomic.Float64
+	pauseUpdates        uint
+	initialPauseUpdates uint
+	maxRate             float64
+	shutdownSignal      chan struct{}
+	shutdownOnce        sync.Once
+	initOnce            sync.Once
+}
+
+// Deficit rate setter uses the deficit held by the node and an estimate of its increase rate
+// to decide when it is a good time to issue something.
+type DeficitRateSetter struct {
+	tangle              *Tangle
+	Events              *RateSetterEvents
+	self                identity.ID
+	issuingQueue        *schedulerutils.NodeQueue
+	issueChan           chan *Block
+	deficitChan         chan float64
+	excessDeficit       *atomic.Float64
+	ownRate             *atomic.Float64
+	pauseUpdates        uint
+	initialPauseUpdates uint
+	maxRate             float64
+	shutdownSignal      chan struct{}
+	shutdownOnce        sync.Once
+	initOnce            sync.Once
+}
+
+// Disable rate setter always allows to issue something when requested.
+type DisabledRateSetter struct {
 	tangle              *Tangle
 	Events              *RateSetterEvents
 	self                identity.ID
@@ -68,69 +117,147 @@ type RateSetter struct {
 }
 
 // NewRateSetter returns a new RateSetter.
-func NewRateSetter(tangle *Tangle) *RateSetter {
-	rateSetter := &RateSetter{
-		tangle:              tangle,
-		Events:              newRateSetterEvents(),
-		self:                tangle.Options.Identity.ID(),
-		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
-		issueChan:           make(chan *Block),
-		deficitChan:         make(chan float64),
-		excessDeficit:       atomic.NewFloat64(0),
-		ownRate:             atomic.NewFloat64(0),
-		pauseUpdates:        0,
-		initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
-		maxRate:             float64(time.Second / tangle.Scheduler.Rate()),
-		shutdownSignal:      make(chan struct{}),
-		shutdownOnce:        sync.Once{},
-	}
+func NewRateSetter(tangle *Tangle) RateSetter {
+	var rateSetter RateSetter
 
-	if tangle.Options.RateSetterParams.Mode == "aimd" {
-		go rateSetter.AIMDIssuerLoop()
+	if tangle.Options.RateSetterParams.Mode == aimdMode {
+		rateSetter = &AIMDRateSetter{
+			tangle:              tangle,
+			Events:              newRateSetterEvents(),
+			self:                tangle.Options.Identity.ID(),
+			issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
+			issueChan:           make(chan *Block),
+			deficitChan:         make(chan float64),
+			excessDeficit:       atomic.NewFloat64(0),
+			ownRate:             atomic.NewFloat64(0),
+			pauseUpdates:        0,
+			initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
+			maxRate:             float64(time.Second / tangle.Scheduler.Rate()),
+			shutdownSignal:      make(chan struct{}),
+			shutdownOnce:        sync.Once{},
+		}
+	} else if tangle.Options.RateSetterParams.Mode == deficitMode {
+		rateSetter = &DeficitRateSetter{
+			tangle:              tangle,
+			Events:              newRateSetterEvents(),
+			self:                tangle.Options.Identity.ID(),
+			issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
+			issueChan:           make(chan *Block),
+			deficitChan:         make(chan float64),
+			excessDeficit:       atomic.NewFloat64(0),
+			ownRate:             atomic.NewFloat64(0),
+			pauseUpdates:        0,
+			initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
+			maxRate:             float64(time.Second / tangle.Scheduler.Rate()),
+			shutdownSignal:      make(chan struct{}),
+			shutdownOnce:        sync.Once{},
+		}
+	} else {
+		rateSetter = &DisabledRateSetter{
+			tangle:              tangle,
+			Events:              newRateSetterEvents(),
+			self:                tangle.Options.Identity.ID(),
+			issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
+			issueChan:           make(chan *Block),
+			deficitChan:         make(chan float64),
+			excessDeficit:       atomic.NewFloat64(0),
+			ownRate:             atomic.NewFloat64(0),
+			pauseUpdates:        0,
+			initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
+			maxRate:             float64(time.Second / tangle.Scheduler.Rate()),
+			shutdownSignal:      make(chan struct{}),
+			shutdownOnce:        sync.Once{},
+		}
 	}
-	if tangle.Options.RateSetterParams.Mode == "deficit" {
-		go rateSetter.DeficitIssuerLoop()
-	}
+	go rateSetter.IssuerLoop()
 
 	return rateSetter
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (r *RateSetter) Setup() {
-	if r.tangle.Options.RateSetterParams.Mode == "disabled" {
-		r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
-			r.Events.BlockIssued.Trigger(event)
-		}))
-		return
-	}
+func (r *AIMDRateSetter) Setup() {
+	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
+		if err := r.Issue(event.Block); err != nil {
+			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
+		}
+	}))
+	// update own AIMD rate setting each time a block is scheduled
+	r.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(_ *BlockScheduledEvent) {
+		if r.pauseUpdates > 0 {
+			r.pauseUpdates--
+			return
+		}
+		if r.issuingQueue.Size()+r.tangle.Scheduler.NodeQueueSize(selfLocalIdentity.ID()) > 0 {
+			r.AIMDUpdate()
+		}
+	}))
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (r *DeficitRateSetter) Setup() {
+	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
+		if err := r.Issue(event.Block); err != nil {
+			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
+		}
+	}))
+	// update deficit-based rate setting if own deficit is modified
+	r.tangle.Scheduler.Events.OwnDeficitUpdated.Attach(event.NewClosure(func(event *OwnDeficitUpdatedEvent) {
+		r.deficitChan <- event.Deficit
+	}))
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
+func (r *DisabledRateSetter) Setup() {
+	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
+		r.Events.BlockIssued.Trigger(event)
+	}))
+	return
 
 	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
 		if err := r.Issue(event.Block); err != nil {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
-	// update own AIMD rate setting each time a block is scheduled if in AIMD mode
-	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
-		r.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(_ *BlockScheduledEvent) {
-			if r.pauseUpdates > 0 {
-				r.pauseUpdates--
-				return
-			}
-			if r.issuingQueue.Size()+r.tangle.Scheduler.NodeQueueSize(selfLocalIdentity.ID()) > 0 {
-				r.AIMDRateSetting()
-			}
-		}))
+}
+
+// Issue submits a block to the local issuing queue.
+func (r *AIMDRateSetter) Issue(block *Block) error {
+	if identity.NewID(block.IssuerPublicKey()) != r.self {
+		return ErrInvalidIssuer
 	}
-	// update deficit-based rate setting if own deficit is modified
-	if r.tangle.Options.RateSetterParams.Mode == "deficit" {
-		r.tangle.Scheduler.Events.OwnDeficitUpdated.Attach(event.NewClosure(func(event *OwnDeficitUpdatedEvent) {
-			r.deficitChan <- event.Deficit
-		}))
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.InitializeRate()
+	})
+
+	select {
+	case r.issueChan <- block:
+		return nil
+	case <-r.shutdownSignal:
+		return ErrStopped
 	}
 }
 
 // Issue submits a block to the local issuing queue.
-func (r *RateSetter) Issue(block *Block) error {
+func (r *DeficitRateSetter) Issue(block *Block) error {
+	if identity.NewID(block.IssuerPublicKey()) != r.self {
+		return ErrInvalidIssuer
+	}
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.InitializeRate()
+	})
+
+	select {
+	case r.issueChan <- block:
+		return nil
+	case <-r.shutdownSignal:
+		return ErrStopped
+	}
+}
+
+// Issue submits a block to the local issuing queue.
+func (r *DisabledRateSetter) Issue(block *Block) error {
 	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
@@ -148,51 +275,99 @@ func (r *RateSetter) Issue(block *Block) error {
 }
 
 // Shutdown shuts down the RateSetter.
-func (r *RateSetter) Shutdown() {
+func (r *AIMDRateSetter) Shutdown() {
+	r.shutdownOnce.Do(func() {
+		close(r.shutdownSignal)
+	})
+}
+
+// Shutdown shuts down the RateSetter.
+func (r *DeficitRateSetter) Shutdown() {
+	r.shutdownOnce.Do(func() {
+		close(r.shutdownSignal)
+	})
+}
+
+// Shutdown shuts down the RateSetter.
+func (r *DisabledRateSetter) Shutdown() {
 	r.shutdownOnce.Do(func() {
 		close(r.shutdownSignal)
 	})
 }
 
 // Rate returns the rate of the rate setter.
-func (r *RateSetter) Rate() float64 {
+func (r *AIMDRateSetter) Rate() float64 {
 	return r.ownRate.Load()
 }
 
 // Size returns the size (in blocks) of the issuing queue.
-func (r *RateSetter) Size() int {
+func (r *AIMDRateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
 // Size returns the size (in blocks) of the issuing queue.
-func (r *RateSetter) Work() int {
+func (r *AIMDRateSetter) Work() int {
+	return r.issuingQueue.Work()
+}
+
+// Rate returns the rate of the rate setter.
+func (r *DeficitRateSetter) Rate() float64 {
+	return r.ownRate.Load()
+}
+
+// Size returns the size (in blocks) of the issuing queue.
+func (r *DeficitRateSetter) Size() int {
+	return r.issuingQueue.Size()
+}
+
+// Size returns the size (in blocks) of the issuing queue.
+func (r *DeficitRateSetter) Work() int {
+	return r.issuingQueue.Work()
+}
+
+// Rate returns the rate of the rate setter.
+func (r *DisabledRateSetter) Rate() float64 {
+	return r.ownRate.Load()
+}
+
+// Size returns the size (in blocks) of the issuing queue.
+func (r *DisabledRateSetter) Size() int {
+	return r.issuingQueue.Size()
+}
+
+// Size returns the size (in blocks) of the issuing queue.
+func (r *DisabledRateSetter) Work() int {
 	return r.issuingQueue.Work()
 }
 
 // Estimate estimates the issuing time of new block.
-func (r *RateSetter) Estimate() time.Duration {
-	if r.tangle.Options.RateSetterParams.Mode == "aimd" {
-		r.initOnce.Do(func() {
-			// initialize mana vectors in cache here when mana vectors are already loaded
-			r.InitializeRate()
-		})
+func (r *AIMDRateSetter) Estimate() time.Duration {
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.InitializeRate()
+	})
 
-		var pauseUpdate time.Duration
-		if r.pauseUpdates > 0 {
-			pauseUpdate = time.Duration(float64(r.pauseUpdates)) * r.tangle.Scheduler.Rate()
-		}
-		// dummy estimate
-		return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
-	} else if r.tangle.Options.RateSetterParams.Mode == "deficit" {
-		// everything is in units of work (bytes) rather than blocks for deficit-based rate setter
-		return time.Duration(lo.Max(0, (float64(r.Work())-r.excessDeficit.Load())/r.ownRate.Load()))
-	} else {
-		return time.Duration(0) // return no wait if rate setter is disabled
+	var pauseUpdate time.Duration
+	if r.pauseUpdates > 0 {
+		pauseUpdate = time.Duration(float64(r.pauseUpdates)) * r.tangle.Scheduler.Rate()
 	}
+	// dummy estimate
+	return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
+}
+
+// Estimate estimates the issuing time of new block.
+func (r *DeficitRateSetter) Estimate() time.Duration {
+	// everything is in units of work (bytes) rather than blocks for deficit-based rate setter
+	return time.Duration(lo.Max(0, (float64(r.Work())-r.excessDeficit.Load())/r.ownRate.Load()))
+}
+
+// Estimate estimates the issuing time of new block.
+func (r *DisabledRateSetter) Estimate() time.Duration {
+	return time.Duration(0) // return no wait if rate setter is disabled
 }
 
 // rateSetting updates the rate ownRate at which blocks can be issued by the node.
-func (r *RateSetter) AIMDRateSetting() {
+func (r *AIMDRateSetter) AIMDUpdate() {
 	// Return access mana or MinMana to allow zero mana nodes issue.
 	ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
 	maxManaValue := lo.Max(append(lo.Values(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()), MinMana)...)
@@ -210,7 +385,7 @@ func (r *RateSetter) AIMDRateSetting() {
 	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
 
-func (r *RateSetter) AIMDIssuerLoop() {
+func (r *AIMDRateSetter) IssuerLoop() {
 	var (
 		issueTimer    = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
@@ -268,7 +443,7 @@ loop:
 	}
 }
 
-func (r *RateSetter) DeficitIssuerLoop() {
+func (r *DeficitRateSetter) IssuerLoop() {
 	var (
 		nextBlockSize  = float64(0.0)
 		lastDeficit    = float64(0.0)
@@ -332,12 +507,32 @@ loop:
 
 }
 
-func (r *RateSetter) issueInterval() time.Duration {
+func (r *AIMDRateSetter) issueInterval() time.Duration {
 	wait := time.Duration(math.Ceil(float64(1) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
-func (r *RateSetter) InitializeRate() {
+func (r *AIMDRateSetter) InitializeRate() {
+	if r.tangle.Options.RateSetterParams.Initial > 0.0 {
+		r.ownRate.Store(r.tangle.Options.RateSetterParams.Initial)
+	} else {
+		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
+		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
+	}
+}
+
+func (r *DeficitRateSetter) InitializeRate() {
+	if r.tangle.Options.RateSetterParams.Initial > 0.0 {
+		r.ownRate.Store(r.tangle.Options.RateSetterParams.Initial)
+	} else {
+		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
+		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
+	}
+}
+
+func (r *DisabledRateSetter) InitializeRate() {
 	if r.tangle.Options.RateSetterParams.Initial > 0.0 {
 		r.ownRate.Store(r.tangle.Options.RateSetterParams.Initial)
 	} else {

@@ -15,7 +15,7 @@ import (
 const PluginName = "WebAPIRateSetterEndpoint"
 
 type dependencies struct {
-	dig.In // dependencies package
+	dig.In
 
 	Server *echo.Echo
 	Tangle *tangle.Tangle
