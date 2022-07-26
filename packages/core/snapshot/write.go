@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 )
 
+const utxoStatesChunkSize = 100
+
 var delimiter = []byte{';', ';'}
 
 // StreamSnapshotDataTo writes snapshot to a given writer.
@@ -63,8 +65,8 @@ func StreamSnapshotDataTo(
 		outputWithMetadataCounter++
 		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
 
-		// put a delimeter every 100 outputs
-		if outputChunkCounter == 100 {
+		// put a delimeter every utxoStatesChunkSize outputs
+		if outputChunkCounter == utxoStatesChunkSize {
 			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
 			if err != nil {
 				return err
