@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
@@ -50,7 +51,13 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	header, err := snapshot.CreateSnapshot(snapshotFileName, deps.Tangle, deps.NotarizationMgr)
+	lastConfirmedEpoch, err := deps.NotarizationMgr.LatestConfirmedEpochIndex()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
+	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.Tangle.Ledger)
+
+	header, err := snapshot.CreateSnapshot(snapshotFileName, headerProducer, outputWithMetadataProd, deps.NotarizationMgr.SnapshotEpochDiffs)
 	if err != nil {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
@@ -62,6 +69,21 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
+}
+
+func headerProducer() (header *ledger.SnapshotHeader, err error) {
+	committableEC, fullEpochIndex, err := deps.Tangle.Options.CommitmentFunc()
+	if err != nil {
+		return nil, err
+	}
+
+	header = &ledger.SnapshotHeader{
+		FullEpochIndex: fullEpochIndex,
+		DiffEpochIndex: committableEC.EI(),
+		LatestECRecord: committableEC,
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

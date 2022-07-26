@@ -40,7 +40,7 @@ func (s *Snapshot) String() (humanReadable string) {
 
 // String returns a human-readable version of the Snapshot.
 func (h *SnapshotHeader) String() (humanReadable string) {
-	return stringify.Struct("Snapshot",
+	return stringify.Struct("SnapshotHeader",
 		stringify.StructField("OutputWithMetadataCount", h.OutputWithMetadataCount),
 		stringify.StructField("FullEpochIndex", h.FullEpochIndex),
 		stringify.StructField("DiffEpochIndex", h.DiffEpochIndex),

@@ -18,7 +18,7 @@ import (
 func StreamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	headerConsumer HeaderConsumerFunc,
-	outputConsumer OutputWithMetadataConsumerFunc,
+	outputConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc) error {
 
 	header, err := ReadSnapshotHeader(reader)

@@ -18,9 +18,9 @@ var delimiter = []byte{';', ';'}
 // StreamSnapshotDataTo writes snapshot to a given writer.
 func StreamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
-	header *ledger.SnapshotHeader,
-	outputProd OutputWithMetadataProducerFunc,
-	epochDiffsProd EpochDiffProducerFunc) error {
+	headerProd HeaderProducerFunc,
+	outputProd UTXOStatesProducerFunc,
+	epochDiffsProd EpochDiffProducerFunc) (*ledger.SnapshotHeader, error) {
 
 	writeFunc := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
@@ -42,9 +42,14 @@ func StreamSnapshotDataTo(
 		return nil
 	}
 
-	err := writeSnapshotHeader(writeSeeker, header)
+	header, err := headerProd()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	err = writeSnapshotHeader(writeSeeker, header)
+	if err != nil {
+		return nil, err
 	}
 
 	// write outputWithMetadata
@@ -57,7 +62,7 @@ func StreamSnapshotDataTo(
 			// write rests of outputWithMetadatas
 			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			break
 		}
@@ -69,7 +74,7 @@ func StreamSnapshotDataTo(
 		if outputChunkCounter == utxoStatesChunkSize {
 			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			chunksOutputWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 			outputChunkCounter = 0
@@ -79,32 +84,32 @@ func StreamSnapshotDataTo(
 	// write epochDiffs
 	epochDiffs, err := epochDiffsProd()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	typeSet := new(serix.TypeSettings)
 	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := writeFunc(fmt.Sprintf("diffEpoch"), append(bytes, delimiter...)); err != nil {
-		return err
+		return nil, err
 	}
 
 	// seek back to the file position of the outputWithMetadata counter
 	if _, err := writeSeeker.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("unable to seek to LS counter placeholders: %w", err)
+		return nil, fmt.Errorf("unable to seek to LS counter placeholders: %w", err)
 	}
 	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
-		return err
+		return nil, err
 	}
 	header.OutputWithMetadataCount = outputWithMetadataCounter
 
-	return nil
+	return header, nil
 }
 
-// NewLedgerOutputWithMetadataProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerOutputWithMetadataProducer(lastConfirmedEpoch epoch.Index, l *ledger.Ledger) OutputWithMetadataProducerFunc {
+// NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
+func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, l *ledger.Ledger) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
 
 	go func() {

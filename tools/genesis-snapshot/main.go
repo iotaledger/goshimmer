@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/iotaledger/hive.go/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
@@ -95,29 +98,16 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	createdSnapshot, err := snapshotcreator.CreateSnapshot(genesisTokenAmount, genesisSeed, manaDistribution)
+	_, err = snapshotcreator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 	if err != nil {
-		log.Fatal("Failed to create createdSnapshot %w", err)
+		log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
+		return
 	}
 
-	if err = createdSnapshot.WriteFile(snapshotFileName); err != nil {
-		panic(err)
-	}
-
-	fmt.Println("created", createdSnapshot)
-
-	u := new(snapshot.Snapshot)
-	sBytes, err := createdSnapshot.Bytes()
+	err = readSnapshotFromFile(snapshotFileName)
 	if err != nil {
-		panic(err)
+		log.Fatal(fmt.Errorf("failed to read snapshot: %w", err))
 	}
-
-	err = u.FromBytes(sBytes)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("unmarshalled", u.LedgerSnapshot)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
@@ -144,4 +134,25 @@ func init() {
 	if err := viper.BindPFlags(flag.CommandLine); err != nil {
 		panic(err)
 	}
+}
+
+func readSnapshotFromFile(filePath string) (err error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("fail to create snapshot file: %s", err)
+	}
+
+	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+		fmt.Println(outputWithMetadatas)
+	}
+	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+		fmt.Println(epochDiffs)
+	}
+	headerConsumer := func(h *ledger.SnapshotHeader) {
+		fmt.Println(h)
+	}
+
+	err = snapshot.StreamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+
+	return
 }
