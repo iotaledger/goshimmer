@@ -128,6 +128,7 @@ func (t *Tangle) initSolidifier() (self *Tangle) {
 		t.BlockMetadata,
 		(*BlockMetadata).isSolid,
 		(*BlockMetadata).setSolid,
+		t.optsIsSolidEntryPoint,
 		causalorder.WithReferenceValidator[BlockID](func(entity *BlockMetadata, parent *BlockMetadata) bool {
 			return !parent.invalid
 		}),

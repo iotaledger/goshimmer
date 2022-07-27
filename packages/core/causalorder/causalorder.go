@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 type IDWithEpoch interface {
@@ -26,6 +25,7 @@ type CausalOrder[IDType IDWithEpoch, EntityType Entity[IDType]] struct {
 	entityProvider EntityProvider[IDType, EntityType]
 	isOrdered      func(EntityType) bool
 	setOrdered     func(EntityType, bool) bool
+	isGenesis      func(IDType) bool
 
 	unorderedParentsCounter      *memstorage.EpochStorage[IDType, uint8]
 	unorderedParentsCounterMutex sync.Mutex
@@ -40,8 +40,9 @@ type CausalOrder[IDType IDWithEpoch, EntityType Entity[IDType]] struct {
 
 func New[IDType IDWithEpoch, EntityType Entity[IDType]](
 	entityProvider EntityProvider[IDType, EntityType],
-	orderedFlagGetter func(EntityType) bool,
-	orderedFlagSetter func(EntityType, bool) bool,
+	isOrdered func(EntityType) bool,
+	setOrdered func(EntityType, bool) bool,
+	isGenesis func(IDType) bool,
 	opts ...options.Option[CausalOrder[IDType, EntityType]],
 ) *CausalOrder[IDType, EntityType] {
 	return options.Apply(&CausalOrder[IDType, EntityType]{
@@ -49,8 +50,9 @@ func New[IDType IDWithEpoch, EntityType Entity[IDType]](
 		Drop: event.New[EntityType](),
 
 		entityProvider:          entityProvider,
-		isOrdered:               orderedFlagGetter,
-		setOrdered:              orderedFlagSetter,
+		isOrdered:               isOrdered,
+		setOrdered:              setOrdered,
+		isGenesis:               isGenesis,
 		unorderedParentsCounter: memstorage.NewEpochStorage[IDType, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[IDType, []EntityType](),
 
@@ -129,7 +131,7 @@ func (c *CausalOrder[IDType, EntityType]) checkParents(entity EntityType) (unord
 	for _, parentID := range entity.ParentIDs() {
 		parentEntity := c.entity(parentID)
 
-		if !c.optsReferenceValidator(entity, parentEntity) || (parentID != tangle.EmptyBlockID && parentID.Index() <= c.maxDroppedEpoch) {
+		if !c.optsReferenceValidator(entity, parentEntity) || (!c.isGenesis(parentID) && parentID.Index() <= c.maxDroppedEpoch) {
 			return unorderedParentsCount, true
 		}
 
