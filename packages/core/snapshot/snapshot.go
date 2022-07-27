@@ -8,11 +8,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 // Snapshot contains the data to be put in a snapshot file.
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
+}
+
+func init() {
+	typeSet := new(serix.TypeSettings)
+	ts := typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)
+
+	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger.OutputWithMetadata{}, ts)
+	if err != nil {
+		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterTypeSettings(map[epoch.Index]*ledger.EpochDiff{}, ts)
+	if err != nil {
+		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+	}
 }
 
 // CreateSnapshot creates a snapshot file to the given file path.

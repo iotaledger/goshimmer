@@ -84,9 +84,8 @@ func readOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.O
 	data := scanner.Bytes()
 
 	if len(data) > 0 {
-		typeSet := new(serix.TypeSettings)
 		outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithValidation())
 		if err != nil {
 			return nil, err
 		}
@@ -107,8 +106,7 @@ func readEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.
 	scanner.Scan()
 	data := scanner.Bytes()
 	if len(data) > 0 {
-		typeSet := new(serix.TypeSettings)
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)))
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithValidation())
 		if err != nil {
 			return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 		}

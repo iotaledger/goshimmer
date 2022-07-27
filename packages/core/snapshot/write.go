@@ -31,8 +31,7 @@ func streamSnapshotDataTo(
 			return nil
 		}
 
-		typeSet := new(serix.TypeSettings)
-		data, err := serix.DefaultAPI.Encode(context.Background(), chunks, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+		data, err := serix.DefaultAPI.Encode(context.Background(), chunks, serix.WithValidation())
 		if err != nil {
 			return err
 		}
@@ -68,6 +67,7 @@ func streamSnapshotDataTo(
 		}
 
 		outputWithMetadataCounter++
+		outputChunkCounter++
 		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
 
 		// put a delimeter every utxoStatesChunkSize outputs
@@ -87,8 +87,7 @@ func streamSnapshotDataTo(
 		return nil, err
 	}
 
-	typeSet := new(serix.TypeSettings)
-	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithTypeSettings(typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)), serix.WithValidation())
+	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}

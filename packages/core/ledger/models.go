@@ -575,7 +575,7 @@ func (e *EpochDiff) Spent() []*OutputWithMetadata {
 
 // Created returns the outputs created for this epoch diff.
 func (e *EpochDiff) Created() []*OutputWithMetadata {
-	return e.M.Spent
+	return e.M.Created
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
