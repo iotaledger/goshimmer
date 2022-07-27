@@ -22,34 +22,40 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 	m.validationInProgress = true
 	defer func() { m.validationInProgress = false }()
 
-	for ei := end - 1; ei >= start; ei-- {
+	ecChain = make(map[epoch.Index]*epoch.ECRecord)
+
+	// We do not request the start nor the ending epoch, as we know the beginning and the end of the chain.
+	for ei := end - 1; ei > start; ei-- {
 		m.requestEpochCommittment(ei)
 	}
+	toReceive := end - start - 1
 
-	ecChain = make(map[epoch.Index]*epoch.ECRecord)
-	toReceive := end - start
+	m.log.Debugw("validation readloop", "start", start, "end", end, "startEC", startEC.Base58(), "endPrevEC", endPrevEC.Base58())
 
 readLoop:
 	for {
 		select {
 		case ecRecord := <-m.commitmentsChan:
+			m.log.Debugw("read committment", "EI", ecRecord.EI(), "EC", epoch.ComputeEC(ecRecord).Base58())
 			if ecChain[ecRecord.EI()] != nil {
 				continue
 			}
 			ecChain[ecRecord.EI()] = ecRecord
 			toReceive--
+
+			m.log.Debugf("epochs left %d", toReceive)
 			if toReceive == 0 {
 				break readLoop
 			}
 		case <-ctx.Done():
-			return nil, fmt.Errorf("cancelled while validating epoch range %d to %d", start, end)
+			return nil, fmt.Errorf("cancelled while validating epoch range %d to %d: %s", start, end, ctx.Err())
 		}
 	}
 
 	ecChain[end] = epoch.NewECRecord(end)
 	ecChain[end].SetPrevEC(endPrevEC)
 
-	for ei := end - 1; ei >= start; ei-- {
+	for ei := end - 1; ei > start; ei-- {
 		ecRecord, exists := ecChain[ei]
 		if !exists {
 			return nil, fmt.Errorf("did not receive epoch commitment for epoch %d", ei)
@@ -59,26 +65,28 @@ readLoop:
 		}
 	}
 
-	actualEC := epoch.ComputeEC(ecChain[start])
+	actualEC := ecChain[start+1].PrevEC()
 	if startEC != actualEC {
 		return nil, fmt.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, actualEC)
 	}
 
+	m.log.Debugw("validation successful")
 	return ecChain, nil
 }
 
-func (m *Manager) requestEpochCommittment(index epoch.Index) {
-	committmentReq := &wp.EpochCommittmentRequest{EI: int64(index)}
+func (m *Manager) requestEpochCommittment(ei epoch.Index) {
+	committmentReq := &wp.EpochCommittmentRequest{EI: int64(ei)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
 	m.p2pManager.Send(packet, protocolID)
+	m.log.Debugw("sent epoch committment request", "EI", ei)
 }
 
 func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Packet_EpochCommitmentRequest, nbr *p2p.Neighbor) {
 	ei := epoch.Index(packetEpochRequest.EpochCommitmentRequest.GetEI())
-	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochCommitmentRequest.GetEC())
+	m.log.Debugw("received epoch committment request", "peer", nbr.Peer.ID(), "EI", ei)
 
 	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
-	if !exists || ec != epoch.ComputeEC(ecRecord) {
+	if !exists {
 		return
 	}
 
@@ -90,6 +98,8 @@ func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Pa
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: committmentRes}}
 
 	m.p2pManager.Send(packet, protocolID, nbr.ID())
+
+	m.log.Debugw("sent epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", epoch.ComputeEC(ecRecord).Base58())
 }
 
 func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
@@ -104,6 +114,8 @@ func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packe
 	ecRecord := epoch.NewECRecord(ei)
 	ecRecord.SetECR(ecr)
 	ecRecord.SetPrevEC(prevEC)
+
+	m.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", epoch.ComputeEC(ecRecord).Base58())
 
 	m.commitmentsChan <- ecRecord
 }

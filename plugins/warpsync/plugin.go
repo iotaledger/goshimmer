@@ -49,8 +49,23 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	configureLogging()
-	configureBlockLayer()
+	deps.NotarizationMgr.Events.SyncRange.Hook(event.NewClosure(func(event *notarization.SyncRangeEvent) {
+		deps.WarpsyncMgr.Lock()
+		defer deps.WarpsyncMgr.Unlock()
+
+		Plugin.LogInfof("warpsyncing range %d-%d on chain %s", event.StartEI, event.EndEI, event.EndPrevEC.Base58())
+		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
+		defer cancel()
+		ecChain, validateErr := deps.WarpsyncMgr.ValidateBackwards(ctx, event.StartEI, event.EndEI, event.StartEC, event.EndPrevEC)
+		if validateErr != nil {
+			Plugin.LogWarnf("failed to validate range %d-%d: %s", event.StartEI, event.EndEI, validateErr)
+			return
+		}
+		if syncRangeErr := deps.WarpsyncMgr.SyncRange(ctx, event.StartEI, event.EndEI, ecChain); syncRangeErr != nil {
+			Plugin.LogWarnf("failed to sync range %d-%d: %s", event.StartEI, event.EndEI, syncRangeErr)
+			return
+		}
+	}))
 }
 
 func start(ctx context.Context) {
@@ -63,34 +78,4 @@ func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityWarpsync); err != nil {
 		plugin.Logger().Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-func configureLogging() {
-	// log the gossip events
-	deps.Tangle.Requester.Events.RequestStarted.Attach(event.NewClosure(func(event *tangle.RequestStartedEvent) {
-		Plugin.LogDebugf("started to request missing Block with %s", event.BlockID)
-	}))
-	deps.Tangle.Requester.Events.RequestStopped.Attach(event.NewClosure(func(event *tangle.RequestStoppedEvent) {
-		Plugin.LogDebugf("stopped to request missing Block with %s", event.BlockID)
-	}))
-	deps.Tangle.Requester.Events.RequestFailed.Attach(event.NewClosure(func(event *tangle.RequestFailedEvent) {
-		Plugin.LogDebugf("failed to request missing Block with %s", event.BlockID)
-	}))
-}
-
-func configureBlockLayer() {
-	deps.NotarizationMgr.Events.SyncRange.Hook(event.NewClosure(func(event *notarization.SyncRangeEvent) {
-		Plugin.LogInfo("warpsyncing range", event)
-		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
-		defer cancel()
-		ecChain, validateErr := deps.WarpsyncMgr.ValidateBackwards(ctx, event.StartEI, event.EndEI, event.StartEC, event.EndPrevEC)
-		if validateErr != nil {
-			Plugin.LogWarnf("failed to validate range %d-%d: %s", event.StartEI, event.EndEI,validateErr)
-			return
-		}
-		if syncRangeErr := deps.WarpsyncMgr.SyncRange(ctx, event.StartEI, event.EndEI, ecChain); syncRangeErr != nil {
-			Plugin.LogWarnf("failed to sync range %d-%d: %s", event.StartEI, event.EndEI, syncRangeErr)
-			return
-		}
-	}))
 }

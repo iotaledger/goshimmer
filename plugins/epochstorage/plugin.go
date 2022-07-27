@@ -56,6 +56,7 @@ type latestVote struct {
 	ecr        epoch.ECR
 	issuedTime time.Time
 }
+
 type dependencies struct {
 	dig.In
 

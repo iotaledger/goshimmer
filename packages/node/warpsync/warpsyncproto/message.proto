@@ -42,7 +42,6 @@ message EpochCommittment {
 
 message EpochCommittmentRequest {
   int64 EI = 1;
-  bytes EC = 2;
 }
 
 message Negotiation {}

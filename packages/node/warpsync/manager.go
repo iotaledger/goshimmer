@@ -42,6 +42,8 @@ type Manager struct {
 	syncingInProgress  bool
 	epochSyncBlockChan chan (*epochSyncBlock)
 	epochSyncEndChan   chan (*epochSyncEnd)
+
+	sync.RWMutex
 }
 
 // ManagerOption configures the Manager instance.
@@ -87,9 +89,9 @@ func WithBlockBatchSize(blockBatchSize int) ManagerOption {
 	}
 }
 
-// IsActive returns true if the manager is not stopped and it is currently performing a validation or syncing operation.
-func (m *Manager) IsActive() bool {
-	return !m.isStopped && (m.syncingInProgress || m.validationInProgress)
+// IsStopped returns true if the manager is stopped.
+func (m *Manager) IsStopped() bool {
+	return m.isStopped
 }
 
 // Stop stops the manager and closes all established connections.
@@ -113,7 +115,7 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
-		if added := event.Loop.TrySubmit(func() { m.processEpochRequestPacket(packetBody, nbr) }); !added {
+		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksRequestPacket(packetBody, nbr) }); !added {
 			return fmt.Errorf("blockWorkerPool full: packet block discarded")
 		}
 	case *wp.Packet_EpochBlocks:
