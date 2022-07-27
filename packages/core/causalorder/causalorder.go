@@ -1,15 +1,25 @@
 package causalorder
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/options"
 	"github.com/iotaledger/hive.go/generics/walker"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
-type CausalOrder[IDType comparable, EntityType Entity[IDType]] struct {
+type IDWithEpoch interface {
+	comparable
+	Index() epoch.Index
+}
+
+type CausalOrder[IDType IDWithEpoch, EntityType Entity[IDType]] struct {
 	Emit *event.Event[EntityType]
 	Drop *event.Event[EntityType]
 
@@ -17,15 +27,18 @@ type CausalOrder[IDType comparable, EntityType Entity[IDType]] struct {
 	isOrdered      func(EntityType) bool
 	setOrdered     func(EntityType, bool) bool
 
-	unorderedParentsCounter      map[IDType]uint8
+	unorderedParentsCounter      *memstorage.EpochStorage[IDType, uint8]
 	unorderedParentsCounterMutex sync.Mutex
-	unorderedChildren            map[IDType][]EntityType
+	unorderedChildren            *memstorage.EpochStorage[IDType, []EntityType]
 	unorderedChildrenMutex       sync.Mutex
+
+	maxDroppedEpoch epoch.Index
+	pruningMutex    sync.RWMutex
 
 	optsReferenceValidator func(entity EntityType, parent EntityType) bool
 }
 
-func New[IDType comparable, EntityType Entity[IDType]](
+func New[IDType IDWithEpoch, EntityType Entity[IDType]](
 	entityProvider EntityProvider[IDType, EntityType],
 	orderedFlagGetter func(EntityType) bool,
 	orderedFlagSetter func(EntityType, bool) bool,
@@ -38,8 +51,8 @@ func New[IDType comparable, EntityType Entity[IDType]](
 		entityProvider:          entityProvider,
 		isOrdered:               orderedFlagGetter,
 		setOrdered:              orderedFlagSetter,
-		unorderedParentsCounter: make(map[IDType]uint8),
-		unorderedChildren:       make(map[IDType][]EntityType),
+		unorderedParentsCounter: memstorage.NewEpochStorage[IDType, uint8](),
+		unorderedChildren:       memstorage.NewEpochStorage[IDType, []EntityType](),
 
 		optsReferenceValidator: func(entity EntityType, parent EntityType) bool {
 			return true
@@ -48,6 +61,13 @@ func New[IDType comparable, EntityType Entity[IDType]](
 }
 
 func (c *CausalOrder[IDType, EntityType]) Queue(entity EntityType) (ordered bool) {
+	c.pruningMutex.RLock()
+	defer c.pruningMutex.RUnlock()
+
+	if entity.ID().Index() <= c.maxDroppedEpoch {
+		return
+	}
+
 	if ordered = c.wasOrdered(entity); ordered {
 		c.propagateCausalOrder(entity)
 	}
@@ -55,19 +75,30 @@ func (c *CausalOrder[IDType, EntityType]) Queue(entity EntityType) (ordered bool
 	return ordered
 }
 
+func (c *CausalOrder[IDType, EntityType]) DropEpoch(index epoch.Index) {
+	c.pruningMutex.Lock()
+	c.pruningMutex.Unlock()
+
+	for i := c.maxDroppedEpoch + 1; i <= index; i++ {
+		c.unorderedChildren.Get(i).ForEachKey(func(id IDType) bool {
+			c.Drop.Trigger(c.entity(id))
+			return true
+		})
+		c.unorderedChildren.Drop(i)
+	}
+
+	for i := c.maxDroppedEpoch + 1; i <= index; i++ {
+		c.unorderedParentsCounter.Drop(i)
+	}
+
+	c.maxDroppedEpoch = index
+}
+
 func (c *CausalOrder[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrdered bool) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
-	isInvalid := false
-
-	c.unorderedParentsCounterMutex.Lock()
-	c.unorderedParentsCounter[entity.ID()], isInvalid = c.checkParents(entity)
-	if !isInvalid && c.unorderedParentsCounter[entity.ID()] == 0 {
-		wasOrdered = c.setOrdered(entity, true)
-	}
-	c.unorderedParentsCounterMutex.Unlock()
-
+	wasOrdered, isInvalid := c.checkEntity(entity)
 	if isInvalid {
 		c.Drop.Trigger(entity)
 		return
@@ -80,11 +111,25 @@ func (c *CausalOrder[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrde
 	return
 }
 
+func (c *CausalOrder[IDType, EntityType]) checkEntity(entity EntityType) (wasOrdered bool, isInvalid bool) {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	countersStorage := c.unorderedParentsCounter.Get(entity.ID().Index(), true)
+	unorderedParents, isInvalid := c.checkParents(entity)
+	countersStorage.Set(entity.ID(), unorderedParents)
+	if !isInvalid && unorderedParents == 0 {
+		wasOrdered = c.setOrdered(entity, true)
+	}
+
+	return wasOrdered, isInvalid
+}
+
 func (c *CausalOrder[IDType, EntityType]) checkParents(entity EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
 	for _, parentID := range entity.ParentIDs() {
 		parentEntity := c.entity(parentID)
 
-		if !c.optsReferenceValidator(entity, parentEntity) {
+		if !c.optsReferenceValidator(entity, parentEntity) || (parentID != tangle.EmptyBlockID && parentID.Index() <= c.maxDroppedEpoch) {
 			return unorderedParentsCount, true
 		}
 
@@ -102,7 +147,10 @@ func (c *CausalOrder[IDType, EntityType]) registerUnorderedChild(entityID IDType
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
-	c.unorderedChildren[entityID] = append(c.unorderedChildren[entityID], child)
+	unorderedChildrenStorage := c.unorderedChildren.Get(entityID.Index(), true)
+
+	entityChildren, _ := unorderedChildrenStorage.Get(entityID)
+	unorderedChildrenStorage.Set(entityID, append(entityChildren, child))
 
 }
 
@@ -110,8 +158,14 @@ func (c *CausalOrder[IDType, EntityType]) popUnorderedChildren(entityID IDType) 
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
-	pendingChildren = c.unorderedChildren[entityID]
-	delete(c.unorderedChildren, entityID)
+	pendingChildrenStorage := c.unorderedChildren.Get(entityID.Index())
+	if pendingChildrenStorage == nil {
+		return pendingChildren
+	}
+
+	pendingChildren, _ = pendingChildrenStorage.Get(entityID)
+
+	pendingChildrenStorage.Delete(entityID)
 
 	return pendingChildren
 }
@@ -143,9 +197,20 @@ func (c *CausalOrder[IDType, EntityType]) decreaseUnorderedParentsCounter(metada
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
-	c.unorderedParentsCounter[metadata.ID()]--
+	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
+	if unorderedParentsCounterStorage == nil {
+		// entity was already dropped and can never be considered as ordered
+		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
+	}
 
-	return c.unorderedParentsCounter[metadata.ID()]
+	unorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
+	if !exists {
+		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
+	}
+	unorderedParentsCounter--
+	unorderedParentsCounterStorage.Set(metadata.ID(), unorderedParentsCounter)
+
+	return
 }
 
 func (c *CausalOrder[IDType, EntityType]) lockEntity(entity EntityType) {

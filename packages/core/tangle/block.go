@@ -129,6 +129,10 @@ type BlockID struct {
 	EpochIndex epoch.Index      `serix:"1"`
 }
 
+func (b BlockID) Index() epoch.Index {
+	return b.EpochIndex
+}
+
 // EmptyBlockID is an empty id.
 var EmptyBlockID BlockID
 
@@ -769,11 +773,14 @@ func (b *BlockMetadata) setSolid(solid bool) (updated bool) {
 
 	return true
 }
-
-func (b *BlockMetadata) setInvalid() (updated bool) {
+func (b *BlockMetadata) SetInvalid() (updated bool) {
 	b.Lock()
 	defer b.Unlock()
 
+	return b.setInvalid()
+}
+
+func (b *BlockMetadata) setInvalid() (updated bool) {
 	if b.invalid {
 		return false
 	}
@@ -797,6 +804,11 @@ func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
 	b.RLock()
 	defer b.RUnlock()
 
+	return b.children()
+}
+
+// Children returns the metadata of the children of the block.
+func (b *BlockMetadata) children() (childrenMetadata []*BlockMetadata) {
 	seenBlockIDs := make(map[BlockID]types.Empty)
 	for _, parentsByType := range [][]*BlockMetadata{
 		b.strongChildren,
@@ -831,19 +843,21 @@ var (
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+var GenesisMetadata = &BlockMetadata{
+	id:                   EmptyBlockID,
+	strongParents:        make(BlockIDs),
+	weakParents:          make(BlockIDs),
+	likedInsteadParents:  make(BlockIDs),
+	strongChildren:       make([]*BlockMetadata, 0),
+	weakChildren:         make([]*BlockMetadata, 0),
+	likedInsteadChildren: make([]*BlockMetadata, 0),
+	solid:                true,
+	StarvingMutex:        syncutils.NewStarvingMutex(),
+}
+
 // SolidEntrypointMetadata returns the metadata for a solid entrypoint.
 func SolidEntrypointMetadata(blockID BlockID) *BlockMetadata {
-	return &BlockMetadata{
-		id:                   blockID,
-		strongParents:        make(BlockIDs),
-		weakParents:          make(BlockIDs),
-		likedInsteadParents:  make(BlockIDs),
-		strongChildren:       make([]*BlockMetadata, 0),
-		weakChildren:         make([]*BlockMetadata, 0),
-		likedInsteadChildren: make([]*BlockMetadata, 0),
-		solid:                true,
-		StarvingMutex:        syncutils.NewStarvingMutex(),
-	}
+	return GenesisMetadata
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

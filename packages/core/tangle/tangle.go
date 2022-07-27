@@ -69,6 +69,19 @@ func (t *Tangle) AttachBlock(block *Block) {
 	t.solidifier.Queue(blockMetadata)
 }
 
+func (t *Tangle) DropEpoch(index epoch.Index) {
+	t.pruningMutex.Lock()
+	defer t.pruningMutex.Unlock()
+
+	t.solidifier.DropEpoch(index)
+
+	for i := t.maxDroppedEpoch + 1; i <= index; i++ {
+		t.memStorage.Drop(i)
+	}
+
+	t.maxDroppedEpoch = index
+}
+
 // BlockMetadata retrieves the BlockMetadata with the given BlockID.
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
 	t.pruningMutex.RLock()
@@ -77,8 +90,19 @@ func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists
 	return t.blockMetadata(blockID)
 }
 
-// SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone.
+// SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Locks the metadata mutex.
 func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
+	if updated = metadata.SetInvalid(); updated {
+		t.Events.BlockInvalid.Trigger(metadata)
+
+		t.propagateInvalidityToChildren(metadata)
+	}
+
+	return
+}
+
+// setInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Does not lock metadata mutex.
+func (t *Tangle) setInvalid(metadata *BlockMetadata) (updated bool) {
 	if updated = metadata.setInvalid(); updated {
 		t.Events.BlockInvalid.Trigger(metadata)
 
@@ -111,7 +135,7 @@ func (t *Tangle) initSolidifier() (self *Tangle) {
 
 	t.solidifier.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
 	t.solidifier.Drop.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
-		t.SetInvalid(blockMetadata)
+		t.setInvalid(blockMetadata)
 	}))
 
 	return t
@@ -199,7 +223,15 @@ func (t *Tangle) updateParentsMetadata(blockIDs BlockIDs, updateParentsFunc func
 }
 
 func (t *Tangle) propagateInvalidityToChildren(entity *BlockMetadata) {
-	for propagationWalker := walker.New[*BlockMetadata](true).Push(entity); propagationWalker.HasNext(); {
+	propagationWalker := walker.New[*BlockMetadata](true).Push(entity)
+	for _, childMetadata := range propagationWalker.Next().children() {
+		if childMetadata.setInvalid() {
+			t.Events.BlockInvalid.Trigger(childMetadata)
+
+			propagationWalker.Push(childMetadata)
+		}
+	}
+	for propagationWalker.HasNext() {
 		for _, childMetadata := range propagationWalker.Next().Children() {
 			if childMetadata.setInvalid() {
 				t.Events.BlockInvalid.Trigger(childMetadata)
