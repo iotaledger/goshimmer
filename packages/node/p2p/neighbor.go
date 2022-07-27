@@ -111,6 +111,7 @@ func (n *Neighbor) readLoop() {
 				err := stream.ReadPacket(packet)
 				if err != nil {
 					if isPermanentError(err) {
+						n.Log.Warnw("Permanent error", "err", err)
 						if disconnectErr := n.disconnect(); disconnectErr != nil {
 							n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
 						}

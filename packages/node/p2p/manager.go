@@ -135,6 +135,7 @@ func (m *Manager) GetP2PHost() host.Host {
 func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...ConnectPeerOption,
 ) error {
+	m.log.Debugw("adding outbound neighbor", "peer", p.ID())
 	return m.addNeighbor(ctx, p, group, m.dialPeer, connectOpts)
 }
 
@@ -142,6 +143,7 @@ func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group Neighbors
 func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...ConnectPeerOption,
 ) error {
+	m.log.Debugw("adding inbound neighbor", "peer", p.ID())
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
