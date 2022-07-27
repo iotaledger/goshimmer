@@ -51,8 +51,8 @@ func configure(_ *node.Plugin) {
 func getAllCommittedEpochs(c echo.Context) error {
 	allEpochs := epochstorage.GetCommittableEpochs()
 	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
-	for _, ecr := range allEpochs {
-		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
+	for _, ecRecord := range allEpochs {
+		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecRecord))
 	}
 	sort.Slice(allEpochsInfos, func(i, j int) bool {
 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI

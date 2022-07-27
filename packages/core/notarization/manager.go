@@ -197,6 +197,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
+// OnBlockStored is the handler for block stored event.
 func (m *Manager) OnBlockStored(block *tangle.Block) {
 	blockEI := block.EI()
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
@@ -583,7 +584,10 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 			return nil, nil
 		}
 
-		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{EI: ei, ECRecord: ecRecord})
+		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{
+			EI:       ei,
+			ECRecord: ecRecord,
+		})
 		if manaVectorUpdateEvent := m.manaVectorUpdate(ei); manaVectorUpdateEvent != nil {
 			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)
 		}
@@ -728,6 +732,7 @@ type ManaVectorUpdateEvent struct {
 	EpochDiffSpent   []*ledger.OutputWithMetadata
 }
 
+// SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.
 type SyncRangeEvent struct {
 	StartEI   epoch.Index
 	EndEI     epoch.Index

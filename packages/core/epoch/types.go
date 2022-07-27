@@ -95,15 +95,24 @@ func (m MerkleRoot) Bytes() []byte {
 	return m[:]
 }
 
+// CommitmentRoots contains roots of trees of an epoch.
+type CommitmentRoots struct {
+	TangleRoot        MerkleRoot `serix:"0"`
+	StateMutationRoot MerkleRoot `serix:"1"`
+	StateRoot         MerkleRoot `serix:"2"`
+	ManaRoot          MerkleRoot `serix:"3"`
+}
+
 // ECRecord is a storable object represents the ecRecord of an epoch.
 type ECRecord struct {
 	model.Storable[Index, ECRecord, *ECRecord, ecRecord] `serix:"0"`
 }
 
 type ecRecord struct {
-	EI     Index `serix:"0"`
-	ECR    ECR   `serix:"1"`
-	PrevEC EC    `serix:"2"`
+	EI     Index            `serix:"0"`
+	ECR    ECR              `serix:"1"`
+	PrevEC EC               `serix:"2"`
+	Roots  *CommitmentRoots `serix:"3"`
 }
 
 // NewECRecord creates and returns a ECRecord of the given EI.
@@ -112,6 +121,7 @@ func NewECRecord(ei Index) (new *ECRecord) {
 		EI:     ei,
 		ECR:    MerkleRoot{},
 		PrevEC: MerkleRoot{},
+		Roots:  &CommitmentRoots{},
 	})
 	new.SetID(ei)
 	return
@@ -165,6 +175,23 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 	defer e.Unlock()
 
 	e.M.PrevEC = NewMerkleRoot(prevEC[:])
+	e.SetModified()
+}
+
+// Roots returns the CommitmentRoots of an ECRecord.
+func (e *ECRecord) Roots() *CommitmentRoots {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.Roots
+}
+
+// SetRoots sets the CommitmentRoots of an ECRecord.
+func (e *ECRecord) SetRoots(roots *CommitmentRoots) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Roots = roots
 	e.SetModified()
 }
 

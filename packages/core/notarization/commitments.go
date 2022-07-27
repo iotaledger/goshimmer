@@ -25,15 +25,6 @@ import (
 
 // region Committment types ////////////////////////////////////////////////////////////////////////////////////////////
 
-// CommitmentRoots contains roots of trees of an epoch.
-type CommitmentRoots struct {
-	EI                epoch.Index
-	tangleRoot        epoch.MerkleRoot
-	stateMutationRoot epoch.MerkleRoot
-	stateRoot         epoch.MerkleRoot
-	manaRoot          epoch.MerkleRoot
-}
-
 // CommitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
 type CommitmentTrees struct {
 	EI                epoch.Index
@@ -91,14 +82,14 @@ func (f *EpochCommitmentFactory) ManaRoot() []byte {
 	return f.manaRootTree.Root()
 }
 
-// ECR retrieves the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) {
-	epochRoots, err := f.newEpochRoots(ei)
+// ECRandRoots retrieves the epoch commitment root.
+func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr epoch.ECR, roots *epoch.CommitmentRoots, err error) {
+	roots, err = f.newEpochRoots(ei)
 	if err != nil {
-		return epoch.MerkleRoot{}, errors.Wrap(err, "ECR could not be created")
+		return epoch.MerkleRoot{}, nil, errors.Wrap(err, "ECR could not be created")
 	}
 
-	return epoch.ComputeECR(epochRoots.tangleRoot, epochRoots.stateMutationRoot, epochRoots.stateRoot, epochRoots.manaRoot), nil
+	return epoch.ComputeECR(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot), roots, nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
@@ -227,7 +218,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		return ecRecord, nil
 	}
 	// We never committed this epoch before, create and roll to a new epoch.
-	ecr, ecrErr := f.ECR(ei)
+	ecr, roots, ecrErr := f.ECRandRoots(ei)
 	if ecrErr != nil {
 		return nil, ecrErr
 	}
@@ -239,6 +230,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	// Store and return.
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
+		e.SetRoots(roots)
 		e.SetPrevEC(epoch.ComputeEC(prevECRecord))
 		ecRecord = e
 	})
@@ -250,6 +242,7 @@ func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *epoch.E
 	f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
 		ecRecord = epoch.NewECRecord(ei)
 		ecRecord.SetECR(record.ECR())
+		ecRecord.SetRoots(record.Roots())
 		ecRecord.SetPrevEC(record.PrevEC())
 	})
 	return
@@ -331,7 +324,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 }
 
 // newEpochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
-func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots *CommitmentRoots, commitmentTreesErr error) {
+func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots *epoch.CommitmentRoots, commitmentTreesErr error) {
 	// TODO: what if a node restarts and we have incomplete trees?
 	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
 	if commitmentTreesErr != nil {
@@ -347,12 +340,11 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	// We advance the LedgerState to the next epoch.
 	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
-	commitmentRoots = &CommitmentRoots{
-		EI:                ei,
-		stateRoot:         epoch.NewMerkleRoot(stateRoot),
-		manaRoot:          epoch.NewMerkleRoot(manaRoot),
-		tangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
-		stateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
+	commitmentRoots = &epoch.CommitmentRoots{
+		StateRoot:         epoch.NewMerkleRoot(stateRoot),
+		ManaRoot:          epoch.NewMerkleRoot(manaRoot),
+		TangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
+		StateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
 	}
 
 	// We are never going to use this epoch's commitment trees again.
