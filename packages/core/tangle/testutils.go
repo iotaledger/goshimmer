@@ -351,7 +351,7 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
-func newTestNonceBlock(nonce uint64) *Block {
+func NewTestNonceBlock(nonce uint64) *Block {
 	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
 		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
@@ -361,7 +361,7 @@ func newTestNonceBlock(nonce uint64) *Block {
 	return block
 }
 
-func newTestDataBlock(payloadString string) *Block {
+func NewTestDataBlock(payloadString string) *Block {
 	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
 		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 

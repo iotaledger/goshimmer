@@ -59,8 +59,8 @@ func TestTangle_AttachBlock(t *testing.T) {
 		fmt.Println("INVALID:", metadata.id)
 	}))
 
-	newBlockOne := newTestDataBlock("some data")
-	newBlockTwo := newTestDataBlock("some other data")
+	newBlockOne := NewTestDataBlock("some data")
+	newBlockTwo := NewTestDataBlock("some other data")
 
 	blockTangle.AttachBlock(newBlockTwo)
 
