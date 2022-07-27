@@ -108,7 +108,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Blocks created by the node need to pass through the normal flow.
-	deps.Tangle.RateSetter.RateSetterEvents().BlockIssued.Attach(event.NewClosure(func(event *tangle.BlockConstructedEvent) {
+	deps.Tangle.RateSetter.RateSetterEvents().BlockIssued.Attach(event.NewClosure(func(event *tangleold.BlockConstructedEvent) {
 		deps.Tangle.ProcessGossipBlock(lo.PanicOnErr(event.Block.Bytes()), deps.Local.Peer)
 	}))
 
