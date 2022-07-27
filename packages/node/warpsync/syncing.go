@@ -37,7 +37,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, ecChain map[epoch.Index]*epoch.ECRecord) error {
+func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]*epoch.ECRecord) error {
 	if m.syncingInProgress {
 		return fmt.Errorf("epoch syncing already in progress")
 	}
@@ -106,6 +106,7 @@ readLoop:
 				continue
 			}
 
+			epochSyncEnds[ei] = epochSyncEnd
 			m.log.Debugw("read epoch end", "EI", ei)
 
 			toReceive--
@@ -120,7 +121,6 @@ readLoop:
 
 	// Verify the epochs.
 	for ei := end - 1; ei > start; ei-- {
-		m.log.Debugf("Verifying epoch %d", ei)
 		tangleRoot := tangleRoots[ei].Root()
 		epochSyncEnd := epochSyncEnds[ei]
 		ecRecord := epoch.NewECRecord(ei)
@@ -130,7 +130,12 @@ readLoop:
 			epochSyncEnd.stateRoot,
 			epochSyncEnd.manaRoot,
 		))
-		ecRecord.SetPrevEC(epoch.ComputeEC(ecChain[ei-1]))
+
+		if ei == start+1 {
+			ecRecord.SetPrevEC(startEC)
+		} else {
+			ecRecord.SetPrevEC(epoch.ComputeEC(ecChain[ei-1]))
+		}
 
 		if epoch.ComputeEC(ecChain[ei]) != epoch.ComputeEC(ecRecord) {
 			return fmt.Errorf("epoch %d EC record is not correct", ei)

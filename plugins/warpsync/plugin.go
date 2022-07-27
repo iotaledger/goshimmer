@@ -61,7 +61,7 @@ func configure(_ *node.Plugin) {
 			Plugin.LogWarnf("failed to validate range %d-%d: %s", event.StartEI, event.EndEI, validateErr)
 			return
 		}
-		if syncRangeErr := deps.WarpsyncMgr.SyncRange(ctx, event.StartEI, event.EndEI, ecChain); syncRangeErr != nil {
+		if syncRangeErr := deps.WarpsyncMgr.SyncRange(ctx, event.StartEI, event.EndEI, event.StartEC, ecChain); syncRangeErr != nil {
 			Plugin.LogWarnf("failed to sync range %d-%d: %s", event.StartEI, event.EndEI, syncRangeErr)
 			return
 		}
