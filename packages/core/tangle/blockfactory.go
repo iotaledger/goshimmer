@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 const storeSequenceInterval = 100

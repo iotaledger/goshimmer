@@ -39,10 +39,8 @@ func configure(plugin *node.Plugin) {
 func broadcastActivityBlock() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
-	// sleep some time according to rate setter estimate (either aimd or deficit mode)
-	if deps.Tangle.Options.RateSetterParams.Mode != "disabled" {
-		time.Sleep(deps.Tangle.RateSetter.Estimate())
-	}
+	// sleep some time according to rate setter estimate
+	time.Sleep(deps.Tangle.RateSetter.Estimate())
 
 	blk, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {

@@ -39,7 +39,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	RateSetter            *RateSetter
+	RateSetter            RateSetter // RateSetter is an interface which is a pointer to a specific type of ratesetter.
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -139,7 +139,7 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 
-	t.RateSetter.Events.Error.Attach(event.NewClosure(func(err error) {
+	t.RateSetter.RateSetterEvents().Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
 	}))
 }

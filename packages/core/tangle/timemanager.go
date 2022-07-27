@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 const (

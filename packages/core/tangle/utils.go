@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
 // region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
