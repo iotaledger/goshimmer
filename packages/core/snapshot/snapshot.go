@@ -22,12 +22,12 @@ func init() {
 
 	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger.OutputWithMetadata{}, ts)
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
 
 	err = serix.DefaultAPI.RegisterTypeSettings(map[epoch.Index]*ledger.EpochDiff{}, ts)
 	if err != nil {
-		panic(fmt.Errorf("error registering Chat type settings: %w", err))
+		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
 	}
 }
 

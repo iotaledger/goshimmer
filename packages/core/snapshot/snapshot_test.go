@@ -29,10 +29,23 @@ var nodesToPledge = []string{
 
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	epochDiffs          = make(map[epoch.Index]*ledger.EpochDiff)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 )
 
 func Test_CreateAndReadSnapshot(t *testing.T) {
+	header := createSnapshot(t)
+
+	rheader, rstates, repochDiffs := readSnapshot(t)
+	compareSnapshotHeader(t, header, rheader)
+	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
+	compareEpochDiffs(t, epochDiffs, repochDiffs)
+
+	err := os.Remove(snapshotFileName)
+	require.NoError(t, err)
+}
+
+func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	fullEpochIndex := 1
 	diffEpochIndex := 3
 
@@ -63,7 +76,6 @@ func Test_CreateAndReadSnapshot(t *testing.T) {
 		return o
 	}
 
-	epochDiffs := make(map[epoch.Index]*ledger.EpochDiff)
 	epochDiffsProd := func() (diffs map[epoch.Index]*ledger.EpochDiff, err error) {
 		l, size := 0, 10
 
@@ -81,13 +93,7 @@ func Test_CreateAndReadSnapshot(t *testing.T) {
 	header, err := CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
 	require.NoError(t, err)
 
-	rheader, rstates, repochDiffs := readSnapshot(t)
-	compareSnapshotHeader(t, header, rheader)
-	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
-	compareEpochDiffs(t, epochDiffs, repochDiffs)
-
-	err = os.Remove(snapshotFileName)
-	require.NoError(t, err)
+	return header
 }
 
 func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
