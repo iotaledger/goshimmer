@@ -17,6 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
+// region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
 	Events          *Events
 	memStorage      *memstorage.EpochStorage[BlockID, *BlockMetadata]
@@ -25,29 +28,29 @@ type Tangle struct {
 	pruningMutex    sync.RWMutex
 	solidifier      *causalorder.CausalOrder[BlockID, *BlockMetadata]
 
-	optsDbManagerPath     string
+	optsDBManagerPath     string
 	optsIsSolidEntryPoint func(BlockID) bool
 }
 
-func NewTangle(opts ...options.Option[Tangle]) (newTangle *Tangle) {
+// New is the constructor for the Tangle.
+func New(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
-		Events:            newEvents(),
-		memStorage:        memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
-		optsDbManagerPath: "/tmp/",
-		optsIsSolidEntryPoint: func(id BlockID) bool {
-			return id == EmptyBlockID
-		},
+		Events:                newEvents(),
+		memStorage:            memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
+		optsDBManagerPath:     "/tmp/",
+		optsIsSolidEntryPoint: IsGenesisBlock,
 	}, opts).
 		initDBManager().
 		initSolidifier()
 }
 
+// AttachBlock is used to attach new Blocks to the Tangle. This function also triggers the necessary events.
 func (t *Tangle) AttachBlock(block *Block) {
 	t.pruningMutex.RLock()
 	defer t.pruningMutex.RUnlock()
 
 	if t.isTooOld(block) {
-		// TODO: propagate invalidity to any existing futurecone of the block
+		// TODO: propagate invalidity to any existing future-cone of the block
 		return
 	}
 
@@ -66,6 +69,7 @@ func (t *Tangle) AttachBlock(block *Block) {
 	t.solidifier.Queue(blockMetadata)
 }
 
+// BlockMetadata retrieves the BlockMetadata with the given BlockID.
 func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
 	t.pruningMutex.RLock()
 	defer t.pruningMutex.RUnlock()
@@ -73,6 +77,7 @@ func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists
 	return t.blockMetadata(blockID)
 }
 
+// SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone.
 func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 	if updated = metadata.setInvalid(); updated {
 		t.Events.BlockInvalid.Trigger(metadata)
@@ -83,16 +88,13 @@ func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 	return
 }
 
-func (t *Tangle) IsGenesisBlock(blockID BlockID) (isGenesisBlock bool) {
-	return blockID == EmptyBlockID
-}
-
+// Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.dbManager.Shutdown()
 }
 
 func (t *Tangle) initDBManager() (self *Tangle) {
-	t.dbManager = database.NewManager(t.optsDbManagerPath)
+	t.dbManager = database.NewManager(t.optsDBManagerPath)
 
 	return t
 }
@@ -116,8 +118,8 @@ func (t *Tangle) initSolidifier() (self *Tangle) {
 }
 
 func (t *Tangle) blockMetadata(blockID BlockID) (metadata *BlockMetadata, exists bool) {
-	if t.IsGenesisBlock(blockID) {
-		return GenesisMetadata, true
+	if t.optsIsSolidEntryPoint(blockID) {
+		return SolidEntrypointMetadata(blockID), true
 	}
 
 	if t.isBlockIDTooOld(blockID) {
@@ -171,7 +173,7 @@ func (t *Tangle) registerAsChild(metadata *BlockMetadata) {
 
 func (t *Tangle) updateParentsMetadata(blockIDs BlockIDs, updateParentsFunc func(metadata *BlockMetadata)) {
 	for blockID := range blockIDs {
-		if t.IsGenesisBlock(blockID) {
+		if t.optsIsSolidEntryPoint(blockID) {
 			continue
 		}
 
@@ -223,7 +225,7 @@ func (t *Tangle) isTooOld(block *Block) (isTooOld bool) {
 }
 
 func (t *Tangle) isBlockIDTooOld(blockID BlockID) bool {
-	return !t.IsGenesisBlock(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
+	return !t.optsIsSolidEntryPoint(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
 }
 
 func (t *Tangle) epochStorage(blockID BlockID) (epochStorage *memstorage.Storage[BlockID, *BlockMetadata]) {

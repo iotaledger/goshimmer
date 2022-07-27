@@ -133,7 +133,7 @@ type BlockID struct {
 var EmptyBlockID BlockID
 
 // NewBlockID returns a new BlockID for the given data.
-func NewBlockID(identifier [32]byte, epochIndex epoch.Index) (new BlockID) {
+func NewBlockID(identifier [32]byte, epochIndex epoch.Index) BlockID {
 	return BlockID{
 		Identifier: identifier,
 		EpochIndex: epochIndex,
@@ -184,7 +184,7 @@ func (b BlockID) Alias() (alias string) {
 	defer _BlockIDAliasesMutex.RUnlock()
 
 	if existingAlias, exists := _BlockIDAliases[b]; exists {
-		return fmt.Sprintf("%s", existingAlias)
+		return existingAlias
 	}
 
 	return fmt.Sprintf("%s, %d", b.Identifier, int(b.EpochIndex))
@@ -372,10 +372,11 @@ const (
 
 // Block represents the core block for the base layer Tangle.
 type Block struct {
-	model.Storable[BlockID, Block, *Block, BlockModel] `serix:"0"`
+	model.Storable[BlockID, Block, *Block, blockModel] `serix:"0"`
 	payload                                            payload.Payload
 }
-type BlockModel struct {
+
+type blockModel struct {
 	// core properties (get sent over the wire)
 	Version              uint8             `serix:"0"`
 	Parents              ParentBlockIDs    `serix:"1"`
@@ -400,7 +401,7 @@ func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey 
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
-	blk := model.NewStorable[BlockID, Block](&BlockModel{
+	blk := model.NewStorable[BlockID, Block](&blockModel{
 		Version:              version,
 		Parents:              references,
 		IssuerPublicKey:      issuerPublicKey,
@@ -482,6 +483,7 @@ func (m *Block) ForEachParent(consumer func(parent Parent)) {
 	}
 }
 
+// Parents returns a copy of the parents of the block.
 func (m *Block) Parents() (parents []BlockID) {
 	m.ForEachParent(func(parent Parent) {
 		parents = append(parents, parent.ID)
@@ -608,7 +610,7 @@ func (m *Block) String() string {
 	return builder.String()
 }
 
-// sorts given parents and returns a new slice with sorted parents
+// sortParents sorts given parents and returns a new slice with sorted parents.
 func sortParents(parents BlockIDs) (sorted []BlockID) {
 	sorted = parents.Slice()
 
@@ -686,7 +688,7 @@ func (p ParentBlockIDs) AddAll(parentType ParentsType, blockIDs BlockIDs) Parent
 
 // IsEmpty returns true if the ParentBlockIDs are empty.
 func (p ParentBlockIDs) IsEmpty() bool {
-	return p == nil || len(p) == 0
+	return len(p) == 0
 }
 
 // Clone returns a copy of map.
@@ -705,6 +707,7 @@ func (p ParentBlockIDs) Clone() ParentBlockIDs {
 
 // region BlockMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// BlockMetadata defines the metadata for a block.
 type BlockMetadata struct {
 	id                   BlockID
 	missing              bool
@@ -720,6 +723,7 @@ type BlockMetadata struct {
 	*syncutils.StarvingMutex
 }
 
+// ID returns the block ID.
 func (b *BlockMetadata) ID() BlockID {
 	return b.id
 }
@@ -739,10 +743,12 @@ func fullMetadataFromBlock(block *Block) func() *BlockMetadata {
 	}
 }
 
+// Initialized returns true if the block metadata is initialized.
 func (b *BlockMetadata) Initialized() bool {
 	return b.solid || b.invalid
 }
 
+// IsSolid returns true if the block is solid.
 func (b *BlockMetadata) IsSolid() bool {
 	b.RLock()
 	defer b.RUnlock()
@@ -777,6 +783,7 @@ func (b *BlockMetadata) setInvalid() (updated bool) {
 	return true
 }
 
+// ParentIDs returns the parents of the block as a slice.
 func (b *BlockMetadata) ParentIDs() []BlockID {
 	parents := b.strongParents.Clone()
 	parents.AddAll(b.weakParents)
@@ -785,6 +792,7 @@ func (b *BlockMetadata) ParentIDs() []BlockID {
 	return parents.Slice()
 }
 
+// Children returns the metadata of the children of the block.
 func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
 	b.RLock()
 	defer b.RUnlock()
@@ -821,14 +829,21 @@ var (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var GenesisMetadata = &BlockMetadata{
-	id:                   EmptyBlockID,
-	strongParents:        make(BlockIDs),
-	weakParents:          make(BlockIDs),
-	likedInsteadParents:  make(BlockIDs),
-	strongChildren:       make([]*BlockMetadata, 0),
-	weakChildren:         make([]*BlockMetadata, 0),
-	likedInsteadChildren: make([]*BlockMetadata, 0),
-	solid:                true,
-	StarvingMutex:        syncutils.NewStarvingMutex(),
+// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SolidEntrypointMetadata returns the metadata for a solid entrypoint.
+func SolidEntrypointMetadata(blockID BlockID) *BlockMetadata {
+	return &BlockMetadata{
+		id:                   blockID,
+		strongParents:        make(BlockIDs),
+		weakParents:          make(BlockIDs),
+		likedInsteadParents:  make(BlockIDs),
+		strongChildren:       make([]*BlockMetadata, 0),
+		weakChildren:         make([]*BlockMetadata, 0),
+		likedInsteadChildren: make([]*BlockMetadata, 0),
+		solid:                true,
+		StarvingMutex:        syncutils.NewStarvingMutex(),
+	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

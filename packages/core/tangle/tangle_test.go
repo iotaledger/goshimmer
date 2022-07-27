@@ -12,8 +12,8 @@ import (
 )
 
 func TestTangleAttach(t *testing.T) {
-	tangle := NewTangle(func(t *Tangle) {
-		t.optsDbManagerPath = "/tmp/"
+	tangle := New(func(t *Tangle) {
+		t.optsDBManagerPath = "/tmp/"
 	})
 
 	testFramework := NewBlockTestFramework(tangle)
@@ -148,7 +148,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	// wait until all blocks are solidified
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	for blockID, _ := range blocks {
+	for blockID := range blocks {
 		metadata, _ := tangle.BlockMetadata(blockID)
 		solidParents := 0
 		if !metadata.solid {

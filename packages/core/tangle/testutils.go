@@ -88,6 +88,7 @@ func (m *BlockTestFramework) IssueBlocks(blockAliases ...string) *BlockTestFrame
 	return m
 }
 
+// WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (m *BlockTestFramework) WaitUntilAllTasksProcessed() (self *BlockTestFramework) {
 	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
@@ -114,20 +115,20 @@ func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 
 // strongParentIDs returns the BlockIDs that were defined to be the strong parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) strongParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(options.strongParents)
+func (m *BlockTestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(opts.strongParents)
 }
 
 // weakParentIDs returns the BlockIDs that were defined to be the weak parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) weakParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(options.weakParents)
+func (m *BlockTestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(opts.weakParents)
 }
 
 // shallowLikeParentIDs returns the BlockIDs that were defined to be the shallow like parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) shallowLikeParentIDs(options *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(options.shallowLikeParents)
+func (m *BlockTestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return m.parentIDsByBlockAlias(opts.shallowLikeParents)
 }
 
 func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
@@ -335,9 +336,7 @@ func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkB
 
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig.
 func NewTestTangle() *Tangle {
-	t := NewTangle(func(t *Tangle) {
-		t.optsDbManagerPath = "/tmp/"
-	})
+	t := New(WithDBManagerPath("/tmp/"))
 
 	t.Events.Error.Hook(event.NewClosure(func(e error) {
 		fmt.Println(e)
@@ -391,17 +390,17 @@ func newTestParentsDataBlock(payloadString string, references ParentBlockIDs) (b
 	return
 }
 
-func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, options *BlockTestFrameworkBlockOptions) (block *Block) {
+func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
-	if options.overrideSequenceNumber {
-		sequenceNumber = options.sequenceNumber
+	if opts.overrideSequenceNumber {
+		sequenceNumber = opts.sequenceNumber
 	} else {
 		sequenceNumber = nextSequenceNumber()
 	}
-	if options.issuingTime.IsZero() {
-		block = NewBlock(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
+	if opts.issuingTime.IsZero() {
+		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	} else {
-		block = NewBlock(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
+		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	}
 
 	if err := block.DetermineID(); err != nil {
@@ -419,18 +418,18 @@ func newTestParentsPayloadBlock(p payload.Payload, references ParentBlockIDs) (b
 	return
 }
 
-func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, options *BlockTestFrameworkBlockOptions) (block *Block) {
+func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
-	if options.overrideSequenceNumber {
-		sequenceNumber = options.sequenceNumber
+	if opts.overrideSequenceNumber {
+		sequenceNumber = opts.sequenceNumber
 	} else {
 		sequenceNumber = nextSequenceNumber()
 	}
 	var err error
-	if options.issuingTime.IsZero() {
-		block = NewBlock(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
+	if opts.issuingTime.IsZero() {
+		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	} else {
-		block = NewBlock(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
+		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	}
 	if err != nil {
 		panic(err)

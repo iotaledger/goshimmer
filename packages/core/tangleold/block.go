@@ -375,10 +375,10 @@ const (
 
 // Block represents the core block for the base layer Tangle.
 type Block struct {
-	model.Storable[BlockID, Block, *Block, BlockModel] `serix:"0"`
+	model.Storable[BlockID, Block, *Block, blockModel] `serix:"0"`
 	payload                                            payload.Payload
 }
-type BlockModel struct {
+type blockModel struct {
 	// core properties (get sent over the wire)
 	Version              uint8             `serix:"0"`
 	Parents              ParentBlockIDs    `serix:"1"`
@@ -403,7 +403,7 @@ func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey 
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
-	blk := model.NewStorable[BlockID, Block](&BlockModel{
+	blk := model.NewStorable[BlockID, Block](&blockModel{
 		Version:              version,
 		Parents:              references,
 		IssuerPublicKey:      issuerPublicKey,
