@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
@@ -25,7 +25,7 @@ var (
 )
 
 type dependencies struct {
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 func init() {
@@ -55,7 +55,7 @@ func run(_ *node.Plugin) {
 	}
 
 	// Get Blocks from node.
-	notifyNewBlk := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	notifyNewBlk := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		server.Broadcast([]byte(event.Block.String()))
 	})
 

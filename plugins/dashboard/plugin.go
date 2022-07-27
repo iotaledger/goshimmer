@@ -22,7 +22,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
@@ -52,7 +52,7 @@ type dependencies struct {
 
 	Node       *configuration.Configuration
 	Local      *peer.Local
-	Tangle     *tangle.Tangle
+	Tangle     *tangleold.Tangle
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
 	Chat       *chat.Chat          `optional:"true"`

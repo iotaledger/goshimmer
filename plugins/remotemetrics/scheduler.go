@@ -3,7 +3,7 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
@@ -32,7 +32,7 @@ func obtainSchedulerStats(timestamp time.Time) {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func prepQueueMaps(s *tangle.Scheduler) (queueMap map[string]uint32, aManaNormalizedMap map[string]float64) {
+func prepQueueMaps(s *tangleold.Scheduler) (queueMap map[string]uint32, aManaNormalizedMap map[string]float64) {
 	queueSizes := s.NodeQueueSizes()
 	queueMap = make(map[string]uint32, len(queueSizes))
 	aManaNormalizedMap = make(map[string]float64, len(queueSizes))

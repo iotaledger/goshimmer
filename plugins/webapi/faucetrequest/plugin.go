@@ -12,7 +12,7 @@ import (
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
 )
 
@@ -26,7 +26,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 // Plugin gets the plugin instance.

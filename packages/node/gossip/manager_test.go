@@ -26,7 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const graceTime = 10 * time.Millisecond
@@ -36,7 +36,7 @@ var (
 	testBlockData = []byte("testBlk")
 )
 
-func loadTestBlock(tangle.BlockID) ([]byte, error) { return testBlockData, nil }
+func loadTestBlock(tangleold.BlockID) ([]byte, error) { return testBlockData, nil }
 
 func TestClose(t *testing.T) {
 	testMgrs := newTestManagers(t, true /* doMock */, "A")
@@ -354,7 +354,7 @@ func TestBlockRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := tangle.BlockID{}
+	id := tangleold.BlockID{}
 
 	// mgrA should eventually receive the block
 	mgrA.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Peer: peerB}).Once()

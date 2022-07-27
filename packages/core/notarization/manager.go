@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 
 // Manager is the notarization manager.
 type Manager struct {
-	tangle                      *tangle.Tangle
+	tangle                      *tangleold.Tangle
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	bootstrapMutex              sync.RWMutex
@@ -39,7 +39,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
+func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tangle, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
@@ -68,11 +68,11 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		},
 	}
 
-	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
+	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.BlockAcceptedEvent) {
 		new.OnBlockAccepted(event.Block)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.BlockAcceptedEvent) {
+	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.BlockAcceptedEvent) {
 		new.OnBlockOrphaned(event.Block)
 	}))
 
@@ -96,14 +96,14 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 		new.OnConflictRejected(event.ID)
 	}))
 
-	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangle.TimeUpdate) {
+	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.TimeUpdate) {
 		new.OnAcceptanceTimeUpdated(event.ATT)
 	}))
 
 	return new
 }
 
-func onlyIfBootstrapped[E any](timeManager *tangle.TimeManager, handler func(event E)) *event.Closure[E] {
+func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(event E)) *event.Closure[E] {
 	return event.NewClosure(func(event E) {
 		if !timeManager.Bootstrapped() {
 			return
@@ -192,7 +192,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 }
 
 // OnBlockAccepted is the handler for block confirmed event.
-func (m *Manager) OnBlockAccepted(block *tangle.Block) {
+func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -213,7 +213,7 @@ func (m *Manager) OnBlockAccepted(block *tangle.Block) {
 }
 
 // OnBlockOrphaned is the handler for block orphaned event.
-func (m *Manager) OnBlockOrphaned(block *tangle.Block) {
+func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -658,7 +658,7 @@ type TangleTreeUpdatedEvent struct {
 	// EI is the index of the block.
 	EI epoch.Index
 	// BlockID is the blockID that inserted/removed to/from the tangle smt.
-	BlockID tangle.BlockID
+	BlockID tangleold.BlockID
 }
 
 // BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
