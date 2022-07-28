@@ -105,6 +105,13 @@ func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey 
 	return blk
 }
 
+func NewEmptyBlock(id BlockID) (newBlock *Block) {
+	newBlock = model.NewStorable[BlockID, Block](&blockModel{})
+	newBlock.SetID(id)
+
+	return newBlock
+}
+
 // NewBlockWithValidation creates a new block while performing ths following syntactical checks:
 // 1. A Strong Parents Block must exist.
 // 2. Parents Block types cannot repeat.
@@ -136,6 +143,13 @@ func (m *Block) VerifySignature() (valid bool, err error) {
 	content := blkBytes[:contentLength]
 
 	return m.M.IssuerPublicKey.VerifySignature(content, signature), nil
+}
+
+func (m *Block) Update(other *Block) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M = other.M
 }
 
 // IDBytes implements Element interface in scheduler NodeQueue that returns the BlockID of the block in bytes.

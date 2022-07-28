@@ -23,11 +23,11 @@ import (
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
 	Events          *Events
-	memStorage      *memstorage.EpochStorage[models.BlockID, *SolidifiedBlock]
+	memStorage      *memstorage.EpochStorage[models.BlockID, *Block]
 	dbManager       *database.Manager
 	maxDroppedEpoch epoch.Index
 	pruningMutex    sync.RWMutex
-	solidifier      *causalorder.CausalOrder[models.BlockID, *SolidifiedBlock]
+	solidifier      *causalorder.CausalOrder[models.BlockID, *Block]
 
 	optsDBManagerPath     string
 	optsIsSolidEntryPoint func(models.BlockID) bool
@@ -37,7 +37,7 @@ type Tangle struct {
 func New(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
 		Events:                newEvents(),
-		memStorage:            memstorage.NewEpochStorage[models.BlockID, *SolidifiedBlock](),
+		memStorage:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsDBManagerPath:     "/tmp/",
 		optsIsSolidEntryPoint: IsGenesisBlock,
 	}, opts).initDBManager().initSolidifier()
@@ -82,7 +82,7 @@ func (t *Tangle) DropEpoch(epochIndex epoch.Index) {
 }
 
 // BlockMetadata retrieves the BlockMetadata with the given BlockID.
-func (t *Tangle) BlockMetadata(blockID models.BlockID) (metadata *SolidifiedBlock, exists bool) {
+func (t *Tangle) BlockMetadata(blockID models.BlockID) (metadata *Block, exists bool) {
 	t.pruningMutex.RLock()
 	defer t.pruningMutex.RUnlock()
 
@@ -90,7 +90,7 @@ func (t *Tangle) BlockMetadata(blockID models.BlockID) (metadata *SolidifiedBloc
 }
 
 // SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Locks the metadata mutex.
-func (t *Tangle) SetInvalid(metadata *SolidifiedBlock) (updated bool) {
+func (t *Tangle) SetInvalid(metadata *Block) (updated bool) {
 	if updated = t.setBlockInvalid(metadata); !updated {
 		return
 	}
@@ -116,23 +116,23 @@ func (t *Tangle) initDBManager() (self *Tangle) {
 func (t *Tangle) initSolidifier() (self *Tangle) {
 	t.solidifier = causalorder.New(
 		t.BlockMetadata,
-		(*SolidifiedBlock).isSolid,
-		(*SolidifiedBlock).setSolid,
+		(*Block).isSolid,
+		(*Block).setSolid,
 		t.optsIsSolidEntryPoint,
-		causalorder.WithReferenceValidator[models.BlockID](func(entity *SolidifiedBlock, parent *SolidifiedBlock) bool {
+		causalorder.WithReferenceValidator[models.BlockID](func(entity *Block, parent *Block) bool {
 			return !parent.invalid
 		}),
 	)
 
 	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
-	t.solidifier.Events.Drop.Attach(event.NewClosure(func(blockMetadata *SolidifiedBlock) {
+	t.solidifier.Events.Drop.Attach(event.NewClosure(func(blockMetadata *Block) {
 		t.SetInvalid(blockMetadata)
 	}))
 
 	return t
 }
 
-func (t *Tangle) blockMetadata(blockID models.BlockID) (metadata *SolidifiedBlock, exists bool) {
+func (t *Tangle) blockMetadata(blockID models.BlockID) (metadata *Block, exists bool) {
 	if t.optsIsSolidEntryPoint(blockID) {
 		return SolidEntrypointMetadata(blockID), true
 	}
@@ -144,14 +144,13 @@ func (t *Tangle) blockMetadata(blockID models.BlockID) (metadata *SolidifiedBloc
 	return t.epochStorage(blockID).Get(blockID)
 }
 
-func (t *Tangle) publishNewBlock(block *models.Block) (blockMetadata *SolidifiedBlock, published bool) {
-	blockMetadata, published = t.epochStorage(block.ID()).RetrieveOrCreate(block.ID(), func() *SolidifiedBlock {
-		return &SolidifiedBlock{
+func (t *Tangle) publishNewBlock(block *models.Block) (blockMetadata *Block, published bool) {
+	blockMetadata, published = t.epochStorage(block.ID()).RetrieveOrCreate(block.ID(), func() *Block {
+		return &Block{
 			Block:                block,
-			id:                   block.ID(),
-			strongChildren:       make([]*SolidifiedBlock, 0),
-			weakChildren:         make([]*SolidifiedBlock, 0),
-			likedInsteadChildren: make([]*SolidifiedBlock, 0),
+			strongChildren:       make([]*Block, 0),
+			weakChildren:         make([]*Block, 0),
+			likedInsteadChildren: make([]*Block, 0),
 			StarvingMutex:        syncutils.NewStarvingMutex(),
 		}
 	})
@@ -165,12 +164,12 @@ func (t *Tangle) publishNewBlock(block *models.Block) (blockMetadata *Solidified
 	return blockMetadata, true
 }
 
-func (t *Tangle) updateMissingMetadata(blockMetadata *SolidifiedBlock, block *models.Block) (updated bool) {
+func (t *Tangle) updateMissingMetadata(blockMetadata *Block, block *models.Block) (updated bool) {
 	blockMetadata.Lock()
 	defer blockMetadata.Unlock()
 
 	if updated = blockMetadata.missing; updated {
-		blockMetadata.Block = block
+		blockMetadata.Block.Update(block)
 		blockMetadata.missing = false
 
 		t.Events.MissingBlockStored.Trigger(blockMetadata)
@@ -179,33 +178,33 @@ func (t *Tangle) updateMissingMetadata(blockMetadata *SolidifiedBlock, block *mo
 	return updated
 }
 
-func (t *Tangle) registerAsChild(metadata *SolidifiedBlock) {
-	t.updateParentsMetadata(metadata.ParentsByType(models.StrongParentType), func(parentMetadata *SolidifiedBlock) {
+func (t *Tangle) registerAsChild(metadata *Block) {
+	t.updateParentsMetadata(metadata.ParentsByType(models.StrongParentType), func(parentMetadata *Block) {
 		parentMetadata.strongChildren = append(parentMetadata.strongChildren, metadata)
 	})
 
-	t.updateParentsMetadata(metadata.ParentsByType(models.WeakParentType), func(parentMetadata *SolidifiedBlock) {
+	t.updateParentsMetadata(metadata.ParentsByType(models.WeakParentType), func(parentMetadata *Block) {
 		parentMetadata.weakChildren = append(parentMetadata.weakChildren, metadata)
 	})
 
-	t.updateParentsMetadata(metadata.ParentsByType(models.ShallowLikeParentType), func(parentMetadata *SolidifiedBlock) {
+	t.updateParentsMetadata(metadata.ParentsByType(models.ShallowLikeParentType), func(parentMetadata *Block) {
 		parentMetadata.likedInsteadChildren = append(parentMetadata.likedInsteadChildren, metadata)
 	})
 }
 
-func (t *Tangle) updateParentsMetadata(blockIDs models.BlockIDs, updateParentsFunc func(metadata *SolidifiedBlock)) {
+func (t *Tangle) updateParentsMetadata(blockIDs models.BlockIDs, updateParentsFunc func(metadata *Block)) {
 	for blockID := range blockIDs {
 		if t.optsIsSolidEntryPoint(blockID) {
 			continue
 		}
 
-		parentMetadata, _ := t.epochStorage(blockID).RetrieveOrCreate(blockID, func() *SolidifiedBlock {
-			missingBlockMetadata := &SolidifiedBlock{
-				id:                   blockID,
+		parentMetadata, _ := t.epochStorage(blockID).RetrieveOrCreate(blockID, func() *Block {
+			missingBlockMetadata := &Block{
+				Block:                models.NewEmptyBlock(blockID),
 				missing:              true,
-				strongChildren:       make([]*SolidifiedBlock, 0),
-				weakChildren:         make([]*SolidifiedBlock, 0),
-				likedInsteadChildren: make([]*SolidifiedBlock, 0),
+				strongChildren:       make([]*Block, 0),
+				weakChildren:         make([]*Block, 0),
+				likedInsteadChildren: make([]*Block, 0),
 				StarvingMutex:        syncutils.NewStarvingMutex(),
 			}
 
@@ -220,8 +219,8 @@ func (t *Tangle) updateParentsMetadata(blockIDs models.BlockIDs, updateParentsFu
 	}
 }
 
-func (t *Tangle) propagateInvalidityToChildren(children []*SolidifiedBlock) {
-	propagationWalker := walker.New[*SolidifiedBlock](true).PushAll(children...)
+func (t *Tangle) propagateInvalidityToChildren(children []*Block) {
+	propagationWalker := walker.New[*Block](true).PushAll(children...)
 	for propagationWalker.HasNext() {
 		child := propagationWalker.Next()
 
@@ -235,7 +234,7 @@ func (t *Tangle) propagateInvalidityToChildren(children []*SolidifiedBlock) {
 	}
 }
 
-func (t *Tangle) setBlockInvalid(block *SolidifiedBlock) (propagated bool) {
+func (t *Tangle) setBlockInvalid(block *Block) (propagated bool) {
 	block.Lock()
 	defer block.Unlock()
 
@@ -260,6 +259,6 @@ func (t *Tangle) isBlockIDTooOld(blockID models.BlockID) bool {
 	return !t.optsIsSolidEntryPoint(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
 }
 
-func (t *Tangle) epochStorage(blockID models.BlockID) (epochStorage *memstorage.Storage[models.BlockID, *SolidifiedBlock]) {
+func (t *Tangle) epochStorage(blockID models.BlockID) (epochStorage *memstorage.Storage[models.BlockID, *Block]) {
 	return t.memStorage.Get(blockID.EpochIndex, true)
 }

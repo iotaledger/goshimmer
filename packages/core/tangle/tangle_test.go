@@ -24,16 +24,16 @@ func TestTangleAttach(t *testing.T) {
 
 	block2 := testFramework.CreateBlock("msg2", WithStrongParents("msg1"))
 
-	tangle.Events.BlockMissing.Hook(event.NewClosure[*SolidifiedBlock](func(metadata *SolidifiedBlock) {
-		t.Logf("block %s is missing", metadata.id)
+	tangle.Events.BlockMissing.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("block %s is missing", metadata.ID())
 	}))
 
-	tangle.Events.BlockSolid.Hook(event.NewClosure[*SolidifiedBlock](func(metadata *SolidifiedBlock) {
-		t.Logf("block %s is solid", metadata.id)
+	tangle.Events.BlockSolid.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("block %s is solid", metadata.ID())
 	}))
 
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*SolidifiedBlock](func(metadata *SolidifiedBlock) {
-		t.Logf("missing block %s is stored", metadata.id)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("missing block %s is stored", metadata.ID())
 	}))
 
 	tangle.AttachBlock(block2)
@@ -46,19 +46,19 @@ func TestTangle_AttachBlock(t *testing.T) {
 	blockTangle := NewTestTangle()
 	defer blockTangle.Shutdown()
 
-	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		fmt.Println("SOLID:", metadata.id)
+	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("SOLID:", metadata.ID())
 	}))
 
-	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		fmt.Println("MISSING:", metadata.id)
+	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("MISSING:", metadata.ID())
 	}))
 
-	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		fmt.Println("REMOVED:", metadata.id)
+	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("REMOVED:", metadata.ID())
 	}))
-	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		fmt.Println("INVALID:", metadata.id)
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("INVALID:", metadata.ID())
 	}))
 
 	newBlockOne := newTestDataBlock("some data")
@@ -120,31 +120,31 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
 
 	invalidBlocks := int32(0)
-	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		t.Logf("invalid blocks %d, %s", atomic.AddInt32(&invalidBlocks, 1), metadata.id)
+	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("invalid blocks %d, %s", atomic.AddInt32(&invalidBlocks, 1), metadata.ID())
 	}))
 
 	missingBlocks := int32(0)
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.id)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.ID())
 	}))
 
 	storedBlocks := int32(0)
-	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.id)
+	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.ID())
 	}))
 
 	solidBlocks := int32(0)
-	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *SolidifiedBlock) {
-		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.id)
+	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.ID())
 	}))
 
-	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *SolidifiedBlock) {
+	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
 		atomic.AddInt32(&missingBlocks, 1)
 
 		time.Sleep(storeDelay)
 
-		tangle.AttachBlock(blocks[metadata.id])
+		tangle.AttachBlock(blocks[metadata.ID()])
 	}))
 
 	// issue tips to start solidification
@@ -167,7 +167,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 			}
 		}
 		if solidParents == len(metadata.ParentsByType(models.StrongParentType)) {
-			fmt.Println("block not solid but should be", metadata.id, metadata.solid)
+			fmt.Println("block not solid but should be", metadata.ID(), metadata.solid)
 		}
 	}
 

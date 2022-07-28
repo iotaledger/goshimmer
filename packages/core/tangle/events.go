@@ -9,29 +9,29 @@ type Events struct {
 	Error *event.Event[error]
 
 	// BlockStored is triggered when a block is stored.
-	BlockStored *event.Event[*SolidifiedBlock]
+	BlockStored *event.Event[*Block]
 
 	// BlockSolid is triggered when a block becomes solid, i.e. its past cone is known and solid.
-	BlockSolid *event.Event[*SolidifiedBlock]
+	BlockSolid *event.Event[*Block]
 
 	// BlockMissing is triggered when a block references an unknown parent Block.
-	BlockMissing *event.Event[*SolidifiedBlock]
+	BlockMissing *event.Event[*Block]
 
 	// MissingBlockStored fired when a block which was previously marked as missing was received.
-	MissingBlockStored *event.Event[*SolidifiedBlock]
+	MissingBlockStored *event.Event[*Block]
 
 	// MissingBlockStored fired when a block which was previously marked as missing was invalid.
-	BlockInvalid *event.Event[*SolidifiedBlock]
+	BlockInvalid *event.Event[*Block]
 }
 
 func newEvents() *Events {
 	return &Events{
 		Error:              event.New[error](),
-		BlockStored:        event.New[*SolidifiedBlock](),
-		BlockSolid:         event.New[*SolidifiedBlock](),
-		BlockMissing:       event.New[*SolidifiedBlock](),
-		MissingBlockStored: event.New[*SolidifiedBlock](),
-		BlockInvalid:       event.New[*SolidifiedBlock](),
+		BlockStored:        event.New[*Block](),
+		BlockSolid:         event.New[*Block](),
+		BlockMissing:       event.New[*Block](),
+		MissingBlockStored: event.New[*Block](),
+		BlockInvalid:       event.New[*Block](),
 	}
 }
 
