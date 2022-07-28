@@ -82,7 +82,7 @@ func (m *BlockTestFramework) IssueBlocks(blockAliases ...string) *BlockTestFrame
 		currentBlockAlias := blockAlias
 
 		event.Loop.Submit(func() {
-			m.tangle.AttachBlock(m.blocksByAlias[currentBlockAlias])
+			m.tangle.Attach(m.blocksByAlias[currentBlockAlias])
 		})
 	}
 

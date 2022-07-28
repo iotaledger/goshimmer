@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/generics/options"
 	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 
@@ -23,36 +24,22 @@ type Block struct {
 	*syncutils.StarvingMutex
 }
 
+func NewBlock(block *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
+	return options.Apply(&Block{
+		Block:                block,
+		strongChildren:       make([]*Block, 0),
+		weakChildren:         make([]*Block, 0),
+		likedInsteadChildren: make([]*Block, 0),
+		StarvingMutex:        syncutils.NewStarvingMutex(),
+	}, opts)
+}
+
 // IsSolid returns true if the block is solid.
 func (b *Block) IsSolid() bool {
 	b.RLock()
 	defer b.RUnlock()
 
 	return b.isSolid()
-}
-
-func (b *Block) isSolid() bool {
-	return b.solid
-}
-
-func (b *Block) setSolid(solid bool) (updated bool) {
-	if b.solid == solid {
-		return false
-	}
-
-	b.solid = solid
-
-	return true
-}
-
-func (b *Block) setInvalid() (updated bool) {
-	if b.invalid {
-		return false
-	}
-
-	b.invalid = true
-
-	return true
 }
 
 // ParentIDs returns the parents of the block as a slice.
@@ -72,6 +59,33 @@ func (b *Block) Children() (childrenMetadata []*Block) {
 	return b.children()
 }
 
+func (b *Block) isSolid() bool {
+	return b.solid
+}
+
+func (b *Block) setSolid(solid bool) (updated bool) {
+	if b.solid == solid {
+		return false
+	}
+
+	b.solid = solid
+
+	return true
+}
+
+func (b *Block) setInvalid() (updated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.invalid {
+		return
+	}
+
+	b.invalid = true
+
+	return true
+}
+
 // Children returns the metadata of the children of the block.
 func (b *Block) children() (childrenMetadata []*Block) {
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
@@ -89,6 +103,34 @@ func (b *Block) children() (childrenMetadata []*Block) {
 	}
 
 	return childrenMetadata
+}
+
+func (b *Block) publishMissingBlock(block *models.Block) (published bool) {
+	if !b.missing {
+		return
+	}
+
+	b.updateModel(block)
+	b.missing = false
+
+	return true
+}
+
+func (b *Block) updateModel(other *models.Block) {
+	b.Block.Lock()
+	defer b.Block.Unlock()
+
+	b.M = other.M
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithMissing(missing bool) options.Option[Block] {
+	return func(block *Block) {
+		block.missing = true
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

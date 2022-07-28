@@ -15,7 +15,7 @@ import (
 
 func TestTangleAttach(t *testing.T) {
 	tangle := New(func(t *Tangle) {
-		t.optsDBManagerPath = "/tmp/"
+		t.dbManagerPath = "/tmp/"
 	})
 
 	testFramework := NewBlockTestFramework(tangle)
@@ -36,8 +36,8 @@ func TestTangleAttach(t *testing.T) {
 		t.Logf("missing block %s is stored", metadata.ID())
 	}))
 
-	tangle.AttachBlock(block2)
-	tangle.AttachBlock(block1)
+	tangle.Attach(block2)
+	tangle.Attach(block1)
 
 	event.Loop.WaitUntilAllTasksProcessed()
 }
@@ -64,11 +64,11 @@ func TestTangle_AttachBlock(t *testing.T) {
 	newBlockOne := newTestDataBlock("some data")
 	newBlockTwo := newTestDataBlock("some other data")
 
-	blockTangle.AttachBlock(newBlockTwo)
+	blockTangle.Attach(newBlockTwo)
 
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	blockTangle.AttachBlock(newBlockOne)
+	blockTangle.Attach(newBlockOne)
 }
 
 func TestTangle_MissingBlocks(t *testing.T) {
@@ -144,23 +144,23 @@ func TestTangle_MissingBlocks(t *testing.T) {
 
 		time.Sleep(storeDelay)
 
-		tangle.AttachBlock(blocks[metadata.ID()])
+		tangle.Attach(blocks[metadata.ID()])
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
-		tangle.AttachBlock(blocks[key])
+		tangle.Attach(blocks[key])
 	})
 
 	// wait until all blocks are solidified
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	for blockID := range blocks {
-		metadata, _ := tangle.BlockMetadata(blockID)
+		metadata, _ := tangle.Block(blockID)
 		solidParents := 0
 		if !metadata.solid {
 			for parentID := range metadata.ParentsByType(models.StrongParentType) {
-				parentMetadata, _ := tangle.BlockMetadata(parentID)
+				parentMetadata, _ := tangle.Block(parentID)
 				if parentMetadata.solid {
 					solidParents++
 				}

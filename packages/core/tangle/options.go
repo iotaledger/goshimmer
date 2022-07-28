@@ -9,14 +9,14 @@ import (
 // WithDBManagerPath sets the root path to the database manager where all the buckets are stored.
 func WithDBManagerPath(path string) options.Option[Tangle] {
 	return func(t *Tangle) {
-		t.optsDBManagerPath = path
+		t.dbManagerPath = path
 	}
 }
 
 // WithSolidEntryPointFunc sets the function that determines whether a block is a solid entrypoint.
 func WithSolidEntryPointFunc(isSolidEntryPoint func(models.BlockID) bool) options.Option[Tangle] {
 	return func(t *Tangle) {
-		t.optsIsSolidEntryPoint = isSolidEntryPoint
+		t.isSolidEntryPoint = isSolidEntryPoint
 	}
 }
 
