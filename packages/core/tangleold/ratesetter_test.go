@@ -19,13 +19,13 @@ var (
 	testRateSetterParams = RateSetterParams{
 		Initial:          testInitial,
 		RateSettingPause: time.Second,
-		Mode:             aimdMode,
+		Mode:             AIMDMode,
 	}
 	testInitialDef          = 5.0
 	testRateSetterParamsDef = RateSetterParams{
 		Initial:          testInitialDef,
 		RateSettingPause: time.Second,
-		Mode:             deficitMode,
+		Mode:             DeficitMode,
 	}
 )
 

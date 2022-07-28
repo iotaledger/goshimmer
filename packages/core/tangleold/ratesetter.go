@@ -27,11 +27,38 @@ const (
 	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
 	Wmin = 5
-	// The rate setter can be in one of three modes: aimd, deficit or disabled.
-	aimdMode     = "aimd"
-	deficitMode  = "deficit"
-	disabledMode = "disabled"
 )
+const (
+	// The rate setter can be in one of three modes: aimd, deficit or disabled.
+	AIMDMode RateSetterModeType = iota
+	DeficitMode
+	DisabledMode
+)
+
+type RateSetterModeType int8
+
+func ParseRateSetterMode(s string) RateSetterModeType {
+	switch s {
+	case "aimd":
+		return AIMDMode
+	case "disabled":
+		return DisabledMode
+	default:
+		return DeficitMode
+	}
+}
+
+func (m RateSetterModeType) String() string {
+	switch m {
+	case AIMDMode:
+		return "aimd"
+	case DisabledMode:
+		return "disabled"
+	default:
+		return "deficit"
+	}
+
+}
 
 var (
 	// ErrInvalidIssuer is returned when an invalid block is passed to the rate setter.
@@ -44,7 +71,7 @@ var (
 
 // RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
-	Mode             string
+	Mode             RateSetterModeType
 	Initial          float64
 	RateSettingPause time.Duration
 }
@@ -67,9 +94,9 @@ type RateSetter interface {
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) RateSetter {
-	if tangle.Options.RateSetterParams.Mode == aimdMode {
+	if tangle.Options.RateSetterParams.Mode == AIMDMode {
 		return NewAIMDRateSetter(tangle)
-	} else if tangle.Options.RateSetterParams.Mode == disabledMode {
+	} else if tangle.Options.RateSetterParams.Mode == DisabledMode {
 		return NewDisabledRateSetter(tangle)
 	}
 	// return a deficit-based ratesetter by default if any invalid mode is specified.

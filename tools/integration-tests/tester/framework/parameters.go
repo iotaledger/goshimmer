@@ -6,6 +6,7 @@ import (
 
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
@@ -97,8 +98,8 @@ func PeerConfig() config.GoShimmer {
 
 	// enable rate setter and set to disabled mode ;)
 	c.RateSetter.Enabled = true
-	c.RateSetter.Mode = "disabled"
-	c.RateSetter.RateSetterParametersDefinition.Mode = "disabled"
+	c.RateSetter.Mode = tangleold.DisabledMode.String()
+	c.RateSetter.RateSetterParametersDefinition.Mode = tangleold.DisabledMode.String()
 
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
