@@ -67,17 +67,17 @@ func (t *Tangle) AttachBlock(block *Block) {
 	t.solidifier.Queue(blockMetadata)
 }
 
-func (t *Tangle) DropEpoch(index epoch.Index) {
+func (t *Tangle) DropEpoch(epochIndex epoch.Index) {
 	t.pruningMutex.Lock()
 	defer t.pruningMutex.Unlock()
 
-	t.solidifier.Prune(index)
+	t.solidifier.Prune(epochIndex)
 
-	for i := t.maxDroppedEpoch + 1; i <= index; i++ {
+	for i := t.maxDroppedEpoch + 1; i <= epochIndex; i++ {
 		t.memStorage.Drop(i)
 	}
 
-	t.maxDroppedEpoch = index
+	t.maxDroppedEpoch = epochIndex
 }
 
 // BlockMetadata retrieves the BlockMetadata with the given BlockID.
@@ -90,22 +90,27 @@ func (t *Tangle) BlockMetadata(blockID BlockID) (metadata *BlockMetadata, exists
 
 // SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Locks the metadata mutex.
 func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
-	if updated = metadata.SetInvalid(); updated {
+	if updated = t.setBlockInvalid(metadata); !updated {
+		return
+	}
+
+	if updated = metadata.setInvalid(); updated {
 		t.Events.BlockInvalid.Trigger(metadata)
 
-		t.propagateInvalidityToChildren(metadata)
+		t.propagateInvalidityToChildren(metadata.Children())
 	}
 
 	return
 }
 
-// setInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Does not lock metadata mutex.
 func (t *Tangle) setInvalid(metadata *BlockMetadata) (updated bool) {
-	if updated = metadata.setInvalid(); updated {
-		t.Events.BlockInvalid.Trigger(metadata)
-
-		t.propagateInvalidityToChildren(metadata)
+	if updated = metadata.setInvalid(); !updated {
+		return
 	}
+
+	t.Events.BlockInvalid.Trigger(metadata)
+
+	t.propagateInvalidityToChildren(metadata.children())
 
 	return
 }
@@ -221,24 +226,26 @@ func (t *Tangle) updateParentsMetadata(blockIDs BlockIDs, updateParentsFunc func
 	}
 }
 
-func (t *Tangle) propagateInvalidityToChildren(entity *BlockMetadata) {
-	propagationWalker := walker.New[*BlockMetadata](true).Push(entity)
-	for _, childMetadata := range propagationWalker.Next().children() {
-		if childMetadata.setInvalid() {
-			t.Events.BlockInvalid.Trigger(childMetadata)
-
-			propagationWalker.Push(childMetadata)
-		}
-	}
+func (t *Tangle) propagateInvalidityToChildren(children []*BlockMetadata) {
+	propagationWalker := walker.New[*BlockMetadata](true).PushAll(children...)
 	for propagationWalker.HasNext() {
-		for _, childMetadata := range propagationWalker.Next().Children() {
-			if childMetadata.setInvalid() {
-				t.Events.BlockInvalid.Trigger(childMetadata)
+		child := propagationWalker.Next()
 
-				propagationWalker.Push(childMetadata)
-			}
+		if !t.setBlockInvalid(child) {
+			continue
 		}
+
+		t.Events.BlockInvalid.Trigger(child)
+
+		propagationWalker.PushAll(child.Children()...)
 	}
+}
+
+func (t *Tangle) setBlockInvalid(block *BlockMetadata) (propagated bool) {
+	block.Lock()
+	defer block.Unlock()
+
+	return block.setInvalid()
 }
 
 func (t *Tangle) isTooOld(block *Block) (isTooOld bool) {

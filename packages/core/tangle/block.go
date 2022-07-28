@@ -773,12 +773,6 @@ func (b *BlockMetadata) setSolid(solid bool) (updated bool) {
 
 	return true
 }
-func (b *BlockMetadata) SetInvalid() (updated bool) {
-	b.Lock()
-	defer b.Unlock()
-
-	return b.setInvalid()
-}
 
 func (b *BlockMetadata) setInvalid() (updated bool) {
 	if b.invalid {
