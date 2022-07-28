@@ -82,11 +82,11 @@ func (c *CausalOrder[IDType, EntityType]) dropEntities(epochIndex epoch.Index) (
 	c.pruningMutex.Lock()
 	defer c.pruningMutex.Unlock()
 
-	droppedEntities = make(map[IDType]EntityType)
 	if epochIndex <= c.maxDroppedEpoch {
-		return droppedEntities
+		return nil
 	}
 
+	droppedEntities = make(map[IDType]EntityType)
 	for currentEpoch := c.maxDroppedEpoch + 1; currentEpoch <= epochIndex; currentEpoch++ {
 		c.dropEntitiesFromEpoch(currentEpoch, func(id IDType) {
 			if _, exists := droppedEntities[id]; !exists {
@@ -102,12 +102,14 @@ func (c *CausalOrder[IDType, EntityType]) dropEntities(epochIndex epoch.Index) (
 func (c *CausalOrder[IDType, EntityType]) dropEntitiesFromEpoch(epochIndex epoch.Index, droppedEntityCallback func(id IDType)) {
 	c.unorderedChildren.Get(epochIndex).ForEachKey(func(id IDType) bool {
 		droppedEntityCallback(id)
+
 		return true
 	})
 	c.unorderedChildren.Drop(epochIndex)
 
 	c.unorderedParentsCounter.Get(epochIndex).ForEachKey(func(id IDType) bool {
 		droppedEntityCallback(id)
+
 		return true
 	})
 	c.unorderedParentsCounter.Drop(epochIndex)
@@ -134,14 +136,14 @@ func (c *CausalOrder[IDType, EntityType]) checkEntity(entity EntityType) (wasOrd
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
-	countersStorage := c.unorderedParentsCounter.Get(entity.ID().Index(), true)
 	unorderedParents, isInvalid := c.checkParents(entity)
-	countersStorage.Set(entity.ID(), unorderedParents)
-	if !isInvalid && unorderedParents == 0 {
-		wasOrdered = c.setOrdered(entity, true)
+	if isInvalid {
+		return
 	}
 
-	return wasOrdered, isInvalid
+	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), unorderedParents)
+
+	return !isInvalid && unorderedParents == 0 && c.setOrdered(entity, true), false
 }
 
 func (c *CausalOrder[IDType, EntityType]) checkParents(entity EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
