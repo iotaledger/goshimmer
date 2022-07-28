@@ -3,7 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // WithDBManagerPath sets the root path to the database manager where all the buckets are stored.

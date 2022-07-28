@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/core/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -45,7 +45,7 @@ func NewBlockTestFramework(tangle *Tangle, opts ...options.Option[BlockTestFrame
 }
 
 // CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (block *models.Block) {
+func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (blk *models.Block) {
 	opts := NewBlockTestFrameworkBlockOptions(blockOptions...)
 
 	references := models.NewParentBlockIDs()

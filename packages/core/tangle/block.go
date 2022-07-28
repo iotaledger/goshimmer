@@ -4,62 +4,62 @@ import (
 	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/core/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // region BlockMetadata ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BlockMetadata defines the metadata for a block.
-type BlockMetadata struct {
+// SolidifiedBlock represents a Block that was annotated with the Solidification based metadata.
+type SolidifiedBlock struct {
 	*models.Block
 
 	id                   models.BlockID
 	missing              bool
 	solid                bool
 	invalid              bool
-	strongChildren       []*BlockMetadata
-	weakChildren         []*BlockMetadata
-	likedInsteadChildren []*BlockMetadata
+	strongChildren       []*SolidifiedBlock
+	weakChildren         []*SolidifiedBlock
+	likedInsteadChildren []*SolidifiedBlock
 
 	*syncutils.StarvingMutex
 }
 
-func fullMetadataFromBlock(block *models.Block) func() *BlockMetadata {
-	return func() *BlockMetadata {
-		return &BlockMetadata{
+func fullMetadataFromBlock(block *models.Block) func() *SolidifiedBlock {
+	return func() *SolidifiedBlock {
+		return &SolidifiedBlock{
 			Block: block,
 
 			id:                   block.ID(),
-			strongChildren:       make([]*BlockMetadata, 0),
-			weakChildren:         make([]*BlockMetadata, 0),
-			likedInsteadChildren: make([]*BlockMetadata, 0),
+			strongChildren:       make([]*SolidifiedBlock, 0),
+			weakChildren:         make([]*SolidifiedBlock, 0),
+			likedInsteadChildren: make([]*SolidifiedBlock, 0),
 			StarvingMutex:        syncutils.NewStarvingMutex(),
 		}
 	}
 }
 
-func (b *BlockMetadata) ID() models.BlockID {
+func (b *SolidifiedBlock) ID() models.BlockID {
 	return b.id
 }
 
 // Initialized returns true if the block metadata is initialized.
-func (b *BlockMetadata) Initialized() bool {
+func (b *SolidifiedBlock) Initialized() bool {
 	return b.solid || b.invalid
 }
 
 // IsSolid returns true if the block is solid.
-func (b *BlockMetadata) IsSolid() bool {
+func (b *SolidifiedBlock) IsSolid() bool {
 	b.RLock()
 	defer b.RUnlock()
 
 	return b.isSolid()
 }
 
-func (b *BlockMetadata) isSolid() bool {
+func (b *SolidifiedBlock) isSolid() bool {
 	return b.solid
 }
 
-func (b *BlockMetadata) setSolid(solid bool) (updated bool) {
+func (b *SolidifiedBlock) setSolid(solid bool) (updated bool) {
 	if b.solid == solid {
 		return false
 	}
@@ -69,7 +69,7 @@ func (b *BlockMetadata) setSolid(solid bool) (updated bool) {
 	return true
 }
 
-func (b *BlockMetadata) setInvalid() (updated bool) {
+func (b *SolidifiedBlock) setInvalid() (updated bool) {
 	if b.invalid {
 		return false
 	}
@@ -80,7 +80,7 @@ func (b *BlockMetadata) setInvalid() (updated bool) {
 }
 
 // ParentIDs returns the parents of the block as a slice.
-func (b *BlockMetadata) ParentIDs() []models.BlockID {
+func (b *SolidifiedBlock) ParentIDs() []models.BlockID {
 	parents := b.ParentsByType(models.StrongParentType).Clone()
 	parents.AddAll(b.ParentsByType(models.WeakParentType))
 	parents.AddAll(b.ParentsByType(models.ShallowLikeParentType))
@@ -89,7 +89,7 @@ func (b *BlockMetadata) ParentIDs() []models.BlockID {
 }
 
 // Children returns the metadata of the children of the block.
-func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
+func (b *SolidifiedBlock) Children() (childrenMetadata []*SolidifiedBlock) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -97,9 +97,9 @@ func (b *BlockMetadata) Children() (childrenMetadata []*BlockMetadata) {
 }
 
 // Children returns the metadata of the children of the block.
-func (b *BlockMetadata) children() (childrenMetadata []*BlockMetadata) {
+func (b *SolidifiedBlock) children() (childrenMetadata []*SolidifiedBlock) {
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
-	for _, parentsByType := range [][]*BlockMetadata{
+	for _, parentsByType := range [][]*SolidifiedBlock{
 		b.strongChildren,
 		b.weakChildren,
 		b.likedInsteadChildren,
@@ -119,17 +119,17 @@ func (b *BlockMetadata) children() (childrenMetadata []*BlockMetadata) {
 
 // region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var GenesisMetadata = &BlockMetadata{
+var GenesisMetadata = &SolidifiedBlock{
 	id:                   models.EmptyBlockID,
-	strongChildren:       make([]*BlockMetadata, 0),
-	weakChildren:         make([]*BlockMetadata, 0),
-	likedInsteadChildren: make([]*BlockMetadata, 0),
+	strongChildren:       make([]*SolidifiedBlock, 0),
+	weakChildren:         make([]*SolidifiedBlock, 0),
+	likedInsteadChildren: make([]*SolidifiedBlock, 0),
 	solid:                true,
 	StarvingMutex:        syncutils.NewStarvingMutex(),
 }
 
 // SolidEntrypointMetadata returns the metadata for a solid entrypoint.
-func SolidEntrypointMetadata(blockID models.BlockID) *BlockMetadata {
+func SolidEntrypointMetadata(blockID models.BlockID) *SolidifiedBlock {
 	return GenesisMetadata
 }
 
