@@ -71,8 +71,8 @@ func TestTangle_AttachBlock(t *testing.T) {
 
 func TestTangle_MissingBlocks(t *testing.T) {
 	const (
-		blockCount  = 10000
-		tangleWidth = 500
+		blockCount  = 2000
+		tangleWidth = 200
 		storeDelay  = 5 * time.Millisecond
 	)
 
@@ -116,6 +116,11 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 	fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
+
+	invalidBlocks := int32(0)
+	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
+		t.Logf("invalid blocks %d, %s", atomic.AddInt32(&invalidBlocks, 1), metadata.id)
+	}))
 
 	missingBlocks := int32(0)
 	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
