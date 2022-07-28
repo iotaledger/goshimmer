@@ -147,7 +147,7 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
 		utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
-			deps.Tangle.Ledger.LoadFullUTXOStates(outputsWithMetadatas)
+			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
 			for _, outputWithMetadata := range outputsWithMetadatas {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
