@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
-type CausalOrder[ID epoch.IndexedID, Entity EntityInterface[ID]] struct {
+type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	Events *Events[ID, Entity]
 
 	entityProvider   func(id ID) (entity Entity, exists bool)
@@ -30,11 +30,11 @@ type CausalOrder[ID epoch.IndexedID, Entity EntityInterface[ID]] struct {
 	pruningMutex    sync.RWMutex
 }
 
-func New[ID epoch.IndexedID, Entity EntityInterface[ID]](
+func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
 	isOrdered func(Entity) bool,
 	setOrdered func(Entity, bool) bool,
-	genesisEntity func(ID) Entity,
+	genesisEntityProvider func(ID) Entity,
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
@@ -43,7 +43,7 @@ func New[ID epoch.IndexedID, Entity EntityInterface[ID]](
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		setOrdered:              setOrdered,
-		genesisBlock:            genesisEntity,
+		genesisBlock:            genesisEntityProvider,
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 
@@ -116,7 +116,7 @@ func (c *CausalOrder[I, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
-	if updatedStatus := c.updateStatus(entity); updatedStatus == Invalid {
+	if updatedStatus := c.updateOrderStatus(entity); updatedStatus == Invalid {
 		c.Events.Drop.Trigger(entity)
 	} else if wasOrdered = updatedStatus == Ordered; wasOrdered {
 		c.Events.Emit.Trigger(entity)
@@ -125,17 +125,17 @@ func (c *CausalOrder[I, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
 	return
 }
 
-func (c *CausalOrder[I, Entity]) updateStatus(entity Entity) (orderStatus StatusUpdate) {
+func (c *CausalOrder[I, Entity]) updateOrderStatus(entity Entity) (updateType UpdateType) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
-	unorderedParents, isInvalid := c.checkParents(entity)
-	if isInvalid {
+	pendingParentsCount, anyParentInvalid := c.countPendingParents(entity)
+	if anyParentInvalid {
 		return Invalid
 	}
 
-	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), unorderedParents)
-	if unorderedParents != 0 || !c.setOrdered(entity, true) {
+	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
+	if pendingParentsCount != 0 || !c.setOrdered(entity, true) {
 		return Unchanged
 	}
 
@@ -148,22 +148,22 @@ func (c *CausalOrder[ID, Entity]) isGenesis(id ID) bool {
 	return c.genesisBlock(id) != emptyEntity
 }
 
-func (c *CausalOrder[I, Entity]) checkParents(entity Entity) (unorderedParentsCount uint8, anyParentInvalid bool) {
-	for _, parentID := range entity.ParentIDs() {
+func (c *CausalOrder[I, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
+	for _, parentID := range entity.Parents() {
 		parentEntity := c.entity(parentID)
 
 		if !c.isReferenceValid(entity, parentEntity) || (!c.isGenesis(parentID) && parentID.Index() <= c.maxDroppedEpoch) {
-			return unorderedParentsCount, true
+			return pendingParents, true
 		}
 
 		if !c.isOrdered(parentEntity) {
-			unorderedParentsCount++
+			pendingParents++
 
 			c.registerUnorderedChild(parentID, entity)
 		}
 	}
 
-	return unorderedParentsCount, false
+	return pendingParents, false
 }
 
 func (c *CausalOrder[I, Entity]) registerUnorderedChild(entityID I, child Entity) {
@@ -237,7 +237,7 @@ func (c *CausalOrder[I, Entity]) decreaseUnorderedParentsCounter(metadata Entity
 }
 
 func (c *CausalOrder[I, Entity]) lockEntity(entity Entity) {
-	for _, parentID := range entity.ParentIDs() {
+	for _, parentID := range entity.Parents() {
 		c.entity(parentID).RLock()
 	}
 
@@ -245,7 +245,7 @@ func (c *CausalOrder[I, Entity]) lockEntity(entity Entity) {
 }
 
 func (c *CausalOrder[I, Entity]) unlockEntity(metadata Entity) {
-	for _, parentID := range metadata.ParentIDs() {
+	for _, parentID := range metadata.Parents() {
 		c.entity(parentID).RUnlock()
 	}
 

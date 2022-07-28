@@ -111,7 +111,14 @@ func (t *Tangle) init() (self *Tangle) {
 		func(block *Block) (isSolid bool) {
 			return block.solid
 		},
-		(*Block).setSolid,
+		func(block *Block, solid bool) (wasUpdated bool) {
+			if block.solid == solid {
+				return false
+			}
+			block.solid = solid
+
+			return true
+		},
 		t.genesisBlock,
 		causalorder.WithReferenceValidator[models.BlockID](func(entity *Block, parent *Block) bool {
 			return !parent.invalid

@@ -15,6 +15,7 @@ type Block struct {
 	missing              bool
 	solid                bool
 	invalid              bool
+	root                 bool
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
@@ -31,6 +32,13 @@ func NewBlock(block *models.Block, opts ...options.Option[Block]) (newBlock *Blo
 		Block:                block,
 		StarvingMutex:        syncutils.NewStarvingMutex(),
 	}, opts)
+}
+
+func (b *Block) IsRoot() (isRoot bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.root
 }
 
 // IsMissing returns a flag that indicates if the underlying block data hasn't been stored, yet.
@@ -57,17 +65,8 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	return b.invalid
 }
 
-// ParentIDs returns the parents of the block as a slice.
-func (b *Block) ParentIDs() []models.BlockID {
-	parents := b.ParentsByType(models.StrongParentType).Clone()
-	parents.AddAll(b.ParentsByType(models.WeakParentType))
-	parents.AddAll(b.ParentsByType(models.ShallowLikeParentType))
-
-	return parents.Slice()
-}
-
 // Children returns the metadata of the children of the block.
-func (b *Block) Children() (childrenMetadata []*Block) {
+func (b *Block) Children() (children []*Block) {
 	b.RLock()
 	defer b.RUnlock()
 
