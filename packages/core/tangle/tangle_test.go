@@ -71,8 +71,8 @@ func TestTangle_AttachBlock(t *testing.T) {
 
 func TestTangle_MissingBlocks(t *testing.T) {
 	const (
-		blockCount  = 50
-		tangleWidth = 2
+		blockCount  = 10000
+		tangleWidth = 500
 		storeDelay  = 5 * time.Millisecond
 	)
 

@@ -94,23 +94,9 @@ func (t *Tangle) SetInvalid(metadata *BlockMetadata) (updated bool) {
 		return
 	}
 
-	if updated = metadata.setInvalid(); updated {
-		t.Events.BlockInvalid.Trigger(metadata)
-
-		t.propagateInvalidityToChildren(metadata.Children())
-	}
-
-	return
-}
-
-func (t *Tangle) setInvalid(metadata *BlockMetadata) (updated bool) {
-	if updated = metadata.setInvalid(); !updated {
-		return
-	}
-
 	t.Events.BlockInvalid.Trigger(metadata)
 
-	t.propagateInvalidityToChildren(metadata.children())
+	t.propagateInvalidityToChildren(metadata.Children())
 
 	return
 }
@@ -138,8 +124,8 @@ func (t *Tangle) initSolidifier() (self *Tangle) {
 	)
 
 	t.solidifier.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
-	t.solidifier.Drop.Hook(event.NewClosure(func(blockMetadata *BlockMetadata) {
-		t.setInvalid(blockMetadata)
+	t.solidifier.Drop.Attach(event.NewClosure(func(blockMetadata *BlockMetadata) {
+		t.SetInvalid(blockMetadata)
 	}))
 
 	return t

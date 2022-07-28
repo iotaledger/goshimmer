@@ -119,31 +119,30 @@ func (c *CausalOrder[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrde
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
-	wasOrdered, isInvalid := c.checkEntity(entity)
-	if isInvalid {
+	if updatedStatus := c.updateStatus(entity); updatedStatus == Invalid {
 		c.Drop.Trigger(entity)
-		return
-	}
-
-	if wasOrdered {
+	} else if wasOrdered = updatedStatus == Ordered; wasOrdered {
 		c.Emit.Trigger(entity)
 	}
 
 	return
 }
 
-func (c *CausalOrder[IDType, EntityType]) checkEntity(entity EntityType) (wasOrdered bool, isInvalid bool) {
+func (c *CausalOrder[IDType, EntityType]) updateStatus(entity EntityType) (orderStatus OrderStatusUpdate) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
 	unorderedParents, isInvalid := c.checkParents(entity)
 	if isInvalid {
-		return
+		return Invalid
 	}
 
 	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), unorderedParents)
+	if unorderedParents != 0 || !c.setOrdered(entity, true) {
+		return Unchanged
+	}
 
-	return !isInvalid && unorderedParents == 0 && c.setOrdered(entity, true), false
+	return Ordered
 }
 
 func (c *CausalOrder[IDType, EntityType]) checkParents(entity EntityType) (unorderedParentsCount uint8, anyParentInvalid bool) {
