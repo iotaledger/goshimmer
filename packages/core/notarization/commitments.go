@@ -320,6 +320,17 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 	return
 }
 
+func (f *EpochCommitmentFactory) loadLedgerStates(consumer func(*ledger.OutputWithMetadata)) {
+	f.storage.ledgerstateStorage.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
+			consumer(outputWithMetadata)
+		})
+		return true
+	})
+
+	return
+}
+
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
 	// Volatile storage for small trees

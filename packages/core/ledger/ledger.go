@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types/confirmation"
@@ -126,27 +125,6 @@ func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Ind
 	return nil
 }
 
-// TakeSnapshot returns a snapshot of the Ledger state.
-func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
-	snapshot = NewSnapshot([]*OutputWithMetadata{})
-	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
-		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
-				return
-			}
-
-			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-				snapshot.OutputsWithMetadata = append(snapshot.OutputsWithMetadata, outputWithMetadata)
-			})
-		})
-
-		return true
-	})
-
-	return snapshot
-}
-
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
 func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
@@ -184,24 +162,6 @@ func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transac
 // pruneFutureCone flag is true, then we do not just remove the named Transaction but also its future cone.
 func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
 	l.Storage.pruneTransaction(txID, pruneFutureCone)
-}
-
-// ForEachAcceptedUnspentOutputWithMetadata returns the Accepted unspent OutputWithMetadata before a latest confirmed epoch.
-func (l *Ledger) ForEachAcceptedUnspentOutputWithMetadata(consumer func(*OutputWithMetadata)) {
-	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
-		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
-				return
-			}
-
-			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-				consumer(outputWithMetadata)
-			})
-		})
-
-		return true
-	})
 }
 
 // Shutdown shuts down the stateful elements of the Ledger (the Storage and the ConflictDAG).

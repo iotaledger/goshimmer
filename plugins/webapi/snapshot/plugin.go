@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
@@ -51,13 +52,20 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	lastConfirmedEpoch, err := deps.NotarizationMgr.LatestConfirmedEpochIndex()
+	ecRecord, lastConfirmedEpoch, err := deps.Tangle.Options.CommitmentFunc()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.Tangle.Ledger)
 
-	header, err := snapshot.CreateSnapshot(snapshotFileName, headerProducer, outputWithMetadataProd, deps.NotarizationMgr.SnapshotEpochDiffs)
+	// lock the entire ledger in notarization manager until the snapshot is created.
+	deps.NotarizationMgr.WriteLockLedger()
+	defer deps.NotarizationMgr.WriteUnlockLedger()
+
+	headerPord := headerProducer(ecRecord, lastConfirmedEpoch)
+	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.NotarizationMgr)
+	epochDiffsProd := snapshot.NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), deps.NotarizationMgr)
+
+	header, err := snapshot.CreateSnapshot(snapshotFileName, headerPord, outputWithMetadataProd, epochDiffsProd)
 	if err != nil {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
@@ -71,19 +79,15 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
 
-func headerProducer() (header *ledger.SnapshotHeader, err error) {
-	committableEC, fullEpochIndex, err := deps.Tangle.Options.CommitmentFunc()
-	if err != nil {
-		return nil, err
+func headerProducer(ecRecord *epoch.ECRecord, lastConfirmedEpoch epoch.Index) snapshot.HeaderProducerFunc {
+	return func() (header *ledger.SnapshotHeader, err error) {
+		header = &ledger.SnapshotHeader{
+			FullEpochIndex: lastConfirmedEpoch,
+			DiffEpochIndex: ecRecord.EI(),
+			LatestECRecord: ecRecord,
+		}
+		return header, nil
 	}
-
-	header = &ledger.SnapshotHeader{
-		FullEpochIndex: fullEpochIndex,
-		DiffEpochIndex: committableEC.EI(),
-		LatestECRecord: committableEC,
-	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

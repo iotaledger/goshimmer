@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/hive.go/serix"
 )
 
@@ -108,19 +109,9 @@ func streamSnapshotDataTo(
 }
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, l *ledger.Ledger) UTXOStatesProducerFunc {
+func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
-
-	go func() {
-		l.ForEachAcceptedUnspentOutputWithMetadata(func(o *ledger.OutputWithMetadata) {
-			index := epoch.IndexFromTime(o.CreationTime())
-			if index <= lastConfirmedEpoch {
-				prodChan <- o
-			}
-		})
-
-		close(prodChan)
-	}()
+	nmgr.SnapshotLedgerStates(lastConfirmedEpoch, prodChan)
 
 	return func() *ledger.OutputWithMetadata {
 		obj, ok := <-prodChan
@@ -128,6 +119,15 @@ func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, l *ledger.Ledge
 			return nil
 		}
 		return obj
+	}
+}
+
+// NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
+func NewEpochDiffsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
+	epochDiffs, err := nmgr.SnapshotEpochDiffs(lastConfirmedEpoch, latestCommitableEpoch)
+
+	return func() (map[epoch.Index]*ledger.EpochDiff, error) {
+		return epochDiffs, err
 	}
 }
 
