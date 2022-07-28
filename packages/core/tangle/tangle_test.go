@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/core/models"
 )
 
 func TestTangleAttach(t *testing.T) {
@@ -82,15 +84,15 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	testFramework := NewBlockTestFramework(tangle)
 
 	// map to keep track of the tips
-	tips := randommap.New[BlockID, BlockID]()
-	tips.Set(EmptyBlockID, EmptyBlockID)
+	tips := randommap.New[models.BlockID, models.BlockID]()
+	tips.Set(models.EmptyBlockID, models.EmptyBlockID)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int) *Block {
+	createNewBlock := func(idx int) *models.Block {
 		// issue the payload
 		strongParents := make([]string, 0)
 		for _, selectedTip := range tips.RandomUniqueEntries(2) {
-			if selectedTip == EmptyBlockID {
+			if selectedTip == models.EmptyBlockID {
 				strongParents = append(strongParents, "Genesis")
 				continue
 			}
@@ -99,7 +101,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", idx), WithStrongParents(strongParents...))
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			tips.Delete(blk.ParentsByType(StrongParentType).First())
+			tips.Delete(blk.ParentsByType(models.StrongParentType).First())
 		}
 
 		// add current block as a tip
@@ -110,7 +112,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	}
 
 	// generate the blocks we want to solidify
-	blocks := make(map[BlockID]*Block, blockCount)
+	blocks := make(map[models.BlockID]*models.Block, blockCount)
 	for i := 0; i < blockCount; i++ {
 		blk := createNewBlock(i)
 		blocks[blk.ID()] = blk
@@ -146,7 +148,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key BlockID, _ BlockID) {
+	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
 		tangle.AttachBlock(blocks[key])
 	})
 
@@ -157,14 +159,14 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		metadata, _ := tangle.BlockMetadata(blockID)
 		solidParents := 0
 		if !metadata.solid {
-			for parentID := range metadata.strongParents {
+			for parentID := range metadata.ParentsByType(models.StrongParentType) {
 				parentMetadata, _ := tangle.BlockMetadata(parentID)
 				if parentMetadata.solid {
 					solidParents++
 				}
 			}
 		}
-		if solidParents == len(metadata.strongParents) {
+		if solidParents == len(metadata.ParentsByType(models.StrongParentType)) {
 			fmt.Println("block not solid but should be", metadata.id, metadata.solid)
 		}
 	}

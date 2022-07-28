@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
+	"github.com/iotaledger/goshimmer/packages/core/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -28,7 +29,7 @@ var (
 // simplified way.
 type BlockTestFramework struct {
 	tangle        *Tangle
-	blocksByAlias map[string]*Block
+	blocksByAlias map[string]*models.Block
 	options       *BlockTestFrameworkOptions
 }
 
@@ -36,7 +37,7 @@ type BlockTestFramework struct {
 func NewBlockTestFramework(tangle *Tangle, opts ...options.Option[BlockTestFrameworkOptions]) (blockTestFramework *BlockTestFramework) {
 	blockTestFramework = &BlockTestFramework{
 		tangle:        tangle,
-		blocksByAlias: make(map[string]*Block),
+		blocksByAlias: make(map[string]*models.Block),
 		options:       NewBlockTestFrameworkOptions(opts...),
 	}
 
@@ -44,19 +45,19 @@ func NewBlockTestFramework(tangle *Tangle, opts ...options.Option[BlockTestFrame
 }
 
 // CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (block *Block) {
+func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (block *models.Block) {
 	opts := NewBlockTestFrameworkBlockOptions(blockOptions...)
 
-	references := NewParentBlockIDs()
+	references := models.NewParentBlockIDs()
 
 	if parents := m.strongParentIDs(opts); len(parents) > 0 {
-		references.AddAll(StrongParentType, parents)
+		references.AddAll(models.StrongParentType, parents)
 	}
 	if parents := m.weakParentIDs(opts); len(parents) > 0 {
-		references.AddAll(WeakParentType, parents)
+		references.AddAll(models.WeakParentType, parents)
 	}
 	if parents := m.shallowLikeParentIDs(opts); len(parents) > 0 {
-		references.AddAll(ShallowLikeParentType, parents)
+		references.AddAll(models.ShallowLikeParentType, parents)
 	}
 
 	if opts.reattachmentBlockAlias != "" {
@@ -96,7 +97,7 @@ func (m *BlockTestFramework) WaitUntilAllTasksProcessed() (self *BlockTestFramew
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
-func (m *BlockTestFramework) Block(alias string) (block *Block) {
+func (m *BlockTestFramework) Block(alias string) (block *models.Block) {
 	block, ok := m.blocksByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
@@ -105,8 +106,8 @@ func (m *BlockTestFramework) Block(alias string) (block *Block) {
 }
 
 // BlockIDs retrieves the Blocks that are associated with the given aliases.
-func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
-	blockIDs = NewBlockIDs()
+func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs models.BlockIDs) {
+	blockIDs = models.NewBlockIDs()
 	for _, alias := range aliases {
 		blockIDs.Add(m.Block(alias).ID())
 	}
@@ -115,27 +116,27 @@ func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 
 // strongParentIDs returns the BlockIDs that were defined to be the strong parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+func (m *BlockTestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
 	return m.parentIDsByBlockAlias(opts.strongParents)
 }
 
 // weakParentIDs returns the BlockIDs that were defined to be the weak parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+func (m *BlockTestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
 	return m.parentIDsByBlockAlias(opts.weakParents)
 }
 
 // shallowLikeParentIDs returns the BlockIDs that were defined to be the shallow like parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+func (m *BlockTestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
 	return m.parentIDsByBlockAlias(opts.shallowLikeParents)
 }
 
-func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
-	parentIDs := NewBlockIDs()
+func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) models.BlockIDs {
+	parentIDs := models.NewBlockIDs()
 	for parentAlias := range parentAliases {
 		if parentAlias == "Genesis" {
-			parentIDs.Add(EmptyBlockID)
+			parentIDs.Add(models.EmptyBlockID)
 			continue
 		}
 
@@ -351,8 +352,8 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
-func newTestNonceBlock(nonce uint64) *Block {
-	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+func newTestNonceBlock(nonce uint64) *models.Block {
+	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
 		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := block.DetermineID(); err != nil {
@@ -361,8 +362,8 @@ func newTestNonceBlock(nonce uint64) *Block {
 	return block
 }
 
-func newTestDataBlock(payloadString string) *Block {
-	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+func newTestDataBlock(payloadString string) *models.Block {
+	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
 		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := block.DetermineID(); err != nil {
@@ -371,8 +372,8 @@ func newTestDataBlock(payloadString string) *Block {
 	return block
 }
 
-func newTestDataBlockPublicKey(payloadString string, publicKey ed25519.PublicKey) *Block {
-	block := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID),
+func newTestDataBlockPublicKey(payloadString string, publicKey ed25519.PublicKey) *models.Block {
+	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
 		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := block.DetermineID(); err != nil {
@@ -381,8 +382,8 @@ func newTestDataBlockPublicKey(payloadString string, publicKey ed25519.PublicKey
 	return block
 }
 
-func newTestParentsDataBlock(payloadString string, references ParentBlockIDs) (block *Block) {
-	block = NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
+func newTestParentsDataBlock(payloadString string, references models.ParentBlockIDs) (block *models.Block) {
+	block = models.NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 
 	if err := block.DetermineID(); err != nil {
 		panic(err)
@@ -390,7 +391,7 @@ func newTestParentsDataBlock(payloadString string, references ParentBlockIDs) (b
 	return
 }
 
-func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
+func newTestParentsDataBlockWithOptions(payloadString string, references models.ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *models.Block) {
 	var sequenceNumber uint64
 	if opts.overrideSequenceNumber {
 		sequenceNumber = opts.sequenceNumber
@@ -398,9 +399,9 @@ func newTestParentsDataBlockWithOptions(payloadString string, references ParentB
 		sequenceNumber = nextSequenceNumber()
 	}
 	if opts.issuingTime.IsZero() {
-		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = models.NewBlock(references, time.Now(), opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	} else {
-		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = models.NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	}
 
 	if err := block.DetermineID(); err != nil {
@@ -409,8 +410,8 @@ func newTestParentsDataBlockWithOptions(payloadString string, references ParentB
 	return
 }
 
-func newTestParentsPayloadBlock(p payload.Payload, references ParentBlockIDs) (block *Block) {
-	block = NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+func newTestParentsPayloadBlock(p payload.Payload, references models.ParentBlockIDs) (block *models.Block) {
+	block = models.NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 
 	if err := block.DetermineID(); err != nil {
 		panic(err)
@@ -418,7 +419,7 @@ func newTestParentsPayloadBlock(p payload.Payload, references ParentBlockIDs) (b
 	return
 }
 
-func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
+func newTestParentsPayloadBlockWithOptions(p payload.Payload, references models.ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *models.Block) {
 	var sequenceNumber uint64
 	if opts.overrideSequenceNumber {
 		sequenceNumber = opts.sequenceNumber
@@ -427,9 +428,9 @@ func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentB
 	}
 	var err error
 	if opts.issuingTime.IsZero() {
-		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = models.NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	} else {
-		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = models.NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	}
 	if err != nil {
 		panic(err)
@@ -440,8 +441,8 @@ func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentB
 	return
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentBlockIDs, timestamp time.Time) *Block {
-	block := NewBlock(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+func newTestParentsPayloadWithTimestamp(p payload.Payload, references models.ParentBlockIDs, timestamp time.Time) *models.Block {
+	block := models.NewBlock(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
