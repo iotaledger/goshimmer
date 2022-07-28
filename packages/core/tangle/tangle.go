@@ -39,9 +39,7 @@ func New(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 		memStorage:            memstorage.NewEpochStorage[BlockID, *BlockMetadata](),
 		optsDBManagerPath:     "/tmp/",
 		optsIsSolidEntryPoint: IsGenesisBlock,
-	}, opts).
-		initDBManager().
-		initSolidifier()
+	}, opts).initDBManager().initSolidifier()
 }
 
 // AttachBlock is used to attach new Blocks to the Tangle. This function also triggers the necessary events.
@@ -73,7 +71,7 @@ func (t *Tangle) DropEpoch(index epoch.Index) {
 	t.pruningMutex.Lock()
 	defer t.pruningMutex.Unlock()
 
-	t.solidifier.DropEpoch(index)
+	t.solidifier.Prune(index)
 
 	for i := t.maxDroppedEpoch + 1; i <= index; i++ {
 		t.memStorage.Drop(i)

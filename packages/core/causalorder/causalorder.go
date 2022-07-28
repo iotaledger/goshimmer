@@ -13,19 +13,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
-type IDWithEpoch interface {
-	comparable
-	Index() epoch.Index
-}
-
-type CausalOrder[IDType IDWithEpoch, EntityType Entity[IDType]] struct {
+type CausalOrder[IDType ID, EntityType Entity[IDType]] struct {
 	Emit *event.Event[EntityType]
 	Drop *event.Event[EntityType]
 
-	entityProvider EntityProvider[IDType, EntityType]
-	isOrdered      func(EntityType) bool
-	setOrdered     func(EntityType, bool) bool
-	isGenesis      func(IDType) bool
+	entityProvider         EntityProvider[IDType, EntityType]
+	isOrdered              func(EntityType) bool
+	setOrdered             func(EntityType, bool) bool
+	isGenesis              func(IDType) bool
+	optsReferenceValidator func(entity EntityType, parent EntityType) bool
 
 	unorderedParentsCounter      *memstorage.EpochStorage[IDType, uint8]
 	unorderedParentsCounterMutex sync.Mutex
@@ -34,11 +30,9 @@ type CausalOrder[IDType IDWithEpoch, EntityType Entity[IDType]] struct {
 
 	maxDroppedEpoch epoch.Index
 	pruningMutex    sync.RWMutex
-
-	optsReferenceValidator func(entity EntityType, parent EntityType) bool
 }
 
-func New[IDType IDWithEpoch, EntityType Entity[IDType]](
+func New[IDType ID, EntityType Entity[IDType]](
 	entityProvider EntityProvider[IDType, EntityType],
 	isOrdered func(EntityType) bool,
 	setOrdered func(EntityType, bool) bool,
@@ -67,6 +61,7 @@ func (c *CausalOrder[IDType, EntityType]) Queue(entity EntityType) (ordered bool
 	defer c.pruningMutex.RUnlock()
 
 	if entity.ID().Index() <= c.maxDroppedEpoch {
+		c.Drop.Trigger(entity)
 		return
 	}
 
@@ -77,23 +72,45 @@ func (c *CausalOrder[IDType, EntityType]) Queue(entity EntityType) (ordered bool
 	return ordered
 }
 
-func (c *CausalOrder[IDType, EntityType]) DropEpoch(index epoch.Index) {
+func (c *CausalOrder[IDType, EntityType]) Prune(epochIndex epoch.Index) {
+	for _, droppedEntity := range c.dropEntities(epochIndex) {
+		c.Drop.Trigger(droppedEntity)
+	}
+}
+
+func (c *CausalOrder[IDType, EntityType]) dropEntities(epochIndex epoch.Index) (droppedEntities map[IDType]EntityType) {
 	c.pruningMutex.Lock()
-	c.pruningMutex.Unlock()
+	defer c.pruningMutex.Unlock()
 
-	for i := c.maxDroppedEpoch + 1; i <= index; i++ {
-		c.unorderedChildren.Get(i).ForEachKey(func(id IDType) bool {
-			c.Drop.Trigger(c.entity(id))
-			return true
+	droppedEntities = make(map[IDType]EntityType)
+	if epochIndex <= c.maxDroppedEpoch {
+		return droppedEntities
+	}
+
+	for currentEpoch := c.maxDroppedEpoch + 1; currentEpoch <= epochIndex; currentEpoch++ {
+		c.dropEntitiesFromEpoch(currentEpoch, func(id IDType) {
+			if _, exists := droppedEntities[id]; !exists {
+				droppedEntities[id] = c.entity(id)
+			}
 		})
-		c.unorderedChildren.Drop(i)
 	}
+	c.maxDroppedEpoch = epochIndex
 
-	for i := c.maxDroppedEpoch + 1; i <= index; i++ {
-		c.unorderedParentsCounter.Drop(i)
-	}
+	return droppedEntities
+}
 
-	c.maxDroppedEpoch = index
+func (c *CausalOrder[IDType, EntityType]) dropEntitiesFromEpoch(epochIndex epoch.Index, droppedEntityCallback func(id IDType)) {
+	c.unorderedChildren.Get(epochIndex).ForEachKey(func(id IDType) bool {
+		droppedEntityCallback(id)
+		return true
+	})
+	c.unorderedChildren.Drop(epochIndex)
+
+	c.unorderedParentsCounter.Get(epochIndex).ForEachKey(func(id IDType) bool {
+		droppedEntityCallback(id)
+		return true
+	})
+	c.unorderedParentsCounter.Drop(epochIndex)
 }
 
 func (c *CausalOrder[IDType, EntityType]) wasOrdered(entity EntityType) (wasOrdered bool) {
