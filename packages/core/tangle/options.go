@@ -13,14 +13,20 @@ func WithDBManagerPath(path string) options.Option[Tangle] {
 	}
 }
 
-// WithSolidEntryPointFunc sets the function that determines whether a block is a solid entrypoint.
-func WithSolidEntryPointFunc(isSolidEntryPoint func(models.BlockID) bool) options.Option[Tangle] {
+// WithGenesisBlockProvider sets the function that determines whether a block is a solid entrypoint.
+func WithGenesisBlockProvider(isSolidEntryPoint func(models.BlockID) *Block) options.Option[Tangle] {
 	return func(t *Tangle) {
-		t.isSolidEntryPoint = isSolidEntryPoint
+		t.genesisBlock = isSolidEntryPoint
 	}
 }
 
-// IsGenesisBlock is a default function that determines whether a block is a solid entrypoint.
-func IsGenesisBlock(blockID models.BlockID) (isGenesisBlock bool) {
-	return blockID == models.EmptyBlockID
+var genesisMetadata = NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true))
+
+// defaultGenesisBlockProvider is a default function that determines whether a block is a solid entrypoint.
+func defaultGenesisBlockProvider(blockID models.BlockID) (block *Block) {
+	if blockID != models.EmptyBlockID {
+		return
+	}
+
+	return genesisMetadata
 }

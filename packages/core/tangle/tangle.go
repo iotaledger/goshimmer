@@ -23,12 +23,12 @@ import (
 type Tangle struct {
 	Events *Events
 
-	dbManager         *database.Manager
-	dbManagerPath     string
-	memStorage        *memstorage.EpochStorage[models.BlockID, *Block]
-	maxDroppedEpoch   epoch.Index
-	solidifier        *causalorder.CausalOrder[models.BlockID, *Block]
-	isSolidEntryPoint func(models.BlockID) bool
+	dbManager       *database.Manager
+	dbManagerPath   string
+	memStorage      *memstorage.EpochStorage[models.BlockID, *Block]
+	maxDroppedEpoch epoch.Index
+	solidifier      *causalorder.CausalOrder[models.BlockID, *Block]
+	genesisBlock    func(models.BlockID) *Block
 
 	sync.RWMutex
 }
@@ -36,30 +36,51 @@ type Tangle struct {
 // New is the constructor for the Tangle.
 func New(opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
-		Events:            newEvents(),
-		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		dbManagerPath:     "/tmp/",
-		isSolidEntryPoint: IsGenesisBlock,
-	}, opts).initDBManager().initSolidifier()
+		Events:        newEvents(),
+		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
+		dbManagerPath: "/tmp/",
+		genesisBlock:  defaultGenesisBlockProvider,
+	}, opts).init()
 }
 
 // Attach is used to attach new Blocks to the Tangle. This function also triggers the necessary events.
-func (t *Tangle) Attach(block *models.Block) (blockMetadata *Block, isNew bool) {
+func (t *Tangle) Attach(data *models.Block) (block *Block, isNew bool) {
 	t.RLock()
 	defer t.RUnlock()
 
-	if t.isTooOld(block) {
+	if t.isTooOld(data) {
 		// TODO: propagate invalidity to any existing future-cone of the block
 		return
 	}
 
-	if blockMetadata, isNew = t.publishBlockData(block); !isNew {
+	if block, isNew = t.publishBlockData(data); !isNew {
 		return
 	}
 
-	t.Events.BlockStored.Trigger(blockMetadata)
+	t.Events.BlockStored.Trigger(block)
 
-	t.solidifier.Queue(blockMetadata)
+	t.solidifier.Queue(block)
+
+	return
+}
+
+// Block retrieves a Block with metadata from the cache.
+func (t *Tangle) Block(id models.BlockID) (block *Block, exists bool) {
+	t.RLock()
+	defer t.RUnlock()
+
+	return t.block(id)
+}
+
+// SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Locks the metadata mutex.
+func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
+	if wasUpdated = block.setInvalid(); !wasUpdated {
+		return
+	}
+
+	t.Events.BlockInvalid.Trigger(block)
+
+	t.propagateInvalidityToChildren(block.Children())
 
 	return
 }
@@ -77,44 +98,21 @@ func (t *Tangle) Prune(epochIndex epoch.Index) {
 	t.maxDroppedEpoch = epochIndex
 }
 
-// Block retrieves a Block with metadata from the cache.
-func (t *Tangle) Block(blockID models.BlockID) (metadata *Block, exists bool) {
-	t.RLock()
-	defer t.RUnlock()
-
-	return t.block(blockID)
-}
-
-// SetInvalid is used to mark a Block as invalid and propagate invalidity to its future cone. Locks the metadata mutex.
-func (t *Tangle) SetInvalid(metadata *Block) (updated bool) {
-	if updated = metadata.setInvalid(); !updated {
-		return
-	}
-
-	t.Events.BlockInvalid.Trigger(metadata)
-
-	t.propagateInvalidityToChildren(metadata.Children())
-
-	return
-}
-
 // Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
 	t.dbManager.Shutdown()
 }
 
-func (t *Tangle) initDBManager() (self *Tangle) {
+func (t *Tangle) init() (self *Tangle) {
 	t.dbManager = database.NewManager(t.dbManagerPath)
 
-	return t
-}
-
-func (t *Tangle) initSolidifier() (self *Tangle) {
 	t.solidifier = causalorder.New(
 		t.Block,
-		(*Block).isSolid,
+		func(block *Block) (isSolid bool) {
+			return block.solid
+		},
 		(*Block).setSolid,
-		t.isSolidEntryPoint,
+		t.genesisBlock,
 		causalorder.WithReferenceValidator[models.BlockID](func(entity *Block, parent *Block) bool {
 			return !parent.invalid
 		}),
@@ -128,29 +126,24 @@ func (t *Tangle) initSolidifier() (self *Tangle) {
 	return t
 }
 
-func (t *Tangle) block(blockID models.BlockID) (metadata *Block, exists bool) {
-	if t.isSolidEntryPoint(blockID) {
-		return SolidEntrypointMetadata(blockID), true
-	}
-
-	if t.isBlockIDTooOld(blockID) {
-		return nil, false
-	}
-
-	return t.epochStorage(blockID).Get(blockID)
-}
-
 func (t *Tangle) publishBlockData(data *models.Block) (block *Block, published bool) {
 	block, published = t.epochStorage(data.ID()).RetrieveOrCreate(data.ID(), func() *Block {
 		return NewBlock(data)
 	})
 
-	if !published && !t.publishMissingData(block, data) {
-		return block, false
+	if !published {
+		if !block.publishBlockData(data) {
+			return block, false
+		}
+
+		t.Events.MissingBlockStored.Trigger(block)
 	}
 
-	t.registerAsChild(block)
 	t.storeBlock(data)
+
+	block.ForEachParent(func(parent models.Parent) {
+		t.registerChild(block, parent)
+	})
 
 	return block, true
 }
@@ -161,49 +154,32 @@ func (t *Tangle) storeBlock(block *models.Block) {
 	}
 }
 
-func (t *Tangle) publishMissingData(block *Block, model *models.Block) (wasPublished bool) {
-	block.Lock()
-	defer block.Unlock()
-
-	if wasPublished = block.publishMissingBlock(model); wasPublished {
-		t.Events.MissingBlockStored.Trigger(block)
+func (t *Tangle) registerChild(block *Block, parent models.Parent) {
+	if t.isGenesisBlock(parent.ID) {
+		return
 	}
 
-	return
+	parentBlock, _ := t.epochStorage(parent.ID).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
+		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
+
+		t.Events.BlockMissing.Trigger(newBlock)
+
+		return
+	})
+
+	parentBlock.appendChild(block, parent.Type)
 }
 
-func (t *Tangle) registerAsChild(metadata *Block) {
-	t.updateParentsMetadata(metadata.ParentsByType(models.StrongParentType), func(parentMetadata *Block) {
-		parentMetadata.strongChildren = append(parentMetadata.strongChildren, metadata)
-	})
-
-	t.updateParentsMetadata(metadata.ParentsByType(models.WeakParentType), func(parentMetadata *Block) {
-		parentMetadata.weakChildren = append(parentMetadata.weakChildren, metadata)
-	})
-
-	t.updateParentsMetadata(metadata.ParentsByType(models.ShallowLikeParentType), func(parentMetadata *Block) {
-		parentMetadata.likedInsteadChildren = append(parentMetadata.likedInsteadChildren, metadata)
-	})
-}
-
-func (t *Tangle) updateParentsMetadata(blockIDs models.BlockIDs, updateParentsFunc func(metadata *Block)) {
-	for blockID := range blockIDs {
-		if t.isSolidEntryPoint(blockID) {
-			continue
-		}
-
-		parentMetadata, _ := t.epochStorage(blockID).RetrieveOrCreate(blockID, func() (newBlock *Block) {
-			newBlock = NewBlock(models.NewEmptyBlock(blockID), WithMissing(true))
-
-			t.Events.BlockMissing.Trigger(newBlock)
-
-			return
-		})
-
-		parentMetadata.Lock()
-		updateParentsFunc(parentMetadata)
-		parentMetadata.Unlock()
+func (t *Tangle) block(blockID models.BlockID) (block *Block, exists bool) {
+	if block = t.genesisBlock(blockID); block != nil {
+		return block, true
 	}
+
+	if t.isBlockIDTooOld(blockID) {
+		return nil, false
+	}
+
+	return t.epochStorage(blockID).Get(blockID)
 }
 
 func (t *Tangle) propagateInvalidityToChildren(children []*Block) {
@@ -236,7 +212,11 @@ func (t *Tangle) isTooOld(block *models.Block) (isTooOld bool) {
 }
 
 func (t *Tangle) isBlockIDTooOld(blockID models.BlockID) bool {
-	return !t.isSolidEntryPoint(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
+	return !t.isGenesisBlock(blockID) && blockID.EpochIndex <= t.maxDroppedEpoch
+}
+
+func (t *Tangle) isGenesisBlock(id models.BlockID) (isGenesisBlock bool) {
+	return t.genesisBlock(id) != nil
 }
 
 func (t *Tangle) epochStorage(blockID models.BlockID) (epochStorage *memstorage.Storage[models.BlockID, *Block]) {

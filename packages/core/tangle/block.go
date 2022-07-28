@@ -12,8 +12,6 @@ import (
 
 // Block represents a Block annotated with the tangle related metadata.
 type Block struct {
-	*models.Block
-
 	missing              bool
 	solid                bool
 	invalid              bool
@@ -21,25 +19,42 @@ type Block struct {
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
 
+	*models.Block
 	*syncutils.StarvingMutex
 }
 
 func NewBlock(block *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		Block:                block,
 		strongChildren:       make([]*Block, 0),
 		weakChildren:         make([]*Block, 0),
 		likedInsteadChildren: make([]*Block, 0),
+		Block:                block,
 		StarvingMutex:        syncutils.NewStarvingMutex(),
 	}, opts)
 }
 
-// IsSolid returns true if the block is solid.
-func (b *Block) IsSolid() bool {
+// IsMissing returns a flag that indicates if the underlying block data hasn't been stored, yet.
+func (b *Block) IsMissing() (isMissing bool) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.isSolid()
+	return b.missing
+}
+
+// IsSolid returns true if the block is solid.
+func (b *Block) IsSolid() (isSolid bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.solid
+}
+
+// IsInvalid returns true if the block is solid.
+func (b *Block) IsInvalid() (isInvalid bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.invalid
 }
 
 // ParentIDs returns the parents of the block as a slice.
@@ -57,10 +72,6 @@ func (b *Block) Children() (childrenMetadata []*Block) {
 	defer b.RUnlock()
 
 	return b.children()
-}
-
-func (b *Block) isSolid() bool {
-	return b.solid
 }
 
 func (b *Block) setSolid(solid bool) (updated bool) {
@@ -87,7 +98,7 @@ func (b *Block) setInvalid() (updated bool) {
 }
 
 // Children returns the metadata of the children of the block.
-func (b *Block) children() (childrenMetadata []*Block) {
+func (b *Block) children() (children []*Block) {
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
 		b.strongChildren,
@@ -96,31 +107,44 @@ func (b *Block) children() (childrenMetadata []*Block) {
 	} {
 		for _, childMetadata := range parentsByType {
 			if _, exists := seenBlockIDs[childMetadata.ID()]; !exists {
-				childrenMetadata = append(childrenMetadata, childMetadata)
+				children = append(children, childMetadata)
 				seenBlockIDs[childMetadata.ID()] = types.Void
 			}
 		}
 	}
 
-	return childrenMetadata
+	return children
 }
 
-func (b *Block) publishMissingBlock(block *models.Block) (published bool) {
+func (b *Block) appendChild(block *Block, parentType models.ParentsType) {
+	b.Lock()
+	defer b.Unlock()
+
+	switch parentType {
+	case models.StrongParentType:
+		b.strongChildren = append(b.strongChildren, block)
+	case models.WeakParentType:
+		b.weakChildren = append(b.weakChildren, block)
+	case models.ShallowLikeParentType:
+		b.likedInsteadChildren = append(b.likedInsteadChildren, block)
+	}
+}
+
+func (b *Block) publishBlockData(data *models.Block) (wasPublished bool) {
+	data.Lock()
+	defer data.Unlock()
+
 	if !b.missing {
 		return
 	}
 
-	b.updateModel(block)
-	b.missing = false
-
-	return true
-}
-
-func (b *Block) updateModel(other *models.Block) {
 	b.Block.Lock()
 	defer b.Block.Unlock()
 
-	b.M = other.M
+	b.M = data.M
+	b.missing = false
+
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,26 +153,14 @@ func (b *Block) updateModel(other *models.Block) {
 
 func WithMissing(missing bool) options.Option[Block] {
 	return func(block *Block) {
-		block.missing = true
+		block.missing = missing
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Errors ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-var GenesisMetadata = &Block{
-	Block:                models.NewEmptyBlock(models.EmptyBlockID),
-	strongChildren:       make([]*Block, 0),
-	weakChildren:         make([]*Block, 0),
-	likedInsteadChildren: make([]*Block, 0),
-	solid:                true,
-	StarvingMutex:        syncutils.NewStarvingMutex(),
-}
-
-// SolidEntrypointMetadata returns the metadata for a solid entrypoint.
-func SolidEntrypointMetadata(blockID models.BlockID) *Block {
-	return GenesisMetadata
+func WithSolid(solid bool) options.Option[Block] {
+	return func(block *Block) {
+		block.solid = solid
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

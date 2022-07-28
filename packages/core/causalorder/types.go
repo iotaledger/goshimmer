@@ -8,6 +8,8 @@ import (
 // region EntityInterface //////////////////////////////////////////////////////////////////////////////////////////////
 
 type EntityInterface[ID epoch.IndexedID] interface {
+	comparable
+
 	ID() ID
 	ParentIDs() []ID
 

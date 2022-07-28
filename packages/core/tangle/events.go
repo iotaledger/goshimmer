@@ -2,12 +2,8 @@ package tangle
 
 import "github.com/iotaledger/hive.go/generics/event"
 
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // Events is the event interface of the Tangle.
 type Events struct {
-	Error *event.Event[error]
-
 	// BlockStored is triggered when a block is stored.
 	BlockStored *event.Event[*Block]
 
@@ -22,6 +18,8 @@ type Events struct {
 
 	// MissingBlockStored fired when a block which was previously marked as missing was invalid.
 	BlockInvalid *event.Event[*Block]
+
+	Error *event.Event[error]
 }
 
 func newEvents() *Events {
@@ -34,5 +32,3 @@ func newEvents() *Events {
 		BlockInvalid:       event.New[*Block](),
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
