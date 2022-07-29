@@ -11,9 +11,8 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	gp "github.com/iotaledger/goshimmer/packages/node/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
@@ -23,7 +22,7 @@ const (
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangleold.BlockID) ([]byte, error)
+type LoadBlockFunc func(blockID models.BlockID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
@@ -186,10 +185,10 @@ func (m *Manager) processBlockRequestPacket(packetBlkReq *gp.Packet_BlockRequest
 	if m.blockRequestsRateLimiter != nil {
 		m.blockRequestsRateLimiter.Count(nbr.Peer)
 	}
-	var blkID tangleold.BlockID
+	var blkID models.BlockID
 	_, err := blkID.FromBytes(packetBlkReq.BlockRequest.GetId())
 	if err != nil {
-		m.log.Debugw("invalid block id:", "err", err)
+		m.log.Debugw("invalid block ID:", "err", err)
 		return
 	}
 

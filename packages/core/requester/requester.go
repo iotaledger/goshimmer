@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // region Requester ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,33 +19,42 @@ import (
 type Requester struct {
 	tangle            *tangle.Tangle
 	timedExecutor     *timedexecutor.TimedExecutor
-	scheduledRequests map[tangle.BlockID]*timedexecutor.ScheduledTask
-	options           RequesterOptions
+	scheduledRequests map[models.BlockID]*timedexecutor.ScheduledTask
 	Events            *Events
 
 	scheduledRequestsMutex sync.RWMutex
+
+	optsRetryInterval       time.Duration
+	optsRetryJitter         time.Duration
+	optsMaxRequestThreshold int
 }
 
 // NewRequester creates a new block requester.
-func NewRequester(t *tangle.Tangle, optionalOptions ...RequesterOption) *Requester {
+func NewRequester(t *tangle.Tangle, opts ...options.Option[Requester]) *Requester {
 	requester := &Requester{
 		tangle:            t,
 		timedExecutor:     timedexecutor.New(1),
-		scheduledRequests: make(map[tangle.BlockID]*timedexecutor.ScheduledTask),
-		options:           DefaultRequesterOptions.Apply(optionalOptions...),
-		Events:            newEvents(),
+		scheduledRequests: make(map[models.BlockID]*timedexecutor.ScheduledTask),
+
+		optsRetryInterval:       10 * time.Second,
+		optsRetryJitter:         10 * time.Second,
+		optsMaxRequestThreshold: 500,
+
+		Events: newEvents(),
 	}
+
+	options.Apply(requester, opts)
 
 	return requester
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *tangle.BlockMetadata) {
-		r.StartRequest(metadata.ID())
+	r.tangle.Events.BlockMissing.Hook(event.NewClosure(func(block *tangle.Block) {
+		r.StartRequest(block.ID())
 	}))
-	r.tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *tangle.BlockMetadata) {
-		r.StopRequest(metadata.ID())
+	r.tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(block *tangle.Block) {
+		r.StopRequest(block.ID())
 	}))
 }
 
@@ -54,25 +64,31 @@ func (r *Requester) Shutdown() {
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (r *Requester) StartRequest(id tangle.BlockID) {
-	r.scheduledRequestsMutex.Lock()
-
-	// ignore already scheduled requests
-	if _, exists := r.scheduledRequests[id]; exists {
-		r.scheduledRequestsMutex.Unlock()
+func (r *Requester) StartRequest(id models.BlockID) {
+	if r.addRequestToQueue(id) {
 		return
 	}
-
-	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.options.RetryJitter)))
-	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStarted.Trigger(id)
 	r.Events.RequestIssued.Trigger(id)
 }
 
+func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
+	r.scheduledRequestsMutex.Lock()
+	defer r.scheduledRequestsMutex.Unlock()
+
+	// ignore already scheduled requests
+	if _, exists := r.scheduledRequests[id]; exists {
+		return true
+	}
+
+	// schedule the next request and trigger the event
+	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter)))
+	return false
+}
+
 // StopRequest stops requests for the given block to further happen.
-func (r *Requester) StopRequest(id tangle.BlockID) {
+func (r *Requester) StopRequest(id models.BlockID) {
 	r.scheduledRequestsMutex.Lock()
 
 	timer, ok := r.scheduledRequests[id]
@@ -88,7 +104,7 @@ func (r *Requester) StopRequest(id tangle.BlockID) {
 	r.Events.RequestStopped.Trigger(id)
 }
 
-func (r *Requester) reRequest(id tangle.BlockID, count int) {
+func (r *Requester) reRequest(id models.BlockID, count int) {
 	r.Events.RequestIssued.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -101,16 +117,14 @@ func (r *Requester) reRequest(id tangle.BlockID, count int) {
 		count++
 
 		// if we have requested too often => stop the requests
-		if count > r.options.MaxRequestThreshold {
+		if count > r.optsMaxRequestThreshold {
 			delete(r.scheduledRequests, id)
 
 			r.Events.RequestFailed.Trigger(id)
-			r.tangle.Storage.DeleteMissingBlock(id)
-
 			return
 		}
 
-		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.options.RetryJitter)))
+		r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, count), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter)))
 		return
 	}
 }
@@ -122,56 +136,8 @@ func (r *Requester) RequestQueueSize() int {
 	return len(r.scheduledRequests)
 }
 
-func (r *Requester) createReRequest(blkID tangle.BlockID, count int) func() {
+func (r *Requester) createReRequest(blkID models.BlockID, count int) func() {
 	return func() { r.reRequest(blkID, count) }
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region RequesterOptions /////////////////////////////////////////////////////////////////////////////////////////////
-
-// DefaultRequesterOptions defines the default options that are used when creating Requester instances.
-var DefaultRequesterOptions = &Options{
-	RetryInterval:       10 * time.Second,
-	RetryJitter:         10 * time.Second,
-	MaxRequestThreshold: 500,
-}
-
-// Options holds options for a block requester.
-type Options struct {
-	// RetryInterval represents an option which defines in which intervals the Requester will try to ask for missing
-	// blocks.
-	RetryInterval time.Duration
-
-	// RetryJitter defines how much the RetryInterval should be randomized, so that the nodes don't always send blocks
-	// at exactly the same interval.
-	RetryJitter time.Duration
-
-	// MaxRequestThreshold represents an option which defines how often the Requester should try to request blocks
-	// before canceling the request
-	MaxRequestThreshold int
-}
-
-// RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) options.Option[Requester] {
-	return func(requester *Requester) {
-		args.RetryInterval = interval
-	}
-}
-
-// RetryJitter creates an option which sets the retry jitter to the given value.
-func RetryJitter(retryJitter time.Duration) RequesterOption {
-	return func(args *Options) {
-		args.RetryJitter = retryJitter
-	}
-}
-
-// MaxRequestThreshold creates an option which defines how often the Requester should try to request blocks before
-// canceling the request.
-func MaxRequestThreshold(maxRequestThreshold int) RequesterOption {
-	return func(args *Options) {
-		args.MaxRequestThreshold = maxRequestThreshold
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
