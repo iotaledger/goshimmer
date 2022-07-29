@@ -96,7 +96,7 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 		return false
 	}
 
-	if block.setInvalid() {
+	if !block.setInvalid() {
 		return false
 	}
 
@@ -109,11 +109,18 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // Prune is used to prune the Tangle of all Blocks that are too old.
 func (t *Tangle) Prune(epochIndex epoch.Index) {
-	if t.IsShutdown() {
+	t.Lock()
+	defer t.Unlock()
+
+	if t.isShutdown || epochIndex <= t.maxDroppedEpoch {
 		return
 	}
 
-	t.prune(epochIndex)
+	for t.maxDroppedEpoch++; t.maxDroppedEpoch <= epochIndex; t.maxDroppedEpoch++ {
+		t.memStorage.Drop(t.maxDroppedEpoch)
+	}
+
+	t.solidifier.Prune(epochIndex)
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
@@ -246,22 +253,6 @@ func (t *Tangle) propagateInvalidity(children []*Block) {
 			childWalker.PushAll(child.Children()...)
 		}
 	}
-}
-
-// prune is used to prune the Tangle of all Blocks that are too old.
-func (t *Tangle) prune(epochIndex epoch.Index) {
-	t.Lock()
-	defer t.Unlock()
-
-	if epochIndex <= t.maxDroppedEpoch {
-		return
-	}
-
-	for t.maxDroppedEpoch++; t.maxDroppedEpoch <= epochIndex; t.maxDroppedEpoch++ {
-		t.memStorage.Drop(t.maxDroppedEpoch)
-	}
-
-	t.solidifier.Prune(epochIndex)
 }
 
 // isTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
