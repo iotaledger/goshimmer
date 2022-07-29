@@ -198,18 +198,18 @@ func (a *ActivityLog) Remove(ei Index) (removed bool) {
 }
 
 // Active returns true if the node was active between lower and upper bound.
-// It cleans up the log on the fly, meaning that old/stale times are deleted.
-// If the log ends up empty after cleaning up, empty is set to true.
 func (a *ActivityLog) Active(lowerBound, upperBound Index) (active bool) {
 	for ei := lowerBound; ei <= upperBound; ei++ {
 		if a.SetEpochs.Has(ei) {
-			active = true
+			return true
 		}
 	}
 
 	return
 }
 
+// Clean cleans up the log, meaning that old/stale times are deleted.
+// If the log ends up empty after cleaning up, empty is set to true.
 func (a *ActivityLog) Clean(cutoff Index) (empty bool) {
 	// we remove all activity records below lowerBound as we will no longer need it
 	a.SetEpochs.ForEach(func(ei Index) {

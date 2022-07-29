@@ -240,7 +240,7 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleol
 func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
+		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
 	}
 
 	var blocksAccepted uint64
@@ -258,7 +258,7 @@ func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID ident
 	if encodeErr != nil {
 		return errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
 	}
-	_, updateErr := commitment.tangleTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
+	_, updateErr := commitment.activityTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
 	if updateErr != nil {
 		return errors.Wrap(err, "could not insert leaf to the activity tree")
 	}
@@ -271,7 +271,7 @@ func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID ident
 func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) (removed bool, err error) {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return false, errors.Wrap(err, "could not get commitment while deleting tangle leaf")
+		return false, errors.Wrap(err, "could not get commitment while deleting activity leaf")
 	}
 	exists, _ := commitment.activityTree.Has(nodeID.Bytes())
 	if exists {
@@ -282,9 +282,9 @@ func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID ident
 				return false, errors.Wrap(decodeErr, "could not decode accepted blocks count for activity tree")
 			}
 			if blocksAccepted == 1 {
-				_, err2 := commitment.tangleTree.Delete(nodeID.Bytes())
+				_, err2 := commitment.activityTree.Delete(nodeID.Bytes())
 				if err2 != nil {
-					return false, errors.Wrap(err, "could not delete leaf from the tangle tree")
+					return false, errors.Wrap(err, "could not delete leaf from the activity tree")
 				}
 				return true, nil
 			}
@@ -293,7 +293,7 @@ func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID ident
 			if encodeErr != nil {
 				return false, errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
 			}
-			_, updateErr := commitment.tangleTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
+			_, updateErr := commitment.activityTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
 			if updateErr != nil {
 				return false, errors.Wrap(err, "could not insert leaf to the activity tree")
 			}
