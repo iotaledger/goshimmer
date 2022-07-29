@@ -18,15 +18,11 @@ type Events struct {
 
 	// BlockInvalid is triggered when a Block is found to be invalid.
 	BlockInvalid *event.Event[*Block]
-
-	// Error is triggered when an unexpected error occurs.
-	Error *event.Event[error]
 }
 
 // newEvents creates a new Events instance.
 func newEvents() *Events {
 	return &Events{
-		Error:                event.New[error](),
 		BlockAttached:        event.New[*Block](),
 		BlockSolid:           event.New[*Block](),
 		BlockMissing:         event.New[*Block](),

@@ -342,12 +342,8 @@ func NewTestTangle(test *testing.T) *Tangle {
 	t := New(database.NewManager(test.TempDir()))
 
 	test.Cleanup(func() {
-		
-	})
 
-	t.Events.Error.Hook(event.NewClosure(func(e error) {
-		fmt.Println(e)
-	}))
+	})
 
 	return t
 }
