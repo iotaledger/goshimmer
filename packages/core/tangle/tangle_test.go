@@ -9,11 +9,13 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 func TestTangleAttach(t *testing.T) {
 	tangle := New(func(t *Tangle) {
-		t.optsDBManagerPath = "/tmp/"
+		t.dbManagerPath = "/tmp/"
 	})
 
 	testFramework := NewBlockTestFramework(tangle)
@@ -22,20 +24,20 @@ func TestTangleAttach(t *testing.T) {
 
 	block2 := testFramework.CreateBlock("msg2", WithStrongParents("msg1"))
 
-	tangle.Events.BlockMissing.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
-		t.Logf("block %s is missing", metadata.id)
+	tangle.Events.BlockMissing.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("block %s is missing", metadata.ID())
 	}))
 
-	tangle.Events.BlockSolid.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
-		t.Logf("block %s is solid", metadata.id)
+	tangle.Events.BlockSolid.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("block %s is solid", metadata.ID())
 	}))
 
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*BlockMetadata](func(metadata *BlockMetadata) {
-		t.Logf("missing block %s is stored", metadata.id)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*Block](func(metadata *Block) {
+		t.Logf("missing block %s is stored", metadata.ID())
 	}))
 
-	tangle.AttachBlock(block2)
-	tangle.AttachBlock(block1)
+	tangle.Attach(block2)
+	tangle.Attach(block1)
 
 	event.Loop.WaitUntilAllTasksProcessed()
 }
@@ -44,29 +46,29 @@ func TestTangle_AttachBlock(t *testing.T) {
 	blockTangle := NewTestTangle()
 	defer blockTangle.Shutdown()
 
-	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		fmt.Println("SOLID:", metadata.id)
+	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("SOLID:", metadata.ID())
 	}))
 
-	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		fmt.Println("MISSING:", metadata.id)
+	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("MISSING:", metadata.ID())
 	}))
 
-	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		fmt.Println("REMOVED:", metadata.id)
+	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("REMOVED:", metadata.ID())
 	}))
-	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		fmt.Println("INVALID:", metadata.id)
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("INVALID:", metadata.ID())
 	}))
 
 	newBlockOne := newTestDataBlock("some data")
 	newBlockTwo := newTestDataBlock("some other data")
 
-	blockTangle.AttachBlock(newBlockTwo)
+	blockTangle.Attach(newBlockTwo)
 
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	blockTangle.AttachBlock(newBlockOne)
+	blockTangle.Attach(newBlockOne)
 }
 
 func TestTangle_MissingBlocks(t *testing.T) {
@@ -82,15 +84,15 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	testFramework := NewBlockTestFramework(tangle)
 
 	// map to keep track of the tips
-	tips := randommap.New[BlockID, BlockID]()
-	tips.Set(EmptyBlockID, EmptyBlockID)
+	tips := randommap.New[models.BlockID, models.BlockID]()
+	tips.Set(models.EmptyBlockID, models.EmptyBlockID)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int) *Block {
+	createNewBlock := func(idx int) *models.Block {
 		// issue the payload
 		strongParents := make([]string, 0)
 		for _, selectedTip := range tips.RandomUniqueEntries(2) {
-			if selectedTip == EmptyBlockID {
+			if selectedTip == models.EmptyBlockID {
 				strongParents = append(strongParents, "Genesis")
 				continue
 			}
@@ -99,7 +101,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", idx), WithStrongParents(strongParents...))
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			tips.Delete(blk.ParentsByType(StrongParentType).First())
+			tips.Delete(blk.ParentsByType(models.StrongParentType).First())
 		}
 
 		// add current block as a tip
@@ -110,57 +112,62 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	}
 
 	// generate the blocks we want to solidify
-	blocks := make(map[BlockID]*Block, blockCount)
+	blocks := make(map[models.BlockID]*models.Block, blockCount)
 	for i := 0; i < blockCount; i++ {
 		blk := createNewBlock(i)
 		blocks[blk.ID()] = blk
 	}
 	fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
 
+	invalidBlocks := int32(0)
+	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("invalid blocks %d, %s", atomic.AddInt32(&invalidBlocks, 1), metadata.ID())
+	}))
+
 	missingBlocks := int32(0)
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.id)
+	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.ID())
 	}))
 
 	storedBlocks := int32(0)
-	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.id)
+	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.ID())
 	}))
 
 	solidBlocks := int32(0)
-	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *BlockMetadata) {
-		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.id)
+	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.ID())
 	}))
 
-	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *BlockMetadata) {
+	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
 		atomic.AddInt32(&missingBlocks, 1)
 
 		time.Sleep(storeDelay)
 
-		tangle.AttachBlock(blocks[metadata.id])
+		tangle.Attach(blocks[metadata.ID()])
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key BlockID, _ BlockID) {
-		tangle.AttachBlock(blocks[key])
+	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
+		tangle.Attach(blocks[key])
 	})
 
 	// wait until all blocks are solidified
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	for blockID := range blocks {
-		metadata, _ := tangle.BlockMetadata(blockID)
+		metadata, _ := tangle.Block(blockID)
 		solidParents := 0
 		if !metadata.solid {
-			for parentID := range metadata.strongParents {
-				parentMetadata, _ := tangle.BlockMetadata(parentID)
+			for parentID := range metadata.ParentsByType(models.StrongParentType) {
+				parentMetadata, _ := tangle.Block(parentID)
 				if parentMetadata.solid {
 					solidParents++
 				}
 			}
 		}
-		if solidParents == len(metadata.strongParents) {
-			fmt.Println("block not solid but should be", metadata.id, metadata.solid)
+		if solidParents == len(metadata.ParentsByType(models.StrongParentType)) {
+			fmt.Println("block not solid but should be", metadata.ID(), metadata.solid)
 		}
 	}
 
