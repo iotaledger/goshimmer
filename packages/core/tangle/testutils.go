@@ -3,7 +3,6 @@ package tangle
 import (
 	"fmt"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -12,12 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/database"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 // region BlockTestFramework ///////////////////////////////////////////////////////////////////////////////////////////
@@ -336,17 +333,6 @@ func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkB
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
-
-// NewTestTangle returns a Tangle instance with a testing schedulerConfig.
-func NewTestTangle(test *testing.T) *Tangle {
-	t := New(database.NewManager(test.TempDir()))
-
-	test.Cleanup(func() {
-
-	})
-
-	return t
-}
 
 var _sequenceNumber uint64
 

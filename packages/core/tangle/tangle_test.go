@@ -42,7 +42,7 @@ func TestTangleAttach(t *testing.T) {
 }
 
 func TestTangle_AttachBlock(t *testing.T) {
-	blockTangle := NewTestTangle(t)
+	blockTangle := New(database.NewManager(t.TempDir()))
 	defer blockTangle.Shutdown()
 
 	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
@@ -78,7 +78,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	)
 
 	// create the tangle
-	tangle := NewTestTangle(t)
+	tangle := New(database.NewManager(t.TempDir()))
 	defer tangle.Shutdown()
 	testFramework := NewBlockTestFramework(tangle)
 
