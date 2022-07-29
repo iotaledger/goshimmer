@@ -16,8 +16,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	Events *Events[ID, Entity]
 
 	entityProvider   func(id ID) (entity Entity, exists bool)
-	isOrdered        func(entity Entity) (isOrdered bool)
-	setOrdered       func(entity Entity, value bool) (wasUpdated bool)
+	ordered          func(entity Entity) (orderedFlag *bool)
 	isReferenceValid func(child Entity, parent Entity) (isValid bool)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
@@ -31,16 +30,14 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
-	isOrdered func(Entity) bool,
-	setOrdered func(Entity, bool) bool,
+	orderedFlag func(entity Entity) (orderedFlag *bool),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
 		Events: newEvents[ID, Entity](),
 
 		entityProvider:          entityProvider,
-		isOrdered:               isOrdered,
-		setOrdered:              setOrdered,
+		ordered:                 orderedFlag,
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 
@@ -132,9 +129,11 @@ func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType U
 	}
 
 	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
-	if pendingParentsCount != 0 || !c.setOrdered(entity, true) {
+	if pendingParentsCount != 0 {
 		return Unchanged
 	}
+
+	*c.ordered(entity) = true
 
 	return Ordered
 }
@@ -146,7 +145,7 @@ func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingPar
 			return pendingParents, true
 		}
 
-		if !c.isOrdered(parentEntity) {
+		if !*c.ordered(parentEntity) {
 			pendingParents++
 
 			c.registerUnorderedChild(parentID, entity)
@@ -197,9 +196,11 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(metadata Entity) (eventTri
 	metadata.Lock()
 	defer metadata.Unlock()
 
-	if c.decreaseUnorderedParentsCounter(metadata) != 0 || !c.setOrdered(metadata, true) {
+	if c.decreaseUnorderedParentsCounter(metadata) != 0 {
 		return false
 	}
+
+	*c.ordered(metadata) = true
 
 	c.Events.Emit.Trigger(metadata)
 

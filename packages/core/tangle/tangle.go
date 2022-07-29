@@ -53,7 +53,9 @@ func New(dbManager *database.Manager, opts ...options.Option[Tangle]) (newTangle
 		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		rootBlockProvider: defaultGenesisBlockProvider,
 		dbManager:         dbManager,
-	}, opts).init()
+	}, opts).initSolidifier(
+		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
+	)
 }
 
 // Attach is used to attach new Blocks to the Tangle. It is the main function of the Tangle that triggers Events.
@@ -135,21 +137,9 @@ func (t *Tangle) IsShutdown() (isShutdown bool) {
 	return t.isShutdown
 }
 
-// init is used to lazily initialize the internal components after the options have been populated.
-func (t *Tangle) init() (self *Tangle) {
-	t.solidifier = causalorder.New(
-		t.Block,
-		func(block *Block) (isSolid bool) { return block.solid },
-		func(block *Block, solid bool) (wasUpdated bool) {
-			if block.solid == solid {
-				return false
-			}
-			block.solid = solid
-
-			return true
-		},
-		causalorder.WithReferenceValidator[models.BlockID](func(entity *Block, parent *Block) bool { return !parent.invalid }),
-	)
+// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
+func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
+	t.solidifier = causalorder.New(t.Block, (*Block).solidPtr, opts...)
 	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
 	t.solidifier.Events.Drop.Attach(event.NewClosure(func(blockMetadata *Block) { t.SetInvalid(blockMetadata) }))
 
@@ -277,6 +267,11 @@ func (t *Tangle) prune(epochIndex epoch.Index) {
 // isTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
 func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
 	return t.rootBlockProvider(id) == nil && id.EpochIndex <= t.maxDroppedEpoch
+}
+
+// isReferenceValid checks if the reference between the child and its parent is valid.
+func isReferenceValid(child *Block, parent *Block) (isValid bool) {
+	return !parent.invalid
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
