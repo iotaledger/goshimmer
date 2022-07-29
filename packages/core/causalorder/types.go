@@ -2,7 +2,6 @@ package causalorder
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/interfaces"
 )
 
 // region OrderedEntity //////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +11,6 @@ type OrderedEntity[ID epoch.IndexedID] interface {
 	Parents() []ID
 
 	comparable
-	interfaces.RWLockable
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -64,7 +64,7 @@ func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err
 	defer t.RUnlock()
 
 	if t.isShutdown {
-		return nil, false, errors.Errorf("tangle is shut down already")
+		return nil, false, errors.Errorf("tangle is shut down")
 	}
 
 	if block, wasAttached, err = t.attach(data); !wasAttached {
@@ -160,6 +160,7 @@ func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err
 	}
 
 	if block, wasAttached = t.memStorage.Get(data.ID().EpochIndex, true).RetrieveOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
+
 		if wasAttached = block.update(data); !wasAttached {
 			return
 		}

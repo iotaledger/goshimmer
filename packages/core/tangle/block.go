@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -20,7 +19,6 @@ type Block struct {
 	likedInsteadChildren []*Block
 
 	*models.Block
-	*syncutils.StarvingMutex
 }
 
 // NewBlock creates a new Block with the given options.
@@ -30,7 +28,6 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 		weakChildren:         make([]*Block, 0),
 		likedInsteadChildren: make([]*Block, 0),
 		Block:                data,
-		StarvingMutex:        syncutils.NewStarvingMutex(),
 	}, opts)
 }
 
@@ -63,26 +60,6 @@ func (b *Block) Children() (children []*Block) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.children()
-}
-
-// setInvalid marks the Block as invalid. This is private even though it locks because we want to prevent people from
-// setting the invalid flag manually.
-func (b *Block) setInvalid() (wasUpdated bool) {
-	b.Lock()
-	defer b.Unlock()
-
-	if b.invalid {
-		return false
-	}
-
-	b.invalid = true
-
-	return true
-}
-
-// children returns the children of the Block (without locking).
-func (b *Block) children() (children []*Block) {
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
 		b.strongChildren,
@@ -98,6 +75,21 @@ func (b *Block) children() (children []*Block) {
 	}
 
 	return children
+}
+
+// setInvalid marks the Block as invalid. This is private even though it locks because we want to prevent people from
+// setting the invalid flag manually.
+func (b *Block) setInvalid() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.invalid {
+		return false
+	}
+
+	b.invalid = true
+
+	return true
 }
 
 // appendChild adds a child of the corresponding type to the Block.
@@ -123,11 +115,8 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 	if !b.missing {
 		return
 	}
+
 	b.missing = false
-
-	b.Block.Lock()
-	defer b.Block.Unlock()
-
 	b.M = data.M
 
 	return true

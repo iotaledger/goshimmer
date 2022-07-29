@@ -74,7 +74,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	const (
 		blockCount  = 10000
 		tangleWidth = 500
-		storeDelay  = 5 * time.Millisecond
+		storeDelay  = 0 * time.Millisecond
 	)
 
 	// create the tangle
@@ -116,26 +116,30 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blk := createNewBlock(i)
 		blocks[blk.ID()] = blk
 	}
-	fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
+	// fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
 
 	invalidBlocks := int32(0)
 	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		t.Logf("invalid blocks %d, %s", atomic.AddInt32(&invalidBlocks, 1), metadata.ID())
+		_ = atomic.AddInt32(&invalidBlocks, 1)
+		// t.Logf("invalid blocks %d, %s", , metadata.ID())
 	}))
 
 	missingBlocks := int32(0)
 	tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.ID())
+		_ = atomic.AddInt32(&missingBlocks, -1)
+		// t.Logf("missing blocks %d, %s", n, metadata.ID())
 	}))
 
 	storedBlocks := int32(0)
 	tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.ID())
+		_ = atomic.AddInt32(&storedBlocks, 1)
+		// t.Logf("stored blocks %d, %s", , metadata.ID())
 	}))
 
 	solidBlocks := int32(0)
 	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		t.Logf("solid blocks %d/%d, %s", atomic.AddInt32(&solidBlocks, 1), blockCount, metadata.ID())
+		_ = atomic.AddInt32(&solidBlocks, 1)
+		// t.Logf("solid blocks %d/%d, %s", , blockCount, metadata.ID())
 	}))
 
 	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {

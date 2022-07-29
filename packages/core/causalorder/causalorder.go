@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/options"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -26,6 +27,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 
 	maxDroppedEpoch epoch.Index
 	pruningMutex    sync.RWMutex
+	dagMutex        *syncutils.DAGMutex[ID]
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
@@ -38,12 +40,10 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 
 		entityProvider:          entityProvider,
 		ordered:                 orderedFlag,
+		isReferenceValid:        func(entity Entity, parent Entity) bool { return true },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
-
-		isReferenceValid: func(entity Entity, parent Entity) bool {
-			return true
-		},
+		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
 }
 
@@ -192,17 +192,17 @@ func (c *CausalOrder[ID, Entity]) propagateCausalOrder(metadata Entity) {
 	}
 }
 
-func (c *CausalOrder[ID, Entity]) triggerChildIfReady(metadata Entity) (eventTriggered bool) {
-	metadata.Lock()
-	defer metadata.Unlock()
+func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) (eventTriggered bool) {
+	c.dagMutex.Lock(child.ID())
+	defer c.dagMutex.Unlock(child.ID())
 
-	if c.decreaseUnorderedParentsCounter(metadata) != 0 {
+	if c.decreaseUnorderedParentsCounter(child) != 0 {
 		return false
 	}
 
-	*c.ordered(metadata) = true
+	*c.ordered(child) = true
 
-	c.Events.Emit.Trigger(metadata)
+	c.Events.Emit.Trigger(child)
 
 	return true
 }
@@ -228,19 +228,13 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 }
 
 func (c *CausalOrder[ID, Entity]) lockEntity(entity Entity) {
-	for _, parentID := range entity.Parents() {
-		c.entity(parentID).RLock()
-	}
-
-	entity.Lock()
+	c.dagMutex.RLock(entity.Parents()...)
+	c.dagMutex.Lock(entity.ID())
 }
 
-func (c *CausalOrder[ID, Entity]) unlockEntity(metadata Entity) {
-	for _, parentID := range metadata.Parents() {
-		c.entity(parentID).RUnlock()
-	}
-
-	metadata.Unlock()
+func (c *CausalOrder[ID, Entity]) unlockEntity(entity Entity) {
+	c.dagMutex.Unlock(entity.ID())
+	c.dagMutex.RUnlock(entity.Parents()...)
 }
 
 func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
