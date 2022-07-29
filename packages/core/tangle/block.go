@@ -10,12 +10,11 @@ import (
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Block represents a Block annotated with the tangle related metadata.
+// Block represents a Block annotated with Tangle related metadata.
 type Block struct {
 	missing              bool
 	solid                bool
 	invalid              bool
-	root                 bool
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
@@ -24,24 +23,18 @@ type Block struct {
 	*syncutils.StarvingMutex
 }
 
-func NewBlock(block *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
+// NewBlock creates a new Block with the given options.
+func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		strongChildren:       make([]*Block, 0),
 		weakChildren:         make([]*Block, 0),
 		likedInsteadChildren: make([]*Block, 0),
-		Block:                block,
+		Block:                data,
 		StarvingMutex:        syncutils.NewStarvingMutex(),
 	}, opts)
 }
 
-func (b *Block) IsRoot() (isRoot bool) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.root
-}
-
-// IsMissing returns a flag that indicates if the underlying block data hasn't been stored, yet.
+// IsMissing returns a flag that indicates if the underlying Block data hasn't been stored, yet.
 func (b *Block) IsMissing() (isMissing bool) {
 	b.RLock()
 	defer b.RUnlock()
@@ -49,7 +42,7 @@ func (b *Block) IsMissing() (isMissing bool) {
 	return b.missing
 }
 
-// IsSolid returns true if the block is solid.
+// IsSolid returns true if the Block is solid (the entire causal history is known)
 func (b *Block) IsSolid() (isSolid bool) {
 	b.RLock()
 	defer b.RUnlock()
@@ -57,7 +50,7 @@ func (b *Block) IsSolid() (isSolid bool) {
 	return b.solid
 }
 
-// IsInvalid returns true if the block is solid.
+// IsInvalid returns true if the Block was marked as invalid.
 func (b *Block) IsInvalid() (isInvalid bool) {
 	b.RLock()
 	defer b.RUnlock()
@@ -65,7 +58,7 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	return b.invalid
 }
 
-// Children returns the metadata of the children of the block.
+// Children returns the children of the Block.
 func (b *Block) Children() (children []*Block) {
 	b.RLock()
 	defer b.RUnlock()
@@ -73,22 +66,14 @@ func (b *Block) Children() (children []*Block) {
 	return b.children()
 }
 
-func (b *Block) setSolid(solid bool) (updated bool) {
-	if b.solid == solid {
-		return false
-	}
-
-	b.solid = solid
-
-	return true
-}
-
-func (b *Block) setInvalid() (updated bool) {
+// setInvalid marks the Block as invalid. This is private even though it locks because we want to prevent people from
+// setting the invalid flag manually.
+func (b *Block) setInvalid() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
 	if b.invalid {
-		return
+		return false
 	}
 
 	b.invalid = true
@@ -96,7 +81,7 @@ func (b *Block) setInvalid() (updated bool) {
 	return true
 }
 
-// Children returns the metadata of the children of the block.
+// children returns the children of the Block (without locking).
 func (b *Block) children() (children []*Block) {
 	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
@@ -115,33 +100,35 @@ func (b *Block) children() (children []*Block) {
 	return children
 }
 
-func (b *Block) appendChild(block *Block, parentType models.ParentsType) {
+// appendChild adds a child of the corresponding type to the Block.
+func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 	b.Lock()
 	defer b.Unlock()
 
-	switch parentType {
+	switch childType {
 	case models.StrongParentType:
-		b.strongChildren = append(b.strongChildren, block)
+		b.strongChildren = append(b.strongChildren, child)
 	case models.WeakParentType:
-		b.weakChildren = append(b.weakChildren, block)
+		b.weakChildren = append(b.weakChildren, child)
 	case models.ShallowLikeParentType:
-		b.likedInsteadChildren = append(b.likedInsteadChildren, block)
+		b.likedInsteadChildren = append(b.likedInsteadChildren, child)
 	}
 }
 
-func (b *Block) publishBlockData(data *models.Block) (wasPublished bool) {
-	data.Lock()
-	defer data.Unlock()
+// update publishes the given Block data to the underlying Block and marks it as no longer missing.
+func (b *Block) update(data *models.Block) (wasPublished bool) {
+	b.Lock()
+	defer b.Unlock()
 
 	if !b.missing {
 		return
 	}
+	b.missing = false
 
 	b.Block.Lock()
 	defer b.Block.Unlock()
 
 	b.M = data.M
-	b.missing = false
 
 	return true
 }
@@ -150,12 +137,14 @@ func (b *Block) publishBlockData(data *models.Block) (wasPublished bool) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithMissing is a constructor Option for Blocks that initializes the given block with a specific missing flag.
 func WithMissing(missing bool) options.Option[Block] {
 	return func(block *Block) {
 		block.missing = missing
 	}
 }
 
+// WithSolid is a constructor Option for Blocks that initializes the given block with a specific solid flag.
 func WithSolid(solid bool) options.Option[Block] {
 	return func(block *Block) {
 		block.solid = solid

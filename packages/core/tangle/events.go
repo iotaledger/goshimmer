@@ -2,33 +2,35 @@ package tangle
 
 import "github.com/iotaledger/hive.go/generics/event"
 
-// Events is the event interface of the Tangle.
+// Events is a collection of Tangle related Events
 type Events struct {
-	// BlockStored is triggered when a block is stored.
-	BlockStored *event.Event[*Block]
+	// BlockAttached is triggered when a previously unknown Block is attached.
+	BlockAttached *event.Event[*Block]
 
-	// BlockSolid is triggered when a block becomes solid, i.e. its past cone is known and solid.
+	// BlockSolid is triggered when a Block becomes solid (its entire past cone is known and solid).
 	BlockSolid *event.Event[*Block]
 
-	// BlockMissing is triggered when a block references an unknown parent Block.
+	// BlockMissing is triggered when a referenced Block was not attached, yet.
 	BlockMissing *event.Event[*Block]
 
-	// MissingBlockStored fired when a block which was previously marked as missing was received.
-	MissingBlockStored *event.Event[*Block]
+	// MissingBlockAttached is triggered when a previously missing Block was attached.
+	MissingBlockAttached *event.Event[*Block]
 
-	// MissingBlockStored fired when a block which was previously marked as missing was invalid.
+	// BlockInvalid is triggered when a Block is found to be invalid.
 	BlockInvalid *event.Event[*Block]
 
+	// Error is triggered when an unexpected error occurs.
 	Error *event.Event[error]
 }
 
+// newEvents creates a new Events instance.
 func newEvents() *Events {
 	return &Events{
-		Error:              event.New[error](),
-		BlockStored:        event.New[*Block](),
-		BlockSolid:         event.New[*Block](),
-		BlockMissing:       event.New[*Block](),
-		MissingBlockStored: event.New[*Block](),
-		BlockInvalid:       event.New[*Block](),
+		Error:                event.New[error](),
+		BlockAttached:        event.New[*Block](),
+		BlockSolid:           event.New[*Block](),
+		BlockMissing:         event.New[*Block](),
+		MissingBlockAttached: event.New[*Block](),
+		BlockInvalid:         event.New[*Block](),
 	}
 }

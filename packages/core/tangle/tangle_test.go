@@ -11,12 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 func TestTangleAttach(t *testing.T) {
-	tangle := New(func(t *Tangle) {
-		t.dbManagerPath = "/tmp/"
-	})
+	tangle := New(database.NewManager(t.TempDir()))
 
 	testFramework := NewBlockTestFramework(tangle)
 
@@ -32,7 +31,7 @@ func TestTangleAttach(t *testing.T) {
 		t.Logf("block %s is solid", metadata.ID())
 	}))
 
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure[*Block](func(metadata *Block) {
+	tangle.Events.MissingBlockAttached.Hook(event.NewClosure[*Block](func(metadata *Block) {
 		t.Logf("missing block %s is stored", metadata.ID())
 	}))
 
@@ -43,7 +42,7 @@ func TestTangleAttach(t *testing.T) {
 }
 
 func TestTangle_AttachBlock(t *testing.T) {
-	blockTangle := NewTestTangle()
+	blockTangle := NewTestTangle(t)
 	defer blockTangle.Shutdown()
 
 	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
@@ -54,7 +53,7 @@ func TestTangle_AttachBlock(t *testing.T) {
 		fmt.Println("MISSING:", metadata.ID())
 	}))
 
-	blockTangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+	blockTangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("REMOVED:", metadata.ID())
 	}))
 	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
@@ -79,7 +78,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	)
 
 	// create the tangle
-	tangle := NewTestTangle()
+	tangle := NewTestTangle(t)
 	defer tangle.Shutdown()
 	testFramework := NewBlockTestFramework(tangle)
 
@@ -125,12 +124,12 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	}))
 
 	missingBlocks := int32(0)
-	tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(metadata *Block) {
+	tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		t.Logf("missing blocks %d, %s", atomic.AddInt32(&missingBlocks, -1), metadata.ID())
 	}))
 
 	storedBlocks := int32(0)
-	tangle.Events.BlockStored.Hook(event.NewClosure(func(metadata *Block) {
+	tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		t.Logf("stored blocks %d, %s", atomic.AddInt32(&storedBlocks, 1), metadata.ID())
 	}))
 

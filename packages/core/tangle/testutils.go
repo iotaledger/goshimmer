@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/node/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
@@ -336,8 +338,12 @@ func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkB
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // NewTestTangle returns a Tangle instance with a testing schedulerConfig.
-func NewTestTangle() *Tangle {
-	t := New(WithDBManagerPath("/tmp/"))
+func NewTestTangle(test *testing.T) *Tangle {
+	t := New(database.NewManager(test.TempDir()))
+
+	test.Cleanup(func() {
+		
+	})
 
 	t.Events.Error.Hook(event.NewClosure(func(e error) {
 		fmt.Println(e)

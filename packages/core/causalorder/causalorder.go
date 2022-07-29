@@ -18,7 +18,6 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	entityProvider   func(id ID) (entity Entity, exists bool)
 	isOrdered        func(entity Entity) (isOrdered bool)
 	setOrdered       func(entity Entity, value bool) (wasUpdated bool)
-	genesisBlock     func(id ID) (isGenesis Entity)
 	isReferenceValid func(child Entity, parent Entity) (isValid bool)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
@@ -34,7 +33,6 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
 	isOrdered func(Entity) bool,
 	setOrdered func(Entity, bool) bool,
-	genesisEntityProvider func(ID) Entity,
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
@@ -43,7 +41,6 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		setOrdered:              setOrdered,
-		genesisBlock:            genesisEntityProvider,
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 
@@ -53,7 +50,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	}, opts)
 }
 
-func (c *CausalOrder[I, Entity]) Queue(entity Entity) (ordered bool) {
+func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (ordered bool) {
 	c.pruningMutex.RLock()
 	defer c.pruningMutex.RUnlock()
 
@@ -69,13 +66,13 @@ func (c *CausalOrder[I, Entity]) Queue(entity Entity) (ordered bool) {
 	return ordered
 }
 
-func (c *CausalOrder[I, Entity]) Prune(epochIndex epoch.Index) {
+func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 	for _, droppedEntity := range c.dropEntities(epochIndex) {
 		c.Events.Drop.Trigger(droppedEntity)
 	}
 }
 
-func (c *CausalOrder[I, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[I]Entity) {
+func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
 	c.pruningMutex.Lock()
 	defer c.pruningMutex.Unlock()
 
@@ -83,9 +80,9 @@ func (c *CausalOrder[I, Entity]) dropEntities(epochIndex epoch.Index) (droppedEn
 		return
 	}
 
-	droppedEntities = make(map[I]Entity)
+	droppedEntities = make(map[ID]Entity)
 	for currentEpoch := c.maxDroppedEpoch + 1; currentEpoch <= epochIndex; currentEpoch++ {
-		c.dropEntitiesFromEpoch(currentEpoch, func(id I) {
+		c.dropEntitiesFromEpoch(currentEpoch, func(id ID) {
 			if _, exists := droppedEntities[id]; !exists {
 				droppedEntities[id] = c.entity(id)
 			}
@@ -96,15 +93,15 @@ func (c *CausalOrder[I, Entity]) dropEntities(epochIndex epoch.Index) (droppedEn
 	return droppedEntities
 }
 
-func (c *CausalOrder[I, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id I)) {
-	c.unorderedChildren.Get(epochIndex).ForEachKey(func(id I) bool {
+func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
+	c.unorderedChildren.Get(epochIndex).ForEachKey(func(id ID) bool {
 		entityCallback(id)
 
 		return true
 	})
 	c.unorderedChildren.Drop(epochIndex)
 
-	c.unorderedParentsCounter.Get(epochIndex).ForEachKey(func(id I) bool {
+	c.unorderedParentsCounter.Get(epochIndex).ForEachKey(func(id ID) bool {
 		entityCallback(id)
 
 		return true
@@ -112,7 +109,7 @@ func (c *CausalOrder[I, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, e
 	c.unorderedParentsCounter.Drop(epochIndex)
 }
 
-func (c *CausalOrder[I, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
+func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
@@ -125,7 +122,7 @@ func (c *CausalOrder[I, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
 	return
 }
 
-func (c *CausalOrder[I, Entity]) updateOrderStatus(entity Entity) (updateType UpdateType) {
+func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType UpdateType) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
@@ -142,17 +139,10 @@ func (c *CausalOrder[I, Entity]) updateOrderStatus(entity Entity) (updateType Up
 	return Ordered
 }
 
-func (c *CausalOrder[ID, Entity]) isGenesis(id ID) bool {
-	var emptyEntity Entity
-
-	return c.genesisBlock(id) != emptyEntity
-}
-
-func (c *CausalOrder[I, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
+func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
 	for _, parentID := range entity.Parents() {
-		parentEntity := c.entity(parentID)
-
-		if !c.isReferenceValid(entity, parentEntity) || (!c.isGenesis(parentID) && parentID.Index() <= c.maxDroppedEpoch) {
+		parentEntity, exists := c.entityProvider(parentID)
+		if !exists || !c.isReferenceValid(entity, parentEntity) {
 			return pendingParents, true
 		}
 
@@ -166,7 +156,7 @@ func (c *CausalOrder[I, Entity]) countPendingParents(entity Entity) (pendingPare
 	return pendingParents, false
 }
 
-func (c *CausalOrder[I, Entity]) registerUnorderedChild(entityID I, child Entity) {
+func (c *CausalOrder[ID, Entity]) registerUnorderedChild(entityID ID, child Entity) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
@@ -177,7 +167,7 @@ func (c *CausalOrder[I, Entity]) registerUnorderedChild(entityID I, child Entity
 
 }
 
-func (c *CausalOrder[I, Entity]) popUnorderedChildren(entityID I) (pendingChildren []Entity) {
+func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChildren []Entity) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
 
@@ -193,8 +183,8 @@ func (c *CausalOrder[I, Entity]) popUnorderedChildren(entityID I) (pendingChildr
 	return pendingChildren
 }
 
-func (c *CausalOrder[I, Entity]) propagateCausalOrder(metadata Entity) {
-	for childWalker := walker.New[I](true).Push(metadata.ID()); childWalker.HasNext(); {
+func (c *CausalOrder[ID, Entity]) propagateCausalOrder(metadata Entity) {
+	for childWalker := walker.New[ID](true).Push(metadata.ID()); childWalker.HasNext(); {
 		for _, child := range c.popUnorderedChildren(childWalker.Next()) {
 			if c.triggerChildIfReady(child) {
 				childWalker.Push(child.ID())
@@ -203,7 +193,7 @@ func (c *CausalOrder[I, Entity]) propagateCausalOrder(metadata Entity) {
 	}
 }
 
-func (c *CausalOrder[I, Entity]) triggerChildIfReady(metadata Entity) (eventTriggered bool) {
+func (c *CausalOrder[ID, Entity]) triggerChildIfReady(metadata Entity) (eventTriggered bool) {
 	metadata.Lock()
 	defer metadata.Unlock()
 
@@ -216,7 +206,7 @@ func (c *CausalOrder[I, Entity]) triggerChildIfReady(metadata Entity) (eventTrig
 	return true
 }
 
-func (c *CausalOrder[I, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
+func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
 	c.unorderedParentsCounterMutex.Lock()
 	defer c.unorderedParentsCounterMutex.Unlock()
 
@@ -236,7 +226,7 @@ func (c *CausalOrder[I, Entity]) decreaseUnorderedParentsCounter(metadata Entity
 	return
 }
 
-func (c *CausalOrder[I, Entity]) lockEntity(entity Entity) {
+func (c *CausalOrder[ID, Entity]) lockEntity(entity Entity) {
 	for _, parentID := range entity.Parents() {
 		c.entity(parentID).RLock()
 	}
@@ -244,7 +234,7 @@ func (c *CausalOrder[I, Entity]) lockEntity(entity Entity) {
 	entity.Lock()
 }
 
-func (c *CausalOrder[I, Entity]) unlockEntity(metadata Entity) {
+func (c *CausalOrder[ID, Entity]) unlockEntity(metadata Entity) {
 	for _, parentID := range metadata.Parents() {
 		c.entity(parentID).RUnlock()
 	}
@@ -252,7 +242,7 @@ func (c *CausalOrder[I, Entity]) unlockEntity(metadata Entity) {
 	metadata.Unlock()
 }
 
-func (c *CausalOrder[I, Entity]) entity(blockID I) (entity Entity) {
+func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	entity, exists := c.entityProvider(blockID)
 	if !exists {
 		panic(errors.Errorf("block %s does not exist", blockID))

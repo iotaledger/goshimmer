@@ -8,12 +8,10 @@ import (
 // region OrderedEntity //////////////////////////////////////////////////////////////////////////////////////////////
 
 type OrderedEntity[ID epoch.IndexedID] interface {
-	comparable
-
 	ID() ID
 	Parents() []ID
-	IsRoot() bool
 
+	comparable
 	interfaces.RWLockable
 }
 
