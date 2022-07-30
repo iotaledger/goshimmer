@@ -50,9 +50,9 @@ type Tangle struct {
 func New(dbManager *database.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
 		Events:            newEvents(),
+		dbManager:         dbManager,
 		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		rootBlockProvider: defaultGenesisBlockProvider,
-		dbManager:         dbManager,
 	}, opts).initSolidifier(
 		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 	)
@@ -94,15 +94,13 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 		return false
 	}
 
-	if !block.setInvalid() {
-		return false
+	if wasUpdated = block.setInvalid(); wasUpdated {
+		t.Events.BlockInvalid.Trigger(block)
+
+		t.propagateInvalidity(block.Children())
 	}
 
-	t.Events.BlockInvalid.Trigger(block)
-
-	t.propagateInvalidity(block.Children())
-
-	return true
+	return
 }
 
 // Prune is used to prune the Tangle of all Blocks that are too old.
@@ -127,11 +125,10 @@ func (t *Tangle) Shutdown() {
 	defer t.Unlock()
 
 	if !t.isShutdown {
-		return
-	}
+		t.isShutdown = true
 
-	t.dbManager.Shutdown()
-	t.isShutdown = true
+		t.dbManager.Shutdown()
+	}
 }
 
 // IsShutdown returns true if the Tangle was shut down before.
@@ -158,7 +155,6 @@ func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err
 	}
 
 	if block, wasAttached = t.memStorage.Get(data.ID().EpochIndex, true).RetrieveOrCreate(data.ID(), func() *Block { return NewBlock(data) }); !wasAttached {
-
 		if wasAttached = block.update(data); !wasAttached {
 			return
 		}

@@ -17,11 +17,11 @@ import (
 func TestTangleAttach(t *testing.T) {
 	tangle := New(database.NewManager(t.TempDir()))
 
-	testFramework := NewBlockTestFramework(tangle)
+	testFramework := models.NewTestFramework()
 
-	block1 := testFramework.CreateBlock("msg1", WithStrongParents("Genesis"))
+	block1 := testFramework.CreateBlock("msg1", models.WithStrongParents("Genesis"))
 
-	block2 := testFramework.CreateBlock("msg2", WithStrongParents("msg1"))
+	block2 := testFramework.CreateBlock("msg2", models.WithStrongParents("msg1"))
 
 	tangle.Events.BlockMissing.Hook(event.NewClosure[*Block](func(metadata *Block) {
 		t.Logf("block %s is missing", metadata.ID())
@@ -44,6 +44,7 @@ func TestTangleAttach(t *testing.T) {
 func TestTangle_AttachBlock(t *testing.T) {
 	blockTangle := New(database.NewManager(t.TempDir()))
 	defer blockTangle.Shutdown()
+	testFramework := models.NewTestFramework()
 
 	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("SOLID:", metadata.ID())
@@ -60,8 +61,8 @@ func TestTangle_AttachBlock(t *testing.T) {
 		fmt.Println("INVALID:", metadata.ID())
 	}))
 
-	newBlockOne := newTestDataBlock("some data")
-	newBlockTwo := newTestDataBlock("some other data")
+	newBlockOne := testFramework.CreateBlock("block1", models.WithStrongParents("Genesis"))
+	newBlockTwo := testFramework.CreateBlock("block2", models.WithStrongParents("Genesis"))
 
 	blockTangle.Attach(newBlockTwo)
 
@@ -80,7 +81,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	// create the tangle
 	tangle := New(database.NewManager(t.TempDir()))
 	defer tangle.Shutdown()
-	testFramework := NewBlockTestFramework(tangle)
+	testFramework := models.NewTestFramework()
 
 	// map to keep track of the tips
 	tips := randommap.New[models.BlockID, models.BlockID]()
@@ -97,7 +98,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 			}
 			strongParents = append(strongParents, selectedTip.Alias())
 		}
-		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", idx), WithStrongParents(strongParents...))
+		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", idx), models.WithStrongParents(strongParents...))
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
 			tips.Delete(blk.ParentsByType(models.StrongParentType).First())

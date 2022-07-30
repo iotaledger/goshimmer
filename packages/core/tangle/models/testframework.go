@@ -1,4 +1,4 @@
-package tangle
+package models
 
 import (
 	"fmt"
@@ -13,30 +13,27 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
-// region BlockTestFramework ///////////////////////////////////////////////////////////////////////////////////////////
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	selfLocalIdentity = identity.GenerateLocalIdentity()
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 )
 
-// BlockTestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
+// TestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
 // simplified way.
-type BlockTestFramework struct {
-	tangle        *Tangle
-	blocksByAlias map[string]*models.Block
+type TestFramework struct {
+	blocksByAlias map[string]*Block
 	options       *BlockTestFrameworkOptions
 }
 
-// NewBlockTestFramework is the constructor of the BlockTestFramework.
-func NewBlockTestFramework(tangle *Tangle, opts ...options.Option[BlockTestFrameworkOptions]) (blockTestFramework *BlockTestFramework) {
-	blockTestFramework = &BlockTestFramework{
-		tangle:        tangle,
-		blocksByAlias: make(map[string]*models.Block),
+// NewTestFramework is the constructor of the TestFramework.
+func NewTestFramework(opts ...options.Option[BlockTestFrameworkOptions]) (blockTestFramework *TestFramework) {
+	blockTestFramework = &TestFramework{
+		blocksByAlias: make(map[string]*Block),
 		options:       NewBlockTestFrameworkOptions(opts...),
 	}
 
@@ -44,19 +41,19 @@ func NewBlockTestFramework(tangle *Tangle, opts ...options.Option[BlockTestFrame
 }
 
 // CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (blk *models.Block) {
+func (m *TestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (blk *Block) {
 	opts := NewBlockTestFrameworkBlockOptions(blockOptions...)
 
-	references := models.NewParentBlockIDs()
+	references := NewParentBlockIDs()
 
 	if parents := m.strongParentIDs(opts); len(parents) > 0 {
-		references.AddAll(models.StrongParentType, parents)
+		references.AddAll(StrongParentType, parents)
 	}
 	if parents := m.weakParentIDs(opts); len(parents) > 0 {
-		references.AddAll(models.WeakParentType, parents)
+		references.AddAll(WeakParentType, parents)
 	}
 	if parents := m.shallowLikeParentIDs(opts); len(parents) > 0 {
-		references.AddAll(models.ShallowLikeParentType, parents)
+		references.AddAll(ShallowLikeParentType, parents)
 	}
 
 	if opts.reattachmentBlockAlias != "" {
@@ -76,27 +73,25 @@ func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...opti
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
-func (m *BlockTestFramework) IssueBlocks(blockAliases ...string) *BlockTestFramework {
+func (m *TestFramework) IssueBlocks(issueCallback func(block *Block), blockAliases ...string) *TestFramework {
 	for _, blockAlias := range blockAliases {
-		currentBlockAlias := blockAlias
+		block := m.blocksByAlias[blockAlias]
 
-		event.Loop.Submit(func() {
-			m.tangle.Attach(m.blocksByAlias[currentBlockAlias])
-		})
+		event.Loop.Submit(func() { issueCallback(block) })
 	}
 
 	return m
 }
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (m *BlockTestFramework) WaitUntilAllTasksProcessed() (self *BlockTestFramework) {
+func (m *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
 	return m
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
-func (m *BlockTestFramework) Block(alias string) (block *models.Block) {
+func (m *TestFramework) Block(alias string) (block *Block) {
 	block, ok := m.blocksByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
@@ -105,8 +100,8 @@ func (m *BlockTestFramework) Block(alias string) (block *models.Block) {
 }
 
 // BlockIDs retrieves the Blocks that are associated with the given aliases.
-func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs models.BlockIDs) {
-	blockIDs = models.NewBlockIDs()
+func (m *TestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
+	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {
 		blockIDs.Add(m.Block(alias).ID())
 	}
@@ -115,27 +110,27 @@ func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs models.BlockI
 
 // strongParentIDs returns the BlockIDs that were defined to be the strong parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
+func (m *TestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
 	return m.parentIDsByBlockAlias(opts.strongParents)
 }
 
 // weakParentIDs returns the BlockIDs that were defined to be the weak parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
+func (m *TestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
 	return m.parentIDsByBlockAlias(opts.weakParents)
 }
 
 // shallowLikeParentIDs returns the BlockIDs that were defined to be the shallow like parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *BlockTestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) models.BlockIDs {
+func (m *TestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
 	return m.parentIDsByBlockAlias(opts.shallowLikeParents)
 }
 
-func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) models.BlockIDs {
-	parentIDs := models.NewBlockIDs()
+func (m *TestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
+	parentIDs := NewBlockIDs()
 	for parentAlias := range parentAliases {
 		if parentAlias == "Genesis" {
-			parentIDs.Add(models.EmptyBlockID)
+			parentIDs.Add(EmptyBlockID)
 			continue
 		}
 
@@ -150,7 +145,7 @@ func (m *BlockTestFramework) parentIDsByBlockAlias(parentAliases map[string]type
 // region BlockTestFrameworkOptions ////////////////////////////////////////////////////////////////////////////////////
 
 // BlockTestFrameworkOptions is a container that holds the values of all configurable options of the
-// BlockTestFramework.
+// TestFramework.
 type BlockTestFrameworkOptions struct {
 	genesisOutputs        map[string]uint64
 	coloredGenesisOutputs map[string]map[devnetvm.Color]uint64
@@ -203,7 +198,7 @@ func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) 
 // region BlockTestFrameworkBlockOptions ///////////////////////////////////////////////////////////////////////////////
 
 // BlockTestFrameworkBlockOptions is a struct that represents a collection of options that can be set when creating
-// a Block with the BlockTestFramework.
+// a Block with the TestFramework.
 type BlockTestFrameworkBlockOptions struct {
 	inputs                 map[string]types.Empty
 	outputs                map[string]uint64
@@ -340,101 +335,29 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
-func newTestNonceBlock(nonce uint64) *models.Block {
-	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
-		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, epoch.NewECRecord(0))
-
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return block
+func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
+	return newTestParentsPayloadBlockWithOptions(payload.NewGenericDataPayload([]byte(payloadString)), references, opts)
 }
 
-func newTestDataBlock(payloadString string) *models.Block {
-	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
-		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
-
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return block
-}
-
-func newTestDataBlockPublicKey(payloadString string, publicKey ed25519.PublicKey) *models.Block {
-	block := models.NewBlock(models.NewParentBlockIDs().AddStrong(models.EmptyBlockID),
-		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
-
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return block
-}
-
-func newTestParentsDataBlock(payloadString string, references models.ParentBlockIDs) (block *models.Block) {
-	block = models.NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
-
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return
-}
-
-func newTestParentsDataBlockWithOptions(payloadString string, references models.ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *models.Block) {
+func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
 	if opts.overrideSequenceNumber {
 		sequenceNumber = opts.sequenceNumber
 	} else {
 		sequenceNumber = nextSequenceNumber()
 	}
+
 	if opts.issuingTime.IsZero() {
-		block = models.NewBlock(references, time.Now(), opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	} else {
-		block = models.NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
 	}
 
 	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
+	
 	return
-}
-
-func newTestParentsPayloadBlock(p payload.Payload, references models.ParentBlockIDs) (block *models.Block) {
-	block = models.NewBlock(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
-
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return
-}
-
-func newTestParentsPayloadBlockWithOptions(p payload.Payload, references models.ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *models.Block) {
-	var sequenceNumber uint64
-	if opts.overrideSequenceNumber {
-		sequenceNumber = opts.sequenceNumber
-	} else {
-		sequenceNumber = nextSequenceNumber()
-	}
-	var err error
-	if opts.issuingTime.IsZero() {
-		block = models.NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
-	} else {
-		block = models.NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
-	}
-	if err != nil {
-		panic(err)
-	}
-	if err = block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return
-}
-
-func newTestParentsPayloadWithTimestamp(p payload.Payload, references models.ParentBlockIDs, timestamp time.Time) *models.Block {
-	block := models.NewBlock(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-	return block
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
