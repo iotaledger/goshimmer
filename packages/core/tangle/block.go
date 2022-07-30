@@ -77,7 +77,20 @@ func (b *Block) Children() (children []*Block) {
 	return children
 }
 
-// setInvalid marks the Block as invalid. This is private even though it locks because we want to prevent people from
+// setSolid marks the Block as solid. It is private even though it locks because we want to prevent people from
+// setting the solid flag manually.
+func (b *Block) setSolid() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.solid; wasUpdated {
+		b.solid = true
+	}
+
+	return
+}
+
+// setInvalid marks the Block as invalid. It is private even though it locks because we want to prevent people from
 // setting the invalid flag manually.
 func (b *Block) setInvalid() (wasUpdated bool) {
 	b.Lock()
@@ -120,11 +133,6 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 	b.M = data.M
 
 	return true
-}
-
-// solidPtr returns a pointer to the solid flag.
-func (b *Block) solidPtr() (solidPtr *bool) {
-	return &b.solid
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

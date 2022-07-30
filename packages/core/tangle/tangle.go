@@ -67,13 +67,11 @@ func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err
 		return nil, false, errors.Errorf("tangle is shut down")
 	}
 
-	if block, wasAttached, err = t.attach(data); !wasAttached {
-		return
+	if block, wasAttached, err = t.attach(data); wasAttached {
+		t.Events.BlockAttached.Trigger(block)
+
+		t.solidifier.Queue(block)
 	}
-
-	t.Events.BlockAttached.Trigger(block)
-
-	t.solidifier.Queue(block)
 
 	return
 }
@@ -146,7 +144,7 @@ func (t *Tangle) IsShutdown() (isShutdown bool) {
 
 // initSolidifier is used to lazily initialize the solidifier after the options have been populated.
 func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).solidPtr, opts...)
+	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, (*Block).setSolid, opts...)
 	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
 	t.solidifier.Events.Drop.Attach(event.NewClosure(func(blockMetadata *Block) { t.SetInvalid(blockMetadata) }))
 

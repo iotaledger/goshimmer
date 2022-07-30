@@ -17,7 +17,8 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	Events *Events[ID, Entity]
 
 	entityProvider   func(id ID) (entity Entity, exists bool)
-	ordered          func(entity Entity) (orderedFlag *bool)
+	isOrdered        func(entity Entity) (isOrdered bool)
+	setOrdered       func(entity Entity) (wasUpdated bool)
 	isReferenceValid func(child Entity, parent Entity) (isValid bool)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
@@ -32,14 +33,16 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
-	orderedFlag func(entity Entity) (orderedFlag *bool),
+	isOrdered func(entity Entity) (isOrdered bool),
+	setOrdered func(entity Entity) (wasUpdated bool),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
 		Events: newEvents[ID, Entity](),
 
 		entityProvider:          entityProvider,
-		ordered:                 orderedFlag,
+		isOrdered:               isOrdered,
+		setOrdered:              setOrdered,
 		isReferenceValid:        func(entity Entity, parent Entity) bool { return true },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
@@ -129,11 +132,9 @@ func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType U
 	}
 
 	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
-	if pendingParentsCount != 0 {
+	if pendingParentsCount != 0 || !c.setOrdered(entity) {
 		return Unchanged
 	}
-
-	*c.ordered(entity) = true
 
 	return Ordered
 }
@@ -145,7 +146,7 @@ func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingPar
 			return pendingParents, true
 		}
 
-		if !*c.ordered(parentEntity) {
+		if !c.isOrdered(parentEntity) {
 			pendingParents++
 
 			c.registerUnorderedChild(parentID, entity)
@@ -196,11 +197,9 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) (eventTrigge
 	c.dagMutex.Lock(child.ID())
 	defer c.dagMutex.Unlock(child.ID())
 
-	if c.decreaseUnorderedParentsCounter(child) != 0 {
+	if c.decreaseUnorderedParentsCounter(child) != 0 || !c.setOrdered(child) {
 		return false
 	}
-
-	*c.ordered(child) = true
 
 	c.Events.Emit.Trigger(child)
 
