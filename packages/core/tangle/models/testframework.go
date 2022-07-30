@@ -60,7 +60,7 @@ func (m *TestFramework) CreateBlock(blockAlias string, blockOptions ...options.O
 		reattachmentPayload := m.Block(opts.reattachmentBlockAlias).Payload()
 		m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(reattachmentPayload, references, opts)
 	} else {
-		m.blocksByAlias[blockAlias] = newTestParentsDataBlockWithOptions(blockAlias, references, opts)
+		m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(payload.NewGenericDataPayload([]byte(blockAlias)), references, opts)
 	}
 
 	if err := m.blocksByAlias[blockAlias].DetermineID(); err != nil {
@@ -282,20 +282,6 @@ func WithShallowLikeParents(blockAliases ...string) options.Option[BlockTestFram
 	}
 }
 
-// WithIssuer returns a BlockOption that is used to define the issuer of the Block.
-func WithIssuer(issuer ed25519.PublicKey) options.Option[BlockTestFrameworkBlockOptions] {
-	return func(options *BlockTestFrameworkBlockOptions) {
-		options.issuer = issuer
-	}
-}
-
-// WithIssuingTime returns a BlockOption that is used to set issuing time of the Block.
-func WithIssuingTime(issuingTime time.Time) options.Option[BlockTestFrameworkBlockOptions] {
-	return func(options *BlockTestFrameworkBlockOptions) {
-		options.issuingTime = issuingTime
-	}
-}
-
 // WithReattachment returns a BlockOption that is used to select payload of which Block should be reattached.
 func WithReattachment(blockAlias string) options.Option[BlockTestFrameworkBlockOptions] {
 	return func(options *BlockTestFrameworkBlockOptions) {
@@ -348,15 +334,15 @@ func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentB
 	}
 
 	if opts.issuingTime.IsZero() {
-		block = NewBlock(references, time.Now(), opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = NewBlock(sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, WithParents(references), WithIssuer(opts.issuer))
 	} else {
-		block = NewBlock(references, opts.issuingTime, opts.issuer, sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord)
+		block = NewBlock(sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, WithParents(references), WithIssuer(opts.issuer), WithIssuingTime(opts.issuingTime))
 	}
 
 	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
-	
+
 	return
 }
 
