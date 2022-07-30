@@ -9,7 +9,6 @@ import (
 type OrderedEntity[ID epoch.IndexedID] interface {
 	ID() ID
 	Parents() []ID
-	String() string
 
 	comparable
 }
