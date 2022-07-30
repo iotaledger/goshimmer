@@ -79,26 +79,28 @@ type block struct {
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
-func NewBlock(sequenceNumber uint64, blkPayload payload.Payload, nonce uint64, signature ed25519.Signature,
+func NewBlock(nonce uint64, signature ed25519.Signature,
 	latestConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, opts ...options.Option[Block],
 ) *Block {
-	blk := options.Apply(model.NewStorable[BlockID, Block](&block{
+	defaultPayload := payload.NewGenericDataPayload([]byte(""))
+
+	blk := model.NewStorable[BlockID, Block](&block{
 		Version:              BlockVersion,
 		Parents:              NewParentBlockIDs(),
 		IssuerPublicKey:      ed25519.GenerateKeyPair().PublicKey,
 		IssuingTime:          time.Now(),
-		SequenceNumber:       sequenceNumber,
-		PayloadBytes:         lo.PanicOnErr(blkPayload.Bytes()),
+		SequenceNumber:       0,
+		PayloadBytes:         lo.PanicOnErr(defaultPayload.Bytes()),
 		EI:                   ecRecord.EI(),
 		ECR:                  ecRecord.ECR(),
 		PrevEC:               ecRecord.PrevEC(),
 		LatestConfirmedEpoch: latestConfirmedEpoch,
 		Nonce:                nonce,
 		Signature:            signature,
-	}), opts)
-	blk.payload = blkPayload
+	})
+	blk.payload = defaultPayload
 
-	return blk
+	return options.Apply(blk, opts)
 }
 
 func NewEmptyBlock(id BlockID) (newBlock *Block) {
@@ -316,6 +318,19 @@ func WithIssuingTime(issuingTime time.Time) options.Option[Block] {
 func WithIssuer(issuer ed25519.PublicKey) options.Option[Block] {
 	return func(m *Block) {
 		m.M.IssuerPublicKey = issuer
+	}
+}
+
+func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
+	return func(m *Block) {
+		m.M.SequenceNumber = sequenceNumber
+	}
+}
+
+func WithPayload(payload payload.Payload) options.Option[Block] {
+	return func(m *Block) {
+		m.payload = payload
+		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
 	}
 }
 

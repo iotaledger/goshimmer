@@ -289,14 +289,6 @@ func WithReattachment(blockAlias string) options.Option[BlockTestFrameworkBlockO
 	}
 }
 
-// WithSequenceNumber returns a BlockOption that is used to define the sequence number of the Block.
-func WithSequenceNumber(sequenceNumber uint64) options.Option[BlockTestFrameworkBlockOptions] {
-	return func(options *BlockTestFrameworkBlockOptions) {
-		options.sequenceNumber = sequenceNumber
-		options.overrideSequenceNumber = true
-	}
-}
-
 // WithECRecord returns a BlockOption that is used to define the ecr of the Block.
 func WithECRecord(ecRecord *epoch.ECRecord) options.Option[BlockTestFrameworkBlockOptions] {
 	return func(options *BlockTestFrameworkBlockOptions) {
@@ -333,12 +325,15 @@ func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentB
 		sequenceNumber = nextSequenceNumber()
 	}
 
-	if opts.issuingTime.IsZero() {
-		block = NewBlock(sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, WithParents(references), WithIssuer(opts.issuer))
-	} else {
-		block = NewBlock(sequenceNumber, p, 0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, WithParents(references), WithIssuer(opts.issuer), WithIssuingTime(opts.issuingTime))
+	blockOptions := []options.Option[Block]{
+		WithParents(references), WithIssuer(opts.issuer), WithSequenceNumber(sequenceNumber), WithPayload(p),
 	}
 
+	if !opts.issuingTime.IsZero() {
+		blockOptions = append(blockOptions, WithIssuingTime(opts.issuingTime))
+	}
+
+	block = NewBlock(0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, blockOptions...)
 	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
