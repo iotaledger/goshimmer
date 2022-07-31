@@ -313,10 +313,6 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
-func newTestParentsDataBlockWithOptions(payloadString string, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
-	return newTestParentsPayloadBlockWithOptions(payload.NewGenericDataPayload([]byte(payloadString)), references, opts)
-}
-
 func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
 	var sequenceNumber uint64
 	if opts.overrideSequenceNumber {
