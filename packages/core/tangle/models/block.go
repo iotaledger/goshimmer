@@ -79,24 +79,20 @@ type block struct {
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
-func NewBlock(nonce uint64, signature ed25519.Signature,
-	latestConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, opts ...options.Option[Block],
+func NewBlock(ecRecord *epoch.ECRecord, opts ...options.Option[Block],
 ) *Block {
 	defaultPayload := payload.NewGenericDataPayload([]byte(""))
 
 	blk := model.NewStorable[BlockID, Block](&block{
-		Version:              BlockVersion,
-		Parents:              NewParentBlockIDs(),
-		IssuerPublicKey:      ed25519.GenerateKeyPair().PublicKey,
-		IssuingTime:          time.Now(),
-		SequenceNumber:       0,
-		PayloadBytes:         lo.PanicOnErr(defaultPayload.Bytes()),
-		EI:                   ecRecord.EI(),
-		ECR:                  ecRecord.ECR(),
-		PrevEC:               ecRecord.PrevEC(),
-		LatestConfirmedEpoch: latestConfirmedEpoch,
-		Nonce:                nonce,
-		Signature:            signature,
+		Version:         BlockVersion,
+		Parents:         NewParentBlockIDs(),
+		IssuerPublicKey: ed25519.GenerateKeyPair().PublicKey,
+		IssuingTime:     time.Now(),
+		SequenceNumber:  0,
+		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
+		EI:              ecRecord.EI(),
+		ECR:             ecRecord.ECR(),
+		PrevEC:          ecRecord.PrevEC(),
 	})
 	blk.payload = defaultPayload
 
@@ -331,6 +327,24 @@ func WithPayload(payload payload.Payload) options.Option[Block] {
 	return func(m *Block) {
 		m.payload = payload
 		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
+	}
+}
+
+func WithSignature(signature ed25519.Signature) options.Option[Block] {
+	return func(m *Block) {
+		m.M.Signature = signature
+	}
+}
+
+func WithNonce(nonce uint64) options.Option[Block] {
+	return func(m *Block) {
+		m.M.Nonce = nonce
+	}
+}
+
+func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
+	return func(b *Block) {
+		b.M.LatestConfirmedEpoch = epoch
 	}
 }
 

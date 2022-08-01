@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -17,11 +16,6 @@ import (
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	selfLocalIdentity = identity.GenerateLocalIdentity()
-	selfNode          = identity.New(selfLocalIdentity.PublicKey())
-)
 
 // TestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
 // simplified way.
@@ -59,6 +53,7 @@ func (t *TestFramework) CreateBlock(alias string, blockFrameworkOptions ...optio
 	opts := []options.Option[Block]{
 		WithIssuer(oldOpts.issuer),
 		WithParents(references),
+		WithLatestConfirmedEpoch(oldOpts.latestConfirmedEpoch),
 	}
 
 	if !oldOpts.issuingTime.IsZero() {
@@ -71,7 +66,8 @@ func (t *TestFramework) CreateBlock(alias string, blockFrameworkOptions ...optio
 		opts = append(opts, WithPayload(payload.NewGenericDataPayload([]byte(alias))))
 	}
 
-	block = NewBlock(0, ed25519.Signature{}, oldOpts.latestConfirmedEpoch, oldOpts.ecRecord, opts...)
+	block = NewBlock(oldOpts.ecRecord, opts...)
+
 	if block.SequenceNumber() == 0 {
 		block = options.Apply(block, []options.Option[Block]{WithSequenceNumber(t.increaseSequenceNumber())})
 	}
@@ -312,13 +308,6 @@ func WithReattachment(blockAlias string) options.Option[BlockTestFrameworkBlockO
 func WithECRecord(ecRecord *epoch.ECRecord) options.Option[BlockTestFrameworkBlockOptions] {
 	return func(options *BlockTestFrameworkBlockOptions) {
 		options.ecRecord = ecRecord
-	}
-}
-
-// WithLatestConfirmedEpoch returns a BlockOption that is used to define the latestConfirmedEpoch of the Block.
-func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkBlockOptions] {
-	return func(options *BlockTestFrameworkBlockOptions) {
-		options.latestConfirmedEpoch = ei
 	}
 }
 
