@@ -26,8 +26,9 @@ var (
 // TestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
 // simplified way.
 type TestFramework struct {
-	blocksByAlias map[string]*Block
-	options       *BlockTestFrameworkOptions
+	blocksByAlias  map[string]*Block
+	options        *BlockTestFrameworkOptions
+	sequenceNumber uint64
 }
 
 // NewTestFramework is the constructor of the TestFramework.
@@ -41,58 +42,72 @@ func NewTestFramework(opts ...options.Option[BlockTestFrameworkOptions]) (blockT
 }
 
 // CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
-func (m *TestFramework) CreateBlock(blockAlias string, blockOptions ...options.Option[BlockTestFrameworkBlockOptions]) (blk *Block) {
-	opts := NewBlockTestFrameworkBlockOptions(blockOptions...)
+func (t *TestFramework) CreateBlock(alias string, blockFrameworkOptions ...options.Option[BlockTestFrameworkBlockOptions]) (block *Block) {
+	oldOpts := NewBlockTestFrameworkBlockOptions(blockFrameworkOptions...)
 
 	references := NewParentBlockIDs()
-
-	if parents := m.strongParentIDs(opts); len(parents) > 0 {
+	if parents := t.strongParentIDs(oldOpts); len(parents) > 0 {
 		references.AddAll(StrongParentType, parents)
 	}
-	if parents := m.weakParentIDs(opts); len(parents) > 0 {
+	if parents := t.weakParentIDs(oldOpts); len(parents) > 0 {
 		references.AddAll(WeakParentType, parents)
 	}
-	if parents := m.shallowLikeParentIDs(opts); len(parents) > 0 {
+	if parents := t.shallowLikeParentIDs(oldOpts); len(parents) > 0 {
 		references.AddAll(ShallowLikeParentType, parents)
 	}
 
-	if opts.reattachmentBlockAlias != "" {
-		reattachmentPayload := m.Block(opts.reattachmentBlockAlias).Payload()
-		m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(reattachmentPayload, references, opts)
-	} else {
-		m.blocksByAlias[blockAlias] = newTestParentsPayloadBlockWithOptions(payload.NewGenericDataPayload([]byte(blockAlias)), references, opts)
+	opts := []options.Option[Block]{
+		WithIssuer(oldOpts.issuer),
+		WithParents(references),
 	}
 
-	if err := m.blocksByAlias[blockAlias].DetermineID(); err != nil {
+	if !oldOpts.issuingTime.IsZero() {
+		opts = append(opts, WithIssuingTime(oldOpts.issuingTime))
+	}
+
+	if oldOpts.reattachmentBlockAlias != "" {
+		opts = append(opts, WithPayload(t.Block(oldOpts.reattachmentBlockAlias).Payload()))
+	} else {
+		opts = append(opts, WithPayload(payload.NewGenericDataPayload([]byte(alias))))
+	}
+
+	block = NewBlock(0, ed25519.Signature{}, oldOpts.latestConfirmedEpoch, oldOpts.ecRecord, opts...)
+	if block.SequenceNumber() == 0 {
+		block = options.Apply(block, []options.Option[Block]{WithSequenceNumber(t.increaseSequenceNumber())})
+	}
+
+	if err := block.DetermineID(); err != nil {
 		panic(err)
 	}
 
-	m.blocksByAlias[blockAlias].ID().RegisterAlias(blockAlias)
+	block.ID().RegisterAlias(alias)
 
-	return m.blocksByAlias[blockAlias]
+	t.blocksByAlias[alias] = block
+
+	return block
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
-func (m *TestFramework) IssueBlocks(issueCallback func(block *Block), blockAliases ...string) *TestFramework {
+func (t *TestFramework) IssueBlocks(issueCallback func(block *Block), blockAliases ...string) *TestFramework {
 	for _, blockAlias := range blockAliases {
-		block := m.blocksByAlias[blockAlias]
+		block := t.blocksByAlias[blockAlias]
 
 		event.Loop.Submit(func() { issueCallback(block) })
 	}
 
-	return m
+	return t
 }
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
-func (m *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
-	return m
+	return t
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
-func (m *TestFramework) Block(alias string) (block *Block) {
-	block, ok := m.blocksByAlias[alias]
+func (t *TestFramework) Block(alias string) (block *Block) {
+	block, ok := t.blocksByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
@@ -100,33 +115,37 @@ func (m *TestFramework) Block(alias string) (block *Block) {
 }
 
 // BlockIDs retrieves the Blocks that are associated with the given aliases.
-func (m *TestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
+func (t *TestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {
-		blockIDs.Add(m.Block(alias).ID())
+		blockIDs.Add(t.Block(alias).ID())
 	}
 	return
 }
 
+func (t *TestFramework) increaseSequenceNumber() (increasedSequenceNumber uint64) {
+	return atomic.AddUint64(&t.sequenceNumber, 1) - 1
+}
+
 // strongParentIDs returns the BlockIDs that were defined to be the strong parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *TestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(opts.strongParents)
+func (t *TestFramework) strongParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return t.parentIDsByBlockAlias(opts.strongParents)
 }
 
 // weakParentIDs returns the BlockIDs that were defined to be the weak parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *TestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(opts.weakParents)
+func (t *TestFramework) weakParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return t.parentIDsByBlockAlias(opts.weakParents)
 }
 
 // shallowLikeParentIDs returns the BlockIDs that were defined to be the shallow like parents of the
 // BlockTestFrameworkBlockOptions.
-func (m *TestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
-	return m.parentIDsByBlockAlias(opts.shallowLikeParents)
+func (t *TestFramework) shallowLikeParentIDs(opts *BlockTestFrameworkBlockOptions) BlockIDs {
+	return t.parentIDsByBlockAlias(opts.shallowLikeParents)
 }
 
-func (m *TestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
+func (t *TestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Empty) BlockIDs {
 	parentIDs := NewBlockIDs()
 	for parentAlias := range parentAliases {
 		if parentAlias == "Genesis" {
@@ -134,7 +153,7 @@ func (m *TestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Emp
 			continue
 		}
 
-		parentIDs.Add(m.blocksByAlias[parentAlias].ID())
+		parentIDs.Add(t.blocksByAlias[parentAlias].ID())
 	}
 
 	return parentIDs
@@ -301,40 +320,6 @@ func WithLatestConfirmedEpoch(ei epoch.Index) options.Option[BlockTestFrameworkB
 	return func(options *BlockTestFrameworkBlockOptions) {
 		options.latestConfirmedEpoch = ei
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
-
-var _sequenceNumber uint64
-
-func nextSequenceNumber() uint64 {
-	return atomic.AddUint64(&_sequenceNumber, 1) - 1
-}
-
-func newTestParentsPayloadBlockWithOptions(p payload.Payload, references ParentBlockIDs, opts *BlockTestFrameworkBlockOptions) (block *Block) {
-	var sequenceNumber uint64
-	if opts.overrideSequenceNumber {
-		sequenceNumber = opts.sequenceNumber
-	} else {
-		sequenceNumber = nextSequenceNumber()
-	}
-
-	blockOptions := []options.Option[Block]{
-		WithParents(references), WithIssuer(opts.issuer), WithSequenceNumber(sequenceNumber), WithPayload(p),
-	}
-
-	if !opts.issuingTime.IsZero() {
-		blockOptions = append(blockOptions, WithIssuingTime(opts.issuingTime))
-	}
-
-	block = NewBlock(0, ed25519.Signature{}, opts.latestConfirmedEpoch, opts.ecRecord, blockOptions...)
-	if err := block.DetermineID(); err != nil {
-		panic(err)
-	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
