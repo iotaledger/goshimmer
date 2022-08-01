@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"

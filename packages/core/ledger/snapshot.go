@@ -1,7 +1,7 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )

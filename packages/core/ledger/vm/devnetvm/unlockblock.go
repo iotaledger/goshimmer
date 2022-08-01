@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
 )
 
 //nolint:dupl

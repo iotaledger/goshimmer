@@ -1,8 +1,6 @@
 package peer
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of configuration parameters used by the local peer's network.
 type ParametersDefinition struct {
@@ -23,5 +21,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "node")
+	config.BindParameters(Parameters, "node")
 }

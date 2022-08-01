@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/typeutils"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"

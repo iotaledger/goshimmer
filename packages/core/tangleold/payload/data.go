@@ -3,8 +3,8 @@ package payload
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 func init() {

@@ -3,7 +3,7 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"

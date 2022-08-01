@@ -6,10 +6,10 @@ import (
 	"sort"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/orderedmap"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 )
 

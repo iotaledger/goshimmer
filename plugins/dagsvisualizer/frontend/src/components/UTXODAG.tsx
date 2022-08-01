@@ -1,9 +1,9 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
-import { TransactionInfo } from 'components/TransactionInfo';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
+import {TransactionInfo} from 'components/TransactionInfo';
 import UTXOStore from 'stores/UTXOStore';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -13,7 +13,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import GlobalStore from '../stores/GlobalStore';
-import { UTXOLegend } from './Legend';
+import {UTXOLegend} from './Legend';
 
 interface Props {
     utxoStore?: UTXOStore;

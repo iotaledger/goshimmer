@@ -1,7 +1,7 @@
 package mana
 
 import (
-	"github.com/iotaledger/hive.go/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/model"
 )
 
 // ManaBase holds information about the consensus base mana values of a single node.

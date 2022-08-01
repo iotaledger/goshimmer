@@ -1,12 +1,12 @@
-import { action, makeObservable, observable } from 'mobx';
-import moment, { Moment } from 'moment';
+import {action, makeObservable, observable} from 'mobx';
+import moment, {Moment} from 'moment';
 import TangleStore from './TangleStore';
-import { tangleVertex } from 'models/tangle';
+import {tangleVertex} from 'models/tangle';
 import UTXOStore from './UTXOStore';
-import { utxoVertex } from 'models/utxo';
+import {utxoVertex} from 'models/utxo';
 import ConflictStore from './ConflictStore';
-import { conflictVertex } from 'models/conflict';
-import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
+import {conflictVertex} from 'models/conflict';
+import {DEFAULT_DASHBOARD_URL} from 'utils/constants';
 
 export class searchResult {
     blocks: Array<tangleVertex>;

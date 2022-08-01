@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 const (

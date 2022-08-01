@@ -1,8 +1,8 @@
 import * as React from 'react';
 import Container from "react-bootstrap/Container";
-import { ExplorerTransaction } from "app/components/ExplorerTransaction"
-import { ExplorerTransactionMetadata } from "app/components/ExplorerTransactionMetadata"
-import { ExplorerTransactionAttachments } from "app/components/ExplorerTransactionAttachments"
+import {ExplorerTransaction} from "app/components/ExplorerTransaction"
+import {ExplorerTransactionMetadata} from "app/components/ExplorerTransactionMetadata"
+import {ExplorerTransactionAttachments} from "app/components/ExplorerTransactionAttachments"
 
 
 interface Props {

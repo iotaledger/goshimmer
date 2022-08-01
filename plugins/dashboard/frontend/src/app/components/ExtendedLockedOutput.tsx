@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {OutputID, ExtendedLockedOutput} from "app/misc/Payload";
+import {ExtendedLockedOutput, OutputID} from "app/misc/Payload";
 import Badge from "react-bootstrap/Badge";
 import ListGroup from "react-bootstrap/ListGroup";
 import {resolveColor} from "app/utils/color";

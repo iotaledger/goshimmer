@@ -1,4 +1,4 @@
-import { WSBlkType } from "./wsBlkType";
+import {WSBlkType} from "./wsBlkType";
 
 export interface WSBlock {
     type: WSBlkType;

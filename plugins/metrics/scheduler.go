@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
 
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/syncutils"
 )
 
 var (

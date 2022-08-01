@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/orderedmap"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
@@ -76,26 +76,26 @@ func init() {
 // newFaucet gets the faucet component instance the faucet plugin has initialized.
 func newFaucet() *StateManager {
 	if Parameters.Seed == "" {
-		Plugin.LogFatal("a seed must be defined when enabling the faucet plugin")
+		Plugin.LogFatalAndExit("a seed must be defined when enabling the faucet plugin")
 	}
 	seedBytes, err := base58.Decode(Parameters.Seed)
 	if err != nil {
-		Plugin.LogFatalf("configured seed for the faucet is invalid: %s", err)
+		Plugin.LogFatalfAndExit("configured seed for the faucet is invalid: %s", err)
 	}
 	if Parameters.TokensPerRequest <= 0 {
-		Plugin.LogFatalf("the amount of tokens to fulfill per request must be above zero")
+		Plugin.LogFatalfAndExit("the amount of tokens to fulfill per request must be above zero")
 	}
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
-		Plugin.LogFatalf("the max transaction booked await time must be more than 0")
+		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
 	}
 	if Parameters.SupplyOutputsCount <= 0 {
-		Plugin.LogFatalf("the number of faucet supply outputs should be more than 0")
+		Plugin.LogFatalfAndExit("the number of faucet supply outputs should be more than 0")
 	}
 	if Parameters.SplittingMultiplier <= 0 {
-		Plugin.LogFatalf("the number of outputs for each supply transaction during funds splitting should be more than 0")
+		Plugin.LogFatalfAndExit("the number of outputs for each supply transaction during funds splitting should be more than 0")
 	}
 	if Parameters.GenesisTokenAmount <= 0 {
-		Plugin.LogFatalf("the total supply should be more than 0")
+		Plugin.LogFatalfAndExit("the total supply should be more than 0")
 	}
 	return NewStateManager(
 		uint64(Parameters.TokensPerRequest),

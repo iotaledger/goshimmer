@@ -26,6 +26,7 @@ services:
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
+      --scheduler.maxBufferSize=500
       --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsBlockEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311

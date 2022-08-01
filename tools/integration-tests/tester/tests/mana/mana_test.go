@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 

@@ -3,10 +3,10 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 

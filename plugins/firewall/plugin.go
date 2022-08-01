@@ -6,10 +6,10 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/selection"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
@@ -58,7 +58,7 @@ func init() {
 func createFirewall(fDeps firewallDeps) *firewall.Firewall {
 	f, err := firewall.NewFirewall(fDeps.P2PMgr, fDeps.AutopeeringMgr, Plugin.Logger())
 	if err != nil {
-		Plugin.LogFatalf("Couldn't initialize firewall instance: %+v", err)
+		Plugin.LogFatalfAndExit("Couldn't initialize firewall instance: %+v", err)
 	}
 	return f
 }

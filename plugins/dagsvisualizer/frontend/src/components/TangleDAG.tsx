@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
 import TangleStore from 'stores/TangleStore';
-import { BlockInfo } from 'components/BlockInfo';
+import {BlockInfo} from 'components/BlockInfo';
 import 'styles/style.css';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -14,7 +14,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import GlobalStore from '../stores/GlobalStore';
-import { TangleLegend } from './Legend';
+import {TangleLegend} from './Legend';
 
 interface Props {
     tangleStore?: TangleStore;

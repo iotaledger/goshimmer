@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { COLOR } from '../styles/tangleStyles';
-import { BRANCH, UTXO } from '../styles/cytoscapeStyles';
+import {COLOR} from '../styles/tangleStyles';
+import {BRANCH, UTXO} from '../styles/cytoscapeStyles';
 
 export class TangleLegend extends React.Component<any, any> {
     render() {

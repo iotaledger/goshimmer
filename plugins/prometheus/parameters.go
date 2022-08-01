@@ -1,8 +1,6 @@
 package prometheus
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of the parameters used by the prometheus plugin.
 type ParametersDefinition struct {
@@ -22,5 +20,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "prometheus")
+	config.BindParameters(Parameters, "prometheus")
 }

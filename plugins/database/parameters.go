@@ -3,7 +3,7 @@ package database
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of configuration parameters used by the storage layer.
@@ -25,5 +25,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "database")
+	config.BindParameters(Parameters, "database")
 }

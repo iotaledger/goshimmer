@@ -3,7 +3,7 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.

@@ -2,8 +2,8 @@ package utxo
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/cerrors"
 	"golang.org/x/crypto/blake2b"
 )
 

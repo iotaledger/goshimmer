@@ -1,10 +1,10 @@
-import { shortenedIDCharCount } from "../../stores/AutopeeringStore";
+import {shortenedIDCharCount} from "../../stores/AutopeeringStore";
 import classNames from "classnames";
-import { inject, observer } from "mobx-react";
-import React, { ReactNode } from "react";
+import {inject, observer} from "mobx-react";
+import React, {ReactNode} from "react";
 import "./Autopeering.scss";
-import { AutopeeringProps } from "./AutopeeringProps";
-import { NodeView } from "./NodeView";
+import {AutopeeringProps} from "./AutopeeringProps";
+import {NodeView} from "./NodeView";
 import BootstrapSwitchButton from 'bootstrap-switch-button-react'
 import ManaLegend from "../Mana/ManaLegend";
 

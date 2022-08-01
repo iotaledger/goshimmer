@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import {ExplorerStore, ExplorerOutput, OutputMetadata} from "app/stores/ExplorerStore";
+import {ExplorerOutput, ExplorerStore, OutputMetadata} from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
