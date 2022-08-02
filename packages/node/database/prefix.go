@@ -28,6 +28,9 @@ const (
 	// PrefixNotarization defines the storage prefix for the epochs package.
 	PrefixNotarization
 
+	// PrefixSnapshot defines the storage prefix for the snapshot package.
+	PrefixSnapshot
+
 	// PrefixEpochsStorage defines the storage prefix for the epoch storage plugin.
 	PrefixEpochsStorage
 )
