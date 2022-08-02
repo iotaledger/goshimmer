@@ -166,6 +166,18 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 	e.SetModified()
 }
 
+func (e *ECRecord) Bytes() (bytes []byte, err error) {
+	bytes, err = e.Storable.Bytes()
+	return
+}
+
+func (e *ECRecord) FromBytes(bytes []byte) (err error) {
+	err = e.Storable.FromBytes(bytes)
+	e.SetID(e.EI())
+
+	return
+}
+
 type NodesActivityLog map[identity.ID]*ActivityLog
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -575,7 +575,7 @@ func (e *EpochDiff) Spent() []*OutputWithMetadata {
 
 // Created returns the outputs created for this epoch diff.
 func (e *EpochDiff) Created() []*OutputWithMetadata {
-	return e.M.Spent
+	return e.M.Created
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

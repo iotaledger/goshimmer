@@ -312,7 +312,7 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 	}
 
 	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
-	m.tangle.Ledger.LoadSnapshot(m.snapshot)
+	loadSnapshotToLedger(m.tangle.Ledger, m.snapshot)
 }
 
 func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
@@ -1071,4 +1071,13 @@ func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
 	e.Called(event.BlockID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// loadSnapshotToLedger loads a snapshot of the Ledger from the given snapshot.
+func loadSnapshotToLedger(l *ledger.Ledger, s *ledger.Snapshot) {
+	l.LoadOutputWithMetadatas(s.OutputsWithMetadata)
+	err := l.LoadEpochDiffs(s.Header, s.EpochDiffs)
+	if err != nil {
+		panic("Failed to load epochDiffs from snapshot")
+	}
 }

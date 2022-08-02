@@ -10,6 +10,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -51,8 +52,14 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	if nodeSnapshot != nil {
-		notarizationDeps.Manager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+	if Parameters.Snapshot.File != "" {
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
+			notarizationDeps.Manager.LoadECandEIs,
+			notarizationDeps.Manager.LoadOutputsWithMetadata,
+			notarizationDeps.Manager.LoadEpochDiffs)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
+		}
 	}
 	// attach mana plugin event after notarization manager has been initialized
 	notarizationDeps.Manager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
