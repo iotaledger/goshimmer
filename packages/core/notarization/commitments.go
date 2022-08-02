@@ -320,7 +320,7 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 	return
 }
 
-func (f *EpochCommitmentFactory) loadLedgerStates(consumer func(*ledger.OutputWithMetadata)) {
+func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWithMetadata)) {
 	f.storage.ledgerstateStorage.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
 			consumer(outputWithMetadata)

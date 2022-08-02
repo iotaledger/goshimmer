@@ -111,7 +111,7 @@ func streamSnapshotDataTo(
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
-	nmgr.SnapshotLedgerStates(lastConfirmedEpoch, prodChan)
+	nmgr.SnapshotLedgerState(lastConfirmedEpoch, prodChan)
 
 	return func() *ledger.OutputWithMetadata {
 		obj, ok := <-prodChan
