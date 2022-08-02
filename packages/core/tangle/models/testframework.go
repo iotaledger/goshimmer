@@ -21,18 +21,14 @@ import (
 // simplified way.
 type TestFramework struct {
 	blocksByAlias  map[string]*Block
-	options        *BlockTestFrameworkOptions
 	sequenceNumber uint64
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[BlockTestFrameworkOptions]) (blockTestFramework *TestFramework) {
-	blockTestFramework = &TestFramework{
+func NewTestFramework() (blockTestFramework *TestFramework) {
+	return &TestFramework{
 		blocksByAlias: make(map[string]*Block),
-		options:       NewBlockTestFrameworkOptions(opts...),
 	}
-
-	return
 }
 
 // CreateBlock creates a Block with the given alias and BlockTestFrameworkBlockOptions.
@@ -155,59 +151,6 @@ func (t *TestFramework) parentIDsByBlockAlias(parentAliases map[string]types.Emp
 	}
 
 	return parentIDs
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BlockTestFrameworkOptions ////////////////////////////////////////////////////////////////////////////////////
-
-// BlockTestFrameworkOptions is a container that holds the values of all configurable options of the
-// TestFramework.
-type BlockTestFrameworkOptions struct {
-	genesisOutputs        map[string]uint64
-	coloredGenesisOutputs map[string]map[devnetvm.Color]uint64
-}
-
-// NewBlockTestFrameworkOptions is the constructor for the BlockTestFrameworkOptions.
-func NewBlockTestFrameworkOptions(opts ...options.Option[BlockTestFrameworkOptions]) (frameworkOptions *BlockTestFrameworkOptions) {
-	frameworkOptions = &BlockTestFrameworkOptions{
-		genesisOutputs:        make(map[string]uint64),
-		coloredGenesisOutputs: make(map[string]map[devnetvm.Color]uint64),
-	}
-
-	options.Apply(frameworkOptions, opts)
-
-	return
-}
-
-// WithGenesisOutput returns a BlockTestFrameworkOption that defines a genesis Output that is loaded as part of the
-// initial snapshot.
-func WithGenesisOutput(alias string, balance uint64) options.Option[BlockTestFrameworkOptions] {
-	return func(options *BlockTestFrameworkOptions) {
-		if _, exists := options.genesisOutputs[alias]; exists {
-			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
-		}
-		if _, exists := options.coloredGenesisOutputs[alias]; exists {
-			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
-		}
-
-		options.genesisOutputs[alias] = balance
-	}
-}
-
-// WithColoredGenesisOutput returns a BlockTestFrameworkOption that defines a genesis Output that is loaded as part of
-// the initial snapshot and that supports colored coins.
-func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) options.Option[BlockTestFrameworkOptions] {
-	return func(options *BlockTestFrameworkOptions) {
-		if _, exists := options.genesisOutputs[alias]; exists {
-			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
-		}
-		if _, exists := options.coloredGenesisOutputs[alias]; exists {
-			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
-		}
-
-		options.coloredGenesisOutputs[alias] = balances
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
