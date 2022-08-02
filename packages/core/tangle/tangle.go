@@ -143,7 +143,7 @@ func (t *Tangle) IsShutdown() (isShutdown bool) {
 func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
 	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, (*Block).setSolid, opts...)
 	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
-	t.solidifier.Events.Drop.Attach(event.NewClosure(func(blockMetadata *Block) { t.SetInvalid(blockMetadata) }))
+	t.solidifier.Events.Drop.Attach(event.NewClosure(func(block *Block) { t.SetInvalid(block) }))
 
 	return t
 }
