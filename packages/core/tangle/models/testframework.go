@@ -66,21 +66,23 @@ func (t *TestFramework) CreateBlock(alias string, blockFrameworkOptions ...optio
 		opts = append(opts, WithPayload(payload.NewGenericDataPayload([]byte(alias))))
 	}
 
-	block = NewBlock(oldOpts.ecRecord, opts...)
+	t.blocksByAlias[alias] = t.overrideEmptyOptions(NewBlock(oldOpts.ecRecord, opts...), alias)
 
-	if block.SequenceNumber() == 0 {
-		block = options.Apply(block, []options.Option[Block]{WithSequenceNumber(t.increaseSequenceNumber())})
+	return t.blocksByAlias[alias]
+}
+
+func (t *TestFramework) overrideEmptyOptions(block *Block, alias string) (updatedBlock *Block) {
+	if updatedBlock = block; updatedBlock.SequenceNumber() == 0 {
+		updatedBlock = options.Apply(updatedBlock, []options.Option[Block]{WithSequenceNumber(t.increaseSequenceNumber())})
 	}
 
-	if err := block.DetermineID(); err != nil {
+	if err := updatedBlock.DetermineID(); err != nil {
 		panic(err)
 	}
 
-	block.ID().RegisterAlias(alias)
+	updatedBlock.ID().RegisterAlias(alias)
 
-	t.blocksByAlias[alias] = block
-
-	return block
+	return updatedBlock
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.

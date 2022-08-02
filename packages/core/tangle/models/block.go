@@ -79,8 +79,7 @@ type block struct {
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
-func NewBlock(ecRecord *epoch.ECRecord, opts ...options.Option[Block],
-) *Block {
+func NewBlock(ecRecord *epoch.ECRecord, opts ...options.Option[Block]) *Block {
 	defaultPayload := payload.NewGenericDataPayload([]byte(""))
 
 	blk := model.NewStorable[BlockID, Block](&block{
