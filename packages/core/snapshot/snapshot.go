@@ -1,98 +1,86 @@
 package snapshot
 
 import (
-	"context"
+	"fmt"
 	"os"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/hive.go/serix"
 )
 
+// Snapshot contains the data to be put in a snapshot file.
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
 }
 
-func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
-	s.LedgerSnapshot = ledger.TakeSnapshot()
-}
+func init() {
+	typeSet := new(serix.TypeSettings)
+	ts := typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)
 
-func (s *Snapshot) FromFile(fileName string) (err error) {
-	bytes, err := os.ReadFile(fileName)
+	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger.OutputWithMetadata{}, ts)
 	if err != nil {
-		return errors.Errorf("failed to read file %s: %w", fileName, err)
+		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
 
-	if err = s.FromBytes(bytes); err != nil {
-		return errors.Errorf("failed to unmarshal Snapshot: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Snapshot) FromBytes(bytes []byte) (err error) {
-	s.LedgerSnapshot = new(ledger.Snapshot)
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s.LedgerSnapshot)
+	err = serix.DefaultAPI.RegisterTypeSettings(map[epoch.Index]*ledger.EpochDiff{}, ts)
 	if err != nil {
-		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
+		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
+	}
+}
+
+// CreateSnapshot creates a snapshot file to the given file path.
+func CreateSnapshot(filePath string,
+	headerProd HeaderProducerFunc,
+	utxoStatesProd UTXOStatesProducerFunc,
+	epochDiffsProd EpochDiffProducerFunc) (*ledger.SnapshotHeader, error) {
+	f, err := os.Create(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
-		output.SetID(output.M.OutputID)
-		output.Output().SetID(output.M.OutputID)
+	header, err := streamSnapshotDataTo(f, headerProd, utxoStatesProd, epochDiffsProd)
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
+
+	return header, err
+}
+
+// LoadSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
+// will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
+// consumer functions.
+func LoadSnapshot(filePath string,
+	headerConsumer HeaderConsumerFunc,
+	outputWithMetadataConsumer UTXOStatesConsumerFunc,
+	epochDiffsConsumer EpochDiffsConsumerFunc) (err error) {
+
+	f, err := os.Open(filePath)
+	defer f.Close()
+	if err != nil {
+		return fmt.Errorf("fail to open the snapshot file")
 	}
 
-	for _, epochdiff := range s.LedgerSnapshot.EpochDiffs {
-		for _, spentOutput := range epochdiff.Spent() {
-			spentOutput.SetID(spentOutput.M.OutputID)
-			spentOutput.Output().SetID(spentOutput.M.OutputID)
-		}
-		for _, createdOutput := range epochdiff.Created() {
-			createdOutput.SetID(createdOutput.M.OutputID)
-			createdOutput.Output().SetID(createdOutput.M.OutputID)
-		}
-	}
+	err = streamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
-	return nil
+	return
 }
 
-func (s *Snapshot) WriteFile(fileName string) (err error) {
-	if err = os.WriteFile(fileName, s.Bytes(), 0o644); err != nil {
-		return errors.Errorf("failed to write snapshot file %s: %w", fileName, err)
-	}
+// UTXOStatesProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
+type UTXOStatesProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
 
-	return nil
-}
+// UTXOStatesConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
+type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
-// Bytes returns a serialized version of the Snapshot.
-func (s *Snapshot) Bytes() (serialized []byte) {
-	return marshalutil.New().
-		WriteBytes(lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot))).
-		Bytes()
-}
+// EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
+type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
 
-func (s *Snapshot) String() (humanReadable string) {
-	return stringify.Struct("Snapshot",
-		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
-	)
-}
+// EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
+type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
-func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
-	pledgedValue := float64(0)
-	output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-		pledgedValue += float64(balance)
-		return true
-	})
+// HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
+type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)
 
-	nodeSnapshot.SortedTxSnapshot = append(nodeSnapshot.SortedTxSnapshot, &mana.TxSnapshot{
-		Value:     pledgedValue,
-		TxID:      output.ID().TransactionID,
-		Timestamp: outputMetadata.CreationTime(),
-	})
-}
+// HeaderConsumerFunc is the type of function that consumes snapshot header when loading a snapshot.
+type HeaderConsumerFunc func(header *ledger.SnapshotHeader)

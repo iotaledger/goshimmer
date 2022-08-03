@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/iotaledger/hive.go/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
@@ -85,9 +85,9 @@ func New(options ...Option) (ledger *Ledger) {
 	return ledger
 }
 
-// LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
-func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
-	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
+// LoadOutputWithMetadatas loads OutputWithMetadatas from a snapshot file to the storage.
+func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetadata) {
+	for _, outputWithMetadata := range outputsWithMetadatas {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
@@ -96,9 +96,12 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
 		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
 	}
+}
 
-	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
-		epochdiff, exists := snapshot.EpochDiffs[ei]
+// LoadEpochDiffs loads EpochDiffs from a snapshot file to the storage.
+func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Index]*EpochDiff) error {
+	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
+		epochdiff, exists := epochDiffs[ei]
 		if !exists {
 			panic("epoch diff not found for epoch")
 		}
@@ -118,27 +121,8 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 			l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		}
 	}
-}
 
-// TakeSnapshot returns a snapshot of the Ledger state.
-func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
-	snapshot = NewSnapshot([]*OutputWithMetadata{})
-	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
-		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || !l.Utils.OutputConfirmationState(outputMetadata.ID()).IsAccepted() {
-				return
-			}
-
-			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				outputWithMetadata := NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID())
-				snapshot.OutputsWithMetadata = append(snapshot.OutputsWithMetadata, outputWithMetadata)
-			})
-		})
-
-		return true
-	})
-
-	return snapshot
+	return nil
 }
 
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
