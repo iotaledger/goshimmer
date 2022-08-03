@@ -1077,22 +1077,27 @@ func assertEpochDiff(t *testing.T, testFramework *tangleold.BlockTestFramework, 
 
 func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	snapshot := testFramework.Snapshot()
-	snapshot.DiffEpochIndex = epoch.Index(0)
-	snapshot.FullEpochIndex = epoch.Index(0)
+	header := &ledger.SnapshotHeader{}
+	header.DiffEpochIndex = epoch.Index(0)
+	header.FullEpochIndex = epoch.Index(0)
 
 	var createMetadata []*ledger.OutputWithMetadata
 	for _, metadata := range snapshot.OutputsWithMetadata {
 		createMetadata = append(createMetadata, metadata)
 	}
+	header.OutputWithMetadataCount = uint64(len(snapshot.OutputsWithMetadata))
 	snapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
 
-	ecRecord := epoch.NewECRecord(snapshot.FullEpochIndex)
+	ecRecord := epoch.NewECRecord(header.FullEpochIndex)
 	ecRecord.SetECR(epoch.MerkleRoot{})
 	ecRecord.SetPrevEC(epoch.MerkleRoot{})
-	snapshot.LatestECRecord = ecRecord
+	header.LatestECRecord = ecRecord
+	snapshot.Header = header
 
-	m.LoadSnapshot(snapshot)
+	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
+	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
+	m.LoadECandEIs(snapshot.Header)
 }
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {
