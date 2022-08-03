@@ -201,23 +201,32 @@ func GetPendingConflictCount() map[epoch.Index]uint64 {
 }
 
 func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangle.BlockID) {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
+	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
+	blockStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var blockID tangle.BlockID
 		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
 		}
+		fmt.Println(">> unserialized BlockID:", blockID, key)
 		blockIDs = append(blockIDs, blockID)
 		return true
 	})
+
+	fmt.Println(">> GetEpochBlockIDs:", ei, len(blockIDs))
 	return
 }
 
 func GetEpochTransactions(ei epoch.Index) (txIDs []utxo.TransactionID) {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...)
+	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
+	txStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var txID utxo.TransactionID
 		if _, err := txID.Decode(key); err != nil {
 			panic("TransactionID could not be parsed!")
@@ -230,10 +239,17 @@ func GetEpochTransactions(ei epoch.Index) (txIDs []utxo.TransactionID) {
 }
 
 func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
-	createdPrefix := append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...)
-	spentPrefix := append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...)
+	spentStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(spentPrefix, func(key kvstore.Key) bool {
+	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+
+	spentStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var outputID utxo.OutputID
 		if err := outputID.FromBytes(key); err != nil {
 			panic(err)
@@ -243,7 +259,7 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 		return true
 	})
 
-	baseStore.IterateKeys(createdPrefix, func(key kvstore.Key) bool {
+	createdStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var outputID utxo.OutputID
 		if err := outputID.FromBytes(key); err != nil {
 			panic(err)
