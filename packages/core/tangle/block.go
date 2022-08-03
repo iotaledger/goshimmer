@@ -139,6 +139,12 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+func WithModelOptions(opts ...options.Option[models.Block]) options.Option[Block] {
+	return func(block *Block) {
+		options.Apply(block.Block, opts)
+	}
+}
+
 // WithMissing is a constructor Option for Blocks that initializes the given block with a specific missing flag.
 func WithMissing(missing bool) options.Option[Block] {
 	return func(block *Block) {

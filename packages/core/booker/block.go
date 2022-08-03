@@ -1,6 +1,8 @@
 package booker
 
 import (
+	"github.com/iotaledger/hive.go/generics/options"
+
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
@@ -10,10 +12,10 @@ type Block struct {
 	*tangle.Block
 }
 
-func NewBlock(block *tangle.Block) (newBlock *Block) {
-	return &Block{
+func NewBlock(block *tangle.Block, opts ...options.Option[Block]) (newBlock *Block) {
+	return options.Apply(&Block{
 		Block: block,
-	}
+	}, opts)
 }
 
 func (b *Block) IsBooked() (isBooked bool) {

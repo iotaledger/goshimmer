@@ -12,55 +12,44 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 func TestTangle_AttachBlock(t *testing.T) {
-	blockTangle := New(database.NewManager(t.TempDir()))
-	defer blockTangle.Shutdown()
-	testFramework := models.NewTestFramework()
+	testFramework := NewTestFramework(t)
+	defer testFramework.Shutdown()
 
-	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("SOLID:", metadata.ID())
 	}))
-
-	blockTangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("MISSING:", metadata.ID())
 	}))
-
-	blockTangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("REMOVED:", metadata.ID())
 	}))
-	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("INVALID:", metadata.ID())
 	}))
 
-	newBlockOne := testFramework.CreateBlock("block1", models.WithStrongParents("Genesis"))
-	newBlockTwo := testFramework.CreateBlock("block2", models.WithStrongParents("Genesis"))
-
-	blockTangle.Attach(newBlockTwo)
-
-	event.Loop.WaitUntilAllTasksProcessed()
-
-	blockTangle.Attach(newBlockOne)
+	testFramework.CreateBlock("block1")
+	testFramework.CreateBlock("block2")
+	testFramework.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	testFramework.IssueBlocks("block1").WaitUntilAllTasksProcessed()
 }
 
 func TestTangle_Shutdown(t *testing.T) {
-	db := database.NewManager(t.TempDir())
-	blockTangle := New(db)
-	blockTangle.Shutdown()
+	testFramework := NewTestFramework(t)
+	testFramework.Tangle.Shutdown()
 
-	testFramework := models.NewTestFramework()
+	newBlock := testFramework.CreateBlock("block")
 
-	newBlock := testFramework.CreateBlock("block", models.WithStrongParents("Genesis"))
-
-	_, _, err := blockTangle.Attach(newBlock)
+	_, _, err := testFramework.Tangle.Attach(newBlock)
 	assert.Error(t, err, "should not be able to attach a block after shutdown")
 
-	_, exists := blockTangle.Block(newBlock.ID())
+	_, exists := testFramework.Tangle.Block(newBlock.ID())
 	assert.False(t, exists, "block should not be in the tangle")
 
-	wasUpdated := blockTangle.SetInvalid(&Block{})
+	wasUpdated := testFramework.Tangle.SetInvalid(&Block{})
 	assert.False(t, wasUpdated, "block should not be updated")
 }
 
@@ -72,33 +61,37 @@ func TestTangle_AttachInvalid(t *testing.T) {
 
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
-	db := database.NewManager(t.TempDir())
-	blockTangle := New(db)
-	defer blockTangle.Shutdown()
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
 
 	solidBlocks := int32(0)
-	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		atomic.AddInt32(&solidBlocks, 1)
 	}))
 
 	invalidBlocks := int32(0)
-	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		atomic.AddInt32(&invalidBlocks, 1)
 	}))
-
-	testFramework := models.NewTestFramework()
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) *models.Block {
 		if idx == 0 {
-			return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents("Genesis"), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime, 0)))
+			return tf.CreateBlock(
+				fmt.Sprintf("blk%s-%d", prefix, idx),
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+			)
 		}
-		return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents(fmt.Sprintf("blk%s-%d", prefix, idx-1)), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)))
+		return tf.CreateBlock(
+			fmt.Sprintf("blk%s-%d", prefix, idx),
+			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+		)
 	}
 
-	assert.EqualValues(t, 0, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
-	blockTangle.Prune(epochCount / 2)
-	assert.EqualValues(t, epochCount/2, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, 0, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	tf.Tangle.Prune(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	blocks := make([]*models.Block, epochCount)
@@ -110,8 +103,8 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	// Attach a blocks that are not solid (skip the first one in the chain
 	for i := len(blocks) - 1; i >= 0; i-- {
 		fmt.Println("Attaching block", blocks[i].ID())
-		_, wasAttached, err := blockTangle.Attach(blocks[i])
-		if blocks[i].ID().Index() > blockTangle.maxDroppedEpoch {
+		_, wasAttached, err := tf.Tangle.Attach(blocks[i])
+		if blocks[i].ID().Index() > tf.Tangle.maxDroppedEpoch {
 			assert.True(t, wasAttached, "block should be attached")
 			assert.NoError(t, err, "should not be able to attach a block after shutdown")
 			continue
@@ -132,37 +125,41 @@ func TestTangle_Prune(t *testing.T) {
 
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
-	db := database.NewManager(t.TempDir())
-	blockTangle := New(db)
-	defer blockTangle.Shutdown()
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
 
 	solidBlocks := int32(0)
-	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("SOLID:", metadata.ID())
 		atomic.AddInt32(&solidBlocks, 1)
 	}))
 
 	invalidBlocks := int32(0)
-	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("INVALID:", metadata.ID())
 		atomic.AddInt32(&invalidBlocks, 1)
 	}))
 
-	testFramework := models.NewTestFramework()
-
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) *models.Block {
 		if idx == 0 {
-			return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents("Genesis"), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime, 0)))
+			return tf.CreateBlock(
+				fmt.Sprintf("blk%s-%d", prefix, idx),
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+			)
 		}
-		return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents(fmt.Sprintf("blk%s-%d", prefix, idx-1)), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)))
+		return tf.CreateBlock(
+			fmt.Sprintf("blk%s-%d", prefix, idx),
+			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+		)
 	}
 
-	assert.EqualValues(t, -1, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, -1, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
 
 	// Attach solid blocks
 	for i := 0; i < epochCount; i++ {
-		_, wasAttached, err := blockTangle.Attach(createNewBlock(i, ""))
+		_, wasAttached, err := tf.Tangle.Attach(createNewBlock(i, ""))
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
@@ -173,7 +170,7 @@ func TestTangle_Prune(t *testing.T) {
 		if i == 0 {
 			continue
 		}
-		_, wasAttached, err := blockTangle.Attach(blk)
+		_, wasAttached, err := tf.Tangle.Attach(blk)
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
@@ -181,24 +178,24 @@ func TestTangle_Prune(t *testing.T) {
 	event.Loop.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, int32(epochCount), atomic.LoadInt32(&solidBlocks), "all blocks should be solid")
 
-	_, exists := blockTangle.Block(testFramework.Block("blk-0").ID())
+	_, exists := tf.Tangle.Block(tf.Block("blk-0").ID())
 	assert.True(t, exists, "block should be in the tangle")
 
-	blockTangle.Prune(epochCount / 4)
+	tf.Tangle.Prune(epochCount / 4)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	assert.EqualValues(t, int32(100), atomic.LoadInt32(&invalidBlocks), "orphaned blocks should be invalid")
 
-	blockTangle.Prune(epochCount / 10)
-	assert.EqualValues(t, epochCount/4, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
+	tf.Tangle.Prune(epochCount / 10)
+	assert.EqualValues(t, epochCount/4, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
 
-	blockTangle.Prune(epochCount / 2)
-	assert.EqualValues(t, epochCount/2, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
+	tf.Tangle.Prune(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
 
-	_, exists = blockTangle.Block(testFramework.Block("blk-0").ID())
+	_, exists = tf.Tangle.Block(tf.Block("blk-0").ID())
 	assert.False(t, exists, "block should not be in the tangle")
 }
 
@@ -209,10 +206,8 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		storeDelay  = 0 * time.Millisecond
 	)
 
-	// create the tangle
-	tangle := New(database.NewManager(t.TempDir()))
-	defer tangle.Shutdown()
-	testFramework := models.NewTestFramework()
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
 
 	// map to keep track of the tips
 	tips := randommap.New[models.BlockID, models.BlockID]()
@@ -229,7 +224,7 @@ func TestTangle_MissingBlocks(t *testing.T) {
 			}
 			strongParents = append(strongParents, selectedTip.Alias())
 		}
-		blk := testFramework.CreateBlock(fmt.Sprintf("msg-%d", idx), models.WithStrongParents(strongParents...))
+		blk := tf.CreateBlock(fmt.Sprintf("msg-%d", idx), models.WithStrongParents(tf.BlockIDs(strongParents...)))
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
 			tips.Delete(blk.ParentsByType(models.StrongParentType).First())
@@ -251,51 +246,51 @@ func TestTangle_MissingBlocks(t *testing.T) {
 	// fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
 
 	invalidBlocks := int32(0)
-	tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		_ = atomic.AddInt32(&invalidBlocks, 1)
 		// t.Logf("invalid blocks %d, %s", , metadata.ID())
 	}))
 
 	missingBlocks := int32(0)
-	tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		_ = atomic.AddInt32(&missingBlocks, -1)
 		// t.Logf("missing blocks %d, %s", n, metadata.ID())
 	}))
 
 	storedBlocks := int32(0)
-	tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		_ = atomic.AddInt32(&storedBlocks, 1)
 		// t.Logf("stored blocks %d, %s", , metadata.ID())
 	}))
 
 	solidBlocks := int32(0)
-	tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		_ = atomic.AddInt32(&solidBlocks, 1)
 		// t.Logf("solid blocks %d/%d, %s", , blockCount, metadata.ID())
 	}))
 
-	tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
 		atomic.AddInt32(&missingBlocks, 1)
 
 		time.Sleep(storeDelay)
 
-		tangle.Attach(blocks[metadata.ID()])
+		tf.Tangle.Attach(blocks[metadata.ID()])
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
-		tangle.Attach(blocks[key])
+		tf.Tangle.Attach(blocks[key])
 	})
 
 	// wait until all blocks are solidified
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	for blockID := range blocks {
-		metadata, _ := tangle.Block(blockID)
+		metadata, _ := tf.Tangle.Block(blockID)
 		solidParents := 0
 		if !metadata.solid {
 			for parentID := range metadata.ParentsByType(models.StrongParentType) {
-				parentMetadata, _ := tangle.Block(parentID)
+				parentMetadata, _ := tf.Tangle.Block(parentID)
 				if parentMetadata.solid {
 					solidParents++
 				}

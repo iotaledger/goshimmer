@@ -79,8 +79,9 @@ type block struct {
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
-func NewBlock(ecRecord *epoch.ECRecord, opts ...options.Option[Block]) *Block {
+func NewBlock(opts ...options.Option[Block]) *Block {
 	defaultPayload := payload.NewGenericDataPayload([]byte(""))
+	defaultECRecord := epoch.NewECRecord(0)
 
 	blk := model.NewStorable[BlockID, Block](&block{
 		Version:         BlockVersion,
@@ -89,9 +90,9 @@ func NewBlock(ecRecord *epoch.ECRecord, opts ...options.Option[Block]) *Block {
 		IssuingTime:     time.Now(),
 		SequenceNumber:  0,
 		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
-		EI:              ecRecord.EI(),
-		ECR:             ecRecord.ECR(),
-		PrevEC:          ecRecord.PrevEC(),
+		EI:              defaultECRecord.EI(),
+		ECR:             defaultECRecord.ECR(),
+		PrevEC:          defaultECRecord.PrevEC(),
 	})
 	blk.payload = defaultPayload
 
@@ -299,8 +300,35 @@ func WithVersion(version uint8) options.Option[Block] {
 }
 
 func WithParents(parents ParentBlockIDs) options.Option[Block] {
-	return func(m *Block) {
-		m.M.Parents = parents
+	return func(b *Block) {
+		b.M.Parents = parents
+	}
+}
+
+func WithStrongParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(StrongParentType, parents)
+	}
+}
+
+func WithWeakParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(WeakParentType, parents)
+	}
+}
+
+func WithLikedInsteadParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(ShallowLikeParentType, parents)
 	}
 }
 
@@ -344,6 +372,14 @@ func WithNonce(nonce uint64) options.Option[Block] {
 func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
 	return func(b *Block) {
 		b.M.LatestConfirmedEpoch = epoch
+	}
+}
+
+func WithECRecord(ecRecord *epoch.ECRecord) options.Option[Block] {
+	return func(b *Block) {
+		b.M.EI = ecRecord.EI()
+		b.M.ECR = ecRecord.ECR()
+		b.M.PrevEC = ecRecord.PrevEC()
 	}
 }
 

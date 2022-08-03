@@ -3,13 +3,14 @@ package booker
 import (
 	"fmt"
 	"testing"
-
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
 )
 
 func Test(t *testing.T) {
-	testLedger := ledger.New()
-	testBooker := New(testLedger)
+	tf := NewTestFramework(t)
+	// defer tf.Shutdown()
 
-	fmt.Println(testBooker)
+	tf.CreateBlock("block1")
+	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+
+	fmt.Println(tf.Booker.Block(tf.Block("block1").ID()))
 }

@@ -2,6 +2,7 @@ package booker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
@@ -18,20 +20,33 @@ type Booker struct {
 	ledger       *ledger.Ledger
 	bookingOrder *causalorder.CausalOrder[models.BlockID, *Block]
 	attachments  *attachments
+	blocks       memstorage.EpochStorage[models.BlockID, *Block]
 
 	*tangle.Tangle
 }
 
-func New(ledger *ledger.Ledger, opts ...options.Option[Booker]) (newBooker *Booker) {
-	newBooker = options.Apply(&Booker{ledger: ledger}, opts)
-	newBooker.bookingOrder = causalorder.New(newBooker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
-	newBooker.bookingOrder.Events.Emit.Hook(event.NewClosure(newBooker.book))
-	newBooker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { newBooker.SetInvalid(block.Block) }))
+func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+	booker = options.Apply(&Booker{
+		ledger: ledgerInstance,
+		Tangle: tangleInstance,
+	}, opts)
+	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
+	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
+	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
 
-	return newBooker
+	tangleInstance.Events.BlockSolid.Attach(event.NewClosure(func(block *tangle.Block) {
+		fmt.Println("attached")
+		if _, err := booker.Queue(NewBlock(block)); err != nil {
+			panic(err)
+		}
+	}))
+
+	return booker
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
+	b.blocks.Get(block.ID().EpochIndex)
+
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
 		b.bookingOrder.Queue(block)
 	}

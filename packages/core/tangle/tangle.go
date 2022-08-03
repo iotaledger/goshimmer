@@ -47,12 +47,12 @@ type Tangle struct {
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(dbManager *database.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+func New(dbManager *database.Manager, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
 		Events:            newEvents(),
 		dbManager:         dbManager,
 		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		rootBlockProvider: defaultGenesisBlockProvider,
+		rootBlockProvider: rootBlockProvider,
 		maxDroppedEpoch:   -1,
 	}, opts).initSolidifier(
 		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
@@ -264,28 +264,6 @@ func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
 // isReferenceValid checks if the reference between the child and its parent is valid.
 func isReferenceValid(child *Block, parent *Block) (isValid bool) {
 	return !parent.invalid
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// WithGenesisBlockProvider sets the function that determines whether a block is a solid entrypoint.
-func WithGenesisBlockProvider(provider func(models.BlockID) *Block) options.Option[Tangle] {
-	return func(t *Tangle) {
-		t.rootBlockProvider = provider
-	}
-}
-
-var genesisMetadata = NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true))
-
-// defaultGenesisBlockProvider is a default function that determines whether a block is a solid entrypoint.
-func defaultGenesisBlockProvider(blockID models.BlockID) (block *Block) {
-	if blockID != models.EmptyBlockID {
-		return
-	}
-
-	return genesisMetadata
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
