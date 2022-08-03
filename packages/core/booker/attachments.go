@@ -3,87 +3,98 @@ package booker
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/generics/set"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
-type Attachments struct {
-	storage    *lockableMap[utxo.TransactionID, *lockableMap[epoch.Index, []*Block]]
-	pruningMap *lockableMap[epoch.Index, utxo.TransactionIDs]
+type attachments struct {
+	attachments     *memstorage.Storage[utxo.TransactionID, *memstorage.Storage[epoch.Index, *LockableSlice[*Block]]]
+	pruningMap      *memstorage.Storage[epoch.Index, set.Set[utxo.TransactionID]]
+	maxDroppedEpoch epoch.Index
 
 	sync.RWMutex
 }
 
-func (a *Attachments) Store(tx utxo.Transaction, block *Block) {
-	a.RLock()
-	defer a.RUnlock()
-
-	a.storeAttachment(a.attachmentsStorage(tx.ID(), true), block)
-	a.updatePruningMap(block.ID().EpochIndex, tx.ID())
-}
-
-func (a *Attachments) Attachments(txID utxo.TransactionID) (attachments []*Block) {
-	a.RLock()
-	defer a.RUnlock()
-
-	return a.attachments(a.attachmentsStorage(txID, false))
-}
-
-func (a *Attachments) attachments(storage *lockableMap[epoch.Index, []*Block]) (attachments []*Block) {
-	storage.RLock()
-	defer storage.RUnlock()
-
-	storage.ForEach(func(_ epoch.Index, blocks []*Block) bool {
-		attachments = append(attachments, blocks...)
-		return true
-	})
-
-	return
-}
-
-func (a *Attachments) storeAttachment(attachments *lockableMap[epoch.Index, []*Block], block *Block) {
-	attachments.Lock()
-	defer attachments.Unlock()
-
-	attachmentsOfEpoch, exists := attachments.Get(block.ID().EpochIndex)
-	if !exists {
-		attachmentsOfEpoch = make([]*Block, 0)
+func newAttachments() (newAttachments *attachments) {
+	return &attachments{
+		attachments:     memstorage.New[utxo.TransactionID, *memstorage.Storage[epoch.Index, *LockableSlice[*Block]]](),
+		pruningMap:      memstorage.New[epoch.Index, set.Set[utxo.TransactionID]](),
+		maxDroppedEpoch: -1,
 	}
-	attachments.Set(block.ID().EpochIndex, append(attachmentsOfEpoch, block))
 }
 
-func (a *Attachments) attachmentsStorage(txID utxo.TransactionID, createIfMissing bool) (storage *lockableMap[epoch.Index, []*Block]) {
-	a.storage.Lock()
-	defer a.storage.Unlock()
+func (a *attachments) Store(txID utxo.TransactionID, block *Block) {
+	a.RLock()
+	defer a.RUnlock()
 
-	storage, exists := a.storage.Get(txID)
-	if exists {
+	if block.ID().EpochIndex <= a.maxDroppedEpoch {
 		return
 	}
-	storage = newLockableMap[epoch.Index, []*Block]()
 
+	a.storeAttachment(txID, block)
+	a.updatePruningMap(block.ID().EpochIndex, txID)
+}
+
+func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
+	a.RLock()
+	defer a.RUnlock()
+
+	if txStorage := a.storage(txID, false); txStorage != nil {
+		txStorage.ForEach(func(_ epoch.Index, blocks *LockableSlice[*Block]) bool {
+			attachments = append(attachments, blocks.Slice()...)
+			return true
+		})
+	}
+
+	return
+}
+
+func (a *attachments) Prune(epochIndex epoch.Index) {
+	a.Lock()
+	defer a.Unlock()
+
+	for a.maxDroppedEpoch < epochIndex {
+		a.maxDroppedEpoch++
+		a.dropEpoch(a.maxDroppedEpoch)
+	}
+}
+
+func (a *attachments) dropEpoch(epochIndex epoch.Index) {
+	if txIDs, exists := a.pruningMap.Get(epochIndex); exists {
+		a.pruningMap.Delete(epochIndex)
+
+		txIDs.ForEach(func(txID utxo.TransactionID) {
+			if attachmentsOfTX := a.storage(txID, false); attachmentsOfTX != nil && attachmentsOfTX.Delete(epochIndex) && attachmentsOfTX.Size() == 0 {
+				a.attachments.Delete(txID)
+			}
+		})
+	}
+}
+
+func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) {
+	attachmentsOfEpoch, _ := a.storage(txID, true).RetrieveOrCreate(block.ID().EpochIndex, func() *LockableSlice[*Block] {
+		return NewLockableSlice[*Block]()
+	})
+	attachmentsOfEpoch.Append(block)
+}
+
+func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *memstorage.Storage[epoch.Index, *LockableSlice[*Block]]) {
 	if createIfMissing {
-		a.storage.Set(txID, storage)
+		storage, _ = a.attachments.RetrieveOrCreate(txID, memstorage.New[epoch.Index, *LockableSlice[*Block]])
+		return
 	}
+
+	storage, _ = a.attachments.Get(txID)
 
 	return
 }
 
-func (a *Attachments) updatePruningMap(epochIndex epoch.Index, txID utxo.TransactionID) {
-	a.pruningMap.Lock()
-	defer a.pruningMap.Unlock()
-
-	a.txIDsPerEpoch(epochIndex).Add(txID)
-}
-
-func (a *Attachments) txIDsPerEpoch(epochIndex epoch.Index) (txIDs utxo.TransactionIDs) {
-	txIDs, exists := a.pruningMap.Get(epochIndex)
-	if exists {
-		return txIDs
-	}
-
-	txIDs = utxo.NewTransactionIDs()
-	a.pruningMap.Set(epochIndex, txIDs)
-
-	return
+func (a *attachments) updatePruningMap(epochIndex epoch.Index, txID utxo.TransactionID) {
+	txIDs, _ := a.pruningMap.RetrieveOrCreate(epochIndex, func() set.Set[utxo.TransactionID] {
+		return set.New[utxo.TransactionID](true)
+	})
+	txIDs.Add(txID)
 }

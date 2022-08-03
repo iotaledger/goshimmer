@@ -2,18 +2,51 @@ package booker
 
 import (
 	"sync"
-
-	"github.com/iotaledger/hive.go/generics/shrinkingmap"
 )
 
-type lockableMap[K comparable, V any] struct {
-	*shrinkingmap.ShrinkingMap[K, V]
+// region LockableSlice ////////////////////////////////////////////////////////////////////////////////////////////////
 
-	sync.RWMutex
+type LockableSlice[T any] struct {
+	slice []T
+	mutex sync.RWMutex
 }
 
-func newLockableMap[K comparable, V any]() (newLockableMap *lockableMap[K, V]) {
-	return &lockableMap[K, V]{
-		ShrinkingMap: shrinkingmap.New[K, V](),
+func NewLockableSlice[T any]() (newLockableSlice *LockableSlice[T]) {
+	return &LockableSlice[T]{
+		slice: make([]T, 0),
 	}
 }
+
+func (l *LockableSlice[T]) Append(newElement ...T) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	l.slice = append(l.slice, newElement...)
+}
+
+func (l *LockableSlice[T]) Slice() (slice []T) {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
+	slice = make([]T, len(l.slice))
+	copy(slice, l.slice)
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LockableMap //////////////////////////////////////////////////////////////////////////////////////////////////
+
+type LockableMap[K comparable, V any] struct {
+	m     map[K]V
+	mutex sync.RWMutex
+}
+
+func NewLockableMap[K comparable, V any]() (newLockableMap *LockableMap[K, V]) {
+	return &LockableMap[K, V]{
+		m: make(map[K]V),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

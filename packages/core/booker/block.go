@@ -5,10 +5,15 @@ import (
 )
 
 type Block struct {
-	ready  bool
 	booked bool
 
 	*tangle.Block
+}
+
+func NewBlock(block *tangle.Block) (newBlock *Block) {
+	return &Block{
+		Block: block,
+	}
 }
 
 func (b *Block) IsBooked() (isBooked bool) {

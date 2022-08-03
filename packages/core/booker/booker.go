@@ -15,23 +15,38 @@ import (
 )
 
 type Booker struct {
-	ledger      *ledger.Ledger
-	orderer     *causalorder.CausalOrder[models.BlockID, *Block]
-	attachments *Attachments
+	ledger       *ledger.Ledger
+	bookingOrder *causalorder.CausalOrder[models.BlockID, *Block]
+	attachments  *attachments
 
 	*tangle.Tangle
 }
 
-func New(opts ...options.Option[Booker]) (newBooker *Booker) {
-	return options.Apply(&Booker{}, opts).initOrder()
+func New(ledger *ledger.Ledger, opts ...options.Option[Booker]) (newBooker *Booker) {
+	newBooker = options.Apply(&Booker{ledger: ledger}, opts)
+	newBooker.bookingOrder = causalorder.New(newBooker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
+	newBooker.bookingOrder.Events.Emit.Hook(event.NewClosure(newBooker.book))
+	newBooker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { newBooker.SetInvalid(block.Block) }))
+
+	return newBooker
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
-		b.orderer.Queue(block)
+		b.bookingOrder.Queue(block)
 	}
 
 	return
+}
+
+func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
+	return
+}
+
+// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
+func (b *Booker) init(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Booker) {
+
+	return b
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -40,7 +55,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 		return true, nil
 	}
 
-	b.attachments.Store(tx, block)
+	b.attachments.Store(tx.ID(), block)
 
 	if err = b.ledger.StoreAndProcessTransaction(
 		context.WithValue(context.Background(), "blockID", block.ID()), tx,
@@ -51,19 +66,11 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	return err == nil, err
 }
 
-func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	return
-}
-
-// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
-func (b *Booker) initOrder(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Booker) {
-	b.orderer = causalorder.New(b.Block, (*Block).IsBooked, (*Block).setBooked, opts...)
-	b.orderer.Events.Emit.Hook(event.NewClosure(b.book))
-	b.orderer.Events.Drop.Attach(event.NewClosure(func(block *Block) { b.SetInvalid(block.Block) }))
-
-	return b
-}
-
 func (b *Booker) book(block *Block) {
 
+}
+
+// isReferenceValid checks if the reference between the child and its parent is valid.
+func isReferenceValid(child *Block, parent *Block) (isValid bool) {
+	return !parent.IsInvalid()
 }
