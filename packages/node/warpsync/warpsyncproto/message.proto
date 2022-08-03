@@ -19,6 +19,7 @@ message EpochBlocks {
   int64 EI = 1;
   bytes EC = 2;
   repeated bytes blocks = 3;
+  int64 epochBlocksCount = 4;
 }
 
 message EpochBlocksEnd {

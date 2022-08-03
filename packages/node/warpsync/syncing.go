@@ -13,15 +13,16 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
 )
 
 type epochSyncBlock struct {
-	ei    epoch.Index
-	ec    epoch.EC
-	block *tangle.Block
-	peer  *peer.Peer
+	ei               epoch.Index
+	ec               epoch.EC
+	block            *tangle.Block
+	peer             *peer.Peer
+	epochBlocksCount int64
 }
 
 type epochSyncEnd struct {
@@ -59,9 +60,13 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 		tangleRoots[ei] = smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
 		m.requestEpochBlocks(ei, epoch.ComputeEC(ecChain[ei]))
 	}
-	toReceive := end - start - 1
 
-readLoop:
+	// Counters for the number of blocks received and the number of blocks in the epoch.
+	epochsToReceive := end - start - 1
+	epochBlocksToReceive := make(map[epoch.Index]int64)
+	epochBlocksReceived := make(map[epoch.Index]map[tangle.BlockID]types.Empty)
+
+blocksReadLoop:
 	for {
 		select {
 		case epochSyncBlock := <-m.epochSyncBlockChan:
@@ -80,16 +85,41 @@ readLoop:
 			}
 			if epochBlocks[ei] == nil {
 				epochBlocks[ei] = make([]*blockReceived, 0)
+				epochBlocksReceived[ei] = make(map[tangle.BlockID]types.Empty)
 			}
 
-			m.log.Debugw("read block", "peer", epochSyncBlock.peer.ID(), "EI", ei, "blockID", epochSyncBlock.block.ID())
-
 			block := epochSyncBlock.block
+			if _, exists := epochBlocksReceived[ei][block.ID()]; exists {
+				continue
+			}
+			if _, exists := epochBlocksToReceive[ei]; !exists {
+				epochBlocksToReceive[ei] = epochSyncBlock.epochBlocksCount
+			}
+
+			m.log.Debugw("read block", "peer", epochSyncBlock.peer.ID(), "EI", ei, "blockID", block.ID())
+
 			tangleRoots[ei].Update(block.IDBytes(), block.IDBytes())
 			epochBlocks[ei] = append(epochBlocks[ei], &blockReceived{
 				block: block,
 				peer:  epochSyncBlock.peer,
 			})
+
+			epochBlocksReceived[ei][block.ID()] = types.Void
+			epochBlocksToReceive[ei]--
+			if epochBlocksToReceive[ei] == 0 {
+				epochsToReceive--
+				if epochsToReceive == 0 {
+					break blocksReadLoop
+				}
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("cancelled while syncing epoch range %d to %d: %s", start, end, ctx.Err())
+		}
+	}
+
+terminatorsReadLoop:
+	for {
+		select {
 		case epochSyncEnd := <-m.epochSyncEndChan:
 			ei := epochSyncEnd.ei
 			ec := epochSyncEnd.ec
@@ -109,10 +139,10 @@ readLoop:
 			epochSyncEnds[ei] = epochSyncEnd
 			m.log.Debugw("read epoch end", "EI", ei)
 
-			toReceive--
-			m.log.Debugf("epochs left %d", toReceive)
-			if toReceive == 0 {
-				break readLoop
+			epochsToReceive--
+			m.log.Debugf("epochs left %d", epochsToReceive)
+			if epochsToReceive == 0 {
+				break terminatorsReadLoop
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("cancelled while syncing epoch range %d to %d: %s", start, end, ctx.Err())
@@ -181,6 +211,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 		return
 	}
 	blockIDs := epochstorage.GetEpochBlockIDs(ei)
+	epochBlocksCount := len(blockIDs)
 
 	// Send epoch's blocks in batches.
 	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
@@ -197,9 +228,10 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 		}
 
 		blocksRes := &wp.EpochBlocks{
-			EI:     int64(ei),
-			EC:     ec.Bytes(),
-			Blocks: blocksBytes,
+			EI:               int64(ei),
+			EC:               ec.Bytes(),
+			Blocks:           blocksBytes,
+			EpochBlocksCount: int64(epochBlocksCount),
 		}
 		packet := &wp.Packet{Body: &wp.Packet_EpochBlocks{EpochBlocks: blocksRes}}
 
@@ -234,16 +266,19 @@ func (m *Manager) processEpochBlocksPacket(packetEpochBlocks *wp.Packet_EpochBlo
 
 	for _, blockBytes := range blocksBytes {
 		block := new(tangle.Block)
-		if _, err := serix.DefaultAPI.Decode(context.Background(), blockBytes, block); err != nil {
+		if err := block.FromBytes(blockBytes); err != nil {
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return
 		}
 		m.epochSyncBlockChan <- &epochSyncBlock{
-			ei:    ei,
-			ec:    epoch.NewMerkleRoot(packetEpochBlocks.EpochBlocks.GetEC()),
-			peer:  nbr.Peer,
-			block: block,
+			ei:               ei,
+			ec:               epoch.NewMerkleRoot(packetEpochBlocks.EpochBlocks.GetEC()),
+			peer:             nbr.Peer,
+			block:            block,
+			epochBlocksCount: packetEpochBlocks.EpochBlocks.GetEpochBlocksCount(),
 		}
+
+		m.log.Debugw("write block", "blockID", block.ID())
 	}
 }
 
