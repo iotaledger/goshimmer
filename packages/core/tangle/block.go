@@ -441,6 +441,14 @@ func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, is
 	return blk, nil
 }
 
+// FromBytes unmarshals a Block from a sequence of bytes.
+func (m *Block) FromBytes(bytes []byte) (err error) {
+	if err = m.Storable.FromBytes(bytes); err != nil {
+		return
+	}
+	return m.DetermineID()
+}
+
 // VerifySignature verifies the Signature of the block.
 func (m *Block) VerifySignature() (valid bool, err error) {
 	blkBytes, err := m.Bytes()
