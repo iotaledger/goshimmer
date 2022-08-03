@@ -10,36 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
-
-func TestTangleAttach(t *testing.T) {
-	tangle := New(database.NewManager(t.TempDir()))
-
-	testFramework := models.NewTestFramework()
-
-	block1 := testFramework.CreateBlock("msg1", models.WithStrongParents("Genesis"))
-
-	block2 := testFramework.CreateBlock("msg2", models.WithStrongParents("msg1"))
-
-	tangle.Events.BlockMissing.Hook(event.NewClosure[*Block](func(metadata *Block) {
-		t.Logf("block %s is missing", metadata.ID())
-	}))
-
-	tangle.Events.BlockSolid.Hook(event.NewClosure[*Block](func(metadata *Block) {
-		t.Logf("block %s is solid", metadata.ID())
-	}))
-
-	tangle.Events.MissingBlockAttached.Hook(event.NewClosure[*Block](func(metadata *Block) {
-		t.Logf("missing block %s is stored", metadata.ID())
-	}))
-
-	tangle.Attach(block2)
-	tangle.Attach(block1)
-
-	event.Loop.WaitUntilAllTasksProcessed()
-}
 
 func TestTangle_AttachBlock(t *testing.T) {
 	blockTangle := New(database.NewManager(t.TempDir()))
@@ -69,6 +43,163 @@ func TestTangle_AttachBlock(t *testing.T) {
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	blockTangle.Attach(newBlockOne)
+}
+
+func TestTangle_Shutdown(t *testing.T) {
+	db := database.NewManager(t.TempDir())
+	blockTangle := New(db)
+	blockTangle.Shutdown()
+
+	testFramework := models.NewTestFramework()
+
+	newBlock := testFramework.CreateBlock("block", models.WithStrongParents("Genesis"))
+
+	_, _, err := blockTangle.Attach(newBlock)
+	assert.Error(t, err, "should not be able to attach a block after shutdown")
+
+	_, exists := blockTangle.Block(newBlock.ID())
+	assert.False(t, exists, "block should not be in the tangle")
+
+	wasUpdated := blockTangle.SetInvalid(&Block{})
+	assert.False(t, wasUpdated, "block should not be updated")
+}
+
+// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// When pruning the tangle, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
+func TestTangle_AttachInvalid(t *testing.T) {
+	t.Skip()
+	const epochCount = 100
+
+	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
+
+	db := database.NewManager(t.TempDir())
+	blockTangle := New(db)
+	defer blockTangle.Shutdown()
+
+	solidBlocks := int32(0)
+	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		atomic.AddInt32(&solidBlocks, 1)
+	}))
+
+	invalidBlocks := int32(0)
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		atomic.AddInt32(&invalidBlocks, 1)
+	}))
+
+	testFramework := models.NewTestFramework()
+
+	// create a helper function that creates the blocks
+	createNewBlock := func(idx int, prefix string) *models.Block {
+		if idx == 0 {
+			return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents("Genesis"), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime, 0)))
+		}
+		return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents(fmt.Sprintf("blk%s-%d", prefix, idx-1)), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)))
+	}
+
+	assert.EqualValues(t, 0, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	blockTangle.Prune(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	blocks := make([]*models.Block, epochCount)
+	// Attach solid blocks
+	for i := 0; i < epochCount; i++ {
+		blocks[i] = createNewBlock(i, "")
+	}
+
+	// Attach a blocks that are not solid (skip the first one in the chain
+	for i := len(blocks) - 1; i >= 0; i-- {
+		fmt.Println("Attaching block", blocks[i].ID())
+		_, wasAttached, err := blockTangle.Attach(blocks[i])
+		if blocks[i].ID().Index() > blockTangle.maxDroppedEpoch {
+			assert.True(t, wasAttached, "block should be attached")
+			assert.NoError(t, err, "should not be able to attach a block after shutdown")
+			continue
+		}
+		assert.False(t, wasAttached, "block should not be attached")
+		assert.Error(t, err, "should not be able to attach a block to a pruned epoch")
+	}
+	event.Loop.WaitUntilAllTasksProcessed()
+	assert.EqualValues(t, 0, atomic.LoadInt32(&solidBlocks), "all blocks should be solid")
+	assert.EqualValues(t, epochCount/2, atomic.LoadInt32(&invalidBlocks), "all blocks should be solid")
+
+}
+
+// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// When pruning the tangle, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
+func TestTangle_Prune(t *testing.T) {
+	const epochCount = 100
+
+	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
+
+	db := database.NewManager(t.TempDir())
+	blockTangle := New(db)
+	defer blockTangle.Shutdown()
+
+	solidBlocks := int32(0)
+	blockTangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("SOLID:", metadata.ID())
+		atomic.AddInt32(&solidBlocks, 1)
+	}))
+
+	invalidBlocks := int32(0)
+	blockTangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		fmt.Println("INVALID:", metadata.ID())
+		atomic.AddInt32(&invalidBlocks, 1)
+	}))
+
+	testFramework := models.NewTestFramework()
+
+	// create a helper function that creates the blocks
+	createNewBlock := func(idx int, prefix string) *models.Block {
+		if idx == 0 {
+			return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents("Genesis"), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime, 0)))
+		}
+		return testFramework.CreateBlock(fmt.Sprintf("blk%s-%d", prefix, idx), models.WithStrongParents(fmt.Sprintf("blk%s-%d", prefix, idx-1)), models.WithBlockIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)))
+	}
+
+	assert.EqualValues(t, -1, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+
+	// Attach solid blocks
+	for i := 0; i < epochCount; i++ {
+		_, wasAttached, err := blockTangle.Attach(createNewBlock(i, ""))
+		assert.True(t, wasAttached, "block should be attached")
+		assert.NoError(t, err, "should not be able to attach a block after shutdown")
+	}
+
+	// Attach a blocks that are not solid (skip the first one in the chain
+	for i := 0; i < epochCount; i++ {
+		blk := createNewBlock(i, "-orphan")
+		if i == 0 {
+			continue
+		}
+		_, wasAttached, err := blockTangle.Attach(blk)
+		assert.True(t, wasAttached, "block should be attached")
+		assert.NoError(t, err, "should not be able to attach a block after shutdown")
+	}
+
+	event.Loop.WaitUntilAllTasksProcessed()
+	assert.EqualValues(t, int32(epochCount), atomic.LoadInt32(&solidBlocks), "all blocks should be solid")
+
+	_, exists := blockTangle.Block(testFramework.Block("blk-0").ID())
+	assert.True(t, exists, "block should be in the tangle")
+
+	blockTangle.Prune(epochCount / 4)
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	assert.EqualValues(t, epochCount/4, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
+
+	// All orphan blocks should be marked as invalid due to invalidity propagation.
+	assert.EqualValues(t, int32(100), atomic.LoadInt32(&invalidBlocks), "orphaned blocks should be invalid")
+
+	blockTangle.Prune(epochCount / 10)
+	assert.EqualValues(t, epochCount/4, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
+
+	blockTangle.Prune(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, blockTangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
+
+	_, exists = blockTangle.Block(testFramework.Block("blk-0").ID())
+	assert.False(t, exists, "block should not be in the tangle")
 }
 
 func TestTangle_MissingBlocks(t *testing.T) {

@@ -53,6 +53,7 @@ func New(dbManager *database.Manager, opts ...options.Option[Tangle]) (newTangle
 		dbManager:         dbManager,
 		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		rootBlockProvider: defaultGenesisBlockProvider,
+		maxDroppedEpoch:   -1,
 	}, opts).initSolidifier(
 		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 	)
@@ -105,6 +106,12 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // Prune is used to prune the Tangle of all Blocks that are too old.
 func (t *Tangle) Prune(epochIndex epoch.Index) {
+	t.solidifier.Prune(epochIndex)
+
+	t.prune(epochIndex)
+}
+
+func (t *Tangle) prune(epochIndex epoch.Index) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -112,11 +119,10 @@ func (t *Tangle) Prune(epochIndex epoch.Index) {
 		return
 	}
 
-	for t.maxDroppedEpoch++; t.maxDroppedEpoch <= epochIndex; t.maxDroppedEpoch++ {
+	for t.maxDroppedEpoch < epochIndex {
+		t.maxDroppedEpoch++
 		t.memStorage.Drop(t.maxDroppedEpoch)
 	}
-
-	t.solidifier.Prune(epochIndex)
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).

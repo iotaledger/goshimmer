@@ -46,6 +46,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		isReferenceValid:        func(entity Entity, parent Entity) bool { return true },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
+		maxDroppedEpoch:         -1,
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
 }
@@ -75,38 +76,46 @@ func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
 	c.pruningMutex.Lock()
 	defer c.pruningMutex.Unlock()
+	c.unorderedChildrenMutex.Lock()
+	defer c.unorderedChildrenMutex.Unlock()
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
 
 	if epochIndex <= c.maxDroppedEpoch {
 		return
 	}
 
 	droppedEntities = make(map[ID]Entity)
-	for currentEpoch := c.maxDroppedEpoch + 1; currentEpoch <= epochIndex; currentEpoch++ {
-		c.dropEntitiesFromEpoch(currentEpoch, func(id ID) {
+	for c.maxDroppedEpoch < epochIndex {
+		c.maxDroppedEpoch++
+		c.dropEntitiesFromEpoch(c.maxDroppedEpoch, func(id ID) {
 			if _, exists := droppedEntities[id]; !exists {
 				droppedEntities[id] = c.entity(id)
 			}
 		})
 	}
-	c.maxDroppedEpoch = epochIndex
 
 	return droppedEntities
 }
 
 func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
-	c.unorderedChildren.Get(epochIndex).ForEachKey(func(id ID) bool {
-		entityCallback(id)
+	if childrenStorage := c.unorderedChildren.Get(epochIndex); childrenStorage != nil {
+		childrenStorage.ForEachKey(func(id ID) bool {
+			entityCallback(id)
 
-		return true
-	})
-	c.unorderedChildren.Drop(epochIndex)
+			return true
+		})
+		c.unorderedChildren.Drop(epochIndex)
+	}
 
-	c.unorderedParentsCounter.Get(epochIndex).ForEachKey(func(id ID) bool {
-		entityCallback(id)
+	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
+		unorderedParentsCountStorage.ForEachKey(func(id ID) bool {
+			entityCallback(id)
 
-		return true
-	})
-	c.unorderedParentsCounter.Drop(epochIndex)
+			return true
+		})
+		c.unorderedParentsCounter.Drop(epochIndex)
+	}
 }
 
 func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
@@ -131,8 +140,12 @@ func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType U
 		return Invalid
 	}
 
-	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
-	if pendingParentsCount != 0 || !c.setOrdered(entity) {
+	if pendingParentsCount != 0 {
+		c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
+		return Unchanged
+	}
+
+	if !c.setOrdered(entity) {
 		return Unchanged
 	}
 
@@ -221,6 +234,10 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
 	}
 	unorderedParentsCounter--
+	if unorderedParentsCounter == 0 {
+		unorderedParentsCounterStorage.Delete(metadata.ID())
+		return
+	}
 	unorderedParentsCounterStorage.Set(metadata.ID(), unorderedParentsCounter)
 
 	return

@@ -242,6 +242,13 @@ func WithShallowLikeParents(blockAliases ...string) options.Option[BlockTestFram
 	}
 }
 
+// WithBlockIssuingTime returns a BlockOption that is used to define the issuing time of a block.
+func WithBlockIssuingTime(issuingTime time.Time) options.Option[BlockTestFrameworkBlockOptions] {
+	return func(options *BlockTestFrameworkBlockOptions) {
+		options.issuingTime = issuingTime
+	}
+}
+
 // WithReattachment returns a BlockOption that is used to select payload of which Block should be reattached.
 func WithReattachment(blockAlias string) options.Option[BlockTestFrameworkBlockOptions] {
 	return func(options *BlockTestFrameworkBlockOptions) {

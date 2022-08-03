@@ -39,7 +39,7 @@ func (b *Block) IsMissing() (isMissing bool) {
 	return b.missing
 }
 
-// IsSolid returns true if the Block is solid (the entire causal history is known)
+// IsSolid returns true if the Block is solid (the entire causal history is known).
 func (b *Block) IsSolid() (isSolid bool) {
 	b.RLock()
 	defer b.RUnlock()
