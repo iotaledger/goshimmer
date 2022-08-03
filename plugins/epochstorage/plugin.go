@@ -89,19 +89,19 @@ func configure(plugin *node.Plugin) {
 		}
 		epochOrderMutex.Unlock()
 
-		err := insertblockToEpoch(event.EI, event.BlockID)
+		err := insertBlockIntoEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
 	deps.NotarizationMgr.Events.TangleTreeRemoved.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
-		err := removeblockFromEpoch(event.EI, event.BlockID)
+		err := removeBlockFromEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
 	deps.NotarizationMgr.Events.StateMutationTreeInserted.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
-		err := insertTransactionToEpoch(event.EI, event.TransactionID)
+		err := insertTransactionIntoEpoch(event.EI, event.TransactionID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
@@ -113,7 +113,7 @@ func configure(plugin *node.Plugin) {
 		}
 	}))
 	deps.NotarizationMgr.Events.UTXOTreeInserted.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
-		err := insertOutputsToEpoch(event.EI, event.Spent, event.Created)
+		err := insertOutputsIntoEpoch(event.EI, event.Spent, event.Created)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
@@ -274,7 +274,7 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
-func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func insertBlockIntoEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -286,7 +286,7 @@ func insertblockToEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	return nil
 }
 
-func removeblockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func removeBlockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -298,7 +298,7 @@ func removeblockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	return nil
 }
 
-func insertTransactionToEpoch(ei epoch.Index, txID utxo.TransactionID) error {
+func insertTransactionIntoEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -322,7 +322,7 @@ func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	return nil
 }
 
-func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
+func insertOutputsIntoEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
 	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
