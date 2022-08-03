@@ -211,12 +211,10 @@ func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangle.BlockID) {
 		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
 		}
-		fmt.Println(">> unserialized BlockID:", blockID, key)
 		blockIDs = append(blockIDs, blockID)
 		return true
 	})
 
-	fmt.Println(">> GetEpochBlockIDs:", ei, len(blockIDs))
 	return
 }
 
