@@ -6,8 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/hive.go/serix"
 )
 
@@ -67,20 +65,6 @@ func LoadSnapshot(filePath string,
 	err = streamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
-}
-
-func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
-	pledgedValue := float64(0)
-	output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-		pledgedValue += float64(balance)
-		return true
-	})
-
-	nodeSnapshot.SortedTxSnapshot = append(nodeSnapshot.SortedTxSnapshot, &mana.TxSnapshot{
-		Value:     pledgedValue,
-		TxID:      output.ID().TransactionID,
-		Timestamp: outputMetadata.CreationTime(),
-	})
 }
 
 // UTXOStatesProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
