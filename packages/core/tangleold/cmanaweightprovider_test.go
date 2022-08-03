@@ -18,15 +18,13 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		"node3": identity.GenerateIdentity().ID(),
 	}
 
-	activeNodes := make(map[identity.ID]*epoch.ActivityLog)
+	activeNodes := make(map[epoch.Index]*epoch.ActivityLog)
+
 	for _, nodeID := range nodes {
-		a := epoch.NewActivityLog()
-
 		for i := 0; i < crypto.Randomness.Intn(100); i++ {
-			a.Add(epoch.Index(i))
+			activeNodes[epoch.Index(i)] = epoch.NewActivityLog()
+			activeNodes[epoch.Index(i)].Add(nodeID)
 		}
-
-		activeNodes[nodeID] = a
 	}
 	activeNodesBytes := activeNodesToBytes(activeNodes)
 	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)

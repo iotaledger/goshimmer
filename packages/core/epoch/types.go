@@ -6,7 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
-	"sort"
 	"strings"
 	"time"
 
@@ -178,73 +177,42 @@ func (e *ECRecord) FromBytes(bytes []byte) (err error) {
 	return
 }
 
-type NodesActivityLog map[identity.ID]*ActivityLog
+type NodesActivityLog map[Index]*ActivityLog
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	SetEpochs set.Set[Index] `serix:"0,lengthPrefixType=uint32"`
+	SetEpochs set.Set[identity.ID] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
 
 	a := &ActivityLog{
-		SetEpochs: set.New[Index](),
+		SetEpochs: set.New[identity.ID](),
 	}
 
 	return a
 }
 
-// Add adds a node activity to the log.
-func (a *ActivityLog) Add(ei Index) (added bool) {
-	return a.SetEpochs.Add(ei)
+// Add adds a node to the activity log.
+func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
+	return a.SetEpochs.Add(nodeID)
 
 }
 
 // Remove removes a node activity from the log.
-func (a *ActivityLog) Remove(ei Index) (removed bool) {
-	return a.SetEpochs.Delete(ei)
+func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
+	return a.SetEpochs.Delete(nodeID)
 }
 
-// Active returns true if the node was active between lower and upper bound.
-func (a *ActivityLog) Active(lowerBound, upperBound Index) (active bool) {
-	for ei := lowerBound; ei <= upperBound; ei++ {
-		if a.SetEpochs.Has(ei) {
-			return true
-		}
-	}
-
-	return
-}
-
-// Clean cleans up the log, meaning that old/stale times are deleted.
-// If the log ends up empty after cleaning up, empty is set to true.
-func (a *ActivityLog) Clean(cutoff Index) (empty bool) {
-	// we remove all activity records below lowerBound as we will no longer need it
-	a.SetEpochs.ForEach(func(ei Index) {
-		if ei < cutoff {
-			a.SetEpochs.Delete(ei)
-		}
-	})
-	if a.SetEpochs.Size() == 0 {
+// Active returns true if the provided node was active.
+func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
+	if a.SetEpochs.Has(nodeID) {
 		return true
 	}
-	return
-}
-
-// Epochs returns all epochs stored in this ActivityLog.
-func (a *ActivityLog) Epochs() (epochs []Index) {
-	epochs = make([]Index, 0, a.SetEpochs.Size())
-
-	// insert in order
-	a.SetEpochs.ForEach(func(ei Index) {
-		idx := sort.Search(len(epochs), func(i int) bool { return epochs[i] >= ei })
-		epochs = append(epochs[:idx+1], epochs[idx:]...)
-		epochs[idx] = ei
-	})
 
 	return
 }
@@ -253,10 +221,10 @@ func (a *ActivityLog) Epochs() (epochs []Index) {
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
-	ordered := a.Epochs()
-	for _, u := range ordered {
-		builder.WriteString(fmt.Sprintf("%d, ", u))
-	}
+	a.SetEpochs.ForEach(func(nodeID identity.ID) {
+		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
+
+	})
 	builder.WriteString(")")
 	return builder.String()
 }
@@ -265,8 +233,8 @@ func (a *ActivityLog) String() string {
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
 
-	a.SetEpochs.ForEach(func(ei Index) {
-		clone.SetEpochs.Add(ei)
+	a.SetEpochs.ForEach(func(nodeID identity.ID) {
+		clone.SetEpochs.Add(nodeID)
 	})
 
 	return clone
@@ -285,7 +253,7 @@ func (a *ActivityLog) Encode() ([]byte, error) {
 // Decode deserializes bytes into a valid object.
 func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
 
-	a.SetEpochs = set.New[Index]()
+	a.SetEpochs = set.New[identity.ID]()
 	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.SetEpochs, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse ActivityLog: %w", err)

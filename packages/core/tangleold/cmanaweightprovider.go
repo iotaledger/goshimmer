@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ func init() {
 const (
 	minimumManaThreshold = 0
 	activeNodesKey       = "WeightProviderActiveNodes"
-	activeEpochThreshold = 2
+	activeEpochThreshold = 15
 )
 
 // region CManaWeightProvider //////////////////////////////////////////////////////////////////////////////////////////
@@ -73,13 +74,13 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	a, exists := c.activeNodes[nodeID]
+	a, exists := c.activeNodes[ei]
 	if !exists {
 		a = epoch.NewActivityLog()
-		c.activeNodes[nodeID] = a
+		c.activeNodes[ei] = a
 	}
 
-	a.Add(ei)
+	a.Add(nodeID)
 }
 
 // Remove updates the underlying data structure by removing node from activity list.
@@ -87,8 +88,8 @@ func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	// we allow for removing nodes from activity list due to orphanage event
-	if a, exists := c.activeNodes[nodeID]; exists {
-		a.Remove(ei)
+	if a, exists := c.activeNodes[ei]; exists {
+		a.Remove(nodeID)
 	}
 }
 
@@ -104,32 +105,32 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 
 	mana := c.manaRetrieverFunc()
 
-	currentTime := c.timeRetrieverFunc()
-	upperBoundEpoch := epoch.IndexFromTime(currentTime)
-	lowerBoundEpoch := upperBoundEpoch - activeEpochThreshold
+	lowerBoundEpoch, upperBoundEpoch := c.activityBoundaries()
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for nodeID, al := range c.activeNodes {
-		nodeMana := mana[nodeID]
-
-		// Determine whether node was active in time window.
-		if active := al.Active(lowerBoundEpoch, upperBoundEpoch); !active {
-			if empty := al.Clean(lowerBoundEpoch); empty {
-				delete(c.activeNodes, nodeID)
+	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
+		al, ok := c.activeNodes[ei]
+		if !ok {
+			fmt.Printf("WARNING no active node for ei %v\n", ei)
+			continue
+		}
+		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+			nodeMana := mana[nodeID]
+			// Do this check after determining whether a node was active because otherwise we would never clean up
+			// the ActivityLog of nodes lower than the threshold.
+			// Skip node if it does not fulfill minimumManaThreshold.
+			if nodeMana <= minimumManaThreshold {
+				return
 			}
-			continue
-		}
-		// Do this check after determining whether a node was active because otherwise we would never clean up
-		// the ActivityLog of nodes lower than the threshold.
-		// Skip node if it does not fulfill minimumManaThreshold.
-		if nodeMana <= minimumManaThreshold {
-			continue
-		}
 
-		weights[nodeID] = nodeMana
-		totalWeight += nodeMana
+			weights[nodeID] = nodeMana
+			totalWeight += nodeMana
+		})
 	}
+	c.clean(lowerBoundEpoch)
+
 	return weights, totalWeight
 }
 
@@ -154,11 +155,48 @@ func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog)
 	return activeNodes
 }
 
+func (c *CManaWeightProvider) CurrentlyActive() (activeNodes map[identity.ID]types.Empty) {
+	lower, upper := c.activityBoundaries()
+	activeNodes = make(map[identity.ID]types.Empty)
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for ei := lower; ei <= upper; ei++ {
+		nodes, ok := c.activeNodes[ei]
+		if !ok {
+			continue
+		}
+		nodes.SetEpochs.ForEach(func(nodeID identity.ID) {
+			activeNodes[nodeID] = types.Void
+		})
+	}
+	return
+}
+
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
 type ManaRetrieverFunc func() map[identity.ID]float64
 
 // TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
+
+func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundEpoch epoch.Index) {
+	currentTime := c.timeRetrieverFunc()
+	upperBoundEpoch = epoch.IndexFromTime(currentTime)
+	lowerBoundEpoch = upperBoundEpoch - activeEpochThreshold
+	if lowerBoundEpoch < 0 {
+		lowerBoundEpoch = 0
+	}
+	return
+}
+
+// clean removes all activity logs for epochs lower than provided bound.
+func (c *CManaWeightProvider) clean(lowerBond epoch.Index) {
+	for ei := range c.activeNodes {
+		if ei < lowerBond {
+			delete(c.activeNodes, ei)
+		}
+	}
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

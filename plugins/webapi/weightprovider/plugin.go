@@ -1,7 +1,6 @@
 package weightprovider
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"net/http"
 
 	"github.com/iotaledger/hive.go/node"
@@ -34,11 +33,12 @@ func configure(_ *node.Plugin) {
 }
 
 func getNodesHandler(c echo.Context) (err error) {
-	activeNodes := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).ActiveNodes()
+	activeNodes := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).CurrentlyActive()
 
-	activeNodesString := make(map[string][]epoch.Index)
-	for nodeID, al := range activeNodes {
-		activeNodesString[nodeID.String()] = al.Epochs()
+	activeNodesString := make([]string, 0)
+
+	for id := range activeNodes {
+		activeNodesString = append(activeNodesString, id.String())
 	}
 
 	return c.JSON(http.StatusOK, activeNodesString)
