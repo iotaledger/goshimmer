@@ -1,7 +1,9 @@
 package notarization
 
 import (
+	"context"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/serix"
 	"sync"
 	"time"
 
@@ -204,6 +206,21 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
+}
+
+// LoadActivityLogs loads activity logs from the snapshot and updates the activity tree.
+func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
+	m.WriteLockLedger()
+	defer m.WriteUnlockLedger()
+
+	for ei, nodeActivity := range epochActivity {
+		for nodeID, acceptedCount := range nodeActivity.NodesLog {
+			err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID, acceptedCount)
+			if err != nil {
+				m.log.Error(err)
+			}
+		}
+	}
 }
 
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
@@ -670,6 +687,25 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 		m.bootstrapMutex.Unlock()
 		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
+}
+
+func (m *Manager) SnapshotEpochActivity(epochActivity epoch.SnapshotEpochActivity) (err error) {
+	for ei, activity := range epochActivity {
+		for nodeID := range activity.NodesLog {
+			activityTree := m.epochCommitmentFactory.commitmentTrees[ei].activityTree
+			var acceptedBlocks uint64
+			acceptedCountBytes, getErr := activityTree.Get(nodeID.Bytes())
+			if getErr != nil {
+				return errors.Wrap(getErr, "could not get activity leaf during activity log creation for snapshot")
+			}
+			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), acceptedCountBytes, &acceptedBlocks, serix.WithValidation())
+			if decodeErr != nil {
+				return errors.Wrap(decodeErr, "failed to decode acceptedCount leaf from activity tree")
+			}
+			activity.NodesLog[nodeID] = acceptedBlocks
+		}
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

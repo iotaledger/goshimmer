@@ -1200,6 +1200,7 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
 	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
 	m.LoadECandEIs(snapshot.Header)
+	m.LoadActivityLogs(snapshot.EpochActiveNodes)
 }
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {

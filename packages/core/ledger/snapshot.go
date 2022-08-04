@@ -8,10 +8,10 @@ import (
 
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
-	Header              *SnapshotHeader            `serix:"0"`
-	OutputsWithMetadata []*OutputWithMetadata      `serix:"1,lengthPrefixType=uint32"`
-	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"2,lengthPrefixType=uint32"`
-	EpochActiveNodes    epoch.NodesActivityLog     `serix:"3,lengthPrefixType=uint32"`
+	Header              *SnapshotHeader             `serix:"0"`
+	OutputsWithMetadata []*OutputWithMetadata       `serix:"1,lengthPrefixType=uint32"`
+	EpochDiffs          map[epoch.Index]*EpochDiff  `serix:"2,lengthPrefixType=uint32"`
+	EpochActiveNodes    epoch.SnapshotEpochActivity `serix:"3,lengthPrefixType=uint32"`
 }
 
 // SnapshotHeader represents the info of a snapshot.
@@ -23,7 +23,7 @@ type SnapshotHeader struct {
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
-func NewSnapshot(outputsWithMetadata []*OutputWithMetadata, activeNodes epoch.NodesActivityLog) (new *Snapshot) {
+func NewSnapshot(outputsWithMetadata []*OutputWithMetadata, activeNodes epoch.SnapshotEpochActivity) (new *Snapshot) {
 	return &Snapshot{
 		Header:              &SnapshotHeader{OutputWithMetadataCount: uint64(len(outputsWithMetadata))},
 		OutputsWithMetadata: outputsWithMetadata,

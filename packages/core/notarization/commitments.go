@@ -237,7 +237,7 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleol
 
 // insertActivityLeaf inserts nodeID to the Activity sparse merkle tree along with a counter corresponding to
 // the number of accepted blocks issued by this node.
-func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
+func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID, acceptedInc ...uint64) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
@@ -253,7 +253,13 @@ func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID ident
 			}
 		}
 	}
-	blocksAccepted++
+	// increase counter for accepted messages issued by the node
+	increase := uint64(1)
+	if len(acceptedInc) > 0 {
+		increase = acceptedInc[0]
+	}
+	blocksAccepted += increase
+
 	encodedAcceptedBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), blocksAccepted, serix.WithValidation())
 	if encodeErr != nil {
 		return errors.Wrap(encodeErr, "could not encode active count for activity leaf ")

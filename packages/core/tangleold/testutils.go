@@ -317,11 +317,11 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 }
 
 // createActivityLog create activity log and adds provided node for given time.
-func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.NodesActivityLog {
+func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.SnapshotEpochActivity {
 	ei := epoch.IndexFromTime(activityTime)
-	activeNodes := make(epoch.NodesActivityLog)
-	activeNodes[ei] = epoch.NewActivityLog()
-	activeNodes[ei].Add(nodeID)
+	activeNodes := make(epoch.SnapshotEpochActivity)
+	activeNodes[ei] = epoch.NewSnapshotNodeActivity()
+	activeNodes[ei].NodesLog[nodeID] = 1
 	return activeNodes
 }
 
@@ -939,12 +939,12 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
 
-func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
+func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+	return nil
 }
 
-// ActiveNodes mocks its interface function
-func (m *MockWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog) {
-	return
+// LoadActiveNodes mocks its interface function.
+func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
 }
 
 // Update mocks its interface function.

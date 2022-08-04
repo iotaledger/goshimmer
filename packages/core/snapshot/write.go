@@ -143,10 +143,15 @@ func NewEpochDiffsProducer(lastConfirmedEpoch, latestCommittableEpoch epoch.Inde
 	}
 }
 
-func NewActivityLogProducer(provider tangleold.WeightProvider) ActivityLogProducerFunc {
-	activityLog := provider.ActiveNodes()
-
-	return func() (activityLogs epoch.NodesActivityLog) {
+// NewActivityLogProducer returns an ActivityLogProducerFunc that provides activity log from weightProvider and notarization manager.
+func NewActivityLogProducer(provider tangleold.WeightProvider, notarizationMgr *notarization.Manager) ActivityLogProducerFunc {
+	activityLog := provider.SnapshotEpochActivity()
+	// fill in the accepted count for activity records
+	err := notarizationMgr.SnapshotEpochActivity(activityLog)
+	if err != nil {
+		panic(err)
+	}
+	return func() (activityLogs epoch.SnapshotEpochActivity) {
 		return activityLog
 	}
 }

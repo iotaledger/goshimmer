@@ -264,3 +264,19 @@ func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type SnapshotEpochActivity map[Index]*SnapshotNodeActivity
+
+func NewSnapshotEpochActivity() map[Index]*SnapshotNodeActivity {
+	return make(SnapshotEpochActivity)
+}
+
+type SnapshotNodeActivity struct {
+	NodesLog map[identity.ID]uint64 `serix:"0,lengthPrefixType=uint32"`
+}
+
+func NewSnapshotNodeActivity() *SnapshotNodeActivity {
+	return &SnapshotNodeActivity{
+		NodesLog: make(map[identity.ID]uint64),
+	}
+}

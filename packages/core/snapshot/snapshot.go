@@ -78,10 +78,10 @@ type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff,
 type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
 // ActivityLogProducerFunc is the type of function that produces ActivityLog when loading a snapshot.
-type ActivityLogProducerFunc func() (activityLogs epoch.NodesActivityLog)
+type ActivityLogProducerFunc func() (activityLogs epoch.SnapshotEpochActivity)
 
 // ActivityLogConsumerFunc is the type of function that consumes Activity logs when loading a snapshot.
-type ActivityLogConsumerFunc func(activityLogs epoch.NodesActivityLog)
+type ActivityLogConsumerFunc func(activityLogs epoch.SnapshotEpochActivity)
 
 // HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
 type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)

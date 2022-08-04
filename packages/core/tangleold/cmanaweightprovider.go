@@ -134,25 +134,28 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	return weights, totalWeight
 }
 
+func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+	epochActivity = epoch.NewSnapshotEpochActivity()
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for ei, al := range c.activeNodes {
+		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+			if _, ok := epochActivity[ei]; !ok {
+				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
+			}
+			epochActivity[ei].NodesLog[nodeID] = 0
+		})
+	}
+	return
+}
+
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
 		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
 	}
-}
-
-// ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog) {
-	activeNodes = make(epoch.NodesActivityLog)
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	for nodeID, al := range c.activeNodes {
-		activeNodes[nodeID] = al.Clone()
-	}
-
-	return activeNodes
 }
 
 func (c *CManaWeightProvider) CurrentlyActive() (activeNodes map[identity.ID]types.Empty) {
@@ -171,6 +174,20 @@ func (c *CManaWeightProvider) CurrentlyActive() (activeNodes map[identity.ID]typ
 		})
 	}
 	return
+}
+
+// ActiveNodes returns the map of the active nodes.
+func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog) {
+	activeNodes = make(epoch.NodesActivityLog)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for nodeID, al := range c.activeNodes {
+		activeNodes[nodeID] = al.Clone()
+	}
+
+	return activeNodes
 }
 
 // LoadActiveNodes loads the activity log to weight provider.

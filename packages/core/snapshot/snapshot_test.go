@@ -31,7 +31,7 @@ var nodesToPledge = []string{
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	epochDiffs          = make(map[epoch.Index]*ledger.EpochDiff)
-	activityLog         = make(epoch.NodesActivityLog)
+	activityLog         = make(epoch.SnapshotEpochActivity)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 )
 
@@ -93,16 +93,16 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return epochDiffs, nil
 	}
 
-	activityLogProd := func() epoch.NodesActivityLog {
+	activityLogProd := func() epoch.SnapshotEpochActivity {
 		for ei := fullEpochIndex - 1; ei <= diffEpochIndex; ei++ {
-			activityLog[epoch.Index(ei)] = epoch.NewActivityLog()
+			activityLog[epoch.Index(ei)] = epoch.NewSnapshotNodeActivity()
 
 			for _, str := range nodesToPledge {
 				nodeID, decodeErr := identity.DecodeIDBase58(str)
 				require.NoError(t, decodeErr)
 
 				for r := 0; r < rand.Intn(10); r++ {
-					activityLog[epoch.Index(ei)].Add(nodeID)
+					activityLog[epoch.Index(ei)].NodesLog[nodeID] = 1
 				}
 			}
 		}
@@ -115,7 +115,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff, activity epoch.NodesActivityLog) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
@@ -125,8 +125,8 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
 	}
-	activityLogConsumer := func(al epoch.NodesActivityLog) {
-		activity = al
+	activityLogConsumer := func(ea epoch.SnapshotEpochActivity) {
+		activity = ea
 	}
 
 	err := LoadSnapshot(snapshotFileName, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer, activityLogConsumer)
@@ -216,7 +216,7 @@ func compareEpochDiffs(t *testing.T, created, unmarshal map[epoch.Index]*ledger.
 	}
 }
 
-func compareActivityLogs(t *testing.T, created, unmarshal epoch.NodesActivityLog) {
+func compareActivityLogs(t *testing.T, created, unmarshal epoch.SnapshotEpochActivity) {
 	assert.Equal(t, len(created), len(unmarshal))
 	for ei, al := range created {
 		uLog, ok := unmarshal[ei]
@@ -225,10 +225,11 @@ func compareActivityLogs(t *testing.T, created, unmarshal epoch.NodesActivityLog
 	}
 }
 
-func compareActivityLog(t *testing.T, created, unmarshal *epoch.ActivityLog) {
-	require.Equal(t, created.SetEpochs.Size(), unmarshal.SetEpochs.Size())
-	created.SetEpochs.ForEach(func(nodeID identity.ID) {
-		has := unmarshal.SetEpochs.Has(nodeID)
-		require.True(t, has)
-	})
+func compareActivityLog(t *testing.T, created, unmarshal *epoch.SnapshotNodeActivity) {
+	require.Equal(t, len(created.NodesLog), len(unmarshal.NodesLog))
+	for nodeID, acceptedCount := range created.NodesLog {
+		same := unmarshal.NodesLog[nodeID] == acceptedCount
+		require.True(t, same)
+
+	}
 }

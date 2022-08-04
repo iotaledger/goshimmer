@@ -64,7 +64,7 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	headerPord := headerProducer(ecRecord, lastConfirmedEpoch)
 	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.NotarizationMgr)
 	epochDiffsProd := snapshot.NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), deps.NotarizationMgr)
-	activityLogProd := snapshot.NewActivityLogProducer(deps.Tangle.WeightProvider)
+	activityLogProd := snapshot.NewActivityLogProducer(deps.Tangle.WeightProvider, deps.NotarizationMgr)
 
 	header, err := snapshot.CreateSnapshot(snapshotFileName, headerPord, outputWithMetadataProd, epochDiffsProd, activityLogProd)
 	if err != nil {

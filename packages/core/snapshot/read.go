@@ -49,9 +49,9 @@ func streamSnapshotDataFrom(reader io.ReadSeeker, headerConsumer HeaderConsumerF
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 	epochDiffsConsumer(header, epochDiffs)
-	//
-	//activityLog, err := readActivityLog(scanner)
-	//activityLogConsumer(activityLog)
+
+	activityLog, err := readActivityLog(scanner)
+	activityLogConsumer(activityLog)
 
 	return nil
 }
@@ -139,8 +139,8 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 }
 
 // readActivityLog consumes the ActivityLog from the given reader.
-func readActivityLog(scanner *bufio.Scanner) (activityLogs epoch.NodesActivityLog, err error) {
-	activityLogs = make(epoch.NodesActivityLog)
+func readActivityLog(scanner *bufio.Scanner) (activityLogs epoch.SnapshotEpochActivity, err error) {
+	activityLogs = epoch.NewSnapshotEpochActivity()
 
 	scanner.Scan()
 	data := scanner.Bytes()

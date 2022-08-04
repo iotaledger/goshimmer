@@ -355,8 +355,8 @@ type WeightProvider interface {
 	// WeightsOfRelevantVoters returns all relevant weights.
 	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
-	// ActiveNodes returns the copy of underlying activity log.
-	ActiveNodes() (activeNodes epoch.NodesActivityLog)
+	// SnapshotEpochActivity returns the activity log for snapshotting.
+	SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity)
 
 	// LoadActiveNodes loads active nodes.
 	LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog)
