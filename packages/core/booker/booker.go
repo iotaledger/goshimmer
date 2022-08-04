@@ -55,7 +55,6 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
 
 	tangleInstance.Events.BlockSolid.Attach(event.NewClosure(func(block *tangle.Block) {
-		fmt.Println("attached")
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}

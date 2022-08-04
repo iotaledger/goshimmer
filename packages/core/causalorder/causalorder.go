@@ -221,7 +221,6 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 
 	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
 	if unorderedParentsCounterStorage == nil {
-		// entity was already dropped and can never be considered as ordered
 		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
 	}
 

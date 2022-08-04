@@ -56,7 +56,7 @@ func (t *TestFramework) Setup() {
 	}))
 
 	t.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("REMOVED: %s", metadata.ID())
+		t.t.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
@@ -135,14 +135,18 @@ func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...inter
 	assert.EqualValues(t.t, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
 }
 
-func (t *TestFramework) AssertChildren(storedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.t, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
-}
-
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.Tangle.Block(t.Block(alias).ID())
 	require.True(t.t, exists, "Block %s not found", alias)
 	callback(block)
+}
+
+func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
+	for alias, children := range m {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+		})
+	}
 }
 
 func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
@@ -153,10 +157,10 @@ func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 	}
 }
 
-func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
+func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
 	}
 }
