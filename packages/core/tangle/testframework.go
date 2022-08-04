@@ -5,6 +5,8 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/options"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/node/database"
@@ -18,16 +20,18 @@ type TestFramework struct {
 	Tangle       *Tangle
 	genesisBlock *Block
 
+	t *testing.T
 	*models.TestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(t *testing.T, opts ...options.Option[Tangle]) (newFramework *TestFramework) {
-	newFramework = &TestFramework{
+func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *TestFramework) {
+	t = &TestFramework{
 		genesisBlock: NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true)),
 	}
-	newFramework.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", newFramework.genesisBlock.Block))
-	newFramework.Tangle = New(database.NewManager(t.TempDir()), newFramework.rootBlockProvider, opts...)
+	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
+	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(mapdb.NewMapDB)), t.rootBlockProvider, opts...)
+	t.t = testingT
 
 	return
 }
@@ -54,6 +58,20 @@ func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 
 func (t *TestFramework) Shutdown() {
 	t.Tangle.Shutdown()
+}
+
+func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
+	for alias, isMissing := range expectedValues {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, isMissing, block.IsMissing())
+		})
+	}
+}
+
+func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
+	block, exists := t.Tangle.Block(t.Block(alias).ID())
+	assert.True(t.t, exists, "Block %s not found", alias)
+	callback(block)
 }
 
 // rootBlockProvider is a default function that determines whether a block is a root of the Tangle.

@@ -15,26 +15,31 @@ import (
 )
 
 func TestTangle_AttachBlock(t *testing.T) {
-	testFramework := NewTestFramework(t)
-	defer testFramework.Shutdown()
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
 
-	testFramework.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("SOLID:", metadata.ID())
 	}))
-	testFramework.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("MISSING:", metadata.ID())
 	}))
-	testFramework.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("REMOVED:", metadata.ID())
 	}))
-	testFramework.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		fmt.Println("INVALID:", metadata.ID())
 	}))
 
-	testFramework.CreateBlock("block1")
-	testFramework.CreateBlock("block2")
-	testFramework.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	testFramework.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("block1")
+	tf.CreateBlock("block2")
+	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+
+	tf.AssertMissing(map[string]bool{
+		"block1": true,
+		"block2": false,
+	})
 }
 
 func TestTangle_Shutdown(t *testing.T) {
