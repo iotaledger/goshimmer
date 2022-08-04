@@ -14,7 +14,7 @@ import (
 
 const utxoStatesChunkSize = 100
 
-var delimiter = []byte{';', ';'}
+var delimiter = []byte{';', ';', ';'}
 
 // streamSnapshotDataTo writes snapshot to a given writer.
 func streamSnapshotDataTo(
