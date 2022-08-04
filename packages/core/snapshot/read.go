@@ -144,7 +144,7 @@ func scanDelimiter(data []byte, atEOF bool) (advance int, token []byte, err erro
 		return 0, nil, nil
 	}
 	if i := bytes.Index(data, delimiter); i >= 0 {
-		return i + 2, data[0:i], nil
+		return i + len(delimiter), data[0:i], nil
 	}
 	// at EOF, return rest of data.
 	if atEOF {
