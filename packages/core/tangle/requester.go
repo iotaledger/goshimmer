@@ -46,7 +46,6 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
 	r.tangle.Solidifier.Events.BlockMissing.Hook(event.NewClosure(func(event *BlockMissingEvent) {
-		r.tangle.Bootstrapped()
 		r.StartRequest(event.BlockID)
 	}))
 	r.tangle.Storage.Events.MissingBlockStored.Hook(event.NewClosure(func(event *MissingBlockStoredEvent) {

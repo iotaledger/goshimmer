@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
@@ -17,11 +18,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
-// PluginName is the name of the gossip plugin.
+// PluginName is the name of the warpsync plugin.
 const PluginName = "Warpsync"
 
 var (
-	// Plugin is the plugin instance of the gossip plugin.
+	// Plugin is the plugin instance of the warpsync plugin.
 	Plugin *node.Plugin
 
 	deps = new(dependencies)
@@ -41,7 +42,17 @@ func init() {
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func(t *tangle.Tangle, p2pManager *p2p.Manager) *warpsync.Manager {
-			return warpsync.NewManager(t, p2pManager, Plugin.Logger(), warpsync.WithConcurrency(Parameters.Concurrency), warpsync.WithBlockBatchSize(Parameters.BlockBatchSize))
+			// TODO: use a different block loader function
+			loadBlockFunc := func(blockID tangle.BlockID) (*tangle.Block, error) {
+				cachedBlock := t.Storage.Block(blockID)
+				defer cachedBlock.Release()
+				block, exists := cachedBlock.Unwrap()
+				if !exists {
+					return nil, errors.Errorf("block %s not found", blockID)
+				}
+				return block, nil
+			}
+			return warpsync.NewManager(p2pManager, loadBlockFunc, t.ProcessGossipBlock, Plugin.Logger(), warpsync.WithConcurrency(Parameters.Concurrency), warpsync.WithBlockBatchSize(Parameters.BlockBatchSize))
 		}); err != nil {
 			Plugin.Panic(err)
 		}

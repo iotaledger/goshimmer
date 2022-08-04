@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 )
 
-// Events defines all the events related to the gossip protocol.
+// Events defines all the events related to the warpsync protocol.
 type Events struct {
 	// Fired when a new block was received via the gossip protocol.
 	BlockReceived *event.Event[*BlockReceivedEvent]

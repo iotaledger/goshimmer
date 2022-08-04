@@ -11,11 +11,8 @@ import (
 )
 
 func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]*epoch.ECRecord, err error) {
-	if m.validationInProgress {
-		return nil, fmt.Errorf("epoch validation already in progress")
-	}
 
-	if m.isStopped {
+	if m.IsStopped() {
 		return nil, fmt.Errorf("warpsync manager is stopped")
 	}
 
@@ -24,7 +21,7 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 
 	ecChain = make(map[epoch.Index]*epoch.ECRecord)
 
-	// We do not request the start nor the ending epoch, as we know the beginning and the end of the chain.
+	// We do not request the start nor the ending epoch, as we know the beginning (snapshot) and the end (tip received via gossip) of the chain.
 	for ei := end - 1; ei > start; ei-- {
 		m.requestEpochCommittment(ei)
 	}
@@ -36,7 +33,7 @@ readLoop:
 	for {
 		select {
 		case ecRecord := <-m.commitmentsChan:
-			m.log.Debugw("read committment", "EI", ecRecord.EI(), "EC", epoch.ComputeEC(ecRecord).Base58())
+			m.log.Debugw("read committment", "EI", ecRecord.EI(), "EC", ecRecord.ComputeEC().Base58())
 			if ecChain[ecRecord.EI()] != nil {
 				continue
 			}
@@ -60,7 +57,7 @@ readLoop:
 		if !exists {
 			return nil, fmt.Errorf("did not receive epoch commitment for epoch %d", ei)
 		}
-		if ecChain[ei+1].PrevEC() != epoch.ComputeEC(ecRecord) {
+		if ecChain[ei+1].PrevEC() != ecRecord.ComputeEC() {
 			return nil, fmt.Errorf("epoch EC of epoch %d does not match PrevEC of epoch %d", ecRecord.EI(), ei+1)
 		}
 	}
@@ -99,7 +96,7 @@ func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Pa
 
 	m.p2pManager.Send(packet, protocolID, nbr.ID())
 
-	m.log.Debugw("sent epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", epoch.ComputeEC(ecRecord).Base58())
+	m.log.Debugw("sent epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
 }
 
 func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
@@ -115,7 +112,7 @@ func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packe
 	ecRecord.SetECR(ecr)
 	ecRecord.SetPrevEC(prevEC)
 
-	m.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", epoch.ComputeEC(ecRecord).Base58())
+	m.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
 
 	m.commitmentsChan <- ecRecord
 }

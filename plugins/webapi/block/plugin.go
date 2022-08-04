@@ -134,7 +134,7 @@ func GetBlock(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			EC:                   epoch.ComputeEC(ecRecord).Base58(),
+			EC:                   ecRecord.ComputeEC().Base58(),
 			EI:                   uint64(block.EI()),
 			ECR:                  block.ECR().Base58(),
 			PrevEC:               block.PrevEC().Base58(),

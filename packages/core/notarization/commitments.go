@@ -231,7 +231,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
 		e.SetRoots(roots)
-		e.SetPrevEC(epoch.ComputeEC(prevECRecord))
+		e.SetPrevEC(prevECRecord.ComputeEC())
 		ecRecord = e
 	})
 

@@ -169,7 +169,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC0 = epoch.ComputeEC(ecRecord)
+		EC0 = ecRecord.ComputeEC()
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block1", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
@@ -187,7 +187,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, epoch.ComputeEC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block2", tangle.WithIssuingTime(issuingTime), tangle.WithStrongParents("Block1"), tangle.WithIssuer(nodes["B"].PublicKey()), tangle.WithECRecord(ecRecord))

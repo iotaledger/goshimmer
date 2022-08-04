@@ -111,7 +111,7 @@ func createExplorerBlock(blk *tangle.Block) *ExplorerBlock {
 		ConfirmationStateTime:   blockMetadata.ConfirmationStateTime().Unix(),
 		PayloadType:             uint32(blk.Payload().Type()),
 		Payload:                 ProcessPayload(blk.Payload()),
-		EC:                      epoch.ComputeEC(ecRecord).Base58(),
+		EC:                      ecRecord.ComputeEC().Base58(),
 		EI:                      uint64(blk.EI()),
 		ECR:                     blk.ECR().Base58(),
 		PrevEC:                  blk.PrevEC().Base58(),

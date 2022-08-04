@@ -210,7 +210,7 @@ func (m *Manager) OnBlockStored(block *tangle.Block) {
 		m.Events.SyncRange.Trigger(&SyncRangeEvent{
 			StartEI:   latestCommittableEI,
 			EndEI:     blockEI,
-			StartEC:   epoch.ComputeEC(m.epochCommitmentFactory.loadECRecord(latestCommittableEI)),
+			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ComputeEC(),
 			EndPrevEC: block.PrevEC(),
 		})
 	}

@@ -1,7 +1,6 @@
 package warpsync
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"google.golang.org/protobuf/proto"
@@ -19,11 +19,13 @@ const (
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangle.BlockID) ([]byte, error)
+type LoadBlockFunc func(blockId tangle.BlockID) (*tangle.Block, error)
+
+// ProcessBlockFunc defines a function that processes block's bytes from a given peer.
+type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	tangle     *tangle.Tangle
 	p2pManager *p2p.Manager
 
 	Events *Events
@@ -32,6 +34,9 @@ type Manager struct {
 
 	stopMutex sync.RWMutex
 	isStopped bool
+
+	blockLoaderFunc    LoadBlockFunc
+	blockProcessorFunc ProcessBlockFunc
 
 	concurrency    int
 	blockBatchSize int
@@ -48,15 +53,16 @@ type Manager struct {
 }
 
 // ManagerOption configures the Manager instance.
-type ManagerOption func(m *Manager)
+type ManagerOption func(*Manager)
 
 // NewManager creates a new Manager.
-func NewManager(tangle *tangle.Tangle, p2pManager *p2p.Manager, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
-		tangle:                  tangle,
 		p2pManager:              p2pManager,
 		Events:                  newEvents(),
 		log:                     log,
+		blockLoaderFunc:         blockLoaderFunc,
+		blockProcessorFunc:      blockProcessorFunc,
 		commitmentsChan:         make(chan *epoch.ECRecord),
 		epochSyncStartChan:      make(chan *epochSyncStart),
 		epochSyncBatchBlockChan: make(chan *epochSyncBatchBlock),
@@ -93,6 +99,9 @@ func WithBlockBatchSize(blockBatchSize int) ManagerOption {
 
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {
+	m.RLock()
+	defer m.RUnlock()
+
 	return m.isStopped
 }
 
@@ -118,33 +127,26 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
-		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksRequestPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochBlocksRequestPacket, packetBody, nbr)
 	case *wp.Packet_EpochBlocksStart:
-		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksStartPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochBlocksStartPacket, packetBody, nbr)
 	case *wp.Packet_EpochBlocksBatch:
-		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksBatchPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochBlocksBatchPacket, packetBody, nbr)
 	case *wp.Packet_EpochBlocksEnd:
-		if added := event.Loop.TrySubmit(func() { m.processEpochBlocksEndPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochBlocksEndPacket, packetBody, nbr)
 	case *wp.Packet_EpochCommitmentRequest:
-		if added := event.Loop.TrySubmit(func() { m.processEpochCommittmentRequestPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochCommittmentRequestPacket, packetBody, nbr)
 	case *wp.Packet_EpochCommitment:
-		if added := event.Loop.TrySubmit(func() { m.processEpochCommittmentPacket(packetBody, nbr) }); !added {
-			return fmt.Errorf("WorkerPool full: packet block discarded")
-		}
+		return submitTask(m.processEpochCommittmentPacket, packetBody, nbr)
 	default:
 		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}
+}
 
+func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) error {
+	if added := event.Loop.TrySubmit(func() { packetProcessor(packet, nbr) }); !added {
+		return errors.Errorf("WorkerPool full: packet block discarded")
+	}
 	return nil
 }
 

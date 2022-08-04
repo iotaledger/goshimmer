@@ -196,14 +196,14 @@ func (e *ECRecord) SetRoots(roots *CommitmentRoots) {
 	e.SetModified()
 }
 
-// region hashing functions ////////////////////////////////////////////////////////////////////////////////////////////
-
 // ComputeEC calculates the epoch commitment hash from the given ECRecord.
-func ComputeEC(ecRecord *ECRecord) (ec EC) {
-	ecHash := blake2b.Sum256(byteutils.ConcatBytes(ecRecord.EI().Bytes(), ecRecord.ECR().Bytes(), ecRecord.PrevEC().Bytes()))
+func (e *ECRecord) ComputeEC() (ec EC) {
+	ecHash := blake2b.Sum256(byteutils.ConcatBytes(e.EI().Bytes(), e.ECR().Bytes(), e.PrevEC().Bytes()))
 
 	return NewMerkleRoot(ecHash[:])
 }
+
+// region hashing functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // ComputeECR calculates an ECR from the tree roots.
 func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) ECR {

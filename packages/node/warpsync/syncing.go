@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -55,7 +54,6 @@ func (m *Manager) SyncRange(ctx context.Context, startEpoch, endEpoch epoch.Inde
 	m.syncingInProgress = true
 	defer func() { m.syncingInProgress = false }()
 
-	epochBlocks := make(map[epoch.Index][]*blockReceived)
 	tangleRoots := make(map[epoch.Index]*smt.SparseMerkleTree)
 	epochSyncEnds := make(map[epoch.Index]*epochSyncEnd)
 
@@ -63,7 +61,7 @@ func (m *Manager) SyncRange(ctx context.Context, startEpoch, endEpoch epoch.Inde
 	for ei := endEpoch - 1; ei > startEpoch; ei-- {
 		db, _ := database.NewMemDB()
 		tangleRoots[ei] = smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
-		m.requestEpochBlocks(ei, epoch.ComputeEC(ecChain[ei]))
+		m.requestEpochBlocks(ei, ecChain[ei].ComputeEC())
 	}
 
 	// Counters to check termination conditions.
@@ -82,7 +80,7 @@ startReadLoop:
 				m.log.Warnf("received epoch starter for epoch %d while we are syncing from %d to %d", ei, startEpoch, endEpoch)
 				continue
 			}
-			if ec != epoch.ComputeEC(ecChain[ei]) {
+			if ec != ecChain[ei].ComputeEC() {
 				m.log.Warnf("received epoch starter on wrong EC chain")
 				continue
 			}
@@ -110,7 +108,7 @@ startReadLoop:
 			epochsToReceive++
 		}
 	}
-	epochReceivedBlocks := make(map[epoch.Index]map[tangle.BlockID]types.Empty)
+	epochReceivedBlocks := make(map[epoch.Index]map[tangle.BlockID]*blockReceived)
 
 	m.log.Debug(">> BLOCKS")
 
@@ -125,7 +123,7 @@ startReadLoop:
 				m.log.Warnf("received block for epoch %d while we are syncing from %d to %d", ei, startEpoch, endEpoch)
 				continue
 			}
-			if epochSyncBlock.ec != epoch.ComputeEC(ecChain[ei]) {
+			if epochSyncBlock.ec != ecChain[ei].ComputeEC() {
 				m.log.Warnf("received block on wrong EC chain")
 				continue
 			}
@@ -133,9 +131,8 @@ startReadLoop:
 				m.log.Warnf("received block for already-ended epoch %d", ei)
 				continue
 			}
-			if epochBlocks[ei] == nil {
-				epochBlocks[ei] = make([]*blockReceived, 0)
-				epochReceivedBlocks[ei] = make(map[tangle.BlockID]types.Empty)
+			if _, exists := epochReceivedBlocks[ei]; !exists {
+				epochReceivedBlocks[ei] = make(map[tangle.BlockID]*blockReceived)
 			}
 
 			block := epochSyncBlock.block
@@ -146,20 +143,16 @@ startReadLoop:
 			m.log.Debugw("read block", "peer", epochSyncBlock.peer.ID(), "EI", ei, "blockID", block.ID())
 
 			tangleRoots[ei].Update(block.IDBytes(), block.IDBytes())
-			epochBlocks[ei] = append(epochBlocks[ei], &blockReceived{
+			epochReceivedBlocks[ei][block.ID()] = &blockReceived{
 				block: block,
 				peer:  epochSyncBlock.peer,
-			})
+			}
 
-			epochReceivedBlocks[ei][block.ID()] = types.Void
 			epochBlocksLeft[ei]--
 			m.log.Debugf("%d blocks left for epoch %d", epochBlocksLeft[ei], ei)
 			if epochBlocksLeft[ei] == 0 {
 				epochsToReceive--
 				m.log.Debugf("%d epochs left", epochsToReceive)
-				if epochsToReceive == 0 {
-					break
-				}
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("cancelled while syncing epoch range %d to %d: %s", startEpoch, endEpoch, ctx.Err())
@@ -181,7 +174,7 @@ endReadLoop:
 				m.log.Warnf("received epoch terminator for epoch %d while we are syncing from %d to %d", ei, startEpoch, endEpoch)
 				continue
 			}
-			if ec != epoch.ComputeEC(ecChain[ei]) {
+			if ec != ecChain[ei].ComputeEC() {
 				m.log.Warnf("received epoch terminator on wrong EC chain")
 				continue
 			}
@@ -218,22 +211,22 @@ endReadLoop:
 		if ei == startEpoch+1 {
 			ecRecord.SetPrevEC(startEC)
 		} else {
-			ecRecord.SetPrevEC(epoch.ComputeEC(ecChain[ei-1]))
+			ecRecord.SetPrevEC(ecChain[ei-1].ComputeEC())
 		}
 
-		if epoch.ComputeEC(ecChain[ei]) != epoch.ComputeEC(ecRecord) {
+		if ecChain[ei].ComputeEC() != ecRecord.ComputeEC() {
 			return fmt.Errorf("epoch %d EC record is not correct", ei)
 		}
 	}
 
 	// We verified the epochs contents for the range, we can now parse them.
 	for ei := startEpoch; ei <= endEpoch; ei++ {
-		for _, blockReceived := range epochBlocks[ei] {
+		for _, blockReceived := range epochReceivedBlocks[ei] {
 			blockBytes, err := blockReceived.block.Bytes()
 			if err != nil {
 				m.log.Warnf("received block from %s failed to serialize: %s", blockReceived.peer.ID(), err)
 			}
-			m.tangle.ProcessGossipBlock(blockBytes, blockReceived.peer)
+			m.blockProcessorFunc(blockBytes, blockReceived.peer)
 		}
 	}
 
@@ -260,7 +253,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 	m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
 
 	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
-	if !exists || ec != epoch.ComputeEC(ecRecord) {
+	if !exists || ec != ecRecord.ComputeEC() {
 		m.log.Debugw("epoch blocks request rejected: unknown epoch or mismatching EC", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
 		return
 	}
@@ -285,14 +278,17 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
 		blocksBytes := make([][]byte, 0)
 		for i := batchNum * m.blockBatchSize; i < len(blockIDs) && i < (batchNum+1)*m.blockBatchSize; i++ {
-			m.tangle.Storage.Block(blockIDs[i]).Consume(func(block *tangle.Block) {
-				blockBytes, err := block.Bytes()
-				if err != nil {
-					m.log.Errorf("failed to serialize block %s: %s", block.ID().String(), err)
-					return
-				}
-				blocksBytes = append(blocksBytes, blockBytes)
-			})
+			block, err := m.blockLoaderFunc(blockIDs[i])
+			if err != nil {
+				m.log.Errorf("failed to load block %s: %s", blockIDs[i], err)
+				return
+			}
+			blockBytes, err := block.Bytes()
+			if err != nil {
+				m.log.Errorf("failed to serialize block %s: %s", block.ID().String(), err)
+				return
+			}
+			blocksBytes = append(blocksBytes, blockBytes)
 		}
 
 		blocksBatchRes := &wp.EpochBlocksBatch{
