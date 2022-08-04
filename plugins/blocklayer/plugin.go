@@ -166,9 +166,11 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
+		activityLogConsumer := func(activityLog epoch.NodesActivityLog) {}
+
 		headerConsumer := func(*ledger.SnapshotHeader) {}
 
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer)
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer, activityLogConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

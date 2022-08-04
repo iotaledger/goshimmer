@@ -23,10 +23,11 @@ type SnapshotHeader struct {
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
-func NewSnapshot(outputsWithMetadata []*OutputWithMetadata) (new *Snapshot) {
+func NewSnapshot(outputsWithMetadata []*OutputWithMetadata, activeNodes epoch.NodesActivityLog) (new *Snapshot) {
 	return &Snapshot{
 		Header:              &SnapshotHeader{OutputWithMetadataCount: uint64(len(outputsWithMetadata))},
 		OutputsWithMetadata: outputsWithMetadata,
+		EpochActiveNodes:    activeNodes,
 	}
 }
 
@@ -40,7 +41,7 @@ func (s *Snapshot) String() (humanReadable string) {
 	return structBuilder.String()
 }
 
-// String returns a human-readable version of the Snapshot.
+// String returns a human-readable version of the SnapshotHeader.
 func (h *SnapshotHeader) String() (humanReadable string) {
 	return stringify.Struct("SnapshotHeader",
 		stringify.StructField("OutputWithMetadataCount", h.OutputWithMetadataCount),

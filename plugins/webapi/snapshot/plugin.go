@@ -64,8 +64,9 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	headerPord := headerProducer(ecRecord, lastConfirmedEpoch)
 	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.NotarizationMgr)
 	epochDiffsProd := snapshot.NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), deps.NotarizationMgr)
+	activityLogProd := snapshot.NewActivityLogProducer(deps.Tangle.WeightProvider)
 
-	header, err := snapshot.CreateSnapshot(snapshotFileName, headerPord, outputWithMetadataProd, epochDiffsProd)
+	header, err := snapshot.CreateSnapshot(snapshotFileName, headerPord, outputWithMetadataProd, epochDiffsProd, activityLogProd)
 	if err != nil {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))

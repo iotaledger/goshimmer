@@ -74,7 +74,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return o
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd, nil)
 
 	return
 }
@@ -126,7 +126,6 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 		fmt.Println(header)
 
-
 		return
 	}
 	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
@@ -135,7 +134,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd, nil)
 
 	return
 }

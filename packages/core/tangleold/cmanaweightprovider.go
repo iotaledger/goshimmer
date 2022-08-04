@@ -173,6 +173,18 @@ func (c *CManaWeightProvider) CurrentlyActive() (activeNodes map[identity.ID]typ
 	return
 }
 
+// LoadActiveNodes loads the activity log to weight provider.
+func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
+	for ei, al := range loadedActiveNodes {
+		if _, ok := c.activeNodes[ei]; !ok {
+			c.activeNodes[ei] = epoch.NewActivityLog()
+		}
+		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+			c.activeNodes[ei].Add(nodeID)
+		})
+	}
+}
+
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
 type ManaRetrieverFunc func() map[identity.ID]float64
 

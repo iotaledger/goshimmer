@@ -145,8 +145,11 @@ func readSnapshotFromFile(filePath string) (err error) {
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
 	}
+	activityLogConsumer := func(activity epoch.NodesActivityLog) {
+		fmt.Println(activity)
+	}
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = snapshot.LoadSnapshot(filePath, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer, activityLogConsumer)
 
 	return
 }

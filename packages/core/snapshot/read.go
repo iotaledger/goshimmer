@@ -15,11 +15,7 @@ import (
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
-func streamSnapshotDataFrom(
-	reader io.ReadSeeker,
-	headerConsumer HeaderConsumerFunc,
-	outputConsumer UTXOStatesConsumerFunc,
-	epochDiffsConsumer EpochDiffsConsumerFunc) error {
+func streamSnapshotDataFrom(reader io.ReadSeeker, headerConsumer HeaderConsumerFunc, outputConsumer UTXOStatesConsumerFunc, epochDiffsConsumer EpochDiffsConsumerFunc, activityLogConsumer ActivityLogConsumerFunc) error {
 
 	header, err := readSnapshotHeader(reader)
 	if err != nil {
@@ -53,6 +49,9 @@ func streamSnapshotDataFrom(
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 	epochDiffsConsumer(header, epochDiffs)
+	//
+	//activityLog, err := readActivityLog(scanner)
+	//activityLogConsumer(activityLog)
 
 	return nil
 }
@@ -136,6 +135,22 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 
+	return
+}
+
+// readActivityLog consumes the ActivityLog from the given reader.
+func readActivityLog(scanner *bufio.Scanner) (activityLogs epoch.NodesActivityLog, err error) {
+	activityLogs = make(epoch.NodesActivityLog)
+
+	scanner.Scan()
+	data := scanner.Bytes()
+
+	if len(data) > 0 {
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &activityLogs, serix.WithValidation())
+		if err != nil {
+			return nil, errors.Errorf("failed to parse activityLog from bytes: %w", err)
+		}
+	}
 	return
 }
 

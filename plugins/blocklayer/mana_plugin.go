@@ -249,15 +249,16 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 
 				}
-
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
+				// initialize cMana WeightProvider with snapshot
+				activityLogConsumer := func(activityLog epoch.NodesActivityLog) {
+					deps.Tangle.WeightProvider.LoadActiveNodes(activityLog)
+				}
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer, activityLogConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
 				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
 
-				// initialize cMana WeightProvider with snapshot
-				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
 				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
 					if nodeID == genesisNodeID {
