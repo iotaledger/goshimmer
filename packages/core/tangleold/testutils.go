@@ -310,9 +310,19 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
 		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
+	activeNodes := createActivityLog(manaPledgeTime, manaPledgeID)
 
-	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata, activeNodes)
 	loadSnapshotToLedger(m.tangle.Ledger, m.snapshot)
+}
+
+// createActivityLog create activity log and adds provided node for given time.
+func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.NodesActivityLog {
+	ei := epoch.IndexFromTime(activityTime)
+	activeNodes := make(epoch.NodesActivityLog)
+	activeNodes[ei] = epoch.NewActivityLog()
+	activeNodes[ei].Add(nodeID)
+	return activeNodes
 }
 
 func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
@@ -928,6 +938,14 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
+
+func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
+}
+
+// ActiveNodes mocks its interface function
+func (m *MockWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog) {
+	return
+}
 
 // Update mocks its interface function.
 func (m *MockWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
