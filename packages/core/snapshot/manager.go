@@ -35,10 +35,10 @@ func NewManager(store kvstore.KVStore, t *tangleold.Tangle, opts ...Option) (new
 	new.baseStore = store
 	new.solidEntryPoints = make(map[epoch.Index]*objectstorage.ObjectStorage[*tangleold.Block])
 
-	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(e *tangleold.BlockStoredEvent) {
+	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
 		e.Block.ForEachParent(func(parent tangleold.Parent) {
 			index := parent.ID.EpochIndex
-			if index < e.Block.EI() && index > e.Block.LatestConfirmedEpoch() {
+			if index < e.Block.EI() {
 				new.insertSolidEntryPoint(parent.ID)
 			}
 		})
@@ -83,7 +83,7 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 func (m *Manager) DumpSolidEntryPoints(lastConfirmedEpoch, latestCommittableEpoch epoch.Index) (seps map[epoch.Index][]tangleold.BlockID) {
 	seps = make(map[epoch.Index][]tangleold.BlockID)
 
-	for i := lastConfirmedEpoch; i < latestCommittableEpoch; i++ {
+	for i := lastConfirmedEpoch; i <= latestCommittableEpoch; i++ {
 		sep, ok := m.solidEntryPoints[i]
 		if ok {
 			sep.ForEach(func(_ []byte, cachedBlock *objectstorage.CachedObject[*tangleold.Block]) bool {
