@@ -1,6 +1,6 @@
-import {action, makeObservable, observable, ObservableMap} from 'mobx';
-import {registerHandler, unregisterHandler, WSBlkType} from 'utils/WS';
-import {MAX_VERTICES} from 'utils/constants';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import { registerHandler, unregisterHandler, WSBlkType } from 'utils/WS';
+import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import 'styles/style.css';
@@ -11,7 +11,7 @@ import {
     removeConfirmationStyle,
     updateConfirmedTransaction
 } from 'graph/cytoscape';
-import {utxoBooked, utxoConfirmationStateChanged, utxoVertex} from 'models/utxo';
+import { utxoBooked, utxoConfirmationStateChanged, utxoVertex } from 'models/utxo';
 
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;

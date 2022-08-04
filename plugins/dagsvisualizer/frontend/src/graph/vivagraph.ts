@@ -1,8 +1,8 @@
-import {IGraph} from './graph';
-import {default as Viva} from 'vivagraphjs';
-import {parentRefType, tangleVertex} from 'models/tangle';
+import { IGraph } from './graph';
+import { default as Viva } from 'vivagraphjs';
+import { parentRefType, tangleVertex } from 'models/tangle';
 import {COLOR, CONFLICT, LINE_TYPE, LINE_WIDTH, VERTEX} from 'styles/tangleStyles';
-import {ObservableMap} from 'mobx';
+import { ObservableMap } from 'mobx';
 
 export class vivagraphLib implements IGraph {
     graph;

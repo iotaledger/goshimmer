@@ -1,7 +1,12 @@
-import {action, makeObservable, observable, ObservableMap} from 'mobx';
-import {registerHandler, unregisterHandler, WSBlkType} from 'utils/WS';
-import {MAX_VERTICES} from 'utils/constants';
-import {tangleBooked, tangleConfirmed, tangleTxConfirmationStateChanged, tangleVertex} from 'models/tangle';
+import { action, makeObservable, observable, ObservableMap } from 'mobx';
+import { registerHandler, unregisterHandler, WSBlkType } from 'utils/WS';
+import { MAX_VERTICES } from 'utils/constants';
+import {
+    tangleBooked,
+    tangleConfirmed,
+    tangleTxConfirmationStateChanged,
+    tangleVertex
+} from 'models/tangle';
 import {
     drawBlock,
     initTangleDAG,

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {inject, observer} from 'mobx-react';
+import { inject, observer } from 'mobx-react';
 import GlobalStore from 'stores/GlobalStore';
 
 interface Props {

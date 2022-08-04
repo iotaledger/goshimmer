@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Button from 'react-bootstrap/Button';
 import GlobalStore from '../stores/GlobalStore';
-import {inject, observer} from 'mobx-react';
-import moment, {isMoment, Moment} from 'moment';
+import { inject, observer } from 'mobx-react';
+import moment, { isMoment, Moment } from 'moment';
 import Datetime from 'react-datetime';
-import {DATE_FORMAT, TIME_FORMAT} from '../utils/constants';
+import { DATE_FORMAT, TIME_FORMAT } from '../utils/constants';
 
 interface Props {
     globalStore?: GlobalStore;

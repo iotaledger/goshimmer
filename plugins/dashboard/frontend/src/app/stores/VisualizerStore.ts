@@ -1,7 +1,7 @@
-import {action, observable, ObservableMap} from 'mobx';
-import {registerHandler, WSMsgType} from "app/misc/WS";
-import {RouterStore} from "mobx-react-router";
-import {default as Viva} from 'vivagraphjs';
+import { action, observable, ObservableMap } from 'mobx';
+import { registerHandler, WSMsgType } from "app/misc/WS";
+import { RouterStore } from "mobx-react-router";
+import { default as Viva } from 'vivagraphjs';
 
 export class Vertex {
     id: string;

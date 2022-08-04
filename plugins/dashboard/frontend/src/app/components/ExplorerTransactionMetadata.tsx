@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import NodeStore from "app/stores/NodeStore";
-import {inject, observer} from "mobx-react";
+import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import {Link} from 'react-router-dom';
 import ListGroup from "react-bootstrap/ListGroup";

@@ -16,7 +16,7 @@ import {
     conflictVertex,
     conflictWeightChanged
 } from 'models/conflict';
-import {BRANCH} from '../styles/cytoscapeStyles';
+import { BRANCH } from '../styles/cytoscapeStyles';
 
 export class ConflictStore {
     @observable maxConflictVertices = MAX_VERTICES;

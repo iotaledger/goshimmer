@@ -1,10 +1,10 @@
 import * as ReactDOM from 'react-dom';
-import {Provider} from 'mobx-react';
+import { Provider } from 'mobx-react';
 import TangleStore from 'stores/TangleStore';
 import UTXOStore from 'stores/UTXOStore';
 import ConflictStore from 'stores/ConflictStore';
 import GlobalStore from 'stores/GlobalStore';
-import {Root} from 'components/Root';
+import { Root } from 'components/Root';
 import React from 'react';
 
 const tangleStore = new TangleStore();

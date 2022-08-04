@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
-import {inject, observer} from 'mobx-react';
+import { inject, observer } from 'mobx-react';
 import UTXOStore from 'stores/UTXOStore';
 import * as dateformat from 'dateformat';
 import LinkToDashboard from 'components/LinkToDashboard';
