@@ -7,3 +7,10 @@ import (
 type Events struct {
 	BlockBooked *event.Event[*Block]
 }
+
+// newEvents creates a new Events instance.
+func newEvents() *Events {
+	return &Events{
+		BlockBooked: event.New[*Block](),
+	}
+}

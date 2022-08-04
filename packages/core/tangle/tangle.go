@@ -132,8 +132,6 @@ func (t *Tangle) Shutdown() {
 
 	if !t.isShutdown {
 		t.isShutdown = true
-
-		t.dbManager.Shutdown()
 	}
 }
 
@@ -258,7 +256,7 @@ func (t *Tangle) propagateInvalidity(children []*Block) {
 
 // isTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
 func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
-	return t.rootBlockProvider(id) == nil && id.EpochIndex <= t.maxDroppedEpoch
+	return id.EpochIndex <= t.maxDroppedEpoch && t.rootBlockProvider(id) == nil
 }
 
 // isReferenceValid checks if the reference between the child and its parent is valid.

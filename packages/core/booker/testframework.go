@@ -5,21 +5,33 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 type TestFramework struct {
-	Ledger *ledger.Ledger
-	Booker *Booker
+	Booker       *Booker
+	genesisBlock *Block
 
 	*tangle.TestFramework
+	ledgerTf *ledger.TestFramework
 }
 
 func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
 	newTestFramework = &TestFramework{
-		Ledger:        ledger.New(),
 		TestFramework: tangle.NewTestFramework(t),
+		ledgerTf:      ledger.NewTestFramework(t),
+		genesisBlock:  NewBlock(tangle.NewBlock(models.NewEmptyBlock(models.EmptyBlockID), tangle.WithSolid(true)), WithBooked(true)),
 	}
-	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.Ledger)
+	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.rootBlockProvider)
 
 	return
+}
+
+// rootBlockProvider is a default function that determines whether a block is a root of the Tangle.
+func (t *TestFramework) rootBlockProvider(blockID models.BlockID) (block *Block) {
+	if blockID != t.genesisBlock.ID() {
+		return
+	}
+
+	return t.genesisBlock
 }

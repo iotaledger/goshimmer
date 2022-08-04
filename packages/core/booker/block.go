@@ -35,3 +35,14 @@ func (b *Block) setBooked() (wasUpdated bool) {
 
 	return
 }
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WithBooked is a constructor Option for Blocks that initializes the given block with a specific missing flag.
+func WithBooked(missing bool) options.Option[Block] {
+	return func(block *Block) {
+		block.booked = missing
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

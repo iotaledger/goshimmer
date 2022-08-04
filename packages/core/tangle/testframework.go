@@ -1,12 +1,14 @@
 package tangle
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/node/database"
@@ -20,7 +22,11 @@ type TestFramework struct {
 	Tangle       *Tangle
 	genesisBlock *Block
 
-	t *testing.T
+	solidBlocks    int32
+	missingBlocks  int32
+	invalidBlocks  int32
+	attachedBlocks int32
+	t              *testing.T
 	*models.TestFramework
 }
 
@@ -30,10 +36,39 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 		genesisBlock: NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true)),
 	}
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
-	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(mapdb.NewMapDB)), t.rootBlockProvider, opts...)
+	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.rootBlockProvider, opts...)
 	t.t = testingT
 
+	t.Setup()
+
 	return
+}
+
+func (t *TestFramework) Setup() {
+	t.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+		t.t.Logf("SOLID: %s", metadata.ID())
+		atomic.AddInt32(&(t.solidBlocks), 1)
+	}))
+
+	t.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+		t.t.Logf("MISSING: %s", metadata.ID())
+		atomic.AddInt32(&(t.missingBlocks), 1)
+	}))
+
+	t.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+		t.t.Logf("REMOVED: %s", metadata.ID())
+		atomic.AddInt32(&(t.missingBlocks), -1)
+	}))
+
+	t.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+		t.t.Logf("INVALID: %s", metadata.ID())
+		atomic.AddInt32(&(t.invalidBlocks), 1)
+	}))
+
+	t.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+		t.t.Logf("ATTACHED: %s", metadata.ID())
+		atomic.AddInt32(&(t.attachedBlocks), 1)
+	}))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
@@ -68,10 +103,62 @@ func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 	}
 }
 
+func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
+	for alias, isInvalid := range expectedValues {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, isInvalid, block.IsInvalid())
+		})
+	}
+}
+
+func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
+	for alias, isSolid := range expectedValues {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, isSolid, block.IsSolid())
+		})
+	}
+}
+
+func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.t, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertInvalidCount(invalidCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.t, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.t, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.t, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertChildren(storedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.t, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+}
+
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.Tangle.Block(t.Block(alias).ID())
-	assert.True(t.t, exists, "Block %s not found", alias)
+	require.True(t.t, exists, "Block %s not found", alias)
 	callback(block)
+}
+
+func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
+	for alias, children := range m {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
+		})
+	}
+}
+
+func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
+	for alias, children := range m {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+		})
+	}
 }
 
 // rootBlockProvider is a default function that determines whether a block is a root of the Tangle.

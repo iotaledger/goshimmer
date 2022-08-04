@@ -76,10 +76,6 @@ func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
 	c.pruningMutex.Lock()
 	defer c.pruningMutex.Unlock()
-	c.unorderedChildrenMutex.Lock()
-	defer c.unorderedChildrenMutex.Unlock()
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
 
 	if epochIndex <= c.maxDroppedEpoch {
 		return

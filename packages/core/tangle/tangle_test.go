@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,32 +13,68 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
+// This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
 func TestTangle_AttachBlock(t *testing.T) {
 	tf := NewTestFramework(t)
 	defer tf.Shutdown()
-
-	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("SOLID:", metadata.ID())
-	}))
-	tf.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("MISSING:", metadata.ID())
-	}))
-	tf.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("REMOVED:", metadata.ID())
-	}))
-	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("INVALID:", metadata.ID())
-	}))
-
 	tf.CreateBlock("block1")
-	tf.CreateBlock("block2")
-	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
-	tf.AssertMissing(map[string]bool{
-		"block1": true,
-		"block2": false,
-	})
+	{
+		tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+		tf.AssertMissing(map[string]bool{
+			"block1": true,
+			"block2": false,
+		})
+
+		tf.AssertSolid(map[string]bool{
+			"block1": false,
+			"block2": false,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+		})
+
+		tf.AssertStrongChildren(map[string][]string{
+			"block1": {"block2"},
+			"block2": {},
+		})
+
+		tf.AssertBlock("block1", func(block *Block) {
+			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+		})
+	}
+
+	{
+		tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+
+		tf.AssertMissing(map[string]bool{
+			"block1": false,
+			"block2": false,
+		})
+
+		tf.AssertSolid(map[string]bool{
+			"block1": true,
+			"block2": true,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+		})
+
+		tf.AssertStrongChildren(map[string][]string{
+			"block1": {"block2"},
+			"block2": {},
+		})
+
+		tf.AssertBlock("block1", func(block *Block) {
+			assert.False(t, block.Block.IssuingTime().IsZero(), "block should be attached")
+		})
+	}
+	// TODO: issue more blocks to check that children are updated correctly
 }
 
 func TestTangle_Shutdown(t *testing.T) {
@@ -69,16 +104,6 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	tf := NewTestFramework(t)
 	defer tf.Shutdown()
 
-	solidBlocks := int32(0)
-	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		atomic.AddInt32(&solidBlocks, 1)
-	}))
-
-	invalidBlocks := int32(0)
-	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		atomic.AddInt32(&invalidBlocks, 1)
-	}))
-
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) *models.Block {
 		if idx == 0 {
@@ -102,6 +127,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	blocks := make([]*models.Block, epochCount)
 	// Attach solid blocks
 	for i := 0; i < epochCount; i++ {
+		// TODO: validate each block separately
 		blocks[i] = createNewBlock(i, "")
 	}
 
@@ -118,9 +144,9 @@ func TestTangle_AttachInvalid(t *testing.T) {
 		assert.Error(t, err, "should not be able to attach a block to a pruned epoch")
 	}
 	event.Loop.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, 0, atomic.LoadInt32(&solidBlocks), "all blocks should be solid")
-	assert.EqualValues(t, epochCount/2, atomic.LoadInt32(&invalidBlocks), "all blocks should be solid")
 
+	tf.AssertSolidCount(0, "should not have any solid blocks")
+	tf.AssertInvalidCount(epochCount/2, "should have invalid blocks")
 }
 
 // This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
@@ -132,18 +158,6 @@ func TestTangle_Prune(t *testing.T) {
 
 	tf := NewTestFramework(t)
 	defer tf.Shutdown()
-
-	solidBlocks := int32(0)
-	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("SOLID:", metadata.ID())
-		atomic.AddInt32(&solidBlocks, 1)
-	}))
-
-	invalidBlocks := int32(0)
-	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		fmt.Println("INVALID:", metadata.ID())
-		atomic.AddInt32(&invalidBlocks, 1)
-	}))
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) *models.Block {
@@ -171,6 +185,7 @@ func TestTangle_Prune(t *testing.T) {
 
 	// Attach a blocks that are not solid (skip the first one in the chain
 	for i := 0; i < epochCount; i++ {
+		// TODO: check the state of each individual metadata
 		blk := createNewBlock(i, "-orphan")
 		if i == 0 {
 			continue
@@ -179,20 +194,20 @@ func TestTangle_Prune(t *testing.T) {
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
+	tf.WaitUntilAllTasksProcessed()
 
-	event.Loop.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, int32(epochCount), atomic.LoadInt32(&solidBlocks), "all blocks should be solid")
+	tf.AssertSolidCount(epochCount, "should have all solid blocks")
 
 	_, exists := tf.Tangle.Block(tf.Block("blk-0").ID())
 	assert.True(t, exists, "block should be in the tangle")
 
 	tf.Tangle.Prune(epochCount / 4)
-	event.Loop.WaitUntilAllTasksProcessed()
+	tf.WaitUntilAllTasksProcessed()
 
 	assert.EqualValues(t, epochCount/4, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
-	assert.EqualValues(t, int32(100), atomic.LoadInt32(&invalidBlocks), "orphaned blocks should be invalid")
+	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
 	tf.Tangle.Prune(epochCount / 10)
 	assert.EqualValues(t, epochCount/4, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
@@ -248,65 +263,25 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blk := createNewBlock(i)
 		blocks[blk.ID()] = blk
 	}
-	// fmt.Println("blocks generated", len(blocks), "tip pool size", tips.Size())
-
-	invalidBlocks := int32(0)
-	tf.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		_ = atomic.AddInt32(&invalidBlocks, 1)
-		// t.Logf("invalid blocks %d, %s", , metadata.ID())
-	}))
-
-	missingBlocks := int32(0)
-	tf.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		_ = atomic.AddInt32(&missingBlocks, -1)
-		// t.Logf("missing blocks %d, %s", n, metadata.ID())
-	}))
-
-	storedBlocks := int32(0)
-	tf.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		_ = atomic.AddInt32(&storedBlocks, 1)
-		// t.Logf("stored blocks %d, %s", , metadata.ID())
-	}))
-
-	solidBlocks := int32(0)
-	tf.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		_ = atomic.AddInt32(&solidBlocks, 1)
-		// t.Logf("solid blocks %d/%d, %s", , blockCount, metadata.ID())
-	}))
 
 	tf.Tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
-		atomic.AddInt32(&missingBlocks, 1)
-
 		time.Sleep(storeDelay)
 
-		tf.Tangle.Attach(blocks[metadata.ID()])
+		_, _, err := tf.Tangle.Attach(blocks[metadata.ID()])
+		assert.NoError(t, err, "should be able to attach a block")
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
-		tf.Tangle.Attach(blocks[key])
+		_, _, err := tf.Tangle.Attach(blocks[key])
+		assert.NoError(t, err, "should be able to attach a block")
 	})
 
 	// wait until all blocks are solidified
-	event.Loop.WaitUntilAllTasksProcessed()
+	tf.WaitUntilAllTasksProcessed()
 
-	for blockID := range blocks {
-		metadata, _ := tf.Tangle.Block(blockID)
-		solidParents := 0
-		if !metadata.solid {
-			for parentID := range metadata.ParentsByType(models.StrongParentType) {
-				parentMetadata, _ := tf.Tangle.Block(parentID)
-				if parentMetadata.solid {
-					solidParents++
-				}
-			}
-		}
-		if solidParents == len(metadata.ParentsByType(models.StrongParentType)) {
-			fmt.Println("block not solid but should be", metadata.ID(), metadata.solid)
-		}
-	}
-
-	assert.EqualValues(t, blockCount, atomic.LoadInt32(&storedBlocks))
-	assert.EqualValues(t, blockCount, atomic.LoadInt32(&solidBlocks))
-	assert.EqualValues(t, 0, atomic.LoadInt32(&missingBlocks))
+	tf.AssertStoredCount(blockCount, "should have all blocks")
+	tf.AssertInvalidCount(0, "should have no invalid blocks")
+	tf.AssertSolidCount(blockCount, "should have all solid blocks")
+	tf.AssertMissingCount(0, "should have no missing blocks")
 }

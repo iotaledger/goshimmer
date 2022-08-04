@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -17,18 +18,37 @@ import (
 )
 
 type Booker struct {
+	// Events contains the Events of Tangle.
+	Events *Events
+
 	ledger       *ledger.Ledger
 	bookingOrder *causalorder.CausalOrder[models.BlockID, *Block]
 	attachments  *attachments
-	blocks       memstorage.EpochStorage[models.BlockID, *Block]
+	blocks       *memstorage.EpochStorage[models.BlockID, *Block]
+
+	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
+	rootBlockProvider func(models.BlockID) *Block
+
+	// TODO: finish shutdown implementation, maybe replace with component state
+	// maxDroppedEpoch contains the highest epoch.Index that has been dropped from the Tangle.
+	maxDroppedEpoch epoch.Index
+
+	// TODO: finish shutdown implementation, maybe replace with component state
+	// isShutdown contains a flag that indicates whether the Booker was shut down.
+	isShutdown bool
 
 	*tangle.Tangle
 }
 
-func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger: ledgerInstance,
-		Tangle: tangleInstance,
+		ledger:      ledgerInstance,
+		Tangle:      tangleInstance,
+		Events:      newEvents(),
+		attachments: newAttachments(),
+		blocks:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+
+		rootBlockProvider: rootBlockProvider,
 	}, opts)
 	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
@@ -41,27 +61,38 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, opts ...o
 		}
 	}))
 
+	booker.ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
+		contextBlockID := models.BlockIDFromContext(e.Context)
+
+		for _, block := range booker.attachments.Get(e.TransactionID) {
+			if contextBlockID != block.ID() {
+				booker.bookingOrder.Queue(block)
+			}
+		}
+	}))
+
 	return booker
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
-	b.blocks.Get(block.ID().EpochIndex)
-
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
+		fmt.Println("Payload solid, queuing")
 		b.bookingOrder.Queue(block)
 	}
 
 	return
 }
 
+// Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	return
-}
+	b.RLock()
+	defer b.RUnlock()
 
-// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
-func (b *Booker) init(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Booker) {
+	if b.isShutdown {
+		return nil, false
+	}
 
-	return b
+	return b.block(id)
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -73,8 +104,9 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	b.attachments.Store(tx.ID(), block)
 
 	if err = b.ledger.StoreAndProcessTransaction(
-		context.WithValue(context.Background(), "blockID", block.ID()), tx,
+		models.BlockIDToContext(context.Background(), block.ID()), tx,
 	); errors.Is(err, ledger.ErrTransactionUnsolid) {
+		fmt.Println("Payload not solid")
 		return false, nil
 	}
 
@@ -82,7 +114,20 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 }
 
 func (b *Booker) book(block *Block) {
+	fmt.Println("booking", block.ID())
+}
 
+// block retrieves the Block with given id from the mem-storage.
+func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
+	if block = b.rootBlockProvider(id); block != nil {
+		return block, true
+	}
+
+	if id.EpochIndex <= b.maxDroppedEpoch {
+		return nil, false
+	}
+
+	return b.blocks.Get(id.EpochIndex, true).Get(id)
 }
 
 // isReferenceValid checks if the reference between the child and its parent is valid.

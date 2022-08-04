@@ -23,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +72,11 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	new.ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 	return new
+}
+
+// Ledger returns the Ledger instance that is used by the TestFramework.
+func (t *TestFramework) Ledger() *Ledger {
+	return t.ledger
 }
 
 // Transaction gets the created MockedTransaction by the given alias.
@@ -130,7 +136,7 @@ func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.Advan
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
 // by their aliases where <txAlias.outputCount>. Panics if an input does not exist.
-func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) {
+func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) (tx *MockedTransaction) {
 	mockedInputs := make([]*MockedInput, 0)
 	for _, inputAlias := range inputAliases {
 		mockedInputs = append(mockedInputs, NewMockedInput(t.OutputID(inputAlias)))
@@ -138,7 +144,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 	t.transactionsByAliasMutex.Lock()
 	defer t.transactionsByAliasMutex.Unlock()
-	tx := NewMockedTransaction(mockedInputs, outputCount)
+	tx = NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
 
@@ -152,6 +158,8 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
 	}
+
+	return tx
 }
 
 // IssueTransaction issues the transaction given by txAlias.
@@ -424,8 +432,14 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 	return lo.Map(m.M.Inputs, (*MockedInput).utxoInput)
 }
 
+// Type returns the type of the Transaction.
+func (m *MockedTransaction) Type() payload.Type {
+	return 0
+}
+
 // code contract (make sure the struct implements all required methods).
 var _ utxo.Transaction = new(MockedTransaction)
+var _ payload.Payload = new(MockedTransaction)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64
