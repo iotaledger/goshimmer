@@ -109,7 +109,7 @@ func (n *Neighbor) readLoop() {
 					if isTimeoutError(err) {
 						continue
 					}
-					n.Log.Infow("Read error", "err", err)
+					n.Log.Infow("Stream read packet error", "err", err)
 					if disconnectErr := n.disconnect(); disconnectErr != nil {
 						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
 					}
