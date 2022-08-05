@@ -143,7 +143,7 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 					return
 				}
 
-				conflictingTransactions.Add(utxo.TransactionID{conflictMember.ConflictID().Identifier})
+				conflictingTransactions.Add(utxo.TransactionID{Identifier: conflictMember.ConflictID().Identifier})
 			})
 		}
 	})

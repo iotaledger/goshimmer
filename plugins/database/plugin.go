@@ -64,7 +64,7 @@ func createStore() kvstore.KVStore {
 
 	var err error
 	if Parameters.InMemory {
-		db, err = database.NewMemDB()
+		db, err = database.NewMemDB("")
 	} else {
 		db, err = database.NewDB(Parameters.Directory)
 	}
