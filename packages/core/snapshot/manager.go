@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/hive.go/generics/event"
@@ -17,18 +19,21 @@ const (
 )
 
 type Manager struct {
-	tangle *tangleold.Tangle
+	tangle          *tangleold.Tangle
+	notarizationMgr *notarization.Manager
 
 	baseStore        kvstore.KVStore
+	sepsLock         sync.RWMutex
 	solidEntryPoints map[epoch.Index]*objectstorage.ObjectStorage[*tangleold.Block]
 
 	snapshotOptions *options
 	shutdownOnce    sync.Once
 }
 
-func NewManager(store kvstore.KVStore, t *tangleold.Tangle, opts ...Option) (new *Manager) {
+func NewManager(store kvstore.KVStore, t *tangleold.Tangle, nmgr *notarization.Manager, opts ...Option) (new *Manager) {
 	new = &Manager{
 		tangle:          t,
+		notarizationMgr: nmgr,
 		snapshotOptions: newOptions(opts...),
 	}
 
@@ -51,7 +56,48 @@ func NewManager(store kvstore.KVStore, t *tangleold.Tangle, opts ...Option) (new
 	return
 }
 
+func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.SnapshotHeader, err error) {
+	ecRecord, lastConfirmedEpoch, err := m.tangle.Options.CommitmentFunc()
+	if err != nil {
+		return nil, err
+	}
+
+	// lock the entire ledger in notarization manager until the snapshot is created.
+	m.notarizationMgr.WriteLockLedger()
+	defer m.notarizationMgr.WriteUnlockLedger()
+
+	headerPord := func() (header *ledger.SnapshotHeader, err error) {
+		header = &ledger.SnapshotHeader{
+			FullEpochIndex: lastConfirmedEpoch,
+			DiffEpochIndex: ecRecord.EI(),
+			LatestECRecord: ecRecord,
+		}
+		return header, nil
+	}
+
+	sepsProd := NewSolidEntryPointsProducer(lastConfirmedEpoch, ecRecord.EI(), m)
+	outputWithMetadataProd := NewLedgerUTXOStatesProducer(lastConfirmedEpoch, m.notarizationMgr)
+	epochDiffsProd := NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), m.notarizationMgr)
+
+	header, err = CreateSnapshot(snapshotFileName, headerPord, sepsProd, outputWithMetadataProd, epochDiffsProd)
+
+	return
+}
+
+func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
+	if seps == nil {
+		return
+	}
+
+	for _, b := range seps.Seps {
+		m.insertSolidEntryPoint(b)
+	}
+}
+
 func (m *Manager) insertSolidEntryPoint(id tangleold.BlockID) {
+	m.sepsLock.Lock()
+	defer m.sepsLock.Unlock()
+
 	m.tangle.Storage.Block(id).Consume(func(b *tangleold.Block) {
 		s, ok := m.solidEntryPoints[b.EI()]
 		if !ok {
@@ -68,6 +114,9 @@ func (m *Manager) insertSolidEntryPoint(id tangleold.BlockID) {
 }
 
 func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch epoch.Index) {
+	m.sepsLock.Lock()
+	defer m.sepsLock.Unlock()
+
 	s, ok := m.solidEntryPoints[b.EI()]
 	if b.EI() < lastConfirmedEpoch || !ok {
 		return
@@ -79,20 +128,19 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 	return
 }
 
-// DumpSolidEntryPoints dumps solid entry points within given epochs.
-func (m *Manager) DumpSolidEntryPoints(lastConfirmedEpoch, latestCommittableEpoch epoch.Index) (seps map[epoch.Index][]tangleold.BlockID) {
-	seps = make(map[epoch.Index][]tangleold.BlockID)
+// SolidEntryPointsOfEpoch dumps solid entry points within given epochs.
+func (m *Manager) SolidEntryPointsOfEpoch(ei epoch.Index) (seps []tangleold.BlockID) {
+	m.sepsLock.RLock()
+	defer m.sepsLock.RUnlock()
 
-	for i := lastConfirmedEpoch; i <= latestCommittableEpoch; i++ {
-		sep, ok := m.solidEntryPoints[i]
-		if ok {
-			sep.ForEach(func(_ []byte, cachedBlock *objectstorage.CachedObject[*tangleold.Block]) bool {
-				cachedBlock.Consume(func(b *tangleold.Block) {
-					seps[i] = append(seps[i], b.ID())
-				})
-				return true
+	blockIDs, ok := m.solidEntryPoints[ei]
+	if ok {
+		blockIDs.ForEach(func(_ []byte, cachedBlock *objectstorage.CachedObject[*tangleold.Block]) bool {
+			cachedBlock.Consume(func(b *tangleold.Block) {
+				seps = append(seps, b.ID())
 			})
-		}
+			return true
+		})
 	}
 
 	return

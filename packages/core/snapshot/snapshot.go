@@ -6,12 +6,19 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/serix"
 )
 
 // Snapshot contains the data to be put in a snapshot file.
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
+}
+
+// SolidEntryPoints contains solid entry points of an epoch.
+type SolidEntryPoints struct {
+	EI   epoch.Index         `serix:"0"`
+	Seps []tangleold.BlockID `serix:"1,lengthPrefixType=uint32"`
 }
 
 func init() {
@@ -32,6 +39,7 @@ func init() {
 // CreateSnapshot creates a snapshot file to the given file path.
 func CreateSnapshot(filePath string,
 	headerProd HeaderProducerFunc,
+	sepsProd SolidEntryPointsProducerFunc,
 	utxoStatesProd UTXOStatesProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
@@ -39,7 +47,7 @@ func CreateSnapshot(filePath string,
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
 	}
 
-	header, err := streamSnapshotDataTo(f, headerProd, utxoStatesProd, epochDiffsProd)
+	header, err := streamSnapshotDataTo(f, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +61,7 @@ func CreateSnapshot(filePath string,
 // consumer functions.
 func LoadSnapshot(filePath string,
 	headerConsumer HeaderConsumerFunc,
+	sepsConsumer SolidEntryPointsConsumerFunc,
 	outputWithMetadataConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc) (err error) {
 
@@ -62,7 +71,7 @@ func LoadSnapshot(filePath string,
 		return fmt.Errorf("fail to open the snapshot file")
 	}
 
-	err = streamSnapshotDataFrom(f, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = streamSnapshotDataFrom(f, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
 }
@@ -84,3 +93,9 @@ type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)
 
 // HeaderConsumerFunc is the type of function that consumes snapshot header when loading a snapshot.
 type HeaderConsumerFunc func(header *ledger.SnapshotHeader)
+
+// SolidEntryPointsProducerFunc is the type of function that produces solid entry points when taking a snapshot.
+type SolidEntryPointsProducerFunc func() (seps *SolidEntryPoints)
+
+// SolidEntryPointsConsumerFunc is the type of function that consumes solid entry points when loading a snapshot.
+type SolidEntryPointsConsumerFunc func(seps *SolidEntryPoints)

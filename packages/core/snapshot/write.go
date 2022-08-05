@@ -20,6 +20,7 @@ var delimiter = []byte{';', ';', ';'}
 func streamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
 	headerProd HeaderProducerFunc,
+	sepsProd SolidEntryPointsProducerFunc,
 	outputProd UTXOStatesProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc) (*ledger.SnapshotHeader, error) {
 
@@ -52,6 +53,19 @@ func streamSnapshotDataTo(
 		return nil, err
 	}
 
+	// write solid entry points
+	for {
+		seps := sepsProd()
+		if seps == nil {
+			if err := writeFunc("delimiter", delimiter); err != nil {
+				return nil, err
+			}
+			break
+		}
+
+		writeSolidEntryPoints(writeSeeker, seps)
+	}
+
 	// write outputWithMetadata
 	var outputWithMetadataCounter uint64
 	var outputChunkCounter int
@@ -66,7 +80,6 @@ func streamSnapshotDataTo(
 			}
 			break
 		}
-
 		outputWithMetadataCounter++
 		outputChunkCounter++
 		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
@@ -108,6 +121,35 @@ func streamSnapshotDataTo(
 	return header, nil
 }
 
+// NewSolidEntryPointsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
+func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
+	prodChan := make(chan *SolidEntryPoints)
+
+	go func() {
+		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
+			seps := smgr.SolidEntryPointsOfEpoch(i)
+			if len(seps) == 0 {
+				panic("failed to fetch solid entry points")
+			}
+
+			send := &SolidEntryPoints{
+				EI:   i,
+				Seps: seps,
+			}
+			prodChan <- send
+		}
+		close(prodChan)
+	}()
+
+	return func() *SolidEntryPoints {
+		obj, ok := <-prodChan
+		if !ok {
+			return nil
+		}
+		return obj
+	}
+}
+
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
@@ -129,6 +171,22 @@ func NewEpochDiffsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index
 	return func() (map[epoch.Index]*ledger.EpochDiff, error) {
 		return epochDiffs, err
 	}
+}
+
+func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) error {
+	writeFunc := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
+	}
+
+	data, err := serix.DefaultAPI.Encode(context.Background(), seps, serix.WithValidation())
+	if err != nil {
+		return err
+	}
+	if err := writeFunc("seps", append(data, delimiter...)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHeader) error {

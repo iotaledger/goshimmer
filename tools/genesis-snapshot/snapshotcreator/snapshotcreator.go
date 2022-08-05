@@ -44,6 +44,10 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return
 	}
 
+	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
+		return nil
+	}
+
 	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 		fmt.Println(epochDiffs)
@@ -73,7 +77,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return o
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
 
 	return
 }
@@ -128,13 +132,17 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return
 	}
 
+	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
+		return nil
+	}
+
 	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 		fmt.Println(epochDiffs)
 		return
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
 
 	return
 }

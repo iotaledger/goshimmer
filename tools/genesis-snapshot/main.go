@@ -145,8 +145,10 @@ func readSnapshotFromFile(filePath string) (err error) {
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
 	}
+	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
+	}
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 
 	return
 }

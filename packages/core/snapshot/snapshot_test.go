@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types/confirmation"
@@ -31,32 +32,34 @@ var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	epochDiffs          = make(map[epoch.Index]*ledger.EpochDiff)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
+	solidEntryPoints    = make([]*SolidEntryPoints, 0)
 )
 
 func Test_CreateAndReadSnapshot(t *testing.T) {
 	header := createSnapshot(t)
 
-	rheader, rstates, repochDiffs := readSnapshot(t)
+	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
 	compareSnapshotHeader(t, header, rheader)
 	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
 	compareEpochDiffs(t, epochDiffs, repochDiffs)
+	compareSolidEntryPoints(t, solidEntryPoints, rseps)
 
 	err := os.Remove(snapshotFileName)
 	require.NoError(t, err)
 }
 
 func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
-	fullEpochIndex := 1
-	diffEpochIndex := 3
+	fullEpochIndex := epoch.Index(1)
+	diffEpochIndex := epoch.Index(3)
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
-		ecRecord := epoch.NewECRecord(epoch.Index(diffEpochIndex))
+		ecRecord := epoch.NewECRecord(diffEpochIndex)
 		ecRecord.SetECR(epoch.MerkleRoot{})
 		ecRecord.SetPrevEC(epoch.MerkleRoot{})
 
 		header = &ledger.SnapshotHeader{
-			FullEpochIndex: epoch.Index(fullEpochIndex),
-			DiffEpochIndex: epoch.Index(diffEpochIndex),
+			FullEpochIndex: fullEpochIndex,
+			DiffEpochIndex: diffEpochIndex,
 			LatestECRecord: ecRecord,
 		}
 
@@ -90,13 +93,24 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return epochDiffs, nil
 	}
 
-	header, err := CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd)
+	solidEntryPoints = createSolidEntryPoints(t, fullEpochIndex, diffEpochIndex)
+	j := 0
+	sepsProd := func() (s *SolidEntryPoints) {
+		if j == len(solidEntryPoints) {
+			return nil
+		}
+		s = solidEntryPoints[j]
+		j++
+		return s
+	}
+
+	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
 	require.NoError(t, err)
 
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
@@ -106,10 +120,25 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, states []*ledger
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
 	}
+	sepsConsumer := func(s *SolidEntryPoints) {
+		seps = append(seps, s)
+	}
 
-	err := LoadSnapshot(snapshotFileName, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 	require.NoError(t, err)
+	return
+}
 
+func createSolidEntryPoints(t *testing.T, fullEpochIndex, diffEpochIndex epoch.Index) (seps []*SolidEntryPoints) {
+	for i := fullEpochIndex; i <= diffEpochIndex; i++ {
+		sep := &SolidEntryPoints{EI: i, Seps: make([]tangleold.BlockID, 0)}
+		for j := 0; j < 100; j++ {
+			var b tangleold.BlockID
+			require.NoError(t, b.FromRandomness(i))
+			sep.Seps = append(sep.Seps, b)
+		}
+		seps = append(seps, sep)
+	}
 	return
 }
 
@@ -170,6 +199,18 @@ func compareSnapshotHeader(t *testing.T, created, unmarshal *ledger.SnapshotHead
 	nLatestECRecordBytes, err := unmarshal.LatestECRecord.Bytes()
 	require.NoError(t, err)
 	assert.ElementsMatch(t, oLatestECRecordBytes, nLatestECRecordBytes)
+}
+
+func compareSolidEntryPoints(t *testing.T, created, unmarshal []*SolidEntryPoints) {
+	assert.Equal(t, len(created), len(unmarshal))
+	for i := 0; i < len(created); i++ {
+		assert.Equal(t, created[i].EI, unmarshal[i].EI)
+		for j := 0; j < len(created[i].Seps); j++ {
+			ob := created[i].Seps[j].Bytes()
+			rb := unmarshal[i].Seps[j].Bytes()
+			assert.ElementsMatch(t, ob, rb)
+		}
+	}
 }
 
 func compareOutputWithMetadataSlice(t *testing.T, created, unmarshal []*ledger.OutputWithMetadata) {

@@ -9,6 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
@@ -16,7 +19,7 @@ import (
 )
 
 const (
-	// SnapshotPluginName is the name of the notarization plugin.
+	// SnapshotPluginName is the name of the snapshot plugin.
 	SnapshotPluginName = "Snapshot"
 )
 
@@ -30,8 +33,9 @@ type snapshotPluginDependencies struct {
 type snapshotDependencies struct {
 	dig.In
 
-	Tangle  *tangleold.Tangle
-	Storage kvstore.KVStore
+	Tangle          *tangleold.Tangle
+	NotarizationMgr *notarization.Manager
+	Storage         kvstore.KVStore
 }
 
 var (
@@ -49,7 +53,22 @@ func init() {
 	}))
 }
 
-func configureSnapshotPlugin(plugin *node.Plugin) {}
+func configureSnapshotPlugin(plugin *node.Plugin) {
+	if Parameters.Snapshot.File != "" {
+		headerConsumer := func(*ledger.SnapshotHeader) {}
+		outputsConsumer := func([]*ledger.OutputWithMetadata) {}
+		epochDiffsConsumer := func(*ledger.SnapshotHeader, map[epoch.Index]*ledger.EpochDiff) {}
+
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
+			headerConsumer,
+			snapshotnDeps.Manager.LoadSolidEntryPoints,
+			outputsConsumer,
+			epochDiffsConsumer)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
+		}
+	}
+}
 
 func runSnapshotPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Snapshot", func(ctx context.Context) {
@@ -61,5 +80,5 @@ func runSnapshotPlugin(*node.Plugin) {
 }
 
 func newSnapshotManager(deps snapshotDependencies) *snapshot.Manager {
-	return snapshot.NewManager(deps.Storage, deps.Tangle)
+	return snapshot.NewManager(deps.Storage, deps.Tangle, deps.NotarizationMgr)
 }

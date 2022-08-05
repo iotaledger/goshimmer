@@ -18,6 +18,7 @@ import (
 func streamSnapshotDataFrom(
 	reader io.ReadSeeker,
 	headerConsumer HeaderConsumerFunc,
+	sepsConsumer SolidEntryPointsConsumerFunc,
 	outputConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc) error {
 
@@ -37,6 +38,15 @@ func streamSnapshotDataFrom(
 	header.LatestECRecord = ecRecord
 	headerConsumer(header)
 
+	// read solid entry points
+	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
+		seps, err := readSolidEntryPoints(scanner)
+		if err != nil {
+			return err
+		}
+		sepsConsumer(seps)
+	}
+
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
 		outputs, err := readOutputWithMetadata(scanner)
@@ -44,7 +54,6 @@ func streamSnapshotDataFrom(
 			return err
 		}
 		i += len(outputs)
-
 		outputConsumer(outputs)
 	}
 
@@ -76,6 +85,21 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header.DiffEpochIndex = epoch.Index(index)
 
 	return header, nil
+}
+
+func readSolidEntryPoints(scanner *bufio.Scanner) (seps *SolidEntryPoints, err error) {
+	scanner.Scan()
+	data := scanner.Bytes()
+
+	if len(data) > 0 {
+		seps = &SolidEntryPoints{}
+		_, err = serix.DefaultAPI.Decode(context.Background(), data, &seps, serix.WithValidation())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return seps, nil
 }
 
 // readOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
