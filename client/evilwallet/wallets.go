@@ -4,9 +4,9 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"

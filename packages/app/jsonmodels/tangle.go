@@ -1,6 +1,6 @@
 package jsonmodels
 
-import "github.com/iotaledger/hive.go/types/confirmation"
+import "github.com/iotaledger/hive.go/core/types/confirmation"
 
 // region Block ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -36,9 +36,9 @@ type BlockMetadata struct {
 	ID                    string             `json:"id"`
 	ReceivedTime          int64              `json:"receivedTime"`
 	Solid                 bool               `json:"solid"`
-	SolidificationTime    int64             `json:"solidificationTime"`
-	StructureDetails      *StructureDetails `json:"structureDetails,omitempty"`
-	ConflictIDs           []string          `json:"conflictIDs"`
+	SolidificationTime    int64              `json:"solidificationTime"`
+	StructureDetails      *StructureDetails  `json:"structureDetails,omitempty"`
+	ConflictIDs           []string           `json:"conflictIDs"`
 	AddedConflictIDs      []string           `json:"addedConflictIDs"`
 	SubtractedConflictIDs []string           `json:"subtractedConflictIDs"`
 	Scheduled             bool               `json:"scheduled"`

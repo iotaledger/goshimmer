@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/netutil/buffconn"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/netutil/buffconn"
+	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"

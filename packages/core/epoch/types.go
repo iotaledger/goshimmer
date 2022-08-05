@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -178,3 +178,15 @@ type IndexedID interface {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (e *ECRecord) Bytes() (bytes []byte, err error) {
+	bytes, err = e.Storable.Bytes()
+	return
+}
+
+func (e *ECRecord) FromBytes(bytes []byte) (err error) {
+	err = e.Storable.FromBytes(bytes)
+	e.SetID(e.EI())
+
+	return
+}

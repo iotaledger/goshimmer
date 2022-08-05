@@ -5,7 +5,7 @@ import (
 	"math"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // ErrInsufficientMana is returned when the mana is insufficient.

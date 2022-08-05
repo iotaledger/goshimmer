@@ -1,4 +1,3 @@
-
 import Viva from "vivagraphjs";
 
 // Next comes the hard part - implementation of API for custom shader

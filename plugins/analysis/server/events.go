@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )

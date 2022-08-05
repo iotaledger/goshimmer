@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -312,7 +312,7 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 	}
 
 	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
-	m.tangle.Ledger.LoadSnapshot(m.snapshot)
+	loadSnapshotToLedger(m.tangle.Ledger, m.snapshot)
 }
 
 func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
@@ -1067,4 +1067,13 @@ func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
 	e.Called(event.BlockID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// loadSnapshotToLedger loads a snapshot of the Ledger from the given snapshot.
+func loadSnapshotToLedger(l *ledger.Ledger, s *ledger.Snapshot) {
+	l.LoadOutputWithMetadatas(s.OutputsWithMetadata)
+	err := l.LoadEpochDiffs(s.Header, s.EpochDiffs)
+	if err != nil {
+		panic("Failed to load epochDiffs from snapshot")
+	}
 }

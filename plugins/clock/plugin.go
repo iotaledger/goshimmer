@@ -7,10 +7,10 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
@@ -39,7 +39,7 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	if len(Parameters.NTPPools) == 0 {
-		plugin.LogFatalf("at least 1 NTP pool needs to be provided to synchronize the local clock.")
+		plugin.LogFatalfAndExit("at least 1 NTP pool needs to be provided to synchronize the local clock.")
 	}
 }
 
