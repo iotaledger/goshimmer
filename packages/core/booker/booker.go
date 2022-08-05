@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/marker"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -114,6 +115,25 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 func (b *Booker) book(block *Block) {
 	fmt.Println("booking", block.ID())
+
+	// TODO: RLock parents to avoid race conditions
+	//  Lock Block itself
+
+	// collect all strong parents structure details
+	parentsStructureDetails := make([]*marker.StructureDetails, 0)
+	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		parentBlock, _ := b.Block(parentBlockID)
+		parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
+		return true
+	})
+
+	// TODO: create MarkersManager component
+	//  - mapping from Marker to Block
+	//  - thresholdmap for Marker to conflicts mapping
+	//  - abstract away all marker related stuff
+
+	newStructureDetails, newSequenceCreated = b.MarkersManager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
+	blockMetadata.SetStructureDetails(inheritedStructureDetails)
 }
 
 // block retrieves the Block with given id from the mem-storage.

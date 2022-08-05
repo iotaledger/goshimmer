@@ -3,11 +3,13 @@ package booker
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/core/marker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 type Block struct {
-	booked bool
+	booked           bool
+	structureDetails *marker.StructureDetails
 
 	*tangle.Block
 }
@@ -34,6 +36,20 @@ func (b *Block) setBooked() (wasUpdated bool) {
 	}
 
 	return
+}
+
+func (b *Block) StructureDetails() *marker.StructureDetails {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.structureDetails
+}
+
+func (b *Block) setStructureDetails(structureDetails *marker.StructureDetails) {
+	b.Lock()
+	defer b.Unlock()
+
+	b.structureDetails = structureDetails
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
