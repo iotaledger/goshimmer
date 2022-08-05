@@ -73,7 +73,6 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 func runSnapshotPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Snapshot", func(ctx context.Context) {
 		<-ctx.Done()
-		snapshotnDeps.Manager.Shutdown()
 	}, shutdown.PriorityNotarization); err != nil {
 		SnapshotPlugin.Panicf("Failed to start as daemon: %s", err)
 	}
