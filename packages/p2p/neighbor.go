@@ -110,16 +110,14 @@ func (n *Neighbor) readLoop() {
 				packet := stream.packetFactory()
 				err := stream.ReadPacket(packet)
 				if err != nil {
-					if isPermanentError(err) {
-						if disconnectErr := n.disconnect(); disconnectErr != nil {
-							n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
-						}
-						return
+					if isTimeoutError(err) {
+						continue
 					}
-					if !isTimeoutError(err) {
-						n.Log.Debugw("Read error", "err", err)
+					n.Log.Infow("Read error", "err", err)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
 					}
-					continue
+					return
 				}
 				n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{
 					Neighbor: n,
