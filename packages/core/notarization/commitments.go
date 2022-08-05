@@ -334,7 +334,7 @@ func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWit
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
 	// Volatile storage for small trees
-	db, _ := database.NewMemDB()
+	db, _ := database.NewMemDB("")
 	blockIDStore := db.NewStore()
 	blockValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
