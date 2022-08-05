@@ -6,8 +6,8 @@ import (
 
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/paulbellamy/ratecounter"
 	"go.uber.org/atomic"
 )

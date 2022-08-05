@@ -1,10 +1,10 @@
 import App from "./app/App";
-import { AutopeeringStore } from "./app/stores/AutopeeringStore";
-import { Provider } from "mobx-react";
+import {AutopeeringStore} from "./app/stores/AutopeeringStore";
+import {Provider} from "mobx-react";
 import React from "react";
 import ReactDOM from "react-dom";
-import { Route } from "react-router";
-import { BrowserRouter as Router } from "react-router-dom";
+import {Route} from "react-router";
+import {BrowserRouter as Router} from "react-router-dom";
 import "./main.scss";
 import ManaStore from "./app/stores/ManaStore";
 

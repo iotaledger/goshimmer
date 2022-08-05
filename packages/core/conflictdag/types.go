@@ -1,9 +1,9 @@
 package conflictdag
 
 import (
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////

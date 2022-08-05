@@ -1,8 +1,6 @@
 package webapi
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of the parameters used by the webAPI plugin.
 type ParametersDefinition struct {
@@ -27,5 +25,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "webAPI")
+	config.BindParameters(Parameters, "webAPI")
 }

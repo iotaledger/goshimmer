@@ -1,8 +1,8 @@
 package ratelimiter
 
 import (
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 type Events struct {

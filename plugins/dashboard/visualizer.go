@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"

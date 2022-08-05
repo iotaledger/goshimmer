@@ -1,7 +1,7 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"

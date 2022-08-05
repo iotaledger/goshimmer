@@ -6,8 +6,8 @@ import (
 
 	flag "github.com/spf13/pflag"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )

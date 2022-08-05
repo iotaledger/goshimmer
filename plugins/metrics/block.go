@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/core/syncutils"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"

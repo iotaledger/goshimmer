@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/core/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"

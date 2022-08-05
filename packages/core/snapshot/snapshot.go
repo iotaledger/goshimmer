@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/hive.go/core/serix"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/hive.go/serix"
 )
 
 // Snapshot contains the data to be put in a snapshot file.

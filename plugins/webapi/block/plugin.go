@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

@@ -9,12 +9,12 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"

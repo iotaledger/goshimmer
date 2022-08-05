@@ -4,9 +4,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"

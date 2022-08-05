@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 

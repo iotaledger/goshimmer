@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // Events defines the events of the plugin.
