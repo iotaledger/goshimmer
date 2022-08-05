@@ -32,7 +32,7 @@ func NewConflictMarkersMapper(tangle *Tangle) (b *ConflictMarkersMapper) {
 // InheritStructureDetails returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
 func (b *ConflictMarkersMapper) InheritStructureDetails(block *Block, structureDetails []*markersold.StructureDetails) (newStructureDetails *markersold.StructureDetails, newSequenceCreated bool) {
-	// newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+	// newStructureDetails, newSequenceCreated = b.Manager.ProcessBlock(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
 	//	nodeID := identity.NewID(block.IssuerPublicKey())
 	//	bufferUsedRatio := float64(b.tangle.Scheduler.BufferSize()) / float64(b.tangle.Scheduler.MaxBufferSize())
 	//	nodeQueueRatio := float64(b.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(b.tangle.Scheduler.BufferSize())

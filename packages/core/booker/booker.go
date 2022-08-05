@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -22,10 +23,12 @@ type Booker struct {
 	// Events contains the Events of Tangle.
 	Events *Events
 
-	ledger       *ledger.Ledger
-	bookingOrder *causalorder.CausalOrder[models.BlockID, *Block]
-	attachments  *attachments
-	blocks       *memstorage.EpochStorage[models.BlockID, *Block]
+	ledger        *ledger.Ledger
+	bookingOrder  *causalorder.CausalOrder[models.BlockID, *Block]
+	attachments   *attachments
+	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
+	markerManager *MarkerManager
+	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 
 	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
 	rootBlockProvider func(models.BlockID) *Block
@@ -43,11 +46,13 @@ type Booker struct {
 
 func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger:      ledgerInstance,
-		Tangle:      tangleInstance,
-		Events:      newEvents(),
-		attachments: newAttachments(),
-		blocks:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+		ledger:        ledgerInstance,
+		Tangle:        tangleInstance,
+		Events:        newEvents(),
+		attachments:   newAttachments(),
+		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
+		markerManager: NewMarkerManager(),
+		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
 
 		rootBlockProvider: rootBlockProvider,
 	}, opts)
@@ -114,7 +119,12 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 }
 
 func (b *Booker) book(block *Block) {
-	fmt.Println("booking", block.ID())
+	b.bookingMutex.RLock(block.Parents()...)
+	defer b.bookingMutex.RUnlock(block.Parents()...)
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
+	fmt.Printf("booking %s, %p \n", block.ID(), block)
 
 	// TODO: RLock parents to avoid race conditions
 	//  Lock Block itself
@@ -122,8 +132,15 @@ func (b *Booker) book(block *Block) {
 	// collect all strong parents structure details
 	parentsStructureDetails := make([]*marker.StructureDetails, 0)
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, _ := b.Block(parentBlockID)
-		parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
+		fmt.Println("parentBlockID", parentBlockID)
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+		fmt.Printf("parentblock %s, %p\n", parentBlock.ID(), parentBlock)
+		if parentBlock.StructureDetails() != nil {
+			parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
+		}
 		return true
 	})
 
@@ -131,9 +148,12 @@ func (b *Booker) book(block *Block) {
 	//  - mapping from Marker to Block
 	//  - thresholdmap for Marker to conflicts mapping
 	//  - abstract away all marker related stuff
+	//  - manages pruning of markers and all related (conflict mapping) entities
 
-	newStructureDetails, newSequenceCreated = b.MarkersManager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
-	blockMetadata.SetStructureDetails(inheritedStructureDetails)
+	fmt.Println("parentsStructureDetails", parentsStructureDetails)
+	newStructureDetails, newSequenceCreated := b.markerManager.ProcessBlock(block, parentsStructureDetails)
+	block.setStructureDetails(newStructureDetails)
+	fmt.Println(newSequenceCreated, newStructureDetails)
 }
 
 // block retrieves the Block with given id from the mem-storage.
