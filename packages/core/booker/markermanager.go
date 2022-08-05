@@ -8,6 +8,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
+// TODO: create MarkerManager component
+//  - mapping from Marker to Block
+//  - thresholdmap for Marker to conflicts mapping
+//  - abstract away all marker related stuff
+//  - manages pruning of markers and all related (conflict mapping) entities
+
 type MarkerManager struct {
 	sequenceManager *marker.SequenceManager
 

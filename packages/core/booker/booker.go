@@ -80,8 +80,11 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
+	// TODO: check whether too old?
+	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
+
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
-		fmt.Println("Payload solid, queuing")
+		fmt.Println("Payload solid, queuing", block.ID())
 		b.bookingOrder.Queue(block)
 	}
 
@@ -126,34 +129,28 @@ func (b *Booker) book(block *Block) {
 
 	fmt.Printf("booking %s, %p \n", block.ID(), block)
 
-	// TODO: RLock parents to avoid race conditions
-	//  Lock Block itself
-
+	// TODO: this should be part of collectStrongParentsBookingDetails determine booking details
+	//  next step: determineBookingDetails:
+	//  - get payload's conflicts
+	//  - get strong parents conflicts, structureDetails and more
+	//  - apply weak and like parents and effects
+	//  -> so first we need to implement the whole marker conflict mapping business
 	// collect all strong parents structure details
 	parentsStructureDetails := make([]*marker.StructureDetails, 0)
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-		fmt.Println("parentBlockID", parentBlockID)
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
-		fmt.Printf("parentblock %s, %p\n", parentBlock.ID(), parentBlock)
 		if parentBlock.StructureDetails() != nil {
 			parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
 		}
 		return true
 	})
 
-	// TODO: create MarkersManager component
-	//  - mapping from Marker to Block
-	//  - thresholdmap for Marker to conflicts mapping
-	//  - abstract away all marker related stuff
-	//  - manages pruning of markers and all related (conflict mapping) entities
-
-	fmt.Println("parentsStructureDetails", parentsStructureDetails)
 	newStructureDetails, newSequenceCreated := b.markerManager.ProcessBlock(block, parentsStructureDetails)
 	block.setStructureDetails(newStructureDetails)
-	fmt.Println(newSequenceCreated, newStructureDetails)
+	fmt.Println(block.ID(), newSequenceCreated, newStructureDetails)
 }
 
 // block retrieves the Block with given id from the mem-storage.

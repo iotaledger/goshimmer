@@ -32,3 +32,16 @@ func Test(t *testing.T) {
 
 	fmt.Println(tf.Booker.Block(tf.Block("block1").ID()))
 }
+
+func TestBooker_Marker(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateBlock("block1")
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3")))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
+	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
+
+	tf.IssueBlocks("block1", "block2").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("block3", "block4", "block5", "block6").WaitUntilAllTasksProcessed()
+}
