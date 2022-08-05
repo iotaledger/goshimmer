@@ -1,8 +1,6 @@
 package dashboard
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of configuration parameters used by the dashboard plugin.
 type ParametersDefinition struct {
@@ -37,5 +35,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "dashboard")
+	config.BindParameters(Parameters, "dashboard")
 }

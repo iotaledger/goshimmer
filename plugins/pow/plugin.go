@@ -1,11 +1,11 @@
 package pow
 
 import (
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // PluginName is the name of the PoW plugin.
@@ -20,7 +20,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle           *tangle.Tangle
+	Tangle           *tangleold.Tangle
 	BlocklayerPlugin *node.Plugin `name:"blocklayer"`
 }
 
@@ -42,7 +42,7 @@ func configure(plugin *node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	deps.Tangle.Parser.AddBytesFilter(tangle.NewPowFilter(worker, difficulty))
-	deps.Tangle.BlockFactory.SetWorker(tangle.WorkerFunc(DoPOW))
+	deps.Tangle.Parser.AddBytesFilter(tangleold.NewPowFilter(worker, difficulty))
+	deps.Tangle.BlockFactory.SetWorker(tangleold.WorkerFunc(DoPOW))
 	deps.Tangle.BlockFactory.SetTimeout(timeout)
 }

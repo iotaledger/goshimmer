@@ -3,7 +3,7 @@ package activity
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of configuration parameters used by the activity plugin.
@@ -20,5 +20,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "activity")
+	config.BindParameters(Parameters, "activity")
 }

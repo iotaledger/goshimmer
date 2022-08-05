@@ -5,8 +5,8 @@ import (
 
 	"github.com/magiconair/properties/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 func TestBlockCountPerPayload(t *testing.T) {

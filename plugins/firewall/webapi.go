@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
 // RoutePeerFaultinessCount defines the HTTP path for firewall/is-peer-faulty endpoint.

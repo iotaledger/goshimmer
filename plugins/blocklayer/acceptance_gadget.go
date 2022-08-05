@@ -1,11 +1,11 @@
 package blocklayer
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 var acceptanceGadget *acceptance.Gadget
@@ -16,19 +16,19 @@ func AcceptanceGadget() *acceptance.Gadget {
 }
 
 func configureFinality() {
-	deps.Tangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+	deps.Tangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(func(e *tangleold.MarkerWeightChangedEvent) {
 		if err := acceptanceGadget.HandleMarker(e.Marker, e.Weight); err != nil {
 			Plugin.LogError(err)
 		}
 	}))
-	deps.Tangle.ApprovalWeightManager.Events.ConflictWeightChanged.Attach(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+	deps.Tangle.ApprovalWeightManager.Events.ConflictWeightChanged.Attach(event.NewClosure(func(e *tangleold.ConflictWeightChangedEvent) {
 		if err := acceptanceGadget.HandleConflict(e.ConflictID, e.Weight); err != nil {
 			Plugin.LogError(err)
 		}
 	}))
 
 	// we need to update the WeightProvider on confirmation
-	acceptanceGadget.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+	acceptanceGadget.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 		deps.Tangle.WeightProvider.Update(event.Block.IssuingTime(), identity.NewID(event.Block.IssuerPublicKey()))
 	}))
 }

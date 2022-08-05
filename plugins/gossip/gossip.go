@@ -4,20 +4,21 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto"
+	"github.com/iotaledger/hive.go/core/crypto"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/ratelimiter"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/goshimmer/packages/node/gossip"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 // ErrBlockNotFound is returned when a block could not be found in the Tangle.
 var ErrBlockNotFound = errors.New("block not found")
 
-func createManager(p2pManager *p2p.Manager, t *tangle.Tangle) *gossip.Manager {
+func createManager(p2pManager *p2p.Manager, t *tangleold.Tangle) *gossip.Manager {
 	// loads the given block from the block layer and returns it or an error if not found.
-	loadBlock := func(blkID tangle.BlockID) ([]byte, error) {
+	loadBlock := func(blkID tangleold.BlockID) ([]byte, error) {
 		cachedBlock := t.Storage.Block(blkID)
 		defer cachedBlock.Release()
 		if !cachedBlock.Exists() {
@@ -39,7 +40,7 @@ func createManager(p2pManager *p2p.Manager, t *tangle.Tangle) *gossip.Manager {
 			Plugin.Logger().With("rateLimiter", "blocksRateLimiter"),
 		)
 		if mrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize blocks rate limiter: %+v", mrlErr)
+			Plugin.LogFatalfAndExit("Failed to initialize blocks rate limiter: %+v", mrlErr)
 		}
 		opts = append(opts, gossip.WithBlocksRateLimiter(mrl))
 	}
@@ -51,7 +52,7 @@ func createManager(p2pManager *p2p.Manager, t *tangle.Tangle) *gossip.Manager {
 			Plugin.Logger().With("rateLimiter", "blockRequestsRateLimiter"),
 		)
 		if mrrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize block requests rate limiter: %+v", mrrlErr)
+			Plugin.LogFatalfAndExit("Failed to initialize block requests rate limiter: %+v", mrrlErr)
 		}
 		opts = append(opts, gossip.WithBlockRequestsRateLimiter(mrrl))
 	}

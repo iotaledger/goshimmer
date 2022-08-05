@@ -1,6 +1,6 @@
 package packet
 
-import "github.com/iotaledger/hive.go/protocol/message"
+import "github.com/iotaledger/hive.go/core/protocol/message"
 
 const (
 	// MessageTypeHeartbeat defines the Heartbeat blk type.

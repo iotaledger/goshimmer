@@ -1,6 +1,6 @@
 package autopeering
 
-import "github.com/iotaledger/hive.go/configuration"
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of configuration parameters used by the autopeering plugin.
 type ParametersDefinition struct {
@@ -21,5 +21,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "autoPeering")
+	config.BindParameters(Parameters, "autoPeering")
 }

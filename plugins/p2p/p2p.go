@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/libp2putil"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p"
+
+	"github.com/iotaledger/goshimmer/packages/node/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 var localAddr *net.TCPAddr
@@ -20,17 +21,17 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 	// resolve the bind address
 	localAddr, err = net.ResolveTCPAddr("tcp", Parameters.BindAddress)
 	if err != nil {
-		Plugin.LogFatalf("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
+		Plugin.LogFatalfAndExit("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
 	}
 
 	// announce the service
 	if err := lPeer.UpdateService(service.P2PKey, localAddr.Network(), localAddr.Port); err != nil {
-		Plugin.LogFatalf("could not update services: %s", err)
+		Plugin.LogFatalfAndExit("could not update services: %s", err)
 	}
 
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
 	if err != nil {
-		Plugin.LogFatalf("Could not build libp2p identity from local peer: %s", err)
+		Plugin.LogFatalfAndExit("Could not build libp2p identity from local peer: %s", err)
 	}
 	libp2pHost, err := libp2p.New(
 		context.Background(),
@@ -39,7 +40,7 @@ func createManager(lPeer *peer.Local) *p2p.Manager {
 		libp2p.NATPortMap(),
 	)
 	if err != nil {
-		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
+		Plugin.LogFatalfAndExit("Couldn't create libp2p host: %s", err)
 	}
 
 	return p2p.NewManager(libp2pHost, lPeer, Plugin.Logger())

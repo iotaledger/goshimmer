@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/network"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/netutil"
+	"github.com/iotaledger/hive.go/core/network"
 )
 
 // errors returned by the Connector
