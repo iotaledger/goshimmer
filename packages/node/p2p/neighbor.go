@@ -1,17 +1,13 @@
 package p2p
 
 import (
-	"io"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	"github.com/libp2p/go-yamux/v2"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -148,10 +144,4 @@ func (n *Neighbor) disconnect() (err error) {
 		}
 	})
 	return err
-}
-
-func isPermanentError(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection") ||
-		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) || errors.Is(err, yamux.ErrStreamClosed) ||
-		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
