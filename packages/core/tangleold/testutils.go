@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
@@ -43,7 +43,7 @@ type BlockTestFramework struct {
 	outputsByAlias           map[string]devnetvm.Output
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *BlockTestFrameworkOptions
-	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	oldIncreaseIndexCallback markersold.IncreaseIndexCallback
 	snapshot                 *ledger.Snapshot
 	outputCounter            uint16
 }
@@ -149,7 +149,7 @@ func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...Bloc
 
 // IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the BlockTestFramework uses to determine when
 // to assign new Markers to blocks.
-func (m *BlockTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
+func (m *BlockTestFramework) IncreaseMarkersIndexCallback(markersold.SequenceID, markersold.Index) bool {
 	return false
 }
 
@@ -890,12 +890,12 @@ type MockConfirmationOracle struct {
 }
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
-func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markersold.SequenceID) (unconfirmedMarkerIndex markersold.Index) {
 	return 0
 }
 
 // IsMarkerConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMarkerConfirmed(markers.Marker) bool {
+func (m *MockConfirmationOracle) IsMarkerConfirmed(markersold.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
 	return false

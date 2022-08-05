@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@ type Booker struct {
 	tangle              *Tangle
 	payloadBookingMutex *syncutils.DAGMutex[BlockID]
 	bookingMutex        *syncutils.DAGMutex[BlockID]
-	sequenceMutex       *syncutils.DAGMutex[markers.SequenceID]
+	sequenceMutex       *syncutils.DAGMutex[markersold.SequenceID]
 }
 
 // NewBooker is the constructor of a Booker.
@@ -39,7 +39,7 @@ func NewBooker(tangle *Tangle) (blockBooker *Booker) {
 		MarkersManager:      NewConflictMarkersMapper(tangle),
 		payloadBookingMutex: syncutils.NewDAGMutex[BlockID](),
 		bookingMutex:        syncutils.NewDAGMutex[BlockID](),
-		sequenceMutex:       syncutils.NewDAGMutex[markers.SequenceID](),
+		sequenceMutex:       syncutils.NewDAGMutex[markersold.SequenceID](),
 	}
 
 	return
@@ -271,7 +271,7 @@ func (b *Booker) inheritConflictIDs(block *Block, blockMetadata *BlockMetadata) 
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
-func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markersold.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	inheritedConflictIDs, err = b.PayloadConflictIDs(block.ID())
 	if err != nil {
 		return
@@ -302,7 +302,7 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 }
 
 // blockBookingDetails returns the Conflict and Marker related details of the given Block.
-func (b *Booker) blockBookingDetails(blockID BlockID) (structureDetails *markers.StructureDetails, pastMarkersConflictIDs, blockConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+func (b *Booker) blockBookingDetails(blockID BlockID) (structureDetails *markersold.StructureDetails, pastMarkersConflictIDs, blockConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	pastMarkersConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	blockConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
@@ -345,15 +345,15 @@ func (b *Booker) conflictIDsFromMetadata(meta *BlockMetadata) (conflictIDs utxo.
 }
 
 // conflictIDsFromStructureDetails returns the ConflictIDs from StructureDetails.
-func (b *Booker) conflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs, err error) {
+func (b *Booker) conflictIDsFromStructureDetails(structureDetails *markersold.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs, err error) {
 	if structureDetails == nil {
 		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
 	}
 
 	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 	// obtain all the Markers
-	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		conflictIDs := b.MarkersManager.ConflictIDs(markers.NewMarker(sequenceID, index))
+	structureDetails.PastMarkers().ForEach(func(sequenceID markersold.SequenceID, index markersold.Index) bool {
+		conflictIDs := b.MarkersManager.ConflictIDs(markersold.NewMarker(sequenceID, index))
 		structureDetailsConflictIDs.AddAll(conflictIDs)
 		return true
 	})
@@ -362,8 +362,8 @@ func (b *Booker) conflictIDsFromStructureDetails(structureDetails *markers.Struc
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	parentsStructureDetails = make([]*markers.StructureDetails, 0)
+func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markersold.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	parentsStructureDetails = make([]*markersold.StructureDetails, 0)
 	parentsPastMarkersConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	parentsConflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
@@ -501,13 +501,13 @@ func (b *Booker) propagateForkedConflict(blockMetadata *BlockMetadata, addedConf
 }
 
 func (b *Booker) updateBlockConflicts(blockMetadata *BlockMetadata, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool, err error) {
-	blockMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+	blockMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markersold.SequenceID, _ markersold.Index) bool {
 		b.sequenceMutex.RLock(sequenceID)
 		return true
 	})
 
 	defer func() {
-		blockMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		blockMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markersold.SequenceID, _ markersold.Index) bool {
 			b.sequenceMutex.RUnlock(sequenceID)
 			return true
 		})
@@ -530,8 +530,8 @@ func (b *Booker) updateBlockConflicts(blockMetadata *BlockMetadata, addedConflic
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Marker, conflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
-	markerWalker := walker.New[markers.Marker](false)
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markersold.Marker, conflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
+	markerWalker := walker.New[markersold.Marker](false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
@@ -548,7 +548,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 
 // forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markers.Marker]) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker markersold.Marker, newConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markersold.Marker]) (err error) {
 	b.sequenceMutex.Lock(currentMarker.SequenceID())
 	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
 
@@ -573,12 +573,12 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 	})
 
 	// propagate updates to later ConflictID mappings of the same sequence.
-	b.MarkersManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ *set.AdvancedSet[utxo.TransactionID]) {
+	b.MarkersManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markersold.Marker, _ *set.AdvancedSet[utxo.TransactionID]) {
 		markerWalker.Push(mappedMarker)
 	})
 
 	// propagate updates to referencing markers of later sequences ...
-	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker markers.Marker) {
+	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker markersold.Marker) {
 		markerWalker.Push(referencingMarker)
 	})
 

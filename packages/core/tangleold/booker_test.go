@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 func TestScenario_1(t *testing.T) {
@@ -127,16 +127,16 @@ func TestScenario_2(t *testing.T) {
 		"Block9": testFramework.ConflictIDs("red", "black", "blue"),
 	})
 
-	checkMarkers(t, testFramework, map[string]*markers.Markers{
-		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-		"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block6": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block7": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block8": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block9": markers.NewMarkers(markers.NewMarker(0, 1)),
+	checkMarkers(t, testFramework, map[string]*markersold.Markers{
+		"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+		"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+		"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+		"Block4": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+		"Block5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+		"Block6": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+		"Block7": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+		"Block8": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+		"Block9": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 	})
 }
 
@@ -209,8 +209,8 @@ func TestBookerMarkerGap(t *testing.T) {
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("G", 500))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -225,9 +225,9 @@ func TestBookerMarkerGap(t *testing.T) {
 		testFramework.CreateBlock("Block1.5", WithStrongParents("Block1"))
 		testFramework.IssueBlocks("Block1.5").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block1.5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -245,10 +245,10 @@ func TestBookerMarkerGap(t *testing.T) {
 
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block2":   markers.NewMarkers(markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block1.5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block2":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -270,11 +270,11 @@ func TestBookerMarkerGap(t *testing.T) {
 
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block2":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block3":   markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block1.5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block2":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block3":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -299,12 +299,12 @@ func TestBookerMarkerGap(t *testing.T) {
 
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block2":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block3":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4":   markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block1.5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block2":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block3":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -341,8 +341,8 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithInputs("Genesis1"), WithOutput("Block1", 500))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -360,9 +360,9 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.RegisterConflictID("Block1", "Block1")
 		testFramework.RegisterConflictID("Block2", "Block2")
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -379,10 +379,10 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block3", WithStrongParents("Genesis"), WithInputs("Genesis2"), WithOutput("Block3", 500))
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -404,11 +404,11 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.RegisterConflictID("Block3", "Block3")
 		testFramework.RegisterConflictID("Block4", "Block4")
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -429,12 +429,12 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block5", WithStrongParents("Block1"), WithInputs("Genesis3"), WithOutput("Block5", 500))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -457,13 +457,13 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block6", WithStrongParents("Block1", "Block3"))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block6": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -488,14 +488,14 @@ func TestBookerMarkerGap2(t *testing.T) {
 		testFramework.CreateBlock("Block7", WithStrongParents("Block3", "Block5"))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block7": markers.NewMarkers(markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block6": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block7": markersold.NewMarkers(markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -526,15 +526,15 @@ func TestBookerMarkerGap2(t *testing.T) {
 
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block7": markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block8": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block6": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block7": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block8": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -576,8 +576,8 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 		testFramework.CreateBlock("A1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("A1", 500))
 		testFramework.IssueBlocks("A1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -592,9 +592,9 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 		testFramework.CreateBlock("A2", WithStrongParents("A1"))
 		testFramework.IssueBlocks("A2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"A2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -611,10 +611,10 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 		testFramework.PreventNewMarkers(true).CreateBlock("A3", WithStrongParents("A2"), WithInputs("B"), WithOutput("B1", 500))
 		testFramework.IssueBlocks("A3").WaitUntilAllTasksProcessed().PreventNewMarkers(false)
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"A2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -633,11 +633,11 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 		testFramework.CreateBlock("A4", WithStrongParents("A3"))
 		testFramework.IssueBlocks("A4").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A4": markers.NewMarkers(markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"A2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A4": markersold.NewMarkers(markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -662,12 +662,12 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 
 		testFramework.IssueBlocks("A3*").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"A2":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A4":  markers.NewMarkers(markers.NewMarker(0, 3)),
-			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1":  markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"A2":  markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3":  markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A4":  markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"A3*": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -694,13 +694,13 @@ func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 
 		testFramework.IssueBlocks("A1*").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"A2":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A4":  markers.NewMarkers(markers.NewMarker(0, 3)),
-			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A1*": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1":  markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"A2":  markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3":  markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A4":  markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"A3*": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A1*": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -741,8 +741,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 		testFramework.CreateBlock("A1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("A1", 500))
 		testFramework.IssueBlocks("A1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -761,9 +761,9 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("B1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -784,10 +784,10 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("C1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -810,11 +810,11 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("D1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -836,12 +836,12 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("A2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -865,13 +865,13 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("A3").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -897,14 +897,14 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("A+C1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A2":   markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A2":   markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"A+C1": markersold.NewMarkers(markersold.NewMarker(0, 4)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -932,15 +932,15 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("A+C2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A2":   markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
-			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A2":   markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"A+C1": markersold.NewMarkers(markersold.NewMarker(0, 4)),
+			"A+C2": markersold.NewMarkers(markersold.NewMarker(0, 0), markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -973,16 +973,16 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 		testFramework.IssueBlocks("A2*").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"A1":   markers.NewMarkers(markers.NewMarker(0, 1)),
-			"B1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"C1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"D1":   markers.NewMarkers(markers.NewMarker(0, 0)),
-			"A2":   markers.NewMarkers(markers.NewMarker(0, 2)),
-			"A3":   markers.NewMarkers(markers.NewMarker(0, 3)),
-			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
-			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
-			"A2*":  markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"A1":   markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"B1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"C1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"D1":   markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"A2":   markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"A3":   markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"A+C1": markersold.NewMarkers(markersold.NewMarker(0, 4)),
+			"A+C2": markersold.NewMarkers(markersold.NewMarker(0, 0), markersold.NewMarker(0, 3)),
+			"A2*":  markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1026,8 +1026,8 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1042,9 +1042,9 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		testFramework.CreateBlock("Block2", WithStrongParents("Block1"), WithInputs("A"), WithOutput("blue", 500))
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1062,10 +1062,10 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1088,11 +1088,11 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1115,12 +1115,12 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 4)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 4)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1147,13 +1147,13 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 4)),
-			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 4)),
+			"Block6": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1180,14 +1180,14 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block5": markers.NewMarkers(markers.NewMarker(0, 4)),
-			"Block6": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block7": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 2)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 3)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block5": markersold.NewMarkers(markersold.NewMarker(0, 4)),
+			"Block6": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block7": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1229,8 +1229,8 @@ func TestObjectiveInvalidity(t *testing.T) {
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("G", 500))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1249,9 +1249,9 @@ func TestObjectiveInvalidity(t *testing.T) {
 
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1271,10 +1271,10 @@ func TestObjectiveInvalidity(t *testing.T) {
 
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1293,11 +1293,11 @@ func TestObjectiveInvalidity(t *testing.T) {
 		testFramework.CreateBlock("Block4", WithStrongParents("Block3"))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1322,11 +1322,11 @@ func TestObjectiveInvalidity(t *testing.T) {
 			assert.True(t, blockMetadata.IsObjectivelyInvalid())
 		})
 
-		checkMarkers(t, testFramework, map[string]*markers.Markers{
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+		checkMarkers(t, testFramework, map[string]*markersold.Markers{
+			"Block1": markersold.NewMarkers(markersold.NewMarker(0, 1)),
+			"Block2": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block3": markersold.NewMarkers(markersold.NewMarker(0, 0)),
+			"Block4": markersold.NewMarkers(markersold.NewMarker(0, 0)),
 		})
 		checkBlockMetadataDiffConflictIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"Block1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -1615,7 +1615,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	checkNormalizedConflictIDsContained(t, testFramework, expectedConflicts)
 }
 
-func checkMarkers(t *testing.T, testFramework *BlockTestFramework, expectedMarkers map[string]*markers.Markers) {
+func checkMarkers(t *testing.T, testFramework *BlockTestFramework, expectedMarkers map[string]*markersold.Markers) {
 	for blockID, expectedMarkersOfBlock := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
 			assert.True(t, expectedMarkersOfBlock.Equals(blockMetadata.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+

@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,7 +115,7 @@ type BlockConflictUpdatedEvent struct {
 }
 
 type MarkerConflictAddedEvent struct {
-	Marker        markers.Marker
+	Marker        markersold.Marker
 	NewConflictID utxo.TransactionID
 }
 
@@ -190,7 +190,7 @@ type BlockProcessedEvent struct {
 
 // MarkerWeightChangedEvent holds information about a marker and its updated weight.
 type MarkerWeightChangedEvent struct {
-	Marker markers.Marker
+	Marker markersold.Marker
 	Weight float64
 }
 
