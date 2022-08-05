@@ -7,13 +7,13 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/orderedmap"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/serializer"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/mr-tron/base58"
 )
 

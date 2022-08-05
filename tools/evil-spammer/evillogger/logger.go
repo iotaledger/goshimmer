@@ -3,8 +3,8 @@ package evillogger
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/logger"
 )
 
 var New = logger.NewLogger

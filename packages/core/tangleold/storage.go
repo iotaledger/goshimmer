@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 

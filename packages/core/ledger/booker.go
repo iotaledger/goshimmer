@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"

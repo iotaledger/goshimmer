@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"

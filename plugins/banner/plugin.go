@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 )
 
 // PluginName is the name of the banner plugin.

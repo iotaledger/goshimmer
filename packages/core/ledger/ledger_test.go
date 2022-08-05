@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

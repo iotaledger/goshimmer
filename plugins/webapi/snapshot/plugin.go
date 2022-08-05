@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"

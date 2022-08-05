@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 // TransactionBalancesValid is an internal utility function that checks if the sum of the balance changes equals to 0.

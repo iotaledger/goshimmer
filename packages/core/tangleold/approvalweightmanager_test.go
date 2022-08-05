@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/debug"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

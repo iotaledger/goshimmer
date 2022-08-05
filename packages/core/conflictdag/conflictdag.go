@@ -3,10 +3,10 @@ package conflictdag
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a

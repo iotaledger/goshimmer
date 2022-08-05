@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -18,9 +18,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"

@@ -2,7 +2,7 @@ package wallet
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"

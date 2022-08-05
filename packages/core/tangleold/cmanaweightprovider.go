@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 func init() {

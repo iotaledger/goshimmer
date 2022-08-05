@@ -1,6 +1,6 @@
 package discovery
 
-import "github.com/iotaledger/hive.go/configuration"
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinitionDiscovery contains the definition of configuration parameters used by the autopeering peer discovery.
 type ParametersDefinitionDiscovery struct {
@@ -15,5 +15,5 @@ type ParametersDefinitionDiscovery struct {
 var Parameters = &ParametersDefinitionDiscovery{}
 
 func init() {
-	configuration.BindParameters(Parameters, "autoPeering")
+	config.BindParameters(Parameters, "autoPeering")
 }

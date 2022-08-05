@@ -8,9 +8,9 @@ import (
 	"unsafe"
 
 	"github.com/capossele/asset-registry/pkg/registryservice"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/client"

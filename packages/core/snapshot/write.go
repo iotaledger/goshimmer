@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/iotaledger/hive.go/core/serix"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/hive.go/serix"
 )
 
 const utxoStatesChunkSize = 100
