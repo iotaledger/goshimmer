@@ -19,7 +19,11 @@ func TestTangle_AttachBlock(t *testing.T) {
 	defer tf.Shutdown()
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3", "block2")))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block3", "block4")))
 
+	// issue block1
 	{
 		tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
 		tf.AssertMissing(map[string]bool{
@@ -47,6 +51,7 @@ func TestTangle_AttachBlock(t *testing.T) {
 		})
 	}
 
+	// issue block2
 	{
 		tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
 
@@ -74,7 +79,122 @@ func TestTangle_AttachBlock(t *testing.T) {
 			assert.False(t, block.Block.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
-	// TODO: issue more blocks to check that children are updated correctly
+
+	// issue block4
+	{
+		tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
+		tf.AssertMissing(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": true,
+			"block4": false,
+		})
+
+		tf.AssertSolid(map[string]bool{
+			"block1": true,
+			"block2": true,
+			"block3": false,
+			"block4": false,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": false,
+			"block4": false,
+		})
+
+		tf.AssertStrongChildren(map[string][]string{
+			"block1": {"block2"},
+			"block2": {"block4"},
+			"block3": {"block4"},
+			"block4": {},
+		})
+
+		tf.AssertBlock("block3", func(block *Block) {
+			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+		})
+	}
+
+	// issue block5
+	{
+		tf.IssueBlocks("block5").WaitUntilAllTasksProcessed()
+		tf.AssertMissing(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": true,
+			"block4": false,
+			"block5": false,
+		})
+
+		tf.AssertSolid(map[string]bool{
+			"block1": true,
+			"block2": true,
+			"block3": false,
+			"block4": false,
+			"block5": false,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": false,
+			"block4": false,
+			"block5": false,
+		})
+
+		tf.AssertStrongChildren(map[string][]string{
+			"block1": {"block2"},
+			"block2": {"block4"},
+			"block3": {"block4", "block5"},
+			"block4": {"block5"},
+			"block5": {},
+		})
+
+		tf.AssertBlock("block3", func(block *Block) {
+			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+		})
+	}
+
+	// issue block3
+	{
+		tf.IssueBlocks("block3").WaitUntilAllTasksProcessed()
+		tf.AssertMissing(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": false,
+			"block4": false,
+			"block5": false,
+		})
+
+		tf.AssertSolid(map[string]bool{
+			"block1": true,
+			"block2": true,
+			"block3": true,
+			"block4": true,
+			"block5": true,
+		})
+
+		tf.AssertInvalid(map[string]bool{
+			"block1": false,
+			"block2": false,
+			"block3": false,
+			"block4": false,
+			"block5": false,
+		})
+
+		tf.AssertStrongChildren(map[string][]string{
+			"block1": {"block2", "block3"},
+			"block2": {"block4", "block3"},
+			"block3": {"block4", "block5"},
+			"block4": {"block5"},
+			"block5": {},
+		})
+
+		tf.AssertBlock("block3", func(block *Block) {
+			assert.False(t, block.Block.IssuingTime().IsZero(), "block should be attached")
+		})
+	}
 }
 
 func TestTangle_AttachBlockTwice_1(t *testing.T) {
@@ -153,6 +273,8 @@ func TestTangle_Shutdown(t *testing.T) {
 	assert.False(t, wasUpdated, "block should not be updated")
 }
 
+// This test prepares blocks accross different epochs and tries to attach them in reverse order to a pruned tangle.
+// At the end of the test only blocks from non-pruned epochs should be attached and marked as invalid.
 func TestTangle_AttachInvalid(t *testing.T) {
 	const epochCount = 100
 
@@ -162,33 +284,48 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	defer tf.Shutdown()
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) *models.Block {
+	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 0 {
 			return tf.CreateBlock(
-				fmt.Sprintf("blk%s-%d", prefix, idx),
+				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
-			)
+			), alias
 		}
 		return tf.CreateBlock(
-			fmt.Sprintf("blk%s-%d", prefix, idx),
+			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
 			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
-		)
+		), alias
 	}
 
+	// Prune tangle.
 	assert.EqualValues(t, -1, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
-
 	tf.Tangle.Prune(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-
 	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
+	expectedMissing := make(map[string]bool, epochCount)
+	expectedInvalid := make(map[string]bool, epochCount)
+	expectedSolid := make(map[string]bool, epochCount)
+
+	// Prepare blocks and their expected states.
 	for i := 0; i < epochCount; i++ {
-		// TODO: validate each block separately
-		blocks[i] = createNewBlock(i, "")
+		var alias string
+		blocks[i], alias = createNewBlock(i, "")
+		if i > 50 {
+			expectedMissing[alias] = false
+			expectedInvalid[alias] = true
+			expectedSolid[alias] = false
+		} else if i == 50 {
+			expectedMissing[alias] = true
+			expectedInvalid[alias] = true
+			expectedSolid[alias] = false
+		}
 	}
 
+	// Issue the first bunch of blocks. Those should be marked as invalid when the block with pruned parents is attached.
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.Tangle.Attach(blocks[i])
@@ -207,6 +344,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 		tf.AssertInvalidCount(epochCount/2-10, "should have invalid blocks")
 	}
 
+	// Issue the second bunch of blocks. Those should be marked as invalid when the block attaches to a previously invalid block.
 	{
 		for i := len(blocks) - 1; i >= len(blocks)-10; i-- {
 			_, wasAttached, err := tf.Tangle.Attach(blocks[i])
@@ -217,6 +355,9 @@ func TestTangle_AttachInvalid(t *testing.T) {
 
 		tf.AssertSolidCount(0, "should not have any solid blocks")
 		tf.AssertInvalidCount(epochCount/2, "should have invalid blocks")
+		tf.AssertMissing(expectedMissing)
+		tf.AssertInvalid(expectedInvalid)
+		tf.AssertSolid(expectedSolid)
 	}
 }
 
@@ -231,37 +372,58 @@ func TestTangle_Prune(t *testing.T) {
 	defer tf.Shutdown()
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) *models.Block {
+	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 0 {
 			return tf.CreateBlock(
-				fmt.Sprintf("blk%s-%d", prefix, idx),
+				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
-			)
+			), alias
 		}
 		return tf.CreateBlock(
-			fmt.Sprintf("blk%s-%d", prefix, idx),
+			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
 			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
-		)
+		), alias
 	}
 
 	assert.EqualValues(t, -1, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
 
+	expectedMissing := make(map[string]bool, epochCount)
+	expectedInvalid := make(map[string]bool, epochCount)
+	expectedSolid := make(map[string]bool, epochCount)
+
 	// Attach solid blocks
 	for i := 0; i < epochCount; i++ {
-		_, wasAttached, err := tf.Tangle.Attach(createNewBlock(i, ""))
+		block, alias := createNewBlock(i, "")
+
+		_, wasAttached, err := tf.Tangle.Attach(block)
+
+		if i > epochCount/4 {
+			expectedMissing[alias] = false
+			expectedInvalid[alias] = false
+			expectedSolid[alias] = true
+		}
+
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
 
-	// Attach a blocks that are not solid (skip the first one in the chain
+	// Attach a blocks that are not solid (skip the first one in the chain)
 	for i := 0; i < epochCount; i++ {
-		// TODO: check the state of each individual metadata
-		blk := createNewBlock(i, "-orphan")
+		blk, alias := createNewBlock(i, "-orphan")
+
 		if i == 0 {
 			continue
 		}
 		_, wasAttached, err := tf.Tangle.Attach(blk)
+
+		if i > epochCount/2 {
+			expectedMissing[alias] = false
+			expectedInvalid[alias] = true
+			expectedSolid[alias] = false
+		}
+
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 	}
