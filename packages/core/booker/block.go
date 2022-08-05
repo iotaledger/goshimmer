@@ -1,7 +1,7 @@
 package booker
 
 import (
-	"github.com/iotaledger/hive.go/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )

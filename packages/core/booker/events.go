@@ -1,7 +1,7 @@
 package booker
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 type Events struct {

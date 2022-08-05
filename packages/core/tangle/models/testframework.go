@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/iotaledger/hive.go/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

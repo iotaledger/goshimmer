@@ -3,7 +3,7 @@ package memstorage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )

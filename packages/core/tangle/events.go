@@ -1,6 +1,6 @@
 package tangle
 
-import "github.com/iotaledger/hive.go/generics/event"
+import "github.com/iotaledger/hive.go/core/generics/event"
 
 // Events is a collection of Tangle related Events
 type Events struct {

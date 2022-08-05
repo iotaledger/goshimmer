@@ -3,7 +3,7 @@ package booker
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
