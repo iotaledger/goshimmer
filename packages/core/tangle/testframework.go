@@ -98,7 +98,7 @@ func (t *TestFramework) Shutdown() {
 func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 	for alias, isMissing := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isMissing, block.IsMissing())
+			assert.Equal(t.t, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
 		})
 	}
 }
@@ -106,7 +106,7 @@ func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 	for alias, isInvalid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isInvalid, block.IsInvalid())
+			assert.Equal(t.t, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
 		})
 	}
 }
@@ -114,7 +114,7 @@ func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	for alias, isSolid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isSolid, block.IsSolid())
+			assert.Equal(t.t, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
 		})
 	}
 }
