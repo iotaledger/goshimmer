@@ -1048,7 +1048,7 @@ func TestManager_ActivityTree(t *testing.T) {
 		}
 	}
 
-	issuingTime = issuingTime.Add(epochInterval * 6)
+	issuingTime = issuingTime.Add(epochInterval * 16)
 	timeManager.time = issuingTime
 
 	{

@@ -90,7 +90,7 @@ func TestCManaWeightProvider(t *testing.T) {
 
 	// Advance LatestCommittableEpoch by two epochs -> node1 and node2 are active.
 	{
-		epochManager.ei = epochRetrieverFunc() + 2
+		epochManager.ei = epochRetrieverFunc() + activeEpochThreshold
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"2": 50,
 			"3": 30,
