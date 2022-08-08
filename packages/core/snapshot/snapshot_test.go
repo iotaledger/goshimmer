@@ -67,7 +67,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	}
 
 	// prepare outputsWithMetadata
-	createsOutputsWithMetadatas(t, 110)
+	createsOutputsWithMetadatas(110)
 	i := 0
 	utxoStatesProd := func() *ledger.OutputWithMetadata {
 		if i == len(outputsWithMetadata) {
@@ -102,7 +102,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 				require.NoError(t, decodeErr)
 
 				for r := 0; r < rand.Intn(10); r++ {
-					activityLog[epoch.Index(ei)].NodesLog[nodeID] = 1
+					activityLog[epoch.Index(ei)].SetNodeActivity(nodeID, 1)
 				}
 			}
 		}
@@ -151,7 +151,7 @@ func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[id
 
 var outputCounter uint16 = 1
 
-func createsOutputsWithMetadatas(t *testing.T, total int) {
+func createsOutputsWithMetadatas(total int) {
 	now := time.Now()
 	for i := 0; i < total; {
 		for nodeID, value := range manaDistribution {
@@ -226,9 +226,9 @@ func compareActivityLogs(t *testing.T, created, unmarshal epoch.SnapshotEpochAct
 }
 
 func compareActivityLog(t *testing.T, created, unmarshal *epoch.SnapshotNodeActivity) {
-	require.Equal(t, len(created.NodesLog), len(unmarshal.NodesLog))
-	for nodeID, acceptedCount := range created.NodesLog {
-		same := unmarshal.NodesLog[nodeID] == acceptedCount
+	require.Equal(t, len(created.NodesLog()), len(unmarshal.NodesLog()))
+	for nodeID, acceptedCount := range created.NodesLog() {
+		same := unmarshal.NodeActivity(nodeID) == acceptedCount
 		require.True(t, same)
 
 	}

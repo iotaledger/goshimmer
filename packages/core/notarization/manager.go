@@ -214,7 +214,7 @@ func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
 	defer m.WriteUnlockLedger()
 
 	for ei, nodeActivity := range epochActivity {
-		for nodeID, acceptedCount := range nodeActivity.NodesLog {
+		for nodeID, acceptedCount := range nodeActivity.NodesLog() {
 			err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID, acceptedCount)
 			if err != nil {
 				m.log.Error(err)
@@ -691,7 +691,7 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 
 func (m *Manager) SnapshotEpochActivity(epochActivity epoch.SnapshotEpochActivity) (err error) {
 	for ei, activity := range epochActivity {
-		for nodeID := range activity.NodesLog {
+		for nodeID := range activity.NodesLog() {
 			activityTree := m.epochCommitmentFactory.commitmentTrees[ei].activityTree
 			var acceptedBlocks uint64
 			acceptedCountBytes, getErr := activityTree.Get(nodeID.Bytes())
@@ -702,7 +702,7 @@ func (m *Manager) SnapshotEpochActivity(epochActivity epoch.SnapshotEpochActivit
 			if decodeErr != nil {
 				return errors.Wrap(decodeErr, "failed to decode acceptedCount leaf from activity tree")
 			}
-			activity.NodesLog[nodeID] = acceptedBlocks
+			activity.SetNodeActivity(nodeID, acceptedBlocks)
 		}
 	}
 	return

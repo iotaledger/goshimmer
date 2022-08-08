@@ -113,7 +113,6 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
 		al, ok := c.activeNodes[ei]
 		if !ok {
-			fmt.Printf("WARNING no active node for ei %v\n", ei)
 			continue
 		}
 		al.SetEpochs.ForEach(func(nodeID identity.ID) {
@@ -131,6 +130,9 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	}
 	c.clean(lowerBoundEpoch)
 
+	if len(weights) == 0 {
+		fmt.Printf("WARNING no active node for threshold %v - %v\n", lowerBoundEpoch, upperBoundEpoch)
+	}
 	return weights, totalWeight
 }
 
@@ -145,7 +147,7 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 			if _, ok := epochActivity[ei]; !ok {
 				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
 			}
-			epochActivity[ei].NodesLog[nodeID] = 0
+			epochActivity[ei].SetNodeActivity(nodeID, 0)
 		})
 	}
 	return
@@ -191,14 +193,14 @@ func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog)
 }
 
 // LoadActiveNodes loads the activity log to weight provider.
-func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
-	for ei, al := range loadedActiveNodes {
+func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
+	for ei, epochActivity := range loadedActiveNodes {
 		if _, ok := c.activeNodes[ei]; !ok {
 			c.activeNodes[ei] = epoch.NewActivityLog()
 		}
-		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+		for nodeID := range epochActivity.NodesLog() {
 			c.activeNodes[ei].Add(nodeID)
-		})
+		}
 	}
 }
 

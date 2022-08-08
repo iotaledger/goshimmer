@@ -321,7 +321,7 @@ func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.Snapsho
 	ei := epoch.IndexFromTime(activityTime)
 	activeNodes := make(epoch.SnapshotEpochActivity)
 	activeNodes[ei] = epoch.NewSnapshotNodeActivity()
-	activeNodes[ei].NodesLog[nodeID] = 1
+	activeNodes[ei].SetNodeActivity(nodeID, 1)
 	return activeNodes
 }
 
@@ -944,7 +944,7 @@ func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snapsh
 }
 
 // LoadActiveNodes mocks its interface function.
-func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog) {
+func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
 }
 
 // Update mocks its interface function.

@@ -27,6 +27,11 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
 	}
+
+	err = serix.DefaultAPI.RegisterTypeSettings(epoch.SnapshotEpochActivity{}, ts)
+	if err != nil {
+		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
+	}
 }
 
 // CreateSnapshot creates a snapshot file to the given file path.

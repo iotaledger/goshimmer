@@ -166,7 +166,7 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		activityLogConsumer := func(activityLog epoch.NodesActivityLog) {}
+		activityLogConsumer := func(activityLog epoch.SnapshotEpochActivity) {}
 
 		headerConsumer := func(*ledger.SnapshotHeader) {}
 

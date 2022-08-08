@@ -358,8 +358,8 @@ type WeightProvider interface {
 	// SnapshotEpochActivity returns the activity log for snapshotting.
 	SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity)
 
-	// LoadActiveNodes loads active nodes.
-	LoadActiveNodes(loadedActiveNodes epoch.NodesActivityLog)
+	// LoadActiveNodes loads active nodes from the snapshot activity log.
+	LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity)
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()

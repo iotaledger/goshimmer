@@ -265,18 +265,40 @@ func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// SnapshotEpochActivity is the data structure to store node activity for the snapshot.
 type SnapshotEpochActivity map[Index]*SnapshotNodeActivity
 
+// NewSnapshotEpochActivity creates a new SnapshotEpochActivity instance.
 func NewSnapshotEpochActivity() map[Index]*SnapshotNodeActivity {
 	return make(SnapshotEpochActivity)
 }
 
+// SnapshotNodeActivity is structure to store nodes activity for an epoch.
 type SnapshotNodeActivity struct {
+	model.Immutable[SnapshotNodeActivity, *SnapshotNodeActivity, nodeActivityModel] `serix:"0"`
+}
+
+// NewSnapshotNodeActivity creates a new SnapshotNodeActivity instance.
+func NewSnapshotNodeActivity() *SnapshotNodeActivity {
+	return model.NewImmutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
+}
+
+// nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.
+type nodeActivityModel struct {
 	NodesLog map[identity.ID]uint64 `serix:"0,lengthPrefixType=uint32"`
 }
 
-func NewSnapshotNodeActivity() *SnapshotNodeActivity {
-	return &SnapshotNodeActivity{
-		NodesLog: make(map[identity.ID]uint64),
-	}
+// NodesLog returns its activity map of nodes.
+func (s *SnapshotNodeActivity) NodesLog() map[identity.ID]uint64 {
+	return s.M.NodesLog
+}
+
+// NodeActivity returns activity counter for a given node.
+func (s *SnapshotNodeActivity) NodeActivity(nodeID identity.ID) uint64 {
+	return s.M.NodesLog[nodeID]
+}
+
+// SetNodeActivity adds a node activity record to the activity log.
+func (s *SnapshotNodeActivity) SetNodeActivity(nodeID identity.ID, activity uint64) {
+	s.M.NodesLog[nodeID] = activity
 }

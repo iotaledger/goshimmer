@@ -53,7 +53,7 @@ func init() {
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
 
-	activityLogConsumer := func(activityLog epoch.NodesActivityLog) {}
+	activityLogConsumer := func(activityLog epoch.SnapshotEpochActivity) {}
 
 	if Parameters.Snapshot.File != "" {
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
