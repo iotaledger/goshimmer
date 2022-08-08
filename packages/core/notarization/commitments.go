@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/kvstore"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"

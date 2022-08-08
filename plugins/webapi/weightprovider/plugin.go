@@ -3,7 +3,7 @@ package weightprovider
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

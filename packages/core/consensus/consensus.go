@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )

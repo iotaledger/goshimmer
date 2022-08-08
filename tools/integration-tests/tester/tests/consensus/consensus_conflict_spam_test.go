@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"

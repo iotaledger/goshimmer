@@ -1,3 +1,16 @@
+# v0.9.4 - 2022-08-08
+
+> This release mostly include maintenance changes to the deployment scripts and minor bug fixes.
+
+- readLoop errors should lead to neighbor's disconnection (#2375)
+- Enable debug logging on Devnet (#2374)
+- Update hive.go version (#2369)
+- Increase delimiter to avoid deserialization error (#2370)
+- Streamable Snapshot (#2358)
+- Refactor: renamed tangle package (#2352)
+- Refactor: Refactored package structure (#2350)
+- Fix: syncing and bootstrapping (#2349)
+
 # v0.9.3 - 2022-07-19
 
 > This release introduces bugfixes and improvements found in the previous release.
@@ -323,12 +336,12 @@ if you want to automatically override the already stored private key, use `node.
 
 We have also created a more streamlined deployment for our infrastructure which means that IF provided endpoints have changed:
 
-| Service                             | Old                                | New                                                        |
-| ----------------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| Analysis Server                     | ressims.iota.cafe:21888            | analysisentry-01.devnet.shimmer.iota.cafe:21888            |
-| IOTA 2.0 DevNet Analyzer            | http://ressims.iota.cafe:28080     | http://analysisentry-01.devnet.shimmer.iota.cafe:28080     |
-| Autopeering Entry Node "2PV5487..." | [identity]@ressims.iota.cafe:15626 | [identity]@analysisentry-01.devnet.shimmer.iota.cafe:15626 |
-| LogStash Remote Log                 | ressims.iota.cafe:5213             | metrics-01.devnet.shimmer.iota.cafe:5213                   |
+| Service                             | Old                                | New                                                                                        |
+| ----------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| Analysis Server                     | ressims.iota.cafe:21888            | analysisentry-01.devnet.shimmer.iota.cafe:21888                                            |
+| IOTA 2.0 DevNet Analyzer            | http://ressims.iota.cafe:28080     | http://analysisentry-01.devnet.shimmer.iota.cafe:28080                                     |
+| Autopeering Entry Node "2PV5487..." | [identity]@ressims.iota.cafe:15626 | [identity]@analysisentry-01.devnet.shimmer.iota.cafe:15626                                 |
+| LogStash Remote Log                 | ressims.iota.cafe:5213             | metrics-01.devnet.shimmer.iota.cafe:5213                                                   |
 | Daily Database                      | N/A                                | https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/dbs/nectar/automated/latest-db.tgz |
 
 Other changes:

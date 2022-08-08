@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
 )

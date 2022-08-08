@@ -3,7 +3,7 @@ package chat
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // Events define events occurring within a Chat.

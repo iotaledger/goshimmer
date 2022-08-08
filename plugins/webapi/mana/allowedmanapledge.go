@@ -3,7 +3,7 @@ package mana
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 

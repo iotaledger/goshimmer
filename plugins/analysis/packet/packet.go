@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/protocol/message"
-	"github.com/iotaledger/hive.go/protocol/tlv"
+	"github.com/iotaledger/hive.go/core/protocol/message"
+	"github.com/iotaledger/hive.go/core/protocol/tlv"
 )
 
 // ErrMalformedPacket is returned when malformed packets are tried to be parsed.

@@ -6,8 +6,8 @@ import (
 	_ "net/http/pprof"
 	"runtime"
 
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 )
 
 // PluginName is the name of the profiling plugin.

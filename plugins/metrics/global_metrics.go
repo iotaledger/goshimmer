@@ -3,8 +3,8 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"

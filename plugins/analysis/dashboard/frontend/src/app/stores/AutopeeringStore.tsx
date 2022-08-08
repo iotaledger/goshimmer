@@ -1,16 +1,16 @@
-import { action, computed, observable, ObservableMap, ObservableSet } from "mobx";
+import {action, computed, observable, ObservableMap, ObservableSet} from "mobx";
 import Viva from "vivagraphjs";
-import { INeighbors } from "../models/INeigbours";
-import { IAddNodeBlock } from "../models/blocks/IAddNodeBlock";
-import { IConnectNodesBlock } from "../models/blocks/IConnectNodesBlock";
-import { IDisconnectNodesBlock } from "../models/blocks/IDisconnectNodesBlock";
-import { IRemoveNodeBlock } from "../models/blocks/IRemoveNodeBlock";
-import { WSBlkType } from "../models/ws/wsBlkType";
-import { connectWebSocket, registerHandler } from "../services/WS";
-import { buildCircleNodeShader } from "../utils/circleNodeShader";
-import { parseColor } from "../utils/colorHelper";
-import { Neighbors } from "../models/Neighbors";
-import { manaStore } from "../../main";
+import {INeighbors} from "../models/INeigbours";
+import {IAddNodeBlock} from "../models/blocks/IAddNodeBlock";
+import {IConnectNodesBlock} from "../models/blocks/IConnectNodesBlock";
+import {IDisconnectNodesBlock} from "../models/blocks/IDisconnectNodesBlock";
+import {IRemoveNodeBlock} from "../models/blocks/IRemoveNodeBlock";
+import {WSBlkType} from "../models/ws/wsBlkType";
+import {connectWebSocket, registerHandler} from "../services/WS";
+import {buildCircleNodeShader} from "../utils/circleNodeShader";
+import {parseColor} from "../utils/colorHelper";
+import {Neighbors} from "../models/Neighbors";
+import {manaStore} from "../../main";
 import tinycolor from "tinycolor2";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";

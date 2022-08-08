@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
