@@ -121,38 +121,6 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	return err == nil, err
 }
 
-func (b *Booker) book(block *Block) {
-	b.bookingMutex.RLock(block.Parents()...)
-	defer b.bookingMutex.RUnlock(block.Parents()...)
-	b.bookingMutex.Lock(block.ID())
-	defer b.bookingMutex.Unlock(block.ID())
-
-	fmt.Printf("booking %s, %p \n", block.ID(), block)
-
-	// TODO: this should be part of collectStrongParentsBookingDetails determine booking details
-	//  next step: determineBookingDetails:
-	//  - get payload's conflicts
-	//  - get strong parents conflicts, structureDetails and more
-	//  - apply weak and like parents and effects
-	//  -> so first we need to implement the whole marker conflict mapping business
-	// collect all strong parents structure details
-	parentsStructureDetails := make([]*markers.StructureDetails, 0)
-	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, exists := b.Block(parentBlockID)
-		if !exists {
-			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
-		}
-		if parentBlock.StructureDetails() != nil {
-			parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
-		}
-		return true
-	})
-
-	newStructureDetails, newSequenceCreated := b.markerManager.ProcessBlock(block, parentsStructureDetails)
-	block.setStructureDetails(newStructureDetails)
-	fmt.Println(block.ID(), newSequenceCreated, newStructureDetails)
-}
-
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if block = b.rootBlockProvider(id); block != nil {
@@ -169,4 +137,129 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 // isReferenceValid checks if the reference between the child and its parent is valid.
 func isReferenceValid(child *Block, parent *Block) (isValid bool) {
 	return !parent.IsInvalid()
+}
+
+func (b *Booker) book(block *Block) {
+	b.bookingMutex.RLock(block.Parents()...)
+	defer b.bookingMutex.RUnlock(block.Parents()...)
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
+	fmt.Printf("booking %s, %p \n", block.ID(), block)
+
+	// TODO: this should be part of collectStrongParentsBookingDetails determine booking details
+	//  next step: determineBookingDetails:
+	//  - get payload's conflicts
+	//  - get strong parents conflicts, structureDetails and more
+	//  - apply weak and like parents and effects
+	//  -> so first we need to implement the whole marker conflict mapping business
+
+	b.inheritConflictIDs(block)
+
+	block.setBooked()
+	fmt.Println("booked", block)
+}
+
+func (b *Booker) inheritConflictIDs(block *Block) {
+	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs := b.determineBookingDetails(block)
+
+	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
+	block.setStructureDetails(newStructureDetails)
+
+	if newStructureDetails.IsPastMarker() {
+		return
+	}
+
+	addedConflictIDs := inheritedConflictIDs.Clone()
+	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
+	block.AddAllAddedConflictIDs(addedConflictIDs)
+
+	// TODO: clone necessary?
+	subtractedConflictIDs := pastMarkersConflictIDs
+	subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
+	block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
+}
+
+// determineBookingDetails determines the booking details of an unbooked Block.
+func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs) {
+	inheritedConflictIDs = b.PayloadConflictIDs(block)
+
+	// TODO: b.ledger.ConflictDAG.UnconfirmedConflicts should all happen here
+	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
+
+	// weakPayloadConflictIDs, weakParentsErr := b.collectWeakParentsConflictIDs(block)
+	// if weakParentsErr != nil {
+	// 	return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", block.ID(), weakParentsErr)
+	// }
+	//
+	// likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
+	// if shallowLikeErr != nil {
+	// 	return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", block.ID(), shallowLikeErr)
+	// }
+
+	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
+	// inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
+	// inheritedConflictIDs.AddAll(likedConflictIDs)
+	// inheritedConflictIDs.DeleteAll(b.tangle.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+
+	return parentsStructureDetails, parentsPastMarkersConflictIDs, b.ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)
+}
+
+// collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
+func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, parentsConflictIDs utxo.TransactionIDs) {
+	parentsStructureDetails = make([]*markers.StructureDetails, 0)
+	parentsPastMarkersConflictIDs = utxo.NewTransactionIDs()
+	parentsConflictIDs = utxo.NewTransactionIDs()
+
+	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			// This should never happen.
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+
+		parentPastMarkersConflictIDs, parentConflictIDs := b.blockBookingDetails(parentBlock)
+		parentsStructureDetails = append(parentsStructureDetails, parentBlock.StructureDetails())
+		parentsPastMarkersConflictIDs.AddAll(parentPastMarkersConflictIDs)
+		parentsConflictIDs.AddAll(parentConflictIDs)
+
+		return true
+	})
+
+	return
+}
+
+// blockBookingDetails returns the Conflict and Marker related details of the given Block.
+func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
+	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
+
+	blockConflictIDs = utxo.NewTransactionIDs()
+	blockConflictIDs.AddAll(pastMarkersConflictIDs)
+
+	if addedConflictIDs := block.AddedConflictIDs(); !addedConflictIDs.IsEmpty() {
+		blockConflictIDs.AddAll(addedConflictIDs)
+	}
+
+	if subtractedConflictIDs := block.SubtractedConflictIDs(); !subtractedConflictIDs.IsEmpty() {
+		blockConflictIDs.DeleteAll(subtractedConflictIDs)
+	}
+
+	return pastMarkersConflictIDs, blockConflictIDs
+}
+
+// PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
+func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
+	conflictIDs = utxo.NewTransactionIDs()
+
+	transaction, isTransaction := block.Payload().(utxo.Transaction)
+	if !isTransaction {
+		return
+	}
+
+	b.ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		resolvedConflictIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(transactionMetadata.ConflictIDs())
+		conflictIDs.AddAll(resolvedConflictIDs)
+	})
+
+	return
 }

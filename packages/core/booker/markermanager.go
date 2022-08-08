@@ -16,8 +16,8 @@ type MarkerManager struct {
 	sequenceManager              *markers.SequenceManager
 	markerIndexConflictIDMapping *memstorage.Storage[markers.SequenceID, *MarkerIndexConflictIDMapping]
 
-	blockMarkerMapping        *memstorage.Storage[markers.Marker, *Block]
-	blockMarkerMappingPruning *memstorage.Storage[epoch.Index, set.Set[markers.Marker]]
+	markerBlockMapping        *memstorage.Storage[markers.Marker, *Block]
+	markerBlockMappingPruning *memstorage.Storage[epoch.Index, set.Set[markers.Marker]]
 
 	lastUsedMap *memstorage.Storage[markers.SequenceID, epoch.Index]
 	pruningMap  *memstorage.Storage[epoch.Index, set.Set[markers.SequenceID]]
@@ -36,13 +36,17 @@ func NewMarkerManager() *MarkerManager {
 
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.StructureDetails) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
-	newStructureDetails, newSequenceCreated = m.sequenceManager.InheritStructureDetails(structureDetails)
+func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
+	newStructureDetails, newSequenceCreated := m.sequenceManager.InheritStructureDetails(structureDetails)
 
-	// TODO register marker -> block mapping
-	// if newStructureDetails.IsPastMarker() {
-	// 	m.SetBlockID(newStructureDetails.PastMarkers().Marker(), block.ID())
-	// }
+	if newSequenceCreated {
+		m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
+	}
+
+	if newStructureDetails.IsPastMarker() {
+		m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
+		m.AddMarkerBlockMapping(newStructureDetails.PastMarkers().Marker(), block)
+	}
 
 	// TODO: register in pruning map and lastUsedMap
 
@@ -68,6 +72,19 @@ func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.S
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MarkerIndexConflictIDMapping /////////////////////////////////////////////////////////////////////////////////
+
+// ConflictIDsFromStructureDetails returns the ConflictIDs from StructureDetails.
+func (m *MarkerManager) ConflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs) {
+	structureDetailsConflictIDs = utxo.NewTransactionIDs()
+
+	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		conflictIDs := m.ConflictIDs(markers.NewMarker(sequenceID, index))
+		structureDetailsConflictIDs.AddAll(conflictIDs)
+		return true
+	})
+
+	return
+}
 
 // SetConflictIDs associates ledger.ConflictIDs with the given Marker.
 func (m *MarkerManager) SetConflictIDs(marker markers.Marker, conflictIDs *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
@@ -143,15 +160,15 @@ func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, 
 
 // region MarkerBlockMapping ///////////////////////////////////////////////////////////////////////////////////////////
 
-// Block retrieves the Block of the given Marker.
-func (m *MarkerManager) Block(marker markers.Marker) (block *Block, exists bool) {
-	return m.blockMarkerMapping.Get(marker)
+// BlockFromMarker retrieves the Block of the given Marker.
+func (m *MarkerManager) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
+	return m.markerBlockMapping.Get(marker)
 }
 
-// SetBlock associates a Block with the given Marker.
-func (m *MarkerManager) SetBlock(marker markers.Marker, block *Block) {
-	m.blockMarkerMapping.Set(marker, block)
-	markerSet, _ := m.blockMarkerMappingPruning.RetrieveOrCreate(block.ID().EpochIndex, func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
+// AddMarkerBlockMapping associates a Block with the given Marker.
+func (m *MarkerManager) AddMarkerBlockMapping(marker markers.Marker, block *Block) {
+	m.markerBlockMapping.Set(marker, block)
+	markerSet, _ := m.markerBlockMappingPruning.RetrieveOrCreate(block.ID().EpochIndex, func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
 	markerSet.Add(marker)
 }
 
