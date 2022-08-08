@@ -51,6 +51,9 @@ func streamSnapshotDataFrom(reader io.ReadSeeker, headerConsumer HeaderConsumerF
 	epochDiffsConsumer(header, epochDiffs)
 
 	activityLog, err := readActivityLog(scanner)
+	if err != nil {
+		return errors.Errorf("failed to parse activity log from bytes: %w", err)
+	}
 	activityLogConsumer(activityLog)
 
 	return nil
