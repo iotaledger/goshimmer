@@ -42,7 +42,9 @@ type Manager struct {
 	blockBatchSize int
 
 	validationInProgress bool
-	commitmentsChan      chan (*epoch.ECRecord)
+	validationLock       sync.RWMutex
+	commitmentsChan      chan (*neighborCommitment)
+	commitmentsStopChan  chan struct{}
 
 	syncingInProgress       bool
 	epochSyncStartChan      chan (*epochSyncStart)
@@ -63,7 +65,6 @@ func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockPro
 		log:                     log,
 		blockLoaderFunc:         blockLoaderFunc,
 		blockProcessorFunc:      blockProcessorFunc,
-		commitmentsChan:         make(chan *epoch.ECRecord),
 		epochSyncStartChan:      make(chan *epochSyncStart),
 		epochSyncBatchBlockChan: make(chan *epochSyncBatchBlock),
 		epochSyncEndChan:        make(chan *epochSyncEnd),

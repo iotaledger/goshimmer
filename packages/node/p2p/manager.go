@@ -200,6 +200,16 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 	return result
 }
 
+// AllNeighborsIDs returns all the neighbors ids that are currently connected.
+func (m *Manager) AllNeighborsIDs() (ids []identity.ID) {
+	ids = make([]identity.ID, 0)
+	neighbors := m.AllNeighbors()
+	for _, nbr := range neighbors {
+		ids = append(ids, nbr.ID())
+	}
+	return
+}
+
 // GetNeighborsByID returns all the neighbors that are currently connected corresponding to the supplied ids.
 func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
