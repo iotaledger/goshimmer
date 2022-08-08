@@ -10,6 +10,9 @@
 - Refactor: renamed tangle package (#2352)
 - Refactor: Refactored package structure (#2350)
 - Fix: syncing and bootstrapping (#2349)
+- Build(deps): bump terser in /plugins/dagsvisualizer/frontend (#2354)
+- Build(deps): bump terser in /plugins/dashboard/frontend (#2355)
+- Build(deps): bump terser in /plugins/analysis/dashboard/frontend (#2356)
 
 # v0.9.3 - 2022-07-19
 
