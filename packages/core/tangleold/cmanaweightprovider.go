@@ -110,6 +110,8 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	// nodes mana is counted only once for total weight calculation
+	totalWeightOnce := make(map[identity.ID]types.Empty)
 	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
 		al, ok := c.activeNodes[ei]
 		if !ok {
@@ -125,7 +127,10 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 			}
 
 			weights[nodeID] = nodeMana
-			totalWeight += nodeMana
+			if _, notFirstTime := totalWeightOnce[nodeID]; !notFirstTime {
+				totalWeight += nodeMana
+				totalWeightOnce[nodeID] = types.Void
+			}
 		})
 	}
 	c.clean(lowerBoundEpoch)
