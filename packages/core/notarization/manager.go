@@ -292,6 +292,9 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 }
 
 func (m *Manager) OnBlockStored(block *tangleold.Block) {
+	m.WriteLockLedger()
+	defer m.WriteUnlockLedger()
+
 	ei := epoch.IndexFromTime(block.IssuingTime())
 
 	nodeID := identity.NewID(block.IssuerPublicKey())
