@@ -33,7 +33,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin("SnapshotWebAPI", deps, node.Disabled, configure)
+	Plugin = node.NewPlugin("WebAPISnapshot", deps, node.Disabled, configure)
 }
 
 func configure(_ *node.Plugin) {
