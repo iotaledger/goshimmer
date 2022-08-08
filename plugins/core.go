@@ -49,6 +49,7 @@ var Core = node.Plugins(
 	firewall.Plugin,
 	blocklayer.ManaPlugin,
 	blocklayer.NotarizationPlugin,
+	blocklayer.SnapshotPlugin,
 	bootstrapmanager.Plugin,
 	faucet.Plugin,
 	metrics.Plugin,

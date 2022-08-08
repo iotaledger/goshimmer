@@ -44,7 +44,7 @@ var (
 )
 
 func init() {
-	SnapshotPlugin = node.NewPlugin(SnapshotPluginName, snapshotnDeps, node.Enabled, configureSnapshotPlugin, runNotarizationPlugin)
+	SnapshotPlugin = node.NewPlugin(SnapshotPluginName, snapshotnDeps, node.Enabled, configureSnapshotPlugin, runSnapshotPlugin)
 
 	SnapshotPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(newSnapshotManager); err != nil {
