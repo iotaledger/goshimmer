@@ -125,22 +125,7 @@ func streamSnapshotDataTo(
 // NewSolidEntryPointsProducer returns a SolidEntryPointsProducerFunc that provide solid entry points from the snapshot manager.
 func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
 	prodChan := make(chan *SolidEntryPoints)
-
-	go func() {
-		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
-			seps := smgr.SolidEntryPointsOfEpoch(i)
-			if len(seps) == 0 {
-				panic("failed to fetch solid entry points")
-			}
-
-			send := &SolidEntryPoints{
-				EI:   i,
-				Seps: seps,
-			}
-			prodChan <- send
-		}
-		close(prodChan)
-	}()
+	smgr.SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch, prodChan)
 
 	return func() *SolidEntryPoints {
 		obj, ok := <-prodChan

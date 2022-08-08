@@ -17,6 +17,7 @@ const (
 	prefixSolidEntryPoint byte = iota
 )
 
+// Manager is the snapshot manager.
 type Manager struct {
 	tangle          *tangleold.Tangle
 	notarizationMgr *notarization.Manager
@@ -25,6 +26,7 @@ type Manager struct {
 	sepsLock  sync.RWMutex
 }
 
+// NewManager creates and returns a new snapshot manager.
 func NewManager(store kvstore.KVStore, t *tangleold.Tangle, nmgr *notarization.Manager) (new *Manager) {
 	new = &Manager{
 		tangle:          t,
@@ -49,6 +51,7 @@ func NewManager(store kvstore.KVStore, t *tangleold.Tangle, nmgr *notarization.M
 	return
 }
 
+// CreateSnapshot creates a snapshot file from node with a given name.
 func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.SnapshotHeader, err error) {
 	ecRecord, lastConfirmedEpoch, err := m.tangle.Options.CommitmentFunc()
 	if err != nil {
@@ -58,6 +61,10 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	// lock the entire ledger in notarization manager until the snapshot is created.
 	m.notarizationMgr.WriteLockLedger()
 	defer m.notarizationMgr.WriteUnlockLedger()
+
+	// lock the entire solid entry points storage until the snapshot is created.
+	m.sepsLock.Lock()
+	defer m.sepsLock.Unlock()
 
 	headerPord := func() (header *ledger.SnapshotHeader, err error) {
 		header = &ledger.SnapshotHeader{
@@ -77,6 +84,7 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	return
 }
 
+// LoadSolidEntryPoints add solid entry points to storage.
 func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
 	if seps == nil {
 		return
@@ -124,7 +132,7 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 	}
 
 	// cannot remove sep from confirmed epoch
-	if blkID.EpochIndex < lastConfirmedEpoch {
+	if blkID.EpochIndex <= lastConfirmedEpoch {
 		return
 	}
 
@@ -136,23 +144,32 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 	return
 }
 
-// SolidEntryPointsOfEpoch dumps solid entry points within given epochs.
-func (m *Manager) SolidEntryPointsOfEpoch(ei epoch.Index) (seps []tangleold.BlockID) {
-	m.sepsLock.RLock()
-	defer m.sepsLock.RUnlock()
+func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints) {
+	go func() {
+		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
+			sepsPrefix := append([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, i.Bytes()...)
+			seps := make([]tangleold.BlockID, 0)
 
-	sepsPrefix := append([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, ei.Bytes()...)
+			m.baseStore.IterateKeys(sepsPrefix, func(key kvstore.Key) bool {
+				var blkID tangleold.BlockID
+				_, err := blkID.FromBytes(key)
+				if err != nil {
+					return false
+				}
+				seps = append(seps, blkID)
 
-	m.baseStore.IterateKeys(sepsPrefix, func(key kvstore.Key) bool {
-		var blkID tangleold.BlockID
-		_, err := blkID.FromBytes(key)
-		if err != nil {
-			return false
+				return true
+			})
+
+			send := &SolidEntryPoints{
+				EI:   i,
+				Seps: seps,
+			}
+			prodChan <- send
 		}
-		seps = append(seps, blkID)
 
-		return true
-	})
+		close(prodChan)
+	}()
 
 	return
 }
