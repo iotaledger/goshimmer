@@ -3,7 +3,7 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of the parameters used by the metrics plugin.
@@ -22,5 +22,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "metrics")
+	config.BindParameters(Parameters, "metrics")
 }

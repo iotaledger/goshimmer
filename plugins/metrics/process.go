@@ -7,7 +7,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/app/metrics"
 )
 
 var (

@@ -3,15 +3,16 @@ package spammer
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/spammer"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/app/spammer"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 var blockSpammer *spammer.Spammer
@@ -29,7 +30,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 	Server *echo.Echo
 }
 

@@ -9,18 +9,18 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/network"
-	"github.com/iotaledger/hive.go/network/tcp"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/protocol"
+	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/network"
+	"github.com/iotaledger/hive.go/core/network/tcp"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/protocol"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 

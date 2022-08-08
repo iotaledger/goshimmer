@@ -1,6 +1,8 @@
 package dagsvisualizer
 
-import "github.com/iotaledger/goshimmer/packages/jsonmodels"
+import (
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+)
 
 const (
 	// BlkTypeTangleVertex is the type of the Tangle DAG vertex.

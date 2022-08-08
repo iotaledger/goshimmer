@@ -3,12 +3,13 @@ package dashboard
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		block := task.Param(0).(*tangle.Block)
+		block := task.Param(0).(*tangleold.Block)
 
 		broadcastWsBlock(&wsblk{MsgTypeBlock, &blk{block.ID().Base58(), 0, uint32(block.Payload().Type())}})
 
@@ -28,7 +29,7 @@ func configureLiveFeed() {
 }
 
 func runLiveFeed() {
-	notifyNewBlk := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	notifyNewBlk := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		liveFeedWorkerPool.TrySubmit(event.Block)
 	})
 

@@ -3,12 +3,12 @@ package mana
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

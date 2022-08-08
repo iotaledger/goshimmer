@@ -6,10 +6,10 @@ import (
 	"unsafe"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/marshalutil"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -24,9 +24,9 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////

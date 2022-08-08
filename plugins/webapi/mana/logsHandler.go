@@ -1,21 +1,21 @@
 package mana
 
 //
-//import (
+// import (
 //	"net/http"
 //	"time"
 //
-//	"github.com/iotaledger/hive.go/identity"
+//	"github.com/iotaledger/hive.go/core/identity"
 //	"github.com/labstack/echo"
 //	"github.com/mr-tron/base58"
 //
-//	"github.com/iotaledger/goshimmer/packages/mana"
+//	"github.com/iotaledger/goshimmer/packages/core/mana"
 //	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 //	"github.com/iotaledger/goshimmer/plugins/webapi/jsonmodels"
-//)
+// )
 //
-//// getEventLogsHandler handles the request.
-//func getEventLogsHandler(c echo.Context) error {
+// // getEventLogsHandler handles the request.
+// func getEventLogsHandler(c echo.Context) error {
 //	var req jsonmodels.GetEventLogsRequest
 //	if err := c.Bind(&req); err != nil {
 //		return c.JSON(http.StatusBadRequest, jsonmodels.GetEventLogsResponse{Error: err.Error()})

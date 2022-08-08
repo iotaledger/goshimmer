@@ -5,10 +5,10 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/shirou/gopsutil/cpu"
 
-	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/app/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )

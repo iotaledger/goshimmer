@@ -6,25 +6,25 @@ import (
 	"math"
 	"testing"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
 var (
 	// minAccessMana is minimal amout of mana required to access the network
-	minAccessMana      = tangle.MinMana
+	minAccessMana      = tangleold.MinMana
 	startAccessMana    = 2_500_000_000_000_000.
 	faucetPledgeAmount = 1_000_000.
 	minConsensusMana   = 0.0
 )
 
 //
-//func TestManaPersistence(t *testing.T) {
+// func TestManaPersistence(t *testing.T) {
 //	ctx, cancel := tests.Context(context.Background(), t)
 //	defer cancel()
 //	snapshotInfo := tests.EqualSnapshotDetails
@@ -58,9 +58,9 @@ var (
 //
 //	require.Greater(t, tests.Mana(t, peer).Access, minAccessMana)
 //	require.Greater(t, tests.Mana(t, peer).Consensus, minConsensusMana)
-//}
+// }
 //
-//func TestManaPledgeFilter(t *testing.T) {
+// func TestManaPledgeFilter(t *testing.T) {
 //	const (
 //		numPeers         = 3
 //		tokensPerRequest = 100
@@ -135,7 +135,7 @@ var (
 //	})
 //	require.ErrorIs(t, err, client.ErrBadRequest)
 //	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
-//}
+// }
 
 func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)

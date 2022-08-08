@@ -7,19 +7,20 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/discover"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/autopeering/selection"
-	"github.com/iotaledger/hive.go/autopeering/server"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/core/autopeering/selection"
+	"github.com/iotaledger/hive.go/core/autopeering/server"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
-	net2 "github.com/iotaledger/goshimmer/packages/net"
-	"github.com/iotaledger/goshimmer/packages/p2p"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+
+	netPkg "github.com/iotaledger/goshimmer/packages/app/metrics/net"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
 
@@ -42,7 +43,7 @@ type dependencies struct {
 	Local                 *peer.Local
 	P2PMgr                *p2p.Manager           `optional:"true"`
 	ManaFunc              mana.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
-	AutoPeeringConnMetric *net2.ConnMetric
+	AutoPeeringConnMetric *netPkg.ConnMetric
 }
 
 func init() {
@@ -63,8 +64,8 @@ func init() {
 			Plugin.Panic(err)
 		}
 
-		if err := event.Container.Provide(func() *net2.ConnMetric {
-			return &net2.ConnMetric{}
+		if err := event.Container.Provide(func() *netPkg.ConnMetric {
+			return &netPkg.ConnMetric{}
 		}); err != nil {
 			Plugin.Panic(err)
 		}
@@ -77,12 +78,12 @@ func configure(_ *node.Plugin) {
 	// resolve the bind address
 	localAddr, err = net.ResolveUDPAddr("udp", Parameters.BindAddress)
 	if err != nil {
-		Plugin.LogFatalf("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
+		Plugin.LogFatalfAndExit("bind address '%s' is invalid: %s", Parameters.BindAddress, err)
 	}
 
 	// announce the peering service
 	if err := deps.Local.UpdateService(service.PeeringKey, localAddr.Network(), localAddr.Port); err != nil {
-		Plugin.LogFatalf("could not update services: %s", err)
+		Plugin.LogFatalfAndExit("could not update services: %s", err)
 	}
 
 	if deps.P2PMgr != nil {

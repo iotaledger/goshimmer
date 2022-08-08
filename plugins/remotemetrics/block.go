@@ -3,16 +3,17 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 
-	"github.com/iotaledger/goshimmer/packages/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
+	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 
-func sendBlockSchedulerRecord(blockID tangle.BlockID, recordType string) {
+func sendBlockSchedulerRecord(blockID tangleold.BlockID, recordType string) {
 	if !deps.Tangle.Synced() {
 		return
 	}
@@ -28,20 +29,20 @@ func sendBlockSchedulerRecord(blockID tangle.BlockID, recordType string) {
 		BlockID:      blockID.Base58(),
 	}
 
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 		issuerID := identity.NewID(block.IssuerPublicKey())
 		record.IssuedTimestamp = block.IssuingTime()
 		record.IssuerID = issuerID.String()
 		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
-		record.StrongEdgeCount = len(block.ParentsByType(tangle.StrongParentType))
-		if weakParentsCount := len(block.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+		record.StrongEdgeCount = len(block.ParentsByType(tangleold.StrongParentType))
+		if weakParentsCount := len(block.ParentsByType(tangleold.WeakParentType)); weakParentsCount > 0 {
 			record.StrongEdgeCount = weakParentsCount
 		}
-		if likeParentsCount := len(block.ParentsByType(tangle.ShallowLikeParentType)); likeParentsCount > 0 {
-			record.StrongEdgeCount = len(block.ParentsByType(tangle.ShallowLikeParentType))
+		if likeParentsCount := len(block.ParentsByType(tangleold.ShallowLikeParentType)); likeParentsCount > 0 {
+			record.StrongEdgeCount = len(block.ParentsByType(tangleold.ShallowLikeParentType))
 		}
 
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 			record.ReceivedTimestamp = blockMetadata.ReceivedTime()
 			record.ScheduledTimestamp = blockMetadata.ScheduledTime()
 			record.DroppedTimestamp = blockMetadata.DiscardedTime()
@@ -96,7 +97,7 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 	deps.Tangle.Storage.Block(blockIDs.First()).Consume(onBlockFinalized)
 }
 
-func onBlockFinalized(block *tangle.Block) {
+func onBlockFinalized(block *tangleold.Block) {
 	if !deps.Tangle.Synced() {
 		return
 	}
@@ -118,14 +119,14 @@ func onBlockFinalized(block *tangle.Block) {
 	issuerID := identity.NewID(block.IssuerPublicKey())
 	record.IssuedTimestamp = block.IssuingTime()
 	record.IssuerID = issuerID.String()
-	record.StrongEdgeCount = len(block.ParentsByType(tangle.StrongParentType))
-	if weakParentsCount := len(block.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+	record.StrongEdgeCount = len(block.ParentsByType(tangleold.StrongParentType))
+	if weakParentsCount := len(block.ParentsByType(tangleold.WeakParentType)); weakParentsCount > 0 {
 		record.WeakEdgeCount = weakParentsCount
 	}
-	if shallowLikeParentsCount := len(block.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
+	if shallowLikeParentsCount := len(block.ParentsByType(tangleold.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
 		record.ShallowLikeEdgeCount = shallowLikeParentsCount
 	}
-	deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+	deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 		record.ScheduledTimestamp = blockMetadata.ScheduledTime()
 		record.DeltaScheduled = blockMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		record.BookedTimestamp = blockMetadata.BookedTime()
@@ -143,7 +144,7 @@ func onBlockFinalized(block *tangle.Block) {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func sendMissingBlockRecord(blockID tangle.BlockID, recordType string) {
+func sendMissingBlockRecord(blockID tangleold.BlockID, recordType string) {
 	if !deps.Tangle.Synced() {
 		return
 	}
@@ -160,7 +161,7 @@ func sendMissingBlockRecord(blockID tangle.BlockID, recordType string) {
 		BlockID:      blockID.Base58(),
 	}
 
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 		record.IssuerID = identity.NewID(block.IssuerPublicKey()).String()
 	})
 

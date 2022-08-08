@@ -3,7 +3,7 @@ package gossip
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of configuration parameters used by the gossip plugin.
@@ -29,5 +29,5 @@ type blockRequestsLimitParameters struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "gossip")
+	config.BindParameters(Parameters, "gossip")
 }

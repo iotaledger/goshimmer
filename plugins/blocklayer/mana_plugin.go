@@ -6,28 +6,28 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/notarization"
-	"github.com/iotaledger/goshimmer/packages/p2p"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
-	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 
-	db_pkg "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/packages/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 const (
@@ -191,14 +191,70 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				nodeSnapshot := new(snapshot.Snapshot)
-				if err := nodeSnapshot.FromFile(Parameters.Snapshot.File); err != nil {
-					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
+				var cManaTargetEpoch epoch.Index
+				consensusManaByNode := map[identity.ID]float64{}
+				accessManaByNode := map[identity.ID]float64{}
+				processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
+					for _, outputWithMetadata := range outputsWithMetadata {
+						devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+						balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+						if !exists {
+							continue
+						}
+						consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
+						if areCreated {
+							baseVector[consensusManaPledgeID] += float64(balance)
+						} else {
+							baseVector[consensusManaPledgeID] -= float64(balance)
+						}
+					}
+
+					return
 				}
 
-				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
-					Plugin.Panicf("Couldn't load snapshot: %s", err)
+				utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+					processOutputs(outputsWithMetadatas, consensusManaByNode, true /* areCreated */)
+					processOutputs(outputsWithMetadatas, accessManaByNode, true /* areCreated */)
+
 				}
+
+				epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+					for ei := header.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
+						diff, exists := epochDiffs[ei]
+						if !exists {
+							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
+						}
+						processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+						processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+					}
+
+					// Only the aMana will be loaded until the latest snapshot's epoch
+					for ei := cManaTargetEpoch + 1; ei <= header.DiffEpochIndex; ei++ {
+						diff, exists := epochDiffs[ei]
+						if !exists {
+							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
+						}
+						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+					}
+				}
+
+				headerConsumer := func(header *ledger.SnapshotHeader) {
+					cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+					if cManaTargetEpoch < 0 {
+						cManaTargetEpoch = 0
+					}
+
+				}
+
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
+					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
+				}
+				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
 
 				// initialize cMana WeightProvider with snapshot
 				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
@@ -753,62 +809,4 @@ func QueryAllowed() (allowed bool) {
 
 	// query allowed only when base mana vectors have been initialized
 	return len(baseManaVectors) > 0
-}
-
-// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledger.Snapshot) error {
-	consensusManaByNode := map[identity.ID]float64{}
-	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
-		for _, outputWithMetadata := range outputsWithMetadata {
-			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
-			balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
-			if !exists {
-				continue
-			}
-			consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
-			if areCreated {
-				baseVector[consensusManaPledgeID] += float64(balance)
-			} else {
-				baseVector[consensusManaPledgeID] -= float64(balance)
-			}
-		}
-
-		return
-	}
-
-	processOutputs(snapshot.OutputsWithMetadata, consensusManaByNode, true /* areCreated */)
-	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
-
-	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
-	if cManaTargetEpoch < 0 {
-		cManaTargetEpoch = 0
-	}
-
-	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	// Only the aMana will be loaded until the latest snapshot's epoch
-	for ei := cManaTargetEpoch + 1; ei <= snapshot.DiffEpochIndex; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
-	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
-
-	return nil
 }

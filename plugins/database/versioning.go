@@ -5,13 +5,13 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore"
 )
 
 const (
 	// DBVersion defines the version of the database schema this version of GoShimmer supports.
 	// Every time there's a breaking change regarding the stored data, this version flag should be adjusted.
-	DBVersion = 61
+	DBVersion = 62
 )
 
 var (
