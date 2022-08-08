@@ -122,7 +122,7 @@ func streamSnapshotDataTo(
 	return header, nil
 }
 
-// NewSolidEntryPointsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
+// NewSolidEntryPointsProducer returns a SolidEntryPointsProducerFunc that provide solid entry points from the snapshot manager.
 func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
 	prodChan := make(chan *SolidEntryPoints)
 
