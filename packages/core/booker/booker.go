@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/marker"
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -60,7 +60,7 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
 	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
 
-	tangleInstance.Events.BlockSolid.Attach(event.NewClosure(func(block *tangle.Block) {
+	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
@@ -136,7 +136,7 @@ func (b *Booker) book(block *Block) {
 	//  - apply weak and like parents and effects
 	//  -> so first we need to implement the whole marker conflict mapping business
 	// collect all strong parents structure details
-	parentsStructureDetails := make([]*marker.StructureDetails, 0)
+	parentsStructureDetails := make([]*markers.StructureDetails, 0)
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
