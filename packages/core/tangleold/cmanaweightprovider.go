@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 func init() {

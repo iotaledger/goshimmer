@@ -11,7 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.

@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 const utxoStatesChunkSize = 100

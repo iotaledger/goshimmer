@@ -2,15 +2,15 @@ package notarization
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/node/clock"

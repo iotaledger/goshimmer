@@ -3,10 +3,10 @@ package blocklayer
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"

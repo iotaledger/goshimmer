@@ -2,7 +2,7 @@ package notarization
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/hive.go/core/serix"
 

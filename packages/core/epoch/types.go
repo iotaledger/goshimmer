@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 	"strings"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 )
