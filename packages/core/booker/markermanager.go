@@ -24,12 +24,20 @@ type MarkerManager struct {
 }
 
 func NewMarkerManager() *MarkerManager {
-	return &MarkerManager{
-		sequenceManager:              markers.NewSequenceManager(markers.WithMaxPastMarkerDistance(3)),
+	manager := &MarkerManager{
+		sequenceManager: markers.NewSequenceManager(markers.WithMaxPastMarkerDistance(3)),
+
+		markerBlockMapping:        memstorage.New[markers.Marker, *Block](),
+		markerBlockMappingPruning: memstorage.New[epoch.Index, set.Set[markers.Marker]](),
+
 		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
 		lastUsedMap:                  memstorage.New[markers.SequenceID, epoch.Index](),
 		pruningMap:                   memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
 	}
+
+	manager.SetConflictIDs(markers.NewMarker(0, 0), utxo.NewTransactionIDs())
+
+	return manager
 }
 
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////

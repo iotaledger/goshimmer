@@ -21,11 +21,11 @@ func (b *Block) AddAllAddedConflictIDs(addedConflictIDs utxo.TransactionIDs) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.addedConflictIDs.IsEmpty() {
+	if addedConflictIDs.IsEmpty() {
 		return
 	}
 
-	addedConflictIDs.AddAll(addedConflictIDs)
+	b.addedConflictIDs.AddAll(addedConflictIDs)
 }
 
 // AddConflictID sets the ConflictIDs of the added Conflicts.
@@ -114,6 +114,13 @@ func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) 
 func WithBooked(missing bool) options.Option[Block] {
 	return func(block *Block) {
 		block.booked = missing
+	}
+}
+
+// WithStructureDetails is a constructor Option for Blocks that initializes the given block with a specific structure details.
+func WithStructureDetails(structureDetails *markers.StructureDetails) options.Option[Block] {
+	return func(block *Block) {
+		block.structureDetails = structureDetails
 	}
 }
 

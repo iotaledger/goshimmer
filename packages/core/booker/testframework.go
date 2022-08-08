@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
@@ -20,7 +21,7 @@ func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
 	newTestFramework = &TestFramework{
 		TestFramework: tangle.NewTestFramework(t),
 		ledgerTf:      ledger.NewTestFramework(t),
-		genesisBlock:  NewBlock(tangle.NewBlock(models.NewEmptyBlock(models.EmptyBlockID), tangle.WithSolid(true)), WithBooked(true)),
+		genesisBlock:  NewBlock(tangle.NewBlock(models.NewEmptyBlock(models.EmptyBlockID), tangle.WithSolid(true)), WithBooked(true), WithStructureDetails(markers.NewStructureDetails())),
 	}
 	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.rootBlockProvider)
 

@@ -45,3 +45,26 @@ func TestBooker_Marker(t *testing.T) {
 	tf.IssueBlocks("block1", "block2").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("block3", "block4", "block5", "block6").WaitUntilAllTasksProcessed()
 }
+
+func Test_Conflict(t *testing.T) {
+	tf := NewTestFramework(t)
+	// defer tf.Shutdown()
+	tf.ledgerTf.CreateTransaction("tx1", 4, "Genesis")
+	tf.ledgerTf.CreateTransaction("tx2", 4, "tx1.0")
+	tf.ledgerTf.CreateTransaction("tx3", 4, "tx1.0")
+
+	tf.CreateBlock("block1", models.WithPayload(tf.ledgerTf.Transaction("tx1")))
+
+	tf.CreateBlock("block2", models.WithPayload(tf.ledgerTf.Transaction("tx2")))
+
+	tf.CreateBlock("block3", models.WithPayload(tf.ledgerTf.Transaction("tx3")))
+
+	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+	//tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	//tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("block3").WaitUntilAllTasksProcessed()
+
+	blk, _ := tf.Booker.Block(tf.Block("block3").ID())
+	fmt.Println(tf.Booker.blockBookingDetails(blk))
+}

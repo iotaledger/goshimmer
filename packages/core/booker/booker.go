@@ -157,12 +157,15 @@ func (b *Booker) book(block *Block) {
 	b.inheritConflictIDs(block)
 
 	block.setBooked()
-	fmt.Println("booked", block)
+	fmt.Printf("booked %+v\n", block.booked)
+	fmt.Printf("structureDetails %+v\n", block.structureDetails)
+	fmt.Printf("addedConflicts %+v\n", block.addedConflictIDs)
+	fmt.Printf("subtractedConflict %+v\n", block.subtractedConflictIDs)
+	fmt.Println("------------------------------")
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) {
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs := b.determineBookingDetails(block)
-
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
 	block.setStructureDetails(newStructureDetails)
 
@@ -174,16 +177,22 @@ func (b *Booker) inheritConflictIDs(block *Block) {
 	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
 	block.AddAllAddedConflictIDs(addedConflictIDs)
 
+	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
+	fmt.Println("addedConflictIDs", addedConflictIDs)
+
 	// TODO: clone necessary?
 	subtractedConflictIDs := pastMarkersConflictIDs
 	subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 	block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
+
+	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
+	fmt.Println("subtractedConflictIDs", subtractedConflictIDs)
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
 func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs) {
 	inheritedConflictIDs = b.PayloadConflictIDs(block)
-
+	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
 	// TODO: b.ledger.ConflictDAG.UnconfirmedConflicts should all happen here
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
 
