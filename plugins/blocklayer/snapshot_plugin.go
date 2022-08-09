@@ -26,8 +26,9 @@ const (
 type snapshotPluginDependencies struct {
 	dig.In
 
-	Tangle  *tangleold.Tangle
-	Manager *snapshot.Manager
+	Tangle          *tangleold.Tangle
+	Manager         *snapshot.Manager
+	NotarizationMgr *notarization.Manager
 }
 
 type snapshotDependencies struct {
@@ -39,11 +40,11 @@ type snapshotDependencies struct {
 
 var (
 	SnapshotPlugin *node.Plugin
-	snapshotnDeps  = new(snapshotPluginDependencies)
+	snapshotDeps   = new(snapshotPluginDependencies)
 )
 
 func init() {
-	SnapshotPlugin = node.NewPlugin(SnapshotPluginName, snapshotnDeps, node.Enabled, configureSnapshotPlugin, runSnapshotPlugin)
+	SnapshotPlugin = node.NewPlugin(SnapshotPluginName, snapshotDeps, node.Enabled, configureSnapshotPlugin, runSnapshotPlugin)
 
 	SnapshotPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(newSnapshotManager); err != nil {
@@ -60,7 +61,7 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			emptyHeaderConsumer,
-			snapshotnDeps.Manager.LoadSolidEntryPoints,
+			snapshotDeps.Manager.LoadSolidEntryPoints,
 			emptyOutputsConsumer,
 			emptyEpochDiffsConsumer)
 		if err != nil {
@@ -68,18 +69,22 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 		}
 	}
 
-	snapshotnDeps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
+	snapshotDeps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
 		e.Block.ForEachParentByType(tangleold.StrongParentType, func(parent tangleold.BlockID) bool {
 			index := parent.EpochIndex
 			if index < e.Block.EI() {
-				snapshotnDeps.Manager.InsertSolidEntryPoint(parent)
+				snapshotDeps.Manager.InsertSolidEntryPoint(parent)
 			}
 			return true
 		})
 	}))
 
-	snapshotnDeps.Tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
-		snapshotnDeps.Manager.RemoveSolidEntryPoint(event.Block, event.Block.LatestConfirmedEpoch())
+	snapshotDeps.Tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
+		snapshotDeps.Manager.RemoveSolidEntryPoint(event.Block)
+	}))
+
+	snapshotDeps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
+		snapshotDeps.Manager.AdvanceSolidEntryPoints(e.EI)
 	}))
 }
 
@@ -92,5 +97,5 @@ func runSnapshotPlugin(*node.Plugin) {
 }
 
 func newSnapshotManager(deps snapshotDependencies) *snapshot.Manager {
-	return snapshot.NewManager(deps.Storage, deps.NotarizationMgr)
+	return snapshot.NewManager(deps.Storage, deps.NotarizationMgr, NotarizationParameters.SnapshotDepth)
 }

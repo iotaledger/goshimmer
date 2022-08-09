@@ -8,9 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 const (
@@ -22,16 +21,17 @@ type Manager struct {
 	sync.RWMutex
 
 	notarizationMgr *notarization.Manager
-	baseStore       kvstore.KVStore
+	seps            map[epoch.Index]map[tangleold.BlockID]types.Empty
+	snapshotDepth   int
 }
 
 // NewManager creates and returns a new snapshot manager.
-func NewManager(store kvstore.KVStore, nmgr *notarization.Manager) (new *Manager) {
+func NewManager(store kvstore.KVStore, nmgr *notarization.Manager, depth int) (new *Manager) {
 	new = &Manager{
 		notarizationMgr: nmgr,
+		seps:            make(map[epoch.Index]map[tangleold.BlockID]types.Empty),
+		snapshotDepth:   depth,
 	}
-
-	new.baseStore = store
 
 	return
 }
@@ -80,56 +80,46 @@ func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
 		return
 	}
 
+	m.Lock()
+	defer m.Unlock()
+
+	sep := make(map[tangleold.BlockID]types.Empty)
 	for _, b := range seps.Seps {
-		m.InsertSolidEntryPoint(b)
+		sep[b] = types.Void
 	}
+	m.seps[seps.EI] = sep
 }
 
-func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) error {
+func (m *Manager) AdvanceSolidEntryPoints(ei epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	prefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, id.Bytes())
-	sepsStore, err := m.baseStore.WithRealm(prefix)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := sepsStore.Set(id.Bytes(), id.Bytes()); err != nil {
-		return errors.New("Fail to insert block to epoch store")
-	}
-
-	return nil
+	// preserve seps of last confirmed epoch until now
+	delete(m.seps, ei-epoch.Index(m.snapshotDepth)-1)
 }
 
-func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch epoch.Index) (err error) {
+func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) {
 	m.Lock()
 	defer m.Unlock()
 
-	prefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, b.EI().Bytes())
-	sepsStore, err := m.baseStore.WithRealm(prefix)
-	if err != nil {
-		panic(err)
+	sep, ok := m.seps[id.EpochIndex]
+	if !ok {
+		sep = make(map[tangleold.BlockID]types.Empty)
 	}
 
-	idBytes, err := sepsStore.Get(b.ID().Bytes())
-	if err != nil || idBytes == nil {
-		return errors.New("solid entry point doesn't exist in storage or fail to fetch it")
+	sep[id] = types.Void
+	m.seps[id.EpochIndex] = sep
+}
+
+func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
+	m.Lock()
+	defer m.Unlock()
+
+	if _, ok := m.seps[b.EI()]; !ok {
+		return errors.New("solid entry point of the epoch does not exist")
 	}
 
-	var blkID tangleold.BlockID
-	if _, err = blkID.FromBytes(idBytes); err != nil {
-		return err
-	}
-
-	// cannot remove sep from confirmed epoch
-	if blkID.EpochIndex <= lastConfirmedEpoch {
-		return errors.New("try to remove a solid entry point of confirmed epoch")
-	}
-
-	if err = sepsStore.Delete(b.ID().Bytes()); err != nil {
-		return err
-	}
+	delete(m.seps[b.EI()], b.ID())
 
 	return
 }
@@ -137,19 +127,11 @@ func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints) {
 	go func() {
 		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
-			sepsPrefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, i.Bytes())
 			seps := make([]tangleold.BlockID, 0)
 
-			m.baseStore.IterateKeys(sepsPrefix, func(key kvstore.Key) bool {
-				var blkID tangleold.BlockID
-				_, err := blkID.FromBytes(key)
-				if err != nil {
-					return false
-				}
+			for blkID := range m.seps[i] {
 				seps = append(seps, blkID)
-
-				return true
-			})
+			}
 
 			send := &SolidEntryPoints{
 				EI:   i,
