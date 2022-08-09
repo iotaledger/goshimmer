@@ -1,17 +1,16 @@
 package warpsync
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -28,8 +27,6 @@ type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)
 type Manager struct {
 	p2pManager *p2p.Manager
 
-	Events *Events
-
 	log *logger.Logger
 
 	stopMutex sync.RWMutex
@@ -43,15 +40,22 @@ type Manager struct {
 
 	validationInProgress bool
 	validationLock       sync.RWMutex
-	commitmentsChan      chan (*neighborCommitment)
+	commitmentsChan      chan *neighborCommitment
 	commitmentsStopChan  chan struct{}
 
-	syncingInProgress       bool
-	epochSyncStartChan      chan (*epochSyncStart)
-	epochSyncBatchBlockChan chan (*epochSyncBatchBlock)
-	epochSyncEndChan        chan (*epochSyncEnd)
+	syncingInProgress bool
+	syncingLock       sync.RWMutex
+	epochChannels     map[epoch.Index]*epochChannels
 
 	sync.RWMutex
+}
+
+type epochChannels struct {
+	sync.RWMutex
+	startChan chan *epochSyncStart
+	blockChan chan *epochSyncBlock
+	endChan   chan *epochSyncEnd
+	stopChan  chan struct{}
 }
 
 // ManagerOption configures the Manager instance.
@@ -60,14 +64,10 @@ type ManagerOption func(*Manager)
 // NewManager creates a new Manager.
 func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
-		p2pManager:              p2pManager,
-		Events:                  newEvents(),
-		log:                     log,
-		blockLoaderFunc:         blockLoaderFunc,
-		blockProcessorFunc:      blockProcessorFunc,
-		epochSyncStartChan:      make(chan *epochSyncStart),
-		epochSyncBatchBlockChan: make(chan *epochSyncBatchBlock),
-		epochSyncEndChan:        make(chan *epochSyncEnd),
+		p2pManager:         p2pManager,
+		log:                log,
+		blockLoaderFunc:    blockLoaderFunc,
+		blockProcessorFunc: blockProcessorFunc,
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
@@ -98,10 +98,25 @@ func WithBlockBatchSize(blockBatchSize int) ManagerOption {
 	}
 }
 
+func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+	m.Lock()
+	defer m.Unlock()
+
+	ecChain, validPeers, validateErr := m.ValidateBackwards(ctx, start, end, startEC, endPrevEC)
+	if validateErr != nil {
+		return errors.Wrapf(validateErr, "failed to validate range %d-%d with peers %s", start, end)
+	}
+	if syncRangeErr := m.SyncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
+		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
+	}
+
+	return nil
+}
+
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {
-	m.RLock()
-	defer m.RUnlock()
+	m.stopMutex.RLock()
+	defer m.stopMutex.RUnlock()
 
 	return m.isStopped
 }
@@ -115,62 +130,13 @@ func (m *Manager) Stop() {
 		return
 	}
 
-	close(m.commitmentsChan)
-	close(m.epochSyncStartChan)
-	close(m.epochSyncBatchBlockChan)
-	close(m.epochSyncEndChan)
-
 	m.isStopped = true
 	m.p2pManager.UnregisterProtocol(protocolID)
-}
-
-func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
-	wpPacket := packet.(*wp.Packet)
-	switch packetBody := wpPacket.GetBody().(type) {
-	case *wp.Packet_EpochBlocksRequest:
-		return submitTask(m.processEpochBlocksRequestPacket, packetBody, nbr)
-	case *wp.Packet_EpochBlocksStart:
-		return submitTask(m.processEpochBlocksStartPacket, packetBody, nbr)
-	case *wp.Packet_EpochBlocksBatch:
-		return submitTask(m.processEpochBlocksBatchPacket, packetBody, nbr)
-	case *wp.Packet_EpochBlocksEnd:
-		return submitTask(m.processEpochBlocksEndPacket, packetBody, nbr)
-	case *wp.Packet_EpochCommitmentRequest:
-		return submitTask(m.processEpochCommittmentRequestPacket, packetBody, nbr)
-	case *wp.Packet_EpochCommitment:
-		return submitTask(m.processEpochCommittmentPacket, packetBody, nbr)
-	default:
-		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
-	}
 }
 
 func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) error {
 	if added := event.Loop.TrySubmit(func() { packetProcessor(packet, nbr) }); !added {
 		return errors.Errorf("WorkerPool full: packet block discarded")
-	}
-	return nil
-}
-
-func warpsyncPacketFactory() proto.Message {
-	return &wp.Packet{}
-}
-
-func sendNegotiationMessage(ps *p2p.PacketsStream) error {
-	packet := &wp.Packet{Body: &wp.Packet_Negotiation{Negotiation: &wp.Negotiation{}}}
-	return errors.WithStack(ps.WritePacket(packet))
-}
-
-func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
-	packet := &wp.Packet{}
-	if err := ps.ReadPacket(packet); err != nil {
-		return errors.WithStack(err)
-	}
-	packetBody := packet.GetBody()
-	if _, ok := packetBody.(*wp.Packet_Negotiation); !ok {
-		return errors.Newf(
-			"received packet isn't the negotiation packet; packet=%+v, packetBody=%T-%+v",
-			packet, packetBody, packetBody,
-		)
 	}
 	return nil
 }

@@ -60,21 +60,12 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
-	deps.NotarizationMgr.Events.SyncRange.Hook(event.NewClosure(func(event *notarization.SyncRangeEvent) {
-		deps.WarpsyncMgr.Lock()
-		defer deps.WarpsyncMgr.Unlock()
-
+	deps.NotarizationMgr.Events.SyncRange.Attach(event.NewClosure(func(event *notarization.SyncRangeEvent) {
 		Plugin.LogInfof("warpsyncing range %d-%d on chain %s", event.StartEI, event.EndEI, event.EndPrevEC.Base58())
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
 		defer cancel()
-		ecChain, validateErr := deps.WarpsyncMgr.ValidateBackwards(ctx, event.StartEI, event.EndEI, event.StartEC, event.EndPrevEC)
-		if validateErr != nil {
-			Plugin.LogWarnf("failed to validate range %d-%d: %s", event.StartEI, event.EndEI, validateErr)
-			return
-		}
-		if syncRangeErr := deps.WarpsyncMgr.SyncRange(ctx, event.StartEI, event.EndEI, event.StartEC, ecChain); syncRangeErr != nil {
-			Plugin.LogWarnf("failed to sync range %d-%d: %s", event.StartEI, event.EndEI, syncRangeErr)
-			return
+		if err := deps.WarpsyncMgr.WarpRange(ctx, event.StartEI, event.EndEI, event.StartEC, event.EndPrevEC); err != nil {
+			Plugin.LogWarn("failed to warpsync:", err)
 		}
 	}))
 }
