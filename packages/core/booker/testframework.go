@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
@@ -50,7 +49,7 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 	return block
 }
 
-func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
 		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockID))
 		assert.True(t.T, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
@@ -87,7 +86,7 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 	}
 }
 
-func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
 		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockAlias))
 
@@ -109,7 +108,7 @@ func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedCon
 	}
 }
 
-func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
+func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictIDs map[string][]utxo.TransactionIDs) {
 	for blockAlias, expectedDiffConflictID := range expectedDiffConflictIDs {
 		block := t.Block(blockAlias)
 		assert.True(t.T, expectedDiffConflictID[0].Equal(block.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[0], block.AddedConflictIDs())

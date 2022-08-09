@@ -2,7 +2,10 @@ package booker
 
 import (
 	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -64,21 +67,21 @@ func Test_Conflict(t *testing.T) {
 	tf.CreateBlock("block3", models.WithPayload(tf.ledgerTf.Transaction("tx3")))
 
 	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
-	//tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	// tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	//tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
+	// tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("block3").WaitUntilAllTasksProcessed()
 
 	blk, _ := tf.Booker.Block(tf.Block("block3").ID())
 	fmt.Println(tf.Booker.blockBookingDetails(blk))
 }
 
-/////////////////////////////
+// ///////////////////////////
 
 func TestScenario_1(t *testing.T) {
 	debug.SetEnabled(true)
 
-	//tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tf := NewTestFramework(t)
 	defer tf.Shutdown()
 
@@ -118,7 +121,7 @@ func TestScenario_1(t *testing.T) {
 	})
 }
 
-//func checkMarkers(t *testing.T, testFramework *TestFramework, expectedMarkers map[string]*markersold.Markers) {
+// func checkMarkers(t *testing.T, testFramework *TestFramework, expectedMarkers map[string]*markersold.Markers) {
 //	for blockID, expectedMarkersOfBlock := range expectedMarkers {
 //		block := testFramework.Block(blockID)
 //		assert.True(t, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
@@ -148,9 +151,9 @@ func TestScenario_1(t *testing.T) {
 //			}), "failed to load Block with %s", mappedBlockIDOfMarker)
 //		}
 //	}
-//}
+// }
 
-//func checkNormalizedConflictIDsContained(t *testing.T, testFramework *TestFramework, expectedContainedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+// func checkNormalizedConflictIDsContained(t *testing.T, testFramework *TestFramework, expectedContainedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
 //	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
 //		retrievedConflictIDs, errRetrieve := testFramework.tangle.Booker.BlockConflictIDs(testFramework.Block(blockID).ID())
 //		assert.NoError(t, errRetrieve)
@@ -171,9 +174,9 @@ func TestScenario_1(t *testing.T) {
 //
 //		assert.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
 //	}
-//}
+// }
 //
-//func checkBlockMetadataDiffConflictIDs(t *testing.T, testFramework *TestFramework, expectedDiffConflictIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
+// func checkBlockMetadataDiffConflictIDs(t *testing.T, testFramework *TestFramework, expectedDiffConflictIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
 //	for blockID, expectedDiffConflictID := range expectedDiffConflictIDs {
 //		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
 //			assert.True(t, expectedDiffConflictID[0].Equal(blockMetadata.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[0], blockMetadata.AddedConflictIDs())
@@ -182,4 +185,94 @@ func TestScenario_1(t *testing.T) {
 //			assert.True(t, expectedDiffConflictID[1].Equal(blockMetadata.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[1], blockMetadata.SubtractedConflictIDs())
 //		}))
 //	}
-//}
+// }
+
+func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
+	debug.SetEnabled(true)
+
+	const layersNum = 127
+	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
+
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	// Create base-layer outputs to double-spend
+	tf.CreateBlock("Block.G", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("G", layersNum, "Genesis")))
+	tf.IssueBlocks("Block.G").WaitUntilAllTasksProcessed()
+
+	blks := make([]string, 0)
+
+	for layer := 0; layer < layersNum; layer++ {
+		for width := 0; width < widthSize; width++ {
+			blkName := fmt.Sprintf("Block.%d.%d", layer, width)
+			strongParents := make([]string, 0)
+			if layer == 0 {
+				strongParents = append(strongParents, "Block.G")
+			} else {
+				for innerWidth := 0; innerWidth < widthSize; innerWidth++ {
+					strongParents = append(strongParents, fmt.Sprintf("Block.%d.%d", layer-1, innerWidth))
+				}
+			}
+
+			var input string
+			var txAlias string
+
+			// We fork on the first two blocks for each layer
+			if width < 2 {
+				input = fmt.Sprintf("G.%d", layer)
+				txAlias = fmt.Sprintf("TX.%d.%d", layer, width)
+			}
+
+			if input != "" {
+				tf.CreateBlock(blkName, models.WithStrongParents(tf.BlockIDs(strongParents...)), models.WithPayload(tf.ledgerTf.CreateTransaction(txAlias, 1, input)))
+			} else {
+				tf.CreateBlock(blkName, models.WithStrongParents(tf.BlockIDs(strongParents...)))
+			}
+
+			blks = append(blks, blkName)
+		}
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < len(blks); i++ {
+		wg.Add(1)
+		go func(i int) {
+			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
+			tf.IssueBlocks(blks[i])
+			wg.Done()
+		}(i)
+	}
+
+	wg.Wait()
+	tf.WaitUntilAllTasksProcessed()
+
+	expectedConflicts := make(map[string]utxo.TransactionIDs)
+	for layer := 0; layer < layersNum; layer++ {
+		for width := 0; width < widthSize; width++ {
+			blkName := fmt.Sprintf("Block.%d.%d", layer, width)
+			conflicts := make([]string, 0)
+
+			// Add conflicts of the current layer
+			if width < 2 {
+				conflicts = append(conflicts, fmt.Sprintf("TX.%d.%d", layer, width))
+			}
+
+			for innerLayer := layer - 1; innerLayer >= 0; innerLayer-- {
+				conflicts = append(conflicts, fmt.Sprintf("TX.%d.%d", innerLayer, 0))
+				conflicts = append(conflicts, fmt.Sprintf("TX.%d.%d", innerLayer, 1))
+			}
+
+			if layer == 0 && width >= 2 {
+				expectedConflicts[blkName] = utxo.NewTransactionIDs()
+				continue
+			}
+
+			expectedConflicts[blkName] = tf.ledgerTf.TransactionIDs(conflicts...)
+		}
+	}
+
+	tf.checkConflictIDs(expectedConflicts)
+}
