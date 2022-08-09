@@ -335,7 +335,6 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 		m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 	}
 
-	transaction, isTransaction = block.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
