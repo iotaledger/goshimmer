@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -147,25 +148,25 @@ func (b *Booker) book(block *Block) {
 
 	fmt.Printf("booking %s, %p \n", block.ID(), block)
 
-	// TODO: this should be part of collectStrongParentsBookingDetails determine booking details
-	//  next step: determineBookingDetails:
-	//  - get payload's conflicts
-	//  - get strong parents conflicts, structureDetails and more
-	//  - apply weak and like parents and effects
-	//  -> so first we need to implement the whole marker conflict mapping business
-
-	b.inheritConflictIDs(block)
+	err := b.inheritConflictIDs(block)
+	if err != nil {
+		// TODO: print more elegantly using Error event
+		fmt.Println("error inheriting conflict IDs:", err)
+		b.SetInvalid(block.Block)
+		return
+	}
 
 	block.setBooked()
-	fmt.Printf("booked %+v\n", block.booked)
-	fmt.Printf("structureDetails %+v\n", block.structureDetails)
-	fmt.Printf("addedConflicts %+v\n", block.addedConflictIDs)
-	fmt.Printf("subtractedConflict %+v\n", block.subtractedConflictIDs)
-	fmt.Println("------------------------------")
+
+	b.Events.BlockBooked.Trigger(block)
 }
 
-func (b *Booker) inheritConflictIDs(block *Block) {
-	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs := b.determineBookingDetails(block)
+func (b *Booker) inheritConflictIDs(block *Block) (err error) {
+	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
+	if err != nil {
+		return errors.Errorf("failed to inherit conflict IDs", err)
+	}
+
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
 	block.setStructureDetails(newStructureDetails)
 
@@ -173,45 +174,38 @@ func (b *Booker) inheritConflictIDs(block *Block) {
 		return
 	}
 
+	// TODO: maybe only update b.MarkersManager.SetConflictIDs when the conflicts have changed
+
 	addedConflictIDs := inheritedConflictIDs.Clone()
 	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
 	block.AddAllAddedConflictIDs(addedConflictIDs)
 
-	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
-	fmt.Println("addedConflictIDs", addedConflictIDs)
-
-	// TODO: clone necessary?
-	subtractedConflictIDs := pastMarkersConflictIDs
+	subtractedConflictIDs := pastMarkersConflictIDs.Clone()
 	subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
 	block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
 
-	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
-	fmt.Println("subtractedConflictIDs", subtractedConflictIDs)
+	return
 }
 
 // determineBookingDetails determines the booking details of an unbooked Block.
-func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs) {
+func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersConflictIDs, inheritedConflictIDs utxo.TransactionIDs, err error) {
 	inheritedConflictIDs = b.PayloadConflictIDs(block)
-	fmt.Println("inheritedConflictIDs", inheritedConflictIDs)
-	// TODO: b.ledger.ConflictDAG.UnconfirmedConflicts should all happen here
+
 	parentsStructureDetails, parentsPastMarkersConflictIDs, strongParentsConflictIDs := b.collectStrongParentsBookingDetails(block)
 
-	// weakPayloadConflictIDs, weakParentsErr := b.collectWeakParentsConflictIDs(block)
-	// if weakParentsErr != nil {
-	// 	return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", block.ID(), weakParentsErr)
-	// }
-	//
-	// likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
-	// if shallowLikeErr != nil {
-	// 	return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", block.ID(), shallowLikeErr)
-	// }
+	weakPayloadConflictIDs := b.collectWeakParentsConflictIDs(block)
+
+	likedConflictIDs, dislikedConflictIDs, shallowLikeErr := b.collectShallowLikedParentsConflictIDs(block)
+	if shallowLikeErr != nil {
+		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", block.ID(), shallowLikeErr)
+	}
 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
-	// inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
-	// inheritedConflictIDs.AddAll(likedConflictIDs)
-	// inheritedConflictIDs.DeleteAll(b.tangle.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
+	inheritedConflictIDs.AddAll(likedConflictIDs)
+	inheritedConflictIDs.DeleteAll(b.ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
-	return parentsStructureDetails, parentsPastMarkersConflictIDs, b.ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs)
+	return parentsStructureDetails, b.ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
@@ -238,6 +232,50 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	return
 }
 
+// collectShallowDislikedParentsConflictIDs removes the ConflictIDs of the shallow dislike reference and all its conflicts from
+// the supplied ArithmeticConflictIDs.
+func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs utxo.TransactionIDs) {
+	payloadConflictIDs = utxo.NewTransactionIDs()
+
+	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
+		payloadConflictIDs.AddAll(b.PayloadConflictIDs(block))
+
+		return true
+	})
+
+	return payloadConflictIDs
+}
+
+// collectShallowLikedParentsConflictIDs adds the ConflictIDs of the shallow like reference and removes all its conflicts from
+// the supplied ArithmeticConflictIDs.
+func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedLikedConflictIDs, collectedDislikedConflictIDs utxo.TransactionIDs, err error) {
+	collectedLikedConflictIDs = utxo.NewTransactionIDs()
+	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
+	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
+		transaction, isTransaction := block.Transaction()
+		if !isTransaction {
+			err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentBlockID, block.ID(), cerrors.ErrFatal)
+			return false
+		}
+
+		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(block))
+
+		for it := b.ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
+			conflictingTransactionID := it.Next()
+			dislikedConflicts, dislikedConflictsErr := b.ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
+			if dislikedConflictsErr != nil {
+				err = errors.Errorf("failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentBlockID, block.ID(), dislikedConflictsErr)
+				return false
+			}
+			collectedDislikedConflictIDs.AddAll(dislikedConflicts)
+		}
+
+		return err == nil
+	})
+
+	return collectedLikedConflictIDs, collectedDislikedConflictIDs, err
+}
+
 // blockBookingDetails returns the Conflict and Marker related details of the given Block.
 func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	pastMarkersConflictIDs = b.markerManager.ConflictIDsFromStructureDetails(block.StructureDetails())
@@ -260,14 +298,13 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
 	conflictIDs = utxo.NewTransactionIDs()
 
-	transaction, isTransaction := block.Payload().(utxo.Transaction)
+	transaction, isTransaction := block.Transaction()
 	if !isTransaction {
 		return
 	}
 
 	b.ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-		resolvedConflictIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(transactionMetadata.ConflictIDs())
-		conflictIDs.AddAll(resolvedConflictIDs)
+		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
 	})
 
 	return

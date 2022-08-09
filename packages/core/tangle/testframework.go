@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
@@ -32,8 +33,11 @@ type TestFramework struct {
 
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *TestFramework) {
+	genesis := NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true))
+	genesis.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+
 	t = &TestFramework{
-		genesisBlock: NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true)),
+		genesisBlock: genesis,
 	}
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
 	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.rootBlockProvider, opts...)

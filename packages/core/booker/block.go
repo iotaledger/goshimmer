@@ -17,6 +17,11 @@ type Block struct {
 	*tangle.Block
 }
 
+func (b *Block) Transaction() (tx utxo.Transaction, isTransaction bool) {
+	tx, isTransaction = b.Payload().(utxo.Transaction)
+	return tx, isTransaction
+}
+
 func (b *Block) AddAllAddedConflictIDs(addedConflictIDs utxo.TransactionIDs) {
 	b.Lock()
 	defer b.Unlock()
