@@ -90,17 +90,6 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 
 					m.startEpochSyncing(targetEpoch)
 
-					params := &syncingFlowParams{
-						ctx:           ctx,
-						targetEpoch:   targetEpoch,
-						targetEC:      ecChain[targetEpoch],
-						targetPrevEC:  ecChain[targetEpoch-1],
-						epochChannels: m.epochChannels[targetEpoch],
-						peer:          peer,
-						tangleTree:    tangleTree,
-						epochBlocks:   make(map[tangle.BlockID]*tangle.Block),
-					}
-
 					m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peer.ID())
 
 					dataflow.New(
@@ -117,7 +106,17 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
 						m.log.Debugw("synced epoch", "epoch", params.targetEpoch, "peer", params.peer.ID())
-					}).Run(params)
+					}).Run(&syncingFlowParams{
+						ctx:           ctx,
+						targetEpoch:   targetEpoch,
+						targetEC:      ecChain[targetEpoch],
+						targetPrevEC:  ecChain[targetEpoch-1],
+						epochChannels: m.epochChannels[targetEpoch],
+						peer:          peer,
+						tangleTree:    tangleTree,
+						epochBlocks:   make(map[tangle.BlockID]*tangle.Block),
+					})
+
 				}
 
 				if !success {
@@ -140,7 +139,7 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 		return err
 	}
 
-	m.log.Debugw("sync successful")
+	m.log.Debugf("sync successful for range %d-%d", start, end)
 
 	return nil
 }
