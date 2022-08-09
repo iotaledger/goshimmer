@@ -77,8 +77,8 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 					return
 				}
 
-				var success bool
-				for it := validPeers.Iterator(); it.HasNext(); {
+				success := false
+				for it := validPeers.Iterator(); it.HasNext() && !success; {
 					peer := it.Next()
 					if discardedPeers.Has(peer) {
 						m.log.Debugw("skipping discarded peer", "peer", peer.ID())
@@ -116,7 +116,6 @@ func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC
 						tangleTree:    tangleTree,
 						epochBlocks:   make(map[tangle.BlockID]*tangle.Block),
 					})
-
 				}
 
 				if !success {
