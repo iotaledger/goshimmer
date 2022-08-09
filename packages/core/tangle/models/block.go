@@ -191,18 +191,17 @@ func (m *Block) SequenceNumber() uint64 {
 func (m *Block) Payload() payload.Payload {
 	m.Lock()
 	defer m.Unlock()
-
 	if m.payload == nil {
 		_, err := serix.DefaultAPI.Decode(context.Background(), m.M.PayloadBytes, &m.payload, serix.WithValidation())
 		if err != nil {
 			panic(err)
 		}
 
-		if m.payload.Type() == devnetvm.TransactionType {
-			tx := m.payload.(*devnetvm.Transaction)
+		if tx, isTransaction := m.payload.(utxo.Transaction); isTransaction {
 			tx.SetID(utxo.NewTransactionID(m.M.PayloadBytes))
-
-			devnetvm.SetOutputID(tx.Essence(), tx.ID())
+			if devnetTx, isDevnetTx := m.payload.(*devnetvm.Transaction); isDevnetTx {
+				devnetvm.SetOutputID(devnetTx.Essence(), tx.ID())
+			}
 		}
 	}
 

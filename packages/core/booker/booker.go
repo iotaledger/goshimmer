@@ -122,7 +122,7 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
-	tx, isTx := block.Payload().(utxo.Transaction)
+	tx, isTx := block.Transaction()
 	if !isTx {
 		return true, nil
 	}

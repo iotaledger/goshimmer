@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"strconv"
 	"sync"
@@ -18,13 +17,24 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+	}
+}
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -420,9 +430,7 @@ func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (tx *Mocked
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
 	})
 
-	b := types.Identifier{}
-	binary.BigEndian.PutUint64(b[:], tx.M.UniqueEssence)
-	tx.SetID(utxo.TransactionID{Identifier: b})
+	tx.SetID(utxo.NewTransactionID(lo.PanicOnErr(tx.Bytes())))
 
 	return tx
 }
@@ -434,7 +442,7 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 
 // Type returns the type of the Transaction.
 func (m *MockedTransaction) Type() payload.Type {
-	return 0
+	return 44
 }
 
 // code contract (make sure the struct implements all required methods).
