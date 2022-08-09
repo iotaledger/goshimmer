@@ -165,10 +165,10 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		headerConsumer := func(*ledger.SnapshotHeader) {}
-		sepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
 
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, sepsConsumer, utxoStatesConsumer, epochDiffsConsumer)
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

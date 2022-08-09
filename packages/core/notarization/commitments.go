@@ -366,6 +366,9 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	// We advance the LedgerState to the next epoch.
 	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
+	// TODO: update last confirmed Epoch Index with finality gadget.
+	f.storage.setLastConfirmedEpochIndex(ei - epoch.Index(f.snapshotDepth))
+
 	commitmentRoots = &CommitmentRoots{
 		EI:                ei,
 		stateRoot:         epoch.NewMerkleRoot(stateRoot),

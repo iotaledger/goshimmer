@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/kvstore"
 )
 
@@ -19,41 +19,31 @@ const (
 
 // Manager is the snapshot manager.
 type Manager struct {
-	tangle          *tangleold.Tangle
-	notarizationMgr *notarization.Manager
+	sync.RWMutex
 
-	baseStore kvstore.KVStore
-	sepsLock  sync.RWMutex
+	notarizationMgr *notarization.Manager
+	baseStore       kvstore.KVStore
 }
 
 // NewManager creates and returns a new snapshot manager.
-func NewManager(store kvstore.KVStore, t *tangleold.Tangle, nmgr *notarization.Manager) (new *Manager) {
+func NewManager(store kvstore.KVStore, nmgr *notarization.Manager) (new *Manager) {
 	new = &Manager{
-		tangle:          t,
 		notarizationMgr: nmgr,
 	}
 
 	new.baseStore = store
-
-	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
-		e.Block.ForEachParent(func(parent tangleold.Parent) {
-			index := parent.ID.EpochIndex
-			if index < e.Block.EI() {
-				new.insertSolidEntryPoint(parent.ID)
-			}
-		})
-	}))
-
-	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
-		new.removeSolidEntryPoint(event.Block, event.Block.LatestConfirmedEpoch())
-	}))
 
 	return
 }
 
 // CreateSnapshot creates a snapshot file from node with a given name.
 func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.SnapshotHeader, err error) {
-	ecRecord, lastConfirmedEpoch, err := m.tangle.Options.CommitmentFunc()
+	lastConfirmedEpoch, err := m.notarizationMgr.LatestConfirmedEpochIndex()
+	if err != nil {
+		return nil, err
+	}
+
+	ecRecord, err := m.notarizationMgr.GetLatestEC()
 	if err != nil {
 		return nil, err
 	}
@@ -63,10 +53,10 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	defer m.notarizationMgr.WriteUnlockLedger()
 
 	// lock the entire solid entry points storage until the snapshot is created.
-	m.sepsLock.Lock()
-	defer m.sepsLock.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	headerPord := func() (header *ledger.SnapshotHeader, err error) {
+	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: lastConfirmedEpoch,
 			DiffEpochIndex: ecRecord.EI(),
@@ -79,7 +69,7 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	outputWithMetadataProd := NewLedgerUTXOStatesProducer(lastConfirmedEpoch, m.notarizationMgr)
 	epochDiffsProd := NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), m.notarizationMgr)
 
-	header, err = CreateSnapshot(snapshotFileName, headerPord, sepsProd, outputWithMetadataProd, epochDiffsProd)
+	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd)
 
 	return
 }
@@ -91,15 +81,16 @@ func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
 	}
 
 	for _, b := range seps.Seps {
-		m.insertSolidEntryPoint(b)
+		m.InsertSolidEntryPoint(b)
 	}
 }
 
-func (m *Manager) insertSolidEntryPoint(id tangleold.BlockID) error {
-	m.sepsLock.Lock()
-	defer m.sepsLock.Unlock()
+func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) error {
+	m.Lock()
+	defer m.Unlock()
 
-	sepsStore, err := m.baseStore.WithRealm(append([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, id.EpochIndex.Bytes()...))
+	prefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, id.Bytes())
+	sepsStore, err := m.baseStore.WithRealm(prefix)
 	if err != nil {
 		panic(err)
 	}
@@ -111,11 +102,12 @@ func (m *Manager) insertSolidEntryPoint(id tangleold.BlockID) error {
 	return nil
 }
 
-func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch epoch.Index) (err error) {
-	m.sepsLock.Lock()
-	defer m.sepsLock.Unlock()
+func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch epoch.Index) (err error) {
+	m.Lock()
+	defer m.Unlock()
 
-	sepsStore, err := m.baseStore.WithRealm(append([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, b.EI().Bytes()...))
+	prefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, b.EI().Bytes())
+	sepsStore, err := m.baseStore.WithRealm(prefix)
 	if err != nil {
 		panic(err)
 	}
@@ -126,18 +118,16 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 	}
 
 	var blkID tangleold.BlockID
-	_, err = blkID.FromBytes(idBytes)
-	if err != nil {
+	if _, err = blkID.FromBytes(idBytes); err != nil {
 		return err
 	}
 
 	// cannot remove sep from confirmed epoch
 	if blkID.EpochIndex <= lastConfirmedEpoch {
-		return
+		return errors.New("try to remove a solid entry point of confirmed epoch")
 	}
 
-	err = sepsStore.Delete(b.ID().Bytes())
-	if err != nil {
+	if err = sepsStore.Delete(b.ID().Bytes()); err != nil {
 		return err
 	}
 
@@ -147,7 +137,7 @@ func (m *Manager) removeSolidEntryPoint(b *tangleold.Block, lastConfirmedEpoch e
 func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints) {
 	go func() {
 		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
-			sepsPrefix := append([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, i.Bytes()...)
+			sepsPrefix := byteutils.ConcatBytes([]byte{database.PrefixSnapshot, prefixSolidEntryPoint}, i.Bytes())
 			seps := make([]tangleold.BlockID, 0)
 
 			m.baseStore.IterateKeys(sepsPrefix, func(key kvstore.Key) bool {

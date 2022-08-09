@@ -249,9 +249,9 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 
 				}
-				sepsConsumer := func(*snapshot.SolidEntryPoints) {}
+				emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
 
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, sepsConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)

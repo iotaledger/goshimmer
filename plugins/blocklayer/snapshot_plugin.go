@@ -33,7 +33,6 @@ type snapshotPluginDependencies struct {
 type snapshotDependencies struct {
 	dig.In
 
-	Tangle          *tangleold.Tangle
 	NotarizationMgr *notarization.Manager
 	Storage         kvstore.KVStore
 }
@@ -55,19 +54,33 @@ func init() {
 
 func configureSnapshotPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
-		headerConsumer := func(*ledger.SnapshotHeader) {}
-		outputsConsumer := func([]*ledger.OutputWithMetadata) {}
-		epochDiffsConsumer := func(*ledger.SnapshotHeader, map[epoch.Index]*ledger.EpochDiff) {}
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptyOutputsConsumer := func([]*ledger.OutputWithMetadata) {}
+		emptyEpochDiffsConsumer := func(*ledger.SnapshotHeader, map[epoch.Index]*ledger.EpochDiff) {}
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
-			headerConsumer,
+			emptyHeaderConsumer,
 			snapshotnDeps.Manager.LoadSolidEntryPoints,
-			outputsConsumer,
-			epochDiffsConsumer)
+			emptyOutputsConsumer,
+			emptyEpochDiffsConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}
 	}
+
+	snapshotnDeps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
+		e.Block.ForEachParentByType(tangleold.StrongParentType, func(parent tangleold.BlockID) bool {
+			index := parent.EpochIndex
+			if index < e.Block.EI() {
+				snapshotnDeps.Manager.InsertSolidEntryPoint(parent)
+			}
+			return true
+		})
+	}))
+
+	snapshotnDeps.Tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
+		snapshotnDeps.Manager.RemoveSolidEntryPoint(event.Block, event.Block.LatestConfirmedEpoch())
+	}))
 }
 
 func runSnapshotPlugin(*node.Plugin) {
@@ -79,5 +92,5 @@ func runSnapshotPlugin(*node.Plugin) {
 }
 
 func newSnapshotManager(deps snapshotDependencies) *snapshot.Manager {
-	return snapshot.NewManager(deps.Storage, deps.Tangle, deps.NotarizationMgr)
+	return snapshot.NewManager(deps.Storage, deps.NotarizationMgr)
 }

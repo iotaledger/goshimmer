@@ -53,10 +53,10 @@ func init() {
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
-		sepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			notarizationDeps.Manager.LoadECandEIs,
-			sepsConsumer,
+			emptySepsConsumer,
 			notarizationDeps.Manager.LoadOutputsWithMetadata,
 			notarizationDeps.Manager.LoadEpochDiffs)
 		if err != nil {

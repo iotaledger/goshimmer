@@ -94,8 +94,7 @@ func readSolidEntryPoints(scanner *bufio.Scanner) (seps *SolidEntryPoints, err e
 
 	if len(data) > 0 {
 		seps = &SolidEntryPoints{}
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &seps, serix.WithValidation())
-		if err != nil {
+		if _, err = serix.DefaultAPI.Decode(context.Background(), data, &seps, serix.WithValidation()); err != nil {
 			return nil, err
 		}
 	}
