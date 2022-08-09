@@ -77,6 +77,24 @@ func (b *Block) Children() (children []*Block) {
 	return children
 }
 
+func (b *Block) StrongChildren() []*Block {
+	b.RLock()
+	defer b.RUnlock()
+	return b.strongChildren
+}
+
+func (b *Block) WeakChildren() []*Block {
+	b.RLock()
+	defer b.RUnlock()
+	return b.weakChildren
+}
+
+func (b *Block) LikedInsteadChildren() []*Block {
+	b.RLock()
+	defer b.RUnlock()
+	return b.likedInsteadChildren
+}
+
 // setSolid marks the Block as solid. It is private even though it locks because we want to prevent people from
 // setting the solid flag manually.
 func (b *Block) setSolid() (wasUpdated bool) {

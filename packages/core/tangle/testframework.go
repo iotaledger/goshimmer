@@ -27,7 +27,8 @@ type TestFramework struct {
 	missingBlocks  int32
 	invalidBlocks  int32
 	attachedBlocks int32
-	t              *testing.T
+
+	T *testing.T
 	*models.TestFramework
 }
 
@@ -41,7 +42,7 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 	}
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
 	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.rootBlockProvider, opts...)
-	t.t = testingT
+	t.T = testingT
 
 	t.Setup()
 
@@ -50,27 +51,27 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 
 func (t *TestFramework) Setup() {
 	t.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("SOLID: %s", metadata.ID())
+		t.T.Logf("SOLID: %s", metadata.ID())
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	}))
 
 	t.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("MISSING: %s", metadata.ID())
+		t.T.Logf("MISSING: %s", metadata.ID())
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	}))
 
 	t.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("MISSING BLOCK STORED: %s", metadata.ID())
+		t.T.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
 	t.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("INVALID: %s", metadata.ID())
+		t.T.Logf("INVALID: %s", metadata.ID())
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	}))
 
 	t.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.t.Logf("ATTACHED: %s", metadata.ID())
+		t.T.Logf("ATTACHED: %s", metadata.ID())
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	}))
 }
@@ -102,7 +103,7 @@ func (t *TestFramework) Shutdown() {
 func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 	for alias, isMissing := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
+			assert.Equal(t.T, isMissing, block.IsMissing(), "block %s has incorrect missing flag", alias)
 		})
 	}
 }
@@ -110,7 +111,7 @@ func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
 func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 	for alias, isInvalid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
+			assert.Equal(t.T, isInvalid, block.IsInvalid(), "block %s has incorrect invalid flag", alias)
 		})
 	}
 }
@@ -118,37 +119,37 @@ func (t *TestFramework) AssertInvalid(expectedValues map[string]bool) {
 func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	for alias, isSolid := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
+			assert.Equal(t.T, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
 		})
 	}
 }
 
 func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.t, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
+	assert.EqualValues(t.T, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertInvalidCount(invalidCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.t, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
+	assert.EqualValues(t.T, invalidCount, atomic.LoadInt32(&(t.invalidBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.t, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
+	assert.EqualValues(t.T, missingCount, atomic.LoadInt32(&(t.missingBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.t, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+	assert.EqualValues(t.T, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.Tangle.Block(t.Block(alias).ID())
-	require.True(t.t, exists, "Block %s not found", alias)
+	require.True(t.T, exists, "Block %s not found", alias)
 	callback(block)
 }
 
 func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+			assert.Equal(t.T, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -156,7 +157,7 @@ func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
+			assert.Equal(t.T, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -164,7 +165,7 @@ func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.t, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
+			assert.Equal(t.T, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
 	}
 }

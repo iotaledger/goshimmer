@@ -7,7 +7,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
@@ -30,6 +33,7 @@ type Booker struct {
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	markerManager *MarkerManager
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
+	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
 	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
 	rootBlockProvider func(models.BlockID) *Block
@@ -54,16 +58,29 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		markerManager: NewMarkerManager(),
 		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
 
 		rootBlockProvider: rootBlockProvider,
 	}, opts)
 	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
+
+	// TODO: is Hook making the booker single threaded? should we have some other method that would re-check a block
+	//b.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
+	//	b.propagateBooking(event.BlockID)
+	//}))
+
 	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
 	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
 
 	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
+		}
+	}))
+
+	ledgerInstance.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
+			fmt.Println(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
 
@@ -309,3 +326,136 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 
 	return
 }
+
+// region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
+func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
+	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
+		block := blockWalker.Next()
+
+		updated, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+		if forkErr != nil {
+			blockWalker.StopWalk()
+			return errors.Errorf("failed to propagate forked ConflictID %s to future cone of %s: %w", addedConflictID, block.ID(), forkErr)
+		}
+		if !updated {
+			continue
+		}
+
+		b.Events.BlockConflictUpdated.Trigger(&BlockConflictUpdatedEvent{
+			Block:      block,
+			ConflictID: addedConflictID,
+		})
+
+		blockWalker.PushAll(b.StrongChildren(block)...)
+	}
+	return nil
+}
+
+func (b *Booker) StrongChildren(block *Block) []*Block {
+	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *tangle.Block) (bookerChild *Block) {
+		bookerChild, exists := b.Block(tangleChild.ID())
+		if !exists {
+			return nil
+		}
+		return bookerChild
+	}), func(child *Block) bool {
+		return child != nil
+	})
+}
+
+func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
+	if !block.IsBooked() {
+		return false, nil
+	}
+
+	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
+			return false, errors.Errorf("failed to propagate conflict %s to future cone of %s: %w", addedConflictID, structureDetails.PastMarkers().Marker(), err)
+		}
+		return true, nil
+	}
+
+	return b.updateBlockConflicts(block, addedConflictID, removedConflictIDs), nil
+}
+
+func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
+	block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.sequenceMutex.RLock(sequenceID)
+		return true
+	})
+
+	defer func() {
+		block.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+			b.sequenceMutex.RUnlock(sequenceID)
+			return true
+		})
+	}()
+
+	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
+		return false
+	}
+
+	return block.AddConflictID(addedConflict)
+}
+
+// propagateForkedTransactionToMarkerFutureCone propagates a newly created ConflictID into the future cone of the given Marker.
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Marker, conflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
+	markerWalker := walker.New[markers.Marker](false)
+	markerWalker.Push(marker)
+
+	for markerWalker.HasNext() {
+		currentMarker := markerWalker.Next()
+
+		if err = b.forkSingleMarker(currentMarker, conflictID, removedConflictIDs, markerWalker); err != nil {
+			return errors.Errorf("failed to propagate Conflict%s to Blocks approving %s: %w", conflictID, currentMarker, err)
+		}
+	}
+
+	return
+}
+
+// forkSingleMarker propagates a newly created ConflictID to a single marker and queues the next elements that need to be
+// visited.
+func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs, markerWalker *walker.Walker[markers.Marker]) (err error) {
+	b.sequenceMutex.Lock(currentMarker.SequenceID())
+	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
+
+	// update ConflictID mapping
+	newConflictIDs := b.markerManager.ConflictIDs(currentMarker)
+	if !newConflictIDs.HasAll(removedConflictIDs) {
+		return nil
+	}
+
+	if !newConflictIDs.Add(newConflictID) {
+		return nil
+	}
+
+	if !b.markerManager.SetConflictIDs(currentMarker, newConflictIDs) {
+		return nil
+	}
+
+	// trigger event
+	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{
+		Marker:        currentMarker,
+		NewConflictID: newConflictID,
+	})
+
+	// propagate updates to later ConflictID mappings of the same sequence.
+	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {
+		markerWalker.Push(mappedMarker)
+	})
+
+	// propagate updates to referencing markers of later sequences ...
+	b.markerManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker markers.Marker) {
+		markerWalker.Push(referencingMarker)
+	})
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

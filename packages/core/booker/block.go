@@ -38,12 +38,7 @@ func (b *Block) AddConflictID(conflictID utxo.TransactionID) (modified bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.addedConflictIDs.Has(conflictID) {
-		return false
-	}
-
-	b.addedConflictIDs.Add(conflictID)
-	return true
+	return b.addedConflictIDs.Add(conflictID)
 }
 
 // AddedConflictIDs returns the ConflictIDs of the added Conflicts of the Block.

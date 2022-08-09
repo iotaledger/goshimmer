@@ -164,6 +164,25 @@ func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, 
 	}
 }
 
+// ForEachMarkerReferencingMarker executes the callback function for each Marker of other Sequences that directly
+// reference the given Marker.
+func (m *MarkerManager) ForEachMarkerReferencingMarker(referencedMarker markers.Marker, callback func(referencingMarker markers.Marker)) {
+	sequence, exists := m.sequenceManager.Sequence(referencedMarker.SequenceID())
+	if !exists {
+		return
+	}
+
+	sequence.ReferencingMarkers(referencedMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
+		if referencingSequenceID == referencedMarker.SequenceID() {
+			return true
+		}
+
+		callback(markers.NewMarker(referencingSequenceID, referencingIndex))
+
+		return true
+	})
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MarkerBlockMapping ///////////////////////////////////////////////////////////////////////////////////////////
