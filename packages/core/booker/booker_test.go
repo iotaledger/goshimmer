@@ -120,6 +120,7 @@ func TestScenario_1(t *testing.T) {
 		"Block8": tf.ledgerTf.TransactionIDs("TX4", "TX3", "TX6"),
 		"Block9": tf.ledgerTf.TransactionIDs("TX4", "TX3", "TX5"),
 	})
+	tf.AssertBookedCount(9, "all block should be booked")
 }
 
 func TestScenario_2(t *testing.T) {
@@ -168,9 +169,9 @@ func TestScenario_2(t *testing.T) {
 		"Block8": markers.NewMarkers(markers.NewMarker(0, 1)),
 		"Block9": markers.NewMarkers(markers.NewMarker(0, 1)),
 	})
+	tf.AssertBookedCount(9, "all block should be booked")
 }
 
-//
 func TestScenario_3(t *testing.T) {
 	tf := NewTestFramework(t)
 	defer tf.Shutdown()
@@ -205,6 +206,7 @@ func TestScenario_3(t *testing.T) {
 		"Block8": tf.ledgerTf.TransactionIDs("TX6", "TX3"),
 		"Block9": tf.ledgerTf.TransactionIDs("TX6", "TX3", "TX8"),
 	})
+	tf.AssertBookedCount(9, "all block should be booked")
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {

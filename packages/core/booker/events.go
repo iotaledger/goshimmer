@@ -11,6 +11,7 @@ type Events struct {
 	BlockBooked          *event.Event[*Block]
 	BlockConflictUpdated *event.Event[*BlockConflictUpdatedEvent]
 	MarkerConflictAdded  *event.Event[*MarkerConflictAddedEvent]
+	Error                *event.Event[error]
 }
 
 type BlockConflictUpdatedEvent struct {
@@ -29,5 +30,6 @@ func newEvents() *Events {
 		BlockBooked:          event.New[*Block](),
 		BlockConflictUpdated: event.New[*BlockConflictUpdatedEvent](),
 		MarkerConflictAdded:  event.New[*MarkerConflictAddedEvent](),
+		Error:                event.New[error](),
 	}
 }

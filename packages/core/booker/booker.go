@@ -80,7 +80,7 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 
 	ledgerInstance.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			fmt.Println(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
+			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
 
@@ -121,6 +121,22 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	return b.block(id)
 }
 
+// PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
+func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
+	conflictIDs = utxo.NewTransactionIDs()
+
+	transaction, isTransaction := block.Transaction()
+	if !isTransaction {
+		return
+	}
+
+	b.ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
+	})
+
+	return
+}
+
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	tx, isTx := block.Transaction()
 	if !isTx {
@@ -152,23 +168,15 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	return b.blocks.Get(id.EpochIndex, true).Get(id)
 }
 
-// isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (isValid bool) {
-	return !parent.IsInvalid()
-}
-
 func (b *Booker) book(block *Block) {
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
-	fmt.Printf("booking %s, %p \n", block.ID(), block)
-
 	err := b.inheritConflictIDs(block)
 	if err != nil {
-		// TODO: print more elegantly using Error event
-		fmt.Println("error inheriting conflict IDs:", err)
+		b.Events.Error.Trigger(errors.Errorf("error inheriting conflict IDs: %w", err))
 		b.SetInvalid(block.Block)
 		return
 	}
@@ -181,7 +189,7 @@ func (b *Booker) book(block *Block) {
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
-		return errors.Errorf("failed to inherit conflict IDs", err)
+		return errors.Errorf("failed to inherit conflict IDs: %w", err)
 	}
 
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
@@ -311,20 +319,16 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	return pastMarkersConflictIDs, blockConflictIDs
 }
 
-// PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
-func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	conflictIDs = utxo.NewTransactionIDs()
-
-	transaction, isTransaction := block.Transaction()
-	if !isTransaction {
-		return
-	}
-
-	b.ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
+func (b *Booker) strongChildren(block *Block) []*Block {
+	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *tangle.Block) (bookerChild *Block) {
+		bookerChild, exists := b.Block(tangleChild.ID())
+		if !exists {
+			return nil
+		}
+		return bookerChild
+	}), func(child *Block) bool {
+		return child != nil
 	})
-
-	return
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -348,21 +352,9 @@ func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, added
 			ConflictID: addedConflictID,
 		})
 
-		blockWalker.PushAll(b.StrongChildren(block)...)
+		blockWalker.PushAll(b.strongChildren(block)...)
 	}
 	return nil
-}
-
-func (b *Booker) StrongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *tangle.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(tangleChild.ID())
-		if !exists {
-			return nil
-		}
-		return bookerChild
-	}), func(child *Block) bool {
-		return child != nil
-	})
 }
 
 func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
@@ -459,3 +451,8 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// isReferenceValid checks if the reference between the child and its parent is valid.
+func isReferenceValid(child *Block, parent *Block) (isValid bool) {
+	return !parent.IsInvalid()
+}

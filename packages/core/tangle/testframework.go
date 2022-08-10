@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -51,27 +52,37 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 
 func (t *TestFramework) Setup() {
 	t.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
-		t.T.Logf("SOLID: %s", metadata.ID())
+		if debug.GetEnabled() {
+			t.T.Logf("SOLID: %s", metadata.ID())
+		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	}))
 
 	t.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
-		t.T.Logf("MISSING: %s", metadata.ID())
+		if debug.GetEnabled() {
+			t.T.Logf("MISSING: %s", metadata.ID())
+		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	}))
 
 	t.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.T.Logf("MISSING BLOCK STORED: %s", metadata.ID())
+		if debug.GetEnabled() {
+			t.T.Logf("MISSING BLOCK STORED: %s", metadata.ID())
+		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
 	t.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
-		t.T.Logf("INVALID: %s", metadata.ID())
+		if debug.GetEnabled() {
+			t.T.Logf("INVALID: %s", metadata.ID())
+		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	}))
 
 	t.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
-		t.T.Logf("ATTACHED: %s", metadata.ID())
+		if debug.GetEnabled() {
+			t.T.Logf("ATTACHED: %s", metadata.ID())
+		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	}))
 }

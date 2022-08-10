@@ -2,10 +2,14 @@ package booker
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -19,6 +23,10 @@ import (
 type TestFramework struct {
 	Booker       *Booker
 	genesisBlock *Block
+
+	bookedBlocks          int32
+	blockConflictsUpdated int32
+	markerConflictsAdded  int32
 
 	*tangle.TestFramework
 	ledgerTf *ledger.TestFramework
@@ -34,8 +42,35 @@ func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
 		genesisBlock:  genesis,
 	}
 	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.rootBlockProvider)
-
+	newTestFramework.Setup()
 	return
+}
+
+func (t *TestFramework) Setup() {
+	t.Booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.T.Logf("BOOKED: %s", metadata.ID())
+		}
+		atomic.AddInt32(&(t.bookedBlocks), 1)
+	}))
+
+	t.Booker.Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
+		if debug.GetEnabled() {
+			t.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
+		}
+		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
+	}))
+
+	t.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+		if debug.GetEnabled() {
+			t.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
+		}
+		atomic.AddInt32(&(t.markerConflictsAdded), 1)
+	}))
+
+	t.Booker.Events.Error.Hook(event.NewClosure(func(err error) {
+		t.T.Logf("ERROR: %s", err)
+	}))
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
@@ -47,6 +82,32 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 	}
 
 	return block
+}
+
+func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
+	block, exists := t.Booker.Block(t.Block(alias).ID())
+	require.True(t.T, exists, "Block %s not found", alias)
+	callback(block)
+}
+
+func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
+	for alias, isSolid := range expectedValues {
+		t.AssertBlock(alias, func(block *Block) {
+			assert.Equal(t.T, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
+		})
+	}
+}
+
+func (t *TestFramework) AssertBookedCount(bookedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.T, bookedCount, atomic.LoadInt32(&(t.bookedBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertMarkerConflictsAddCount(markerConflictsAddCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.T, markerConflictsAddCount, atomic.LoadInt32(&(t.markerConflictsAdded)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.T, blockConflictsUpdateCount, atomic.LoadInt32(&(t.blockConflictsUpdated)), msgAndArgs...)
 }
 
 func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {
