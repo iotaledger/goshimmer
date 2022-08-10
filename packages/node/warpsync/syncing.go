@@ -7,15 +7,15 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -28,7 +28,7 @@ type epochSyncStart struct {
 type epochSyncBlock struct {
 	ei    epoch.Index
 	ec    epoch.EC
-	block *tangle.Block
+	block *tangleold.Block
 	peer  *peer.Peer
 }
 
@@ -41,7 +41,7 @@ type epochSyncEnd struct {
 }
 
 type blockReceived struct {
-	block *tangle.Block
+	block *tangleold.Block
 	peer  *peer.Peer
 }
 
@@ -114,7 +114,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						epochChannels: m.epochChannels[targetEpoch],
 						peer:          peer,
 						tangleTree:    tangleTree,
-						epochBlocks:   make(map[tangle.BlockID]*tangle.Block),
+						epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
 					})
 				}
 
@@ -213,7 +213,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	// Send epoch's blocks in batches.
 	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
-		blocks := make([]*tangle.Block, 0)
+		blocks := make([]*tangleold.Block, 0)
 		for i := batchNum * m.blockBatchSize; i < len(blockIDs) && i < (batchNum+1)*m.blockBatchSize; i++ {
 			block, err := m.blockLoaderFunc(blockIDs[i])
 			if err != nil {
@@ -287,7 +287,7 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "EI", ei, "blocksLen", len(blocksBytes))
 
 	for _, blockBytes := range blocksBytes {
-		block := new(tangle.Block)
+		block := new(tangleold.Block)
 		if err := block.FromBytes(blockBytes); err != nil {
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return

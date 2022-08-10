@@ -209,7 +209,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, epoch.ComputeEC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block3", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block2"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithECRecord(ecRecord))
@@ -231,7 +231,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, epoch.ComputeEC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
@@ -303,7 +303,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC0 = epoch.ComputeEC(ecRecord)
+		EC0 = ecRecord.ComputeEC()
 		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
@@ -366,7 +366,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC1 = epoch.ComputeEC(ecRecord)
+		EC1 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
 		testFramework.CreateBlock("Block5", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500), tangleold.WithECRecord(ecRecord))
@@ -383,7 +383,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC2 = epoch.ComputeEC(ecRecord)
+		EC2 = ecRecord.ComputeEC()
+
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
 		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("D", 500), tangleold.WithECRecord(ecRecord))

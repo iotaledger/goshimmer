@@ -5,17 +5,17 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
 )
 
 // PluginName is the name of the warpsync plugin.
@@ -31,7 +31,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangle.Tangle
+	Tangle          *tangleold.Tangle
 	WarpsyncMgr     *warpsync.Manager
 	NotarizationMgr *notarization.Manager
 	P2PMgr          *p2p.Manager
@@ -41,9 +41,9 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(func(t *tangle.Tangle, p2pManager *p2p.Manager) *warpsync.Manager {
+		if err := event.Container.Provide(func(t *tangleold.Tangle, p2pManager *p2p.Manager) *warpsync.Manager {
 			// TODO: use a different block loader function
-			loadBlockFunc := func(blockID tangle.BlockID) (*tangle.Block, error) {
+			loadBlockFunc := func(blockID tangleold.BlockID) (*tangleold.Block, error) {
 				cachedBlock := t.Storage.Block(blockID)
 				defer cachedBlock.Release()
 				block, exists := cachedBlock.Unwrap()

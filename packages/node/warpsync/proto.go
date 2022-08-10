@@ -3,10 +3,12 @@ package warpsync
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -70,7 +72,7 @@ func (m *Manager) sendEpochStarter(ei epoch.Index, ec epoch.EC, blocksCount int,
 	m.p2pManager.Send(packet, protocolID, to...)
 }
 
-func (m *Manager) sendBlocksBatch(ei epoch.Index, ec epoch.EC, blocks []*tangle.Block, to ...identity.ID) {
+func (m *Manager) sendBlocksBatch(ei epoch.Index, ec epoch.EC, blocks []*tangleold.Block, to ...identity.ID) {
 	blocksBytes := make([][]byte, len(blocks))
 
 	for i, block := range blocks {

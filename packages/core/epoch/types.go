@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"

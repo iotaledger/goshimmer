@@ -6,11 +6,11 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/logger"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangle.BlockID) (*tangle.Block, error)
+type LoadBlockFunc func(blockId tangleold.BlockID) (*tangleold.Block, error)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
 type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)

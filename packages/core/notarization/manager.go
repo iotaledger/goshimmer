@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
@@ -101,7 +102,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 		new.OnAcceptanceTimeUpdated(event.ATT)
 	}))
 
-	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		new.OnBlockStored(event.Block)
 	}))
 
@@ -252,7 +253,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 }
 
 // OnBlockStored is the handler for block stored event.
-func (m *Manager) OnBlockStored(block *tangle.Block) {
+func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	blockEI := block.EI()
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
 	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second

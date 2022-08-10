@@ -6,9 +6,9 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/dataflow"
 )
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
@@ -21,7 +21,7 @@ type syncingFlowParams struct {
 	peer              *peer.Peer
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
-	epochBlocks       map[tangle.BlockID]*tangle.Block
+	epochBlocks       map[tangleold.BlockID]*tangleold.Block
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
