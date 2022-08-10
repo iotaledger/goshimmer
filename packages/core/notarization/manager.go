@@ -291,6 +291,7 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
+// OnBlockStored is a handler fo Block stored event that updates the activity log.
 func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	m.WriteLockLedger()
 	defer m.WriteUnlockLedger()
@@ -691,6 +692,7 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 	}
 }
 
+// SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
 func (m *Manager) SnapshotEpochActivity(epochActivity epoch.SnapshotEpochActivity) (err error) {
 	for ei, activity := range epochActivity {
 		for nodeID := range activity.NodesLog() {

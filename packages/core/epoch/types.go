@@ -200,10 +200,9 @@ func NewActivityLog() *ActivityLog {
 // Add adds a node to the activity log.
 func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
 	return a.SetEpochs.Add(nodeID)
-
 }
 
-// Remove removes a node activity from the log.
+// Remove removes a node from the activity log.
 func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
 	return a.SetEpochs.Delete(nodeID)
 }
@@ -240,7 +239,7 @@ func (a *ActivityLog) Clone() *ActivityLog {
 	return clone
 }
 
-// Encode ActivityLog a serialized byte slice of the object.
+// Encode serializes the object to a byte slice.
 func (a *ActivityLog) Encode() ([]byte, error) {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.SetEpochs, serix.WithValidation())
 	if err != nil {

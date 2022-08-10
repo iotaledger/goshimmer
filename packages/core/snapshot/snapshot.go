@@ -35,7 +35,12 @@ func init() {
 }
 
 // CreateSnapshot creates a snapshot file to the given file path.
-func CreateSnapshot(filePath string, headerProd HeaderProducerFunc, utxoStatesProd UTXOStatesProducerFunc, epochDiffsProd EpochDiffProducerFunc, activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
+func CreateSnapshot(
+	filePath string,
+	headerProd HeaderProducerFunc,
+	utxoStatesProd UTXOStatesProducerFunc,
+	epochDiffsProd EpochDiffProducerFunc,
+	activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
@@ -82,7 +87,7 @@ type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff,
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
 type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
 
-// ActivityLogProducerFunc is the type of function that produces ActivityLog when loading a snapshot.
+// ActivityLogProducerFunc is the type of function that produces ActivityLog when taking a snapshot.
 type ActivityLogProducerFunc func() (activityLogs epoch.SnapshotEpochActivity)
 
 // ActivityLogConsumerFunc is the type of function that consumes Activity logs when loading a snapshot.

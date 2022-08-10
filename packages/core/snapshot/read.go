@@ -15,7 +15,12 @@ import (
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
-func streamSnapshotDataFrom(reader io.ReadSeeker, headerConsumer HeaderConsumerFunc, outputConsumer UTXOStatesConsumerFunc, epochDiffsConsumer EpochDiffsConsumerFunc, activityLogConsumer ActivityLogConsumerFunc) error {
+func streamSnapshotDataFrom(
+	reader io.ReadSeeker,
+	headerConsumer HeaderConsumerFunc,
+	outputConsumer UTXOStatesConsumerFunc,
+	epochDiffsConsumer EpochDiffsConsumerFunc,
+	activityLogConsumer ActivityLogConsumerFunc) error {
 
 	header, err := readSnapshotHeader(reader)
 	if err != nil {
