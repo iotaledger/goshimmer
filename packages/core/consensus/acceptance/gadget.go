@@ -3,15 +3,15 @@ package acceptance
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // BlockThresholdTranslation is a function which translates approval weight to a confirmation.State.
@@ -75,20 +75,20 @@ func WithConflictThresholdTranslation(f ConflictThresholdTranslation) Option {
 // Gadget is a GadgetInterface which simply translates approval weight down to confirmation.State
 // and then applies it to blocks, conflicts, transactions and outputs.
 type Gadget struct {
-	tangle                    *tangle.Tangle
+	tangle                    *tangleold.Tangle
 	opts                      *Options
 	lastConfirmedMarkers      map[markers.SequenceID]markers.Index
 	lastConfirmedMarkersMutex sync.RWMutex
-	events                    *tangle.ConfirmationEvents
+	events                    *tangleold.ConfirmationEvents
 }
 
 // NewSimpleFinalityGadget creates a new Gadget.
-func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *Gadget {
+func NewSimpleFinalityGadget(t *tangleold.Tangle, opts ...Option) *Gadget {
 	sfg := &Gadget{
 		tangle:               t,
 		opts:                 &Options{},
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
-		events:               tangle.NewConfirmationEvents(),
+		events:               tangleold.NewConfirmationEvents(),
 	}
 
 	for _, defOpt := range defaultOpts {
@@ -102,18 +102,18 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *Gadget {
 }
 
 // Events returns the events this gadget exposes.
-func (s *Gadget) Events() *tangle.ConfirmationEvents {
+func (s *Gadget) Events() *tangleold.ConfirmationEvents {
 	return s.events
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
 func (s *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
 	blockID := s.tangle.Booker.MarkersManager.BlockID(marker)
-	if blockID == tangle.EmptyBlockID {
+	if blockID == tangleold.EmptyBlockID {
 		return false
 	}
 
-	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 		if blockMetadata.ConfirmationState().IsAccepted() {
 			confirmed = true
 		}
@@ -122,8 +122,8 @@ func (s *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
 }
 
 // IsBlockConfirmed returns whether the given block is confirmed.
-func (s *Gadget) IsBlockConfirmed(blkID tangle.BlockID) (confirmed bool) {
-	s.tangle.Storage.BlockMetadata(blkID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+func (s *Gadget) IsBlockConfirmed(blkID tangleold.BlockID) (confirmed bool) {
+	s.tangle.Storage.BlockMetadata(blkID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 		if blockMetadata.ConfirmationState().IsAccepted() {
 			confirmed = true
 		}
@@ -185,7 +185,7 @@ func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 
 	// get block ID of marker
 	blockID := s.tangle.Booker.MarkersManager.BlockID(marker)
-	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 		if confirmationState <= blockMetadata.ConfirmationState() {
 			return
 		}
@@ -215,28 +215,28 @@ func (s *Gadget) setMarkerConfirmed(marker markers.Marker) (updated bool) {
 }
 
 // propagateConfirmationStateToBlockPastCone propagates the given ConfirmationState to the past cone of the Block.
-func (s *Gadget) propagateConfirmationStateToBlockPastCone(blockID tangle.BlockID, confirmationState confirmation.State) {
-	strongParentWalker := walker.New[tangle.BlockID](false).Push(blockID)
-	weakParentsSet := set.New[tangle.BlockID]()
+func (s *Gadget) propagateConfirmationStateToBlockPastCone(blockID tangleold.BlockID, confirmationState confirmation.State) {
+	strongParentWalker := walker.New[tangleold.BlockID](false).Push(blockID)
+	weakParentsSet := set.New[tangleold.BlockID]()
 
 	for strongParentWalker.HasNext() {
 		strongParentBlockID := strongParentWalker.Next()
-		if strongParentBlockID == tangle.EmptyBlockID {
+		if strongParentBlockID == tangleold.EmptyBlockID {
 			continue
 		}
 
-		s.tangle.Storage.BlockMetadata(strongParentBlockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		s.tangle.Storage.BlockMetadata(strongParentBlockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 			if blockMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
-			s.tangle.Storage.Block(strongParentBlockID).Consume(func(block *tangle.Block) {
+			s.tangle.Storage.Block(strongParentBlockID).Consume(func(block *tangleold.Block) {
 				if !s.setBlockConfirmationState(block, blockMetadata, confirmationState) {
 					return
 				}
 
-				block.ForEachParent(func(parent tangle.Parent) {
-					if parent.Type == tangle.StrongParentType {
+				block.ForEachParent(func(parent tangleold.Parent) {
+					if parent.Type == tangleold.StrongParentType {
 						strongParentWalker.Push(parent.ID)
 						return
 					}
@@ -246,16 +246,16 @@ func (s *Gadget) propagateConfirmationStateToBlockPastCone(blockID tangle.BlockI
 		})
 	}
 
-	weakParentsSet.ForEach(func(weakParent tangle.BlockID) {
+	weakParentsSet.ForEach(func(weakParent tangleold.BlockID) {
 		if strongParentWalker.Pushed(weakParent) {
 			return
 		}
-		s.tangle.Storage.BlockMetadata(weakParent).Consume(func(blockMetadata *tangle.BlockMetadata) {
+		s.tangle.Storage.BlockMetadata(weakParent).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 			if blockMetadata.ConfirmationState() >= confirmationState {
 				return
 			}
 
-			s.tangle.Storage.Block(weakParent).Consume(func(block *tangle.Block) {
+			s.tangle.Storage.Block(weakParent).Consume(func(block *tangleold.Block) {
 				s.setBlockConfirmationState(block, blockMetadata, confirmationState)
 			})
 		})
@@ -272,14 +272,14 @@ func (s *Gadget) HandleConflict(conflictID utxo.TransactionID, aw float64) (err 
 	return nil
 }
 
-func (s *Gadget) setBlockConfirmationState(block *tangle.Block, blockMetadata *tangle.BlockMetadata, confirmationState confirmation.State) (modified bool) {
+func (s *Gadget) setBlockConfirmationState(block *tangleold.Block, blockMetadata *tangleold.BlockMetadata, confirmationState confirmation.State) (modified bool) {
 	// abort if block has ConfirmationState already set
 	if modified = blockMetadata.SetConfirmationState(confirmationState); !modified {
 		return
 	}
 
 	if confirmationState.IsAccepted() {
-		s.Events().BlockAccepted.Trigger(&tangle.BlockAcceptedEvent{
+		s.Events().BlockAccepted.Trigger(&tangleold.BlockAcceptedEvent{
 			Block: block,
 		})
 

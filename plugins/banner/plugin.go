@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 )
 
 // PluginName is the name of the banner plugin.
@@ -15,7 +15,7 @@ var (
 	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 
 	// AppVersion version number
-	AppVersion = "v0.9.3"
+	AppVersion = "v0.9.4"
 	// SimplifiedAppVersion is the version number without commit hash
 	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 )

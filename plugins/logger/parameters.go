@@ -1,6 +1,6 @@
 package logger
 
-import "github.com/iotaledger/hive.go/configuration"
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of configuration parameters used by the logger plugin.
 type ParametersDefinition struct {
@@ -27,5 +27,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "logger")
+	config.BindParameters(Parameters, "logger")
 }

@@ -4,11 +4,11 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -33,21 +33,21 @@ func init() {
 
 type dependencies struct {
 	dig.In
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 	Server *echo.Echo
 	Chat   *chat.Chat
 }
 
 func configure(_ *node.Plugin) {
-	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangle.BlockBookedEvent) {
+	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		onReceiveBlockFromBlockLayer(event.BlockID)
 	}))
 	configureWebAPI()
 }
 
-func onReceiveBlockFromBlockLayer(blockID tangle.BlockID) {
+func onReceiveBlockFromBlockLayer(blockID tangleold.BlockID) {
 	var chatEvent *chat.BlockReceivedEvent
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 		if block.Payload().Type() != chat.Type {
 			return
 		}

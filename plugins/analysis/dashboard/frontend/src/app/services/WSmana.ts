@@ -1,9 +1,9 @@
-import { WSBlkTypeDashboard } from "../models/ws/WSBlkTypeDashboard";
-import { WSBlock } from "../models/ws/IWSBlk";
-import { IManaBlock } from "../models/mana/IManaBlock";
-import { INetworkManaBlock } from "../models/mana/INetworkManaBlock";
-import { IPledgeBlock } from "../models/mana/IPledgeBlock";
-import { IRevokeBlock } from "../models/mana/IRevokeBlock";
+import {WSBlkTypeDashboard} from "../models/ws/WSBlkTypeDashboard";
+import {WSBlock} from "../models/ws/IWSBlk";
+import {IManaBlock} from "../models/mana/IManaBlock";
+import {INetworkManaBlock} from "../models/mana/INetworkManaBlock";
+import {IPledgeBlock} from "../models/mana/IPledgeBlock";
+import {IRevokeBlock} from "../models/mana/IRevokeBlock";
 
 type DataHandler<T> = (data: T) => void;
 

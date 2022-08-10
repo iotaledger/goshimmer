@@ -7,8 +7,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/hive.go/protocol/message"
-	"github.com/iotaledger/hive.go/protocol/tlv"
+	"github.com/iotaledger/hive.go/core/protocol/message"
+	"github.com/iotaledger/hive.go/core/protocol/tlv"
 
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )

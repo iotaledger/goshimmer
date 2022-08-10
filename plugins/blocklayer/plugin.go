@@ -5,24 +5,25 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/discover"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 
@@ -48,15 +49,14 @@ var (
 
 var (
 	// Plugin is the plugin instance of the blocklayer plugin.
-	Plugin       *node.Plugin
-	deps         = new(dependencies)
-	nodeSnapshot *snapshot.Snapshot
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
 	dig.In
 
-	Tangle           *tangle.Tangle
+	Tangle           *tangleold.Tangle
 	Indexer          *indexer.Indexer
 	Local            *peer.Local
 	Discover         *discover.Protocol `optional:"true"`
@@ -75,7 +75,7 @@ type tangledeps struct {
 type indexerdeps struct {
 	dig.In
 
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 func init() {
@@ -108,37 +108,37 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Blocks created by the node need to pass through the normal flow.
-	deps.Tangle.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *tangle.BlockConstructedEvent) {
+	deps.Tangle.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *tangleold.BlockConstructedEvent) {
 		deps.Tangle.ProcessGossipBlock(lo.PanicOnErr(event.Block.Bytes()), deps.Local.Peer)
 	}))
 
-	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangle.BlockBookedEvent) {
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
+	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
+		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
 			deps.Tangle.WeightProvider.Update(block.IssuingTime(), identity.NewID(block.IssuerPublicKey()))
 		})
 	}))
 
-	deps.Tangle.Parser.Events.BlockRejected.Attach(event.NewClosure(func(event *tangle.BlockRejectedEvent) {
+	deps.Tangle.Parser.Events.BlockRejected.Attach(event.NewClosure(func(event *tangleold.BlockRejectedEvent) {
 		plugin.LogInfof("block with %s rejected in Parser: %v", event.Block.ID().Base58(), event.Error)
 	}))
 
-	deps.Tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *tangle.BytesRejectedEvent) {
-		if errors.Is(event.Error, tangle.ErrReceivedDuplicateBytes) {
+	deps.Tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *tangleold.BytesRejectedEvent) {
+		if errors.Is(event.Error, tangleold.ErrReceivedDuplicateBytes) {
 			return
 		}
 
 		plugin.LogWarnf("bytes rejected from peer %s: %v", event.Peer.ID(), event.Error)
 	}))
 
-	deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+	deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
 		plugin.LogInfof("block rejected in Scheduler: %s", event.BlockID.Base58())
 	}))
 
-	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(event.NewClosure(func(event *tangle.NodeBlacklistedEvent) {
+	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(event.NewClosure(func(event *tangleold.NodeBlacklistedEvent) {
 		plugin.LogInfof("node %s is blacklisted in Scheduler", event.NodeID.String())
 	}))
 
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangleold.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", event.Synced)
 	}))
 
@@ -146,23 +146,30 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
-		if err != nil {
-			plugin.Panic("could not load snapshot file:", err)
-		}
-
-		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
-
-		// Add outputs to Indexer.
-		for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
-			deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
-		}
-
-		for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
-			for _, outputWithMetadata := range epochDiff.Created() {
+		utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
+			for _, outputWithMetadata := range outputsWithMetadatas {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
+		}
+
+		epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiffs(header, epochDiffs)
+			if err != nil {
+				panic(err)
+			}
+			for _, epochDiff := range epochDiffs {
+				for _, outputWithMetadata := range epochDiff.Created() {
+					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
+				}
+			}
+		}
+
+		headerConsumer := func(*ledger.SnapshotHeader) {}
+
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
 		}
 
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
@@ -190,23 +197,23 @@ func run(*node.Plugin) {
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var tangleInstance *tangle.Tangle
+var tangleInstance *tangleold.Tangle
 
 // newTangle gets the tangle instance.
-func newTangle(tangleDeps tangledeps) *tangle.Tangle {
+func newTangle(tangleDeps tangledeps) *tangleold.Tangle {
 	// TODO: this should use the time from the snapshot instead of epoch.GenesisTime
 	genesisTime := time.Unix(epoch.GenesisTime, 0)
 	if Parameters.GenesisTime > 0 {
 		genesisTime = time.Unix(Parameters.GenesisTime, 0)
 	}
 
-	tangleInstance = tangle.New(
-		tangle.Store(tangleDeps.Storage),
-		tangle.Identity(tangleDeps.Local.LocalIdentity()),
-		tangle.Width(Parameters.TangleWidth),
-		tangle.TimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
-		tangle.SchedulerConfig(tangle.SchedulerParams{
+	tangleInstance = tangleold.New(
+		tangleold.Store(tangleDeps.Storage),
+		tangleold.Identity(tangleDeps.Local.LocalIdentity()),
+		tangleold.Width(Parameters.TangleWidth),
+		tangleold.TimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
+		tangleold.GenesisNode(Parameters.Snapshot.GenesisNode),
+		tangleold.SchedulerConfig(tangleold.SchedulerParams{
 			MaxBufferSize:                   SchedulerParameters.MaxBufferSize,
 			TotalSupply:                     2779530283277761,
 			ConfirmedBlockScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedBlockThreshold),
@@ -214,21 +221,21 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 			AccessManaMapRetrieverFunc:      accessManaMapRetriever,
 			TotalAccessManaRetrieveFunc:     totalAccessManaRetriever,
 		}),
-		tangle.RateSetterConfig(tangle.RateSetterParams{
+		tangleold.RateSetterConfig(tangleold.RateSetterParams{
 			Initial:          RateSetterParameters.Initial,
 			RateSettingPause: RateSetterParameters.RateSettingPause,
 			Enabled:          RateSetterParameters.Enable,
 		}),
-		tangle.GenesisTime(genesisTime),
-		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
-		tangle.StartSynced(Parameters.StartSynced),
-		tangle.CacheTimeProvider(database.CacheTimeProvider()),
-		tangle.CommitmentFunc(GetLatestEC),
+		tangleold.GenesisTime(genesisTime),
+		tangleold.SyncTimeWindow(Parameters.TangleTimeWindow),
+		tangleold.StartSynced(Parameters.StartSynced),
+		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
+		tangleold.CommitmentFunc(GetLatestEC),
 	)
 
-	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.ActivityTime, tangleDeps.Storage)
-	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfConflict))
+	tangleInstance.Scheduler = tangleold.NewScheduler(tangleInstance)
+	tangleInstance.WeightProvider = tangleold.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.ActivityTime, tangleDeps.Storage)
+	tangleInstance.OTVConsensusManager = tangleold.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfConflict))
 
 	acceptanceGadget = acceptance.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = acceptanceGadget
@@ -273,7 +280,7 @@ func totalAccessManaRetriever() float64 {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
-func AwaitBlockToBeBooked(f func() (*tangle.Block, error), txID utxo.TransactionID, maxAwait time.Duration) (*tangle.Block, error) {
+func AwaitBlockToBeBooked(f func() (*tangleold.Block, error), txID utxo.TransactionID, maxAwait time.Duration) (*tangleold.Block, error) {
 	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
@@ -281,9 +288,9 @@ func AwaitBlockToBeBooked(f func() (*tangle.Block, error), txID utxo.Transaction
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(event *tangle.BlockBookedEvent) {
+	closure := event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		match := false
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
+		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
 			if block.Payload().Type() == devnetvm.TransactionType {
 				tx := block.Payload().(*devnetvm.Transaction)
 				if tx.ID() == txID {
@@ -319,13 +326,13 @@ func AwaitBlockToBeBooked(f func() (*tangle.Block, error), txID utxo.Transaction
 }
 
 // AwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
-func AwaitBlockToBeIssued(f func() (*tangle.Block, error), issuer ed25519.PublicKey, maxAwait time.Duration) (*tangle.Block, error) {
-	issued := make(chan *tangle.Block, 1)
+func AwaitBlockToBeIssued(f func() (*tangleold.Block, error), issuer ed25519.PublicKey, maxAwait time.Duration) (*tangleold.Block, error) {
+	issued := make(chan *tangleold.Block, 1)
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(event *tangle.BlockScheduledEvent) {
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangle.Block) {
+	closure := event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
+		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
 			if block.IssuerPublicKey() != issuer {
 				return
 			}
@@ -340,14 +347,14 @@ func AwaitBlockToBeIssued(f func() (*tangle.Block, error), issuer ed25519.Public
 
 	// channel to receive the result of issuance
 	issueResult := make(chan struct {
-		blk *tangle.Block
+		blk *tangleold.Block
 		err error
 	}, 1)
 
 	go func() {
 		blk, err := f()
 		issueResult <- struct {
-			blk *tangle.Block
+			blk *tangleold.Block
 			err error
 		}{blk: blk, err: err}
 	}()

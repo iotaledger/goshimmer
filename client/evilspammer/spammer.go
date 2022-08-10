@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 
-	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 )
 

@@ -1,10 +1,10 @@
-import { inject, observer } from "mobx-react";
-import React, { ReactNode } from "react";
-import { hot } from "react-hot-loader/root";
-import { withRouter } from "react-router";
-import { Link, Redirect, Route, Switch } from "react-router-dom";
+import {inject, observer} from "mobx-react";
+import React, {ReactNode} from "react";
+import {hot} from "react-hot-loader/root";
+import {withRouter} from "react-router";
+import {Link, Redirect, Route, Switch} from "react-router-dom";
 import "./App.scss";
-import { AppProps } from "./AppProps";
+import {AppProps} from "./AppProps";
 import Autopeering from "./components/Autopeering/Autopeering";
 import Mana from "./components/Mana/Mana";
 

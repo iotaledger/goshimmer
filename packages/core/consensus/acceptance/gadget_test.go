@@ -5,8 +5,8 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 type EventHandlerMock struct {
@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func (handler *EventHandlerMock) BlockAccepted(blkID tangle.BlockID) {
+func (handler *EventHandlerMock) BlockAccepted(blkID tangleold.BlockID) {
 	handler.Called(blkID)
 }
 
@@ -57,8 +57,8 @@ func (handler *EventHandlerMock) TransactionAccepted(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
-func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance *tangle.Tangle) {
-	ag.Events().BlockAccepted.Hook(event.NewClosure(func(event *tangle.BlockAcceptedEvent) { handler.BlockAccepted(event.Block.ID()) }))
+func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance *tangleold.Tangle) {
+	ag.Events().BlockAccepted.Hook(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) { handler.BlockAccepted(event.Block.ID()) }))
 	tangleInstance.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		handler.ConflictAccepted(event.ID)
 	}))
@@ -66,8 +66,8 @@ func (handler *EventHandlerMock) WireUpFinalityGadget(ag *Gadget, tangleInstance
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
-	processBlkScenario := tangle.ProcessBlockScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	defer func(processBlkScenario *tangle.TestScenario, t *testing.T) {
+	processBlkScenario := tangleold.ProcessBlockScenario(t, tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer func(processBlkScenario *tangleold.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
 			fmt.Println(string(debug.Stack()))
@@ -90,10 +90,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	eventHandlerMock := &EventHandlerMock{}
 	eventHandlerMock.WireUpFinalityGadget(sfg, processBlkScenario.Tangle)
 
-	prePostSteps := []*tangle.PrePostStepTuple{
+	prePostSteps := []*tangleold.PrePostStepTuple{
 		// Block1
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block1"},
 				})
@@ -102,7 +102,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block2
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block1", "Block2"},
 				})
@@ -111,10 +111,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block3
 		{
-			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Pre: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block1").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1"},
 					confirmation.Pending:  {"Block2", "Block3"},
@@ -124,10 +124,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block4
 		{
-			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Pre: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block2").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2"},
 					confirmation.Pending:  {"Block3", "Block4"},
@@ -137,11 +137,11 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block5
 		{
-			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Pre: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block3").ID())
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block4").ID())
 			},
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
 					confirmation.Pending:  {"Block5"},
@@ -151,7 +151,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block6
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
 					confirmation.Pending:  {"Block5", "Block6"},
@@ -166,12 +166,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block7
 		{
-			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Pre: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block5").ID())
 				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Block5"))
 				eventHandlerMock.On("ConflictAccepted", testFramework.ConflictIDFromBlock("Block5"))
 			},
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5"},
 					confirmation.Pending:  {"Block7", "Block6"},
@@ -190,11 +190,11 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block7.1
 		{
-			Pre: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Pre: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				eventHandlerMock.On("BlockAccepted", testFramework.Block("Block7").ID())
 				eventHandlerMock.On("TransactionAccepted", testFramework.TransactionID("Block7"))
 			},
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
 					confirmation.Pending:  {"Block7.1", "Block6"},
@@ -212,7 +212,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		},
 		// Block8
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4", "Block5", "Block7"},
 					confirmation.Pending:  {"Block7.1", "Block6", "Block8"},
@@ -238,8 +238,8 @@ func TestSimpleFinalityGadget(t *testing.T) {
 }
 
 func TestWeakVsStrongParentWalk(t *testing.T) {
-	processBlkScenario := tangle.ProcessBlockScenario2(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
-	defer func(processBlkScenario *tangle.TestScenario, t *testing.T) {
+	processBlkScenario := tangleold.ProcessBlockScenario2(t, tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer func(processBlkScenario *tangleold.TestScenario, t *testing.T) {
 		if err := processBlkScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
@@ -253,10 +253,10 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 	sfg := NewSimpleFinalityGadget(processBlkScenario.Tangle, testOpts...)
 	wireUpEvents(t, processBlkScenario.Tangle, sfg)
 
-	prePostSteps := []*tangle.PrePostStepTuple{
+	prePostSteps := []*tangleold.PrePostStepTuple{
 		// Block0
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block0"},
 				})
@@ -264,7 +264,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		},
 		// Block1
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block1"},
 				})
@@ -272,7 +272,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		},
 		// Block2
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Pending: {"Block1", "Block2"},
 				})
@@ -280,7 +280,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		},
 		// Block3
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {},
 					confirmation.Pending:  {"Block1", "Block2", "Block3"},
@@ -289,7 +289,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 		},
 		// Block4
 		{
-			Post: func(t *testing.T, testFramework *tangle.BlockTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+			Post: func(t *testing.T, testFramework *tangleold.BlockTestFramework, testEventMock *tangleold.EventMock, nodes tangleold.NodeIdentities) {
 				sfg.propagateConfirmationStateToBlockPastCone(testFramework.Block("Block4").ID(), confirmation.Accepted)
 				assertBlksConfirmationState(t, testFramework, map[confirmation.State][]string{
 					confirmation.Accepted: {"Block1", "Block2", "Block3", "Block4"},
@@ -307,7 +307,7 @@ func TestWeakVsStrongParentWalk(t *testing.T) {
 	}
 }
 
-func assertBlksConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+func assertBlksConfirmationState(t *testing.T, testFramework *tangleold.BlockTestFramework, expected map[confirmation.State][]string) {
 	for expectedConfirmationState, blkAliases := range expected {
 		for _, blkAlias := range blkAliases {
 			actualConfirmationState := testFramework.BlockMetadata(blkAlias).ConfirmationState()
@@ -316,7 +316,7 @@ func assertBlksConfirmationState(t *testing.T, testFramework *tangle.BlockTestFr
 	}
 }
 
-func assertTxsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+func assertTxsConfirmationState(t *testing.T, testFramework *tangleold.BlockTestFramework, expected map[confirmation.State][]string) {
 	for expectedConfirmationState, blkAliases := range expected {
 		for _, blkAlias := range blkAliases {
 			txMeta := testFramework.TransactionMetadata(blkAlias)
@@ -331,7 +331,7 @@ func assertTxsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFra
 	}
 }
 
-func assertConflictsConfirmationState(t *testing.T, testFramework *tangle.BlockTestFramework, expected map[confirmation.State][]string) {
+func assertConflictsConfirmationState(t *testing.T, testFramework *tangleold.BlockTestFramework, expected map[confirmation.State][]string) {
 	for expectedConfirmationState, blkAliases := range expected {
 		for _, blkAlias := range blkAliases {
 			conflict := testFramework.Conflict(blkAlias)
@@ -341,13 +341,13 @@ func assertConflictsConfirmationState(t *testing.T, testFramework *tangle.BlockT
 	}
 }
 
-func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, ag *Gadget) {
-	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+func wireUpEvents(t *testing.T, testTangle *tangleold.Tangle, ag *Gadget) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangleold.MarkerWeightChangedEvent) {
 		if err := ag.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangleold.ConflictWeightChangedEvent) {
 		if err := ag.HandleConflict(e.ConflictID, e.Weight); err != nil {
 			t.Log(err)
 		}

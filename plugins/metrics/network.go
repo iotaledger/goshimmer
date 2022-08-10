@@ -1,7 +1,7 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 )
 

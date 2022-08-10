@@ -4,16 +4,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 func TestRequest(t *testing.T) {
@@ -48,10 +48,10 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetBlk := tangle.NewBlock(
-		map[tangle.ParentsType]tangle.BlockIDs{
-			tangle.StrongParentType: {
-				tangle.EmptyBlockID: types.Void,
+	faucetBlk := tangleold.NewBlock(
+		map[tangleold.ParentsType]tangleold.BlockIDs{
+			tangleold.StrongParentType: {
+				tangleold.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),
@@ -64,10 +64,10 @@ func TestIsFaucetReq(t *testing.T) {
 		epoch.NewECRecord(0),
 	)
 
-	dataBlk := tangle.NewBlock(
-		map[tangle.ParentsType]tangle.BlockIDs{
-			tangle.StrongParentType: {
-				tangle.EmptyBlockID: types.Void,
+	dataBlk := tangleold.NewBlock(
+		map[tangleold.ParentsType]tangleold.BlockIDs{
+			tangleold.StrongParentType: {
+				tangleold.EmptyBlockID: types.Void,
 			},
 		},
 		time.Now(),

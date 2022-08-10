@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
@@ -23,7 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 var (
@@ -59,7 +59,7 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	storeClosure := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleVertex,
 			Data: newTangleVertex(event.Block),
@@ -68,9 +68,9 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	bookedClosure := event.NewClosure(func(event *tangle.BlockBookedEvent) {
+	bookedClosure := event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		blockID := event.BlockID
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangle.BlockMetadata) {
+		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangleold.BlockMetadata) {
 			conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(blockID)
 			if err != nil {
 				conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
@@ -89,9 +89,9 @@ func registerTangleEvents() {
 		})
 	})
 
-	blkConfirmedClosure := event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+	blkConfirmedClosure := event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 		blockID := event.Block.ID()
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangle.BlockMetadata) {
+		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangleold.BlockMetadata) {
 			wsBlk := &wsBlock{
 				Type: BlkTypeTangleConfirmed,
 				Data: &tangleConfirmed{
@@ -106,8 +106,8 @@ func registerTangleEvents() {
 	})
 
 	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		var blkID tangle.BlockID
-		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
+		var blkID tangleold.BlockID
+		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangleold.Attachment) {
 			blkID = a.BlockID()
 		})
 
@@ -129,7 +129,7 @@ func registerTangleEvents() {
 }
 
 func registerUTXOEvents() {
-	storeClosure := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	storeClosure := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		if event.Block.Payload().Type() == devnetvm.TransactionType {
 			tx := event.Block.Payload().(*devnetvm.Transaction)
 			wsBlk := &wsBlock{
@@ -141,9 +141,9 @@ func registerUTXOEvents() {
 		}
 	})
 
-	bookedClosure := event.NewClosure(func(event *tangle.BlockBookedEvent) {
+	bookedClosure := event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		blockID := event.BlockID
-		deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+		deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 			if block.Payload().Type() == devnetvm.TransactionType {
 				tx := block.Payload().(*devnetvm.Transaction)
 				deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
@@ -219,7 +219,7 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	conflictWeightChangedClosure := event.NewClosure(func(e *tangle.ConflictWeightChangedEvent) {
+	conflictWeightChangedClosure := event.NewClosure(func(e *tangleold.ConflictWeightChangedEvent) {
 		conflictConfirmationState := deps.Tangle.Ledger.ConflictDAG.ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
@@ -271,13 +271,13 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		txs := []*utxoVertex{}
 		conflicts := []*conflictVertex{}
 		conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
-		entryBlks := tangle.NewBlockIDs()
-		deps.Tangle.Storage.Children(tangle.EmptyBlockID).Consume(func(child *tangle.Child) {
+		entryBlks := tangleold.NewBlockIDs()
+		deps.Tangle.Storage.Children(tangleold.EmptyBlockID).Consume(func(child *tangleold.Child) {
 			entryBlks.Add(child.ChildBlockID())
 		})
 
-		deps.Tangle.Utils.WalkBlockID(func(blockID tangle.BlockID, walker *walker.Walker[tangle.BlockID]) {
-			deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangle.Block) {
+		deps.Tangle.Utils.WalkBlockID(func(blockID tangleold.BlockID, walker *walker.Walker[tangleold.BlockID]) {
+			deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
 				// only keep blocks that is issued in the given time interval
 				if blk.IssuingTime().After(startTimestamp) && blk.IssuingTime().Before(endTimestamp) {
 					// add block
@@ -308,7 +308,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 
 				// continue walking if the block is issued before endTimestamp
 				if blk.IssuingTime().Before(endTimestamp) {
-					deps.Tangle.Storage.Children(blockID).Consume(func(child *tangle.Child) {
+					deps.Tangle.Storage.Children(blockID).Consume(func(child *tangleold.Child) {
 						walker.Push(child.ChildBlockID())
 					})
 				}
@@ -339,17 +339,17 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 	return true
 }
 
-func newTangleVertex(block *tangle.Block) (ret *tangleVertex) {
-	deps.Tangle.Storage.BlockMetadata(block.ID()).Consume(func(blkMetadata *tangle.BlockMetadata) {
+func newTangleVertex(block *tangleold.Block) (ret *tangleVertex) {
+	deps.Tangle.Storage.BlockMetadata(block.ID()).Consume(func(blkMetadata *tangleold.BlockMetadata) {
 		conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(block.ID())
 		if err != nil {
 			conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 		}
 		ret = &tangleVertex{
 			ID:                    block.ID().Base58(),
-			StrongParentIDs:       block.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParentIDs:         block.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParentIDs:  block.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			StrongParentIDs:       block.ParentsByType(tangleold.StrongParentType).Base58(),
+			WeakParentIDs:         block.ParentsByType(tangleold.WeakParentType).Base58(),
+			ShallowLikeParentIDs:  block.ParentsByType(tangleold.ShallowLikeParentType).Base58(),
 			ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 			IsMarker:              blkMetadata.StructureDetails() != nil && blkMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                  block.Payload().Type() == devnetvm.TransactionType,
@@ -365,7 +365,7 @@ func newTangleVertex(block *tangle.Block) (ret *tangleVertex) {
 	return
 }
 
-func newUTXOVertex(blkID tangle.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
+func newUTXOVertex(blkID tangleold.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
 	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
 	for i, input := range tx.Essence().Inputs() {
 		inputs[i] = jsonmodels.NewInput(input)

@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 func init() {
@@ -109,6 +109,6 @@ func (p *Payload) SetConsensusManaPledgeID(id identity.ID) {
 }
 
 // IsFaucetReq checks if the block is faucet payload.
-func IsFaucetReq(blk *tangle.Block) bool {
+func IsFaucetReq(blk *tangleold.Block) bool {
 	return blk.Payload().Type() == RequestType
 }

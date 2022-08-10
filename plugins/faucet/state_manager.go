@@ -7,23 +7,23 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -178,7 +178,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
-func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangle.Block, string, error) {
+func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangleold.Block, string, error) {
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared
 		waitForPreparation := s.fundingState.FundingOutputsCount() == 0
@@ -707,9 +707,9 @@ func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devne
 }
 
 // issueTx issues a transaction to the Tangle and waits for it to become booked.
-func (s *StateManager) issueTx(tx *devnetvm.Transaction) (blk *tangle.Block, err error) {
+func (s *StateManager) issueTx(tx *devnetvm.Transaction) (blk *tangleold.Block, err error) {
 	// attach to block layer
-	issueTransaction := func() (*tangle.Block, error) {
+	issueTransaction := func() (*tangleold.Block, error) {
 		block, e := deps.Tangle.IssuePayload(tx)
 		if e != nil {
 			return nil, e

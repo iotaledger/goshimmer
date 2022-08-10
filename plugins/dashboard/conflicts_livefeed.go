@@ -6,18 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types/confirmation"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
@@ -233,8 +233,8 @@ func sendAllConflicts() {
 
 func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
-	deps.Tangle.Storage.Attachments(utxo.TransactionID(conflictID)).Consume(func(attachment *tangle.Attachment) {
-		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangle.Block) {
+	deps.Tangle.Storage.Attachments(utxo.TransactionID(conflictID)).Consume(func(attachment *tangleold.Attachment) {
+		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangleold.Block) {
 			if oldestAttachmentTime.IsZero() || block.IssuingTime().Before(oldestAttachmentTime) {
 				oldestAttachmentTime = block.IssuingTime()
 				id = identity.New(block.IssuerPublicKey()).ID()

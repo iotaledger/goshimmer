@@ -9,13 +9,12 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -25,7 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +59,7 @@ type latestVote struct {
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangle.Tangle
+	Tangle          *tangleold.Tangle
 	NotarizationMgr *notarization.Manager
 	Storage         kvstore.KVStore
 }
@@ -130,7 +129,7 @@ func configure(plugin *node.Plugin) {
 		committableEpochs.Set(event.EI, event.ECRecord)
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 		block := event.Block
 		saveEpochVotersWeight(block)
 	}))
@@ -200,14 +199,14 @@ func GetPendingConflictCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangle.BlockID) {
+func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangleold.BlockID) {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
 	blockStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
-		var blockID tangle.BlockID
+		var blockID tangleold.BlockID
 		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
 		}
@@ -288,7 +287,7 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
-func insertBlockIntoEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func insertBlockIntoEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -300,7 +299,7 @@ func insertBlockIntoEpoch(ei epoch.Index, blkID tangle.BlockID) error {
 	return nil
 }
 
-func removeBlockFromEpoch(ei epoch.Index, blkID tangle.BlockID) error {
+func removeBlockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -388,7 +387,7 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 	return nil
 }
 
-func saveEpochVotersWeight(block *tangle.Block) {
+func saveEpochVotersWeight(block *tangleold.Block) {
 	voter := identity.NewID(block.IssuerPublicKey())
 	activeWeights, _ := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 

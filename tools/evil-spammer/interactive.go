@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client"

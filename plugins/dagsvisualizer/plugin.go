@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // PluginName is the name of the dags visualizer plugin.
@@ -33,7 +33,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle           *tangle.Tangle
+	Tangle           *tangleold.Tangle
 	AcceptanceGadget *acceptance.Gadget
 }
 

@@ -3,11 +3,11 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/core/syncutils"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 // BlockType defines the component for the different BPS metrics.
@@ -127,7 +127,7 @@ var (
 	blockTips atomic.Uint64
 
 	// total number of parents of all blocks per parent type.
-	parentsCountPerType      = make(map[tangle.ParentsType]uint64)
+	parentsCountPerType      = make(map[tangleold.ParentsType]uint64)
 	parentsCountPerTypeMutex syncutils.RWMutex
 
 	// Number of blocks per payload type since start of the node.
@@ -328,12 +328,12 @@ func FinalizedBlockCountPerType() map[BlockType]uint64 {
 }
 
 // ParentCountPerType returns a map of parent counts per parent type.
-func ParentCountPerType() map[tangle.ParentsType]uint64 {
+func ParentCountPerType() map[tangleold.ParentsType]uint64 {
 	parentsCountPerTypeMutex.RLock()
 	defer parentsCountPerTypeMutex.RUnlock()
 
 	// copy the original map
-	clone := make(map[tangle.ParentsType]uint64)
+	clone := make(map[tangleold.ParentsType]uint64)
 	for key, element := range parentsCountPerType {
 		clone[key] = element
 	}
@@ -359,7 +359,7 @@ func increasePerComponentCounter(c ComponentType) {
 	blockCountPerComponentGrafana[c]++
 }
 
-func increasePerParentType(c tangle.ParentsType) {
+func increasePerParentType(c tangleold.ParentsType) {
 	parentsCountPerTypeMutex.Lock()
 	defer parentsCountPerTypeMutex.Unlock()
 

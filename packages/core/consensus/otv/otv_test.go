@@ -5,8 +5,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/stretchr/testify/require"
 

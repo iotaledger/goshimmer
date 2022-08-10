@@ -5,20 +5,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +34,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangleold.Tangle
 }
 
 func init() {
@@ -87,7 +87,7 @@ func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangle.MarkerIndexConflictIDMapping) {
+	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangleold.MarkerIndexConflictIDMapping) {
 		err = c.String(http.StatusOK, markerIndexConflictIDMapping.String())
 	}) {
 		return
@@ -107,7 +107,7 @@ func GetBlock(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Storage.Block(blockID).Consume(func(block *tangle.Block) {
+	if deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 		var payloadBytes []byte
 		payloadBytes, err = block.Payload().Bytes()
 
@@ -117,12 +117,12 @@ func GetBlock(c echo.Context) (err error) {
 
 		err = c.JSON(http.StatusOK, jsonmodels.Block{
 			ID:                  block.ID().Base58(),
-			StrongParents:       block.ParentsByType(tangle.StrongParentType).Base58(),
-			WeakParents:         block.ParentsByType(tangle.WeakParentType).Base58(),
-			ShallowLikeParents:  block.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			StrongChildren:      deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.StrongChild).Base58(),
-			WeakChildren:        deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.WeakChild).Base58(),
-			ShallowLikeChildren: deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangle.ShallowLikeChild).Base58(),
+			StrongParents:       block.ParentsByType(tangleold.StrongParentType).Base58(),
+			WeakParents:         block.ParentsByType(tangleold.WeakParentType).Base58(),
+			ShallowLikeParents:  block.ParentsByType(tangleold.ShallowLikeParentType).Base58(),
+			StrongChildren:      deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.StrongChild).Base58(),
+			WeakChildren:        deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.WeakChild).Base58(),
+			ShallowLikeChildren: deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.ShallowLikeChild).Base58(),
 			IssuerPublicKey:     block.IssuerPublicKey().String(),
 			IssuingTime:         block.IssuingTime().Unix(),
 			SequenceNumber:      block.SequenceNumber(),
@@ -160,7 +160,7 @@ func GetBlockMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangle.BlockMetadata) {
+	if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 		err = c.JSON(http.StatusOK, NewBlockMetadata(blockMetadata))
 	}) {
 		return
@@ -169,8 +169,8 @@ func GetBlockMetadata(c echo.Context) (err error) {
 	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
 }
 
-// NewBlockMetadata returns BlockMetadata from the given tangle.BlockMetadata.
-func NewBlockMetadata(metadata *tangle.BlockMetadata) jsonmodels.BlockMetadata {
+// NewBlockMetadata returns BlockMetadata from the given tangleold.BlockMetadata.
+func NewBlockMetadata(metadata *tangleold.BlockMetadata) jsonmodels.BlockMetadata {
 	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(metadata.ID())
 
 	return jsonmodels.BlockMetadata{
@@ -224,10 +224,10 @@ func PostPayload(c echo.Context) error {
 
 // blockIDFromContext determines the BlockID from the blockID parameter in an echo.Context. It expects it to
 // either be a base58 encoded string or the builtin alias EmptyBlockID.
-func blockIDFromContext(c echo.Context) (blockID tangle.BlockID, err error) {
+func blockIDFromContext(c echo.Context) (blockID tangleold.BlockID, err error) {
 	switch blockIDString := c.Param("blockID"); blockIDString {
 	case "EmptyBlockID":
-		blockID = tangle.EmptyBlockID
+		blockID = tangleold.EmptyBlockID
 	default:
 		err = blockID.FromBase58(blockIDString)
 	}

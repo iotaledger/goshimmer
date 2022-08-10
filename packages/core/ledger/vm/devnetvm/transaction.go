@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serializer"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/serializer/v2"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////

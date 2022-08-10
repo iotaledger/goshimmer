@@ -52,6 +52,7 @@ services:
       --pow.difficulty={{ powDifficulty }}
      {% endif %}
       --logger.level={{ logLevel }}
+      --logger.outputPaths=stdout
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0

@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
@@ -23,7 +23,7 @@ var (
 
 	blkHistoryMutex    sync.RWMutex
 	blkFinalized       map[string]bool
-	blkHistory         []*tangle.Block
+	blkHistory         []*tangleold.Block
 	maxBlkHistorySize  = 1000
 	numHistoryToRemove = 100
 )
@@ -50,10 +50,10 @@ type history struct {
 func configureVisualizer() {
 	visualizerWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		switch x := task.Param(0).(type) {
-		case *tangle.Block:
+		case *tangleold.Block:
 			sendVertex(x, task.Param(1).(bool))
-		case *tangle.TipEvent:
-			sendTipInfo(task.Param(1).(tangle.BlockID), task.Param(2).(bool))
+		case *tangleold.TipEvent:
+			sendTipInfo(task.Param(1).(tangleold.BlockID), task.Param(2).(bool))
 		}
 
 		task.Return(nil)
@@ -61,10 +61,10 @@ func configureVisualizer() {
 
 	// configure blkHistory, blkSolid
 	blkFinalized = make(map[string]bool, maxBlkHistorySize)
-	blkHistory = make([]*tangle.Block, 0, maxBlkHistorySize)
+	blkHistory = make([]*tangleold.Block, 0, maxBlkHistorySize)
 }
 
-func sendVertex(blk *tangle.Block, finalized bool) {
+func sendVertex(blk *tangleold.Block, finalized bool) {
 	broadcastWsBlock(&wsblk{MsgTypeVertex, &vertex{
 		ID:              blk.ID().Base58(),
 		ParentIDsByType: prepareParentReferences(blk),
@@ -73,7 +73,7 @@ func sendVertex(blk *tangle.Block, finalized bool) {
 	}}, true)
 }
 
-func sendTipInfo(blockID tangle.BlockID, isTip bool) {
+func sendTipInfo(blockID tangleold.BlockID, isTip bool) {
 	broadcastWsBlock(&wsblk{MsgTypeTipInfo, &tipinfo{
 		ID:    blockID.Base58(),
 		IsTip: isTip,
@@ -81,25 +81,25 @@ func sendTipInfo(blockID tangle.BlockID, isTip bool) {
 }
 
 func runVisualizer() {
-	processBlock := func(block *tangle.Block) {
+	processBlock := func(block *tangleold.Block) {
 		finalized := deps.Tangle.ConfirmationOracle.IsBlockConfirmed(block.ID())
 		addToHistory(block, finalized)
 		visualizerWorkerPool.TrySubmit(block, finalized)
 	}
 
-	notifyNewBlkStored := event.NewClosure(func(event *tangle.BlockStoredEvent) {
+	notifyNewBlkStored := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
 		processBlock(event.Block)
 	})
 
-	notifyNewBlkAccepted := event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+	notifyNewBlkAccepted := event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 		processBlock(event.Block)
 	})
 
-	notifyNewTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyNewTip := event.NewClosure(func(tipEvent *tangleold.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.BlockID, true)
 	})
 
-	notifyDeletedTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyDeletedTip := event.NewClosure(func(tipEvent *tangleold.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.BlockID, false)
 	})
 
@@ -126,7 +126,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 		blkHistoryMutex.RLock()
 		defer blkHistoryMutex.RUnlock()
 
-		cpyHistory := make([]*tangle.Block, len(blkHistory))
+		cpyHistory := make([]*tangleold.Block, len(blkHistory))
 		copy(cpyHistory, blkHistory)
 
 		var res []vertex
@@ -143,7 +143,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func addToHistory(blk *tangle.Block, finalized bool) {
+func addToHistory(blk *tangleold.Block, finalized bool) {
 	blkHistoryMutex.Lock()
 	defer blkHistoryMutex.Unlock()
 	if _, exist := blkFinalized[blk.ID().Base58()]; exist {

@@ -1,7 +1,7 @@
 package utxo
 
 import (
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 )
 
 // region TransactionCommitment ////////////////////////////////////////////////////////////////////////////////////////

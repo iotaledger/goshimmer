@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -18,13 +18,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (
@@ -53,7 +53,7 @@ type dependencies struct {
 	dig.In
 
 	Local        *peer.Local
-	Tangle       *tangle.Tangle
+	Tangle       *tangleold.Tangle
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
@@ -144,7 +144,7 @@ func configureBlockFinalizedMetrics() {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangle.BlockAcceptedEvent) {
+		deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
 			onBlockFinalized(event.Block)
 		}))
 	}
@@ -154,14 +154,14 @@ func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	} else {
-		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangle.BlockScheduledEvent) {
+		deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockScheduled")
 		}))
-		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangle.BlockDiscardedEvent) {
+		deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
 			sendBlockSchedulerRecord(event.BlockID, "blockDiscarded")
 		}))
 	}
@@ -172,10 +172,10 @@ func configureMissingBlockMetrics() {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangle.BlockMissingEvent) {
+	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(event *tangleold.BlockMissingEvent) {
 		sendMissingBlockRecord(event.BlockID, "missingBlock")
 	}))
-	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangle.MissingBlockStoredEvent) {
+	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(event *tangleold.MissingBlockStoredEvent) {
 		sendMissingBlockRecord(event.BlockID, "missingBlockStored")
 	}))
 }
