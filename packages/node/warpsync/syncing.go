@@ -45,7 +45,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) SyncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[*peer.Peer]) (err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[*peer.Peer]) (err error) {
 	if m.IsStopped() {
 		return errors.Errorf("warpsync manager is stopped")
 	}

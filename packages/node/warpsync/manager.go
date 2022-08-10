@@ -102,11 +102,11 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	m.Lock()
 	defer m.Unlock()
 
-	ecChain, validPeers, validateErr := m.ValidateBackwards(ctx, start, end, startEC, endPrevEC)
+	ecChain, validPeers, validateErr := m.validateBackwards(ctx, start, end, startEC, endPrevEC)
 	if validateErr != nil {
 		return errors.Wrapf(validateErr, "failed to validate range %d-%d with peers %s", start, end)
 	}
-	if syncRangeErr := m.SyncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
+	if syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
 	}
 
