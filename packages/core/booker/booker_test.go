@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
@@ -121,71 +122,90 @@ func TestScenario_1(t *testing.T) {
 	})
 }
 
-// func checkMarkers(t *testing.T, testFramework *TestFramework, expectedMarkers map[string]*markersold.Markers) {
-//	for blockID, expectedMarkersOfBlock := range expectedMarkers {
-//		block := testFramework.Block(blockID)
-//		assert.True(t, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
-//			"Expected: %+v\nActual: %+v", blockID, expectedMarkersOfBlock, blockMetadata.StructureDetails().PastMarkers)
-//
-//		// if we have only a single marker - check if the marker is mapped to this block (or its inherited past marker)
-//		if expectedMarkersOfBlock.Size() == 1 {
-//			currentMarker := expectedMarkersOfBlock.Marker()
-//
-//			mappedBlockIDOfMarker := testFramework.tangle.Booker.MarkersManager.BlockID(currentMarker)
-//			currentBlockID := testFramework.Block(blockID).ID()
-//
-//			if mappedBlockIDOfMarker == currentBlockID {
-//				continue
-//			}
-//
-//			assert.True(t, testFramework.tangle.Storage.BlockMetadata(mappedBlockIDOfMarker).Consume(func(blockMetadata *BlockMetadata) {
-//				// Blocks attaching to Genesis can have 0,0 as a PastMarker, so do not check Markers -> Block.
-//				if currentMarker.SequenceID() == 0 && currentMarker.Index() == 0 {
-//					return
-//				}
-//
-//				if assert.True(t, blockMetadata.StructureDetails().IsPastMarker(), "Block with %s should be PastMarker", blockMetadata.ID()) {
-//					assert.True(t, blockMetadata.StructureDetails().PastMarkers().Marker() == currentMarker, "PastMarker of %s is wrong.\n"+
-//						"Expected: %+v\nActual: %+v", blockMetadata.ID(), currentMarker, blockMetadata.StructureDetails().PastMarkers().Marker())
-//				}
-//			}), "failed to load Block with %s", mappedBlockIDOfMarker)
-//		}
-//	}
-// }
+func TestScenario_2(t *testing.T) {
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
 
-// func checkNormalizedConflictIDsContained(t *testing.T, testFramework *TestFramework, expectedContainedConflictIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
-//	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-//		retrievedConflictIDs, errRetrieve := testFramework.tangle.Booker.BlockConflictIDs(testFramework.Block(blockID).ID())
-//		assert.NoError(t, errRetrieve)
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 3, "Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.ledgerTf.Transaction("TX2")))
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX3", 1, "TX1.0")))
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX4", 1, "TX1.0")))
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block1", "Block4")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX6", 1, "TX1.2")))
+	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block7", "Block4")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX7", 1, "TX3.0", "TX6.0")))
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX8", 1, "TX1.1")))
+
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block3", "Block4").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.checkConflictIDs(map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
+		"Block2": tf.ledgerTf.TransactionIDs("TX2"),
+		"Block3": tf.ledgerTf.TransactionIDs("TX2"),
+		"Block4": tf.ledgerTf.TransactionIDs("TX3"),
+		"Block5": tf.ledgerTf.TransactionIDs("TX2", "TX4"),
+		"Block6": tf.ledgerTf.TransactionIDs("TX2", "TX4"),
+		"Block7": tf.ledgerTf.TransactionIDs("TX3", "TX6"),
+		"Block8": tf.ledgerTf.TransactionIDs("TX3", "TX6"),
+		"Block9": tf.ledgerTf.TransactionIDs("TX3", "TX6", "TX8"),
+	})
+
+	tf.checkMarkers(map[string]*markers.Markers{
+		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Block6": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Block7": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block8": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Block9": markers.NewMarkers(markers.NewMarker(0, 1)),
+	})
+}
+
 //
-//		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
-//		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-//			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-//				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
-//			})
-//		}
-//
-//		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
-//		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-//			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-//				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
-//			})
-//		}
-//
-//		assert.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
-//	}
-// }
-//
-// func checkBlockMetadataDiffConflictIDs(t *testing.T, testFramework *TestFramework, expectedDiffConflictIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
-//	for blockID, expectedDiffConflictID := range expectedDiffConflictIDs {
-//		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
-//			assert.True(t, expectedDiffConflictID[0].Equal(blockMetadata.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[0], blockMetadata.AddedConflictIDs())
-//		}))
-//		assert.True(t, testFramework.tangle.Storage.BlockMetadata(testFramework.Block(blockID).ID()).Consume(func(blockMetadata *BlockMetadata) {
-//			assert.True(t, expectedDiffConflictID[1].Equal(blockMetadata.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockID, expectedDiffConflictID[1], blockMetadata.SubtractedConflictIDs())
-//		}))
-//	}
-// }
+func TestScenario_3(t *testing.T) {
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 3, "Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")), models.WithPayload(tf.ledgerTf.Transaction("TX2")))
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX3", 1, "TX1.0")))
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithWeakParents(tf.BlockIDs("Block2")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX4", 1, "TX1.0")))
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX5", 1, "TX4.0", "TX2.0")))
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block1", "Block4")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX6", 1, "TX1.2")))
+	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX7", 1, "TX6.0", "TX3.0")))
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX8", 1, "TX1.1")))
+
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block3", "Block4").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.checkConflictIDs(map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
+		"Block2": tf.ledgerTf.TransactionIDs("TX2"),
+		"Block3": tf.ledgerTf.TransactionIDs("TX2"),
+		"Block4": tf.ledgerTf.TransactionIDs("TX3"),
+		"Block5": tf.ledgerTf.TransactionIDs("TX4"),
+		"Block6": tf.ledgerTf.TransactionIDs("TX4", "TX2"),
+		"Block7": tf.ledgerTf.TransactionIDs("TX6", "TX3"),
+		"Block8": tf.ledgerTf.TransactionIDs("TX6", "TX3"),
+		"Block9": tf.ledgerTf.TransactionIDs("TX6", "TX3", "TX8"),
+	})
+}
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	debug.SetEnabled(true)
