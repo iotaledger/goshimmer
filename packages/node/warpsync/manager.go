@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 )
 
@@ -58,11 +59,8 @@ type epochChannels struct {
 	stopChan  chan struct{}
 }
 
-// ManagerOption configures the Manager instance.
-type ManagerOption func(*Manager)
-
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
 	m := &Manager{
 		p2pManager:         p2pManager,
 		log:                log,
@@ -77,22 +75,20 @@ func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockPro
 		PacketHandler:      m.handlePacket,
 	})
 
-	for _, opt := range opts {
-		opt(m)
-	}
+	options.Apply(m, opts)
 
 	return m
 }
 
 // WithConcurrency allows to set how many epochs can be requested at once.
-func WithConcurrency(concurrency int) ManagerOption {
+func WithConcurrency(concurrency int) options.Option[Manager] {
 	return func(m *Manager) {
 		m.concurrency = concurrency
 	}
 }
 
 // WithBlockBatchSize allows to set the size of the block batch returned as part of epoch blocks response.
-func WithBlockBatchSize(blockBatchSize int) ManagerOption {
+func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 	return func(m *Manager) {
 		m.blockBatchSize = blockBatchSize
 	}
