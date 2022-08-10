@@ -15,7 +15,7 @@ import (
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	snapshotFileName = "snapshot.bin"
+	snapshotFileName = "/tmp/snapshot.bin"
 )
 
 type dependencies struct {

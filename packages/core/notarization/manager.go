@@ -113,8 +113,8 @@ func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(
 }
 
 // StartSnapshot locks the commitment factory and returns the latest ecRecord and last confirmed epoch index.
-func (m *Manager) StartSnapshot() (lastConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, err error) {
-	m.epochCommitmentFactoryMutex.Lock()
+func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *epoch.ECRecord, err error) {
+	m.epochCommitmentFactoryMutex.RLock()
 
 	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
@@ -126,9 +126,10 @@ func (m *Manager) StartSnapshot() (lastConfirmedEpoch epoch.Index, ecRecord *epo
 		return
 	}
 
-	lastConfirmedEpoch, err = m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
-	if err != nil {
-		return
+	// The snapshottable ledgerstate always sits at latestCommittableEpoch - snapshotDepth
+	fullEpochIndex = latestCommittableEpoch - epoch.Index(m.epochCommitmentFactory.snapshotDepth)
+	if fullEpochIndex < 0 {
+		fullEpochIndex = 0
 	}
 
 	return
@@ -136,7 +137,7 @@ func (m *Manager) StartSnapshot() (lastConfirmedEpoch epoch.Index, ecRecord *epo
 
 // EndSnapshot unlocks the commitment factory when the snapshotting completes.
 func (m *Manager) EndSnapshot() {
-	m.epochCommitmentFactoryMutex.Unlock()
+	m.epochCommitmentFactoryMutex.RUnlock()
 }
 
 // LoadOutputsWithMetadata initiates the state and mana trees from a given snapshot.
@@ -212,6 +213,7 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
 func (m *Manager) SnapshotEpochDiffs(lastConfirmedEpoch, latestCommittableEpoch epoch.Index) (map[epoch.Index]*ledger.EpochDiff, error) {
+	// No need to lock because this is called in the context of a StartSnapshot.
 	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
 	for ei := lastConfirmedEpoch + 1; ei <= latestCommittableEpoch; ei++ {
 		spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
@@ -223,12 +225,10 @@ func (m *Manager) SnapshotEpochDiffs(lastConfirmedEpoch, latestCommittableEpoch 
 
 // SnapshotLedgerState returns the all confirmed OutputsWithMetadata when a snapshot is created.
 func (m *Manager) SnapshotLedgerState(lastConfirmedEpoch epoch.Index, prodChan chan *ledger.OutputWithMetadata, stopChan chan struct{}) {
+	// No need to lock because this is called in the context of a StartSnapshot.
 	go func() {
 		m.epochCommitmentFactory.loadLedgerState(func(o *ledger.OutputWithMetadata) {
-			index := epoch.IndexFromTime(o.CreationTime())
-			if index <= lastConfirmedEpoch {
-				prodChan <- o
-			}
+			prodChan <- o
 		})
 		close(stopChan)
 	}()
@@ -444,13 +444,11 @@ func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittabl
 	return nil, nil
 }
 
-// PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei epoch.Index) (pendingConflictsCount uint64) {
-	return m.pendingConflictsCounters[ei]
-}
-
 // PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
 func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]uint64) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+
 	pendingConflicts = make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
 	for k, v := range m.pendingConflictsCounters {
 		pendingConflicts[k] = v
@@ -462,6 +460,7 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 func (m *Manager) Bootstrapped() bool {
 	m.bootstrapMutex.RLock()
 	defer m.bootstrapMutex.RUnlock()
+
 	return m.bootstrapped
 }
 

@@ -123,10 +123,10 @@ func streamSnapshotDataTo(
 }
 
 // NewSolidEntryPointsProducer returns a SolidEntryPointsProducerFunc that provide solid entry points from the snapshot manager.
-func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
+func NewSolidEntryPointsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
 	prodChan := make(chan *SolidEntryPoints)
 	stopChan := make(chan struct{})
-	smgr.SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch, prodChan, stopChan)
+	smgr.snapshotSolidEntryPoints(fullEpochIndex, latestCommitableEpoch, prodChan, stopChan)
 
 	return func() *SolidEntryPoints {
 		select {
@@ -140,10 +140,10 @@ func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch
 }
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
+func NewLedgerUTXOStatesProducer(fullEpochIndex epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
 	stopChan := make(chan struct{})
-	nmgr.SnapshotLedgerState(lastConfirmedEpoch, prodChan, stopChan)
+	nmgr.SnapshotLedgerState(fullEpochIndex, prodChan, stopChan)
 
 	return func() *ledger.OutputWithMetadata {
 		select {
@@ -157,8 +157,8 @@ func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarizat
 }
 
 // NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewEpochDiffsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
-	epochDiffs, err := nmgr.SnapshotEpochDiffs(lastConfirmedEpoch, latestCommitableEpoch)
+func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
+	epochDiffs, err := nmgr.SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch)
 
 	return func() (map[epoch.Index]*ledger.EpochDiff, error) {
 		return epochDiffs, err
