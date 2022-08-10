@@ -98,6 +98,8 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
+	b.RLock()
+	defer b.RUnlock()
 	// TODO: check whether too old?
 	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
 
@@ -137,6 +139,20 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 	return
 }
 
+func (b *Booker) Prune(epochIndex epoch.Index) {
+	b.Lock()
+	defer b.Unlock()
+
+	b.attachments.Prune(epochIndex)
+	b.bookingOrder.Prune(epochIndex)
+	b.markerManager.Prune(epochIndex)
+
+	for b.maxDroppedEpoch < epochIndex {
+		b.maxDroppedEpoch++
+		b.blocks.Drop(b.maxDroppedEpoch)
+	}
+}
+
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	tx, isTx := block.Transaction()
 	if !isTx {
@@ -169,6 +185,9 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) book(block *Block) {
+	// TODO: after fixing causal order to work with multiple goroutines
+	//  b.RLock()
+	//  defer b.RUnlock()
 	b.bookingMutex.RLock(block.Parents()...)
 	defer b.bookingMutex.RUnlock(block.Parents()...)
 	b.bookingMutex.Lock(block.ID())
@@ -198,8 +217,6 @@ func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 	if newStructureDetails.IsPastMarker() {
 		return
 	}
-
-	// TODO: maybe only update b.MarkersManager.SetConflictIDs when the conflicts have changed
 
 	addedConflictIDs := inheritedConflictIDs.Clone()
 	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)

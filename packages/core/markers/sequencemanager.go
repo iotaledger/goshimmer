@@ -72,6 +72,25 @@ func (m *SequenceManager) Sequence(sequenceID SequenceID) (sequence *Sequence, e
 	return m.sequences.Get(sequenceID)
 }
 
+func (m *SequenceManager) DeleteSequence(id SequenceID) {
+	// TODO: write-lock the Sequence before deleting it
+	sequence, exists := m.Sequence(id)
+	if !exists {
+		return
+	}
+
+	sequence.ReferencingMarkers(0).ForEach(func(referencingSequenceID SequenceID, _ Index) bool {
+		// TODO: write-lock the referencing Sequence before modifying
+		referencingSequence, exists := m.Sequence(id)
+		if !exists {
+			return true
+		}
+		//referencingSequence.referencedMarkers.Add()
+		return true
+	})
+	m.sequences.Delete(id)
+}
+
 // mergeParentStructureDetails merges the information of a set of parent StructureDetails into a single StructureDetails
 // object.
 func (m *SequenceManager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
