@@ -38,19 +38,8 @@ func NewManager(store kvstore.KVStore, nmgr *notarization.Manager, depth int) (n
 
 // CreateSnapshot creates a snapshot file from node with a given name.
 func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.SnapshotHeader, err error) {
-	lastConfirmedEpoch, err := m.notarizationMgr.LatestConfirmedEpochIndex()
-	if err != nil {
-		return nil, err
-	}
-
-	ecRecord, err := m.notarizationMgr.GetLatestEC()
-	if err != nil {
-		return nil, err
-	}
-
-	// lock the entire ledger in notarization manager until the snapshot is created.
-	m.notarizationMgr.WriteLockLedger()
-	defer m.notarizationMgr.WriteUnlockLedger()
+	lastConfirmedEpoch, ecRecord, err := m.notarizationMgr.StartSnapshot()
+	defer m.notarizationMgr.EndSnapshot()
 
 	// lock the entire solid entry points storage until the snapshot is created.
 	m.Lock()
