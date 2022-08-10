@@ -222,7 +222,7 @@ func (m *Manager) SnapshotEpochDiffs(lastConfirmedEpoch, latestCommittableEpoch 
 }
 
 // SnapshotLedgerState returns the all confirmed OutputsWithMetadata when a snapshot is created.
-func (m *Manager) SnapshotLedgerState(lastConfirmedEpoch epoch.Index, prodChan chan *ledger.OutputWithMetadata) {
+func (m *Manager) SnapshotLedgerState(lastConfirmedEpoch epoch.Index, prodChan chan *ledger.OutputWithMetadata, stopChan chan struct{}) {
 	go func() {
 		m.epochCommitmentFactory.loadLedgerState(func(o *ledger.OutputWithMetadata) {
 			index := epoch.IndexFromTime(o.CreationTime())
@@ -230,7 +230,7 @@ func (m *Manager) SnapshotLedgerState(lastConfirmedEpoch epoch.Index, prodChan c
 				prodChan <- o
 			}
 		})
-		close(prodChan)
+		close(stopChan)
 	}()
 
 	return

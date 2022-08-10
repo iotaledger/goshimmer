@@ -125,28 +125,34 @@ func streamSnapshotDataTo(
 // NewSolidEntryPointsProducer returns a SolidEntryPointsProducerFunc that provide solid entry points from the snapshot manager.
 func NewSolidEntryPointsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, smgr *Manager) SolidEntryPointsProducerFunc {
 	prodChan := make(chan *SolidEntryPoints)
-	smgr.SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch, prodChan)
+	stopChan := make(chan struct{})
+	smgr.SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch, prodChan, stopChan)
 
 	return func() *SolidEntryPoints {
-		obj, ok := <-prodChan
-		if !ok {
+		select {
+		case obj := <-prodChan:
+			return obj
+		case <-stopChan:
+			close(prodChan)
 			return nil
 		}
-		return obj
 	}
 }
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
-	nmgr.SnapshotLedgerState(lastConfirmedEpoch, prodChan)
+	stopChan := make(chan struct{})
+	nmgr.SnapshotLedgerState(lastConfirmedEpoch, prodChan, stopChan)
 
 	return func() *ledger.OutputWithMetadata {
-		obj, ok := <-prodChan
-		if !ok {
+		select {
+		case obj := <-prodChan:
+			return obj
+		case <-stopChan:
+			close(prodChan)
 			return nil
 		}
-		return obj
 	}
 }
 

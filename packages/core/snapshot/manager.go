@@ -117,7 +117,7 @@ func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
 }
 
 // SnapshotSolidEntryPoints snapshots seps within given epochs.
-func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints) {
+func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints, stopChan chan struct{}) {
 	go func() {
 		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
 			seps := make([]tangleold.BlockID, 0)
@@ -133,7 +133,7 @@ func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableE
 			prodChan <- send
 		}
 
-		close(prodChan)
+		close(stopChan)
 	}()
 
 	return
