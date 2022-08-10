@@ -79,6 +79,7 @@ func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
 	m.seps[seps.EI] = sep
 }
 
+// AdvanceSolidEntryPoints remove seps of old epoch when confirmed epoch advanced.
 func (m *Manager) AdvanceSolidEntryPoints(ei epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
@@ -87,6 +88,7 @@ func (m *Manager) AdvanceSolidEntryPoints(ei epoch.Index) {
 	delete(m.seps, ei-epoch.Index(m.snapshotDepth)-1)
 }
 
+// InsertSolidEntryPoint inserts a solid entry point to the seps map.
 func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) {
 	m.Lock()
 	defer m.Unlock()
@@ -100,6 +102,7 @@ func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) {
 	m.seps[id.EpochIndex] = sep
 }
 
+// RemoveSolidEntryPoint removes a solid entry points from the map.
 func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -113,6 +116,7 @@ func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
 	return
 }
 
+// SnapshotSolidEntryPoints snapshots seps within given epochs.
 func (m *Manager) SnapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints) {
 	go func() {
 		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
