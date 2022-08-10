@@ -54,7 +54,7 @@ type EpochCommitmentFactory struct {
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
-	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
+	// manaRootTree stores the mana tree at the LastCommittedEpoch.
 	manaRootTree *smt.SparseMerkleTree
 
 	// snapshotDepth defines how far back the ledgerstate is kept with respect to the latest committed epoch.

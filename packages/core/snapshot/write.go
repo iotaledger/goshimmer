@@ -102,11 +102,11 @@ func streamSnapshotDataTo(
 		return nil, err
 	}
 
-	bytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithValidation())
+	epochDiffsBytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithValidation())
 	if err != nil {
 		return nil, err
 	}
-	if err := writeFunc(fmt.Sprintf("diffEpoch"), append(bytes, delimiter...)); err != nil {
+	if err := writeFunc(fmt.Sprintf("diffEpoch"), append(epochDiffsBytes, delimiter...)); err != nil {
 		return nil, err
 	}
 

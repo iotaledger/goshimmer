@@ -167,9 +167,11 @@ func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[e
 		epochDiff := epochDiffs[ei]
 		for _, spentOutputWithMetadata := range epochDiff.Spent() {
 			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Delete(spentOutputIDBytes)
-			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
+			if has := m.epochCommitmentFactory.storage.ledgerstateStorage.DeleteIfPresent(spentOutputIDBytes); !has {
 				panic("epoch diff spends an output not contained in the ledger state")
+			}
+			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
+				panic("epoch diff spends an output not contained in the state tree")
 			}
 			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
 			if err != nil {
@@ -212,10 +214,10 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 }
 
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
-func (m *Manager) SnapshotEpochDiffs(lastConfirmedEpoch, latestCommittableEpoch epoch.Index) (map[epoch.Index]*ledger.EpochDiff, error) {
+func (m *Manager) SnapshotEpochDiffs(fullEpochIndex, latestCommittableEpoch epoch.Index) (map[epoch.Index]*ledger.EpochDiff, error) {
 	// No need to lock because this is called in the context of a StartSnapshot.
 	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
-	for ei := lastConfirmedEpoch + 1; ei <= latestCommittableEpoch; ei++ {
+	for ei := fullEpochIndex + 1; ei <= latestCommittableEpoch; ei++ {
 		spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
 		epochDiffsMap[ei] = ledger.NewEpochDiff(spent, created)
 	}
@@ -224,7 +226,7 @@ func (m *Manager) SnapshotEpochDiffs(lastConfirmedEpoch, latestCommittableEpoch 
 }
 
 // SnapshotLedgerState returns the all confirmed OutputsWithMetadata when a snapshot is created.
-func (m *Manager) SnapshotLedgerState(lastConfirmedEpoch epoch.Index, prodChan chan *ledger.OutputWithMetadata, stopChan chan struct{}) {
+func (m *Manager) SnapshotLedgerState(prodChan chan *ledger.OutputWithMetadata, stopChan chan struct{}) {
 	// No need to lock because this is called in the context of a StartSnapshot.
 	go func() {
 		m.epochCommitmentFactory.loadLedgerState(func(o *ledger.OutputWithMetadata) {
