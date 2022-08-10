@@ -125,24 +125,23 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 
 		// if we have only a single marker - check if the marker is mapped to this block (or its inherited past marker)
 		if expectedMarkersOfBlock.Size() == 1 {
-			currentMarker := expectedMarkersOfBlock.Marker()
+			expectedMarker := expectedMarkersOfBlock.Marker()
 
-			mappedBlockIDOfMarker, exists := t.Booker.markerManager.BlockFromMarker(currentMarker)
-			assert.True(t.T, exists, "Marker %s is not mapped to any block", currentMarker)
-
-			if mappedBlockIDOfMarker.ID() != block.ID() {
+			// Blocks attaching to Genesis can have 0,0 as a PastMarker, so do not check Markers -> Block.
+			if expectedMarker.SequenceID() == 0 && expectedMarker.Index() == 0 {
 				continue
 			}
 
-			// Blocks attaching to Genesis can have 0,0 as a PastMarker, so do not check Markers -> Block.
-			if currentMarker.SequenceID() == 0 && currentMarker.Index() == 0 {
-				return
+			mappedBlockIDOfMarker, exists := t.Booker.markerManager.BlockFromMarker(expectedMarker)
+			assert.True(t.T, exists, "Marker %s is not mapped to any block", expectedMarker)
+
+			if !block.StructureDetails().IsPastMarker() {
+				continue
 			}
 
-			if assert.True(t.T, block.StructureDetails().IsPastMarker(), "Block with %s should be PastMarker", block.ID()) {
-				assert.True(t.T, block.StructureDetails().PastMarkers().Marker() == currentMarker, "PastMarker of %s is wrong.\n"+
-					"Expected: %+v\nActual: %+v", block.ID(), currentMarker, block.StructureDetails().PastMarkers().Marker())
-			}
+			assert.Equal(t.T, block.ID(), mappedBlockIDOfMarker.ID(), "Block with %s should be past marker %s", block.ID(), expectedMarker)
+			assert.True(t.T, block.StructureDetails().PastMarkers().Marker() == expectedMarker, "PastMarker of %s is wrong.\n"+
+				"Expected: %+v\nActual: %+v", block.ID(), expectedMarker, block.StructureDetails().PastMarkers().Marker())
 		}
 	}
 }

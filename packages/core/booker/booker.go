@@ -352,7 +352,10 @@ func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, added
 			ConflictID: addedConflictID,
 		})
 
-		blockWalker.PushAll(b.strongChildren(block)...)
+		// Do not walk the children of the block if it's a marker, because the children should inherit the conflicts via markers.
+		if !block.StructureDetails().IsPastMarker() {
+			blockWalker.PushAll(b.strongChildren(block)...)
+		}
 	}
 	return nil
 }
@@ -387,7 +390,7 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 			return true
 		})
 	}()
-
+	fmt.Println("updateBlockConflicts", block.ID())
 	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
 		return false
 	}

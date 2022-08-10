@@ -559,6 +559,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 	}
 }
 
+// issues conflicts in parallel and checks individual conflicts for each block, covered in existing block
 func TestBookerIndividuallyMappedBlocksSameSequence(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()

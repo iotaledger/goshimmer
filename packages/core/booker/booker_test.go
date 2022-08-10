@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
@@ -109,7 +108,7 @@ func TestScenario_1(t *testing.T) {
 		fmt.Println("-----------------------------------------------------")
 	}
 
-	tf.checkConflictIDs(map[string]*set.AdvancedSet[utxo.TransactionID]{
+	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
 		"Block3": utxo.NewTransactionIDs(),
 		"Block2": utxo.NewTransactionIDs(),
@@ -146,8 +145,8 @@ func TestScenario_2(t *testing.T) {
 	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
-	tf.checkConflictIDs(map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
+	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+		"Block1": utxo.NewTransactionIDs(),
 		"Block2": tf.ledgerTf.TransactionIDs("TX2"),
 		"Block3": tf.ledgerTf.TransactionIDs("TX2"),
 		"Block4": tf.ledgerTf.TransactionIDs("TX3"),
@@ -158,17 +157,6 @@ func TestScenario_2(t *testing.T) {
 		"Block9": tf.ledgerTf.TransactionIDs("TX3", "TX6", "TX8"),
 	})
 
-	tf.checkMarkers(map[string]*markers.Markers{
-		"Block1": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block2": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block3": markers.NewMarkers(markers.NewMarker(0, 3)),
-		"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block5": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block6": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Block7": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block8": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Block9": markers.NewMarkers(markers.NewMarker(0, 1)),
-	})
 	tf.AssertBookedCount(9, "all block should be booked")
 }
 
@@ -195,8 +183,8 @@ func TestScenario_3(t *testing.T) {
 	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
-	tf.checkConflictIDs(map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Block1": set.NewAdvancedSet[utxo.TransactionID](),
+	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+		"Block1": utxo.NewTransactionIDs(),
 		"Block2": tf.ledgerTf.TransactionIDs("TX2"),
 		"Block3": tf.ledgerTf.TransactionIDs("TX2"),
 		"Block4": tf.ledgerTf.TransactionIDs("TX3"),
@@ -207,6 +195,218 @@ func TestScenario_3(t *testing.T) {
 		"Block9": tf.ledgerTf.TransactionIDs("TX6", "TX3", "TX8"),
 	})
 	tf.AssertBookedCount(9, "all block should be booked")
+}
+
+// This test step-wise tests multiple things. Where each step checks markers, block metadata diffs and conflict IDs for each block.
+// 1. It tests whether a new sequence is created after max past marker gap is reached.
+// 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
+func TestScenario_4(t *testing.T) {
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX0", 4, "Genesis")))
+	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
+
+	markersMap := make(map[string]*markers.Markers)
+	metadataDiffConflictIDs := make(map[string][]utxo.TransactionIDs)
+	conflictIDs := make(map[string]utxo.TransactionIDs)
+
+	// ISSUE Block1
+	{
+		tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 1, "TX0.0")))
+		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Block1": markers.NewMarkers(markers.NewMarker(0, 2)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block0": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block1": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block0": utxo.NewTransactionIDs(),
+			"Block1": utxo.NewTransactionIDs(),
+		}))
+	}
+
+	// ISSUE Block2
+	{
+		tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")))
+		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block2": markers.NewMarkers(markers.NewMarker(0, 3)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block2": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block2": utxo.NewTransactionIDs(),
+		}))
+	}
+
+	// ISSUE Block3
+	{
+		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX3", 1, "TX0.1")))
+		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block2": utxo.NewTransactionIDs(),
+			"Block3": utxo.NewTransactionIDs(),
+		}))
+	}
+
+	// ISSUE Block4
+	{
+		tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX4", 1, "TX0.0")))
+		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block4": {tf.ledgerTf.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block1": tf.ledgerTf.TransactionIDs("TX1"),
+			"Block2": tf.ledgerTf.TransactionIDs("TX1"),
+			"Block4": tf.ledgerTf.TransactionIDs("TX4"),
+		}))
+	}
+
+	// ISSUE Block5
+	{
+		tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")))
+		tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block5": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block5": tf.ledgerTf.TransactionIDs("TX4"),
+		}))
+	}
+
+	// ISSUE Block6
+	{
+		tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX5", 1, "TX0.2")))
+		tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block6": markers.NewMarkers(markers.NewMarker(1, 2)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block6": tf.ledgerTf.TransactionIDs("TX4"),
+		}))
+	}
+
+	// ISSUE Block6.3
+	{
+		tf.CreateBlock("Block6.3", models.WithStrongParents(tf.BlockIDs("Block6")))
+		tf.IssueBlocks("Block6.3").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 3)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block6.3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block6.3": tf.ledgerTf.TransactionIDs("TX4"),
+		}))
+	}
+
+	// ISSUE Block6.6
+	{
+		tf.CreateBlock("Block6.6", models.WithStrongParents(tf.BlockIDs("Block6")))
+		tf.IssueBlocks("Block6.6").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 2)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block6.6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block6.6": tf.ledgerTf.TransactionIDs("TX4"),
+		}))
+	}
+
+	// ISSUE Block7
+	{
+		tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX6", 1, "TX0.2")))
+		tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block7": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block7": {tf.ledgerTf.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block6":   tf.ledgerTf.TransactionIDs("TX4", "TX5"),
+			"Block6.3": tf.ledgerTf.TransactionIDs("TX4", "TX5"),
+			"Block6.6": tf.ledgerTf.TransactionIDs("TX4", "TX5"),
+			"Block7":   tf.ledgerTf.TransactionIDs("TX4", "TX6"),
+		}))
+	}
+
+	// ISSUE Block8
+	{
+		tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX0.1")))
+		tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block8": markers.NewMarkers(markers.NewMarker(0, 4)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block3": {tf.ledgerTf.TransactionIDs("TX3"), utxo.NewTransactionIDs()},
+			"Block4": {tf.ledgerTf.TransactionIDs("TX3", "TX4"), utxo.NewTransactionIDs()},
+			"Block8": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block3":   tf.ledgerTf.TransactionIDs("TX3"),
+			"Block4":   tf.ledgerTf.TransactionIDs("TX3", "TX4"),
+			"Block5":   tf.ledgerTf.TransactionIDs("TX3", "TX4"),
+			"Block6":   tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block6.3": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block6.6": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX5"),
+			"Block7":   tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block8":   tf.ledgerTf.TransactionIDs("TX2", "TX1"),
+		}))
+	}
+}
+
+// TODO:
+//  1. implement test with invalidity
+//  2. implement test with future cone dislike
+//  3. implement the other invalidity test
+
+func MergeMaps[K comparable, V any](base, update map[K]V) map[K]V {
+	for k, v := range update {
+		base[k] = v
+	}
+	return base
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
