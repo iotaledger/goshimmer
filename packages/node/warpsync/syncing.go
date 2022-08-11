@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -45,7 +46,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[*peer.Peer]) (err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (err error) {
 	if m.IsStopped() {
 		return errors.Errorf("warpsync manager is stopped")
 	}
@@ -59,7 +60,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	var wg sync.WaitGroup
 	epochProcessingChan := make(chan epoch.Index)
 	epochProcessingStopChan := make(chan struct{})
-	discardedPeers := set.NewAdvancedSet[*peer.Peer]()
+	discardedPeers := set.NewAdvancedSet[identity.ID]()
 
 	// Spawn concurreny amount of goroutines.
 	for worker := 0; worker < m.concurrency; worker++ {
@@ -73,24 +74,23 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 				case targetEpoch = <-epochProcessingChan:
 				case <-epochProcessingStopChan:
 					return
-				case <-ctx.Done():
-					return
 				}
 
 				success := false
 				for it := validPeers.Iterator(); it.HasNext() && !success; {
-					peer := it.Next()
-					if discardedPeers.Has(peer) {
-						m.log.Debugw("skipping discarded peer", "peer", peer.ID())
+					peerID := it.Next()
+					if discardedPeers.Has(peerID) {
+						m.log.Debugw("skipping discarded peer", "peer", peerID)
 						continue
 					}
 
 					db, _ := database.NewMemDB()
 					tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
 
-					m.startEpochSyncing(targetEpoch)
+					epochChannels := m.startEpochSyncing(targetEpoch)
+					epochChannels.RLock()
 
-					m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peer.ID())
+					m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
 
 					dataflow.New(
 						m.epochStartCommand,
@@ -98,21 +98,22 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.epochEndCommand,
 						m.epochVerifyCommand,
 						m.epochProcessBlocksCommand,
-					).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
-						discardedPeers.Add(params.peer)
-						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peer.ID(), flowErr)
-					}).WithTerminationCallback(func(params *syncingFlowParams) {
+					).WithTerminationCallback(func(params *syncingFlowParams) {
+						epochChannels.RUnlock()
 						m.endEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
-						m.log.Debugw("synced epoch", "epoch", params.targetEpoch, "peer", params.peer.ID())
+						m.log.Debugw("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
+					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
+						discardedPeers.Add(params.peerID)
+						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
 					}).Run(&syncingFlowParams{
 						ctx:           ctx,
 						targetEpoch:   targetEpoch,
 						targetEC:      ecChain[targetEpoch],
 						targetPrevEC:  ecChain[targetEpoch-1],
-						epochChannels: m.epochChannels[targetEpoch],
-						peer:          peer,
+						epochChannels: epochChannels,
+						peerID:        peerID,
 						tangleTree:    tangleTree,
 						epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
 					})
@@ -120,14 +121,16 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 
 				if !success {
 					err = errors.Errorf("unable to sync epoch %d", targetEpoch)
-					return
 				}
 			}
 		}()
 	}
 
 	for ei := startRange; ei <= endRange; ei++ {
-		epochProcessingChan <- ei
+		select {
+		case epochProcessingChan <- ei:
+		case <-ctx.Done():
+		}
 	}
 	close(epochProcessingStopChan)
 
@@ -135,7 +138,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	close(epochProcessingChan)
 
 	if err != nil {
-		return err
+		return errors.Errorf("sync failed for range %d-%d", start, end)
 	}
 
 	m.log.Debugf("sync successful for range %d-%d", start, end)
@@ -143,14 +146,14 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	return nil
 }
 
-func (m *Manager) startSyncing(start, end epoch.Index) {
+func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
 	m.syncingInProgress = true
-	m.epochChannels = make(map[epoch.Index]*epochChannels)
-	for ei := start; ei <= end; ei++ {
-		m.epochChannels[ei] = &epochChannels{}
+	m.epochsChannels = make(map[epoch.Index]*epochChannels)
+	for ei := startRange; ei <= endRange; ei++ {
+		m.epochsChannels[ei] = &epochChannels{}
 	}
 }
 
@@ -159,14 +162,14 @@ func (m *Manager) endSyncing() {
 	defer m.syncingLock.Unlock()
 
 	m.syncingInProgress = false
-	m.epochChannels = nil
+	m.epochsChannels = nil
 }
 
-func (m *Manager) startEpochSyncing(ei epoch.Index) {
+func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannels) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
-	epochChannels := m.epochChannels[ei]
+	epochChannels = m.epochsChannels[ei]
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
@@ -174,13 +177,15 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) {
 	epochChannels.blockChan = make(chan *epochSyncBlock)
 	epochChannels.endChan = make(chan *epochSyncEnd)
 	epochChannels.stopChan = make(chan struct{})
+
+	return
 }
 
 func (m *Manager) endEpochSyncing(ei epoch.Index) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
-	epochChannels := m.epochChannels[ei]
+	epochChannels := m.epochsChannels[ei]
 
 	close(epochChannels.stopChan)
 	epochChannels.Lock()
@@ -189,8 +194,6 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 	close(epochChannels.startChan)
 	close(epochChannels.blockChan)
 	close(epochChannels.endChan)
-
-	delete(m.epochChannels, ei)
 }
 
 func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
@@ -233,18 +236,11 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 }
 
 func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, nbr *p2p.Neighbor) {
-	m.syncingLock.RLock()
-	defer m.syncingLock.RUnlock()
-
-	if !m.syncingInProgress {
-		return
-	}
-
 	epochBlocksStart := packetEpochBlocksStart.EpochBlocksStart
 	ei := epoch.Index(epochBlocksStart.GetEI())
 
-	epochChannels, exists := m.epochChannels[ei]
-	if !exists {
+	epochChannels := m.getEpochChannels(ei)
+	if epochChannels == nil {
 		return
 	}
 
@@ -265,18 +261,11 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 }
 
 func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packet_EpochBlocksBatch, nbr *p2p.Neighbor) {
-	m.syncingLock.RLock()
-	defer m.syncingLock.RUnlock()
-
-	if !m.syncingInProgress {
-		return
-	}
-
 	epochBlocksBatch := packetEpochBlocksBatch.EpochBlocksBatch
 	ei := epoch.Index(epochBlocksBatch.GetEI())
 
-	epochChannels, exists := m.epochChannels[ei]
-	if !exists {
+	epochChannels := m.getEpochChannels(ei)
+	if epochChannels == nil {
 		return
 	}
 
@@ -308,18 +297,11 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 }
 
 func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_EpochBlocksEnd, nbr *p2p.Neighbor) {
-	m.syncingLock.RLock()
-	defer m.syncingLock.RUnlock()
-
-	if !m.syncingInProgress {
-		return
-	}
-
 	epochBlocksBatch := packetEpochBlocksEnd.EpochBlocksEnd
 	ei := epoch.Index(epochBlocksBatch.GetEI())
 
-	epochChannels, exists := m.epochChannels[ei]
-	if !exists {
+	epochChannels := m.getEpochChannels(ei)
+	if epochChannels == nil {
 		return
 	}
 
@@ -339,4 +321,15 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
 	}:
 	}
+}
+
+func (m *Manager) getEpochChannels(ei epoch.Index) *epochChannels {
+	m.syncingLock.RLock()
+	defer m.syncingLock.RUnlock()
+
+	if !m.syncingInProgress {
+		return nil
+	}
+
+	return m.epochsChannels[ei]
 }

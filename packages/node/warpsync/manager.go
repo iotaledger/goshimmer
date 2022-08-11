@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/typeutils"
 )
 
 const (
@@ -30,8 +31,8 @@ type Manager struct {
 
 	log *logger.Logger
 
-	stopMutex sync.RWMutex
-	isStopped bool
+	active  typeutils.AtomicBool
+	stopped typeutils.AtomicBool
 
 	blockLoaderFunc    LoadBlockFunc
 	blockProcessorFunc ProcessBlockFunc
@@ -46,7 +47,7 @@ type Manager struct {
 
 	syncingInProgress bool
 	syncingLock       sync.RWMutex
-	epochChannels     map[epoch.Index]*epochChannels
+	epochsChannels    map[epoch.Index]*epochChannels
 
 	sync.RWMutex
 }
@@ -95,12 +96,22 @@ func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 }
 
 func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+	if m.active.IsSet() {
+		m.log.Debugf("WarpRange: already syncing or validating")
+		return nil
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
+	m.active.Set()
+	defer m.active.UnSet()
+
+	m.log.Infof("warpsyncing range %d-%d on chain %s -> %s", start, end, startEC.Base58(), endPrevEC.Base58())
+
 	ecChain, validPeers, validateErr := m.validateBackwards(ctx, start, end, startEC, endPrevEC)
 	if validateErr != nil {
-		return errors.Wrapf(validateErr, "failed to validate range %d-%d with peers %s", start, end)
+		return errors.Wrapf(validateErr, "failed to validate range %d-%d", start, end)
 	}
 	if syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
@@ -111,22 +122,12 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 
 // IsStopped returns true if the manager is stopped.
 func (m *Manager) IsStopped() bool {
-	m.stopMutex.RLock()
-	defer m.stopMutex.RUnlock()
-
-	return m.isStopped
+	return m.stopped.IsSet()
 }
 
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.stopMutex.Lock()
-	defer m.stopMutex.Unlock()
-
-	if m.isStopped {
-		return
-	}
-
-	m.isStopped = true
+	m.stopped.Set()
 	m.p2pManager.UnregisterProtocol(protocolID)
 }
 

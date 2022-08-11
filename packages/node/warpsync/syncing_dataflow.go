@@ -7,8 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
@@ -18,7 +18,7 @@ type syncingFlowParams struct {
 	targetEC          epoch.EC
 	targetPrevEC      epoch.EC
 	epochChannels     *epochChannels
-	peer              *peer.Peer
+	peerID            identity.ID
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
 	epochBlocks       map[tangleold.BlockID]*tangleold.Block
@@ -66,7 +66,7 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 				return errors.Errorf("received duplicate block %s for epoch %d", block.ID(), params.targetEpoch)
 			}
 
-			m.log.Debugw("read block", "peer", params.peer, "EI", epochBlock.ei, "blockID", block.ID())
+			m.log.Debugw("read block", "peer", params.peerID, "EI", epochBlock.ei, "blockID", block.ID())
 
 			params.tangleTree.Update(block.IDBytes(), block.IDBytes())
 			params.epochBlocks[block.ID()] = block
@@ -123,9 +123,9 @@ func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next data
 	for _, block := range params.epochBlocks {
 		blockBytes, err := block.Bytes()
 		if err != nil {
-			return errors.Errorf("received block from %s failed to serialize: %s", params.peer.ID(), err)
+			return errors.Errorf("received block from %s failed to serialize: %s", params.peerID, err)
 		}
-		m.blockProcessorFunc(blockBytes, params.peer)
+		m.blockProcessorFunc(blockBytes, m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})[0].Peer)
 	}
 
 	return next(params)

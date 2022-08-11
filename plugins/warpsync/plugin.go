@@ -61,7 +61,6 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.NotarizationMgr.Events.SyncRange.Attach(event.NewClosure(func(event *notarization.SyncRangeEvent) {
-		Plugin.LogInfof("warpsyncing range %d-%d on chain %s", event.StartEI, event.EndEI, event.EndPrevEC.Base58())
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
 		defer cancel()
 		if err := deps.WarpsyncMgr.WarpRange(ctx, event.StartEI, event.EndEI, event.StartEC, event.EndPrevEC); err != nil {

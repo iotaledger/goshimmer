@@ -6,8 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
 )
@@ -32,10 +30,10 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	}
 }
 
-func (m *Manager) requestEpochCommittment(ei epoch.Index) {
+func (m *Manager) requestEpochCommittment(ei epoch.Index, to ...identity.ID) {
 	committmentReq := &wp.EpochCommittmentRequest{EI: int64(ei)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
-	m.p2pManager.Send(packet, protocolID)
+	m.p2pManager.Send(packet, protocolID, to...)
 	m.log.Debugw("sent epoch committment request", "EI", ei)
 }
 

@@ -200,12 +200,12 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 	return result
 }
 
-// AllNeighborsPeers returns all the peers that are currently connected.
-func (m *Manager) AllNeighborsPeers() (peers []*peer.Peer) {
-	peers = make([]*peer.Peer, 0)
+// AllNeighborsIDs returns all the ids of the neighbors that are currently connected.
+func (m *Manager) AllNeighborsIDs() (ids []identity.ID) {
+	ids = make([]identity.ID, 0)
 	neighbors := m.AllNeighbors()
 	for _, nbr := range neighbors {
-		peers = append(peers, nbr.Peer)
+		ids = append(ids, nbr.Peer.ID())
 	}
 	return
 }

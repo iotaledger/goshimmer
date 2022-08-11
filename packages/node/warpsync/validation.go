@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 type neighborCommitment struct {
@@ -17,7 +17,7 @@ type neighborCommitment struct {
 	ecRecord *epoch.ECRecord
 }
 
-func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[*peer.Peer], err error) {
+func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID], err error) {
 	if m.IsStopped() {
 		return nil, nil, errors.Errorf("warpsync manager is stopped")
 	}
@@ -27,8 +27,8 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 	ecChain = make(map[epoch.Index]epoch.EC)
 	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
-	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsPeers()...)
-	neighborCommitments := make(map[epoch.Index]map[*peer.Peer]*neighborCommitment)
+	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsIDs()...)
+	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
 
 	// We do not request the start nor the ending epoch, as we know the beginning (snapshot) and the end (tip received via gossip) of the chain.
 	startRange := start + 1
@@ -51,41 +51,43 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 				return nil, nil, nil
 			}
 			ecRecord := commitment.ecRecord
-			neighborPeer := commitment.neighbor.Peer
+			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.EI()
 			m.log.Debugw("read committment", "EI", commitmentEI, "EC", ecRecord.ComputeEC().Base58())
 			// Ignore invalid neighbor.
-			if !validPeers.Has(neighborPeer) {
-				m.log.Debugw("ignoring invalid neighbor", "ID", neighborPeer)
+			if !validPeers.Has(peerID) {
+				m.log.Debugw("ignoring invalid neighbor", "ID", peerID, "validPeers", validPeers)
 				continue
 			}
+
 			// Ignore committments outside of the range.
 			if commitmentEI < startRange || commitmentEI > endRange {
 				m.log.Debugw("ignoring committment outside of requested range", "EI", commitmentEI)
 				continue
+
 			}
+
 			// If we already validated this epoch, we check if the neighbor is on the target chain.
 			if commitmentEI > epochToValidate {
 				if ecRecordChain[commitmentEI].ComputeEC() != ecRecord.ComputeEC() {
-					validPeers.Delete(neighborPeer)
+					m.log.Debugw("ignoring commitment outside of the target chain", "ID", peerID)
+					validPeers.Delete(peerID)
 				}
+				continue
 			}
-			// We received a committment out of order, let's save it for later use.
+
+			// commitmentEI <= epochToValidate
+			if neighborCommitments[commitmentEI] == nil {
+				neighborCommitments[commitmentEI] = make(map[identity.ID]*neighborCommitment)
+			}
+			neighborCommitments[commitmentEI][peerID] = commitment
+
+			// We received a committment out of order, we can evaluate it only later.
 			if commitmentEI < epochToValidate {
-				if neighborCommitments[commitmentEI] == nil {
-					neighborCommitments[commitmentEI] = make(map[*peer.Peer]*neighborCommitment)
-				}
-				neighborCommitments[commitmentEI][neighborPeer] = commitment
+				continue
 			}
 
 			// commitmentEI == epochToValidate
-			if ecRecordChain[epochToValidate+1].PrevEC() != ecRecord.ComputeEC() {
-				m.log.Debugw("neighbor %s sent committment outside of the target chain", neighborPeer)
-				validPeers.Delete(neighborPeer)
-				continue
-			}
-			ecRecordChain[epochToValidate] = ecRecord
-
 			// Validate commitments collected so far.
 			for {
 				neighborCommitmentsForEpoch, received := neighborCommitments[epochToValidate]
@@ -95,6 +97,9 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 				}
 
 				for neighborID, epochCommitment := range neighborCommitmentsForEpoch {
+					if !validPeers.Has(neighborID) {
+						continue
+					}
 					proposedECRecord := epochCommitment.ecRecord
 					if ecRecordChain[epochToValidate+1].PrevEC() != proposedECRecord.ComputeEC() {
 						m.log.Debugw("neighbor %s sent committment outside of the target chain", neighborID)
@@ -114,7 +119,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 				// We validated the epoch and identified the neighbors that are on the target chain.
 				epochToValidate--
-				m.log.Debugf("epochs left %d", epochToValidate-startRange)
+				m.log.Debugf("epochs left %d", epochToValidate-start)
 			}
 
 			if epochToValidate == start {
@@ -122,6 +127,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 				if startEC != syncedStartPrevEC {
 					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, syncedStartPrevEC)
 				}
+				m.log.Debugf("validated successfull for range %d to %d", start, end)
 				return ecChain, validPeers, nil
 			}
 

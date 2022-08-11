@@ -96,13 +96,11 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		return nil, ErrNoP2P
 	}
 
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
-	defer cancel()
-
-	handleInboundStream := func(protocolID protocol.ID, registeredProtocols ...protocol.ID) (*PacketsStream, error) {
-		conf := buildConnectPeerConfig(opts)
-		if conf.useDefaultTimeout {
+	handleInboundStream := func(ctx context.Context, protocolID protocol.ID, registeredProtocols ...protocol.ID) (*PacketsStream, error) {
+		if buildConnectPeerConfig(opts).useDefaultTimeout {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
+			defer cancel()
 		}
 		am, err := m.newAcceptMatcher(p, protocolID)
 		if err != nil {
@@ -132,12 +130,12 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 
 	var acceptWG sync.WaitGroup
-	streams := make(map[protocol.ID]*PacketsStream)
+	streamsChan := make(chan *PacketsStream, len(m.registeredProtocols))
 	for protocolID := range m.registeredProtocols {
 		acceptWG.Add(1)
 		go func(protocolID protocol.ID) {
 			defer acceptWG.Done()
-			stream, err := handleInboundStream(protocolID)
+			stream, err := handleInboundStream(ctx, protocolID)
 			if err != nil {
 				m.log.Errorf(
 					"accept %s / %s proto %s failed: %s",
@@ -153,10 +151,16 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 				"addr", stream.Conn().RemoteMultiaddr(),
 				"proto", protocolID,
 			)
-			streams[protocolID] = stream
+			streamsChan <- stream
 		}(protocolID)
 	}
 	acceptWG.Wait()
+	close(streamsChan)
+
+	streams := make(map[protocol.ID]*PacketsStream)
+	for stream := range streamsChan {
+		streams[stream.Protocol()] = stream
+	}
 
 	if len(streams) == 0 {
 		return nil, fmt.Errorf("no streams accepted from peer %s", p.ID())
@@ -210,6 +214,7 @@ func (m *Manager) handleStream(stream network.Stream) {
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
 			"id", stream.Conn().RemotePeer(), "proto", protocolID)
 		m.closeStream(stream)
+		stream.Conn().Close()
 	}
 }
 

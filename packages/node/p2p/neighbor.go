@@ -139,9 +139,10 @@ func (n *Neighbor) disconnect() (err error) {
 			if streamErr := stream.Close(); streamErr != nil {
 				err = errors.WithStack(streamErr)
 			}
-			n.Log.Info("Connection closed")
-			n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
+			n.Log.Infow("Stream closed", "protocol", stream.Protocol())
 		}
+		n.Log.Info("Connection closed")
+		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
 	})
 	return err
 }
