@@ -49,6 +49,59 @@ func Test_CreateAndReadSnapshot(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func Test_CreateAndReadEmptySnapshot(t *testing.T) {
+	header := createEmptySnapshot(t)
+
+	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
+	compareSnapshotHeader(t, header, rheader)
+	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
+	compareEpochDiffs(t, epochDiffs, repochDiffs)
+	compareSolidEntryPoints(t, solidEntryPoints, rseps)
+
+	err := os.Remove(snapshotFileName)
+	require.NoError(t, err)
+}
+
+func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
+	fullEpochIndex := epoch.Index(0)
+	diffEpochIndex := epoch.Index(0)
+
+	headerProd := func() (header *ledger.SnapshotHeader, err error) {
+		ecRecord := epoch.NewECRecord(diffEpochIndex)
+		ecRecord.SetECR(epoch.MerkleRoot{})
+		ecRecord.SetPrevEC(epoch.MerkleRoot{})
+
+		header = &ledger.SnapshotHeader{
+			FullEpochIndex: fullEpochIndex,
+			DiffEpochIndex: diffEpochIndex,
+			LatestECRecord: ecRecord,
+		}
+
+		return
+	}
+
+	// prepare outputsWithMetadata
+	utxoStatesProd := func() *ledger.OutputWithMetadata {
+		return nil
+	}
+
+	epochDiffsProd := func() (diffs map[epoch.Index]*ledger.EpochDiff, err error) {
+		diffs = make(map[epoch.Index]*ledger.EpochDiff)
+		return
+	}
+
+	seps := &SolidEntryPoints{EI: 0, Seps: make([]tangleold.BlockID, 0)}
+	solidEntryPoints = append(solidEntryPoints, seps)
+	sepsProd := func() (s *SolidEntryPoints) {
+		return seps
+	}
+
+	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
+	require.NoError(t, err)
+
+	return header
+}
+
 func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	fullEpochIndex := epoch.Index(1)
 	diffEpochIndex := epoch.Index(3)

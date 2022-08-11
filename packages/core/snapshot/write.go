@@ -38,12 +38,8 @@ func streamSnapshotDataTo(
 	}
 
 	// write solid entry points
-	for {
+	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
 		seps := sepsProd()
-		if seps == nil {
-			break
-		}
-
 		writeSolidEntryPoints(writeSeeker, seps)
 	}
 
