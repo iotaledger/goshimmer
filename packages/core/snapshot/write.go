@@ -27,24 +27,6 @@ func streamSnapshotDataTo(
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	writeOutputWithMetadatasFunc := func(chunks []*ledger.OutputWithMetadata) error {
-		if len(chunks) == 0 {
-			return nil
-		}
-
-		data, err := serix.DefaultAPI.Encode(context.Background(), chunks, serix.WithValidation())
-		if err != nil {
-			return err
-		}
-		if err := writeFunc("outputsBytesLen", int64(len(data))); err != nil {
-			return err
-		}
-		if err := writeFunc("outputs", data); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	header, err := headerProd()
 	if err != nil {
 		return nil, err
@@ -73,7 +55,7 @@ func streamSnapshotDataTo(
 		output := outputProd()
 		if output == nil {
 			// write rests of outputWithMetadatas
-			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
+			err = writeOutputsWithMetadata(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +67,7 @@ func streamSnapshotDataTo(
 
 		// put a delimeter every utxoStatesChunkSize outputs
 		if outputChunkCounter == utxoStatesChunkSize {
-			err = writeOutputWithMetadatasFunc(chunksOutputWithMetadata)
+			err = writeOutputsWithMetadata(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
 				return nil, err
 			}
@@ -183,6 +165,28 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 		return err
 	}
 
+	return nil
+}
+
+func writeOutputsWithMetadata(writeSeeker io.WriteSeeker, outputsChunks []*ledger.OutputWithMetadata) error {
+	if len(outputsChunks) == 0 {
+		return nil
+	}
+
+	writeFunc := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
+	}
+
+	data, err := serix.DefaultAPI.Encode(context.Background(), outputsChunks, serix.WithValidation())
+	if err != nil {
+		return err
+	}
+	if err := writeFunc("outputsBytesLen", int64(len(data))); err != nil {
+		return err
+	}
+	if err := writeFunc("outputs", data); err != nil {
+		return err
+	}
 	return nil
 }
 
