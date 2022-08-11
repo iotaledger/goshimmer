@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -27,21 +26,11 @@ func streamSnapshotDataFrom(
 	if err != nil {
 		return err
 	}
-
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(scanDelimiter)
-
-	// read latest ECRecord
-	ecRecord, err := readECRecord(scanner)
-	if err != nil {
-		return err
-	}
-	header.LatestECRecord = ecRecord
 	headerConsumer(header)
 
 	// read solid entry points
 	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
-		seps, err := readSolidEntryPoints(scanner)
+		seps, err := readSolidEntryPoints(reader)
 		if err != nil {
 			return err
 		}
@@ -50,7 +39,7 @@ func streamSnapshotDataFrom(
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, err := readOutputWithMetadata(scanner)
+		outputs, err := readOutputWithMetadata(reader)
 		if err != nil {
 			return err
 		}
@@ -58,7 +47,7 @@ func streamSnapshotDataFrom(
 		outputConsumer(outputs)
 	}
 
-	epochDiffs, err := readEpochDiffs(scanner)
+	epochDiffs, err := readEpochDiffs(reader)
 	if err != nil {
 		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
@@ -85,65 +74,94 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	}
 	header.DiffEpochIndex = epoch.Index(index)
 
+	var latestECRecordLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &latestECRecordLen); err != nil {
+		return nil, fmt.Errorf("unable to read latest ECRecord bytes len: %w", err)
+	}
+
+	ecRecordBytes := make([]byte, latestECRecordLen)
+	if err := binary.Read(reader, binary.LittleEndian, ecRecordBytes); err != nil {
+		return nil, fmt.Errorf("unable to read latest ECRecord: %w", err)
+	}
+	header.LatestECRecord = &epoch.ECRecord{}
+	if err := header.LatestECRecord.FromBytes(ecRecordBytes); err != nil {
+		return nil, err
+	}
+
 	return header, nil
 }
 
-func readSolidEntryPoints(scanner *bufio.Scanner) (seps *SolidEntryPoints, err error) {
-	scanner.Scan()
-	data := scanner.Bytes()
+func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err error) {
+	var sepsLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &sepsLen); err != nil {
+		return nil, fmt.Errorf("unable to read seps bytes len: %w", err)
+	}
 
-	if len(data) > 0 {
-		seps = &SolidEntryPoints{}
-		if _, err = serix.DefaultAPI.Decode(context.Background(), data, &seps, serix.WithValidation()); err != nil {
-			return nil, err
-		}
+	sepsBytes := make([]byte, sepsLen)
+	if err := binary.Read(reader, binary.LittleEndian, sepsBytes); err != nil {
+		return nil, fmt.Errorf("unable to read solid entry points: %w", err)
+	}
+
+	seps = &SolidEntryPoints{}
+	if _, err = serix.DefaultAPI.Decode(context.Background(), sepsBytes, &seps, serix.WithValidation()); err != nil {
+		return nil, err
 	}
 
 	return seps, nil
 }
 
 // readOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
-func readOutputWithMetadata(scanner *bufio.Scanner) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
-	scanner.Scan()
-	data := scanner.Bytes()
+func readOutputWithMetadata(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
+	var outputsLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &outputsLen); err != nil {
+		return nil, fmt.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
+	}
 
-	if len(data) > 0 {
-		outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputMetadatas, serix.WithValidation())
-		if err != nil {
-			return nil, err
-		}
+	outputsBytes := make([]byte, outputsLen)
+	if err := binary.Read(reader, binary.LittleEndian, outputsBytes); err != nil {
+		return nil, fmt.Errorf("unable to read outputsWithMetadata: %w", err)
+	}
 
-		for _, o := range outputMetadatas {
-			o.SetID(o.M.OutputID)
-			o.Output().SetID(o.M.OutputID)
-		}
+	outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
+	_, err = serix.DefaultAPI.Decode(context.Background(), outputsBytes, &outputMetadatas, serix.WithValidation())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, o := range outputMetadatas {
+		o.SetID(o.M.OutputID)
+		o.Output().SetID(o.M.OutputID)
 	}
 
 	return
 }
 
 // readEpochDiffs consumes a map of EpochDiff from the given reader.
-func readEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
+func readEpochDiffs(reader io.ReadSeeker) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
 	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+	var epochDiffsLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &epochDiffsLen); err != nil {
+		return nil, fmt.Errorf("unable to read epochDiffs bytes len: %w", err)
+	}
 
-	scanner.Scan()
-	data := scanner.Bytes()
-	if len(data) > 0 {
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithValidation())
-		if err != nil {
-			return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	epochDiffsBytes := make([]byte, epochDiffsLen)
+	if err := binary.Read(reader, binary.LittleEndian, epochDiffsBytes); err != nil {
+		return nil, fmt.Errorf("unable to read epochDiffs: %w", err)
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), epochDiffsBytes, &epochDiffs, serix.WithValidation())
+	if err != nil {
+		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	}
+
+	for _, epochdiff := range epochDiffs {
+		for _, spentOutput := range epochdiff.Spent() {
+			spentOutput.SetID(spentOutput.M.OutputID)
+			spentOutput.Output().SetID(spentOutput.M.OutputID)
 		}
-
-		for _, epochdiff := range epochDiffs {
-			for _, spentOutput := range epochdiff.Spent() {
-				spentOutput.SetID(spentOutput.M.OutputID)
-				spentOutput.Output().SetID(spentOutput.M.OutputID)
-			}
-			for _, createdOutput := range epochdiff.Created() {
-				createdOutput.SetID(createdOutput.M.OutputID)
-				createdOutput.Output().SetID(createdOutput.M.OutputID)
-			}
+		for _, createdOutput := range epochdiff.Created() {
+			createdOutput.SetID(createdOutput.M.OutputID)
+			createdOutput.Output().SetID(createdOutput.M.OutputID)
 		}
 	}
 
@@ -161,19 +179,4 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 	}
 
 	return
-}
-
-func scanDelimiter(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	if i := bytes.Index(data, delimiter); i >= 0 {
-		return i + len(delimiter), data[0:i], nil
-	}
-	// at EOF, return rest of data.
-	if atEOF {
-		return len(data), data, nil
-	}
-
-	return 0, nil, nil
 }

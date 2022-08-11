@@ -15,8 +15,6 @@ import (
 
 const utxoStatesChunkSize = 100
 
-var delimiter = []byte{';', ';', ';'}
-
 // streamSnapshotDataTo writes snapshot to a given writer.
 func streamSnapshotDataTo(
 	writeSeeker io.WriteSeeker,
@@ -38,7 +36,10 @@ func streamSnapshotDataTo(
 		if err != nil {
 			return err
 		}
-		if err := writeFunc("outputs", append(data, delimiter...)); err != nil {
+		if err := writeFunc("outputsBytesLen", int64(len(data))); err != nil {
+			return err
+		}
+		if err := writeFunc("outputs", data); err != nil {
 			return err
 		}
 		return nil
@@ -58,9 +59,6 @@ func streamSnapshotDataTo(
 	for {
 		seps := sepsProd()
 		if seps == nil {
-			if err := writeFunc("delimiter", delimiter); err != nil {
-				return nil, err
-			}
 			break
 		}
 
@@ -106,7 +104,10 @@ func streamSnapshotDataTo(
 	if err != nil {
 		return nil, err
 	}
-	if err := writeFunc(fmt.Sprintf("diffEpoch"), append(epochDiffsBytes, delimiter...)); err != nil {
+	if err := writeFunc(fmt.Sprintf("epochDiffBytesLen"), int64(len(epochDiffsBytes))); err != nil {
+		return nil, err
+	}
+	if err := writeFunc(fmt.Sprintf("epochDiffs"), epochDiffsBytes); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +175,11 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 	if err != nil {
 		return err
 	}
-	if err := writeFunc("seps", append(data, delimiter...)); err != nil {
+
+	if err := writeFunc("sepsBytesLen", int64(len(data))); err != nil {
+		return err
+	}
+	if err := writeFunc("seps", data); err != nil {
 		return err
 	}
 
@@ -203,7 +208,11 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 		return err
 	}
 
-	if err := writeFunc("latestECRecord", append(data, delimiter...)); err != nil {
+	if err := writeFunc("latestECRecordBytesLen", int64(len(data))); err != nil {
+		return err
+	}
+
+	if err := writeFunc("latestECRecord", data); err != nil {
 		return err
 	}
 
