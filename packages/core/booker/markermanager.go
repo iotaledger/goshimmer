@@ -41,9 +41,12 @@ func NewMarkerManager() *MarkerManager {
 		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
 		sequenceLastUsed:             memstorage.New[markers.SequenceID, epoch.Index](),
 		sequencePruning:              memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
+
+		maxDroppedEpoch: -1,
 	}
 
 	manager.SetConflictIDs(markers.NewMarker(0, 0), utxo.NewTransactionIDs())
+	manager.registerSequencePruning(epoch.Index(0), markers.SequenceID(0))
 
 	return manager
 }
@@ -69,7 +72,7 @@ func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.S
 		}
 		m.addMarkerBlockMapping(newStructureDetails.PastMarkers().Marker(), block)
 
-		m.registerSequencePruning(block, newStructureDetails)
+		m.registerSequencePruning(block.ID().Index(), newStructureDetails.PastMarkers().Marker().SequenceID())
 	}
 
 	return
@@ -111,17 +114,15 @@ func (m *MarkerManager) pruneMarkerBlockMapping() {
 	}
 }
 
-func (m *MarkerManager) registerSequencePruning(block *Block, newStructureDetails *markers.StructureDetails) {
-	blockSequenceID := newStructureDetails.PastMarkers().Marker().SequenceID()
-
-	// add the sequence to the set of active sequences for the given epoch.Index. This is append only (record of the past).
-	sequenceSet, _ := m.sequencePruning.RetrieveOrCreate(block.ID().Index(), func() set.Set[markers.SequenceID] {
+func (m *MarkerManager) registerSequencePruning(index epoch.Index, sequenceID markers.SequenceID) {
+	// add the sequence to the set of active sequences for the given epoch.Index. This is append-only (record of the past).
+	sequenceSet, _ := m.sequencePruning.RetrieveOrCreate(index, func() set.Set[markers.SequenceID] {
 		return set.New[markers.SequenceID](true)
 	})
-	sequenceSet.Add(blockSequenceID)
+	sequenceSet.Add(sequenceID)
 
 	// update the epoch.Index in which the sequence was last used (it's a rolling state in the present)
-	m.sequenceLastUsed.Set(blockSequenceID, block.ID().Index())
+	m.sequenceLastUsed.Set(sequenceID, index)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

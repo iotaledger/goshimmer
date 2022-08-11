@@ -47,6 +47,7 @@ func (m *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
 
 	inheritedStructureDetails.SetPastMarkers(m.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
+
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
 		inheritedStructureDetails.SetPastMarkers(NewMarkers(NewMarker(0, 0)))
 	}

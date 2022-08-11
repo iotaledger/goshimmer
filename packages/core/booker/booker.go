@@ -407,7 +407,7 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 			return true
 		})
 	}()
-	fmt.Println("updateBlockConflicts", block.ID())
+
 	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
 		return false
 	}
