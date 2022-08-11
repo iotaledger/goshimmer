@@ -146,6 +146,7 @@ func readSnapshotFromFile(filePath string) (err error) {
 		fmt.Println(h)
 	}
 	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
+		fmt.Println(s)
 	}
 
 	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
