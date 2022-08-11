@@ -11,9 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
-// TODO: create MarkerManager component
-//  - manages pruning of markers and all related (conflict mapping) entities
-
 type MarkerManager struct {
 	sequenceManager              *markers.SequenceManager
 	markerIndexConflictIDMapping *memstorage.Storage[markers.SequenceID, *MarkerIndexConflictIDMapping]
@@ -146,14 +143,14 @@ func (m *MarkerManager) ConflictIDsFromStructureDetails(structureDetails *marker
 }
 
 // SetConflictIDs associates ledger.ConflictIDs with the given Marker.
-func (m *MarkerManager) SetConflictIDs(marker markers.Marker, conflictIDs *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
+func (m *MarkerManager) SetConflictIDs(marker markers.Marker, conflictIDs utxo.TransactionIDs) (updated bool) {
 	m.pruningMutex.RLock()
 	defer m.pruningMutex.RUnlock()
 
 	return m.setConflictIDs(marker, conflictIDs)
 }
 
-func (m *MarkerManager) setConflictIDs(marker markers.Marker, conflictIDs *set.AdvancedSet[utxo.TransactionID]) bool {
+func (m *MarkerManager) setConflictIDs(marker markers.Marker, conflictIDs utxo.TransactionIDs) bool {
 	if floorMarker, floorConflictIDs, exists := m.floor(marker); exists {
 		if floorConflictIDs.Equal(conflictIDs) {
 			return false
@@ -218,7 +215,7 @@ func (m *MarkerManager) ceiling(referenceMarker markers.Marker) (marker markers.
 
 // ForEachConflictIDMapping iterates over all ConflictID mappings in the given Sequence that are bigger than the given
 // thresholdIndex. Setting the thresholdIndex to 0 will iterate over all existing mappings.
-func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker markers.Marker, mappedConflictIDs *set.AdvancedSet[utxo.TransactionID])) {
+func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker markers.Marker, mappedConflictIDs utxo.TransactionIDs)) {
 	m.pruningMutex.RLock()
 	defer m.pruningMutex.RUnlock()
 

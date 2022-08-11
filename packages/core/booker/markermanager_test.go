@@ -83,7 +83,6 @@ func Test_PruneSequences(t *testing.T) {
 	// Create the sequence structure for the test. We creatte sequenceCount sequences for each of epochCount epochs.
 	// Each sequence X references the sequences X-2, X-1.
 	// Each sequence is used only in a single epochIndex.
-	// TODO: add a sequence that is used in multiple epochs.
 	{
 		for sequenceEpoch := 0; sequenceEpoch < totalSequences; sequenceEpoch++ {
 			expectedSequenceID := markers.SequenceID(sequenceEpoch)
@@ -118,30 +117,7 @@ func Test_PruneSequences(t *testing.T) {
 	// verify that the structure is correct
 	{
 		for sequenceID := markers.SequenceID(0); sequenceID < totalSequences; sequenceID++ {
-			epochIndex := epoch.Index(sequenceID / sequenceCount)
-
-			sequence, sequenceExists := markerManager.sequenceManager.Sequence(sequenceID)
-			assert.True(t, sequenceExists, "expected to find sequence %d", sequenceID)
-
-			validateReferencedMarkers(t, sequence, sequenceID, sequenceCount, -1)
-
-			validateReferencingSequenceIDs(t, sequenceID, totalSequences, sequence.ReferencingSequences(), -1)
-
-			_, mappingExists := markerManager.markerIndexConflictIDMapping.Get(sequenceID)
-			assert.True(t, mappingExists, "expected to find a conflict ID mapping for sequence %d", sequenceID)
-
-			lastUsedEpoch, lastUsedExists := markerManager.sequenceLastUsed.Get(sequenceID)
-			assert.True(t, lastUsedExists, "expected to find a last used epochIndex for sequence %d", sequenceID)
-			assert.EqualValues(t, epochIndex, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
-
-			sequenceIDsUsed, sequencePruningMapExists := markerManager.sequencePruning.Get(epochIndex)
-			assert.True(t, sequencePruningMapExists, "expected to find a sequence pruning map for epochIndex %d", epochIndex)
-			assert.EqualValues(t, epochIndex, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
-			assert.Equal(t, 5, sequenceIDsUsed.Size(), "expected the sequence pruning map to have size 5")
-
-			sequenceIDsUsed.ForEach(func(sequenceIDused markers.SequenceID) {
-				assert.EqualValues(t, epochIndex, sequenceIDused/sequenceCount, "expected the sequence ID used to be %d but got %d", sequenceID, sequenceIDused)
-			})
+			verifySequence(t, markerManager, sequenceID, -1, epochCount, sequenceCount, totalSequences)
 		}
 	}
 
@@ -152,27 +128,7 @@ func Test_PruneSequences(t *testing.T) {
 
 	// verify that the structure is still correct
 	for sequenceID := markers.SequenceID(0); sequenceID < totalSequences; sequenceID++ {
-		epochIndex := epoch.Index(sequenceID / sequenceCount)
-
-		lastUsedEpoch, lastUsedExists := markerManager.sequenceLastUsed.Get(sequenceID)
-		assert.True(t, lastUsedExists, "expected to find a last used epochIndex for sequence %d", sequenceID)
-		expectedLastUsedEpoch := epochIndex
-		if sequenceID == permanentSequenceID {
-			expectedLastUsedEpoch = epoch.Index(epochCount)
-		}
-		assert.Equal(t, expectedLastUsedEpoch, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
-
-		sequenceIDsUsed, sequencePruningMapExists := markerManager.sequencePruning.Get(epochIndex)
-		assert.True(t, sequencePruningMapExists, "expected to find a sequence pruning map for epochIndex %d", epochIndex)
-
-		expectedSequenceSet := set.New[markers.SequenceID](false)
-		expectedSequenceSet.Add(permanentSequenceID)
-		for i := epochIndex * sequenceCount; i < (epochIndex*sequenceCount)+sequenceCount; i++ {
-			expectedSequenceSet.Add(markers.SequenceID(i))
-		}
-		expectedSequenceSet.ForEach(func(sequenceIDExpected markers.SequenceID) {
-			assert.True(t, sequenceIDsUsed.Has(sequenceIDExpected), "expected to find sequence %d in the sequence pruning map for epoch %d, sequenceID %d", sequenceIDExpected, epochIndex, sequenceID)
-		})
+		verifySequence(t, markerManager, sequenceID, -1, epochCount, sequenceCount, totalSequences, permanentSequenceID)
 	}
 
 	// verify that the pruning is correct
@@ -202,52 +158,59 @@ func Test_PruneSequences(t *testing.T) {
 
 			// check that the remaining sequences are correct
 			for sequenceID := startingSequence; sequenceID < totalSequences; sequenceID++ {
-				epochIndex := epoch.Index(sequenceID / sequenceCount)
-
-				sequence, sequenceExists := markerManager.sequenceManager.Sequence(sequenceID)
-				assert.True(t, sequenceExists, "expected to find sequence %d", sequenceID)
-
-				validateReferencedMarkers(t, sequence, sequenceID, sequenceCount, pruningEpoch)
-
-				validateReferencingSequenceIDs(t, sequenceID, totalSequences, sequence.ReferencingSequences(), pruningEpoch)
-
-				_, mappingExists := markerManager.markerIndexConflictIDMapping.Get(sequenceID)
-				assert.True(t, mappingExists, "expected to find a conflict ID mapping for sequence %d", sequenceID)
-
-				lastUsedEpoch, lastUsedExists := markerManager.sequenceLastUsed.Get(sequenceID)
-				assert.True(t, lastUsedExists, "expected to find a last used epochIndex for sequence %d", sequenceID)
-				expectedLastUsedEpoch := epochIndex
-				if sequenceID == permanentSequenceID {
-					expectedLastUsedEpoch = epoch.Index(epochCount - 1)
-				}
-				assert.Equal(t, expectedLastUsedEpoch, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
-
-				sequenceIDsUsed, sequencePruningMapExists := markerManager.sequencePruning.Get(epochIndex)
-				assert.True(t, sequencePruningMapExists, "expected to find a sequence pruning map for epochIndex %d", epochIndex)
-
-				expectedSequenceSet := set.New[markers.SequenceID](false)
-				expectedSequenceSet.Add(permanentSequenceID)
-				for i := epochIndex * sequenceCount; i < (epochIndex*sequenceCount)+sequenceCount; i++ {
-					expectedSequenceSet.Add(markers.SequenceID(i))
-				}
-				expectedSequenceSet.ForEach(func(sequenceIDExpected markers.SequenceID) {
-					assert.True(t, sequenceIDsUsed.Has(sequenceIDExpected), "expected to find sequence %d in the sequence pruning map for epoch %d, sequenceID %d", sequenceIDExpected, epochIndex, sequenceID)
-				})
+				verifySequence(t, markerManager, sequenceID, pruningEpoch, epochCount, sequenceCount, totalSequences, permanentSequenceID)
 			}
 		}
 	}
 
 	// finally check that just permanentSequenceID is still there
 	for i := markers.SequenceID(0); i < totalSequences; i++ {
-
 		_, exists := markerManager.sequenceManager.Sequence(i)
 		if i == permanentSequenceID {
 			assert.True(t, exists, "expected to find sequence %d", i)
+			lastUsedEpoch, lastUsedExists := markerManager.sequenceLastUsed.Get(permanentSequenceID)
+			assert.True(t, lastUsedExists, "expected to find a last used epochIndex for sequence %d", permanentSequenceID)
+			assert.EqualValues(t, epochCount, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochCount, lastUsedEpoch)
 		} else {
 			assert.False(t, exists, "expected to not find sequence %d", i)
 		}
-
 	}
+}
+
+func verifySequence(t *testing.T, markerManager *MarkerManager, sequenceID markers.SequenceID, pruningEpoch, epochCount, sequenceCount, totalSequences int, permanentSequenceID ...markers.SequenceID) {
+	epochIndex := epoch.Index(int(sequenceID) / sequenceCount)
+
+	sequence, sequenceExists := markerManager.sequenceManager.Sequence(sequenceID)
+	assert.True(t, sequenceExists, "expected to find sequence %d", sequenceID)
+
+	validateReferencedMarkers(t, sequence, sequenceID, sequenceCount, pruningEpoch)
+
+	validateReferencingSequenceIDs(t, sequenceID, totalSequences, sequence.ReferencingSequences(), pruningEpoch)
+
+	_, mappingExists := markerManager.markerIndexConflictIDMapping.Get(sequenceID)
+	assert.True(t, mappingExists, "expected to find a conflict ID mapping for sequence %d", sequenceID)
+
+	lastUsedEpoch, lastUsedExists := markerManager.sequenceLastUsed.Get(sequenceID)
+	assert.True(t, lastUsedExists, "expected to find a last used epochIndex for sequence %d", sequenceID)
+	expectedLastUsedEpoch := epochIndex
+	if len(permanentSequenceID) > 0 && sequenceID == permanentSequenceID[0] {
+		expectedLastUsedEpoch = epoch.Index(epochCount)
+	}
+	assert.Equal(t, expectedLastUsedEpoch, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
+
+	sequenceIDsUsed, sequencePruningMapExists := markerManager.sequencePruning.Get(epochIndex)
+	assert.True(t, sequencePruningMapExists, "expected to find a sequence pruning map for epochIndex %d", epochIndex)
+
+	expectedSequenceSet := set.New[markers.SequenceID](false)
+	if len(permanentSequenceID) > 0 {
+		expectedSequenceSet.Add(permanentSequenceID[0])
+	}
+	for i := int(epochIndex) * sequenceCount; i < (int(epochIndex)*sequenceCount)+sequenceCount; i++ {
+		expectedSequenceSet.Add(markers.SequenceID(i))
+	}
+	expectedSequenceSet.ForEach(func(sequenceIDExpected markers.SequenceID) {
+		assert.True(t, sequenceIDsUsed.Has(sequenceIDExpected), "expected to find sequence %d in the sequence pruning map for epoch %d, sequenceID %d", sequenceIDExpected, epochIndex, sequenceID)
+	})
 }
 
 func validateReferencingSequenceIDs(t *testing.T, sequenceID markers.SequenceID, totalSequences int, actualSequences markers.SequenceIDs, maxPrunedEpoch int) {
