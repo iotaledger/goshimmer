@@ -81,25 +81,33 @@ func (m *MarkerManager) Prune(epochIndex epoch.Index) {
 
 	for m.maxDroppedEpoch < epochIndex {
 		m.maxDroppedEpoch++
-		if markerSet, exists := m.markerBlockMappingPruning.Get(m.maxDroppedEpoch); exists {
-			m.markerBlockMappingPruning.Delete(m.maxDroppedEpoch)
 
-			markerSet.ForEach(func(marker markers.Marker) {
-				m.markerBlockMapping.Delete(marker)
-			})
-		}
+		m.pruneMarkerBlockMapping()
+		m.pruneSequences()
+	}
+}
 
-		if sequenceSet, sequenceSetExists := m.sequencePruning.Get(m.maxDroppedEpoch); sequenceSetExists {
-			m.sequencePruning.Delete(m.maxDroppedEpoch)
+func (m *MarkerManager) pruneSequences() {
+	if sequenceSet, sequenceSetExists := m.sequencePruning.Get(m.maxDroppedEpoch); sequenceSetExists {
+		m.sequencePruning.Delete(m.maxDroppedEpoch)
 
-			sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
-				if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= m.maxDroppedEpoch {
-					m.sequenceLastUsed.Delete(sequenceID)
-					m.markerIndexConflictIDMapping.Delete(sequenceID)
-					m.sequenceManager.DeleteSequence(sequenceID)
-				}
-			})
-		}
+		sequenceSet.ForEach(func(sequenceID markers.SequenceID) {
+			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= m.maxDroppedEpoch {
+				m.sequenceLastUsed.Delete(sequenceID)
+				m.markerIndexConflictIDMapping.Delete(sequenceID)
+				m.sequenceManager.Delete(sequenceID)
+			}
+		})
+	}
+}
+
+func (m *MarkerManager) pruneMarkerBlockMapping() {
+	if markerSet, exists := m.markerBlockMappingPruning.Get(m.maxDroppedEpoch); exists {
+		m.markerBlockMappingPruning.Delete(m.maxDroppedEpoch)
+
+		markerSet.ForEach(func(marker markers.Marker) {
+			m.markerBlockMapping.Delete(marker)
+		})
 	}
 }
 

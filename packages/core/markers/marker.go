@@ -335,6 +335,19 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	return
 }
 
+// GetSequenceIDs returns the SequenceIDs of child Sequences.
+func (r *ReferencingMarkers) GetSequenceIDs() (referencingSequenceIDs SequenceIDs) {
+	r.RLock()
+	defer r.RUnlock()
+
+	referencingSequenceIDs = NewSequenceIDs()
+	for sequenceID := range r.referencingIndexesBySequence {
+		referencingSequenceIDs.Add(sequenceID)
+	}
+
+	return
+}
+
 // String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	r.RLock()
@@ -408,7 +421,6 @@ func NewReferencedMarkers(markers *Markers) (r *ReferencedMarkers) {
 	r = &ReferencedMarkers{
 		referencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 	}
-
 	initialSequenceIndex := markers.HighestIndex() + 1
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		thresholdMap := thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)
@@ -438,6 +450,12 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 
 		return true
 	})
+}
+
+func (r *ReferencedMarkers) Delete(id SequenceID) {
+	r.Lock()
+	defer r.Unlock()
+	delete(r.referencedIndexesBySequence, id)
 }
 
 // Get returns the Markers of parent Sequences that were referenced by the given Index.

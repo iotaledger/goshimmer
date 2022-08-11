@@ -72,22 +72,18 @@ func (m *SequenceManager) Sequence(sequenceID SequenceID) (sequence *Sequence, e
 	return m.sequences.Get(sequenceID)
 }
 
-func (m *SequenceManager) DeleteSequence(id SequenceID) {
-	// TODO: write-lock the Sequence before deleting it
-	sequence, exists := m.Sequence(id)
-	if !exists {
+func (m *SequenceManager) Delete(id SequenceID) {
+	sequence, sequenceExists := m.Sequence(id)
+	if !sequenceExists {
 		return
 	}
 
-	sequence.ReferencingMarkers(0).ForEach(func(referencingSequenceID SequenceID, _ Index) bool {
-		// TODO: write-lock the referencing Sequence before modifying
-		referencingSequence, exists := m.Sequence(id)
-		if !exists {
-			return true
+	// iterate through all the sequences referencing this sequence and remove the reference
+	for it := sequence.ReferencingSequences().Iterator(); it.HasNext(); {
+		if referencingSequence, referencingSequenceExists := m.Sequence(it.Next()); referencingSequenceExists {
+			referencingSequence.referencedMarkers.Delete(id)
 		}
-		//referencingSequence.referencedMarkers.Add()
-		return true
-	})
+	}
 	m.sequences.Delete(id)
 }
 

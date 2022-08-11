@@ -47,7 +47,7 @@ func (s SequenceID) String() (humanReadableSequenceID string) {
 // region SequenceIDs //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SequenceIDs represents a collection of SequenceIDs.
-type SequenceIDs *set.AdvancedSet[SequenceID]
+type SequenceIDs = *set.AdvancedSet[SequenceID]
 
 // NewSequenceIDs creates a new collection of SequenceIDs.
 func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
@@ -101,6 +101,11 @@ func (s *Sequence) ReferencedMarkers(index Index) *Markers {
 // ReferencingMarkers returns a collection of Markers that reference the given Index.
 func (s *Sequence) ReferencingMarkers(index Index) *Markers {
 	return s.referencingMarkers.Get(index)
+}
+
+// ReferencingSequences returns a collection of SequenceIDs that reference the Sequence.
+func (s *Sequence) ReferencingSequences() SequenceIDs {
+	return s.referencingMarkers.GetSequenceIDs()
 }
 
 // LowestIndex returns the Index of the very first Marker in the Sequence.
