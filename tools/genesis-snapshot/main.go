@@ -135,7 +135,7 @@ func init() {
 
 func readSnapshotFromFile(filePath string) (err error) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
-		fmt.Println(outputWithMetadatas)
+		//fmt.Println(outputWithMetadatas)
 	}
 	epochDiffsConsumer := func(ei epoch.Index, epochDiffs *ledger.EpochDiff) {
 		fmt.Println(ei, epochDiffs)

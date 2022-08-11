@@ -141,29 +141,40 @@ func readOutputWithMetadata(reader io.ReadSeeker) (outputMetadatas []*ledger.Out
 
 // readEpochDiffs consumes a map of EpochDiff from the given reader.
 func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
-	var epochDiffsLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &epochDiffsLen); err != nil {
-		return nil, fmt.Errorf("unable to read epochDiffs bytes len: %w", err)
+	spent := make([]*ledger.OutputWithMetadata, 0)
+	created := make([]*ledger.OutputWithMetadata, 0)
+
+	// read spent
+	var spentLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &spentLen); err != nil {
+		return nil, fmt.Errorf("unable to read epochDiffs spent len: %w", err)
 	}
-	fmt.Println(">>> epoch diff len:", epochDiffsLen)
-	epochDiffsBytes := make([]byte, epochDiffsLen)
-	if err := binary.Read(reader, binary.LittleEndian, epochDiffsBytes); err != nil {
-		return nil, fmt.Errorf("unable to read epochDiffs: %w", err)
+	spentLenInt := int(spentLen)
+	for i := 0; i < spentLenInt; {
+		s, err := readOutputWithMetadata(reader)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read epochDiffs spent: %w", err)
+		}
+		spent = append(spent, s...)
+		i += len(s)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), epochDiffsBytes, &epochDiffs, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	// read created
+	var createdLen int64
+	if err := binary.Read(reader, binary.LittleEndian, &createdLen); err != nil {
+		return nil, fmt.Errorf("unable to read epochDiffs created len: %w", err)
+	}
+	createdLenInt := int(createdLen)
+	for i := 0; i < createdLenInt; {
+		c, err := readOutputWithMetadata(reader)
+		if err != nil {
+			return nil, fmt.Errorf("unable to read epochDiffs created: %w", err)
+		}
+		created = append(created, c...)
+		i += len(c)
 	}
 
-	for _, spentOutput := range epochDiffs.Spent() {
-		spentOutput.SetID(spentOutput.M.OutputID)
-		spentOutput.Output().SetID(spentOutput.M.OutputID)
-	}
-	for _, createdOutput := range epochDiffs.Created() {
-		createdOutput.SetID(createdOutput.M.OutputID)
-		createdOutput.Output().SetID(createdOutput.M.OutputID)
-	}
+	epochDiffs = ledger.NewEpochDiff(spent, created)
 
 	return
 }

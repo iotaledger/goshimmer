@@ -146,16 +146,36 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	data, err := serix.DefaultAPI.Encode(context.Background(), diffs, serix.WithValidation())
-	if err != nil {
+	spentLen := len(diffs.Spent())
+	if err := writeFunc("epochDiffs spent Len", int64(spentLen)); err != nil {
 		return err
 	}
 
-	if err := writeFunc("epochDiffsBytesLen", int64(len(data))); err != nil {
+	s := diffs.Spent()
+	var end int
+	for i := 0; i < spentLen; {
+		if i+utxoStatesChunkSize > spentLen {
+			end = spentLen
+		} else {
+			end = i + utxoStatesChunkSize
+		}
+		writeOutputsWithMetadata(writeSeeker, s[i:end])
+		i = end
+	}
+
+	createdLen := len(diffs.Created())
+	if err := writeFunc("epochDiffs created Len", int64(createdLen)); err != nil {
 		return err
 	}
-	if err := writeFunc("epochDiffs", data); err != nil {
-		return err
+	c := diffs.Created()
+	for i := 0; i < createdLen; {
+		if i+utxoStatesChunkSize > createdLen {
+			end = createdLen
+		} else {
+			end = i + utxoStatesChunkSize
+		}
+		writeOutputsWithMetadata(writeSeeker, c[i:end])
+		i = end
 	}
 
 	return nil
