@@ -73,20 +73,9 @@ func streamSnapshotDataTo(
 	}
 
 	// write epochDiffs
-	epochDiffs, err := epochDiffsProd()
-	if err != nil {
-		return nil, err
-	}
-
-	epochDiffsBytes, err := serix.DefaultAPI.Encode(context.Background(), epochDiffs, serix.WithValidation())
-	if err != nil {
-		return nil, err
-	}
-	if err := writeFunc(fmt.Sprintf("epochDiffBytesLen"), int64(len(epochDiffsBytes))); err != nil {
-		return nil, err
-	}
-	if err := writeFunc(fmt.Sprintf("epochDiffs"), epochDiffsBytes); err != nil {
-		return nil, err
+	for i := header.FullEpochIndex + 1; i <= header.DiffEpochIndex; i++ {
+		epochDiffs := epochDiffsProd()
+		writeEpochDiffs(writeSeeker, epochDiffs)
 	}
 
 	// seek back to the file position of the outputWithMetadata counter
@@ -137,11 +126,39 @@ func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerF
 
 // NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
-	epochDiffs, err := nmgr.SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch)
+	prodChan := make(chan *ledger.EpochDiff)
+	stopChan := make(chan struct{})
+	nmgr.SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch, prodChan, stopChan)
 
-	return func() (map[epoch.Index]*ledger.EpochDiff, error) {
-		return epochDiffs, err
+	return func() *ledger.EpochDiff {
+		select {
+		case obj := <-prodChan:
+			return obj
+		case <-stopChan:
+			close(prodChan)
+			return nil
+		}
 	}
+}
+
+func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error {
+	writeFunc := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
+	}
+
+	data, err := serix.DefaultAPI.Encode(context.Background(), diffs, serix.WithValidation())
+	if err != nil {
+		return err
+	}
+
+	if err := writeFunc("epochDiffsBytesLen", int64(len(data))); err != nil {
+		return err
+	}
+	if err := writeFunc("epochDiffs", data); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) error {

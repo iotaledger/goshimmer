@@ -159,34 +159,32 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 }
 
 // LoadEpochDiffs updates the state tree from a given snapshot.
-func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+func (m *Manager) LoadEpochDiffs(ei epoch.Index, epochDiff *ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiff := epochDiffs[ei]
-		for _, spentOutputWithMetadata := range epochDiff.Spent() {
-			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
-			if has := m.epochCommitmentFactory.storage.ledgerstateStorage.DeleteIfPresent(spentOutputIDBytes); !has {
-				panic("epoch diff spends an output not contained in the ledger state")
-			}
-			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
-				panic("epoch diff spends an output not contained in the state tree")
-			}
-			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
-			if err != nil {
-				panic("could not delete leaf from state root tree")
-			}
+	for _, spentOutputWithMetadata := range epochDiff.Spent() {
+		spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
+		if has := m.epochCommitmentFactory.storage.ledgerstateStorage.DeleteIfPresent(spentOutputIDBytes); !has {
+			panic("epoch diff spends an output not contained in the ledger state")
 		}
-		for _, createdOutputWithMetadata := range epochDiff.Created() {
-			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
-			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
-			if err != nil {
-				panic("could not update leaf of state root tree")
-			}
+		if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
+			panic("epoch diff spends an output not contained in the state tree")
+		}
+		_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
+		if err != nil {
+			panic("could not delete leaf from state root tree")
 		}
 	}
+	for _, createdOutputWithMetadata := range epochDiff.Created() {
+		createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
+		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
+		_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
+		if err != nil {
+			panic("could not update leaf of state root tree")
+		}
+	}
+
 	return
 }
 
@@ -214,15 +212,17 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 }
 
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
-func (m *Manager) SnapshotEpochDiffs(fullEpochIndex, latestCommittableEpoch epoch.Index) (map[epoch.Index]*ledger.EpochDiff, error) {
-	// No need to lock because this is called in the context of a StartSnapshot.
-	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
-	for ei := fullEpochIndex + 1; ei <= latestCommittableEpoch; ei++ {
-		spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
-		epochDiffsMap[ei] = ledger.NewEpochDiff(spent, created)
-	}
+func (m *Manager) SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch epoch.Index, prodChan chan *ledger.EpochDiff, stopChan chan struct{}) {
+	go func() {
+		for i := fullEpochIndex; i <= latestCommitableEpoch; i++ {
+			spent, created := m.epochCommitmentFactory.loadDiffUTXOs(i)
+			prodChan <- ledger.NewEpochDiff(spent, created)
+		}
 
-	return epochDiffsMap, nil
+		close(stopChan)
+	}()
+
+	return
 }
 
 // SnapshotLedgerState returns the all confirmed OutputsWithMetadata when a snapshot is created.

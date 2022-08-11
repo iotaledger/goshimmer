@@ -57,7 +57,7 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
 		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
 		emptyOutputsConsumer := func([]*ledger.OutputWithMetadata) {}
-		emptyEpochDiffsConsumer := func(*ledger.SnapshotHeader, map[epoch.Index]*ledger.EpochDiff) {}
+		emptyEpochDiffsConsumer := func(epoch.Index, *ledger.EpochDiff) {}
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			emptyHeaderConsumer,

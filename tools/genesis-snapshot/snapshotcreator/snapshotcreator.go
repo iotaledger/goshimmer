@@ -49,9 +49,9 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
 	}
 
-	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-		fmt.Println(epochDiffs)
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -137,9 +137,9 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return nil
 	}
 
-	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-		fmt.Println(epochDiffs)
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 

@@ -31,7 +31,7 @@ var nodesToPledge = []string{
 
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffs          = make(map[epoch.Index]*ledger.EpochDiff)
+	epochDiffs          = make([]*ledger.EpochDiff, 0)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints    = make([]*SolidEntryPoints, 0)
 )
@@ -85,8 +85,9 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return nil
 	}
 
-	epochDiffsProd := func() (diffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		diffs = make(map[epoch.Index]*ledger.EpochDiff)
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -133,18 +134,17 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return o
 	}
 
-	epochDiffsProd := func() (diffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		l, size := 0, 10
-
-		for i := fullEpochIndex + 1; i <= diffEpochIndex; i++ {
-			spent, created := make([]*ledger.OutputWithMetadata, 0), make([]*ledger.OutputWithMetadata, 0)
-			spent = append(spent, outputsWithMetadata[l*size:(l+1)*size]...)
-			created = append(created, outputsWithMetadata[(l+1)*size:(l+2)*size]...)
-
-			epochDiffs[epoch.Index(i)] = ledger.NewEpochDiff(spent, created)
-			l += 2
+	// prepare epoch diffs
+	createsEpochDiffs(fullEpochIndex, diffEpochIndex)
+	k := 0
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		if i == len(epochDiffs) {
+			return nil
 		}
-		return epochDiffs, nil
+
+		d := epochDiffs[k]
+		k++
+		return d
 	}
 
 	solidEntryPoints = createSolidEntryPoints(t, fullEpochIndex, diffEpochIndex)
@@ -164,12 +164,12 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
-	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, diffs map[epoch.Index]*ledger.EpochDiff) {
-		epochDiffs = diffs
+	epochDiffsConsumer := func(_ epoch.Index, diffs *ledger.EpochDiff) {
+		epochDiffs = append(epochDiffs, diffs)
 	}
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
@@ -181,6 +181,18 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
 	require.NoError(t, err)
 	return
+}
+
+func createsEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index) {
+	l, size := 0, 10
+	for i := fullEpochIndex + 1; i <= diffEpochIndex; i++ {
+		spent, created := make([]*ledger.OutputWithMetadata, 0), make([]*ledger.OutputWithMetadata, 0)
+		spent = append(spent, outputsWithMetadata[l*size:(l+1)*size]...)
+		created = append(created, outputsWithMetadata[(l+1)*size:(l+2)*size]...)
+
+		epochDiffs = append(epochDiffs, ledger.NewEpochDiff(spent, created))
+		l += 2
+	}
 }
 
 func createSolidEntryPoints(t *testing.T, fullEpochIndex, diffEpochIndex epoch.Index) (seps []*SolidEntryPoints) {
@@ -278,11 +290,10 @@ func compareOutputWithMetadataSlice(t *testing.T, created, unmarshal []*ledger.O
 	}
 }
 
-func compareEpochDiffs(t *testing.T, created, unmarshal map[epoch.Index]*ledger.EpochDiff) {
+func compareEpochDiffs(t *testing.T, created, unmarshal []*ledger.EpochDiff) {
 	assert.Equal(t, len(created), len(unmarshal))
-	for ei, diffs := range created {
-		uDiffs, ok := unmarshal[ei]
-		require.True(t, ok)
+	for i, diffs := range created {
+		uDiffs := unmarshal[i]
 
 		compareOutputWithMetadataSlice(t, diffs.Spent(), uDiffs.Spent())
 		compareOutputWithMetadataSlice(t, diffs.Created(), uDiffs.Created())

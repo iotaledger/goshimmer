@@ -9,9 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
-	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -86,24 +84,24 @@ var nodesToPledge = []string{
 
 func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
-	log.Printf("creating createdSnapshot %s...", snapshotFileName)
+	// log.Printf("creating createdSnapshot %s...", snapshotFileName)
 
-	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
-	totalTokensToPledge := viper.GetUint64(cfgPledgeTokenAmount)
-	genesisSeed, err := base58.Decode(viper.GetString(cfgSnapshotGenesisSeed))
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
-	}
+	// genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
+	// totalTokensToPledge := viper.GetUint64(cfgPledgeTokenAmount)
+	// genesisSeed, err := base58.Decode(viper.GetString(cfgSnapshotGenesisSeed))
+	// if err != nil {
+	// 	log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
+	// }
 
-	manaDistribution := createManaDistribution(totalTokensToPledge)
+	// manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	err = snapshotcreator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
-		return
-	}
+	// err = snapshotcreator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	// if err != nil {
+	// 	log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
+	// 	return
+	// }
 
-	err = readSnapshotFromFile(snapshotFileName)
+	err := readSnapshotFromFile(snapshotFileName)
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to read snapshot: %w", err))
 	}
@@ -139,8 +137,8 @@ func readSnapshotFromFile(filePath string) (err error) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
-	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
-		fmt.Println(epochDiffs)
+	epochDiffsConsumer := func(ei epoch.Index, epochDiffs *ledger.EpochDiff) {
+		fmt.Println(ei, epochDiffs)
 	}
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)

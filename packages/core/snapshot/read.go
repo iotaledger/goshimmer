@@ -47,11 +47,14 @@ func streamSnapshotDataFrom(
 		outputConsumer(outputs)
 	}
 
-	epochDiffs, err := readEpochDiffs(reader)
-	if err != nil {
-		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+	// read epochDiffs
+	for i := header.FullEpochIndex + 1; i <= header.DiffEpochIndex; i++ {
+		epochDiffs, err := readEpochDiffs(reader)
+		if err != nil {
+			return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		}
+		epochDiffsConsumer(i, epochDiffs)
 	}
-	epochDiffsConsumer(header, epochDiffs)
 
 	return nil
 }
@@ -137,13 +140,12 @@ func readOutputWithMetadata(reader io.ReadSeeker) (outputMetadatas []*ledger.Out
 }
 
 // readEpochDiffs consumes a map of EpochDiff from the given reader.
-func readEpochDiffs(reader io.ReadSeeker) (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
-	epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
 	var epochDiffsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &epochDiffsLen); err != nil {
 		return nil, fmt.Errorf("unable to read epochDiffs bytes len: %w", err)
 	}
-
+	fmt.Println(">>> epoch diff len:", epochDiffsLen)
 	epochDiffsBytes := make([]byte, epochDiffsLen)
 	if err := binary.Read(reader, binary.LittleEndian, epochDiffsBytes); err != nil {
 		return nil, fmt.Errorf("unable to read epochDiffs: %w", err)
@@ -154,15 +156,13 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs map[epoch.Index]*ledger.Ep
 		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 	}
 
-	for _, epochdiff := range epochDiffs {
-		for _, spentOutput := range epochdiff.Spent() {
-			spentOutput.SetID(spentOutput.M.OutputID)
-			spentOutput.Output().SetID(spentOutput.M.OutputID)
-		}
-		for _, createdOutput := range epochdiff.Created() {
-			createdOutput.SetID(createdOutput.M.OutputID)
-			createdOutput.Output().SetID(createdOutput.M.OutputID)
-		}
+	for _, spentOutput := range epochDiffs.Spent() {
+		spentOutput.SetID(spentOutput.M.OutputID)
+		spentOutput.Output().SetID(spentOutput.M.OutputID)
+	}
+	for _, createdOutput := range epochDiffs.Created() {
+		createdOutput.SetID(createdOutput.M.OutputID)
+		createdOutput.Output().SetID(createdOutput.M.OutputID)
 	}
 
 	return
