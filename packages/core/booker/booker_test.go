@@ -14,70 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
-func Test(t *testing.T) {
-	tf := NewTestFramework(t)
-	// defer tf.Shutdown()
-	tf.ledgerTf.CreateTransaction("tx1", 4, "Genesis")
-	tf.ledgerTf.CreateTransaction("tx2", 4, "tx1.0")
-	tf.ledgerTf.CreateTransaction("tx3", 4, "tx2.2")
-	tf.ledgerTf.CreateTransaction("tx4", 4, "tx3.1")
-
-	tf.CreateBlock("block1", models.WithPayload(tf.ledgerTf.Transaction("tx4")))
-	tf.CreateBlock("block2", models.WithPayload(tf.ledgerTf.Transaction("tx4")))
-
-	tf.CreateBlock("block3", models.WithPayload(tf.ledgerTf.Transaction("tx3")))
-
-	tf.CreateBlock("block4", models.WithPayload(tf.ledgerTf.Transaction("tx2")))
-
-	tf.CreateBlock("block5", models.WithPayload(tf.ledgerTf.Transaction("tx1")))
-
-	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block3").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block5").WaitUntilAllTasksProcessed()
-
-	fmt.Println(tf.Booker.Block(tf.Block("block1").ID()))
-}
-
-func TestBooker_Marker(t *testing.T) {
-	tf := NewTestFramework(t)
-	tf.CreateBlock("block1")
-	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
-	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1")))
-	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3")))
-	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
-	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
-
-	tf.IssueBlocks("block1", "block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block3", "block4", "block5", "block6").WaitUntilAllTasksProcessed()
-}
-
-func Test_Conflict(t *testing.T) {
-	tf := NewTestFramework(t)
-	// defer tf.Shutdown()
-	tf.ledgerTf.CreateTransaction("tx1", 4, "Genesis")
-	tf.ledgerTf.CreateTransaction("tx2", 4, "tx1.0")
-	tf.ledgerTf.CreateTransaction("tx3", 4, "tx1.0")
-
-	tf.CreateBlock("block1", models.WithPayload(tf.ledgerTf.Transaction("tx1")))
-
-	tf.CreateBlock("block2", models.WithPayload(tf.ledgerTf.Transaction("tx2")))
-
-	tf.CreateBlock("block3", models.WithPayload(tf.ledgerTf.Transaction("tx3")))
-
-	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
-	// tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	// tf.IssueBlocks("block4").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("block3").WaitUntilAllTasksProcessed()
-
-	blk, _ := tf.Booker.Block(tf.Block("block3").ID())
-	fmt.Println(tf.Booker.blockBookingDetails(blk))
-}
-
-// ///////////////////////////
-
 func TestScenario_1(t *testing.T) {
 	debug.SetEnabled(true)
 
@@ -371,6 +307,42 @@ func TestScenario_4(t *testing.T) {
 		}))
 	}
 
+	// ISSUE Block7.3
+	{
+		tf.CreateBlock("Block7.3", models.WithStrongParents(tf.BlockIDs("Block7")))
+		tf.IssueBlocks("Block7.3").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block7.3": {tf.ledgerTf.TransactionIDs("TX6"), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block7.3": tf.ledgerTf.TransactionIDs("TX4", "TX6"),
+		}))
+	}
+
+	// ISSUE Block7.6
+	{
+		tf.CreateBlock("Block7.6", models.WithStrongParents(tf.BlockIDs("Block7.3")))
+		tf.IssueBlocks("Block7.6").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 2)),
+		}))
+
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block7.6": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block7.6": tf.ledgerTf.TransactionIDs("TX4", "TX6"),
+		}))
+	}
+
 	// ISSUE Block8
 	{
 		tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX0.1")))
@@ -392,6 +364,8 @@ func TestScenario_4(t *testing.T) {
 			"Block6.3": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX5"),
 			"Block6.6": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX5"),
 			"Block7":   tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block7.3": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX6"),
+			"Block7.6": tf.ledgerTf.TransactionIDs("TX3", "TX4", "TX6"),
 			"Block8":   tf.ledgerTf.TransactionIDs("TX2", "TX1"),
 		}))
 	}
@@ -400,7 +374,7 @@ func TestScenario_4(t *testing.T) {
 // TODO:
 //  1. implement test with invalidity
 //  2. implement test with future cone dislike
-//  3. implement the other invalidity test
+//  3. implement the other multithreaded test
 
 func MergeMaps[K comparable, V any](base, update map[K]V) map[K]V {
 	for k, v := range update {
