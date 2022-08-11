@@ -140,10 +140,10 @@ func NewSolidEntryPointsProducer(fullEpochIndex, latestCommitableEpoch epoch.Ind
 }
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerUTXOStatesProducer(fullEpochIndex epoch.Index, nmgr *notarization.Manager) UTXOStatesProducerFunc {
+func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
 	stopChan := make(chan struct{})
-	nmgr.SnapshotLedgerState(fullEpochIndex, prodChan, stopChan)
+	nmgr.SnapshotLedgerState(prodChan, stopChan)
 
 	return func() *ledger.OutputWithMetadata {
 		select {
