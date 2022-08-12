@@ -706,3 +706,70 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 		}
 	}
 }
+
+func Test_BlockInvalid(t *testing.T) {
+	debug.SetEnabled(true)
+
+	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockIDs("Block1")))
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")))
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")))
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
+	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")))
+
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.AssertInvalidCount(7, "8 blocks should be invalid")
+	tf.AssertBookedCount(2, "1 block should be booked")
+	tf.AssertInvalid(map[string]bool{
+		"Block1": false,
+		"Block2": true,
+		"Block3": true,
+		"Block4": false,
+		"Block5": true,
+		"Block6": true,
+		"Block7": true,
+		"Block8": true,
+		"Block9": true,
+	})
+
+	tf.AssertBooked(map[string]bool{
+		"Block1": true,
+		"Block2": false, //TODO: set as booked when actually booked instead of setting as booked by causal order
+		"Block3": false,
+		"Block4": true,
+		"Block5": false,
+		"Block6": false,
+		"Block7": false,
+		"Block8": false,
+	})
+
+	tf.AssertSolid(map[string]bool{
+		"Block1": true,
+		"Block2": true,
+		"Block3": true,
+		"Block4": true,
+		"Block5": true,
+		"Block6": true,
+		"Block7": true,
+		"Block8": true,
+		"Block9": false, // Block9 is not solid because it is invalid
+	})
+}
