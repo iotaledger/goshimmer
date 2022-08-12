@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -18,7 +18,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 
 	entityProvider   func(id ID) (entity Entity, exists bool)
 	isOrdered        func(entity Entity) (isOrdered bool)
-	setOrdered       func(entity Entity) (wasUpdated bool)
+	orderedCallback  func(entity Entity) (err error)
 	isReferenceValid func(child Entity, parent Entity) (isValid bool)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
@@ -34,7 +34,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
-	setOrdered func(entity Entity) (wasUpdated bool),
+	orderedCallback func(entity Entity) (err error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
@@ -42,7 +42,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
-		setOrdered:              setOrdered,
+		orderedCallback:         orderedCallback,
 		isReferenceValid:        func(entity Entity, parent Entity) bool { return true },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
@@ -60,9 +60,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (ordered bool) {
 		return
 	}
 
-	if ordered = c.wasOrdered(entity); ordered {
-		c.propagateCausalOrder(entity)
-	}
+	c.wasOrdered(entity)
 
 	return ordered
 }
@@ -114,38 +112,42 @@ func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, 
 	}
 }
 
-func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
+func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
-	if updatedStatus := c.updateOrderStatus(entity); updatedStatus == Invalid {
-		c.Events.Drop.Trigger(entity)
-	} else if wasOrdered = updatedStatus == Ordered; wasOrdered {
-		c.Events.Emit.Trigger(entity)
+	c.updateOrderStatus(entity)
+
+	return
+}
+
+func (c *CausalOrder[ID, Entity]) updateUnorderedParents(entity Entity) (newPendingParentsCount uint8, err error) {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	newPendingParentsCount, anyParentInvalid := c.countPendingParents(entity)
+	if anyParentInvalid {
+		return 1, errors.Errorf("entity %s has an invalid parent", entity.ID())
+	}
+
+	if newPendingParentsCount != 0 {
+		c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), newPendingParentsCount)
 	}
 
 	return
 }
 
-func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType UpdateType) {
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
-
-	pendingParentsCount, anyParentInvalid := c.countPendingParents(entity)
-	if anyParentInvalid {
-		return Invalid
+func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) {
+	newUnorderedParentsCount, err := c.updateUnorderedParents(entity)
+	if err != nil {
+		c.Events.Drop.Trigger(entity)
+		return
 	}
 
-	if pendingParentsCount != 0 {
-		c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
-		return Unchanged
+	if newUnorderedParentsCount == 0 {
+		// TODO: DROP if necessary
+		c.triggerOrderedCallback(entity)
 	}
-
-	if !c.setOrdered(entity) {
-		return Unchanged
-	}
-
-	return Ordered
 }
 
 func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
@@ -192,27 +194,25 @@ func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChil
 	return pendingChildren
 }
 
-func (c *CausalOrder[ID, Entity]) propagateCausalOrder(metadata Entity) {
-	for childWalker := walker.New[ID](true).Push(metadata.ID()); childWalker.HasNext(); {
-		for _, child := range c.popUnorderedChildren(childWalker.Next()) {
-			if c.triggerChildIfReady(child) {
-				childWalker.Push(child.ID())
-			}
+func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
+	c.dagMutex.Lock(child.ID())
+	defer c.dagMutex.Unlock(child.ID())
+
+	if c.decreaseUnorderedParentsCounter(child) == 0 {
+		if err := c.triggerOrderedCallback(child); err != nil {
+			c.Events.Drop.Trigger(child)
 		}
 	}
 }
 
-func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) (eventTriggered bool) {
-	c.dagMutex.Lock(child.ID())
-	defer c.dagMutex.Unlock(child.ID())
-
-	if c.decreaseUnorderedParentsCounter(child) != 0 || !c.setOrdered(child) {
-		return false
+func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (err error) {
+	if err = c.orderedCallback(entity); err == nil {
+		for _, child := range c.popUnorderedChildren(entity.ID()) {
+			event.Loop.Submit(func() { c.triggerChildIfReady(child) })
+		}
 	}
 
-	c.Events.Emit.Trigger(child)
-
-	return true
+	return
 }
 
 func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
