@@ -50,6 +50,12 @@ func Test_CreateAndReadSnapshot(t *testing.T) {
 }
 
 func Test_CreateAndReadEmptySnapshot(t *testing.T) {
+	// clear all data
+	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	epochDiffs = make([]*ledger.EpochDiff, 0)
+	manaDistribution = createManaDistribution(cfgPledgeTokenAmount)
+	solidEntryPoints = make([]*SolidEntryPoints, 0)
+
 	header := createEmptySnapshot(t)
 
 	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
