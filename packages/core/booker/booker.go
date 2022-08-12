@@ -65,9 +65,9 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	// TODO: is Hook making the booker single threaded? should we have some other method that would re-check a block
-	//b.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
+	// b.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
 	//	b.propagateBooking(event.BlockID)
-	//}))
+	// }))
 
 	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
 	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))

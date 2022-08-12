@@ -324,6 +324,9 @@ func WithWeakParents(parents BlockIDs) options.Option[Block] {
 
 func WithLikedInsteadParents(parents BlockIDs) options.Option[Block] {
 	return func(block *Block) {
+		if len(parents) == 0 {
+			return
+		}
 		if block.M.Parents == nil {
 			block.M.Parents = NewParentBlockIDs()
 		}
