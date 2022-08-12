@@ -116,9 +116,16 @@ func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
-	c.updateOrderStatus(entity)
+	newUnorderedParentsCount, err := c.updateUnorderedParents(entity)
+	if err != nil {
+		c.Events.Drop.Trigger(entity)
+		return
+	}
 
-	return
+	if newUnorderedParentsCount == 0 {
+		// TODO: DROP if necessary
+		c.triggerOrderedCallback(entity)
+	}
 }
 
 func (c *CausalOrder[ID, Entity]) updateUnorderedParents(entity Entity) (newPendingParentsCount uint8, err error) {
@@ -135,19 +142,6 @@ func (c *CausalOrder[ID, Entity]) updateUnorderedParents(entity Entity) (newPend
 	}
 
 	return
-}
-
-func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) {
-	newUnorderedParentsCount, err := c.updateUnorderedParents(entity)
-	if err != nil {
-		c.Events.Drop.Trigger(entity)
-		return
-	}
-
-	if newUnorderedParentsCount == 0 {
-		// TODO: DROP if necessary
-		c.triggerOrderedCallback(entity)
-	}
 }
 
 func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
