@@ -103,7 +103,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.endEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
-						m.log.Debugw("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
+						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
 					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
 						discardedPeers.Add(params.peerID)
 						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
@@ -140,8 +140,6 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	if err != nil {
 		return errors.Errorf("sync failed for range %d-%d", start, end)
 	}
-
-	m.log.Debugf("sync successful for range %d-%d", start, end)
 
 	return nil
 }
@@ -212,7 +210,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	// Send epoch starter.
 	m.sendEpochStarter(ei, ec, blocksCount, nbr.ID())
-	m.log.Debugw("sent epoch starter", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", blocksCount)
+	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", blocksCount)
 
 	// Send epoch's blocks in batches.
 	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
@@ -232,7 +230,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	// Send epoch terminator.
 	m.sendEpochEnd(ei, ec, ecRecord.Roots(), nbr.ID())
-	m.log.Debugw("sent epoch blocks termination", "peer", nbr.ID(), "EI", ei, "EC", ec.Base58())
+	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "EI", ei, "EC", ec.Base58())
 }
 
 func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, nbr *p2p.Neighbor) {
@@ -247,7 +245,7 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
-	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "EI", ei)
+	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
 	select {
 	case <-epochChannels.stopChan:
@@ -291,8 +289,6 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			block: block,
 		}:
 		}
-
-		m.log.Debugw("write block", "blockID", block.ID())
 	}
 }
 

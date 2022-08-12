@@ -49,6 +49,8 @@ type Manager struct {
 	syncingLock       sync.RWMutex
 	epochsChannels    map[epoch.Index]*epochChannels
 
+	successfulSyncEpoch epoch.Index
+
 	sync.RWMutex
 }
 
@@ -104,6 +106,11 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	m.Lock()
 	defer m.Unlock()
 
+	if m.successfulSyncEpoch >= end {
+		m.log.Debugf("WarpRange: already synced to %d", m.successfulSyncEpoch)
+		return nil
+	}
+
 	m.active.Set()
 	defer m.active.UnSet()
 
@@ -116,6 +123,10 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	if syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
 	}
+
+	m.log.Infof("range %d-%d synced", start, end)
+
+	m.successfulSyncEpoch = end
 
 	return nil
 }

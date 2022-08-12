@@ -33,14 +33,14 @@ func (m *Manager) epochStartCommand(params *syncingFlowParams, next dataflow.Nex
 		if !ok {
 			return nil
 		}
-		if valid, err := checkSanity(epochStart.ei, epochStart.ec, params); !valid {
+		if valid, err := isOnTargetChain(epochStart.ei, epochStart.ec, params); !valid {
 			return errors.Wrap(err, "received invalid epoch start")
 		}
 
 		params.epochBlocksLeft = epochStart.blocksCount
-		m.log.Debugw("read epoch block count", "EI", epochStart.ei, "blockCount", params.epochBlocksLeft)
+		m.log.Debugw("read epoch block count", "EI", epochStart.ei, "blocksCount", params.epochBlocksLeft)
 	case <-params.ctx.Done():
-		return errors.Errorf("cancelled while receiving starter for epoch %d: %s", params.targetEpoch, params.ctx.Err())
+		return errors.Errorf("cancelled while receiving epoch %d start: %s", params.targetEpoch, params.ctx.Err())
 	}
 
 	return next(params)
@@ -57,7 +57,7 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 			if !ok {
 				return nil
 			}
-			if valid, err := checkSanity(epochBlock.ei, epochBlock.ec, params); !valid {
+			if valid, err := isOnTargetChain(epochBlock.ei, epochBlock.ec, params); !valid {
 				return errors.Wrap(err, "received invalid block")
 			}
 
@@ -71,7 +71,8 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 			params.tangleTree.Update(block.IDBytes(), block.IDBytes())
 			params.epochBlocks[block.ID()] = block
 			params.epochBlocksLeft--
-			m.log.Debugf("%d blocks left for epoch %d", params.epochBlocksLeft, params.targetEpoch)
+
+			m.log.Debugf("epoch %d: %d blocks left", params.targetEpoch, params.epochBlocksLeft)
 		case <-params.ctx.Done():
 			return errors.Errorf("cancelled while receiving blocks for epoch %d: %s", params.targetEpoch, params.ctx.Err())
 		}
@@ -86,7 +87,7 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 		if !ok {
 			return nil
 		}
-		if valid, err := checkSanity(epochEnd.ei, epochEnd.ec, params); !valid {
+		if valid, err := isOnTargetChain(epochEnd.ei, epochEnd.ec, params); !valid {
 			return errors.Wrap(err, "received invalid epoch end")
 		}
 
@@ -131,7 +132,7 @@ func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next data
 	return next(params)
 }
 
-func checkSanity(ei epoch.Index, ec epoch.EC, params *syncingFlowParams) (valid bool, err error) {
+func isOnTargetChain(ei epoch.Index, ec epoch.EC, params *syncingFlowParams) (valid bool, err error) {
 	if ei != params.targetEpoch {
 		return false, errors.Errorf("received epoch %d while we expected epoch %d", ei, params.targetEpoch)
 	}

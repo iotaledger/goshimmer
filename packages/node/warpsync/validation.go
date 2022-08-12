@@ -42,8 +42,6 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 	ecRecordChain[end] = epoch.NewECRecord(end)
 	ecRecordChain[end].SetPrevEC(endPrevEC)
 
-	m.log.Debugw("validation readloop", "start", start, "end", end, "startEC", startEC.Base58(), "endPrevEC", endPrevEC.Base58())
-
 	for {
 		select {
 		case commitment, ok := <-m.commitmentsChan:
@@ -62,7 +60,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 			// Ignore committments outside of the range.
 			if commitmentEI < startRange || commitmentEI > endRange {
-				m.log.Debugw("ignoring committment outside of requested range", "EI", commitmentEI)
+				m.log.Debugw("ignoring committment outside of requested range", "EI", commitmentEI, "peer", peerID)
 				continue
 
 			}
@@ -70,7 +68,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			// If we already validated this epoch, we check if the neighbor is on the target chain.
 			if commitmentEI > epochToValidate {
 				if ecRecordChain[commitmentEI].ComputeEC() != ecRecord.ComputeEC() {
-					m.log.Debugw("ignoring commitment outside of the target chain", "ID", peerID)
+					m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
 					validPeers.Delete(peerID)
 				}
 				continue
@@ -96,14 +94,14 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 					break
 				}
 
-				for neighborID, epochCommitment := range neighborCommitmentsForEpoch {
-					if !validPeers.Has(neighborID) {
+				for peerID, epochCommitment := range neighborCommitmentsForEpoch {
+					if !validPeers.Has(peerID) {
 						continue
 					}
 					proposedECRecord := epochCommitment.ecRecord
 					if ecRecordChain[epochToValidate+1].PrevEC() != proposedECRecord.ComputeEC() {
-						m.log.Debugw("neighbor %s sent committment outside of the target chain", neighborID)
-						validPeers.Delete(neighborID)
+						m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
+						validPeers.Delete(peerID)
 						continue
 					}
 
@@ -127,7 +125,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 				if startEC != syncedStartPrevEC {
 					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, syncedStartPrevEC)
 				}
-				m.log.Debugf("validated successfull for range %d to %d", start, end)
+				m.log.Infof("range %d-%d validated", start, end)
 				return ecChain, validPeers, nil
 			}
 
