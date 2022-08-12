@@ -204,7 +204,7 @@ func createsEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index) {
 func createSolidEntryPoints(t *testing.T, fullEpochIndex, diffEpochIndex epoch.Index) (seps []*SolidEntryPoints) {
 	for i := fullEpochIndex; i <= diffEpochIndex; i++ {
 		sep := &SolidEntryPoints{EI: i, Seps: make([]tangleold.BlockID, 0)}
-		for j := 0; j < 100; j++ {
+		for j := 0; j < 101; j++ {
 			var b tangleold.BlockID
 			require.NoError(t, b.FromRandomness(i))
 			sep.Seps = append(sep.Seps, b)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
@@ -95,20 +96,44 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 }
 
 func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err error) {
+	seps = &SolidEntryPoints{}
+	blkIDs := make([]tangleold.BlockID, 0)
+
+	// read seps EI
+	var index int64
+	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
+		return nil, fmt.Errorf("unable to read fullEpochIndex: %w", err)
+	}
+	seps.EI = epoch.Index(index)
+
+	// read numbers of solid entry point
 	var sepsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &sepsLen); err != nil {
-		return nil, fmt.Errorf("unable to read seps bytes len: %w", err)
+		return nil, fmt.Errorf("unable to read seps len: %w", err)
 	}
 
-	sepsBytes := make([]byte, sepsLen)
-	if err := binary.Read(reader, binary.LittleEndian, sepsBytes); err != nil {
-		return nil, fmt.Errorf("unable to read solid entry points: %w", err)
+	spentLenInt := int(sepsLen)
+	for i := 0; i < spentLenInt; {
+		var sepsBytesLen int64
+		if err := binary.Read(reader, binary.LittleEndian, &sepsBytesLen); err != nil {
+			return nil, fmt.Errorf("unable to read seps bytes len: %w", err)
+		}
+
+		sepsBytes := make([]byte, sepsBytesLen)
+		if err := binary.Read(reader, binary.LittleEndian, sepsBytes); err != nil {
+			return nil, fmt.Errorf("unable to read solid entry points: %w", err)
+		}
+
+		ids := make([]tangleold.BlockID, 0)
+		_, err = serix.DefaultAPI.Decode(context.Background(), sepsBytes, &ids, serix.WithValidation())
+		if err != nil {
+			return nil, err
+		}
+		blkIDs = append(blkIDs, ids...)
+		i += len(ids)
 	}
 
-	seps = &SolidEntryPoints{}
-	if _, err = serix.DefaultAPI.Decode(context.Background(), sepsBytes, &seps, serix.WithValidation()); err != nil {
-		return nil, err
-	}
+	seps.Seps = blkIDs
 
 	return seps, nil
 }

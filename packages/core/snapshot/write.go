@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 )
 
-const utxoStatesChunkSize = 100
+const chunkSize = 100
 
 // streamSnapshotDataTo writes snapshot to a given writer.
 func streamSnapshotDataTo(
@@ -61,8 +61,8 @@ func streamSnapshotDataTo(
 		outputChunkCounter++
 		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
 
-		// put a delimeter every utxoStatesChunkSize outputs
-		if outputChunkCounter == utxoStatesChunkSize {
+		// put a delimeter every chunkSize outputs
+		if outputChunkCounter == chunkSize {
 			err = writeOutputsWithMetadata(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
 				return nil, err
@@ -154,10 +154,10 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 	s := diffs.Spent()
 	var end int
 	for i := 0; i < spentLen; {
-		if i+utxoStatesChunkSize > spentLen {
+		if i+chunkSize > spentLen {
 			end = spentLen
 		} else {
-			end = i + utxoStatesChunkSize
+			end = i + chunkSize
 		}
 		writeOutputsWithMetadata(writeSeeker, s[i:end])
 		i = end
@@ -169,10 +169,10 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 	}
 	c := diffs.Created()
 	for i := 0; i < createdLen; {
-		if i+utxoStatesChunkSize > createdLen {
+		if i+chunkSize > createdLen {
 			end = createdLen
 		} else {
-			end = i + utxoStatesChunkSize
+			end = i + chunkSize
 		}
 		writeOutputsWithMetadata(writeSeeker, c[i:end])
 		i = end
@@ -186,16 +186,40 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	data, err := serix.DefaultAPI.Encode(context.Background(), seps, serix.WithValidation())
-	if err != nil {
+	// write EI
+	if err := writeFunc("solid entry points epoch", seps.EI); err != nil {
 		return err
 	}
 
-	if err := writeFunc("sepsBytesLen", int64(len(data))); err != nil {
+	// write number of solid entry points
+	sepsLen := len(seps.Seps)
+	if err := writeFunc("solid entry points Len", int64(sepsLen)); err != nil {
 		return err
 	}
-	if err := writeFunc("seps", data); err != nil {
-		return err
+
+	// write solid entry points in chunks
+	s := seps.Seps
+	var end int
+	for i := 0; i < sepsLen; {
+		if i+chunkSize > sepsLen {
+			end = sepsLen
+		} else {
+			end = i + chunkSize
+		}
+
+		data, err := serix.DefaultAPI.Encode(context.Background(), s[i:end], serix.WithValidation())
+		if err != nil {
+			return err
+		}
+
+		if err := writeFunc("sepsBytesLen", int64(len(data))); err != nil {
+			return err
+		}
+		if err := writeFunc("seps", data); err != nil {
+			return err
+		}
+
+		i = end
 	}
 
 	return nil
