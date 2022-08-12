@@ -387,11 +387,12 @@ type BlockModel struct {
 	SequenceNumber       uint64            `serix:"4"`
 	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
 	EI                   epoch.Index       `serix:"6"`
-	ECR                  epoch.ECR         `serix:"7"`
-	PrevEC               epoch.EC          `serix:"8"`
-	LatestConfirmedEpoch epoch.Index       `serix:"9"`
-	Nonce                uint64            `serix:"10"`
-	Signature            ed25519.Signature `serix:"11"`
+	ECRecordEI           epoch.Index       `serix:"7"`
+	ECR                  epoch.ECR         `serix:"8"`
+	PrevEC               epoch.EC          `serix:"9"`
+	LatestConfirmedEpoch epoch.Index       `serix:"10"`
+	Nonce                uint64            `serix:"11"`
+	Signature            ed25519.Signature `serix:"12"`
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
@@ -410,7 +411,8 @@ func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey 
 		IssuingTime:          issuingTime,
 		SequenceNumber:       sequenceNumber,
 		PayloadBytes:         lo.PanicOnErr(blkPayload.Bytes()),
-		EI:                   ecRecord.EI(),
+		EI:                   epoch.IndexFromTime(issuingTime),
+		ECRecordEI:           ecRecord.EI(),
 		ECR:                  ecRecord.ECR(),
 		PrevEC:               ecRecord.PrevEC(),
 		LatestConfirmedEpoch: latestConfirmedEpoch,
@@ -551,6 +553,11 @@ func (m *Block) Nonce() uint64 {
 // EI returns the EI of the block.
 func (m *Block) EI() epoch.Index {
 	return m.M.EI
+}
+
+// ECRecordEI returns the EI of the ECRecord a block contains.
+func (m *Block) ECRecordEI() epoch.Index {
+	return m.M.ECRecordEI
 }
 
 // ECR returns the ECR of the block.

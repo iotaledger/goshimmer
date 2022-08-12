@@ -176,7 +176,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -194,7 +194,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -216,7 +216,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -240,7 +240,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -260,7 +260,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
@@ -308,7 +308,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -323,7 +323,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -338,7 +338,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -355,7 +355,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -373,7 +373,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
@@ -390,7 +390,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(2), blk.EI())
+		assert.Equal(t, epoch.Index(2), blk.ECRecordEI())
 		assert.Equal(t, EC1, ecRecord.PrevEC())
 	}
 
@@ -410,7 +410,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(3), blk.EI())
+		assert.Equal(t, epoch.Index(3), blk.ECRecordEI())
 		assert.Equal(t, EC2, ecRecord.PrevEC())
 	}
 
@@ -424,7 +424,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(3), blk.EI())
+		assert.Equal(t, epoch.Index(3), blk.ECRecordEI())
 		assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
 			"Block5": true,
 			"Block6": true,
@@ -474,7 +474,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block2, issuing time epoch 1
 	{
@@ -486,7 +486,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block3, issuing time epoch 1
 	{
@@ -498,7 +498,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block4, issuing time epoch 1
 	{
@@ -510,7 +510,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -525,7 +525,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block6 TX2, issuing time epoch 2
 	{
@@ -537,7 +537,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -559,7 +559,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -585,7 +585,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -638,7 +638,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block2, issuing time epoch 1
 	{
@@ -650,7 +650,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block3 TX1, issuing time epoch 1
 	{
@@ -662,7 +662,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block4 TX2, issuing time epoch 1
 	{
@@ -674,7 +674,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 
 		// pre-create block 8
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
@@ -692,7 +692,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block6, issuing time epoch 2
 	{
@@ -704,7 +704,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block7, issuing time epoch 2
 	{
@@ -716,14 +716,14 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block8, issuing time epoch 1, earlier attachment of Block6, with same tx
 	{
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block9, issuing time epoch 2
 	{
@@ -735,7 +735,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block9")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block10, issuing time epoch 2
 	{
@@ -747,7 +747,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block10")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
@@ -808,7 +808,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block2, issuing time epoch 1
@@ -822,7 +822,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A"}, []string{"C1", "C1+"})
@@ -840,7 +840,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block4, issuing time epoch 2
@@ -854,7 +854,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"E3"})
@@ -873,7 +873,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A", "B"}, []string{"C1", "C1+", "D2"})
@@ -892,7 +892,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block7, issuing time epoch 3, if we loaded the diff we should just have F4 and H6 as spent and created
@@ -907,7 +907,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block8, issuing time epoch 2, reattaches Block6's TX from epoch 3 to epoch 2
@@ -922,7 +922,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block9, issuing time epoch 3, confirms Block8 (reattachment of Block 6)
@@ -937,7 +937,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block9")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block10, issuing time epoch 3, confirms Block9 and reattachment of Block 6
@@ -952,7 +952,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block10")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"G5", "D2"}, []string{"F4", "H6"})
