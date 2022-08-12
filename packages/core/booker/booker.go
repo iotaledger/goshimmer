@@ -280,7 +280,11 @@ func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs
 	payloadConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
-		payloadConflictIDs.AddAll(b.PayloadConflictIDs(block))
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+		payloadConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
 
 		return true
 	})
@@ -294,13 +298,17 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 	collectedLikedConflictIDs = utxo.NewTransactionIDs()
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
-		transaction, isTransaction := block.Transaction()
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
 			err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentBlockID, block.ID(), cerrors.ErrFatal)
 			return false
 		}
 
-		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(block))
+		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
 
 		for it := b.ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 			conflictingTransactionID := it.Next()
@@ -409,6 +417,8 @@ func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.Transacti
 	}()
 
 	if _, conflictIDs := b.blockBookingDetails(block); !conflictIDs.HasAll(parentConflicts) {
+		fmt.Println(block.ID(), conflictIDs, parentConflicts)
+		// tODO: this needs coverage I guess?
 		return false
 	}
 
