@@ -134,7 +134,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 	}
 
 	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
-		return nil
+		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
 	}
 
 	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
