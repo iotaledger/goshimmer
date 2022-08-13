@@ -54,7 +54,7 @@ func New(dbManager *database.Manager, rootBlockProvider func(models.BlockID) *Bl
 		rootBlockProvider: rootBlockProvider,
 		maxDroppedEpoch:   -1,
 	}, opts).initSolidifier(
-		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
+		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
 }
 
@@ -268,8 +268,8 @@ func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
 	return id.EpochIndex <= t.maxDroppedEpoch && t.rootBlockProvider(id) == nil
 }
 
-// isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (err error) {
+// checkReference checks if the reference between the child and its parent is valid.
+func checkReference(child *Block, parent *Block) (err error) {
 	if parent.invalid {
 		return errors.Errorf("parent %s of child %s is invalid", parent.ID(), child.ID())
 	}
