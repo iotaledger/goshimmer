@@ -145,11 +145,18 @@ func (t *Tangle) IsShutdown() (isShutdown bool) {
 
 // initSolidifier is used to lazily initialize the solidifier after the options have been populated.
 func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, (*Block).setSolid, opts...)
-	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
+	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, opts...)
 	t.solidifier.Events.Drop.Attach(event.NewClosure(func(block *Block) { t.SetInvalid(block) }))
 
 	return t
+}
+
+func (t *Tangle) markSolid(block *Block) (err error) {
+	block.setSolid()
+
+	t.Events.BlockSolid.Trigger(block)
+
+	return nil
 }
 
 // attach tries to attach the given Block to the Tangle.

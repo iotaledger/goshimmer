@@ -60,7 +60,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (ordered bool) {
 		return
 	}
 
-	c.wasOrdered(entity)
+	c.triggerOrderedIfReady(entity)
 
 	return ordered
 }
@@ -112,19 +112,22 @@ func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, 
 	}
 }
 
-func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) {
+func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	c.lockEntity(entity)
 	defer c.unlockEntity(entity)
 
 	newUnorderedParentsCount, err := c.updateUnorderedParents(entity)
 	if err != nil {
+		fmt.Println("DROP", entity)
 		c.Events.Drop.Trigger(entity)
+	}
+
+	if newUnorderedParentsCount != 0 {
 		return
 	}
 
-	if newUnorderedParentsCount == 0 {
-		// TODO: DROP if necessary
-		c.triggerOrderedCallback(entity)
+	if err = c.triggerOrderedCallback(entity); err != nil {
+		c.Events.Drop.Trigger(entity)
 	}
 }
 
@@ -136,10 +139,7 @@ func (c *CausalOrder[ID, Entity]) updateUnorderedParents(entity Entity) (newPend
 	if anyParentInvalid {
 		return 1, errors.Errorf("entity %s has an invalid parent", entity.ID())
 	}
-
-	if newPendingParentsCount != 0 {
-		c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), newPendingParentsCount)
-	}
+	c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), newPendingParentsCount)
 
 	return
 }
@@ -200,10 +200,14 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
 }
 
 func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (err error) {
-	if err = c.orderedCallback(entity); err == nil {
-		for _, child := range c.popUnorderedChildren(entity.ID()) {
-			event.Loop.Submit(func() { c.triggerChildIfReady(child) })
-		}
+	if err = c.orderedCallback(entity); err != nil {
+		return
+	}
+
+	for _, child := range c.popUnorderedChildren(entity.ID()) {
+		currentChild := child
+
+		event.Loop.Submit(func() { c.triggerChildIfReady(currentChild) })
 	}
 
 	return

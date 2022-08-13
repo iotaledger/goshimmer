@@ -7,13 +7,11 @@ import (
 )
 
 type Events[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
-	Emit *event.Event[Entity]
 	Drop *event.Event[Entity]
 }
 
 func newEvents[ID epoch.IndexedID, Entity OrderedEntity[ID]]() *Events[ID, Entity] {
 	return &Events[ID, Entity]{
-		Emit: event.New[Entity](),
 		Drop: event.New[Entity](),
 	}
 }
