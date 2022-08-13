@@ -70,8 +70,11 @@ func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 }
 
 func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) (wasOrdered bool) {
-	c.lockEntity(entity)
-	defer c.unlockEntity(entity)
+	c.dagMutex.RLock(entity.Parents()...)
+	defer c.dagMutex.RUnlock(entity.Parents()...)
+
+	c.dagMutex.Lock(entity.ID())
+	defer c.dagMutex.Unlock(entity.ID())
 
 	return c.allParentsOrdered(entity) && c.triggerOrderedCallback(entity)
 }
@@ -118,6 +121,29 @@ func (c *CausalOrder[ID, Entity]) setUnorderedParentsCounter(entityID ID, unorde
 	c.unorderedParentsCounter.Get(entityID.Index(), true).Set(entityID, unorderedParentsCount)
 }
 
+func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (newUnorderedParentsCounter uint8) {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
+	if unorderedParentsCounterStorage == nil {
+		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
+	}
+
+	newUnorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
+	if !exists {
+		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
+	}
+	newUnorderedParentsCounter--
+	if newUnorderedParentsCounter == 0 {
+		unorderedParentsCounterStorage.Delete(metadata.ID())
+		return
+	}
+	unorderedParentsCounterStorage.Set(metadata.ID(), newUnorderedParentsCounter)
+
+	return
+}
+
 func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChildren []Entity) {
 	c.unorderedChildrenMutex.Lock()
 	defer c.unorderedChildrenMutex.Unlock()
@@ -150,46 +176,17 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (wasTrig
 		return
 	}
 
-	for _, child := range c.popUnorderedChildren(entity.ID()) {
-		currentChild := child
-
-		event.Loop.Submit(func() { c.triggerChildIfReady(currentChild) })
-	}
+	c.propagateOrderToChildren(entity.ID())
 
 	return true
 }
 
-func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
+func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
+	for _, child := range c.popUnorderedChildren(id) {
+		currentChild := child
 
-	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
-	if unorderedParentsCounterStorage == nil {
-		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
+		event.Loop.Submit(func() { c.triggerChildIfReady(currentChild) })
 	}
-
-	unorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
-	if !exists {
-		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
-	}
-	unorderedParentsCounter--
-	if unorderedParentsCounter == 0 {
-		unorderedParentsCounterStorage.Delete(metadata.ID())
-		return
-	}
-	unorderedParentsCounterStorage.Set(metadata.ID(), unorderedParentsCounter)
-
-	return
-}
-
-func (c *CausalOrder[ID, Entity]) lockEntity(entity Entity) {
-	c.dagMutex.RLock(entity.Parents()...)
-	c.dagMutex.Lock(entity.ID())
-}
-
-func (c *CausalOrder[ID, Entity]) unlockEntity(entity Entity) {
-	c.dagMutex.Unlock(entity.ID())
-	c.dagMutex.RUnlock(entity.Parents()...)
 }
 
 func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
