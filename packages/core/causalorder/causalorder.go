@@ -34,7 +34,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
-	droppedCallback func(entity Entity, err error),
+	droppedCallback func(entity Entity, reason error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
@@ -72,7 +72,6 @@ func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) (wasOrdered bool) {
 	c.dagMutex.RLock(entity.Parents()...)
 	defer c.dagMutex.RUnlock(entity.Parents()...)
-
 	c.dagMutex.Lock(entity.ID())
 	defer c.dagMutex.Unlock(entity.ID())
 
@@ -134,11 +133,13 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 	if !exists {
 		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
 	}
-	newUnorderedParentsCounter--
-	if newUnorderedParentsCounter == 0 {
+
+	if newUnorderedParentsCounter--; newUnorderedParentsCounter == 0 {
 		unorderedParentsCounterStorage.Delete(metadata.ID())
+
 		return
 	}
+
 	unorderedParentsCounterStorage.Set(metadata.ID(), newUnorderedParentsCounter)
 
 	return
@@ -209,6 +210,7 @@ func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedE
 	droppedEntities = make(map[ID]Entity)
 	for c.maxDroppedEpoch < epochIndex {
 		c.maxDroppedEpoch++
+
 		c.dropEntitiesFromEpoch(c.maxDroppedEpoch, func(id ID) {
 			if _, exists := droppedEntities[id]; !exists {
 				droppedEntities[id] = c.entity(id)
