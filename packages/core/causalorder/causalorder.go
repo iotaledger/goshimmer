@@ -56,7 +56,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (isOrdered bool) {
 	defer c.pruningMutex.RUnlock()
 
 	if entity.ID().Index() <= c.maxDroppedEpoch {
-		c.Events.Drop.Trigger(entity)
+		c.triggerDroppedCallback(entity, errors.Errorf("entity %s is too old", entity.ID()))
 
 		return false
 	}
@@ -66,7 +66,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (isOrdered bool) {
 
 func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
 	for _, droppedEntity := range c.dropEntities(epochIndex) {
-		c.Events.Drop.Trigger(droppedEntity)
+		c.triggerDroppedCallback(droppedEntity, errors.Errorf("entity %s pruned", droppedEntity.ID()))
 	}
 }
 
@@ -76,7 +76,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) (wasOrder
 
 	if parentsOrdered, err := c.checkParents(entity); !parentsOrdered {
 		if err != nil {
-			c.Events.Drop.Trigger(entity)
+			c.triggerDroppedCallback(entity, err)
 		}
 
 		return
@@ -150,7 +150,7 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
 
 func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (wasTriggered bool) {
 	if err := c.orderedCallback(entity); err != nil {
-		c.Events.Drop.Trigger(entity)
+		c.triggerDroppedCallback(entity, err)
 
 		return
 	}
@@ -162,6 +162,10 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (wasTrig
 	}
 
 	return true
+}
+
+func (c *CausalOrder[ID, Entity]) triggerDroppedCallback(entity Entity, _ error) {
+	c.Events.Drop.Trigger(entity)
 }
 
 func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
