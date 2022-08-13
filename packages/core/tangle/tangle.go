@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -145,8 +144,7 @@ func (t *Tangle) IsShutdown() (isShutdown bool) {
 
 // initSolidifier is used to lazily initialize the solidifier after the options have been populated.
 func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, opts...)
-	t.solidifier.Events.Drop.Attach(event.NewClosure(func(block *Block) { t.SetInvalid(block) }))
+	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, t.markInvalid, opts...)
 
 	return t
 }
@@ -157,6 +155,10 @@ func (t *Tangle) markSolid(block *Block) (err error) {
 	t.Events.BlockSolid.Trigger(block)
 
 	return nil
+}
+
+func (t *Tangle) markInvalid(block *Block, _ error) {
+	t.SetInvalid(block)
 }
 
 // attach tries to attach the given Block to the Tangle.
@@ -267,8 +269,12 @@ func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
 }
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (isValid bool) {
-	return !parent.invalid
+func isReferenceValid(child *Block, parent *Block) (err error) {
+	if parent.invalid {
+		return errors.Errorf("parent %s of child %s is invalid", parent.ID(), child.ID())
+	}
+
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
