@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -157,7 +158,9 @@ func (t *Tangle) markSolid(block *Block) (err error) {
 	return nil
 }
 
-func (t *Tangle) markInvalid(block *Block, _ error) {
+func (t *Tangle) markInvalid(block *Block, reason error) {
+	fmt.Println("INVALID", block.ID(), reason)
+
 	t.SetInvalid(block)
 }
 

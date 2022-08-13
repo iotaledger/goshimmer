@@ -108,10 +108,12 @@ func (c *CausalOrder[ID, Entity]) registerUnorderedChild(entityID ID, child Enti
 }
 
 func (c *CausalOrder[ID, Entity]) setUnorderedParentsCounter(entityID ID, unorderedParentsCount uint8) (newUnorderedParentsCount uint8) {
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
+	if unorderedParentsCount != 0 {
+		c.unorderedParentsCounterMutex.Lock()
+		defer c.unorderedParentsCounterMutex.Unlock()
 
-	c.unorderedParentsCounter.Get(entityID.Index(), true).Set(entityID, unorderedParentsCount)
+		c.unorderedParentsCounter.Get(entityID.Index(), true).Set(entityID, unorderedParentsCount)
+	}
 
 	return unorderedParentsCount
 }
