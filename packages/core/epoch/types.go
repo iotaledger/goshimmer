@@ -179,19 +179,37 @@ func (e *ECRecord) FromBytes(bytes []byte) (err error) {
 
 type NodesActivityLog map[Index]*ActivityLog
 
+func ActiveNodesFromBytes(data []byte) (activeNodes NodesActivityLog, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &activeNodes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse activeNodes: %w", err)
+		return
+	}
+	return
+}
+
+func ActiveNodesToBytes(activeNodes NodesActivityLog) []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), activeNodes, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	SetEpochs set.Set[identity.ID] `serix:"0,lengthPrefixType=uint32"`
+	SetEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
 
 	a := &ActivityLog{
-		SetEpochs: set.New[identity.ID](),
+		SetEpochs: set.NewAdvancedSet[identity.ID](),
 	}
 
 	return a
@@ -220,9 +238,9 @@ func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
-	a.SetEpochs.ForEach(func(nodeID identity.ID) {
+	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
 		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
-
+		return
 	})
 	builder.WriteString(")")
 	return builder.String()
@@ -231,35 +249,8 @@ func (a *ActivityLog) String() string {
 // Clone clones the ActivityLog.
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
-
-	a.SetEpochs.ForEach(func(nodeID identity.ID) {
-		clone.SetEpochs.Add(nodeID)
-	})
-
+	clone.SetEpochs = a.SetEpochs.Clone()
 	return clone
-}
-
-// Encode serializes the object to a byte slice.
-func (a *ActivityLog) Encode() ([]byte, error) {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.SetEpochs, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes, nil
-}
-
-// Decode deserializes bytes into a valid object.
-func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
-
-	a.SetEpochs = set.New[identity.ID]()
-	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.SetEpochs, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ActivityLog: %w", err)
-		return
-	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,7 +265,7 @@ func NewSnapshotEpochActivity() map[Index]*SnapshotNodeActivity {
 
 // SnapshotNodeActivity is structure to store nodes activity for an epoch.
 type SnapshotNodeActivity struct {
-	model.Immutable[SnapshotNodeActivity, *SnapshotNodeActivity, nodeActivityModel] `serix:"0"`
+	model.Mutable[SnapshotNodeActivity, *SnapshotNodeActivity, nodeActivityModel] `serix:"0"`
 }
 
 // NewSnapshotNodeActivity creates a new SnapshotNodeActivity instance.
