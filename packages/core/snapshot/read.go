@@ -36,7 +36,9 @@ func streamSnapshotDataFrom(
 		return err
 	}
 	header.LatestECRecord = ecRecord
-	headerConsumer(header)
+	if headerConsumer != nil {
+		headerConsumer(header)
+	}
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
@@ -59,7 +61,9 @@ func streamSnapshotDataFrom(
 	if err != nil {
 		return errors.Errorf("failed to parse activity log from bytes: %w", err)
 	}
-	activityLogConsumer(activityLog)
+	if activityLogConsumer != nil {
+		activityLogConsumer(activityLog)
+	}
 
 	return nil
 }

@@ -249,11 +249,14 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 
 				}
-				// initialize cMana WeightProvider with snapshot
-				activityLogConsumer := func(activityLog epoch.SnapshotEpochActivity) {
-					deps.Tangle.WeightProvider.LoadActiveNodes(activityLog)
-				}
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer, activityLogConsumer); err != nil {
+
+				if err := snapshot.LoadSnapshot(
+					Parameters.Snapshot.File,
+					headerConsumer,
+					utxoStatesConsumer,
+					epochDiffsConsumer,
+					deps.Tangle.WeightProvider.LoadActiveNodes,
+				); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
