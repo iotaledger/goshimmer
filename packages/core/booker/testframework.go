@@ -90,10 +90,10 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	callback(block)
 }
 
-func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
-	for alias, isSolid := range expectedValues {
+func (t *TestFramework) AssertBooked(expectedValues map[string]bool) {
+	for alias, isBooked := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.T, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
+			assert.Equal(t.T, isBooked, block.IsBooked(), "block %s has incorrect booked flag", alias)
 		})
 	}
 }

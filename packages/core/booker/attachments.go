@@ -30,10 +30,6 @@ func (a *attachments) Store(txID utxo.TransactionID, block *Block) {
 	a.RLock()
 	defer a.RUnlock()
 
-	if block.ID().EpochIndex <= a.maxDroppedEpoch {
-		return
-	}
-
 	a.storeAttachment(txID, block)
 	a.updatePruningMap(block.ID().EpochIndex, txID)
 }

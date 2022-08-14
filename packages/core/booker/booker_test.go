@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -73,7 +74,9 @@ func TestScenario_2(t *testing.T) {
 	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block1", "Block4")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX6", 1, "TX1.2")))
 	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block7", "Block4")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX7", 1, "TX3.0", "TX6.0")))
 	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block7")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX8", 1, "TX1.1")))
+	tf.CreateBlock("Block0.5", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX9", 1, "TX8.0")))
 
+	tf.IssueBlocks("Block0.5").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 	tf.IssueBlocks("Block3", "Block4").WaitUntilAllTasksProcessed()
@@ -84,18 +87,19 @@ func TestScenario_2(t *testing.T) {
 	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
-		"Block1": utxo.NewTransactionIDs(),
-		"Block2": tf.ledgerTf.TransactionIDs("TX2"),
-		"Block3": tf.ledgerTf.TransactionIDs("TX2"),
-		"Block4": tf.ledgerTf.TransactionIDs("TX3"),
-		"Block5": tf.ledgerTf.TransactionIDs("TX2", "TX4"),
-		"Block6": tf.ledgerTf.TransactionIDs("TX2", "TX4"),
-		"Block7": tf.ledgerTf.TransactionIDs("TX3", "TX6"),
-		"Block8": tf.ledgerTf.TransactionIDs("TX3", "TX6"),
-		"Block9": tf.ledgerTf.TransactionIDs("TX3", "TX6", "TX8"),
+		"Block0.5": tf.ledgerTf.TransactionIDs("TX8"),
+		"Block1":   utxo.NewTransactionIDs(),
+		"Block2":   tf.ledgerTf.TransactionIDs("TX2"),
+		"Block3":   tf.ledgerTf.TransactionIDs("TX2"),
+		"Block4":   tf.ledgerTf.TransactionIDs("TX3"),
+		"Block5":   tf.ledgerTf.TransactionIDs("TX2", "TX4"),
+		"Block6":   tf.ledgerTf.TransactionIDs("TX2", "TX4"),
+		"Block7":   tf.ledgerTf.TransactionIDs("TX3", "TX6"),
+		"Block8":   tf.ledgerTf.TransactionIDs("TX3", "TX6"),
+		"Block9":   tf.ledgerTf.TransactionIDs("TX3", "TX6", "TX8"),
 	})
 
-	tf.AssertBookedCount(9, "all block should be booked")
+	tf.AssertBookedCount(10, "all block should be booked")
 }
 
 func TestScenario_3(t *testing.T) {
@@ -373,10 +377,6 @@ func TestScenario_4(t *testing.T) {
 	}
 }
 
-// TODO:
-//  1. implement test with invalidity
-//  2. implement test with future cone dislike
-
 func MergeMaps[K comparable, V any](base, update map[K]V) map[K]V {
 	for k, v := range update {
 		base[k] = v
@@ -574,4 +574,202 @@ func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expect
 
 		assert.True(t, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockID, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
 	}
+}
+
+// This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
+// When pruning the tangle, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
+func Test_Prune(t *testing.T) {
+	const epochCount = 100
+
+	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
+
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	// create a helper function that creates the blocks
+	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
+		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
+		if idx == 0 {
+			fmt.Println("Creating genesis block")
+
+			return tf.CreateBlock(
+				alias,
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithPayload(tf.ledgerTf.CreateTransaction(alias, 1, "Genesis")),
+			), alias
+		}
+		parentAlias := fmt.Sprintf("blk%s-%d", prefix, idx-1)
+		return tf.CreateBlock(
+			alias,
+			models.WithStrongParents(tf.BlockIDs(parentAlias)),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithPayload(tf.ledgerTf.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
+		), alias
+	}
+
+	assert.EqualValues(t, -1, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+
+	expectedInvalid := make(map[string]bool, epochCount)
+	expectedBooked := make(map[string]bool, epochCount)
+
+	// Attach solid blocks
+	for i := 0; i < epochCount; i++ {
+		block, alias := createNewBlock(i, "")
+
+		_, wasAttached, err := tf.Tangle.Attach(block)
+		assert.True(t, wasAttached, "block should be attached")
+		assert.NoError(t, err, "should not be able to attach a block after shutdown")
+
+		if i > epochCount/4 {
+			expectedInvalid[alias] = false
+			expectedBooked[alias] = true
+		}
+	}
+
+	_, wasAttached, err := tf.Tangle.Attach(tf.CreateBlock(
+		"blk-0-reattachment",
+		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount-1))),
+		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount-1)*epoch.Duration, 0)),
+		models.WithPayload(tf.ledgerTf.Transaction("blk-0")),
+	))
+	assert.True(t, wasAttached, "block should be attached")
+	assert.NoError(t, err, "should not be able to attach a block after shutdown")
+
+	tf.WaitUntilAllTasksProcessed()
+
+	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
+
+	validateState(tf, -1, epochCount)
+
+	tf.Booker.Prune(epochCount / 4)
+	tf.WaitUntilAllTasksProcessed()
+
+	assert.EqualValues(t, epochCount/4, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
+	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
+
+	// All orphan blocks should be marked as invalid due to invalidity propagation.
+	tf.AssertInvalidCount(0, "should have invalid blocks")
+
+	tf.Booker.Prune(epochCount / 10)
+
+	assert.EqualValues(t, epochCount/4, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
+	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
+
+	tf.Booker.Prune(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/2)
+	assert.EqualValues(t, epochCount/2, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/2)
+
+	validateState(tf, epochCount/2, epochCount)
+
+	_, wasAttached, err = tf.Tangle.Attach(tf.CreateBlock(
+		"blk-0.5",
+		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount-1))),
+		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+	))
+	tf.WaitUntilAllTasksProcessed()
+
+	assert.True(t, wasAttached, "block should be attached")
+	assert.NoError(t, err, "should not be able to attach a block after shutdown")
+
+	_, exists := tf.Booker.Block(tf.TestFramework.Block("blk-0.5").ID())
+	assert.False(t, exists, "blk-0.5 should not be booked")
+}
+
+func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
+	for i := maxPrunedEpoch + 1; i < epochCount; i++ {
+		alias := fmt.Sprintf("blk-%d", i)
+
+		_, exists := tf.Booker.Block(tf.TestFramework.Block(alias).ID())
+		assert.True(tf.T, exists, "block should be in the tangle")
+		if i == 0 {
+			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
+			assert.Len(tf.T, blocks, 2, "transaction blk-0 should have 2 attachments")
+		} else {
+			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
+			assert.Len(tf.T, blocks, 1, "transaction should have 1 attachment")
+		}
+	}
+
+	for i := 0; i < maxPrunedEpoch; i++ {
+		alias := fmt.Sprintf("blk-%d", i)
+		_, exists := tf.Booker.Block(tf.TestFramework.Block(alias).ID())
+		assert.False(tf.T, exists, "block should not be in the tangle")
+		if i == 0 {
+			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
+			assert.Len(tf.T, blocks, 1, "transaction should have 1 attachment")
+		} else {
+			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
+			assert.Empty(tf.T, blocks, "transaction should have no attachments")
+		}
+	}
+}
+
+func Test_BlockInvalid(t *testing.T) {
+	debug.SetEnabled(true)
+
+	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockIDs("Block1")))
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")))
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block2", "Block5")))
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
+	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block4", "Block5")))
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")))
+
+	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+
+	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.AssertInvalidCount(7, "8 blocks should be invalid")
+	tf.AssertBookedCount(2, "1 block should be booked")
+	tf.AssertInvalid(map[string]bool{
+		"Block1": false,
+		"Block2": true,
+		"Block3": true,
+		"Block4": false,
+		"Block5": true,
+		"Block6": true,
+		"Block7": true,
+		"Block8": true,
+		"Block9": true,
+	})
+
+	tf.AssertBooked(map[string]bool{
+		"Block1": true,
+		"Block2": false, //TODO: set as booked when actually booked instead of setting as booked by causal order
+		"Block3": false,
+		"Block4": true,
+		"Block5": false,
+		"Block6": false,
+		"Block7": false,
+		"Block8": false,
+	})
+
+	tf.AssertSolid(map[string]bool{
+		"Block1": true,
+		"Block2": true,
+		"Block3": true,
+		"Block4": true,
+		"Block5": true,
+		"Block6": true,
+		"Block7": true,
+		"Block8": true,
+		"Block9": false, // Block9 is not solid because it is invalid
+	})
 }
