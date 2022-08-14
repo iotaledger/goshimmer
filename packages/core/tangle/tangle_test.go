@@ -443,9 +443,11 @@ func TestTangle_Prune(t *testing.T) {
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
 	tf.Tangle.Prune(epochCount / 10)
+	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/4, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/4")
 
 	tf.Tangle.Prune(epochCount / 2)
+	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
 
 	_, exists = tf.Tangle.Block(tf.Block("blk-0").ID())
