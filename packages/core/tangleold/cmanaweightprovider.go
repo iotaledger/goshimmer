@@ -24,6 +24,7 @@ func init() {
 const (
 	minimumManaThreshold = 0
 	activeNodesKey       = "WeightProviderActiveNodes"
+	// activeEpochThreshold defines the activity window in number of epochs.
 	activeEpochThreshold = 15
 )
 
@@ -59,7 +60,7 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 	}
 	// Load from storage if key was found.
 	if marshaledActiveNodes != nil {
-		if cManaWeightProvider.activeNodes, err = activeNodesFromBytes(marshaledActiveNodes); err != nil {
+		if cManaWeightProvider.activeNodes, err = epoch.ActiveNodesFromBytes(marshaledActiveNodes); err != nil {
 			panic(err)
 		}
 		return
@@ -113,17 +114,17 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	// nodes mana is counted only once for total weight calculation
 	totalWeightOnce := make(map[identity.ID]types.Empty)
 	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
-		al, ok := c.activeNodes[ei]
-		if !ok {
+		al, exists := c.activeNodes[ei]
+		if !exists {
 			continue
 		}
-		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
 			nodeMana := mana[nodeID]
 			// Do this check after determining whether a node was active because otherwise we would never clean up
 			// the ActivityLog of nodes lower than the threshold.
 			// Skip node if it does not fulfill minimumManaThreshold.
 			if nodeMana <= minimumManaThreshold {
-				return
+				return nil
 			}
 
 			weights[nodeID] = nodeMana
@@ -131,16 +132,15 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 				totalWeight += nodeMana
 				totalWeightOnce[nodeID] = types.Void
 			}
+			return nil
 		})
 	}
 	c.clean(lowerBoundEpoch)
 
-	if len(weights) == 0 {
-		fmt.Printf("WARNING no active node for threshold %v - %v\n", lowerBoundEpoch, upperBoundEpoch)
-	}
 	return weights, totalWeight
 }
 
+// SnapshotEpochActivity returns the activity log for snapshotting.
 func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
 	epochActivity = epoch.NewSnapshotEpochActivity()
 
@@ -148,11 +148,12 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 	defer c.mutex.Unlock()
 
 	for ei, al := range c.activeNodes {
-		al.SetEpochs.ForEach(func(nodeID identity.ID) {
+		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
 			if _, ok := epochActivity[ei]; !ok {
 				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
 			}
 			epochActivity[ei].SetNodeActivity(nodeID, 0)
+			return nil
 		})
 	}
 	return
@@ -161,26 +162,8 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
-		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
+		_ = c.store.Set(kvstore.Key(activeNodesKey), epoch.ActiveNodesToBytes(c.ActiveNodes()))
 	}
-}
-
-func (c *CManaWeightProvider) CurrentlyActive() (activeNodes map[identity.ID]types.Empty) {
-	lower, upper := c.activityBoundaries()
-	activeNodes = make(map[identity.ID]types.Empty)
-
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-	for ei := lower; ei <= upper; ei++ {
-		nodes, ok := c.activeNodes[ei]
-		if !ok {
-			continue
-		}
-		nodes.SetEpochs.ForEach(func(nodeID identity.ID) {
-			activeNodes[nodeID] = types.Void
-		})
-	}
-	return
 }
 
 // ActiveNodes returns the map of the active nodes.
@@ -199,6 +182,9 @@ func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog)
 
 // LoadActiveNodes loads the activity log to weight provider.
 func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	for ei, epochActivity := range loadedActiveNodes {
 		if _, ok := c.activeNodes[ei]; !ok {
 			c.activeNodes[ei] = epoch.NewActivityLog()
@@ -226,34 +212,12 @@ func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundE
 }
 
 // clean removes all activity logs for epochs lower than provided bound.
-func (c *CManaWeightProvider) clean(lowerBond epoch.Index) {
+func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
 	for ei := range c.activeNodes {
-		if ei < lowerBond {
+		if ei < lowerBound {
 			delete(c.activeNodes, ei)
 		}
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
-
-func activeNodesFromBytes(data []byte) (activeNodes epoch.NodesActivityLog, err error) {
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &activeNodes, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse activeNodes: %w", err)
-		return
-	}
-	return
-}
-
-func activeNodesToBytes(activeNodes epoch.NodesActivityLog) []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), activeNodes, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

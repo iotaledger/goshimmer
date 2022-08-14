@@ -27,8 +27,8 @@ func TestActiveNodesMarshalling(t *testing.T) {
 			activeNodes[epoch.Index(i)].Add(nodeID)
 		}
 	}
-	activeNodesBytes := activeNodesToBytes(activeNodes)
-	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)
+	activeNodesBytes := epoch.ActiveNodesToBytes(activeNodes)
+	activeNodes2, err := epoch.ActiveNodesFromBytes(activeNodesBytes)
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {

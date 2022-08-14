@@ -33,7 +33,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getNodesHandler(c echo.Context) (err error) {
-	activeNodes := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).CurrentlyActive()
+	activeNodes, _ := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).WeightsOfRelevantVoters()
 
 	activeNodesString := make([]string, 0)
 

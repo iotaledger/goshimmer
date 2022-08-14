@@ -1020,7 +1020,7 @@ func TestManager_ActivityTree(t *testing.T) {
 		weightProvider.Update(ei, nodes["A"].ID())
 		weightProvider.Update(ei, nodes["B"].ID())
 
-		activeNodes := weightProvider.CurrentlyActive()
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
 		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
 		for _, n := range activeNodesTest[ei] {
 			assert.Contains(t, activeNodes, n)
@@ -1041,7 +1041,7 @@ func TestManager_ActivityTree(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 		weightProvider.Update(epoch.IndexFromTime(issuingTime), nodes["C"].ID())
 
-		activeNodes := weightProvider.CurrentlyActive()
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
 		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
 		for _, n := range activeNodesTest[ei] {
 			assert.Contains(t, activeNodes, n)
@@ -1054,7 +1054,7 @@ func TestManager_ActivityTree(t *testing.T) {
 	{
 		ei := epoch.IndexFromTime(issuingTime)
 
-		activeNodes := weightProvider.CurrentlyActive()
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
 		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
 		for _, n := range activeNodesTest[ei] {
 			assert.Contains(t, activeNodes, n)
