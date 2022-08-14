@@ -271,7 +271,7 @@ func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
 // checkReference checks if the reference between the child and its parent is valid.
 func checkReference(child *Block, parent *Block) (err error) {
 	if parent.invalid {
-		return errors.Errorf("parent %s of child %s is invalid", parent.ID(), child.ID())
+		return errors.Errorf("parent %s of child %s is marked as invalid", parent.ID(), child.ID())
 	}
 
 	return nil
