@@ -39,7 +39,7 @@ func IndexFromTime(t time.Time) Index {
 		return 0
 	}
 
-	return Index(elapsedSeconds/Duration + 1)
+	return Index(elapsedSeconds / Duration)
 }
 
 func (i Index) Bytes() []byte {
