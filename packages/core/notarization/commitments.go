@@ -2,12 +2,11 @@ package notarization
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/hive.go/core/serix"
-
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -105,27 +104,17 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 	branch1 := make([]byte, 0)
 	branch1a := make([]byte, 0)
 	branch1b := make([]byte, 0)
-	branch2 := make([]byte, 0)
 
-	branch1aHashed := blake2b.Sum256(append(append(branch1a, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
-	branch1bHashed := blake2b.Sum256(append(append(branch1b, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
-	branch1Hashed := blake2b.Sum256(append(append(branch1, branch1aHashed[:]...), branch1bHashed[:]...))
-	branch2Hashed := blake2b.Sum256(append(branch2, epochRoots.activityRoot[:]...))
-	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
+	branch1aHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1a, epochRoots.tangleRoot[:], epochRoots.stateMutationRoot[:]))
+	branch1bHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1b, epochRoots.stateRoot[:], epochRoots.manaRoot[:]))
+	branch1Hashed := blake2b.Sum256(byteutils.ConcatBytes(branch1, branch1aHashed[:], branch1bHashed[:]))
+	branch2Hashed := blake2b.Sum256(epochRoots.activityRoot[:])
+	rootHashed := blake2b.Sum256(byteutils.ConcatBytes(root, branch1Hashed[:], branch2Hashed[:]))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
 }
 
-// InsertStateLeaf inserts the outputID to the state sparse merkle tree.
-func (f *EpochCommitmentFactory) insertStateLeaf(outputID utxo.OutputID) error {
-	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "could not insert leaf to the state tree")
-	}
-	return nil
-}
-
-// RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
+// removeStateLeaf removes the output ID from the ledger sparse merkle tree.
 func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) error {
 	exists, _ := f.stateRootTree.Has(outputID.Bytes())
 	if exists {
@@ -137,7 +126,7 @@ func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) error {
 	return nil
 }
 
-// UpdateManaLeaf updates the mana balance in the mana sparse merkle tree.
+// updateManaLeaf updates the mana balance in the mana sparse merkle tree.
 func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.OutputWithMetadata, isCreated bool) (err error) {
 	outputBalance, exists := outputWithMetadata.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 	if !exists {
@@ -162,10 +151,7 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 	// remove leaf if mana is zero
 	if currentBalance <= 0 {
-		if _, deleteLeafErr := f.manaRootTree.Delete(accountBytes); deleteLeafErr != nil {
-			return errors.Wrap(deleteLeafErr, "could not delete leaf from mana tree")
-		}
-		return nil
+		return removeLeaf(f.manaRootTree, accountBytes)
 	}
 
 	encodedBalanceBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), currentBalance, serix.WithValidation())
@@ -173,139 +159,61 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 		return errors.Wrap(encodeErr, "could not encode mana leaf balance")
 	}
 
-	if _, updateLeafErr := f.manaRootTree.Update(accountBytes, encodedBalanceBytes); updateLeafErr != nil {
-		return errors.Wrap(updateLeafErr, "could not update mana tree leaf")
-	}
-
-	return nil
+	return insertLeaf(f.manaRootTree, accountBytes, encodedBalanceBytes)
 }
 
-// InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
+// insertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting state mutation leaf")
 	}
-	_, err = commitment.stateMutationTree.Update(txID.Bytes(), txID.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
-	}
-	return nil
+	return insertLeaf(commitment.stateMutationTree, txID.Bytes(), txID.Bytes())
 }
 
-// RemoveStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
+// removeStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
 	}
-	_, err = commitment.stateMutationTree.Delete(txID.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
-	}
-	return nil
+	return removeLeaf(commitment.stateMutationTree, txID.Bytes())
 }
 
-// InsertTangleLeaf inserts blk to the Tangle sparse merkle tree.
+// insertTangleLeaf inserts blk to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
 	}
-	_, err = commitment.tangleTree.Update(blkID.Bytes(), blkID.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "could not insert leaf to the tangle tree")
-	}
-	return nil
+	return insertLeaf(commitment.tangleTree, blkID.Bytes(), blkID.Bytes())
 }
 
-// RemoveTangleLeaf removes the block ID from the Tangle sparse merkle tree.
+// removeTangleLeaf removes the block ID from the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
 	}
-	exists, _ := commitment.tangleTree.Has(blkID.Bytes())
-	if exists {
-		_, err2 := commitment.tangleTree.Delete(blkID.Bytes())
-		if err2 != nil {
-			return errors.Wrap(err, "could not delete leaf from the tangle tree")
-		}
-	}
-	return nil
+	return removeLeaf(commitment.tangleTree, blkID.Bytes())
 }
 
-// insertActivityLeaf inserts nodeID to the Activity sparse merkle tree along with a counter corresponding to
-// the number of accepted blocks issued by this node.
+// insertActivityLeaf inserts nodeID to the Activity sparse merkle tree.
 func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID, acceptedInc ...uint64) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
 	}
-
-	var blocksAccepted uint64
-	exists, _ := commitment.activityTree.Has(nodeID.Bytes())
-	if exists {
-		if blocksAcceptedBytes, activeErr := commitment.activityTree.Get(nodeID.Bytes()); activeErr == nil {
-			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), blocksAcceptedBytes, &blocksAccepted, serix.WithValidation())
-			if decodeErr != nil {
-				return errors.Wrap(decodeErr, "could not decode accepted blocks count for activity tree")
-			}
-		}
-	}
-	// increase counter for accepted messages issued by the node
-	increase := uint64(1)
-	if len(acceptedInc) > 0 {
-		increase = acceptedInc[0]
-	}
-	blocksAccepted += increase
-
-	encodedAcceptedBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), blocksAccepted, serix.WithValidation())
-	if encodeErr != nil {
-		return errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
-	}
-	_, updateErr := commitment.activityTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
-	if updateErr != nil {
-		return errors.Wrap(err, "could not insert leaf to the activity tree")
-	}
-
-	return nil
+	return insertLeaf(commitment.activityTree, nodeID.Bytes(), nodeID.Bytes())
 }
 
-// removeActivityLeaf removes the nodeID from the Activity sparse merkle tree
-// if node had only one block accepted this far for this epoch.
-func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) (removed bool, err error) {
+// removeActivityLeaf removes the nodeID from the Activity sparse merkle tree.
+func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return false, errors.Wrap(err, "could not get commitment while deleting activity leaf")
+		return errors.Wrap(err, "could not get commitment while deleting activity leaf")
 	}
-	exists, _ := commitment.activityTree.Has(nodeID.Bytes())
-	if exists {
-		var blocksAccepted uint64
-		if blocksAcceptedBytes, activeErr := commitment.activityTree.Get(nodeID.Bytes()); activeErr == nil {
-			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), blocksAcceptedBytes, &blocksAccepted, serix.WithValidation())
-			if decodeErr != nil {
-				return false, errors.Wrap(decodeErr, "could not decode accepted blocks count for activity tree")
-			}
-			if blocksAccepted == 1 {
-				_, err2 := commitment.activityTree.Delete(nodeID.Bytes())
-				if err2 != nil {
-					return false, errors.Wrap(err, "could not delete leaf from the activity tree")
-				}
-				return true, nil
-			}
-			blocksAccepted--
-			encodedAcceptedBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), blocksAccepted, serix.WithValidation())
-			if encodeErr != nil {
-				return false, errors.Wrap(encodeErr, "could not encode active count for activity leaf ")
-			}
-			_, updateErr := commitment.activityTree.Update(nodeID.Bytes(), encodedAcceptedBytes)
-			if updateErr != nil {
-				return false, errors.Wrap(err, "could not insert leaf to the activity tree")
-			}
-		}
-	}
-	return false, nil
+	return removeLeaf(commitment.activityTree, nodeID.Bytes())
 }
 
 // ecRecord retrieves the epoch commitment.
@@ -501,7 +409,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 
 	// Insert  created UTXOs into the state tree.
 	for _, created := range createdOutputs {
-		err = f.insertStateLeaf(created.ID())
+		err = insertLeaf(f.stateRootTree, created.ID().Bytes(), created.ID().Bytes())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not insert the state leaf")
 		}
@@ -513,7 +421,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 
 	// Remove spent UTXOs from the state tree.
 	for _, spent := range spentOutputs {
-		err = f.removeStateLeaf(spent.ID())
+		err = removeLeaf(f.stateRootTree, spent.ID().Bytes())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not remove state leaf")
 		}
@@ -540,6 +448,27 @@ func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 	ecHash := blake2b.Sum256(concatenated)
 
 	return epoch.NewMerkleRoot(ecHash[:])
+}
+
+// insertLeaf inserts the outputID to the provided sparse merkle tree.
+func insertLeaf(tree *smt.SparseMerkleTree, keyBytes, valueBytes []byte) error {
+	_, err := tree.Update(keyBytes, valueBytes)
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the tree")
+	}
+	return nil
+}
+
+// removeLeaf inserts the outputID to the provided sparse merkle tree.
+func removeLeaf(tree *smt.SparseMerkleTree, leaf []byte) error {
+	exists, _ := tree.Has(leaf)
+	if exists {
+		_, err := tree.Delete(leaf)
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the tree")
+		}
+	}
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
