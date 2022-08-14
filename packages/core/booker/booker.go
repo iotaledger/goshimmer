@@ -62,15 +62,7 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 
 		rootBlockProvider: rootBlockProvider,
 	}, opts)
-	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
-
-	// TODO: is Hook making the booker single threaded? should we have some other method that would re-check a block
-	// b.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
-	//	b.propagateBooking(event.BlockID)
-	// }))
-
-	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
-	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
+	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, booker.book, func(block *Block, _ error) { booker.SetInvalid(block.Block) }, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
@@ -184,7 +176,7 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	return b.blocks.Get(id.EpochIndex, true).Get(id)
 }
 
-func (b *Booker) book(block *Block) {
+func (b *Booker) book(block *Block) (err error) {
 	// TODO: after fixing causal order to work with multiple goroutines
 	//  b.RLock()
 	//  defer b.RUnlock()
@@ -193,16 +185,15 @@ func (b *Booker) book(block *Block) {
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
-	err := b.inheritConflictIDs(block)
-	if err != nil {
-		b.Events.Error.Trigger(errors.Errorf("error inheriting conflict IDs: %w", err))
-		b.SetInvalid(block.Block)
-		return
+	if err = b.inheritConflictIDs(block); err != nil {
+		return errors.Errorf("error inheriting conflict IDs: %w", err)
 	}
 
 	block.setBooked()
 
 	b.Events.BlockBooked.Trigger(block)
+
+	return nil
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
@@ -473,6 +464,10 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (isValid bool) {
-	return !parent.IsInvalid()
+func isReferenceValid(child *Block, parent *Block) (err error) {
+	if parent.IsInvalid() {
+		return errors.Errorf("parent %s of child %s is marked as invalid", parent.ID(), child.ID())
+	}
+
+	return nil
 }
