@@ -89,13 +89,11 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 	a.Add(nodeID)
 
 	// increase updates counter
-	epochUpdatesCount, exist := c.updatedActivityCount.Get(ei)
+	_, exist := c.updatedActivityCount.Get(ei)
 	if !exist {
 		c.updatedActivityCount.Set(ei, make(ActivityUpdatesCount))
 	}
-	if _, ok := epochUpdatesCount[nodeID]; !ok {
-		epochUpdatesCount[nodeID] = 0
-	}
+	epochUpdatesCount, _ := c.updatedActivityCount.Get(ei)
 	epochUpdatesCount[nodeID] += 1
 }
 
