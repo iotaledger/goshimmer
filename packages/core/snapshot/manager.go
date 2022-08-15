@@ -108,7 +108,7 @@ func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
-	epochSeps, exists := m.seps.Get(b.EI())
+	epochSeps, exists := m.seps.Get(b.ID().EpochIndex)
 	if !exists {
 		return errors.New("solid entry point of the epoch does not exist")
 	}
