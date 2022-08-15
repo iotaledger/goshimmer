@@ -50,14 +50,15 @@ type Booker struct {
 
 func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger:        ledgerInstance,
-		Tangle:        tangleInstance,
-		Events:        newEvents(),
-		attachments:   newAttachments(),
-		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		markerManager: NewMarkerManager(),
-		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
+		ledger:          ledgerInstance,
+		Tangle:          tangleInstance,
+		Events:          newEvents(),
+		attachments:     newAttachments(),
+		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
+		markerManager:   NewMarkerManager(),
+		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
+		maxDroppedEpoch: -1,
 
 		rootBlockProvider: rootBlockProvider,
 	}, opts)
@@ -99,11 +100,14 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 	b.RLock()
 	defer b.RUnlock()
-	// TODO: check whether too old?
+
+	if block.ID().Index() <= b.maxDroppedEpoch {
+		return false, nil
+	}
+
 	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
 
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
-		fmt.Println("Payload solid, queuing", block.ID())
 		b.bookingOrder.Queue(block)
 	}
 
@@ -124,6 +128,10 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
+	if block.ID().Index() <= b.maxDroppedEpoch {
+		return utxo.NewTransactionIDs()
+	}
+
 	conflictIDs = utxo.NewTransactionIDs()
 
 	transaction, isTransaction := block.Transaction()

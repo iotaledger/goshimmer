@@ -273,7 +273,7 @@ func TestTangle_Shutdown(t *testing.T) {
 	assert.False(t, wasUpdated, "block should not be updated")
 }
 
-// This test prepares blocks accross different epochs and tries to attach them in reverse order to a pruned tangle.
+// This test prepares blocks across different epochs and tries to attach them in reverse order to a pruned tangle.
 // At the end of the test only blocks from non-pruned epochs should be attached and marked as invalid.
 func TestTangle_AttachInvalid(t *testing.T) {
 	const epochCount = 100
@@ -431,8 +431,7 @@ func TestTangle_Prune(t *testing.T) {
 
 	tf.AssertSolidCount(epochCount, "should have all solid blocks")
 
-	_, exists := tf.Tangle.Block(tf.Block("blk-0").ID())
-	assert.True(t, exists, "block should be in the tangle")
+	validateState(tf, -1, epochCount)
 
 	tf.Tangle.Prune(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
@@ -448,8 +447,27 @@ func TestTangle_Prune(t *testing.T) {
 	tf.Tangle.Prune(epochCount / 2)
 	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
 
-	_, exists = tf.Tangle.Block(tf.Block("blk-0").ID())
-	assert.False(t, exists, "block should not be in the tangle")
+	validateState(tf, epochCount/2, epochCount)
+}
+
+func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
+	for i := 0; i <= maxDroppedEpoch; i++ {
+		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
+
+		_, exists := tf.Tangle.Block(blkID)
+		assert.False(tf.T, exists, "block %s should not be in the tangle", blkID)
+
+		assert.Nil(tf.T, tf.Tangle.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+	}
+
+	for i := maxDroppedEpoch + 1; i < epochCount; i++ {
+		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
+
+		_, exists := tf.Tangle.Block(blkID)
+		assert.True(tf.T, exists, "block %s should be in the tangle", blkID)
+
+		assert.NotNil(tf.T, tf.Tangle.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+	}
 }
 
 func TestTangle_MissingBlocks(t *testing.T) {

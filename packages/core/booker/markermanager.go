@@ -55,6 +55,7 @@ func NewMarkerManager() *MarkerManager {
 func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
 	m.pruningMutex.RLock()
 	defer m.pruningMutex.RUnlock()
+
 	newStructureDetails, newSequenceCreated := m.sequenceManager.InheritStructureDetails(structureDetails)
 
 	if newSequenceCreated {
