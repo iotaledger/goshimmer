@@ -261,16 +261,6 @@ func runManaPlugin(_ *node.Plugin) {
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
 				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
-
-				genesisNodeID := identity.ID{}
-				for nodeID := range GetCMana() {
-					if nodeID == genesisNodeID {
-						continue
-					}
-					deps.Tangle.WeightProvider.Update(0, nodeID)
-				}
-
-				manaLogger.Infof("MANA: read snapshot from %s", Parameters.Snapshot.File)
 			}
 		}
 		pruneStorages()

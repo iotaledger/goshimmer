@@ -346,8 +346,8 @@ type WeightProvider interface {
 	// Update updates the underlying data structure and keeps track of active nodes.
 	Update(ei epoch.Index, nodeID identity.ID)
 
-	// Remove updates the underlying data structure by removing node from active list.
-	Remove(ei epoch.Index, nodeID identity.ID)
+	// Remove updates the underlying data structure by removing node from active list if no activity left.
+	Remove(ei epoch.Index, nodeID identity.ID, decreaseBy uint64) (removed bool)
 
 	// Weight returns the weight and total weight for the given block.
 	Weight(block *Block) (weight, totalWeight float64)

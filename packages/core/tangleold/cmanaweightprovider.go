@@ -1,9 +1,9 @@
 package tangleold
 
 import (
-	"context"
 	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/types"
 	"sync"
 	"time"
@@ -30,22 +30,27 @@ const (
 
 // region CManaWeightProvider //////////////////////////////////////////////////////////////////////////////////////////
 
+// ActivityUpdatesCount stores the counters on how many times activity record was updated.
+type ActivityUpdatesCount map[identity.ID]uint64
+
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
-	store             kvstore.KVStore
-	mutex             sync.RWMutex
-	activeNodes       epoch.NodesActivityLog
-	manaRetrieverFunc ManaRetrieverFunc
-	timeRetrieverFunc TimeRetrieverFunc
+	store                kvstore.KVStore
+	mutex                sync.RWMutex
+	activeNodes          epoch.NodesActivityLog
+	updatedActivityCount *shrinkingmap.ShrinkingMap[epoch.Index, ActivityUpdatesCount]
+	manaRetrieverFunc    ManaRetrieverFunc
+	timeRetrieverFunc    TimeRetrieverFunc
 }
 
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:       make(epoch.NodesActivityLog),
-		manaRetrieverFunc: manaRetrieverFunc,
-		timeRetrieverFunc: timeRetrieverFunc,
+		activeNodes:          make(epoch.NodesActivityLog),
+		updatedActivityCount: shrinkingmap.New[epoch.Index, ActivityUpdatesCount](shrinkingmap.WithShrinkingThresholdCount(activeEpochThreshold + 1)),
+		manaRetrieverFunc:    manaRetrieverFunc,
+		timeRetrieverFunc:    timeRetrieverFunc,
 	}
 
 	if len(store) == 0 {
@@ -82,16 +87,35 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 	}
 
 	a.Add(nodeID)
+
+	// increase updates counter
+	epochUpdatesCount, exist := c.updatedActivityCount.Get(ei)
+	if !exist {
+		c.updatedActivityCount.Set(ei, make(ActivityUpdatesCount))
+	}
+	epochUpdatesCount[nodeID] += 1
 }
 
-// Remove updates the underlying data structure by removing node from activity list.
-func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
+// Remove updates the underlying data structure by decreasing updatedActivityCount and removing node from active list if no activity left.
+func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, updatedActivityCount uint64) (removed bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	// we allow for removing nodes from activity list due to orphanage event
-	if a, exists := c.activeNodes[ei]; exists {
-		a.Remove(nodeID)
+
+	epochUpdatesCount, exist := c.updatedActivityCount.Get(ei)
+	if exist {
+		_, exists := epochUpdatesCount[nodeID]
+		if exists {
+			epochUpdatesCount[nodeID] -= updatedActivityCount
+		}
 	}
+	// if that was the last activity for this node in the ei epoch, then remove it from activity list
+	if epochUpdatesCount[nodeID] == 0 {
+		if a, exists := c.activeNodes[ei]; exists {
+			a.Remove(nodeID)
+			return true
+		}
+	}
+	return false
 }
 
 // Weight returns the weight and total weight for the given block.
@@ -218,6 +242,13 @@ func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
 			delete(c.activeNodes, ei)
 		}
 	}
+	// clean also the updates counting map
+	c.updatedActivityCount.ForEach(func(ei epoch.Index, count ActivityUpdatesCount) bool {
+		if ei < lowerBound {
+			c.updatedActivityCount.Delete(ei)
+		}
+		return true
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

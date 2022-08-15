@@ -144,7 +144,7 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
+		err := insertLeaf(m.epochCommitmentFactory.stateRootTree, outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes())
 		if err != nil {
 			m.log.Error(err)
 		}
@@ -326,13 +326,20 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 
 	transaction, isTransaction := block.Payload().(utxo.Transaction)
 	nodeID := identity.NewID(block.IssuerPublicKey())
-	removed, err := m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
-	if err != nil && m.log != nil {
-		m.log.Error(err)
-		return
+
+	updatedCount := uint64(1)
+	// if block has been accepted, counter was increased two times, on booking and on acceptance
+	if m.tangle.ConfirmationOracle.IsBlockConfirmed(block.ID()) {
+		updatedCount++
 	}
-	if removed {
-		m.tangle.WeightProvider.Remove(ei, nodeID)
+
+	noActivityLeft := m.tangle.WeightProvider.Remove(ei, nodeID, updatedCount)
+	if noActivityLeft {
+		err = m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
+		if err != nil && m.log != nil {
+			m.log.Error(err)
+			return
+		}
 		m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 	}
 
@@ -474,6 +481,7 @@ func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittabl
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
 		return nil, nil
 	}
+	// moved to the next epoch
 	if ei > currentEpochIndex {
 		err = m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
 		if err != nil {
