@@ -71,9 +71,9 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 			for {
 				var targetEpoch epoch.Index
 				select {
-				case targetEpoch = <-epochProcessingChan:
 				case <-epochProcessingStopChan:
 					return
+				case targetEpoch = <-epochProcessingChan:
 				}
 
 				success := false
