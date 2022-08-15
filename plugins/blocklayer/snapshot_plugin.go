@@ -72,7 +72,7 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 	snapshotDeps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(e *tangleold.BlockAcceptedEvent) {
 		e.Block.ForEachParentByType(tangleold.StrongParentType, func(parent tangleold.BlockID) bool {
 			index := parent.EpochIndex
-			if index < e.Block.EI() {
+			if index < e.Block.ID().EpochIndex {
 				snapshotDeps.Manager.InsertSolidEntryPoint(parent)
 			}
 			return true
