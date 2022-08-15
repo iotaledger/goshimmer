@@ -65,7 +65,8 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 	}
 	// Load from storage if key was found.
 	if marshaledActiveNodes != nil {
-		if cManaWeightProvider.activeNodes, err = epoch.ActiveNodesFromBytes(marshaledActiveNodes); err != nil {
+
+		if err = cManaWeightProvider.activeNodes.FromBytes(marshaledActiveNodes); err != nil {
 			panic(err)
 		}
 		return
@@ -187,7 +188,8 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
-		_ = c.store.Set(kvstore.Key(activeNodesKey), epoch.ActiveNodesToBytes(c.ActiveNodes()))
+		activeNodes := c.ActiveNodes()
+		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodes.Bytes())
 	}
 }
 

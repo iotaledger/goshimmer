@@ -100,16 +100,11 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) 
 		return epoch.MerkleRoot{}, errors.Wrap(err, "ECR could not be created")
 	}
 
-	root := make([]byte, 0)
-	branch1 := make([]byte, 0)
-	branch1a := make([]byte, 0)
-	branch1b := make([]byte, 0)
-
-	branch1aHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1a, epochRoots.tangleRoot[:], epochRoots.stateMutationRoot[:]))
-	branch1bHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1b, epochRoots.stateRoot[:], epochRoots.manaRoot[:]))
-	branch1Hashed := blake2b.Sum256(byteutils.ConcatBytes(branch1, branch1aHashed[:], branch1bHashed[:]))
+	branch1aHashed := blake2b.Sum256(byteutils.ConcatBytes(epochRoots.tangleRoot[:], epochRoots.stateMutationRoot[:]))
+	branch1bHashed := blake2b.Sum256(byteutils.ConcatBytes(epochRoots.stateRoot[:], epochRoots.manaRoot[:]))
+	branch1Hashed := blake2b.Sum256(byteutils.ConcatBytes(branch1aHashed[:], branch1bHashed[:]))
 	branch2Hashed := blake2b.Sum256(epochRoots.activityRoot[:])
-	rootHashed := blake2b.Sum256(byteutils.ConcatBytes(root, branch1Hashed[:], branch2Hashed[:]))
+	rootHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1Hashed[:], branch2Hashed[:]))
 
 	return epoch.NewMerkleRoot(rootHashed[:]), nil
 }

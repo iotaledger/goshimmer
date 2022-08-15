@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -53,13 +52,13 @@ func streamSnapshotDataFrom(
 
 	epochDiffs, err := readEpochDiffs(scanner)
 	if err != nil {
-		return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		return errors.Wrap(err, "failed to parse epochDiffs from bytes")
 	}
 	epochDiffsConsumer(header, epochDiffs)
 
 	activityLog, err := readActivityLog(scanner)
 	if err != nil {
-		return errors.Errorf("failed to parse activity log from bytes: %w", err)
+		return errors.Wrap(err, "failed to parse activity log from bytes")
 	}
 	if activityLogConsumer != nil {
 		activityLogConsumer(activityLog)
@@ -72,17 +71,17 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
-		return nil, fmt.Errorf("unable to read outputWithMetadata length: %w", err)
+		return nil, errors.Wrap(err, "unable to read outputWithMetadata length")
 	}
 
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, fmt.Errorf("unable to read fullEpochIndex: %w", err)
+		return nil, errors.Wrap(err, "unable to read fullEpochIndex")
 	}
 	header.FullEpochIndex = epoch.Index(index)
 
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, fmt.Errorf("unable to read diffEpochIndex: %w", err)
+		return nil, errors.Wrap(err, "unable to read diffEpochIndex")
 	}
 	header.DiffEpochIndex = epoch.Index(index)
 
@@ -119,7 +118,7 @@ func readEpochDiffs(scanner *bufio.Scanner) (epochDiffs map[epoch.Index]*ledger.
 	if len(data) > 0 {
 		_, err = serix.DefaultAPI.Decode(context.Background(), data, &epochDiffs, serix.WithValidation())
 		if err != nil {
-			return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+			return nil, errors.Wrap(err, "failed to parse epochDiffs from bytes")
 		}
 
 		for _, epochdiff := range epochDiffs {
@@ -144,7 +143,7 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 	ecRecord = &epoch.ECRecord{}
 	err = ecRecord.FromBytes(scanner.Bytes())
 	if err != nil {
-		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		return nil, errors.Wrap(err, "failed to parse epochDiffs from bytes")
 	}
 
 	return
@@ -160,7 +159,7 @@ func readActivityLog(scanner *bufio.Scanner) (activityLogs epoch.SnapshotEpochAc
 	if len(data) > 0 {
 		_, err = serix.DefaultAPI.Decode(context.Background(), data, &activityLogs, serix.WithValidation())
 		if err != nil {
-			return nil, errors.Errorf("failed to parse activityLog from bytes: %w", err)
+			return nil, errors.Wrap(err, "failed to parse activityLog from bytes")
 		}
 	}
 	return

@@ -177,10 +177,12 @@ func (e *ECRecord) FromBytes(bytes []byte) (err error) {
 	return
 }
 
+// region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
+
 type NodesActivityLog map[Index]*ActivityLog
 
-func ActiveNodesFromBytes(data []byte) (activeNodes NodesActivityLog, err error) {
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &activeNodes, serix.WithValidation())
+func (al NodesActivityLog) FromBytes(data []byte) (err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &al, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse activeNodes: %w", err)
 		return
@@ -188,14 +190,15 @@ func ActiveNodesFromBytes(data []byte) (activeNodes NodesActivityLog, err error)
 	return
 }
 
-func ActiveNodesToBytes(activeNodes NodesActivityLog) []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), activeNodes, serix.WithValidation())
+func (al NodesActivityLog) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), al, serix.WithValidation())
 	if err != nil {
-		// TODO: what do?
 		panic(err)
 	}
 	return objBytes
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
