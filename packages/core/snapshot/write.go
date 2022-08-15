@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -51,7 +52,7 @@ func streamSnapshotDataTo(
 		output := outputProd()
 		if output == nil {
 			// write rests of outputWithMetadatas
-			err = writeOutputsWithMetadata(writeSeeker, chunksOutputWithMetadata)
+			err = writeOutputsWithMetadatas(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
 				return nil, err
 			}
@@ -63,7 +64,7 @@ func streamSnapshotDataTo(
 
 		// put a delimeter every chunkSize outputs
 		if outputChunkCounter == chunkSize {
-			err = writeOutputsWithMetadata(writeSeeker, chunksOutputWithMetadata)
+			err = writeOutputsWithMetadatas(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
 				return nil, err
 			}
@@ -80,7 +81,7 @@ func streamSnapshotDataTo(
 
 	// seek back to the file position of the outputWithMetadata counter
 	if _, err := writeSeeker.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("unable to seek to LS counter placeholders: %w", err)
+		return nil, errors.Errorf("unable to seek to LS counter placeholders: %w", err)
 	}
 	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
 		return nil, err
@@ -159,7 +160,7 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 		} else {
 			end = i + chunkSize
 		}
-		writeOutputsWithMetadata(writeSeeker, s[i:end])
+		writeOutputsWithMetadatas(writeSeeker, s[i:end])
 		i = end
 	}
 
@@ -174,7 +175,7 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 		} else {
 			end = i + chunkSize
 		}
-		writeOutputsWithMetadata(writeSeeker, c[i:end])
+		writeOutputsWithMetadatas(writeSeeker, c[i:end])
 		i = end
 	}
 
@@ -225,7 +226,7 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 	return nil
 }
 
-func writeOutputsWithMetadata(writeSeeker io.WriteSeeker, outputsChunks []*ledger.OutputWithMetadata) error {
+func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*ledger.OutputWithMetadata) error {
 	if len(outputsChunks) == 0 {
 		return nil
 	}
@@ -283,11 +284,11 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 func writeFunc(writeSeeker io.WriteSeeker, variableName string, value any) error {
 	length := binary.Size(value)
 	if length == -1 {
-		return fmt.Errorf("unable to determine length of %s", variableName)
+		return errors.Errorf("unable to determine length of %s", variableName)
 	}
 
 	if err := binary.Write(writeSeeker, binary.LittleEndian, value); err != nil {
-		return fmt.Errorf("unable to write LS %s: %w", variableName, err)
+		return errors.Errorf("unable to write LS %s: %w", variableName, err)
 	}
 
 	return nil

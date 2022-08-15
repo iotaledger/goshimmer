@@ -214,8 +214,8 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
 func (m *Manager) SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch epoch.Index, prodChan chan *ledger.EpochDiff, stopChan chan struct{}) {
 	go func() {
-		for i := fullEpochIndex; i <= latestCommitableEpoch; i++ {
-			spent, created := m.epochCommitmentFactory.loadDiffUTXOs(i)
+		for ei := fullEpochIndex; ei <= latestCommitableEpoch; ei++ {
+			spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
 			prodChan <- ledger.NewEpochDiff(spent, created)
 		}
 

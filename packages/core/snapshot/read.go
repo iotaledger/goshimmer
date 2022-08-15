@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -40,7 +39,7 @@ func streamSnapshotDataFrom(
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, err := readOutputWithMetadata(reader)
+		outputs, err := readOutputsWithMetadatas(reader)
 		if err != nil {
 			return err
 		}
@@ -49,7 +48,7 @@ func streamSnapshotDataFrom(
 	}
 
 	// read epochDiffs
-	for i := header.FullEpochIndex + 1; i <= header.DiffEpochIndex; i++ {
+	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
 		epochDiffs, err := readEpochDiffs(reader)
 		if err != nil {
 			return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
@@ -64,28 +63,28 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
-		return nil, fmt.Errorf("unable to read outputWithMetadata length: %w", err)
+		return nil, errors.Errorf("unable to read outputWithMetadata length: %w", err)
 	}
 
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, fmt.Errorf("unable to read fullEpochIndex: %w", err)
+		return nil, errors.Errorf("unable to read fullEpochIndex: %w", err)
 	}
 	header.FullEpochIndex = epoch.Index(index)
 
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, fmt.Errorf("unable to read diffEpochIndex: %w", err)
+		return nil, errors.Errorf("unable to read diffEpochIndex: %w", err)
 	}
 	header.DiffEpochIndex = epoch.Index(index)
 
 	var latestECRecordLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &latestECRecordLen); err != nil {
-		return nil, fmt.Errorf("unable to read latest ECRecord bytes len: %w", err)
+		return nil, errors.Errorf("unable to read latest ECRecord bytes len: %w", err)
 	}
 
 	ecRecordBytes := make([]byte, latestECRecordLen)
 	if err := binary.Read(reader, binary.LittleEndian, ecRecordBytes); err != nil {
-		return nil, fmt.Errorf("unable to read latest ECRecord: %w", err)
+		return nil, errors.Errorf("unable to read latest ECRecord: %w", err)
 	}
 	header.LatestECRecord = &epoch.ECRecord{}
 	if err := header.LatestECRecord.FromBytes(ecRecordBytes); err != nil {
@@ -102,26 +101,25 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 	// read seps EI
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, fmt.Errorf("unable to read fullEpochIndex: %w", err)
+		return nil, errors.Errorf("unable to read fullEpochIndex: %w", err)
 	}
 	seps.EI = epoch.Index(index)
 
 	// read numbers of solid entry point
 	var sepsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &sepsLen); err != nil {
-		return nil, fmt.Errorf("unable to read seps len: %w", err)
+		return nil, errors.Errorf("unable to read seps len: %w", err)
 	}
 
-	spentLenInt := int(sepsLen)
-	for i := 0; i < spentLenInt; {
+	for i := 0; i < int(sepsLen); {
 		var sepsBytesLen int64
 		if err := binary.Read(reader, binary.LittleEndian, &sepsBytesLen); err != nil {
-			return nil, fmt.Errorf("unable to read seps bytes len: %w", err)
+			return nil, errors.Errorf("unable to read seps bytes len: %w", err)
 		}
 
 		sepsBytes := make([]byte, sepsBytesLen)
 		if err := binary.Read(reader, binary.LittleEndian, sepsBytes); err != nil {
-			return nil, fmt.Errorf("unable to read solid entry points: %w", err)
+			return nil, errors.Errorf("unable to read solid entry points: %w", err)
 		}
 
 		ids := make([]tangleold.BlockID, 0)
@@ -138,16 +136,16 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 	return seps, nil
 }
 
-// readOutputWithMetadata consumes a slice of OutputWithMetadata from the given reader.
-func readOutputWithMetadata(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
+// readOutputsWithMetadatas consumes less or equal chunkSize of OutputWithMetadatas from the given reader.
+func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
 	var outputsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &outputsLen); err != nil {
-		return nil, fmt.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
+		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
 	}
 
 	outputsBytes := make([]byte, outputsLen)
 	if err := binary.Read(reader, binary.LittleEndian, outputsBytes); err != nil {
-		return nil, fmt.Errorf("unable to read outputsWithMetadata: %w", err)
+		return nil, errors.Errorf("unable to read outputsWithMetadata: %w", err)
 	}
 
 	outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
@@ -164,7 +162,7 @@ func readOutputWithMetadata(reader io.ReadSeeker) (outputMetadatas []*ledger.Out
 	return
 }
 
-// readEpochDiffs consumes a map of EpochDiff from the given reader.
+// readEpochDiffs consumes an EpochDiff of an epoch from the given reader.
 func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
 	spent := make([]*ledger.OutputWithMetadata, 0)
 	created := make([]*ledger.OutputWithMetadata, 0)
@@ -172,13 +170,13 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err err
 	// read spent
 	var spentLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &spentLen); err != nil {
-		return nil, fmt.Errorf("unable to read epochDiffs spent len: %w", err)
+		return nil, errors.Errorf("unable to read epochDiffs spent len: %w", err)
 	}
-	spentLenInt := int(spentLen)
-	for i := 0; i < spentLenInt; {
-		s, err := readOutputWithMetadata(reader)
+
+	for i := 0; i < int(spentLen); {
+		s, err := readOutputsWithMetadatas(reader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read epochDiffs spent: %w", err)
+			return nil, errors.Errorf("unable to read epochDiffs spent: %w", err)
 		}
 		spent = append(spent, s...)
 		i += len(s)
@@ -187,13 +185,13 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err err
 	// read created
 	var createdLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &createdLen); err != nil {
-		return nil, fmt.Errorf("unable to read epochDiffs created len: %w", err)
+		return nil, errors.Errorf("unable to read epochDiffs created len: %w", err)
 	}
-	createdLenInt := int(createdLen)
-	for i := 0; i < createdLenInt; {
-		c, err := readOutputWithMetadata(reader)
+
+	for i := 0; i < int(createdLen); {
+		c, err := readOutputsWithMetadatas(reader)
 		if err != nil {
-			return nil, fmt.Errorf("unable to read epochDiffs created: %w", err)
+			return nil, errors.Errorf("unable to read epochDiffs created: %w", err)
 		}
 		created = append(created, c...)
 		i += len(c)
