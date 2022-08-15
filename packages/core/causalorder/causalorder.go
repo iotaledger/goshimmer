@@ -17,7 +17,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	entityProvider  func(id ID) (entity Entity, exists bool)
 	isOrdered       func(entity Entity) (isOrdered bool)
 	orderedCallback func(entity Entity) (err error)
-	droppedCallback func(entity Entity, err error)
+	droppedCallback func(entity Entity, reason error)
 	checkReference  func(child Entity, parent Entity) (err error)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]

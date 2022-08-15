@@ -32,14 +32,17 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	return
 }
 
-// IndexFromTime calculates the EI for the given time.
+// IndexFromTime calculates the Index from the given time.
+//
+// Note: Epochs are counted starting from 1 because 0 is reserved for the genesis which has to be addressable as its own
+// epoch as part of the commitment chains.
 func IndexFromTime(t time.Time) Index {
 	elapsedSeconds := t.Unix() - GenesisTime
 	if elapsedSeconds < 0 {
 		return 0
 	}
 
-	return Index(elapsedSeconds / Duration)
+	return Index(elapsedSeconds/Duration + 1)
 }
 
 func (i Index) Bytes() []byte {
