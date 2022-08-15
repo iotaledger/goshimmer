@@ -952,7 +952,8 @@ func (m *MockWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 }
 
 // Remove mocks its interface function.
-func (m *MockWeightProvider) Remove(ei epoch.Index, nodeID identity.ID) {
+func (m *MockWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, count uint64) (removed bool) {
+	return true
 }
 
 // Weight mocks its interface function.
