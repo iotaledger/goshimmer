@@ -159,7 +159,7 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 }
 
 // LoadEpochDiffs updates the state tree from a given snapshot.
-func (m *Manager) LoadEpochDiffs(ei epoch.Index, epochDiff *ledger.EpochDiff) {
+func (m *Manager) LoadEpochDiff(epochDiff *ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 

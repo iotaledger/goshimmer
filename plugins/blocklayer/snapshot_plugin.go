@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -57,7 +56,7 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
 		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
 		emptyOutputsConsumer := func([]*ledger.OutputWithMetadata) {}
-		emptyEpochDiffsConsumer := func(epoch.Index, *ledger.EpochDiff) {}
+		emptyEpochDiffsConsumer := func(*ledger.EpochDiff) {}
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			emptyHeaderConsumer,

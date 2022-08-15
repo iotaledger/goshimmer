@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
@@ -99,7 +98,7 @@ func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetad
 }
 
 // LoadEpochDiffs loads EpochDiffs from a snapshot file to the storage.
-func (l *Ledger) LoadEpochDiffs(ei epoch.Index, epochDiff *EpochDiff) error {
+func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
 	for _, spent := range epochDiff.Spent() {
 		l.Storage.outputStorage.Delete(spent.ID().Bytes())
 		l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())

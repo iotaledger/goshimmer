@@ -54,7 +54,7 @@ func streamSnapshotDataFrom(
 		if err != nil {
 			return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
 		}
-		epochDiffsConsumer(i, epochDiffs)
+		epochDiffsConsumer(epochDiffs)
 	}
 
 	return nil

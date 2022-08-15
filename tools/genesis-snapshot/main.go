@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
@@ -139,8 +138,8 @@ func readSnapshotFromFile(filePath string) (err error) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
-	epochDiffsConsumer := func(ei epoch.Index, epochDiffs *ledger.EpochDiff) {
-		fmt.Println(ei, epochDiffs)
+	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
+		fmt.Println(epochDiffs)
 	}
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
@@ -149,7 +148,7 @@ func readSnapshotFromFile(filePath string) (err error) {
 		fmt.Println(s)
 	}
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer)
 
 	return
 }

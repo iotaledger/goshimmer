@@ -174,7 +174,7 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
-	epochDiffsConsumer := func(_ epoch.Index, diffs *ledger.EpochDiff) {
+	epochDiffConsumer := func(diffs *ledger.EpochDiff) {
 		epochDiffs = append(epochDiffs, diffs)
 	}
 	headerConsumer := func(h *ledger.SnapshotHeader) {
@@ -184,7 +184,7 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 		seps = append(seps, s)
 	}
 
-	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer)
 	require.NoError(t, err)
 	return
 }

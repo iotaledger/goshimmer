@@ -153,8 +153,8 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		epochDiffsConsumer := func(ei epoch.Index, epochDiff *ledger.EpochDiff) {
-			err := deps.Tangle.Ledger.LoadEpochDiffs(ei, epochDiff)
+		epochDiffsConsumer := func(epochDiff *ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiff(epochDiff)
 			if err != nil {
 				panic(err)
 			}

@@ -218,7 +218,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				epochDiffsConsumer := func(ei epoch.Index, diff *ledger.EpochDiff) {
+				epochDiffsConsumer := func(diff *ledger.EpochDiff) {
 					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
 
 					processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
