@@ -18,10 +18,6 @@ type neighborCommitment struct {
 }
 
 func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID], err error) {
-	if m.IsStopped() {
-		return nil, nil, errors.Errorf("warpsync manager is stopped")
-	}
-
 	m.startValidation()
 	defer m.endValidation()
 

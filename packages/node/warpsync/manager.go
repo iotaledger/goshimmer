@@ -98,6 +98,10 @@ func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 }
 
 func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+	if m.IsStopped() {
+		return errors.Errorf("warpsync manager is stopped")
+	}
+
 	if m.active.IsSet() {
 		m.log.Debugf("WarpRange: already syncing or validating")
 		return nil

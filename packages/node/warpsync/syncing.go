@@ -47,10 +47,6 @@ type blockReceived struct {
 }
 
 func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (err error) {
-	if m.IsStopped() {
-		return errors.Errorf("warpsync manager is stopped")
-	}
-
 	startRange := start + 1
 	endRange := end - 1
 
