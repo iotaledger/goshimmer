@@ -75,7 +75,7 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) (wasOrder
 	c.dagMutex.Lock(entity.ID())
 	defer c.dagMutex.Unlock(entity.ID())
 
-	return c.allParentsOrdered(entity) && c.triggerOrderedCallback(entity)
+	return !c.isOrdered(entity) && c.allParentsOrdered(entity) && c.triggerOrderedCallback(entity)
 }
 
 func (c *CausalOrder[ID, Entity]) allParentsOrdered(entity Entity) (allParentsOrdered bool) {
@@ -165,7 +165,7 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
 	c.dagMutex.Lock(child.ID())
 	defer c.dagMutex.Unlock(child.ID())
 
-	if c.decreaseUnorderedParentsCounter(child) == 0 {
+	if !c.isOrdered(child) && c.decreaseUnorderedParentsCounter(child) == 0 {
 		c.triggerOrderedCallback(child)
 	}
 }

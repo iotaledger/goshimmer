@@ -300,7 +300,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune tangle.
-	assert.EqualValues(t, -1, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, 0, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
 	tf.Tangle.Prune(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be epochCount/2")
@@ -374,32 +374,34 @@ func TestTangle_Prune(t *testing.T) {
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
-		if idx == 0 {
+
+		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 			), alias
 		}
+
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
 		), alias
 	}
 
-	assert.EqualValues(t, -1, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, 0, tf.Tangle.maxDroppedEpoch, "maxDroppedEpoch should be 0")
 
 	expectedMissing := make(map[string]bool, epochCount)
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedSolid := make(map[string]bool, epochCount)
 
 	// Attach solid blocks
-	for i := 0; i < epochCount; i++ {
+	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.Tangle.Attach(block)
 
-		if i > epochCount/4 {
+		if i > epochCount/4+1 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = false
 			expectedSolid[alias] = true
@@ -410,15 +412,15 @@ func TestTangle_Prune(t *testing.T) {
 	}
 
 	// Attach a blocks that are not solid (skip the first one in the chain)
-	for i := 0; i < epochCount; i++ {
+	for i := 1; i <= epochCount; i++ {
 		blk, alias := createNewBlock(i, "-orphan")
 
-		if i == 0 {
+		if i == 1 {
 			continue
 		}
 		_, wasAttached, err := tf.Tangle.Attach(blk)
 
-		if i > epochCount/2 {
+		if i > epochCount/2+1 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = true
 			expectedSolid[alias] = false
@@ -431,7 +433,7 @@ func TestTangle_Prune(t *testing.T) {
 
 	tf.AssertSolidCount(epochCount, "should have all solid blocks")
 
-	validateState(tf, -1, epochCount)
+	validateState(tf, 0, epochCount)
 
 	tf.Tangle.Prune(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
@@ -453,7 +455,7 @@ func TestTangle_Prune(t *testing.T) {
 }
 
 func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
-	for i := 0; i <= maxDroppedEpoch; i++ {
+	for i := 1; i <= maxDroppedEpoch; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Tangle.Block(blkID)
@@ -462,7 +464,7 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 		assert.Nil(tf.T, tf.Tangle.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
-	for i := maxDroppedEpoch + 1; i < epochCount; i++ {
+	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.Tangle.Block(blkID)

@@ -52,7 +52,6 @@ func New(dbManager *database.Manager, rootBlockProvider func(models.BlockID) *Bl
 		dbManager:         dbManager,
 		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		rootBlockProvider: rootBlockProvider,
-		maxDroppedEpoch:   -1,
 	}, opts).initSolidifier(
 		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
