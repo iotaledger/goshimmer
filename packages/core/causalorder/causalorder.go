@@ -54,24 +54,19 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 }
 
 func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
-	event.Loop.Submit(func() {
-		c.triggerOrderedIfReady(entity)
-	})
+	c.evictionManager.RLock()
+	defer c.evictionManager.RUnlock()
+
+	c.triggerOrderedIfReady(entity)
 }
 
 func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
-	c.evictionManager.Lock()
-	defer c.evictionManager.Unlock()
-
 	for _, evictedEntity := range c.evictEntities(epochIndex) {
 		c.droppedCallback(evictedEntity, errors.Errorf("entity evicted from %s", epochIndex))
 	}
 }
 
 func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
-	c.evictionManager.RLock()
-	defer c.evictionManager.RUnlock()
-
 	c.dagMutex.RLock(entity.Parents()...)
 	defer c.dagMutex.RUnlock(entity.Parents()...)
 	c.dagMutex.Lock(entity.ID())
@@ -214,6 +209,9 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 }
 
 func (c *CausalOrder[ID, Entity]) evictEntities(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
+	c.evictionManager.Lock()
+	defer c.evictionManager.Unlock()
+
 	evictedEntities = make(map[ID]Entity)
 	c.dropEntitiesFromEpoch(epochIndex, func(id ID) {
 		if _, exists := evictedEntities[id]; !exists {

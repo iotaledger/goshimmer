@@ -54,16 +54,13 @@ func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ..
 		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
 
-	newTangle.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newTangle.evict))
+	newTangle.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newTangle.evictEpoch))
 
 	return newTangle
 }
 
 // Attach is used to attach new Blocks to the Tangle. It is the main function of the Tangle that triggers Events.
 func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	t.evictionManager.RLock()
-	defer t.evictionManager.RUnlock()
-
 	if block, wasAttached, err = t.attach(data); wasAttached {
 		t.Events.BlockAttached.Trigger(block)
 
@@ -92,8 +89,8 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	return
 }
 
-// evict is used to evict the Tangle of all Blocks that are too old.
-func (t *Tangle) evict(epochIndex epoch.Index) {
+// evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
+func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
 	t.solidifier.Evict(epochIndex)
 
 	t.evictionManager.Lock()
@@ -116,6 +113,9 @@ func (t *Tangle) markInvalid(block *Block, reason error) {
 
 // attach tries to attach the given Block to the Tangle.
 func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err error) {
+	t.evictionManager.RLock()
+	defer t.evictionManager.RUnlock()
+
 	if block, wasAttached, err = t.canAttach(data); !wasAttached {
 		return
 	}
