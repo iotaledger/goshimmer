@@ -47,7 +47,7 @@ func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ..
 
 	newTangle.solidifier = causalorder.New(
 		evictionManager,
-		newTangle.block,
+		newTangle.Block,
 		(*Block).IsSolid,
 		newTangle.markSolid,
 		newTangle.markInvalid,
@@ -94,6 +94,8 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // evict is used to evict the Tangle of all Blocks that are too old.
 func (t *Tangle) evict(epochIndex epoch.Index) {
+	t.solidifier.Evict(epochIndex)
+
 	t.evictionManager.Lock()
 	defer t.evictionManager.Unlock()
 

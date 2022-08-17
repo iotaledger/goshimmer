@@ -50,8 +50,6 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
 
-	evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newCausalOrder.evict))
-
 	return newCausalOrder
 }
 
@@ -61,7 +59,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
 	})
 }
 
-func (c *CausalOrder[ID, Entity]) evict(epochIndex epoch.Index) {
+func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
 	c.evictionManager.Lock()
 	defer c.evictionManager.Unlock()
 
