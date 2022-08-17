@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/syncutils"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -18,6 +19,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	isOrdered       func(entity Entity) (isOrdered bool)
 	orderedCallback func(entity Entity) (err error)
 	droppedCallback func(entity Entity, reason error)
+	evictCallback   func(id ID, reason error)
 	checkReference  func(child Entity, parent Entity) (err error)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
@@ -29,10 +31,11 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
-	entityProvider func(ID) (entity Entity, exists bool),
+	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
 	droppedCallback func(entity Entity, reason error),
+	evictCallback func(id ID, reason error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) *CausalOrder[ID, Entity] {
 	return options.Apply(&CausalOrder[ID, Entity]{
@@ -40,6 +43,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		isOrdered:               isOrdered,
 		orderedCallback:         orderedCallback,
 		droppedCallback:         droppedCallback,
+		evictCallback:           evictCallback,
 		checkReference:          func(entity Entity, parent Entity) (err error) { return nil },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
@@ -52,8 +56,8 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (isOrdered bool) {
 }
 
 func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
-	for _, droppedEntity := range c.dropEntities(epochIndex) {
-		c.droppedCallback(droppedEntity, errors.Errorf("entity %s pruned", droppedEntity.ID()))
+	for evictedID := range c.evictEntities(epochIndex) {
+		c.evictCallback(evictedID, errors.Errorf("entity %s pruned", evictedID))
 	}
 }
 
@@ -187,15 +191,15 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	return entity
 }
 
-func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
-	droppedEntities = make(map[ID]Entity)
+func (c *CausalOrder[ID, Entity]) evictEntities(epochIndex epoch.Index) (evictedEntities map[ID]types.Empty) {
+	evictedEntities = make(map[ID]types.Empty)
 	c.dropEntitiesFromEpoch(epochIndex, func(id ID) {
-		if _, exists := droppedEntities[id]; !exists {
-			droppedEntities[id] = c.entity(id)
+		if _, exists := evictedEntities[id]; !exists {
+			evictedEntities[id] = types.Void
 		}
 	})
 
-	return droppedEntities
+	return evictedEntities
 }
 
 func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {

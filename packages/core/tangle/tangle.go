@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -92,7 +94,7 @@ func (t *Tangle) evict(epochIndex epoch.Index) {
 
 // initSolidifier is used to lazily initialize the solidifier after the options have been populated.
 func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, t.markInvalid, opts...)
+	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, t.markInvalid, t.markIDInvalid, opts...)
 
 	return t
 }
@@ -107,6 +109,15 @@ func (t *Tangle) markSolid(block *Block) (err error) {
 
 func (t *Tangle) markInvalid(block *Block, reason error) {
 	t.SetInvalid(block)
+}
+
+func (t *Tangle) markIDInvalid(id models.BlockID, reason error) {
+	block, exists := t.block(id)
+	if !exists {
+		// This should never happen because it is not yet pruned.
+		panic(fmt.Sprintf("%s not found", id))
+	}
+	t.markInvalid(block, reason)
 }
 
 // attach tries to attach the given Block to the Tangle.
