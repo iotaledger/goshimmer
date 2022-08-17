@@ -38,7 +38,7 @@ type ActivityUpdatesCount map[identity.ID]uint64
 type CManaWeightProvider struct {
 	store                kvstore.KVStore
 	mutex                sync.RWMutex
-	activeNodes          epoch.NodesActivityLog
+	activityLog          epoch.NodesActivityLog
 	updatedActivityCount *shrinkingmap.ShrinkingMap[epoch.Index, ActivityUpdatesCount]
 	manaRetrieverFunc    ManaRetrieverFunc
 	timeRetrieverFunc    TimeRetrieverFunc
@@ -47,7 +47,7 @@ type CManaWeightProvider struct {
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:          make(epoch.NodesActivityLog),
+		activityLog:          make(epoch.NodesActivityLog),
 		updatedActivityCount: shrinkingmap.New[epoch.Index, ActivityUpdatesCount](shrinkingmap.WithShrinkingThresholdCount(activeEpochThreshold + 1)),
 		manaRetrieverFunc:    manaRetrieverFunc,
 		timeRetrieverFunc:    timeRetrieverFunc,
@@ -66,7 +66,7 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 	// Load from storage if key was found.
 	if marshaledActiveNodes != nil {
 
-		if err = cManaWeightProvider.activeNodes.FromBytes(marshaledActiveNodes); err != nil {
+		if err = cManaWeightProvider.activityLog.FromBytes(marshaledActiveNodes); err != nil {
 			panic(err)
 		}
 		return
@@ -81,10 +81,10 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	a, exists := c.activeNodes[ei]
+	a, exists := c.activityLog[ei]
 	if !exists {
 		a = epoch.NewActivityLog()
-		c.activeNodes[ei] = a
+		c.activityLog[ei] = a
 	}
 
 	a.Add(nodeID)
@@ -112,7 +112,7 @@ func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, updated
 	}
 	// if that was the last activity for this node in the ei epoch, then remove it from activity list
 	if epochUpdatesCount[nodeID] == 0 {
-		if a, exists := c.activeNodes[ei]; exists {
+		if a, exists := c.activityLog[ei]; exists {
 			a.Remove(nodeID)
 			return true
 		}
@@ -140,7 +140,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	// nodes mana is counted only once for total weight calculation
 	totalWeightOnce := make(map[identity.ID]types.Empty)
 	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
-		al, exists := c.activeNodes[ei]
+		al, exists := c.activityLog[ei]
 		if !exists {
 			continue
 		}
@@ -173,7 +173,7 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for ei, al := range c.activeNodes {
+	for ei, al := range c.activityLog {
 		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
 			if _, ok := epochActivity[ei]; !ok {
 				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
@@ -188,19 +188,19 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
-		activeNodes := c.ActiveNodes()
+		activeNodes := c.activeNodes()
 		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodes.Bytes())
 	}
 }
 
-// ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes epoch.NodesActivityLog) {
+// activeNodes returns the map of the active nodes.
+func (c *CManaWeightProvider) activeNodes() (activeNodes epoch.NodesActivityLog) {
 	activeNodes = make(epoch.NodesActivityLog)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for nodeID, al := range c.activeNodes {
+	for nodeID, al := range c.activityLog {
 		activeNodes[nodeID] = al.Clone()
 	}
 
@@ -213,11 +213,11 @@ func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEp
 	defer c.mutex.Unlock()
 
 	for ei, epochActivity := range loadedActiveNodes {
-		if _, ok := c.activeNodes[ei]; !ok {
-			c.activeNodes[ei] = epoch.NewActivityLog()
+		if _, ok := c.activityLog[ei]; !ok {
+			c.activityLog[ei] = epoch.NewActivityLog()
 		}
 		for nodeID := range epochActivity.NodesLog() {
-			c.activeNodes[ei].Add(nodeID)
+			c.activityLog[ei].Add(nodeID)
 		}
 	}
 }
@@ -240,9 +240,9 @@ func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundE
 
 // clean removes all activity logs for epochs lower than provided bound.
 func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
-	for ei := range c.activeNodes {
+	for ei := range c.activityLog {
 		if ei < lowerBound {
-			delete(c.activeNodes, ei)
+			delete(c.activityLog, ei)
 		}
 	}
 	// clean also the updates counting map
