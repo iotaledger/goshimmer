@@ -58,7 +58,7 @@ func TestScenario_1(t *testing.T) {
 		"Block8": tf.ledgerTf.TransactionIDs("TX4", "TX3", "TX6"),
 		"Block9": tf.ledgerTf.TransactionIDs("TX4", "TX3", "TX5"),
 	})
-	tf.AssertBookedCount(9, "all block should be booked")
+	tf.AssertBookedCount(9, "all blocks should be booked")
 }
 
 func TestScenario_2(t *testing.T) {
@@ -734,7 +734,7 @@ func Test_Prune(t *testing.T) {
 		), alias
 	}
 
-	assert.EqualValues(t, -1, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, 0, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)

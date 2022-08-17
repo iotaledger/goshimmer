@@ -50,15 +50,14 @@ type Booker struct {
 
 func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger:          ledgerInstance,
-		Tangle:          tangleInstance,
-		Events:          newEvents(),
-		attachments:     newAttachments(),
-		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		markerManager:   NewMarkerManager(),
-		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
-		maxDroppedEpoch: -1,
+		ledger:        ledgerInstance,
+		Tangle:        tangleInstance,
+		Events:        newEvents(),
+		attachments:   newAttachments(),
+		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
+		markerManager: NewMarkerManager(),
+		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
 
 		rootBlockProvider: rootBlockProvider,
 	}, opts)
