@@ -127,6 +127,9 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 }
 
 func (b *Booker) Evict(epochIndex epoch.Index) {
+	b.evictionState.Lock()
+	defer b.evictionState.Unlock()
+
 	b.attachments.Prune(epochIndex)
 	b.bookingOrder.Evict(epochIndex)
 	b.markerManager.Prune(epochIndex)

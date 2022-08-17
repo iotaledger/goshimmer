@@ -46,6 +46,7 @@ func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ..
 	}, opts)
 
 	newTangle.solidifier = causalorder.New(
+		evictionManager,
 		newTangle.block,
 		(*Block).IsSolid,
 		newTangle.markSolid,
@@ -96,7 +97,6 @@ func (t *Tangle) evict(epochIndex epoch.Index) {
 	t.evictionManager.Lock()
 	defer t.evictionManager.Unlock()
 
-	t.solidifier.Evict(epochIndex)
 	t.memStorage.Drop(epochIndex)
 }
 

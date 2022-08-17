@@ -10,10 +10,12 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
+	evictionManager *eviction.LockableManager
 	entityProvider  func(id ID) (entity Entity, exists bool)
 	isOrdered       func(entity Entity) (isOrdered bool)
 	orderedCallback func(entity Entity) (err error)
@@ -29,13 +31,15 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
+	evictionManager *eviction.Manager,
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
 	droppedCallback func(entity Entity, reason error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
-) *CausalOrder[ID, Entity] {
-	return options.Apply(&CausalOrder[ID, Entity]{
+) (newCausalOrder *CausalOrder[ID, Entity]) {
+	newCausalOrder = options.Apply(&CausalOrder[ID, Entity]{
+		evictionManager:         evictionManager.Lockable(),
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		orderedCallback:         orderedCallback,
@@ -45,31 +49,52 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
+
+	evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newCausalOrder.evict))
+
+	return newCausalOrder
 }
 
-func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (isOrdered bool) {
-	return c.triggerOrderedIfReady(entity)
+func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
+	event.Loop.Submit(func() {
+		c.triggerOrderedIfReady(entity)
+	})
 }
 
-func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
+func (c *CausalOrder[ID, Entity]) evict(epochIndex epoch.Index) {
+	c.evictionManager.Lock()
+	defer c.evictionManager.Unlock()
+
 	for _, evictedEntity := range c.evictEntities(epochIndex) {
 		c.droppedCallback(evictedEntity, errors.Errorf("entity evicted from %s", epochIndex))
 	}
 }
 
-func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) (wasOrdered bool) {
+func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
+	c.evictionManager.RLock()
+	defer c.evictionManager.RUnlock()
+
 	c.dagMutex.RLock(entity.Parents()...)
 	defer c.dagMutex.RUnlock(entity.Parents()...)
 	c.dagMutex.Lock(entity.ID())
 	defer c.dagMutex.Unlock(entity.ID())
 
-	return !c.isOrdered(entity) && c.allParentsOrdered(entity) && c.triggerOrderedCallback(entity)
+	if c.isOrdered(entity) || c.evictionManager.MaxDroppedEpoch() >= entity.ID().Index() || !c.allParentsOrdered(entity) {
+		return
+	}
+
+	c.triggerOrderedCallback(entity)
 }
 
 func (c *CausalOrder[ID, Entity]) allParentsOrdered(entity Entity) (allParentsOrdered bool) {
 	pendingParents := uint8(0)
 	for _, parentID := range entity.Parents() {
-		parentEntity := c.entity(parentID)
+		parentEntity, exists := c.entityProvider(parentID)
+		if !exists {
+			c.droppedCallback(entity, errors.Errorf(""))
+
+			return
+		}
 
 		if err := c.checkReference(entity, parentEntity); err != nil {
 			c.droppedCallback(entity, err)
@@ -150,6 +175,9 @@ func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChil
 }
 
 func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
+	c.evictionManager.RLock()
+	defer c.evictionManager.RUnlock()
+
 	c.dagMutex.Lock(child.ID())
 	defer c.dagMutex.Unlock(child.ID())
 
