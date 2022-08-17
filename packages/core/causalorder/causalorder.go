@@ -25,9 +25,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 	unorderedChildren            *memstorage.EpochStorage[ID, []Entity]
 	unorderedChildrenMutex       sync.Mutex
 
-	maxDroppedEpoch epoch.Index
-	pruningMutex    sync.RWMutex
-	dagMutex        *syncutils.DAGMutex[ID]
+	dagMutex *syncutils.DAGMutex[ID]
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
@@ -45,25 +43,15 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		checkReference:          func(entity Entity, parent Entity) (err error) { return nil },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
-		maxDroppedEpoch:         -1,
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
 }
 
 func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (isOrdered bool) {
-	c.pruningMutex.RLock()
-	defer c.pruningMutex.RUnlock()
-
-	if entity.ID().Index() <= c.maxDroppedEpoch {
-		c.droppedCallback(entity, errors.Errorf("entity %s belongs to a pruned epoch", entity.ID()))
-
-		return
-	}
-
 	return c.triggerOrderedIfReady(entity)
 }
 
-func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
+func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
 	for _, droppedEntity := range c.dropEntities(epochIndex) {
 		c.droppedCallback(droppedEntity, errors.Errorf("entity %s pruned", droppedEntity.ID()))
 	}
@@ -200,23 +188,12 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 }
 
 func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
-	c.pruningMutex.Lock()
-	defer c.pruningMutex.Unlock()
-
-	if epochIndex <= c.maxDroppedEpoch {
-		return
-	}
-
 	droppedEntities = make(map[ID]Entity)
-	for c.maxDroppedEpoch < epochIndex {
-		c.maxDroppedEpoch++
-
-		c.dropEntitiesFromEpoch(c.maxDroppedEpoch, func(id ID) {
-			if _, exists := droppedEntities[id]; !exists {
-				droppedEntities[id] = c.entity(id)
-			}
-		})
-	}
+	c.dropEntitiesFromEpoch(epochIndex, func(id ID) {
+		if _, exists := droppedEntities[id]; !exists {
+			droppedEntities[id] = c.entity(id)
+		}
+	})
 
 	return droppedEntities
 }

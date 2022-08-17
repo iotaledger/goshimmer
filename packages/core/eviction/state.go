@@ -9,13 +9,13 @@ import (
 
 type State struct {
 	maxDroppedEpoch   epoch.Index
-	isRootBlock       func(models.BlockID) *models.Block
+	isRootBlock       func(models.BlockID) bool
 	evictionCallbacks []func(index epoch.Index)
 
 	pruningMutex sync.RWMutex
 }
 
-func NewState(rootBlockProvider func(models.BlockID) *models.Block) *State {
+func NewState(rootBlockProvider func(models.BlockID) bool) *State {
 	return &State{
 		isRootBlock: rootBlockProvider,
 	}
@@ -27,15 +27,28 @@ func (s *State) Evict(epochIndex epoch.Index) {
 
 	for s.maxDroppedEpoch < epochIndex {
 		s.maxDroppedEpoch++
-		for _, evictionCallback := range s.evictionCallbacks {
-			evictionCallback(s.maxDroppedEpoch)
+		// Components register from the innermost component first. However, we need to evict starting from the outermost
+		// component to the inner.
+		for i := len(s.evictionCallbacks) - 1; i >= 0; i-- {
+			s.evictionCallbacks[i](s.maxDroppedEpoch)
 		}
 	}
 }
 
+func (s *State) RegisterEvictionCallback(callback func(index epoch.Index)) {
+	s.pruningMutex.Lock()
+	defer s.pruningMutex.Unlock()
+
+	s.evictionCallbacks = append(s.evictionCallbacks, callback)
+}
+
 // IsTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
 func (s *State) IsTooOld(id models.BlockID) (isTooOld bool) {
-	return id.EpochIndex <= s.maxDroppedEpoch && s.isRootBlock(id) == nil
+	return !s.isRootBlock(id) && id.EpochIndex <= s.maxDroppedEpoch
+}
+
+func (s *State) IsRootBlock(id models.BlockID) (rootBlock bool) {
+	return s.isRootBlock(id)
 }
 
 func (s *State) RLock() {
@@ -44,4 +57,11 @@ func (s *State) RLock() {
 
 func (s *State) RUnlock() {
 	s.pruningMutex.RUnlock()
+}
+
+func (s *State) MaxDroppedEpoch() epoch.Index {
+	s.pruningMutex.RLock()
+	defer s.pruningMutex.RUnlock()
+
+	return s.maxDroppedEpoch
 }
