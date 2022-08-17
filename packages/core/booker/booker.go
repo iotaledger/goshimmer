@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
@@ -34,21 +35,11 @@ type Booker struct {
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
-	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
-	rootBlockProvider func(models.BlockID) *Block
-
-	// TODO: finish shutdown implementation, maybe replace with component state
-	// maxDroppedEpoch contains the highest epoch.Index that has been dropped from the Tangle.
-	maxDroppedEpoch epoch.Index
-
-	// TODO: finish shutdown implementation, maybe replace with component state
-	// isShutdown contains a flag that indicates whether the Booker was shut down.
-	isShutdown bool
-
+	evictionState *eviction.Manager
 	*tangle.Tangle
 }
 
-func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
+func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionState *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
 		ledger:        ledgerInstance,
 		Tangle:        tangleInstance,
@@ -58,8 +49,7 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 		markerManager: NewMarkerManager(),
 		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
-
-		rootBlockProvider: rootBlockProvider,
+		evictionState: evictionState,
 	}, opts)
 	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, booker.book, func(block *Block, _ error) { booker.SetInvalid(block.Block) }, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
@@ -89,10 +79,11 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
-	b.RLock()
-	defer b.RUnlock()
+	b.evictionState.RLock()
+	defer b.evictionState.RUnlock()
 
-	if block.ID().Index() <= b.maxDroppedEpoch {
+	// TODO: do we need to check this?
+	if b.evictionState.IsTooOld(block.ID()) {
 		return false, nil
 	}
 
@@ -107,12 +98,8 @@ func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 
 // Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	b.RLock()
-	defer b.RUnlock()
-
-	if b.isShutdown {
-		return nil, false
-	}
+	b.evictionState.RLock()
+	defer b.evictionState.RUnlock()
 
 	return b.block(id)
 }
@@ -137,18 +124,12 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 	return
 }
 
-func (b *Booker) Prune(epochIndex epoch.Index) {
-	b.Lock()
-	defer b.Unlock()
-
+func (b *Booker) Evict(epochIndex epoch.Index) {
 	b.attachments.Prune(epochIndex)
-	b.bookingOrder.Prune(epochIndex)
+	b.bookingOrder.Evict(epochIndex)
 	b.markerManager.Prune(epochIndex)
 
-	for b.maxDroppedEpoch < epochIndex {
-		b.maxDroppedEpoch++
-		b.blocks.Drop(b.maxDroppedEpoch)
-	}
+	b.blocks.Drop(epochIndex)
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -171,15 +152,16 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
-	if block = b.rootBlockProvider(id); block != nil {
-		return block, true
+	if b.evictionState.IsRootBlock(id) {
+		return NewBlock(tangle.NewBlock(models.NewEmptyBlock(id), tangle.WithSolid(true)), WithBooked(true)), true
 	}
 
-	if id.EpochIndex <= b.maxDroppedEpoch {
+	storage := b.blocks.Get(id.EpochIndex, false)
+	if storage == nil {
 		return nil, false
 	}
 
-	return b.blocks.Get(id.EpochIndex, true).Get(id)
+	return storage.Get(id)
 }
 
 func (b *Booker) book(block *Block) (err error) {

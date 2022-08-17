@@ -24,7 +24,7 @@ import (
 type TestFramework struct {
 	Tangle       *Tangle
 	genesisBlock *Block
-	*eviction.State
+	*eviction.Manager
 
 	solidBlocks    int32
 	missingBlocks  int32
@@ -43,9 +43,9 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 	t = &TestFramework{
 		genesisBlock: genesis,
 	}
-	t.State = eviction.NewState(t.rootBlockProvider)
+	t.Manager = eviction.NewState(t.rootBlockProvider)
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
-	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.State, opts...)
+	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.Manager, opts...)
 	t.T = testingT
 
 	t.Setup()

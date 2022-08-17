@@ -33,29 +33,27 @@ type Tangle struct {
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
-	evictionState *eviction.State
+	state *eviction.State
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(dbManager *database.Manager, evictionState *eviction.State, opts ...options.Option[Tangle]) (t *Tangle) {
+func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (t *Tangle) {
 	t = options.Apply(&Tangle{
-		Events:        newEvents(),
-		dbManager:     dbManager,
-		memStorage:    memstorage.NewEpochStorage[models.BlockID, *Block](),
-		evictionState: evictionState,
+		Events:     newEvents(),
+		dbManager:  dbManager,
+		memStorage: memstorage.NewEpochStorage[models.BlockID, *Block](),
+		state:      evictionManager.NewState(),
 	}, opts).initSolidifier(
 		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
-
-	evictionState.RegisterEvictionCallback(t.evict)
 
 	return t
 }
 
 // Attach is used to attach new Blocks to the Tangle. It is the main function of the Tangle that triggers Events.
 func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	t.evictionState.RLock()
-	defer t.evictionState.RUnlock()
+	t.state.RLock()
+	defer t.state.RUnlock()
 
 	if block, wasAttached, err = t.attach(data); wasAttached {
 		t.Events.BlockAttached.Trigger(block)
@@ -68,8 +66,8 @@ func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err
 
 // Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (t *Tangle) Block(id models.BlockID) (block *Block, exists bool) {
-	t.evictionState.RLock()
-	defer t.evictionState.RUnlock()
+	t.evictionManager.RLock()
+	defer t.evictionManager.RUnlock()
 
 	return t.block(id)
 }
@@ -87,6 +85,8 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // evict is used to evict the Tangle of all Blocks that are too old.
 func (t *Tangle) evict(epochIndex epoch.Index) {
+	t.Lock()
+	defer t.Unlock()
 	t.solidifier.Evict(epochIndex)
 
 	t.memStorage.Drop(epochIndex)
@@ -145,7 +145,7 @@ func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err
 
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (t *Tangle) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
-	if t.evictionState.IsTooOld(data.ID()) {
+	if t.evictionManager.IsTooOld(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
 	}
 
@@ -161,7 +161,7 @@ func (t *Tangle) canAttach(data *models.Block) (block *Block, canAttach bool, er
 // this condition but exists as a missing entry, we mark it as invalid.
 func (t *Tangle) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
-		if t.evictionState.IsTooOld(parentID) {
+		if t.evictionManager.IsTooOld(parentID) {
 			if storedBlock != nil {
 				t.SetInvalid(storedBlock)
 			}
@@ -183,7 +183,7 @@ func (t *Tangle) storeData(block *models.Block) {
 // registerChild registers the given Block as a child of the parent. It triggers a BlockMissing event if the referenced
 // Block does not exist, yet.
 func (t *Tangle) registerChild(child *Block, parent models.Parent) {
-	if t.evictionState.IsRootBlock(parent.ID) {
+	if t.evictionManager.IsRootBlock(parent.ID) {
 		return
 	}
 
@@ -200,7 +200,7 @@ func (t *Tangle) registerChild(child *Block, parent models.Parent) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
-	if t.evictionState.IsRootBlock(id) {
+	if t.evictionManager.IsRootBlock(id) {
 		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
 	}
 
