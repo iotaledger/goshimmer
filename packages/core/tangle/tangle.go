@@ -91,7 +91,7 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
 func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
-	t.solidifier.Evict(epochIndex)
+	t.solidifier.EvictEpoch(epochIndex)
 
 	t.evictionManager.Lock()
 	defer t.evictionManager.Unlock()

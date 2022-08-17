@@ -60,9 +60,9 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
 	c.triggerOrderedIfReady(entity)
 }
 
-func (c *CausalOrder[ID, Entity]) Evict(epochIndex epoch.Index) {
-	for _, evictedEntity := range c.evictEntities(epochIndex) {
-		c.droppedCallback(evictedEntity, errors.Errorf("entity evicted from %s", epochIndex))
+func (c *CausalOrder[ID, Entity]) EvictEpoch(index epoch.Index) {
+	for _, evictedEntity := range c.evictEntities(index) {
+		c.droppedCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
 	}
 }
 
@@ -168,9 +168,6 @@ func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChil
 }
 
 func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
-	c.evictionManager.RLock()
-	defer c.evictionManager.RUnlock()
-
 	c.dagMutex.Lock(child.ID())
 	defer c.dagMutex.Unlock(child.ID())
 
@@ -195,7 +192,12 @@ func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
 	for _, child := range c.popUnorderedChildren(id) {
 		currentChild := child
 
-		event.Loop.Submit(func() { c.triggerChildIfReady(currentChild) })
+		event.Loop.Submit(func() {
+			c.evictionManager.RLock()
+			defer c.evictionManager.RUnlock()
+
+			c.triggerChildIfReady(currentChild)
+		})
 	}
 }
 

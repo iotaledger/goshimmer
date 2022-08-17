@@ -131,7 +131,7 @@ func (b *Booker) Evict(epochIndex epoch.Index) {
 	defer b.evictionState.Unlock()
 
 	b.attachments.Prune(epochIndex)
-	b.bookingOrder.Evict(epochIndex)
+	b.bookingOrder.EvictEpoch(epochIndex)
 	b.markerManager.Prune(epochIndex)
 
 	b.blocks.Drop(epochIndex)
