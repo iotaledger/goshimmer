@@ -84,7 +84,7 @@ func (c *CausalOrder[ID, Entity]) allParentsOrdered(entity Entity) (allParentsOr
 	for _, parentID := range entity.Parents() {
 		parentEntity, exists := c.entityProvider(parentID)
 		if !exists {
-			c.droppedCallback(entity, errors.Errorf(""))
+			c.droppedCallback(entity, errors.Errorf("parent %s not found", parentID))
 
 			return
 		}
