@@ -1,9 +1,8 @@
 package tangle
 
 import (
-	"fmt"
-
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
@@ -33,27 +32,36 @@ type Tangle struct {
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
-	state *eviction.State
+	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
+	evictionManager *eviction.LockableManager
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (t *Tangle) {
-	t = options.Apply(&Tangle{
-		Events:     newEvents(),
-		dbManager:  dbManager,
-		memStorage: memstorage.NewEpochStorage[models.BlockID, *Block](),
-		state:      evictionManager.NewState(),
-	}, opts).initSolidifier(
+func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+	newTangle = options.Apply(&Tangle{
+		Events:          newEvents(),
+		dbManager:       dbManager,
+		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+		evictionManager: evictionManager.Lockable(),
+	}, opts)
+
+	newTangle.solidifier = causalorder.New(
+		newTangle.block,
+		(*Block).IsSolid,
+		newTangle.markSolid,
+		newTangle.markInvalid,
 		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
 
-	return t
+	newTangle.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newTangle.evict))
+
+	return newTangle
 }
 
 // Attach is used to attach new Blocks to the Tangle. It is the main function of the Tangle that triggers Events.
 func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	t.state.RLock()
-	defer t.state.RUnlock()
+	t.evictionManager.RLock()
+	defer t.evictionManager.RUnlock()
 
 	if block, wasAttached, err = t.attach(data); wasAttached {
 		t.Events.BlockAttached.Trigger(block)
@@ -85,18 +93,11 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // evict is used to evict the Tangle of all Blocks that are too old.
 func (t *Tangle) evict(epochIndex epoch.Index) {
-	t.Lock()
-	defer t.Unlock()
+	t.evictionManager.Lock()
+	defer t.evictionManager.Unlock()
+
 	t.solidifier.Evict(epochIndex)
-
 	t.memStorage.Drop(epochIndex)
-}
-
-// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
-func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, t.markSolid, t.markInvalid, t.markIDInvalid, opts...)
-
-	return t
 }
 
 func (t *Tangle) markSolid(block *Block) (err error) {
@@ -109,15 +110,6 @@ func (t *Tangle) markSolid(block *Block) (err error) {
 
 func (t *Tangle) markInvalid(block *Block, reason error) {
 	t.SetInvalid(block)
-}
-
-func (t *Tangle) markIDInvalid(id models.BlockID, reason error) {
-	block, exists := t.block(id)
-	if !exists {
-		// This should never happen because it is not yet pruned.
-		panic(fmt.Sprintf("%s not found", id))
-	}
-	t.markInvalid(block, reason)
 }
 
 // attach tries to attach the given Block to the Tangle.

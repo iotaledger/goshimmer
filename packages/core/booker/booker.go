@@ -35,11 +35,11 @@ type Booker struct {
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
-	evictionState *eviction.Manager
+	evictionState *eviction.LockableManager
 	*tangle.Tangle
 }
 
-func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionState *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
+func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
 		ledger:        ledgerInstance,
 		Tangle:        tangleInstance,
@@ -49,9 +49,9 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionS
 		markerManager: NewMarkerManager(),
 		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionState: evictionState,
+		evictionState: evictionManager.Lockable(),
 	}, opts)
-	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, booker.book, func(block *Block, _ error) { booker.SetInvalid(block.Block) }, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
+	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
@@ -90,7 +90,9 @@ func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
 	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
 
 	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
-		b.bookingOrder.Queue(block)
+		event.Loop.Submit(func() {
+			b.bookingOrder.Queue(block)
+		})
 	}
 
 	return
@@ -106,7 +108,7 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if block.ID().Index() <= b.maxDroppedEpoch {
+	if block.ID().Index() <= b.evictionState.MaxDroppedEpoch() {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -182,6 +184,10 @@ func (b *Booker) book(block *Block) (err error) {
 	b.Events.BlockBooked.Trigger(block)
 
 	return nil
+}
+
+func (b *Booker) markInvalid(block *Block, _ error) {
+	b.SetInvalid(block.Block)
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
@@ -318,7 +324,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
-	// of the block's conflicts changes and thus it might implicitly "inherit" conflicts that were previously removed.
+	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
 	if subtractedConflictIDs := b.ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}

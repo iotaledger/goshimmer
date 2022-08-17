@@ -43,7 +43,7 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 	t = &TestFramework{
 		genesisBlock: genesis,
 	}
-	t.Manager = eviction.NewState(t.rootBlockProvider)
+	t.Manager = eviction.NewManager(t.rootBlockProvider)
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
 	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.Manager, opts...)
 	t.T = testingT

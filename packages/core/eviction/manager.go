@@ -7,51 +7,60 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
+// region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type Manager struct {
+	Events *Events
+
 	maxDroppedEpoch epoch.Index
 	isRootBlock     func(models.BlockID) bool
 
-	pruningMutex sync.RWMutex
+	sync.RWMutex
 }
 
-func NewManager(rootBlockProvider func(models.BlockID) bool) *Manager {
+func NewManager(isRootBlock func(models.BlockID) (isRootBlock bool)) (newManager *Manager) {
 	return &Manager{
-		isRootBlock: rootBlockProvider,
+		Events:      newEvents(),
+		isRootBlock: isRootBlock,
 	}
 }
 
-func (m *Manager) NewState() *State {
-	return NewState(m)
+// Lockable returns a lockable version of the Manager that contains an additional mutex used to synchronize the eviction
+// process inside the components.
+func (m *Manager) Lockable() (newLockableManager *LockableManager) {
+	return &LockableManager{
+		Manager: m,
+	}
 }
 
 func (m *Manager) Evict(epochIndex epoch.Index) {
-	for i := m.setMaxDroppedEpoch(epochIndex) + 1; i <= epochIndex; i++ {
-		// TODO: trigger event
+	for currentIndex := m.setMaxDroppedEpoch(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
+		m.Events.EpochEvicted.Trigger(currentIndex)
 	}
 }
 
 // IsTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
 func (m *Manager) IsTooOld(id models.BlockID) (isTooOld bool) {
-	m.pruningMutex.RLock()
-	defer m.pruningMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
 	return !m.isRootBlock(id) && id.EpochIndex <= m.maxDroppedEpoch
 }
 
-func (m *Manager) IsRootBlock(id models.BlockID) (rootBlock bool) {
+func (m *Manager) IsRootBlock(id models.BlockID) (isRootBlock bool) {
 	return m.isRootBlock(id)
 }
 
 func (m *Manager) MaxDroppedEpoch() epoch.Index {
-	m.pruningMutex.RLock()
-	defer m.pruningMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
 	return m.maxDroppedEpoch
 }
 
 func (m *Manager) setMaxDroppedEpoch(index epoch.Index) (old epoch.Index) {
-	m.pruningMutex.Lock()
-	defer m.pruningMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
 	if old = m.maxDroppedEpoch; old >= index {
 		return
@@ -61,3 +70,19 @@ func (m *Manager) setMaxDroppedEpoch(index epoch.Index) (old epoch.Index) {
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region LockableManager //////////////////////////////////////////////////////////////////////////////////////////////
+
+// LockableManager is a wrapper around the Manager that contains an additional Mutex used to synchronize the eviction
+// process in the individual components.
+type LockableManager struct {
+	// Manager is the underlying Manager.
+	*Manager
+
+	// RWMutex is the mutex that is used to synchronize the eviction process.
+	sync.RWMutex
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
