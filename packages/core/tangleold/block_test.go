@@ -2,6 +2,7 @@ package tangleold
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"sort"
@@ -11,14 +12,17 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -121,9 +125,20 @@ func TestBlock_VerifySignature(t *testing.T) {
 	unsigned := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 	assert.False(t, lo.PanicOnErr(unsigned.VerifySignature()))
 
+	ecRecord := epoch.NewECRecord(unsigned.EI())
+	ecRecord.SetECR(unsigned.ECR())
+	ecRecord.SetPrevEC(unsigned.PrevEC())
+
 	unsignedBytes, err := unsigned.Bytes()
 	require.NoError(t, err)
-	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
+
+	contentLength := len(unsignedBytes) - len(unsigned.Signature())
+	contentHash := blake2b.Sum256(unsignedBytes[:contentLength])
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), unsigned.IssuingTime(), serix.WithValidation())
+	require.NoError(t, err)
+
+	signature := keyPair.PrivateKey.Sign(byteutils.ConcatBytes(ecRecord.ComputeEC().Bytes(), issuingTimeBytes, contentHash[:]))
 
 	signed := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID), time.Time{}, keyPair.PublicKey, 0, pl, 0, signature, 0, epoch.NewECRecord(0))
 	assert.True(t, lo.PanicOnErr(signed.VerifySignature()))

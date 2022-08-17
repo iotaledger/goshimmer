@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -457,10 +458,17 @@ func (m *Block) VerifySignature() (valid bool, err error) {
 	}
 	signature := m.Signature()
 
+	ecRecord := epoch.NewECRecord(m.EI())
+	ecRecord.SetECR(m.ECR())
+	ecRecord.SetPrevEC(m.PrevEC())
 	contentLength := len(blkBytes) - len(signature)
-	content := blkBytes[:contentLength]
+	contentHash := blake2b.Sum256(blkBytes[:contentLength])
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), m.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		return false, err
+	}
 
-	return m.M.IssuerPublicKey.VerifySignature(content, signature), nil
+	return m.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(ecRecord.ComputeEC().Bytes(), issuingTimeBytes, contentHash[:]), signature), nil
 }
 
 // IDBytes implements Element interface in scheduler NodeQueue that returns the BlockID of the block in bytes.
