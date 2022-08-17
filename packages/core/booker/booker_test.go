@@ -377,11 +377,138 @@ func TestScenario_4(t *testing.T) {
 	}
 }
 
-func MergeMaps[K comparable, V any](base, update map[K]V) map[K]V {
-	for k, v := range update {
-		base[k] = v
+func TestFutureConePropagation(t *testing.T) {
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 1, "Genesis")))
+	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.0")))
+	tf.CreateBlock("Block2*", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2*", 1, "TX1.0")))
+
+	// these are all liking TX1* -> should not have TX1 and TX2
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // propagation via markers
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // check correct booking (later)
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithLikedInsteadParents(tf.BlockIDs("Block1*"))) // propagation via individually mapped blocks
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")))                                                         // propagation via individually mapped blocks
+
+	// these are liking TX1 -> should have TX2 too
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block2")))                                                        // propagation via individually mapped blocks
+	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithLikedInsteadParents(tf.BlockIDs("Block1"))) // propagation via marker
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithLikedInsteadParents(tf.BlockIDs("Block1"))) // propagation via marker
+
+	markersMap := make(map[string]*markers.Markers)
+	metadataDiffConflictIDs := make(map[string][]utxo.TransactionIDs)
+	conflictIDs := make(map[string]utxo.TransactionIDs)
+
+	{
+		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block5", "Block6").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Block1*": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"Block2":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block3":  markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block5":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block6":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block7":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block8":  markers.NewMarkers(markers.NewMarker(0, 4)),
+			"Block9":  markers.NewMarkers(markers.NewMarker(0, 2)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block1*": {tf.ledgerTf.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
+			"Block2":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block3":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block5":  {tf.ledgerTf.TransactionIDs("TX1*"), tf.ledgerTf.TransactionIDs("TX1")},
+			"Block6":  {tf.ledgerTf.TransactionIDs("TX1*"), tf.ledgerTf.TransactionIDs("TX1")},
+			"Block7":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block8":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block9":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block1":  tf.ledgerTf.TransactionIDs("TX1"),
+			"Block1*": tf.ledgerTf.TransactionIDs("TX1*"),
+			"Block2":  tf.ledgerTf.TransactionIDs("TX1"),
+			"Block3":  tf.ledgerTf.TransactionIDs("TX1*"),
+			"Block5":  tf.ledgerTf.TransactionIDs("TX1*"),
+			"Block6":  tf.ledgerTf.TransactionIDs("TX1*"),
+			"Block7":  tf.ledgerTf.TransactionIDs("TX1"),
+			"Block8":  tf.ledgerTf.TransactionIDs("TX1"),
+			"Block9":  tf.ledgerTf.TransactionIDs("TX1"),
+		}))
 	}
-	return base
+
+	// Verify correct propagation of TX2 to its future cone.
+	{
+		tf.IssueBlocks("Block2*").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block2*": markers.NewMarkers(markers.NewMarker(0, 1)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block2*": {tf.ledgerTf.TransactionIDs("TX2*"), utxo.NewTransactionIDs()},
+			"Block5":  {tf.ledgerTf.TransactionIDs("TX1*"), tf.ledgerTf.TransactionIDs("TX1")},
+			"Block6":  {tf.ledgerTf.TransactionIDs("TX1*"), tf.ledgerTf.TransactionIDs("TX1")},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block2":  tf.ledgerTf.TransactionIDs("TX1", "TX2"),
+			"Block2*": tf.ledgerTf.TransactionIDs("TX1", "TX2*"),
+			"Block3":  tf.ledgerTf.TransactionIDs("TX1*"), // does not change because of marker mapping
+			"Block5":  tf.ledgerTf.TransactionIDs("TX1*"), // does not change because of additional diff entry
+			"Block6":  tf.ledgerTf.TransactionIDs("TX1*"), // does not change because of additional diff entry
+			"Block7":  tf.ledgerTf.TransactionIDs("TX1", "TX2"),
+			"Block8":  tf.ledgerTf.TransactionIDs("TX1", "TX2"),
+			"Block9":  tf.ledgerTf.TransactionIDs("TX1", "TX2"),
+		}))
+	}
+
+	// Check that inheritance works as expected when booking Block4.
+	{
+		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+
+		tf.checkMarkers(MergeMaps(markersMap, map[string]*markers.Markers{
+			"Block4": markers.NewMarkers(markers.NewMarker(0, 2)),
+		}))
+		tf.checkBlockMetadataDiffConflictIDs(MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
+			"Block4": {tf.ledgerTf.TransactionIDs("TX1*"), tf.ledgerTf.TransactionIDs("TX1", "TX2")},
+		}))
+		tf.checkConflictIDs(MergeMaps(conflictIDs, map[string]utxo.TransactionIDs{
+			"Block4": tf.ledgerTf.TransactionIDs("TX1*"),
+		}))
+	}
+}
+
+func TestWeakParent(t *testing.T) {
+	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 1, "Genesis")))
+	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithWeakParents(tf.BlockIDs("Block1")))
+
+	{
+		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
+		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+
+		tf.checkBlockMetadataDiffConflictIDs(map[string][]utxo.TransactionIDs{
+			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
+			"Block1*": {tf.ledgerTf.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
+			"Block2":  {tf.ledgerTf.TransactionIDs("TX1"), utxo.NewTransactionIDs()},
+		})
+		tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+			"Block1":  tf.ledgerTf.TransactionIDs("TX1"),
+			"Block1*": tf.ledgerTf.TransactionIDs("TX1*"),
+			"Block2":  tf.ledgerTf.TransactionIDs("TX1"),
+		})
+	}
+
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
@@ -772,4 +899,11 @@ func Test_BlockInvalid(t *testing.T) {
 		"Block8": true,
 		"Block9": false, // Block9 is not solid because it is invalid
 	})
+}
+
+func MergeMaps[K comparable, V any](base, update map[K]V) map[K]V {
+	for k, v := range update {
+		base[k] = v
+	}
+	return base
 }

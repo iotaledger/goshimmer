@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
@@ -279,7 +278,11 @@ func (b *Booker) collectWeakParentsConflictIDs(block *Block) (payloadConflictIDs
 	payloadConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
-		payloadConflictIDs.AddAll(b.PayloadConflictIDs(block))
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+		payloadConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
 
 		return true
 	})
@@ -293,13 +296,17 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 	collectedLikedConflictIDs = utxo.NewTransactionIDs()
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
-		transaction, isTransaction := block.Transaction()
+		parentBlock, exists := b.Block(parentBlockID)
+		if !exists {
+			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
+		}
+		transaction, isTransaction := parentBlock.Transaction()
 		if !isTransaction {
 			err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentBlockID, block.ID(), cerrors.ErrFatal)
 			return false
 		}
 
-		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(block))
+		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
 
 		for it := b.ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 			conflictingTransactionID := it.Next()
@@ -328,7 +335,10 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 		blockConflictIDs.AddAll(addedConflictIDs)
 	}
 
-	if subtractedConflictIDs := block.SubtractedConflictIDs(); !subtractedConflictIDs.IsEmpty() {
+	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
+	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
+	// of the block's conflicts changes and thus it might implicitly "inherit" conflicts that were previously removed.
+	if subtractedConflictIDs := b.ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
@@ -350,11 +360,11 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedConflict propagates the forked ConflictID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
+func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (err error) {
 	for blockWalker := walker.New[*Block]().PushAll(b.attachments.Get(transactionID)...); blockWalker.HasNext(); {
 		block := blockWalker.Next()
 
-		updated, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+		updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 		if forkErr != nil {
 			blockWalker.StopWalk()
 			return errors.Errorf("failed to propagate forked ConflictID %s to future cone of %s: %w", addedConflictID, block.ID(), forkErr)
@@ -368,30 +378,31 @@ func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, added
 			ConflictID: addedConflictID,
 		})
 
-		// Do not walk the children of the block if it's a marker, because the children should inherit the conflicts via markers.
-		if !block.StructureDetails().IsPastMarker() {
+		if propagateFurther {
 			blockWalker.PushAll(b.strongChildren(block)...)
 		}
 	}
 	return nil
 }
 
-func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
+func (b *Booker) propagateForkedConflict(block *Block, addedConflictID utxo.TransactionID, removedConflictIDs utxo.TransactionIDs) (propagated, propagateFurther bool, err error) {
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
 	if !block.IsBooked() {
-		return false, nil
+		return false, false, nil
 	}
 
 	if structureDetails := block.StructureDetails(); structureDetails.IsPastMarker() {
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedConflictID, removedConflictIDs); err != nil {
-			return false, errors.Errorf("failed to propagate conflict %s to future cone of %s: %w", addedConflictID, structureDetails.PastMarkers().Marker(), err)
+			return false, false, errors.Errorf("failed to propagate conflict %s to future cone of %s: %w", addedConflictID, structureDetails.PastMarkers().Marker(), err)
 		}
-		return true, nil
+		return true, false, nil
 	}
 
-	return b.updateBlockConflicts(block, addedConflictID, removedConflictIDs), nil
+	propagated = b.updateBlockConflicts(block, addedConflictID, removedConflictIDs)
+	// We only need to propagate further (in the block's future cone) if the block was updated.
+	return propagated, propagated, nil
 }
 
 func (b *Booker) updateBlockConflicts(block *Block, addedConflict utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool) {
