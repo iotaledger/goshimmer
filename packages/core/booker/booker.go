@@ -35,23 +35,23 @@ type Booker struct {
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
-	evictionState *eviction.LockableManager
+	evictionManager *eviction.LockableManager
 	*tangle.Tangle
 }
 
 func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger:        ledgerInstance,
-		Tangle:        tangleInstance,
-		Events:        newEvents(),
-		attachments:   newAttachments(),
-		blocks:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		markerManager: NewMarkerManager(),
-		bookingMutex:  syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex: syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionState: evictionManager.Lockable(),
+		ledger:          ledgerInstance,
+		Tangle:          tangleInstance,
+		Events:          newEvents(),
+		attachments:     newAttachments(),
+		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
+		markerManager:   NewMarkerManager(),
+		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
+		evictionManager: evictionManager.Lockable(),
 	}, opts)
-	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
+	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
@@ -75,40 +75,43 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionM
 		}
 	}))
 
+	booker.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(booker.evictEpoch))
+
 	return booker
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
-	b.evictionState.RLock()
-	defer b.evictionState.RUnlock()
-
-	// TODO: do we need to check this?
-	if b.evictionState.IsTooOld(block.ID()) {
-		return false, nil
-	}
-
-	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
-
-	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
-		event.Loop.Submit(func() {
-			b.bookingOrder.Queue(block)
-		})
+	if wasQueued, err = b.queue(block); wasQueued {
+		b.bookingOrder.Queue(block)
 	}
 
 	return
 }
 
+func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	if b.evictionManager.IsTooOld(block.ID()) {
+		return false, nil
+	}
+
+	b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
+
+	return b.isPayloadSolid(block)
+}
+
 // Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	b.evictionState.RLock()
-	defer b.evictionState.RUnlock()
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
 
 	return b.block(id)
 }
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if block.ID().Index() <= b.evictionState.MaxDroppedEpoch() {
+	if block.ID().Index() <= b.evictionManager.MaxEvictedEpoch() {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -126,15 +129,15 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 	return
 }
 
-func (b *Booker) Evict(epochIndex epoch.Index) {
-	b.evictionState.Lock()
-	defer b.evictionState.Unlock()
+func (b *Booker) evictEpoch(epochIndex epoch.Index) {
+	b.evictionManager.Lock()
+	defer b.evictionManager.Unlock()
 
-	b.attachments.Prune(epochIndex)
+	b.attachments.EvictEpoch(epochIndex)
 	b.bookingOrder.EvictEpoch(epochIndex)
-	b.markerManager.Prune(epochIndex)
+	b.markerManager.EvictEpoch(epochIndex)
 
-	b.blocks.Drop(epochIndex)
+	b.blocks.EvictEpoch(epochIndex)
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -148,7 +151,6 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	if err = b.ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
 	); errors.Is(err, ledger.ErrTransactionUnsolid) {
-		fmt.Println("Payload not solid")
 		return false, nil
 	}
 
@@ -157,11 +159,17 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
-	if b.evictionState.IsRootBlock(id) {
-		return NewBlock(tangle.NewBlock(models.NewEmptyBlock(id), tangle.WithSolid(true)), WithBooked(true)), true
+	if b.evictionManager.IsRootBlock(id) {
+		tangleBlock, _ := b.Tangle.Block(id)
+		
+		genesisStructureDetails := markers.NewStructureDetails()
+		genesisStructureDetails.SetIsPastMarker(true)
+		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
+
+		return NewBlock(tangleBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
 	}
 
-	storage := b.blocks.Get(id.EpochIndex, false)
+	storage := b.blocks.Get(id.Index(), false)
 	if storage == nil {
 		return nil, false
 	}

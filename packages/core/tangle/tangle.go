@@ -96,7 +96,7 @@ func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
 	t.evictionManager.Lock()
 	defer t.evictionManager.Unlock()
 
-	t.memStorage.Drop(epochIndex)
+	t.memStorage.EvictEpoch(epochIndex)
 }
 
 func (t *Tangle) markSolid(block *Block) (err error) {

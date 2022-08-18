@@ -22,7 +22,6 @@ func TestScenario_1(t *testing.T) {
 
 	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 3, "Genesis")))
 	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -63,7 +62,6 @@ func TestScenario_1(t *testing.T) {
 
 func TestScenario_2(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 3, "Genesis")))
 	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -104,7 +102,6 @@ func TestScenario_2(t *testing.T) {
 
 func TestScenario_3(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 3, "Genesis")))
 	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis", "Block1")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX2", 1, "TX1.1", "TX1.2")))
@@ -144,7 +141,7 @@ func TestScenario_3(t *testing.T) {
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
+
 	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX0", 4, "Genesis")))
 	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
 
@@ -379,7 +376,6 @@ func TestScenario_4(t *testing.T) {
 
 func TestFutureConePropagation(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 1, "Genesis")))
 	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1*", 1, "Genesis")))
@@ -486,7 +482,6 @@ func TestFutureConePropagation(t *testing.T) {
 
 func TestWeakParent(t *testing.T) {
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1", 1, "Genesis")))
 	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("TX1*", 1, "Genesis")))
@@ -518,7 +513,6 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// Create base-layer outputs to double-spend
 	tf.CreateBlock("Block.G", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("G", layersNum, "Genesis")))
@@ -605,7 +599,6 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// Create base-layer outputs to double-spend
 	tf.CreateBlock("Block.G", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.ledgerTf.CreateTransaction("G", widthSize, "Genesis")))
@@ -711,7 +704,6 @@ func Test_Prune(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
@@ -734,7 +726,7 @@ func Test_Prune(t *testing.T) {
 		), alias
 	}
 
-	assert.EqualValues(t, 0, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, 0, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)
@@ -768,24 +760,24 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, -1, epochCount)
 
-	tf.Booker.Prune(epochCount / 4)
+	tf.EvictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
 	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.Booker.Prune(epochCount / 10)
+	tf.EvictEpoch(epochCount / 10)
 
-	assert.EqualValues(t, epochCount/4, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
 	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
 
-	tf.Booker.Prune(epochCount / 2)
-	assert.EqualValues(t, epochCount/2, tf.Booker.maxDroppedEpoch, "maxDroppedEpoch of booker should be epochCount/2")
+	tf.EvictEpoch(epochCount / 2)
+	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 	assert.EqualValues(t, epochCount/2, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/2)
 	assert.EqualValues(t, epochCount/2, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/2)
 
@@ -839,7 +831,6 @@ func Test_BlockInvalid(t *testing.T) {
 
 	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
 	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithLikedInsteadParents(tf.BlockIDs("Block1")))

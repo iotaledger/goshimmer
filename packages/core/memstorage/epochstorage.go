@@ -20,7 +20,7 @@ func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
 	}
 }
 
-func (e *EpochStorage[K, V]) Drop(index epoch.Index) {
+func (e *EpochStorage[K, V]) EvictEpoch(index epoch.Index) {
 	e.Lock()
 	defer e.Unlock()
 

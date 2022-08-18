@@ -22,7 +22,6 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	markerManager := tf.Booker.markerManager
 
@@ -54,11 +53,11 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
-	markerManager.Prune(epochCount / 2)
+	markerManager.EvictEpoch(epochCount / 2)
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
-	markerManager.Prune(epochCount)
+	markerManager.EvictEpoch(epochCount)
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 
@@ -76,7 +75,6 @@ func Test_PruneSequences(t *testing.T) {
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
 	tf := NewTestFramework(t)
-	defer tf.Shutdown()
 
 	markerManager := tf.Booker.markerManager
 
@@ -134,7 +132,7 @@ func Test_PruneSequences(t *testing.T) {
 	// verify that the pruning is correct
 	{
 		for pruningEpoch := 0; pruningEpoch < 5; pruningEpoch++ {
-			markerManager.Prune(epoch.Index(pruningEpoch))
+			markerManager.EvictEpoch(epoch.Index(pruningEpoch))
 
 			startingSequence := markers.SequenceID((pruningEpoch + 1) * sequenceCount)
 

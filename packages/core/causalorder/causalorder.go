@@ -15,12 +15,12 @@ import (
 )
 
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
-	evictionManager *eviction.LockableManager
-	entityProvider  func(id ID) (entity Entity, exists bool)
-	isOrdered       func(entity Entity) (isOrdered bool)
-	orderedCallback func(entity Entity) (err error)
-	droppedCallback func(entity Entity, reason error)
-	checkReference  func(child Entity, parent Entity) (err error)
+	evictionManager  *eviction.LockableManager
+	entityProvider   func(id ID) (entity Entity, exists bool)
+	isOrdered        func(entity Entity) (isOrdered bool)
+	orderedCallback  func(entity Entity) (err error)
+	evictionCallback func(entity Entity, reason error)
+	checkReference   func(child Entity, parent Entity) (err error)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
 	unorderedParentsCounterMutex sync.Mutex
@@ -35,7 +35,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
-	droppedCallback func(entity Entity, reason error),
+	evictionCallback func(entity Entity, reason error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
 ) (newCausalOrder *CausalOrder[ID, Entity]) {
 	newCausalOrder = options.Apply(&CausalOrder[ID, Entity]{
@@ -43,7 +43,7 @@ func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
 		orderedCallback:         orderedCallback,
-		droppedCallback:         droppedCallback,
+		evictionCallback:        evictionCallback,
 		checkReference:          func(entity Entity, parent Entity) (err error) { return nil },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
@@ -62,7 +62,7 @@ func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
 
 func (c *CausalOrder[ID, Entity]) EvictEpoch(index epoch.Index) {
 	for _, evictedEntity := range c.evictEntities(index) {
-		c.droppedCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
+		c.evictionCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
 	}
 }
 
@@ -72,7 +72,15 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 	c.dagMutex.Lock(entity.ID())
 	defer c.dagMutex.Unlock(entity.ID())
 
-	if c.isOrdered(entity) || c.evictionManager.MaxDroppedEpoch() >= entity.ID().Index() || !c.allParentsOrdered(entity) {
+	if c.isOrdered(entity) {
+		return
+	}
+
+	if c.evictionManager.MaxEvictedEpoch() >= entity.ID().Index() {
+		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
+	}
+
+	if !c.allParentsOrdered(entity) {
 		return
 	}
 
@@ -84,13 +92,13 @@ func (c *CausalOrder[ID, Entity]) allParentsOrdered(entity Entity) (allParentsOr
 	for _, parentID := range entity.Parents() {
 		parentEntity, exists := c.entityProvider(parentID)
 		if !exists {
-			c.droppedCallback(entity, errors.Errorf("parent %s not found", parentID))
+			c.evictionCallback(entity, errors.Errorf("parent %s not found", parentID))
 
 			return
 		}
 
 		if err := c.checkReference(entity, parentEntity); err != nil {
-			c.droppedCallback(entity, err)
+			c.evictionCallback(entity, err)
 
 			return
 		}
@@ -178,7 +186,7 @@ func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
 
 func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (wasTriggered bool) {
 	if err := c.orderedCallback(entity); err != nil {
-		c.droppedCallback(entity, err)
+		c.evictionCallback(entity, err)
 
 		return
 	}
@@ -215,7 +223,7 @@ func (c *CausalOrder[ID, Entity]) evictEntities(epochIndex epoch.Index) (evicted
 	defer c.evictionManager.Unlock()
 
 	evictedEntities = make(map[ID]Entity)
-	c.dropEntitiesFromEpoch(epochIndex, func(id ID) {
+	c.evictEntitiesFromEpoch(epochIndex, func(id ID) {
 		if _, exists := evictedEntities[id]; !exists {
 			evictedEntities[id] = c.entity(id)
 		}
@@ -224,14 +232,14 @@ func (c *CausalOrder[ID, Entity]) evictEntities(epochIndex epoch.Index) (evicted
 	return evictedEntities
 }
 
-func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
+func (c *CausalOrder[ID, Entity]) evictEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
 	if childrenStorage := c.unorderedChildren.Get(epochIndex); childrenStorage != nil {
 		childrenStorage.ForEachKey(func(id ID) bool {
 			entityCallback(id)
 
 			return true
 		})
-		c.unorderedChildren.Drop(epochIndex)
+		c.unorderedChildren.EvictEpoch(epochIndex)
 	}
 
 	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
@@ -240,6 +248,6 @@ func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, 
 
 			return true
 		})
-		c.unorderedParentsCounter.Drop(epochIndex)
+		c.unorderedParentsCounter.EvictEpoch(epochIndex)
 	}
 }

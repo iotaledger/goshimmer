@@ -12,7 +12,7 @@ import (
 type Manager struct {
 	Events *Events
 
-	maxDroppedEpoch epoch.Index
+	maxEvictedEpoch epoch.Index
 	isRootBlock     func(models.BlockID) bool
 
 	sync.RWMutex
@@ -33,8 +33,8 @@ func (m *Manager) Lockable() (newLockableManager *LockableManager) {
 	}
 }
 
-func (m *Manager) Evict(epochIndex epoch.Index) {
-	for currentIndex := m.setMaxDroppedEpoch(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
+func (m *Manager) EvictEpoch(epochIndex epoch.Index) {
+	for currentIndex := m.setMaxEvictedEpoch(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
 		m.Events.EpochEvicted.Trigger(currentIndex)
 	}
 }
@@ -44,29 +44,29 @@ func (m *Manager) IsTooOld(id models.BlockID) (isTooOld bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	return !m.isRootBlock(id) && id.EpochIndex <= m.maxDroppedEpoch
+	return !m.isRootBlock(id) && id.EpochIndex <= m.maxEvictedEpoch
 }
 
 func (m *Manager) IsRootBlock(id models.BlockID) (isRootBlock bool) {
 	return m.isRootBlock(id)
 }
 
-func (m *Manager) MaxDroppedEpoch() epoch.Index {
+func (m *Manager) MaxEvictedEpoch() epoch.Index {
 	m.RLock()
 	defer m.RUnlock()
 
-	return m.maxDroppedEpoch
+	return m.maxEvictedEpoch
 }
 
-func (m *Manager) setMaxDroppedEpoch(index epoch.Index) (old epoch.Index) {
+func (m *Manager) setMaxEvictedEpoch(index epoch.Index) (old epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	if old = m.maxDroppedEpoch; old >= index {
+	if old = m.maxEvictedEpoch; old >= index {
 		return
 	}
 
-	m.maxDroppedEpoch = index
+	m.maxEvictedEpoch = index
 
 	return
 }

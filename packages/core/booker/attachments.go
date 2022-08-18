@@ -48,7 +48,7 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 	return
 }
 
-func (a *attachments) Prune(epochIndex epoch.Index) {
+func (a *attachments) EvictEpoch(epochIndex epoch.Index) {
 	a.Lock()
 	defer a.Unlock()
 
