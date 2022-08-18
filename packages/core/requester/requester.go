@@ -4,11 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/core/crypto"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/timedexecutor"
 
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
@@ -19,7 +20,7 @@ import (
 type Requester struct {
 	tangle            *tangle.Tangle
 	timedExecutor     *timedexecutor.TimedExecutor
-	scheduledRequests map[models.BlockID]*timedexecutor.ScheduledTask
+	scheduledRequests *memstorage.EpochStorage[models.BlockID, *timedexecutor.ScheduledTask]
 	Events            *Events
 
 	scheduledRequestsMutex sync.RWMutex
@@ -34,7 +35,7 @@ func NewRequester(t *tangle.Tangle, opts ...options.Option[Requester]) *Requeste
 	requester := &Requester{
 		tangle:            t,
 		timedExecutor:     timedexecutor.New(1),
-		scheduledRequests: make(map[models.BlockID]*timedexecutor.ScheduledTask),
+		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timedexecutor.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         10 * time.Second,
@@ -53,7 +54,7 @@ func (r *Requester) Setup() {
 	r.tangle.Events.BlockMissing.Hook(event.NewClosure(func(block *tangle.Block) {
 		r.StartRequest(block.ID())
 	}))
-	r.tangle.Events.MissingBlockStored.Hook(event.NewClosure(func(block *tangle.Block) {
+	r.tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(block *tangle.Block) {
 		r.StopRequest(block.ID())
 	}))
 }
@@ -77,13 +78,15 @@ func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
 	r.scheduledRequestsMutex.Lock()
 	defer r.scheduledRequestsMutex.Unlock()
 
+	// TODO: check if too old
+
 	// ignore already scheduled requests
-	if _, exists := r.scheduledRequests[id]; exists {
+	if _, exists := r.scheduledRequests.Get(id.Index(), true).Get(id); exists {
 		return true
 	}
 
 	// schedule the next request and trigger the event
-	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter)))
+	r.scheduledRequests.Get(id.Index()).Set(id, r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.optsRetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.optsRetryJitter))))
 	return false
 }
 
@@ -91,14 +94,21 @@ func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
 func (r *Requester) StopRequest(id models.BlockID) {
 	r.scheduledRequestsMutex.Lock()
 
-	timer, ok := r.scheduledRequests[id]
-	if !ok {
+	storage := r.scheduledRequests.Get(id.Index())
+	if storage == nil {
+		r.scheduledRequestsMutex.Unlock()
+		return
+	}
+
+	timer, exists := storage.Get(id)
+
+	if !exists {
 		r.scheduledRequestsMutex.Unlock()
 		return
 	}
 
 	timer.Cancel()
-	delete(r.scheduledRequests, id)
+	storage.Delete(id)
 	r.scheduledRequestsMutex.Unlock()
 
 	r.Events.RequestStopped.Trigger(id)
