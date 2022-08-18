@@ -3,7 +3,7 @@ package devnetvm
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 )
 

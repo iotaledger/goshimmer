@@ -3,8 +3,8 @@ package scheduler
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

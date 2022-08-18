@@ -1,9 +1,9 @@
 import classNames from "classnames";
-import { shortenedIDCharCount } from "../../stores/AutopeeringStore";
-import { inject, observer } from "mobx-react";
-import React, { ReactNode } from "react";
+import {shortenedIDCharCount} from "../../stores/AutopeeringStore";
+import {inject, observer} from "mobx-react";
+import React, {ReactNode} from "react";
 import "./NodeView.scss";
-import { AutopeeringProps } from "./AutopeeringProps";
+import {AutopeeringProps} from "./AutopeeringProps";
 
 @inject("autopeeringStore")
 @inject("manaStore")

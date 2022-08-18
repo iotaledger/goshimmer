@@ -3,7 +3,7 @@ package memstorage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 )
 
 type Storage[K comparable, V any] struct {
@@ -48,16 +48,18 @@ func (s *Storage[K, V]) RetrieveOrCreate(key K, defaultValueFunc func() V) (valu
 // ForEachKey iterates through the map and calls the consumer for every element.
 // Returning false from this function indicates to abort the iteration.
 func (s *Storage[K, V]) ForEachKey(callback func(K) bool) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
+
 	s.storage.ForEachKey(callback)
 }
 
 // ForEach iterates through the map and calls the consumer for every element.
 // Returning false from this function indicates to abort the iteration.
 func (s *Storage[K, V]) ForEach(callback func(K, V) bool) {
-	s.Lock()
-	defer s.Unlock()
+	s.RLock()
+	defer s.RUnlock()
+
 	s.storage.ForEach(callback)
 }
 
@@ -90,4 +92,11 @@ func (s *Storage[K, V]) StoreIfAbsent(key K, value V) (stored bool) {
 	s.storage.Set(key, value)
 
 	return true
+}
+
+func (s *Storage[K, V]) Size() (size int) {
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.storage.Size()
 }

@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/core/byteutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 )

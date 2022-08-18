@@ -5,16 +5,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/stretchr/testify/assert"
 )
 
 var (

@@ -1,4 +1,4 @@
-package markers
+package markersold
 
 import (
 	"fmt"
@@ -8,10 +8,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )

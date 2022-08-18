@@ -4,13 +4,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
@@ -57,11 +57,11 @@ type Tangle struct {
 
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
-	IsMarkerConfirmed(marker markers.Marker) bool
+	IsMarkerConfirmed(marker markersold.Marker) bool
 	IsBlockConfirmed(blkID BlockID) bool
 	IsConflictConfirmed(conflictID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
-	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
+	FirstUnconfirmedMarkerIndex(sequenceID markersold.SequenceID) (unconfirmedMarkerIndex markersold.Index)
 	Events() *ConfirmationEvents
 }
 
@@ -207,7 +207,7 @@ type Options struct {
 	Store                          kvstore.KVStore
 	ConflictDAGOptions             []conflictdag.Option
 	Identity                       *identity.LocalIdentity
-	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
+	IncreaseMarkersIndexCallback   markersold.IncreaseIndexCallback
 	TangleWidth                    int
 	GenesisNode                    *ed25519.PublicKey
 	SchedulerParams                SchedulerParams
@@ -237,7 +237,7 @@ func Identity(identity *identity.LocalIdentity) Option {
 
 // IncreaseMarkersIndexCallback is an Option for the Tangle that allows to change the strategy how new Markers are
 // assigned in the Tangle.
-func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option {
+func IncreaseMarkersIndexCallback(callback markersold.IncreaseIndexCallback) Option {
 	return func(options *Options) {
 		options.IncreaseMarkersIndexCallback = callback
 	}

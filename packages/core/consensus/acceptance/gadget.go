@@ -3,14 +3,14 @@ package acceptance
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
@@ -77,7 +77,7 @@ func WithConflictThresholdTranslation(f ConflictThresholdTranslation) Option {
 type Gadget struct {
 	tangle                    *tangleold.Tangle
 	opts                      *Options
-	lastConfirmedMarkers      map[markers.SequenceID]markers.Index
+	lastConfirmedMarkers      map[markersold.SequenceID]markersold.Index
 	lastConfirmedMarkersMutex sync.RWMutex
 	events                    *tangleold.ConfirmationEvents
 }
@@ -87,7 +87,7 @@ func NewSimpleFinalityGadget(t *tangleold.Tangle, opts ...Option) *Gadget {
 	sfg := &Gadget{
 		tangle:               t,
 		opts:                 &Options{},
-		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
+		lastConfirmedMarkers: make(map[markersold.SequenceID]markersold.Index),
 		events:               tangleold.NewConfirmationEvents(),
 	}
 
@@ -107,7 +107,7 @@ func (s *Gadget) Events() *tangleold.ConfirmationEvents {
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
-func (s *Gadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
+func (s *Gadget) IsMarkerConfirmed(marker markersold.Marker) (confirmed bool) {
 	blockID := s.tangle.Booker.MarkersManager.BlockID(marker)
 	if blockID == tangleold.EmptyBlockID {
 		return false
@@ -132,7 +132,7 @@ func (s *Gadget) IsBlockConfirmed(blkID tangleold.BlockID) (confirmed bool) {
 }
 
 // FirstUnconfirmedMarkerIndex returns the first Index in the given Sequence that was not confirmed, yet.
-func (s *Gadget) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (index markers.Index) {
+func (s *Gadget) FirstUnconfirmedMarkerIndex(sequenceID markersold.SequenceID) (index markersold.Index) {
 	s.lastConfirmedMarkersMutex.Lock()
 	defer s.lastConfirmedMarkersMutex.Unlock()
 
@@ -142,18 +142,18 @@ func (s *Gadget) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (ind
 		return index + 1
 	}
 
-	s.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+	s.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markersold.Sequence) {
 		index = sequence.LowestIndex()
 	})
 
-	if !s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)) {
+	if !s.tangle.ConfirmationOracle.IsMarkerConfirmed(markersold.NewMarker(sequenceID, index)) {
 		return index
 	}
 
 	// do-while loop
 	s.lastConfirmedMarkers[sequenceID] = index
 	index++
-	for s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)) {
+	for s.tangle.ConfirmationOracle.IsMarkerConfirmed(markersold.NewMarker(sequenceID, index)) {
 		s.lastConfirmedMarkers[sequenceID] = index
 		index++
 	}
@@ -177,7 +177,7 @@ func (s *Gadget) IsTransactionConfirmed(transactionID utxo.TransactionID) (confi
 }
 
 // HandleMarker receives a marker and its current approval weight. It propagates the ConfirmationState according to AW to its past cone.
-func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
+func (s *Gadget) HandleMarker(marker markersold.Marker, aw float64) (err error) {
 	confirmationState := s.opts.BlockTransFunc(aw)
 	if confirmationState.IsPending() {
 		return nil
@@ -201,7 +201,7 @@ func (s *Gadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 }
 
 // setMarkerConfirmed marks the current Marker as confirmed.
-func (s *Gadget) setMarkerConfirmed(marker markers.Marker) (updated bool) {
+func (s *Gadget) setMarkerConfirmed(marker markersold.Marker) (updated bool) {
 	s.lastConfirmedMarkersMutex.Lock()
 	defer s.lastConfirmedMarkersMutex.Unlock()
 

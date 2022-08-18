@@ -6,10 +6,10 @@ import (
 	"unsafe"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/marshalutil"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"

@@ -3,7 +3,7 @@ package memstorage
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -20,7 +20,7 @@ func NewEpochStorage[K comparable, V any]() *EpochStorage[K, V] {
 	}
 }
 
-func (e *EpochStorage[K, V]) Drop(index epoch.Index) {
+func (e *EpochStorage[K, V]) EvictEpoch(index epoch.Index) {
 	e.Lock()
 	defer e.Unlock()
 

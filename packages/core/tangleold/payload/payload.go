@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 // MaxSize = MaxBlockSize -

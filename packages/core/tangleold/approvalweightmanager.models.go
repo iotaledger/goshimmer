@@ -4,16 +4,16 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region ApprovalWeightManager Models /////////////////////////////////////////////////////////////////////////////////
@@ -237,20 +237,20 @@ const (
 type VotePower = uint64
 
 // LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.
-var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceID(0).Length(), identity.IDLength)
+var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markersold.SequenceID(0).Length(), identity.IDLength)
 
 // LatestMarkerVotes keeps track of the most up-to-date for a certain Voter casted on a specific Marker SequenceID.
 // Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
-	model.StorableReferenceWithMetadata[LatestMarkerVotes, *LatestMarkerVotes, markers.SequenceID, Voter, thresholdmap.ThresholdMap[markers.Index, VotePower]] `serix:"0"`
+	model.StorableReferenceWithMetadata[LatestMarkerVotes, *LatestMarkerVotes, markersold.SequenceID, Voter, thresholdmap.ThresholdMap[markersold.Index, VotePower]] `serix:"0"`
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
-func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
+func NewLatestMarkerVotes(sequenceID markersold.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
 	newLatestMarkerVotes = model.NewStorableReferenceWithMetadata[LatestMarkerVotes](
-		sequenceID, voter, thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode),
+		sequenceID, voter, thresholdmap.New[markersold.Index, VotePower](thresholdmap.UpperThresholdMode),
 	)
 
 	return
@@ -264,7 +264,7 @@ func (l *LatestMarkerVotes) Voter() Voter {
 }
 
 // Power returns the power of the vote for the given marker Index.
-func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists bool) {
+func (l *LatestMarkerVotes) Power(index markersold.Index) (power VotePower, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
@@ -278,7 +278,7 @@ func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists 
 
 // Store stores the vote with the given marker Index and votePower.
 // The votePower parameter is used to determine the order of the vote.
-func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored bool, previousHighestIndex markers.Index) {
+func (l *LatestMarkerVotes) Store(index markersold.Index, power VotePower) (stored bool, previousHighestIndex markersold.Index) {
 	l.Lock()
 	defer l.Unlock()
 

@@ -3,7 +3,7 @@ package mana
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // BaseMana is an interface for a collection of base mana values of a single node.

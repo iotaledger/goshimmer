@@ -3,7 +3,7 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"

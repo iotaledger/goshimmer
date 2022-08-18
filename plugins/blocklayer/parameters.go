@@ -3,7 +3,7 @@ package blocklayer
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of the parameters used by the blocklayer plugin.
@@ -99,9 +99,9 @@ var SchedulerParameters = &SchedulerParametersDefinition{}
 var NotarizationParameters = &NotarizationParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "blockLayer")
-	configuration.BindParameters(ManaParameters, "mana")
-	configuration.BindParameters(RateSetterParameters, "rateSetter")
-	configuration.BindParameters(SchedulerParameters, "scheduler")
-	configuration.BindParameters(NotarizationParameters, "notarization")
+	config.BindParameters(Parameters, "blockLayer")
+	config.BindParameters(ManaParameters, "mana")
+	config.BindParameters(RateSetterParameters, "rateSetter")
+	config.BindParameters(SchedulerParameters, "scheduler")
+	config.BindParameters(NotarizationParameters, "notarization")
 }

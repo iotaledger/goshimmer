@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 )
 

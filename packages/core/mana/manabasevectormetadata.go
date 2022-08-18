@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 const (

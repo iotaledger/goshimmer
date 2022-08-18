@@ -3,7 +3,7 @@ package wallet
 import (
 	"runtime"
 
-	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/core/bitmask"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"

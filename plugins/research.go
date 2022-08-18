@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	analysisclient "github.com/iotaledger/goshimmer/plugins/analysis/client"

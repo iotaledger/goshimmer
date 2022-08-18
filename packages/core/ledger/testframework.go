@@ -2,28 +2,39 @@ package ledger
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(MockedTransaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(MockedTransaction).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+	}
+}
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -71,6 +82,11 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	new.ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 	return new
+}
+
+// Ledger returns the Ledger instance that is used by the TestFramework.
+func (t *TestFramework) Ledger() *Ledger {
+	return t.ledger
 }
 
 // Transaction gets the created MockedTransaction by the given alias.
@@ -130,7 +146,7 @@ func (t *TestFramework) ConflictIDs(txAliases ...string) (conflictIDs *set.Advan
 
 // CreateTransaction creates a transaction with the given alias and outputCount. Inputs for the transaction are specified
 // by their aliases where <txAlias.outputCount>. Panics if an input does not exist.
-func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) {
+func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) (tx *MockedTransaction) {
 	mockedInputs := make([]*MockedInput, 0)
 	for _, inputAlias := range inputAliases {
 		mockedInputs = append(mockedInputs, NewMockedInput(t.OutputID(inputAlias)))
@@ -138,7 +154,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 	t.transactionsByAliasMutex.Lock()
 	defer t.transactionsByAliasMutex.Unlock()
-	tx := NewMockedTransaction(mockedInputs, outputCount)
+	tx = NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
 
@@ -152,6 +168,8 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
 	}
+
+	return tx
 }
 
 // IssueTransaction issues the transaction given by txAlias.
@@ -412,9 +430,7 @@ func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (tx *Mocked
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
 	})
 
-	b := types.Identifier{}
-	binary.BigEndian.PutUint64(b[:], tx.M.UniqueEssence)
-	tx.SetID(utxo.TransactionID{Identifier: b})
+	tx.SetID(utxo.NewTransactionID(lo.PanicOnErr(tx.Bytes())))
 
 	return tx
 }
@@ -424,8 +440,14 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 	return lo.Map(m.M.Inputs, (*MockedInput).utxoInput)
 }
 
+// Type returns the type of the Transaction.
+func (m *MockedTransaction) Type() payload.Type {
+	return 44
+}
+
 // code contract (make sure the struct implements all required methods).
 var _ utxo.Transaction = new(MockedTransaction)
+var _ payload.Payload = new(MockedTransaction)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64

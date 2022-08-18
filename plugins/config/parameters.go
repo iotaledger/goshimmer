@@ -1,9 +1,5 @@
 package config
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
-
 // The following flags are only for text support.
 const (
 	CfgDisablePlugins = "node.disablePlugins"
@@ -24,5 +20,5 @@ var Parameters = &ParametersDefinition{}
 
 // do not change "node" to "config" since this name is used already.
 func init() {
-	configuration.BindParameters(Parameters, "node")
+	BindParameters(Parameters, "node")
 }

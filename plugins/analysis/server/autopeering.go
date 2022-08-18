@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics/graph"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"

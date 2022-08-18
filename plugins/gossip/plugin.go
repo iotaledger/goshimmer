@@ -1,12 +1,12 @@
 package gossip
 
 import (
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/node/gossip"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"

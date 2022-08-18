@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -57,11 +58,11 @@ const (
 
 // Block represents the core block for the base layer Tangle.
 type Block struct {
-	model.Storable[BlockID, Block, *Block, blockModel] `serix:"0"`
-	payload                                            payload.Payload
+	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
+	payload                                       payload.Payload
 }
 
-type blockModel struct {
+type block struct {
 	// core properties (get sent over the wire)
 	Version              uint8             `serix:"0"`
 	Parents              ParentBlockIDs    `serix:"1"`
@@ -78,57 +79,31 @@ type blockModel struct {
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
-func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, blkPayload payload.Payload, nonce uint64, signature ed25519.Signature,
-	latestConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, versionOpt ...uint8,
-) *Block {
-	version := BlockVersion
-	if len(versionOpt) == 1 {
-		version = versionOpt[0]
-	}
-	blk := model.NewStorable[BlockID, Block](&blockModel{
-		Version:              version,
-		Parents:              references,
-		IssuerPublicKey:      issuerPublicKey,
-		IssuingTime:          issuingTime,
-		SequenceNumber:       sequenceNumber,
-		PayloadBytes:         lo.PanicOnErr(blkPayload.Bytes()),
-		EI:                   ecRecord.EI(),
-		ECR:                  ecRecord.ECR(),
-		PrevEC:               ecRecord.PrevEC(),
-		LatestConfirmedEpoch: latestConfirmedEpoch,
-		Nonce:                nonce,
-		Signature:            signature,
-	})
-	blk.payload = blkPayload
+func NewBlock(opts ...options.Option[Block]) *Block {
+	defaultPayload := payload.NewGenericDataPayload([]byte(""))
+	defaultECRecord := epoch.NewECRecord(0)
 
-	return blk
+	blk := model.NewStorable[BlockID, Block](&block{
+		Version:         BlockVersion,
+		Parents:         NewParentBlockIDs(),
+		IssuerPublicKey: ed25519.GenerateKeyPair().PublicKey,
+		IssuingTime:     time.Now(),
+		SequenceNumber:  0,
+		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
+		EI:              defaultECRecord.EI(),
+		ECR:             defaultECRecord.ECR(),
+		PrevEC:          defaultECRecord.PrevEC(),
+	})
+	blk.payload = defaultPayload
+
+	return options.Apply(blk, opts)
 }
 
 func NewEmptyBlock(id BlockID) (newBlock *Block) {
-	newBlock = model.NewStorable[BlockID, Block](&blockModel{})
+	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
 
 	return newBlock
-}
-
-// NewBlockWithValidation creates a new block while performing ths following syntactical checks:
-// 1. A Strong Parents Block must exist.
-// 2. Parents Block types cannot repeat.
-// 3. Parent count per block 1 <= x <= 8.
-// 4. Parents unique within block.
-// 5. Parents lexicographically sorted within block.
-// 7. Blocks should be ordered by type in ascending order.
-// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, blkPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord, version ...uint8,
-) (result *Block, err error) {
-	blk := NewBlock(references, issuingTime, issuerPublicKey, sequenceNumber, blkPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
-
-	if _, err = blk.Bytes(); err != nil {
-		return nil, errors.Errorf("failed to create block: %w", err)
-	}
-	return blk, nil
 }
 
 // VerifySignature verifies the Signature of the block.
@@ -216,18 +191,17 @@ func (m *Block) SequenceNumber() uint64 {
 func (m *Block) Payload() payload.Payload {
 	m.Lock()
 	defer m.Unlock()
-
 	if m.payload == nil {
 		_, err := serix.DefaultAPI.Decode(context.Background(), m.M.PayloadBytes, &m.payload, serix.WithValidation())
 		if err != nil {
 			panic(err)
 		}
 
-		if m.payload.Type() == devnetvm.TransactionType {
-			tx := m.payload.(*devnetvm.Transaction)
+		if tx, isTransaction := m.payload.(utxo.Transaction); isTransaction {
 			tx.SetID(utxo.NewTransactionID(m.M.PayloadBytes))
-
-			devnetvm.SetOutputID(tx.Essence(), tx.ID())
+			if devnetTx, isDevnetTx := m.payload.(*devnetvm.Transaction); isDevnetTx {
+				devnetvm.SetOutputID(devnetTx.Essence(), tx.ID())
+			}
 		}
 	}
 
@@ -312,6 +286,103 @@ func sortParents(parents BlockIDs) (sorted []BlockID) {
 	})
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithVersion(version uint8) options.Option[Block] {
+	return func(m *Block) {
+		m.M.Version = version
+	}
+}
+
+func WithParents(parents ParentBlockIDs) options.Option[Block] {
+	return func(b *Block) {
+		b.M.Parents = parents
+	}
+}
+
+func WithStrongParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(StrongParentType, parents)
+	}
+}
+
+func WithWeakParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(WeakParentType, parents)
+	}
+}
+
+func WithLikedInsteadParents(parents BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		if len(parents) == 0 {
+			return
+		}
+		if block.M.Parents == nil {
+			block.M.Parents = NewParentBlockIDs()
+		}
+		block.M.Parents.AddAll(ShallowLikeParentType, parents)
+	}
+}
+
+func WithIssuingTime(issuingTime time.Time) options.Option[Block] {
+	return func(m *Block) {
+		m.M.IssuingTime = issuingTime
+	}
+}
+
+func WithIssuer(issuer ed25519.PublicKey) options.Option[Block] {
+	return func(m *Block) {
+		m.M.IssuerPublicKey = issuer
+	}
+}
+
+func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
+	return func(m *Block) {
+		m.M.SequenceNumber = sequenceNumber
+	}
+}
+
+func WithPayload(payload payload.Payload) options.Option[Block] {
+	return func(m *Block) {
+		m.payload = payload
+		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
+	}
+}
+
+func WithSignature(signature ed25519.Signature) options.Option[Block] {
+	return func(m *Block) {
+		m.M.Signature = signature
+	}
+}
+
+func WithNonce(nonce uint64) options.Option[Block] {
+	return func(m *Block) {
+		m.M.Nonce = nonce
+	}
+}
+
+func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
+	return func(b *Block) {
+		b.M.LatestConfirmedEpoch = epoch
+	}
+}
+
+func WithECRecord(ecRecord *epoch.ECRecord) options.Option[Block] {
+	return func(b *Block) {
+		b.M.EI = ecRecord.EI()
+		b.M.ECR = ecRecord.ECR()
+		b.M.PrevEC = ecRecord.PrevEC()
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

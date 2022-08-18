@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/node/manualpeering"

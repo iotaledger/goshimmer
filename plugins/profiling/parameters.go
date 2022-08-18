@@ -1,8 +1,6 @@
 package profiling
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of the parameters used by the profiling plugin.
 type ParametersDefinition struct {
@@ -14,5 +12,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "profiling")
+	config.BindParameters(Parameters, "profiling")
 }

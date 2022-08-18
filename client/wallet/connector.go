@@ -1,7 +1,7 @@
 package wallet
 
 import (
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
