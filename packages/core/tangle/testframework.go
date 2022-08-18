@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 	"github.com/iotaledger/goshimmer/packages/node/database"
@@ -23,6 +24,7 @@ import (
 type TestFramework struct {
 	Tangle       *Tangle
 	genesisBlock *Block
+	*eviction.Manager
 
 	solidBlocks    int32
 	missingBlocks  int32
@@ -41,8 +43,9 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *T
 	t = &TestFramework{
 		genesisBlock: genesis,
 	}
+	t.Manager = eviction.NewManager(t.rootBlockProvider)
 	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
-	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.rootBlockProvider, opts...)
+	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.Manager, opts...)
 	t.T = testingT
 
 	t.Setup()
@@ -105,10 +108,6 @@ func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
 	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
 	return t
-}
-
-func (t *TestFramework) Shutdown() {
-	t.Tangle.Shutdown()
 }
 
 func (t *TestFramework) AssertMissing(expectedValues map[string]bool) {
@@ -182,12 +181,12 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 }
 
 // rootBlockProvider is a default function that determines whether a block is a root of the Tangle.
-func (t *TestFramework) rootBlockProvider(blockID models.BlockID) (block *Block) {
+func (t *TestFramework) rootBlockProvider(blockID models.BlockID) bool {
 	if blockID != t.genesisBlock.ID() {
-		return
+		return false
 	}
 
-	return t.genesisBlock
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

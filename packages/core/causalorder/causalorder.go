@@ -5,154 +5,102 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
-	Events *Events[ID, Entity]
-
+	evictionManager  *eviction.LockableManager
 	entityProvider   func(id ID) (entity Entity, exists bool)
 	isOrdered        func(entity Entity) (isOrdered bool)
-	setOrdered       func(entity Entity) (wasUpdated bool)
-	isReferenceValid func(child Entity, parent Entity) (isValid bool)
+	orderedCallback  func(entity Entity) (err error)
+	evictionCallback func(entity Entity, reason error)
+	checkReference   func(child Entity, parent Entity) (err error)
 
 	unorderedParentsCounter      *memstorage.EpochStorage[ID, uint8]
 	unorderedParentsCounterMutex sync.Mutex
 	unorderedChildren            *memstorage.EpochStorage[ID, []Entity]
 	unorderedChildrenMutex       sync.Mutex
 
-	maxDroppedEpoch epoch.Index
-	pruningMutex    sync.RWMutex
-	dagMutex        *syncutils.DAGMutex[ID]
+	dagMutex *syncutils.DAGMutex[ID]
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
-	entityProvider func(ID) (entity Entity, exists bool),
+	evictionManager *eviction.Manager,
+	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
-	setOrdered func(entity Entity) (wasUpdated bool),
+	orderedCallback func(entity Entity) (err error),
+	evictionCallback func(entity Entity, reason error),
 	opts ...options.Option[CausalOrder[ID, Entity]],
-) *CausalOrder[ID, Entity] {
-	return options.Apply(&CausalOrder[ID, Entity]{
-		Events: newEvents[ID, Entity](),
-
+) (newCausalOrder *CausalOrder[ID, Entity]) {
+	newCausalOrder = options.Apply(&CausalOrder[ID, Entity]{
+		evictionManager:         evictionManager.Lockable(),
 		entityProvider:          entityProvider,
 		isOrdered:               isOrdered,
-		setOrdered:              setOrdered,
-		isReferenceValid:        func(entity Entity, parent Entity) bool { return true },
+		orderedCallback:         orderedCallback,
+		evictionCallback:        evictionCallback,
+		checkReference:          func(entity Entity, parent Entity) (err error) { return nil },
 		unorderedParentsCounter: memstorage.NewEpochStorage[ID, uint8](),
 		unorderedChildren:       memstorage.NewEpochStorage[ID, []Entity](),
-		maxDroppedEpoch:         -1,
 		dagMutex:                syncutils.NewDAGMutex[ID](),
 	}, opts)
+
+	return newCausalOrder
 }
 
-func (c *CausalOrder[ID, Entity]) Queue(entity Entity) (ordered bool) {
-	c.pruningMutex.RLock()
-	defer c.pruningMutex.RUnlock()
+func (c *CausalOrder[ID, Entity]) Queue(entity Entity) {
+	c.evictionManager.RLock()
+	defer c.evictionManager.RUnlock()
 
-	if entity.ID().Index() <= c.maxDroppedEpoch {
-		c.Events.Drop.Trigger(entity)
+	c.triggerOrderedIfReady(entity)
+}
+
+func (c *CausalOrder[ID, Entity]) EvictEpoch(index epoch.Index) {
+	for _, evictedEntity := range c.evictEntities(index) {
+		c.evictionCallback(evictedEntity, errors.Errorf("entity evicted from %s", index))
+	}
+}
+
+func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
+	c.dagMutex.RLock(entity.Parents()...)
+	defer c.dagMutex.RUnlock(entity.Parents()...)
+	c.dagMutex.Lock(entity.ID())
+	defer c.dagMutex.Unlock(entity.ID())
+
+	if c.isOrdered(entity) {
 		return
 	}
 
-	if ordered = c.wasOrdered(entity); ordered {
-		c.propagateCausalOrder(entity)
+	if c.evictionManager.MaxEvictedEpoch() >= entity.ID().Index() {
+		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
 	}
 
-	return ordered
-}
-
-func (c *CausalOrder[ID, Entity]) Prune(epochIndex epoch.Index) {
-	for _, droppedEntity := range c.dropEntities(epochIndex) {
-		c.Events.Drop.Trigger(droppedEntity)
-	}
-}
-
-func (c *CausalOrder[ID, Entity]) dropEntities(epochIndex epoch.Index) (droppedEntities map[ID]Entity) {
-	c.pruningMutex.Lock()
-	defer c.pruningMutex.Unlock()
-
-	if epochIndex <= c.maxDroppedEpoch {
+	if !c.allParentsOrdered(entity) {
 		return
 	}
 
-	droppedEntities = make(map[ID]Entity)
-	for c.maxDroppedEpoch < epochIndex {
-		c.maxDroppedEpoch++
-		c.dropEntitiesFromEpoch(c.maxDroppedEpoch, func(id ID) {
-			if _, exists := droppedEntities[id]; !exists {
-				droppedEntities[id] = c.entity(id)
-			}
-		})
-	}
-
-	return droppedEntities
+	c.triggerOrderedCallback(entity)
 }
 
-func (c *CausalOrder[ID, Entity]) dropEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
-	if childrenStorage := c.unorderedChildren.Get(epochIndex); childrenStorage != nil {
-		childrenStorage.ForEachKey(func(id ID) bool {
-			entityCallback(id)
-
-			return true
-		})
-		c.unorderedChildren.Drop(epochIndex)
-	}
-
-	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
-		unorderedParentsCountStorage.ForEachKey(func(id ID) bool {
-			entityCallback(id)
-
-			return true
-		})
-		c.unorderedParentsCounter.Drop(epochIndex)
-	}
-}
-
-func (c *CausalOrder[ID, Entity]) wasOrdered(entity Entity) (wasOrdered bool) {
-	c.lockEntity(entity)
-	defer c.unlockEntity(entity)
-
-	if updatedStatus := c.updateOrderStatus(entity); updatedStatus == Invalid {
-		c.Events.Drop.Trigger(entity)
-	} else if wasOrdered = updatedStatus == Ordered; wasOrdered {
-		c.Events.Emit.Trigger(entity)
-	}
-
-	return
-}
-
-func (c *CausalOrder[ID, Entity]) updateOrderStatus(entity Entity) (updateType UpdateType) {
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
-
-	pendingParentsCount, anyParentInvalid := c.countPendingParents(entity)
-	if anyParentInvalid {
-		return Invalid
-	}
-
-	if pendingParentsCount != 0 {
-		c.unorderedParentsCounter.Get(entity.ID().Index(), true).Set(entity.ID(), pendingParentsCount)
-		return Unchanged
-	}
-
-	if !c.setOrdered(entity) {
-		return Unchanged
-	}
-
-	return Ordered
-}
-
-func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingParents uint8, areParentsInvalid bool) {
+func (c *CausalOrder[ID, Entity]) allParentsOrdered(entity Entity) (allParentsOrdered bool) {
+	pendingParents := uint8(0)
 	for _, parentID := range entity.Parents() {
 		parentEntity, exists := c.entityProvider(parentID)
-		if !exists || !c.isReferenceValid(entity, parentEntity) {
-			return pendingParents, true
+		if !exists {
+			c.evictionCallback(entity, errors.Errorf("parent %s not found", parentID))
+
+			return
+		}
+
+		if err := c.checkReference(entity, parentEntity); err != nil {
+			c.evictionCallback(entity, err)
+
+			return
 		}
 
 		if !c.isOrdered(parentEntity) {
@@ -162,7 +110,11 @@ func (c *CausalOrder[ID, Entity]) countPendingParents(entity Entity) (pendingPar
 		}
 	}
 
-	return pendingParents, false
+	if pendingParents != 0 {
+		c.setUnorderedParentsCounter(entity.ID(), pendingParents)
+	}
+
+	return pendingParents == 0
 }
 
 func (c *CausalOrder[ID, Entity]) registerUnorderedChild(entityID ID, child Entity) {
@@ -170,10 +122,41 @@ func (c *CausalOrder[ID, Entity]) registerUnorderedChild(entityID ID, child Enti
 	defer c.unorderedChildrenMutex.Unlock()
 
 	unorderedChildrenStorage := c.unorderedChildren.Get(entityID.Index(), true)
-
 	entityChildren, _ := unorderedChildrenStorage.Get(entityID)
 	unorderedChildrenStorage.Set(entityID, append(entityChildren, child))
 
+}
+
+func (c *CausalOrder[ID, Entity]) setUnorderedParentsCounter(entityID ID, unorderedParentsCount uint8) {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	c.unorderedParentsCounter.Get(entityID.Index(), true).Set(entityID, unorderedParentsCount)
+}
+
+func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (newUnorderedParentsCounter uint8) {
+	c.unorderedParentsCounterMutex.Lock()
+	defer c.unorderedParentsCounterMutex.Unlock()
+
+	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
+	if unorderedParentsCounterStorage == nil {
+		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
+	}
+
+	newUnorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
+	if !exists {
+		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
+	}
+
+	if newUnorderedParentsCounter--; newUnorderedParentsCounter == 0 {
+		unorderedParentsCounterStorage.Delete(metadata.ID())
+
+		return
+	}
+
+	unorderedParentsCounterStorage.Set(metadata.ID(), newUnorderedParentsCounter)
+
+	return
 }
 
 func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChildren []Entity) {
@@ -192,60 +175,38 @@ func (c *CausalOrder[ID, Entity]) popUnorderedChildren(entityID ID) (pendingChil
 	return pendingChildren
 }
 
-func (c *CausalOrder[ID, Entity]) propagateCausalOrder(metadata Entity) {
-	for childWalker := walker.New[ID](true).Push(metadata.ID()); childWalker.HasNext(); {
-		for _, child := range c.popUnorderedChildren(childWalker.Next()) {
-			if c.triggerChildIfReady(child) {
-				childWalker.Push(child.ID())
-			}
-		}
-	}
-}
-
-func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) (eventTriggered bool) {
+func (c *CausalOrder[ID, Entity]) triggerChildIfReady(child Entity) {
 	c.dagMutex.Lock(child.ID())
 	defer c.dagMutex.Unlock(child.ID())
 
-	if c.decreaseUnorderedParentsCounter(child) != 0 || !c.setOrdered(child) {
-		return false
+	if !c.isOrdered(child) && c.decreaseUnorderedParentsCounter(child) == 0 {
+		c.triggerOrderedCallback(child)
+	}
+}
+
+func (c *CausalOrder[ID, Entity]) triggerOrderedCallback(entity Entity) (wasTriggered bool) {
+	if err := c.orderedCallback(entity); err != nil {
+		c.evictionCallback(entity, err)
+
+		return
 	}
 
-	c.Events.Emit.Trigger(child)
+	c.propagateOrderToChildren(entity.ID())
 
 	return true
 }
 
-func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entity) (unorderedParentsCounter uint8) {
-	c.unorderedParentsCounterMutex.Lock()
-	defer c.unorderedParentsCounterMutex.Unlock()
+func (c *CausalOrder[ID, Entity]) propagateOrderToChildren(id ID) {
+	for _, child := range c.popUnorderedChildren(id) {
+		currentChild := child
 
-	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
-	if unorderedParentsCounterStorage == nil {
-		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
+		event.Loop.Submit(func() {
+			c.evictionManager.RLock()
+			defer c.evictionManager.RUnlock()
+
+			c.triggerChildIfReady(currentChild)
+		})
 	}
-
-	unorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
-	if !exists {
-		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
-	}
-	unorderedParentsCounter--
-	if unorderedParentsCounter == 0 {
-		unorderedParentsCounterStorage.Delete(metadata.ID())
-		return
-	}
-	unorderedParentsCounterStorage.Set(metadata.ID(), unorderedParentsCounter)
-
-	return
-}
-
-func (c *CausalOrder[ID, Entity]) lockEntity(entity Entity) {
-	c.dagMutex.RLock(entity.Parents()...)
-	c.dagMutex.Lock(entity.ID())
-}
-
-func (c *CausalOrder[ID, Entity]) unlockEntity(entity Entity) {
-	c.dagMutex.Unlock(entity.ID())
-	c.dagMutex.RUnlock(entity.Parents()...)
 }
 
 func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
@@ -255,4 +216,38 @@ func (c *CausalOrder[ID, Entity]) entity(blockID ID) (entity Entity) {
 	}
 
 	return entity
+}
+
+func (c *CausalOrder[ID, Entity]) evictEntities(epochIndex epoch.Index) (evictedEntities map[ID]Entity) {
+	c.evictionManager.Lock()
+	defer c.evictionManager.Unlock()
+
+	evictedEntities = make(map[ID]Entity)
+	c.evictEntitiesFromEpoch(epochIndex, func(id ID) {
+		if _, exists := evictedEntities[id]; !exists {
+			evictedEntities[id] = c.entity(id)
+		}
+	})
+
+	return evictedEntities
+}
+
+func (c *CausalOrder[ID, Entity]) evictEntitiesFromEpoch(epochIndex epoch.Index, entityCallback func(id ID)) {
+	if childrenStorage := c.unorderedChildren.Get(epochIndex); childrenStorage != nil {
+		childrenStorage.ForEachKey(func(id ID) bool {
+			entityCallback(id)
+
+			return true
+		})
+		c.unorderedChildren.EvictEpoch(epochIndex)
+	}
+
+	if unorderedParentsCountStorage := c.unorderedParentsCounter.Get(epochIndex); unorderedParentsCountStorage != nil {
+		unorderedParentsCountStorage.ForEachKey(func(id ID) bool {
+			entityCallback(id)
+
+			return true
+		})
+		c.unorderedParentsCounter.EvictEpoch(epochIndex)
+	}
 }

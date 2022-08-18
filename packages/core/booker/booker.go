@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
@@ -34,21 +35,11 @@ type Booker struct {
 	bookingMutex  *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
 
-	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
-	rootBlockProvider func(models.BlockID) *Block
-
-	// TODO: finish shutdown implementation, maybe replace with component state
-	// maxDroppedEpoch contains the highest epoch.Index that has been dropped from the Tangle.
-	maxDroppedEpoch epoch.Index
-
-	// TODO: finish shutdown implementation, maybe replace with component state
-	// isShutdown contains a flag that indicates whether the Booker was shut down.
-	isShutdown bool
-
+	evictionManager *eviction.LockableManager
 	*tangle.Tangle
 }
 
-func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Booker]) (booker *Booker) {
+func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
 		ledger:          ledgerInstance,
 		Tangle:          tangleInstance,
@@ -58,19 +49,9 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 		markerManager:   NewMarkerManager(),
 		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
-		maxDroppedEpoch: -1,
-
-		rootBlockProvider: rootBlockProvider,
+		evictionManager: evictionManager.Lockable(),
 	}, opts)
-	booker.bookingOrder = causalorder.New(booker.Block, (*Block).IsBooked, (*Block).setBooked, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
-
-	// TODO: is Hook making the booker single threaded? should we have some other method that would re-check a block
-	// b.tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *BlockBookedEvent) {
-	//	b.propagateBooking(event.BlockID)
-	// }))
-
-	booker.bookingOrder.Events.Emit.Hook(event.NewClosure(booker.book))
-	booker.bookingOrder.Events.Drop.Attach(event.NewClosure(func(block *Block) { booker.SetInvalid(block.Block) }))
+	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
@@ -94,41 +75,43 @@ func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, rootBlock
 		}
 	}))
 
+	booker.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(booker.evictEpoch))
+
 	return booker
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
-	b.RLock()
-	defer b.RUnlock()
-
-	if block.ID().Index() <= b.maxDroppedEpoch {
-		return false, nil
-	}
-
-	b.blocks.Get(block.ID().EpochIndex, true).Set(block.ID(), block)
-
-	if wasQueued, err = b.isPayloadSolid(block); wasQueued {
+	if wasQueued, err = b.queue(block); wasQueued {
 		b.bookingOrder.Queue(block)
 	}
 
 	return
 }
 
+func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	if b.evictionManager.IsTooOld(block.ID()) {
+		return false, nil
+	}
+
+	b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
+
+	return b.isPayloadSolid(block)
+}
+
 // Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
-	b.RLock()
-	defer b.RUnlock()
-
-	if b.isShutdown {
-		return nil, false
-	}
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
 
 	return b.block(id)
 }
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if block.ID().Index() <= b.maxDroppedEpoch {
+	if b.evictionManager.IsTooOld(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -146,18 +129,15 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 	return
 }
 
-func (b *Booker) Prune(epochIndex epoch.Index) {
-	b.Lock()
-	defer b.Unlock()
+func (b *Booker) evictEpoch(epochIndex epoch.Index) {
+	b.bookingOrder.EvictEpoch(epochIndex)
 
-	b.attachments.Prune(epochIndex)
-	b.bookingOrder.Prune(epochIndex)
-	b.markerManager.Prune(epochIndex)
+	b.evictionManager.Lock()
+	defer b.evictionManager.Unlock()
 
-	for b.maxDroppedEpoch < epochIndex {
-		b.maxDroppedEpoch++
-		b.blocks.Drop(b.maxDroppedEpoch)
-	}
+	b.attachments.EvictEpoch(epochIndex)
+	b.markerManager.EvictEpoch(epochIndex)
+	b.blocks.EvictEpoch(epochIndex)
 }
 
 func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
@@ -171,7 +151,6 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 	if err = b.ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
 	); errors.Is(err, ledger.ErrTransactionUnsolid) {
-		fmt.Println("Payload not solid")
 		return false, nil
 	}
 
@@ -180,39 +159,58 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
-	if block = b.rootBlockProvider(id); block != nil {
-		return block, true
+	if b.evictionManager.IsRootBlock(id) {
+		tangleBlock, _ := b.Tangle.Block(id)
+
+		genesisStructureDetails := markers.NewStructureDetails()
+		genesisStructureDetails.SetIsPastMarker(true)
+		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
+
+		return NewBlock(tangleBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
 	}
 
-	if id.EpochIndex <= b.maxDroppedEpoch {
+	storage := b.blocks.Get(id.Index(), false)
+	if storage == nil {
 		return nil, false
 	}
 
-	return b.blocks.Get(id.EpochIndex, true).Get(id)
+	return storage.Get(id)
 }
 
-func (b *Booker) book(block *Block) {
-	// TODO: after fixing causal order to work with multiple goroutines
-	//  b.RLock()
-	//  defer b.RUnlock()
-	b.bookingMutex.RLock(block.Parents()...)
-	defer b.bookingMutex.RUnlock(block.Parents()...)
-	b.bookingMutex.Lock(block.ID())
-	defer b.bookingMutex.Unlock(block.ID())
+func (b *Booker) book(block *Block) (err error) {
+	// TODO: make sure this is actually necessary
+	if block.IsInvalid() {
+		return errors.Errorf("block with %s was marked as invalid", block.ID())
+	}
 
-	err := b.inheritConflictIDs(block)
-	if err != nil {
-		b.Events.Error.Trigger(errors.Errorf("error inheriting conflict IDs: %w", err))
-		b.SetInvalid(block.Block)
-		return
+	if b.evictionManager.IsTooOld(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	}
+
+	if err = b.inheritConflictIDs(block); err != nil {
+		return errors.Errorf("error inheriting conflict IDs: %w", err)
 	}
 
 	block.setBooked()
 
 	b.Events.BlockBooked.Trigger(block)
+
+	return nil
+}
+
+func (b *Booker) markInvalid(block *Block, _ error) {
+	b.SetInvalid(block.Block)
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	b.bookingMutex.RLock(block.Parents()...)
+	defer b.bookingMutex.RUnlock(block.Parents()...)
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
 		return errors.Errorf("failed to inherit conflict IDs: %w", err)
@@ -346,7 +344,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
-	// of the block's conflicts changes and thus it might implicitly "inherit" conflicts that were previously removed.
+	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
 	if subtractedConflictIDs := b.ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
@@ -492,6 +490,10 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (isValid bool) {
-	return !parent.IsInvalid()
+func isReferenceValid(child *Block, parent *Block) (err error) {
+	if parent.IsInvalid() {
+		return errors.Errorf("parent %s of child %s is marked as invalid", parent.ID(), child.ID())
+	}
+
+	return nil
 }

@@ -41,7 +41,7 @@ func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
 		ledgerTf:      ledger.NewTestFramework(t),
 		genesisBlock:  genesis,
 	}
-	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.rootBlockProvider)
+	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.TestFramework.Manager)
 	newTestFramework.Setup()
 	return
 }

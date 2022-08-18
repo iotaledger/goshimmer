@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"sync"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -11,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
@@ -30,44 +29,38 @@ type Tangle struct {
 	// memStorage contains the in-memory storage of the Tangle.
 	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
 
-	// maxDroppedEpoch contains the highest epoch.Index that has been dropped from the Tangle.
-	maxDroppedEpoch epoch.Index
-
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
-	// rootBlockProvider contains a function that is used to retrieve the root Blocks of the Tangle.
-	rootBlockProvider func(models.BlockID) *Block
-
-	// isShutdown contains a flag that indicates whether the Tangle was shut down.
-	isShutdown bool
-
-	// RWMutex is used to protect access to the internal settings of the Tangle (i.e. maxDroppedEpoch).
-	sync.RWMutex
+	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
+	evictionManager *eviction.LockableManager
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(dbManager *database.Manager, rootBlockProvider func(models.BlockID) *Block, opts ...options.Option[Tangle]) (newTangle *Tangle) {
-	return options.Apply(&Tangle{
-		Events:            newEvents(),
-		dbManager:         dbManager,
-		memStorage:        memstorage.NewEpochStorage[models.BlockID, *Block](),
-		rootBlockProvider: rootBlockProvider,
-		maxDroppedEpoch:   -1,
-	}, opts).initSolidifier(
-		causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
+func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+	newTangle = options.Apply(&Tangle{
+		Events:          newEvents(),
+		dbManager:       dbManager,
+		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+		evictionManager: evictionManager.Lockable(),
+	}, opts)
+
+	newTangle.solidifier = causalorder.New(
+		evictionManager,
+		newTangle.Block,
+		(*Block).IsSolid,
+		newTangle.markSolid,
+		newTangle.markInvalid,
+		causalorder.WithReferenceValidator[models.BlockID](checkReference),
 	)
+
+	newTangle.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newTangle.evictEpoch))
+
+	return newTangle
 }
 
 // Attach is used to attach new Blocks to the Tangle. It is the main function of the Tangle that triggers Events.
 func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	t.RLock()
-	defer t.RUnlock()
-
-	if t.isShutdown {
-		return nil, false, errors.Errorf("tangle is shut down")
-	}
-
 	if block, wasAttached, err = t.attach(data); wasAttached {
 		t.Events.BlockAttached.Trigger(block)
 
@@ -79,22 +72,14 @@ func (t *Tangle) Attach(data *models.Block) (block *Block, wasAttached bool, err
 
 // Block retrieves a Block with metadata from the in-memory storage of the Tangle.
 func (t *Tangle) Block(id models.BlockID) (block *Block, exists bool) {
-	t.RLock()
-	defer t.RUnlock()
-
-	if t.isShutdown {
-		return nil, false
-	}
+	t.evictionManager.RLock()
+	defer t.evictionManager.RUnlock()
 
 	return t.block(id)
 }
 
 // SetInvalid marks a Block as invalid and propagates the invalidity to its future cone.
 func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
-	if t.IsShutdown() {
-		return false
-	}
-
 	if wasUpdated = block.setInvalid(); wasUpdated {
 		t.Events.BlockInvalid.Trigger(block)
 
@@ -104,56 +89,33 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	return
 }
 
-// Prune is used to prune the Tangle of all Blocks that are too old.
-func (t *Tangle) Prune(epochIndex epoch.Index) {
-	t.solidifier.Prune(epochIndex)
+// evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
+func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
+	t.solidifier.EvictEpoch(epochIndex)
 
-	t.prune(epochIndex)
+	t.evictionManager.Lock()
+	defer t.evictionManager.Unlock()
+
+	t.memStorage.EvictEpoch(epochIndex)
 }
 
-func (t *Tangle) prune(epochIndex epoch.Index) {
-	t.Lock()
-	defer t.Unlock()
+func (t *Tangle) markSolid(block *Block) (err error) {
+	block.setSolid()
 
-	if t.isShutdown || epochIndex <= t.maxDroppedEpoch {
-		return
-	}
+	t.Events.BlockSolid.Trigger(block)
 
-	for t.maxDroppedEpoch < epochIndex {
-		t.maxDroppedEpoch++
-		t.memStorage.Drop(t.maxDroppedEpoch)
-	}
+	return nil
 }
 
-// Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
-func (t *Tangle) Shutdown() {
-	t.Lock()
-	defer t.Unlock()
-
-	if !t.isShutdown {
-		t.isShutdown = true
-	}
-}
-
-// IsShutdown returns true if the Tangle was shut down before.
-func (t *Tangle) IsShutdown() (isShutdown bool) {
-	t.RLock()
-	defer t.RUnlock()
-
-	return t.isShutdown
-}
-
-// initSolidifier is used to lazily initialize the solidifier after the options have been populated.
-func (t *Tangle) initSolidifier(opts ...options.Option[causalorder.CausalOrder[models.BlockID, *Block]]) (self *Tangle) {
-	t.solidifier = causalorder.New(t.Block, (*Block).IsSolid, (*Block).setSolid, opts...)
-	t.solidifier.Events.Emit.Hook(event.NewClosure(t.Events.BlockSolid.Trigger))
-	t.solidifier.Events.Drop.Attach(event.NewClosure(func(block *Block) { t.SetInvalid(block) }))
-
-	return t
+func (t *Tangle) markInvalid(block *Block, reason error) {
+	t.SetInvalid(block)
 }
 
 // attach tries to attach the given Block to the Tangle.
 func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err error) {
+	t.evictionManager.RLock()
+	defer t.evictionManager.RUnlock()
+
 	if block, wasAttached, err = t.canAttach(data); !wasAttached {
 		return
 	}
@@ -177,7 +139,7 @@ func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err
 
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (t *Tangle) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
-	if t.isTooOld(data.ID()) {
+	if t.evictionManager.IsTooOld(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
 	}
 
@@ -193,7 +155,7 @@ func (t *Tangle) canAttach(data *models.Block) (block *Block, canAttach bool, er
 // this condition but exists as a missing entry, we mark it as invalid.
 func (t *Tangle) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
-		if t.isTooOld(parentID) {
+		if t.evictionManager.IsTooOld(parentID) {
 			if storedBlock != nil {
 				t.SetInvalid(storedBlock)
 			}
@@ -215,7 +177,7 @@ func (t *Tangle) storeData(block *models.Block) {
 // registerChild registers the given Block as a child of the parent. It triggers a BlockMissing event if the referenced
 // Block does not exist, yet.
 func (t *Tangle) registerChild(child *Block, parent models.Parent) {
-	if t.rootBlockProvider(parent.ID) != nil {
+	if t.evictionManager.IsRootBlock(parent.ID) {
 		return
 	}
 
@@ -232,15 +194,16 @@ func (t *Tangle) registerChild(child *Block, parent models.Parent) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
-	if block = t.rootBlockProvider(id); block != nil {
-		return block, true
+	if t.evictionManager.IsRootBlock(id) {
+		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
 	}
 
-	if t.isTooOld(id) {
+	storage := t.memStorage.Get(id.EpochIndex, false)
+	if storage == nil {
 		return nil, false
 	}
 
-	return t.memStorage.Get(id.EpochIndex, true).Get(id)
+	return storage.Get(id)
 }
 
 // propagateInvalidity marks the children (and their future cone) as invalid.
@@ -254,14 +217,13 @@ func (t *Tangle) propagateInvalidity(children []*Block) {
 	}
 }
 
-// isTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
-func (t *Tangle) isTooOld(id models.BlockID) (isTooOld bool) {
-	return id.EpochIndex <= t.maxDroppedEpoch && t.rootBlockProvider(id) == nil
-}
+// checkReference checks if the reference between the child and its parent is valid.
+func checkReference(child *Block, parent *Block) (err error) {
+	if parent.invalid {
+		return errors.Errorf("parent %s of child %s is marked as invalid", parent.ID(), child.ID())
+	}
 
-// isReferenceValid checks if the reference between the child and its parent is valid.
-func isReferenceValid(child *Block, parent *Block) (isValid bool) {
-	return !parent.invalid
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
