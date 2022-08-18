@@ -380,7 +380,7 @@ func TestTangle_Prune(t *testing.T) {
 
 		_, wasAttached, err := tf.Tangle.Attach(block)
 
-		if i > epochCount/4+1 {
+		if i >= epochCount/4 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = false
 			expectedSolid[alias] = true
@@ -399,7 +399,7 @@ func TestTangle_Prune(t *testing.T) {
 		}
 		_, wasAttached, err := tf.Tangle.Attach(blk)
 
-		if i > epochCount/2+1 {
+		if i >= epochCount/2 {
 			expectedMissing[alias] = false
 			expectedInvalid[alias] = true
 			expectedSolid[alias] = false

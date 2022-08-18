@@ -19,8 +19,6 @@ import (
 func Test_PruneMarkerBlockMapping(t *testing.T) {
 	const epochCount = 100
 
-	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
-
 	tf := NewTestFramework(t)
 
 	markerManager := tf.Booker.markerManager
@@ -28,7 +26,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
-		if idx == 0 {
+		if idx == 1 {
 			return NewBlock(tangle.NewBlock(tf.CreateBlock(
 				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
@@ -37,32 +35,34 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 		return NewBlock(tangle.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
 		))), alias
 	}
 
 	markerBlockMapping := make(map[markers.Marker]*Block, epochCount)
-	for i := 0; i < epochCount; i++ {
+	for i := 1; i <= epochCount; i++ {
 		blk, _ := createNewBlock(i, "")
 		markerBlockMapping[markers.NewMarker(1, markers.Index(i))] = blk
 		markerManager.addMarkerBlockMapping(markers.NewMarker(1, markers.Index(i)), blk)
 	}
 
 	assert.Equal(t, epochCount, markerManager.markerBlockMapping.Size(), "expected the marker block mapping to be empty")
-	assert.Equal(t, epochCount, markerManager.markerBlockMappingPruning.Size(), "expected the marker block pruning map to be empty")
+	assert.Equal(t, epochCount, markerManager.markerBlockMappingEviction.Size(), "expected the marker block pruning map to be empty")
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
-	markerManager.EvictEpoch(epochCount / 2)
+	tf.EvictEpoch(epochCount / 2)
+	tf.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
-	markerManager.EvictEpoch(epochCount)
+	tf.EvictEpoch(epochCount)
+	tf.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 
 	assert.Equal(t, 0, markerManager.markerBlockMapping.Size(), "expected the marker block mapping to be empty")
-	assert.Equal(t, 0, markerManager.markerBlockMappingPruning.Size(), "expected the marker block pruning map to be empty")
+	assert.Equal(t, 0, markerManager.markerBlockMappingEviction.Size(), "expected the marker block pruning map to be empty")
 }
 
 // We create sequences for an epoch X, each epoch contains sequences <X; X+5>
@@ -106,9 +106,9 @@ func Test_PruneSequences(t *testing.T) {
 			assert.True(t, created, "expected to create a new sequence with sequence ID %d", expectedSequenceID)
 			assert.True(t, newStructureDetails.IsPastMarker(), "expected the new sequence details to be past marker")
 			assert.Equal(t, expectedSequenceID, newStructureDetails.PastMarkers().Marker().SequenceID())
-			markerManager.registerSequencePruning(epoch.Index(expectedSequenceID/sequenceCount), expectedSequenceID)
+			markerManager.registerSequenceEviction(epoch.Index(expectedSequenceID/sequenceCount), expectedSequenceID)
 
-			markerManager.setConflictIDs(newStructureDetails.PastMarkers().Marker(), utxo.NewTransactionIDs())
+			markerManager.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), utxo.NewTransactionIDs())
 		}
 	}
 
@@ -121,7 +121,7 @@ func Test_PruneSequences(t *testing.T) {
 
 	// simulate that epochIndex 2 is used in every epochIndex and in the future
 	for epochIndex := 0; epochIndex < epochCount+1; epochIndex++ {
-		markerManager.registerSequencePruning(epoch.Index(epochIndex), permanentSequenceID)
+		markerManager.registerSequenceEviction(epoch.Index(epochIndex), permanentSequenceID)
 	}
 
 	// verify that the structure is still correct
@@ -137,7 +137,7 @@ func Test_PruneSequences(t *testing.T) {
 			startingSequence := markers.SequenceID((pruningEpoch + 1) * sequenceCount)
 
 			// check that the pruned sequences are gone
-			_, sequencePruningExists := markerManager.sequencePruning.Get(epoch.Index(pruningEpoch))
+			_, sequencePruningExists := markerManager.sequenceEviction.Get(epoch.Index(pruningEpoch))
 			assert.False(t, sequencePruningExists, "expected to not find a sequence pruning map for epochIndex %d", pruningEpoch)
 
 			for sequenceID := markers.SequenceID(0); sequenceID < startingSequence; sequenceID++ {
@@ -196,7 +196,7 @@ func verifySequence(t *testing.T, markerManager *MarkerManager, sequenceID marke
 	}
 	assert.Equal(t, expectedLastUsedEpoch, lastUsedEpoch, "expected the last used epochIndex to be %d but got %d", epochIndex, lastUsedEpoch)
 
-	sequenceIDsUsed, sequencePruningMapExists := markerManager.sequencePruning.Get(epochIndex)
+	sequenceIDsUsed, sequencePruningMapExists := markerManager.sequenceEviction.Get(epochIndex)
 	assert.True(t, sequencePruningMapExists, "expected to find a sequence pruning map for epochIndex %d", epochIndex)
 
 	expectedSequenceSet := set.New[markers.SequenceID](false)
@@ -230,10 +230,10 @@ func validateReferencedMarkers(t *testing.T, sequence *markers.Sequence, sequenc
 
 	expectedReferencedMarkers := markers.NewMarkers()
 	if sequenceID-markers.SequenceID((maxPrunedEpoch+1)*sequenceCount) >= 2 {
-		expectedReferencedMarkers.Set(markers.SequenceID(sequenceID-1), 1)
-		expectedReferencedMarkers.Set(markers.SequenceID(sequenceID-2), 1)
+		expectedReferencedMarkers.Set(sequenceID-1, 1)
+		expectedReferencedMarkers.Set(sequenceID-2, 1)
 	} else if sequenceID-markers.SequenceID((maxPrunedEpoch+1)*sequenceCount) == 1 {
-		expectedReferencedMarkers.Set(markers.SequenceID(sequenceID-1), 1)
+		expectedReferencedMarkers.Set(sequenceID-1, 1)
 	}
 	assert.True(t, expectedReferencedMarkers.Equals(referencedMarkers), "expected the referenced markers for sequence %d to be %s but got %s", sequenceID, expectedReferencedMarkers, referencedMarkers)
 }

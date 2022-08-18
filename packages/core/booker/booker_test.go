@@ -708,7 +708,7 @@ func Test_Prune(t *testing.T) {
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
-		if idx == 0 {
+		if idx == 1 {
 			fmt.Println("Creating genesis block")
 
 			return tf.CreateBlock(
@@ -721,7 +721,7 @@ func Test_Prune(t *testing.T) {
 		return tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(parentAlias)),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
 			models.WithPayload(tf.ledgerTf.CreateTransaction(alias, 1, fmt.Sprintf("%s.0", parentAlias))),
 		), alias
 	}
@@ -732,24 +732,24 @@ func Test_Prune(t *testing.T) {
 	expectedBooked := make(map[string]bool, epochCount)
 
 	// Attach solid blocks
-	for i := 0; i < epochCount; i++ {
+	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
 		_, wasAttached, err := tf.Tangle.Attach(block)
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 
-		if i > epochCount/4 {
+		if i >= epochCount/4 {
 			expectedInvalid[alias] = false
 			expectedBooked[alias] = true
 		}
 	}
 
 	_, wasAttached, err := tf.Tangle.Attach(tf.CreateBlock(
-		"blk-0-reattachment",
-		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount-1))),
-		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount-1)*epoch.Duration, 0)),
-		models.WithPayload(tf.ledgerTf.Transaction("blk-0")),
+		"blk-1-reattachment",
+		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
+		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
+		models.WithPayload(tf.ledgerTf.Transaction("blk-1")),
 	))
 	assert.True(t, wasAttached, "block should be attached")
 	assert.NoError(t, err, "should not be able to attach a block after shutdown")
@@ -758,52 +758,46 @@ func Test_Prune(t *testing.T) {
 
 	tf.AssertBookedCount(epochCount+1, "should have all solid blocks")
 
-	validateState(tf, -1, epochCount)
+	validateState(tf, 0, epochCount)
 
 	tf.EvictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
 	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
-	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
-	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
 	tf.EvictEpoch(epochCount / 10)
+	tf.WaitUntilAllTasksProcessed()
 
 	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
-	assert.EqualValues(t, epochCount/4, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/4)
-	assert.EqualValues(t, epochCount/4, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/4)
 
 	tf.EvictEpoch(epochCount / 2)
+	tf.WaitUntilAllTasksProcessed()
+
 	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
-	assert.EqualValues(t, epochCount/2, tf.Booker.markerManager.maxDroppedEpoch, "maxDroppedEpoch of markersManager should be %d", epochCount/2)
-	assert.EqualValues(t, epochCount/2, tf.Booker.attachments.maxDroppedEpoch, "maxDroppedEpoch of attachments should be %d", epochCount/2)
 
 	validateState(tf, epochCount/2, epochCount)
 
 	_, wasAttached, err = tf.Tangle.Attach(tf.CreateBlock(
 		"blk-0.5",
-		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount-1))),
+		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 	))
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.True(t, wasAttached, "block should be attached")
-	assert.NoError(t, err, "should not be able to attach a block after shutdown")
-
-	_, exists := tf.Booker.Block(tf.TestFramework.Block("blk-0.5").ID())
-	assert.False(t, exists, "blk-0.5 should not be booked")
+	assert.False(t, wasAttached, "block should not be attached")
+	assert.Error(t, err, "should not be able to attach a block after eviction of an epoch")
 }
 
 func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
-	for i := maxPrunedEpoch + 1; i < epochCount; i++ {
+	for i := maxPrunedEpoch + 1; i <= epochCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
 		_, exists := tf.Booker.Block(tf.TestFramework.Block(alias).ID())
 		assert.True(tf.T, exists, "block should be in the tangle")
-		if i == 0 {
+		if i == 1 {
 			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
 			assert.Len(tf.T, blocks, 2, "transaction blk-0 should have 2 attachments")
 		} else {
@@ -812,11 +806,11 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 		}
 	}
 
-	for i := 0; i < maxPrunedEpoch; i++ {
+	for i := 1; i <= maxPrunedEpoch; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		_, exists := tf.Booker.Block(tf.TestFramework.Block(alias).ID())
 		assert.False(tf.T, exists, "block should not be in the tangle")
-		if i == 0 {
+		if i == 1 {
 			blocks := tf.Booker.attachments.Get(tf.ledgerTf.Transaction(alias).ID())
 			assert.Len(tf.T, blocks, 1, "transaction should have 1 attachment")
 		} else {

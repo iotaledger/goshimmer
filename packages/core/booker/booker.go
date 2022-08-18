@@ -111,7 +111,7 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
-	if block.ID().Index() <= b.evictionManager.MaxEvictedEpoch() {
+	if b.evictionManager.IsTooOld(block.ID()) {
 		return utxo.NewTransactionIDs()
 	}
 
@@ -130,13 +130,13 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 }
 
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
+	b.bookingOrder.EvictEpoch(epochIndex)
+
 	b.evictionManager.Lock()
 	defer b.evictionManager.Unlock()
 
 	b.attachments.EvictEpoch(epochIndex)
-	b.bookingOrder.EvictEpoch(epochIndex)
 	b.markerManager.EvictEpoch(epochIndex)
-
 	b.blocks.EvictEpoch(epochIndex)
 }
 
@@ -161,7 +161,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
 		tangleBlock, _ := b.Tangle.Block(id)
-		
+
 		genesisStructureDetails := markers.NewStructureDetails()
 		genesisStructureDetails.SetIsPastMarker(true)
 		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
@@ -178,13 +178,14 @@ func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 func (b *Booker) book(block *Block) (err error) {
-	// TODO: after fixing causal order to work with multiple goroutines
-	//  b.RLock()
-	//  defer b.RUnlock()
-	b.bookingMutex.RLock(block.Parents()...)
-	defer b.bookingMutex.RUnlock(block.Parents()...)
-	b.bookingMutex.Lock(block.ID())
-	defer b.bookingMutex.Unlock(block.ID())
+	// TODO: make sure this is actually necessary
+	if block.IsInvalid() {
+		return errors.Errorf("block with %s was marked as invalid", block.ID())
+	}
+
+	if b.evictionManager.IsTooOld(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	}
 
 	if err = b.inheritConflictIDs(block); err != nil {
 		return errors.Errorf("error inheriting conflict IDs: %w", err)
@@ -202,6 +203,14 @@ func (b *Booker) markInvalid(block *Block, _ error) {
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	b.bookingMutex.RLock(block.Parents()...)
+	defer b.bookingMutex.RUnlock(block.Parents()...)
+	b.bookingMutex.Lock(block.ID())
+	defer b.bookingMutex.Unlock(block.ID())
+
 	parentsStructureDetails, pastMarkersConflictIDs, inheritedConflictIDs, err := b.determineBookingDetails(block)
 	if err != nil {
 		return errors.Errorf("failed to inherit conflict IDs: %w", err)
