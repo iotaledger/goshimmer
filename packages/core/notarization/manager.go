@@ -1,9 +1,7 @@
 package notarization
 
 import (
-	"context"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
 	"sync"
 	"time"
 
@@ -703,23 +701,6 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 // SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
 func (m *Manager) SnapshotEpochActivity(provider tangleold.WeightProvider) (epochActivity epoch.SnapshotEpochActivity, err error) {
 	epochActivity = provider.SnapshotEpochActivity()
-
-	// fill in the accepted count for activity records
-	for ei, activity := range epochActivity {
-		for nodeID := range activity.NodesLog() {
-			activityTree := m.epochCommitmentFactory.commitmentTrees[ei].activityTree
-			var acceptedBlocks uint64
-			acceptedCountBytes, getErr := activityTree.Get(nodeID.Bytes())
-			if getErr != nil {
-				return nil, errors.Wrap(getErr, "could not get activity leaf during activity log creation for snapshot")
-			}
-			_, decodeErr := serix.DefaultAPI.Decode(context.Background(), acceptedCountBytes, &acceptedBlocks, serix.WithValidation())
-			if decodeErr != nil {
-				return nil, errors.Wrap(decodeErr, "failed to decode acceptedCount leaf from activity tree")
-			}
-			activity.SetNodeActivity(nodeID, acceptedBlocks)
-		}
-	}
 	return
 }
 

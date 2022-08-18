@@ -89,13 +89,7 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 
 	a.Add(nodeID)
 
-	// increase updates counter
-	_, exist := c.updatedActivityCount.Get(ei)
-	if !exist {
-		c.updatedActivityCount.Set(ei, make(ActivityUpdatesCount))
-	}
-	epochUpdatesCount, _ := c.updatedActivityCount.Get(ei)
-	epochUpdatesCount[nodeID] += 1
+	c.updateActivityCount(ei, nodeID, 1)
 }
 
 // Remove updates the underlying data structure by decreasing updatedActivityCount and removing node from active list if no activity left.
@@ -178,7 +172,11 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 			if _, ok := epochActivity[ei]; !ok {
 				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
 			}
-			epochActivity[ei].SetNodeActivity(nodeID, 0)
+			// Snapshot activity counts
+			activityCount, exists := c.updatedActivityCount.Get(ei)
+			if exists {
+				epochActivity[ei].SetNodeActivity(nodeID, activityCount[nodeID])
+			}
 			return nil
 		})
 	}
@@ -193,6 +191,28 @@ func (c *CManaWeightProvider) Shutdown() {
 	}
 }
 
+// LoadActiveNodes loads the activity log to weight provider.
+func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for ei, epochActivity := range loadedActiveNodes {
+		if _, ok := c.activityLog[ei]; !ok {
+			c.activityLog[ei] = epoch.NewActivityLog()
+		}
+		for nodeID, activityCount := range epochActivity.NodesLog() {
+			c.activityLog[ei].Add(nodeID)
+			c.updateActivityCount(ei, nodeID, activityCount)
+		}
+	}
+}
+
+// ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
+type ManaRetrieverFunc func() map[identity.ID]float64
+
+// TimeRetrieverFunc is a function type to retrieve the time.
+type TimeRetrieverFunc func() time.Time
+
 // activeNodes returns the map of the active nodes.
 func (c *CManaWeightProvider) activeNodes() (activeNodes epoch.NodesActivityLog) {
 	activeNodes = make(epoch.NodesActivityLog)
@@ -206,27 +226,6 @@ func (c *CManaWeightProvider) activeNodes() (activeNodes epoch.NodesActivityLog)
 
 	return activeNodes
 }
-
-// LoadActiveNodes loads the activity log to weight provider.
-func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	for ei, epochActivity := range loadedActiveNodes {
-		if _, ok := c.activityLog[ei]; !ok {
-			c.activityLog[ei] = epoch.NewActivityLog()
-		}
-		for nodeID := range epochActivity.NodesLog() {
-			c.activityLog[ei].Add(nodeID)
-		}
-	}
-}
-
-// ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
-type ManaRetrieverFunc func() map[identity.ID]float64
-
-// TimeRetrieverFunc is a function type to retrieve the time.
-type TimeRetrieverFunc func() time.Time
 
 func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundEpoch epoch.Index) {
 	currentTime := c.timeRetrieverFunc()
@@ -252,6 +251,15 @@ func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
 		}
 		return true
 	})
+}
+
+func (c *CManaWeightProvider) updateActivityCount(ei epoch.Index, nodeID identity.ID, increase uint64) {
+	_, exist := c.updatedActivityCount.Get(ei)
+	if !exist {
+		c.updatedActivityCount.Set(ei, make(ActivityUpdatesCount))
+	}
+	epochUpdatesCount, _ := c.updatedActivityCount.Get(ei)
+	epochUpdatesCount[nodeID] += increase
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
