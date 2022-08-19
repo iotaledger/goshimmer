@@ -7,30 +7,28 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type Vote struct {
+type Vote[ConflictIDType comparable] struct {
 	Voter      *validator.Validator
-	ConflictID utxo.TransactionID
+	ConflictID ConflictIDType
 	Opinion    Opinion
 	VotePower  VotePower
 }
 
-// NewConflictVote derives a Vote for th.
-func NewConflictVote(voter *validator.Validator, votePower VotePower, conflictID utxo.TransactionID, opinion Opinion) (voteWithOpinion *Vote) {
-	return &Vote{
-		Voter:      voter,
-		VotePower:  votePower,
-		ConflictID: conflictID,
-		Opinion:    opinion,
+// NewVote derives a Vote for th.
+func NewVote[ConflictIDType comparable](voter *validator.Validator, votePower VotePower, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
+		Voter:     voter,
+		VotePower: votePower,
+		Opinion:   opinion,
 	}
 }
 
 // WithOpinion derives a vote for the given Opinion.
-func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
-	return &Vote{
+func (v *Vote[ConflictIDType]) WithOpinion(opinion Opinion) (voteWithOpinion *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
 		Voter:      v.Voter,
 		ConflictID: v.ConflictID,
 		Opinion:    opinion,
@@ -39,8 +37,8 @@ func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
 }
 
 // WithConflictID derives a vote for the given ConflictID.
-func (v *Vote) WithConflictID(conflictID utxo.TransactionID) (voteWithConflictID *Vote) {
-	return &Vote{
+func (v *Vote[ConflictIDType]) WithConflictID(conflictID ConflictIDType) (voteWithConflictID *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
 		Voter:      v.Voter,
 		ConflictID: conflictID,
 		Opinion:    v.Opinion,
@@ -50,19 +48,19 @@ func (v *Vote) WithConflictID(conflictID utxo.TransactionID) (voteWithConflictID
 
 // region Votes ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Votes struct {
-	o orderedmap.OrderedMap[identity.ID, *Vote]
+type Votes[ConflictIDType comparable] struct {
+	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType]]
 
 	m sync.RWMutex
 }
 
-func NewVotes() *Votes {
-	return &Votes{
-		o: *orderedmap.New[identity.ID, *Vote](),
+func NewVotes[ConflictIDType comparable]() *Votes[ConflictIDType] {
+	return &Votes[ConflictIDType]{
+		o: *orderedmap.New[identity.ID, *Vote[ConflictIDType]](),
 	}
 }
 
-func (v *Votes) Add(vote *Vote) (added bool, opinionChanged bool) {
+func (v *Votes[ConflictIDType]) Add(vote *Vote[ConflictIDType]) (added bool, opinionChanged bool) {
 	v.m.Lock()
 	defer v.m.Unlock()
 
@@ -70,27 +68,27 @@ func (v *Votes) Add(vote *Vote) (added bool, opinionChanged bool) {
 	if !exists {
 		return v.o.Set(vote.Voter.ID(), vote), true
 	}
-	if vote.VotePower < previousVote.VotePower {
+	if vote.VotePower.CompareTo(previousVote.VotePower) <= 0 {
 		return false, false
 	}
 
 	return v.o.Set(vote.Voter.ID(), vote), previousVote.Opinion != vote.Opinion
 }
 
-func (v *Votes) Delete(vote *Vote) (deleted bool) {
+func (v *Votes[ConflictIDType]) Delete(vote *Vote[ConflictIDType]) (deleted bool) {
 	v.m.Lock()
 	defer v.m.Unlock()
 
 	return v.o.Delete(vote.Voter.ID())
 }
 
-func (v *Votes) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
+func (v *Votes[ConflictIDType]) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
 	voters = set.NewAdvancedSet[*validator.Validator]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()
 
-	v.o.ForEach(func(id identity.ID, vote *Vote) bool {
+	v.o.ForEach(func(id identity.ID, vote *Vote[ConflictIDType]) bool {
 		if vote.Opinion == Like {
 			voters.Add(vote.Voter)
 		}
@@ -106,7 +104,9 @@ func (v *Votes) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
 // Currently, the used VotePower is the SequenceNumber embedded in the Block Layout, so that, regardless
 // of the order in which votes are received, the same conclusion is computed.
 // Alternatively, the objective timestamp of a Block could be used.
-type VotePower = uint64
+type VotePower interface {
+	CompareTo(other VotePower) int
+}
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
 
