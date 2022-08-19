@@ -41,3 +41,10 @@ func (s *Set) TotalWeight() uint64 {
 
 	return s.totalWeight
 }
+
+func (s *Set) Get(id identity.ID) (validator *Validator, exists bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.validators.Get(id)
+}
