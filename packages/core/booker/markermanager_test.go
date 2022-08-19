@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/assert"
 
@@ -21,7 +22,7 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	tf := NewTestFramework(t)
 
-	markerManager := tf.Booker.markerManager
+	markerManager := tf.Booker().markerManager
 
 	// create a helper function that creates the blocks
 	createNewBlock := func(idx int, prefix string) (block *Block, alias string) {
@@ -52,12 +53,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
 	tf.EvictionManager().EvictEpoch(epochCount / 2)
-	tf.WaitUntilAllTasksProcessed()
+	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
 	tf.EvictionManager().EvictEpoch(epochCount)
-	tf.WaitUntilAllTasksProcessed()
+	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
 
@@ -76,7 +77,7 @@ func Test_PruneSequences(t *testing.T) {
 
 	tf := NewTestFramework(t)
 
-	markerManager := tf.Booker.markerManager
+	markerManager := tf.Booker().markerManager
 
 	// Create the sequence structure for the test. We creatte sequenceCount sequences for each of epochCount epochs.
 	// Each sequence X references the sequences X-2, X-1.

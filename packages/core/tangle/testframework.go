@@ -47,7 +47,11 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]
 
 func (t *TestFramework) EvictionManager() *eviction.Manager {
 	if t.evictionManager == nil {
-		t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
+		if t.tangle != nil {
+			t.evictionManager = t.tangle.evictionManager.Manager
+		} else {
+			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
+		}
 	}
 
 	return t.evictionManager
