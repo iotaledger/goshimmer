@@ -109,6 +109,13 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	return b.block(id)
 }
 
+func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	return b.blockBookingDetails(block)
+}
+
 // PayloadConflictIDs returns the ConflictIDs of the payload contained in the given Block.
 func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionIDs) {
 	if b.evictionManager.IsTooOld(block.ID()) {
