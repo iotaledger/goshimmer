@@ -1,4 +1,4 @@
-package otv
+package votes
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"

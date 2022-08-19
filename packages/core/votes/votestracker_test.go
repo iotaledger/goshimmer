@@ -1,4 +1,4 @@
-package otv
+package votes
 
 import (
 	"testing"
