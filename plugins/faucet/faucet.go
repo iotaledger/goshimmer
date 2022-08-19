@@ -75,7 +75,7 @@ func (f *Faucet) DeriveStateFromTangle() {
 	supplyFound := 0
 	var remainderAmount uint64
 
-	for i := uint64(0); i < uint64(numOfOutputsToSplit); i++ {
+	for i := uint64(0); i <= uint64(numOfOutputsToSplit); i++ {
 		deps.Indexer.CachedAddressOutputMappings(f.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
 			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
