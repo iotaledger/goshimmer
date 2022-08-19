@@ -283,9 +283,9 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune tangle.
-	tf.EvictEpoch(epochCount / 2)
+	tf.EvictionManager.EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
@@ -311,7 +311,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
 			_, wasAttached, err := tf.Tangle.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.MaxEvictedEpoch() {
+			if blocks[i].ID().Index()-1 > tf.EvictionManager.MaxEvictedEpoch() {
 				assert.True(t, wasAttached, "block should be attached")
 				assert.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
@@ -414,21 +414,21 @@ func TestTangle_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.EvictEpoch(epochCount / 4)
+	tf.EvictionManager.EvictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	tf.EvictEpoch(epochCount / 10)
+	tf.EvictionManager.EvictEpoch(epochCount / 10)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
-	tf.EvictEpoch(epochCount / 2)
+	tf.EvictionManager.EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 }

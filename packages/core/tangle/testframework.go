@@ -13,8 +13,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,31 +20,35 @@ import (
 // TestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
 // simplified way.
 type TestFramework struct {
-	Tangle       *Tangle
-	genesisBlock *Block
-	*eviction.Manager
+	T               *testing.T
+	EvictionManager *eviction.Manager
+	Tangle          *Tangle
 
 	solidBlocks    int32
 	missingBlocks  int32
 	invalidBlocks  int32
 	attachedBlocks int32
 
-	T *testing.T
+	optsEvictionManager *eviction.Manager
+	optsTangle          []options.Option[Tangle]
+
 	*models.TestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(testingT *testing.T, opts ...options.Option[Tangle]) (t *TestFramework) {
-	genesis := NewBlock(models.NewEmptyBlock(models.EmptyBlockID), WithSolid(true))
-	genesis.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
+	t = options.Apply(&TestFramework{
+		T:             testingT,
+		TestFramework: models.NewTestFramework(models.WithBlock("Genesis", models.EmptyBlock)),
+	}, opts)
 
-	t = &TestFramework{
-		genesisBlock: genesis,
+	if t.EvictionManager == nil {
+		t.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
 	}
-	t.Manager = eviction.NewManager(t.rootBlockProvider)
-	t.TestFramework = models.NewTestFramework(models.WithBlock("Genesis", t.genesisBlock.Block))
-	t.Tangle = New(database.NewManager(testingT.TempDir(), database.WithDBProvider(database.NewMemDB)), t.Manager, opts...)
-	t.T = testingT
+
+	if t.Tangle == nil {
+		t.Tangle = New(t.EvictionManager, t.optsTangle...)
+	}
 
 	t.Setup()
 
@@ -180,13 +182,26 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	}
 }
 
-// rootBlockProvider is a default function that determines whether a block is a root of the Tangle.
-func (t *TestFramework) rootBlockProvider(blockID models.BlockID) bool {
-	if blockID != t.genesisBlock.ID() {
-		return false
-	}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	return true
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithEvictionManager(evictionManager *eviction.Manager) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.EvictionManager = evictionManager
+	}
+}
+
+func WithTangle(tangle *Tangle) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.Tangle = tangle
+	}
+}
+
+func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsTangle = opts
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

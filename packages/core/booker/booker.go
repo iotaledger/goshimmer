@@ -43,7 +43,7 @@ type Booker struct {
 	*tangle.Tangle
 }
 
-func New(ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
+func New(evictionManager *eviction.Manager, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
 		Events:          newEvents(),
 		ledger:          ledgerInstance,
@@ -55,7 +55,7 @@ func New(ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts 
 		evictionManager: evictionManager.Lockable(),
 		optsTangle:      make([]options.Option[tangle.Tangle], 0),
 	}, opts)
-	booker.Tangle = tangle.New(nil, evictionManager, booker.optsTangle...)
+	booker.Tangle = tangle.New(evictionManager, booker.optsTangle...)
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {

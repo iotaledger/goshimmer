@@ -7,22 +7,20 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 type TestFramework struct {
-	Booker       *Booker
-	genesisBlock *Block
+	Booker *Booker
 
 	bookedBlocks          int32
 	blockConflictsUpdated int32
@@ -33,16 +31,17 @@ type TestFramework struct {
 }
 
 func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
-	genesis := NewBlock(tangle.NewBlock(models.NewEmptyBlock(models.EmptyBlockID), tangle.WithSolid(true)), WithBooked(true), WithStructureDetails(markers.NewStructureDetails()))
-	genesis.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+	evictionManager := eviction.NewManager(func(id models.BlockID) (isRootBlock bool) {
+		return id == models.EmptyBlockID
+	})
 
 	newTestFramework = &TestFramework{
-		TestFramework: tangle.NewTestFramework(t),
-		ledgerTf:      ledger.NewTestFramework(t),
-		genesisBlock:  genesis,
+		ledgerTf: ledger.NewTestFramework(t),
 	}
-	newTestFramework.Booker = New(newTestFramework.ledgerTf.Ledger(), newTestFramework.TestFramework.Manager)
+	newTestFramework.Booker = New(evictionManager, newTestFramework.ledgerTf.Ledger())
+	newTestFramework.TestFramework = tangle.NewTestFramework(t, tangle.WithTangle(newTestFramework.Booker.Tangle), tangle.WithEvictionManager(evictionManager))
 	newTestFramework.Setup()
+
 	return
 }
 
@@ -174,13 +173,4 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 		assert.True(t.T, expectedDiffConflictID[0].Equal(block.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[0], block.AddedConflictIDs())
 		assert.True(t.T, expectedDiffConflictID[1].Equal(block.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[1], block.SubtractedConflictIDs())
 	}
-}
-
-// rootBlockProvider is a default function that determines whether a block is a root of the Tangle.
-func (t *TestFramework) rootBlockProvider(blockID models.BlockID) (block *Block) {
-	if blockID != t.genesisBlock.ID() {
-		return
-	}
-
-	return t.genesisBlock
 }
