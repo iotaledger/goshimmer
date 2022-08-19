@@ -168,7 +168,7 @@ func (f *Faucet) prepareUnspentOutputs() error {
 	outputs := make(devnetvm.Outputs, 0)
 
 	// split outputs to numOfOutputsToSplit addresses
-	for i := uint64(0); i < uint64(numOfOutputsToSplit); i++ {
+	for i := uint64(1); i <= uint64(numOfOutputsToSplit); i++ {
 		addr := f.seed.Address(i).Address()
 		outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(
 			devnetvm.NewColoredBalances(
