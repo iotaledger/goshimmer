@@ -20,6 +20,7 @@ type VotesTracker[ConflictIDType, ResourceIDType comparable] struct {
 
 func NewVotesTracker[ConflictIDType, ResourceIDType comparable](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *VotesTracker[ConflictIDType, ResourceIDType] {
 	return &VotesTracker[ConflictIDType, ResourceIDType]{
+		votes:        memstorage.New[ConflictIDType, *Votes[ConflictIDType]](),
 		conflictDAG:  conflictDAG,
 		validatorSet: validatorSet,
 		Events:       newEvents[ConflictIDType](),
