@@ -3,22 +3,38 @@ package votes
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type Events[ConflictIDType comparable] struct {
-	VoterAdded   *event.Event[*VoterEvent[ConflictIDType]]
-	VoterRemoved *event.Event[*VoterEvent[ConflictIDType]]
+type ConflictTrackerEvents[ConflictIDType comparable] struct {
+	VoterAdded   *event.Event[*ConflictVoterEvent[ConflictIDType]]
+	VoterRemoved *event.Event[*ConflictVoterEvent[ConflictIDType]]
 }
 
-type VoterEvent[ConflictIDType comparable] struct {
-	Voter    *validator.Validator
-	Resource ConflictIDType
+type ConflictVoterEvent[ConflictIDType comparable] struct {
+	Voter      *validator.Validator
+	ConflictID ConflictIDType
 }
 
-func newEvents[ConflictIDType comparable]() *Events[ConflictIDType] {
-	return &Events[ConflictIDType]{
-		VoterAdded:   event.New[*VoterEvent[ConflictIDType]](),
-		VoterRemoved: event.New[*VoterEvent[ConflictIDType]](),
+func newConflictTrackerEvents[ConflictIDType comparable]() *ConflictTrackerEvents[ConflictIDType] {
+	return &ConflictTrackerEvents[ConflictIDType]{
+		VoterAdded:   event.New[*ConflictVoterEvent[ConflictIDType]](),
+		VoterRemoved: event.New[*ConflictVoterEvent[ConflictIDType]](),
+	}
+}
+
+type SequenceTrackerEvents struct {
+	VoterAdded *event.Event[*SequenceVoterEvent]
+}
+
+type SequenceVoterEvent struct {
+	Voter  *validator.Validator
+	Marker markers.Marker
+}
+
+func newSequenceTrackerEvents() *SequenceTrackerEvents {
+	return &SequenceTrackerEvents{
+		VoterAdded: event.New[*SequenceVoterEvent](),
 	}
 }

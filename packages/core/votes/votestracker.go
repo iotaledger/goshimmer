@@ -15,7 +15,7 @@ type VotesTracker[ConflictIDType, ResourceIDType comparable] struct {
 
 	conflictDAG  *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
 	validatorSet *validator.Set
-	Events       *Events[ConflictIDType]
+	Events       *ConflictTrackerEvents[ConflictIDType]
 }
 
 func NewVotesTracker[ConflictIDType, ResourceIDType comparable](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *VotesTracker[ConflictIDType, ResourceIDType] {
@@ -23,7 +23,7 @@ func NewVotesTracker[ConflictIDType, ResourceIDType comparable](conflictDAG *con
 		votes:        memstorage.New[ConflictIDType, *Votes[ConflictIDType]](),
 		conflictDAG:  conflictDAG,
 		validatorSet: validatorSet,
-		Events:       newEvents[ConflictIDType](),
+		Events:       newConflictTrackerEvents[ConflictIDType](),
 	}
 }
 
@@ -45,13 +45,13 @@ func (v *VotesTracker[ConflictIDType, ResourceIDType]) TrackVote(initialVote *se
 	return true, false
 }
 
-func (v *VotesTracker[ConflictIDType, ResourceIDType]) applyVotes(defaultVote *Vote[ConflictIDType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*VoterEvent[ConflictIDType]]) {
+func (v *VotesTracker[ConflictIDType, ResourceIDType]) applyVotes(defaultVote *Vote[ConflictIDType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*ConflictVoterEvent[ConflictIDType]]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 		votes, _ := v.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType])
 
 		if added, opinionChanged := votes.Add(defaultVote.WithConflictID(conflict)); added && opinionChanged {
-			triggerEvent.Trigger(&VoterEvent[ConflictIDType]{Voter: defaultVote.Voter, Resource: conflict})
+			triggerEvent.Trigger(&ConflictVoterEvent[ConflictIDType]{Voter: defaultVote.Voter, ConflictID: conflict})
 		}
 	}
 }
