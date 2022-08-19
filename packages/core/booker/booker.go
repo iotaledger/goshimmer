@@ -23,37 +23,42 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
+// region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type Booker struct {
 	// Events contains the Events of Tangle.
 	Events *Events
 
-	ledger        *ledger.Ledger
-	bookingOrder  *causalorder.CausalOrder[models.BlockID, *Block]
-	attachments   *attachments
-	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
-	markerManager *MarkerManager
-	bookingMutex  *syncutils.DAGMutex[models.BlockID]
-	sequenceMutex *syncutils.DAGMutex[markers.SequenceID]
-
+	ledger          *ledger.Ledger
+	bookingOrder    *causalorder.CausalOrder[models.BlockID, *Block]
+	attachments     *attachments
+	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
+	markerManager   *MarkerManager
+	bookingMutex    *syncutils.DAGMutex[models.BlockID]
+	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager
+
+	optsTangle []options.Option[tangle.Tangle]
+
 	*tangle.Tangle
 }
 
-func New(tangleInstance *tangle.Tangle, ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
+func New(ledgerInstance *ledger.Ledger, evictionManager *eviction.Manager, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		ledger:          ledgerInstance,
-		Tangle:          tangleInstance,
 		Events:          newEvents(),
+		ledger:          ledgerInstance,
 		attachments:     newAttachments(),
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		markerManager:   NewMarkerManager(),
 		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager: evictionManager.Lockable(),
+		optsTangle:      make([]options.Option[tangle.Tangle], 0),
 	}, opts)
+	booker.Tangle = tangle.New(nil, evictionManager, booker.optsTangle...)
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
-	tangleInstance.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
+	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
@@ -497,3 +502,15 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 	return nil
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Booker] {
+	return func(b *Booker) {
+		b.optsTangle = opts
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
