@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
@@ -71,11 +71,13 @@ type Storage struct {
 	missingBlockStorage                 *objectstorage.ObjectStorage[*MissingBlock]
 	attachmentStorage                   *objectstorage.ObjectStorage[*Attachment]
 	markerIndexConflictIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexConflictIDMapping]
-	conflictVotersStorage               *objectstorage.ObjectStorage[*ConflictVoters]
-	latestConflictVotesStorage          *objectstorage.ObjectStorage[*LatestConflictVotes]
-	latestMarkerVotesStorage            *objectstorage.ObjectStorage[*LatestMarkerVotes]
-	conflictWeightStorage               *objectstorage.ObjectStorage[*ConflictWeight]
-	markerBlockMappingStorage           *objectstorage.ObjectStorage[*MarkerBlockMapping]
+
+	conflictVotersStorage      *objectstorage.ObjectStorage[*ConflictVoters]
+	latestConflictVotesStorage *objectstorage.ObjectStorage[*LatestConflictVotes]
+	latestMarkerVotesStorage   *objectstorage.ObjectStorage[*LatestMarkerVotes]
+	conflictWeightStorage      *objectstorage.ObjectStorage[*ConflictWeight]
+
+	markerBlockMappingStorage *objectstorage.ObjectStorage[*MarkerBlockMapping]
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -254,7 +256,7 @@ func (s *Storage) DeleteMissingBlock(blockID BlockID) {
 // MarkerIndexConflictIDMapping retrieves the MarkerIndexConflictIDMapping for the given SequenceID. It accepts an optional
 // computeIfAbsent callback that can be used to dynamically create a MarkerIndexConflictIDMapping if it doesn't exist,
 // yet.
-func (s *Storage) MarkerIndexConflictIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexConflictIDMapping) *objectstorage.CachedObject[*MarkerIndexConflictIDMapping] {
+func (s *Storage) MarkerIndexConflictIDMapping(sequenceID markersold.SequenceID, computeIfAbsentCallback ...func(sequenceID markersold.SequenceID) *MarkerIndexConflictIDMapping) *objectstorage.CachedObject[*MarkerIndexConflictIDMapping] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.markerIndexConflictIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) *MarkerIndexConflictIDMapping {
 			return computeIfAbsentCallback[0](sequenceID)
@@ -275,12 +277,12 @@ func (s *Storage) DeleteMarkerBlockMapping(conflictID utxo.TransactionID, blockI
 }
 
 // MarkerBlockMapping retrieves the MarkerBlockMapping associated with the given details.
-func (s *Storage) MarkerBlockMapping(marker markers.Marker) (cachedMarkerBlockMappings *objectstorage.CachedObject[*MarkerBlockMapping]) {
+func (s *Storage) MarkerBlockMapping(marker markersold.Marker) (cachedMarkerBlockMappings *objectstorage.CachedObject[*MarkerBlockMapping]) {
 	return s.markerBlockMappingStorage.Load(marker.Bytes())
 }
 
 // MarkerBlockMappings retrieves the MarkerBlockMappings of a Sequence in the object storage.
-func (s *Storage) MarkerBlockMappings(sequenceID markers.SequenceID) (cachedMarkerBlockMappings objectstorage.CachedObjects[*MarkerBlockMapping]) {
+func (s *Storage) MarkerBlockMappings(sequenceID markersold.SequenceID) (cachedMarkerBlockMappings objectstorage.CachedObjects[*MarkerBlockMapping]) {
 	s.markerBlockMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MarkerBlockMapping]) bool {
 		cachedMarkerBlockMappings = append(cachedMarkerBlockMappings, cachedObject)
 		return true
@@ -311,7 +313,7 @@ func (s *Storage) LatestConflictVotes(voter Voter, computeIfAbsentCallback ...fu
 }
 
 // LatestMarkerVotes retrieves the LatestMarkerVotes of the given voter for the named Sequence.
-func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markers.SequenceID, voter Voter) *LatestMarkerVotes) *objectstorage.CachedObject[*LatestMarkerVotes] {
+func (s *Storage) LatestMarkerVotes(sequenceID markersold.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markersold.SequenceID, voter Voter) *LatestMarkerVotes) *objectstorage.CachedObject[*LatestMarkerVotes] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.latestMarkerVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()), func(key []byte) *LatestMarkerVotes {
 			return computeIfAbsentCallback[0](sequenceID, voter)
@@ -322,7 +324,7 @@ func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, 
 }
 
 // AllLatestMarkerVotes retrieves all LatestMarkerVotes for the named Sequence.
-func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLatestMarkerVotesByVoter CachedLatestMarkerVotesByVoter) {
+func (s *Storage) AllLatestMarkerVotes(sequenceID markersold.SequenceID) (cachedLatestMarkerVotesByVoter CachedLatestMarkerVotesByVoter) {
 	cachedLatestMarkerVotesByVoter = make(CachedLatestMarkerVotesByVoter)
 
 	s.latestMarkerVotesStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*LatestMarkerVotes]) bool {
@@ -354,7 +356,7 @@ func (s *Storage) storeGenesis() {
 			SubtractedConflictIDs: utxo.NewTransactionIDs(),
 			SolidificationTime:    clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
 			Solid:                 true,
-			StructureDetails:      markers.NewStructureDetails(),
+			StructureDetails:      markersold.NewStructureDetails(),
 			Scheduled:             true,
 			Booked:                true,
 		})

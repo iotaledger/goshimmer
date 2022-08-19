@@ -1,8 +1,6 @@
 package dagsvisualizer
 
-import (
-	"github.com/iotaledger/hive.go/configuration"
-)
+import "github.com/iotaledger/goshimmer/plugins/config"
 
 // ParametersDefinition contains the definition of configuration parameters used by the dags visualizer plugin.
 type ParametersDefinition struct {
@@ -20,5 +18,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "dagsvisualizer")
+	config.BindParameters(Parameters, "dagsvisualizer")
 }

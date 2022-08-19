@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

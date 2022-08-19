@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
@@ -62,8 +62,8 @@ func GetSequence(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
-		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markers.NewMarker(sequenceID, sequence.HighestIndex()))
+	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markersold.Sequence) {
+		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markersold.NewMarker(sequenceID, sequence.HighestIndex()))
 		err = c.String(http.StatusOK, stringify.Struct("Sequence",
 			stringify.StructField("ID", sequence.ID()),
 			stringify.StructField("LowestIndex", sequence.LowestIndex()),
@@ -237,13 +237,13 @@ func blockIDFromContext(c echo.Context) (blockID tangleold.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
+func sequenceIDFromContext(c echo.Context) (id markersold.SequenceID, err error) {
 	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 	if err != nil {
 		return
 	}
 
-	return markers.SequenceID(sequenceIDInt), nil
+	return markersold.SequenceID(sequenceIDInt), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

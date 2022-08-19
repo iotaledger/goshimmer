@@ -11,14 +11,14 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serializer"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -27,7 +27,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
@@ -714,22 +714,22 @@ type BlockMetadata struct {
 }
 
 type blockMetadataModel struct {
-	ReceivedTime          time.Time                 `serix:"1"`
-	SolidificationTime    time.Time                 `serix:"2"`
-	Solid                 bool                      `serix:"3"`
-	StructureDetails      *markers.StructureDetails `serix:"4,optional"`
-	AddedConflictIDs      utxo.TransactionIDs       `serix:"5"`
-	SubtractedConflictIDs utxo.TransactionIDs       `serix:"6"`
-	Scheduled             bool                      `serix:"7"`
-	ScheduledTime         time.Time                 `serix:"8"`
-	Booked                bool                      `serix:"9"`
-	BookedTime            time.Time                 `serix:"10"`
-	ObjectivelyInvalid    bool                      `serix:"11"`
-	ConfirmationState     confirmation.State        `serix:"12"`
-	ConfirmationStateTime time.Time                 `serix:"13"`
-	DiscardedTime         time.Time                 `serix:"14"`
-	QueuedTime            time.Time                 `serix:"15"`
-	SubjectivelyInvalid   bool                      `serix:"16"`
+	ReceivedTime          time.Time                    `serix:"1"`
+	SolidificationTime    time.Time                    `serix:"2"`
+	Solid                 bool                         `serix:"3"`
+	StructureDetails      *markersold.StructureDetails `serix:"4,optional"`
+	AddedConflictIDs      utxo.TransactionIDs          `serix:"5"`
+	SubtractedConflictIDs utxo.TransactionIDs          `serix:"6"`
+	Scheduled             bool                         `serix:"7"`
+	ScheduledTime         time.Time                    `serix:"8"`
+	Booked                bool                         `serix:"9"`
+	BookedTime            time.Time                    `serix:"10"`
+	ObjectivelyInvalid    bool                         `serix:"11"`
+	ConfirmationState     confirmation.State           `serix:"12"`
+	ConfirmationStateTime time.Time                    `serix:"13"`
+	DiscardedTime         time.Time                    `serix:"14"`
+	QueuedTime            time.Time                    `serix:"15"`
+	SubjectivelyInvalid   bool                         `serix:"16"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata from the specified blockID.
@@ -786,7 +786,7 @@ func (m *BlockMetadata) SolidificationTime() time.Time {
 }
 
 // SetStructureDetails sets the structureDetails of the block.
-func (m *BlockMetadata) SetStructureDetails(structureDetails *markers.StructureDetails) (modified bool) {
+func (m *BlockMetadata) SetStructureDetails(structureDetails *markersold.StructureDetails) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -801,7 +801,7 @@ func (m *BlockMetadata) SetStructureDetails(structureDetails *markers.StructureD
 }
 
 // StructureDetails returns the structureDetails of the block.
-func (m *BlockMetadata) StructureDetails() *markers.StructureDetails {
+func (m *BlockMetadata) StructureDetails() *markersold.StructureDetails {
 	m.RLock()
 	defer m.RUnlock()
 

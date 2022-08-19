@@ -6,18 +6,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/debug"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
@@ -43,14 +43,14 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 	// build markers DAG where each sequence has only 1 marker building a chain of sequences
 	totalMarkers := 10000
 	{
-		var previousMarker *markers.StructureDetails
+		var previousMarker *markersold.StructureDetails
 		for i := uint32(1); i < uint32(totalMarkers); i++ {
 			if previousMarker == nil {
 				previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
 				continue
 			}
 
-			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{previousMarker}, increaseIndexCallback)
+			previousMarker, _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{previousMarker}, increaseIndexCallback)
 		}
 	}
 
@@ -60,7 +60,7 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 		var total time.Duration
 		for m := 0; m < measurements; m++ {
 			start := time.Now()
-			approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
+			approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markersold.NewMarker(markersold.SequenceID(i), markersold.Index(i))))
 			total += time.Since(start)
 		}
 	}
@@ -164,7 +164,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 		block.ID().RegisterAlias("Statement2")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 4.1.2"])
-			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
+			blockMetadata.SetStructureDetails(markersold.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
 
@@ -191,7 +191,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 		block.ID().RegisterAlias("Statement1")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 1.1 + Conflict 4.1.1"])
-			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
+			blockMetadata.SetStructureDetails(markersold.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
 
@@ -218,7 +218,7 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 		block.ID().RegisterAlias("Statement3")
 		tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 			blockMetadata.SetAddedConflictIDs(conflictIDs["Conflict 2"])
-			blockMetadata.SetStructureDetails(markers.NewStructureDetails())
+			blockMetadata.SetStructureDetails(markersold.NewStructureDetails())
 		})
 		approvalWeightManager.updateConflictVoters(block)
 
@@ -261,37 +261,37 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
-	markersMap := make(map[string]*markers.StructureDetails)
+	markersMap := make(map[string]*markersold.StructureDetails)
 
 	// build markers DAG
 	{
 		markersMap["0,1"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails(nil, increaseIndexCallback)
-		markersMap["0,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
-		markersMap["0,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,2"]}, increaseIndexCallback)
-		markersMap["0,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"]}, increaseIndexCallback)
+		markersMap["0,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["0,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,2"]}, increaseIndexCallback)
+		markersMap["0,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,3"]}, increaseIndexCallback)
 
 		markersMap["0,1"].SetPastMarkerGap(50)
-		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
-		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
-		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
-		markersMap["1,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"]}, increaseIndexCallback)
+		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
+		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
+		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
+		markersMap["1,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["1,4"]}, increaseIndexCallback)
 
 		markersMap["0,3"].SetPastMarkerGap(50)
 		markersMap["1,4"].SetPastMarkerGap(50)
-		markersMap["2,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"], markersMap["1,4"]}, increaseIndexCallback)
-		markersMap["2,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,4"], markersMap["2,5"]}, increaseIndexCallback)
-		markersMap["2,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,6"]}, increaseIndexCallback)
-		markersMap["2,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+		markersMap["2,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,3"], markersMap["1,4"]}, increaseIndexCallback)
+		markersMap["2,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["0,4"], markersMap["2,5"]}, increaseIndexCallback)
+		markersMap["2,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["2,6"]}, increaseIndexCallback)
+		markersMap["2,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
 
 		markersMap["2,7"].SetPastMarkerGap(50)
-		markersMap["3,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
+		markersMap["3,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
 		markersMap["1,4"].SetPastMarkerGap(50)
-		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"], markersMap["1,4"]}, increaseIndexCallback)
+		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markersold.StructureDetails{markersMap["2,7"], markersMap["1,4"]}, increaseIndexCallback)
 	}
 
 	// CASE1: APPROVE MARKER(0, 3)
 	{
-		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(0, 3)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markersold.NewMarker(0, 3)))
 
 		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"0,1": {voters["A"]},
@@ -313,7 +313,7 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(0, 4), markers.NewMarker(2, 6)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markersold.NewMarker(0, 4), markersold.NewMarker(2, 6)))
 
 		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"0,1": {voters["A"]},
@@ -335,7 +335,7 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(4, 8)
 	{
-		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(4, 8)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markersold.NewMarker(4, 8)))
 
 		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"0,1": {voters["A"]},
@@ -357,7 +357,7 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 
 	// CASE4: APPROVE MARKER(1, 5)
 	{
-		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["B"], markers.NewMarker(1, 5)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["B"], markersold.NewMarker(1, 5)))
 
 		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
 			"0,1": {voters["A"], voters["B"]},
@@ -517,51 +517,51 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.3)
 
-		IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 0.30,
+		IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 0.30,
 		})
 	}
 	// ISSUE Block2
 	{
 		testFramework.CreateBlock("Block2", WithStrongParents("Block1"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.45)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.15)
 
-		IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 0.45,
-			markers.NewMarker(0, 2): 0.15,
+		IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 0.45,
+			markersold.NewMarker(0, 2): 0.15,
 		})
 	}
 	// ISSUE Block3
 	{
 		testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["C"].PublicKey()), WithInputs("A"), WithOutput("A3", 500))
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.70)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.40)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.70)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.25)
 
-		IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 0.70,
-			markers.NewMarker(0, 2): 0.40,
-			markers.NewMarker(0, 3): 0.25,
+		IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 0.70,
+			markersold.NewMarker(0, 2): 0.40,
+			markersold.NewMarker(0, 3): 0.25,
 		})
 	}
 	// ISSUE Block4
 	{
 		testFramework.CreateBlock("Block4", WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.90)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.60)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.45)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.60)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.45)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.20)
 
-		IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 0.90,
-			markers.NewMarker(0, 2): 0.60,
-			markers.NewMarker(0, 3): 0.45,
-			markers.NewMarker(0, 4): 0.20,
+		IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 0.90,
+			markersold.NewMarker(0, 2): 0.60,
+			markersold.NewMarker(0, 3): 0.45,
+			markersold.NewMarker(0, 4): 0.20,
 		})
 	}
 	// ISSUE Block5
@@ -569,17 +569,17 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.CreateBlock("Block5", WithStrongParents("Block4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A3"), WithOutput("A5", 500))
 		testFramework.RegisterConflictID("A", "Block5")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.50)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.90)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.50)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 5), 0.30)
 
-		IssueAndValidateBlockApproval(t, "Block5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 0.90,
-			markers.NewMarker(0, 2): 0.90,
-			markers.NewMarker(0, 3): 0.75,
-			markers.NewMarker(0, 4): 0.50,
-			markers.NewMarker(0, 5): 0.30,
+		IssueAndValidateBlockApproval(t, "Block5", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 0.90,
+			markersold.NewMarker(0, 2): 0.90,
+			markersold.NewMarker(0, 3): 0.75,
+			markersold.NewMarker(0, 4): 0.50,
+			markersold.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -588,10 +588,10 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.CreateBlock("Block6", WithStrongParents("Block4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
 		testFramework.RegisterConflictID("B", "Block6")
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.85)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.60)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.85)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.60)
 
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("A"), 0.30)
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.10)
@@ -599,12 +599,12 @@ func TestOutOfOrderStatements(t *testing.T) {
 		IssueAndValidateBlockApproval(t, "Block6", testEventMock, testFramework, map[string]float64{
 			"A": 0.3,
 			"B": 0.1,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 0.85,
-			markers.NewMarker(0, 4): 0.60,
-			markers.NewMarker(0, 5): 0.30,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 0.85,
+			markersold.NewMarker(0, 4): 0.60,
+			markersold.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -612,17 +612,17 @@ func TestOutOfOrderStatements(t *testing.T) {
 	{
 		testFramework.CreateBlock("Block7", WithStrongParents("Block3"), WithIssuer(nodes["B"].PublicKey()), WithInputs("B"), WithOutput("B7", 500))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 1.0)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 1.0)
 
 		IssueAndValidateBlockApproval(t, "Block7", testEventMock, testFramework, map[string]float64{
 			"A": 0.30,
 			"B": 0.1,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.60,
-			markers.NewMarker(0, 5): 0.30,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.60,
+			markersold.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Block8
@@ -639,12 +639,12 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"B": 0.10,
 			"C": 0.15,
 			"D": 0.20,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.60,
-			markers.NewMarker(0, 5): 0.30,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.60,
+			markersold.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -661,20 +661,20 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"B": 0.40,
 			"C": 0.45,
 			"D": 0.20,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.60,
-			markers.NewMarker(0, 5): 0.30,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.60,
+			markersold.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Block10
 	{
 		testFramework.CreateBlock("Block10", WithStrongParents("Block9"), WithIssuer(nodes["B"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.75)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.15)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.75)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 5), 0.15)
 
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.55)
 
@@ -683,13 +683,13 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"B": 0.55,
 			"C": 0.45,
 			"D": 0.20,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.75,
-			markers.NewMarker(0, 5): 0.30,
-			markers.NewMarker(1, 5): 0.15,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.75,
+			markersold.NewMarker(0, 5): 0.30,
+			markersold.NewMarker(1, 5): 0.15,
 		})
 	}
 
@@ -698,8 +698,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We skip ahead with the Sequence Number
 		testFramework.CreateBlock("Block11", WithStrongParents("Block5"), WithIssuer(nodes["E"].PublicKey()), WithSequenceNumber(10000000000))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.40)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.10)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 5), 0.40)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 6), 0.10)
 
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("A"), 0.10)
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("B"), 0.45)
@@ -709,14 +709,14 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"B": 0.45,
 			"C": 0.45,
 			"D": 0.20,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.75,
-			markers.NewMarker(0, 5): 0.40,
-			markers.NewMarker(0, 6): 0.10,
-			markers.NewMarker(1, 5): 0.15,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.75,
+			markersold.NewMarker(0, 5): 0.40,
+			markersold.NewMarker(0, 6): 0.10,
+			markersold.NewMarker(1, 5): 0.15,
 		})
 	}
 
@@ -725,8 +725,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		// We simulate an "old" vote
 		testFramework.CreateBlock("Block12", WithStrongParents("Block10"), WithIssuer(nodes["E"].PublicKey()))
 
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.25)
-		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.10)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 5), 0.25)
+		testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 6), 0.10)
 
 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("C"), 0.55)
 
@@ -735,15 +735,15 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"B": 0.45,
 			"C": 0.55,
 			"D": 0.20,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.75,
-			markers.NewMarker(0, 5): 0.40,
-			markers.NewMarker(0, 6): 0.10,
-			markers.NewMarker(1, 5): 0.25,
-			markers.NewMarker(1, 6): 0.10,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.75,
+			markersold.NewMarker(0, 5): 0.40,
+			markersold.NewMarker(0, 6): 0.10,
+			markersold.NewMarker(1, 5): 0.25,
+			markersold.NewMarker(1, 6): 0.10,
 		})
 	}
 
@@ -765,15 +765,15 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"D": 0.20,
 			"X": 1.00,
 			"Y": 0.00,
-		}, map[markers.Marker]float64{
-			markers.NewMarker(0, 1): 1,
-			markers.NewMarker(0, 2): 1,
-			markers.NewMarker(0, 3): 1,
-			markers.NewMarker(0, 4): 0.75,
-			markers.NewMarker(0, 5): 0.40,
-			markers.NewMarker(0, 6): 0.10,
-			markers.NewMarker(1, 5): 0.25,
-			markers.NewMarker(1, 6): 0.10,
+		}, map[markersold.Marker]float64{
+			markersold.NewMarker(0, 1): 1,
+			markersold.NewMarker(0, 2): 1,
+			markersold.NewMarker(0, 3): 1,
+			markersold.NewMarker(0, 4): 0.75,
+			markersold.NewMarker(0, 5): 0.40,
+			markersold.NewMarker(0, 6): 0.10,
+			markersold.NewMarker(1, 5): 0.25,
+			markersold.NewMarker(1, 6): 0.10,
 		})
 	}
 }
@@ -782,29 +782,29 @@ func TestLatestMarkerVotes(t *testing.T) {
 	{
 		latestMarkerVotes := NewLatestMarkerVotes(1, Voter{1})
 		latestMarkerVotes.Store(1, 8)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			1: 8,
 		})
 		latestMarkerVotes.Store(2, 10)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			2: 10,
 		})
 		latestMarkerVotes.Store(3, 7)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			2: 10,
 			3: 7,
 		})
 		latestMarkerVotes.Store(4, 9)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			2: 10,
 			4: 9,
 		})
 		latestMarkerVotes.Store(4, 11)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			4: 11,
 		})
 		latestMarkerVotes.Store(1, 15)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			1: 15,
 			4: 11,
 		})
@@ -818,15 +818,15 @@ func TestLatestMarkerVotes(t *testing.T) {
 		latestMarkerVotes.Store(1, 8)
 		latestMarkerVotes.Store(1, 15)
 		latestMarkerVotes.Store(4, 11)
-		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]uint64{
+		validateLatestMarkerVotes(t, latestMarkerVotes, map[markersold.Index]uint64{
 			1: 15,
 			4: 11,
 		})
 	}
 }
 
-func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.M.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markersold.Index]uint64) {
+	votes.M.ForEach(func(node *thresholdmap.Element[markersold.Index, uint64]) bool {
 		index := node.Key()
 		seq := node.Value()
 
@@ -839,7 +839,7 @@ func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedV
 	assert.Empty(t, expectedVotes)
 }
 
-func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedVoters map[string][]*identity.Identity) {
+func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markersold.StructureDetails, expectedVoters map[string][]*identity.Identity) {
 	for markerAlias, expectedVotersOfMarker := range expectedVoters {
 		// sanity check
 		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers().Marker().SequenceID(), markersMap[markerAlias].PastMarkers().Marker().Index()))
@@ -854,13 +854,13 @@ func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightMan
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...markers.Marker) (block *Block) {
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...markersold.Marker) (block *Block) {
 	block = newTestDataBlockPublicKey("test", voter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreBlock(block)
 	approvalWeightManager.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
-		newStructureDetails := markers.NewStructureDetails()
+		newStructureDetails := markersold.NewStructureDetails()
 		newStructureDetails.SetIsPastMarker(true)
-		newStructureDetails.SetPastMarkers(markers.NewMarkers(markersToApprove...))
+		newStructureDetails.SetPastMarkers(markersold.NewMarkers(markersToApprove...))
 
 		blockMetadata.SetStructureDetails(newStructureDetails)
 	})
@@ -868,7 +868,7 @@ func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identit
 	return
 }
 
-func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
+func increaseIndexCallback(markersold.SequenceID, markersold.Index) bool {
 	return true
 }
 

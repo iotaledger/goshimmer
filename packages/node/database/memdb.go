@@ -1,8 +1,8 @@
 package database
 
 import (
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 )
 
 type memDB struct {
@@ -10,7 +10,7 @@ type memDB struct {
 }
 
 // NewMemDB returns a new in-memory (not persisted) DB object.
-func NewMemDB() (DB, error) {
+func NewMemDB(_ string) (DB, error) {
 	return &memDB{KVStore: mapdb.NewMapDB()}, nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/shirou/gopsutil/cpu"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
@@ -24,7 +24,7 @@ func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
-	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{uint64(len(data))})
+	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{AmountBytes: uint64(len(data))})
 }
 
 func createMetricHeartbeat() *packet.MetricHeartbeat {

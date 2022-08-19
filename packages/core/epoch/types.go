@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -32,7 +32,10 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	return
 }
 
-// IndexFromTime calculates the EI for the given time.
+// IndexFromTime calculates the Index from the given time.
+//
+// Note: Epochs are counted starting from 1 because 0 is reserved for the genesis which has to be addressable as its own
+// epoch as part of the commitment chains.
 func IndexFromTime(t time.Time) Index {
 	elapsedSeconds := t.Unix() - GenesisTime
 	if elapsedSeconds < 0 {
@@ -166,4 +169,27 @@ func (e *ECRecord) SetPrevEC(prevEC EC) {
 
 	e.M.PrevEC = NewMerkleRoot(prevEC[:])
 	e.SetModified()
+}
+
+// region IndexedID ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type IndexedID interface {
+	comparable
+
+	Index() Index
+	String() string
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (e *ECRecord) Bytes() (bytes []byte, err error) {
+	bytes, err = e.Storable.Bytes()
+	return
+}
+
+func (e *ECRecord) FromBytes(bytes []byte) (err error) {
+	err = e.Storable.FromBytes(bytes)
+	e.SetID(e.EI())
+
+	return
 }

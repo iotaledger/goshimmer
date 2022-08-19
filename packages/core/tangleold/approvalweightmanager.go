@@ -3,14 +3,14 @@ package tangleold
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 const (
@@ -50,7 +50,7 @@ func (a *ApprovalWeightManager) Setup() {
 }
 
 // processBookedBlock is the main entry point for the ApprovalWeightManager. It takes the Block's issuer, adds it to the
-// voters of the Block's ledger.Conflict and approved markers.Marker and eventually triggers events when
+// voters of the Block's ledger.Conflict and approved markersold.Marker and eventually triggers events when
 // approval weights for conflict and markers are reached.
 func (a *ApprovalWeightManager) processBookedBlock(blockID BlockID) {
 	a.tangle.Storage.Block(blockID).Consume(func(block *Block) {
@@ -71,7 +71,7 @@ func (a *ApprovalWeightManager) WeightOfConflict(conflictID utxo.TransactionID) 
 }
 
 // WeightOfMarker returns the weight of the given marker based on the anchorTime.
-func (a *ApprovalWeightManager) WeightOfMarker(marker markers.Marker, anchorTime time.Time) (weight float64) {
+func (a *ApprovalWeightManager) WeightOfMarker(marker markersold.Marker, anchorTime time.Time) (weight float64) {
 	activeWeight, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	voterWeight := float64(0)
@@ -102,7 +102,7 @@ func (a *ApprovalWeightManager) VotersOfConflict(conflictID utxo.TransactionID) 
 }
 
 // markerVotes returns a map containing Voters associated to their respective SequenceNumbers.
-func (a *ApprovalWeightManager) markerVotes(marker markers.Marker) (markerVotes map[Voter]uint64) {
+func (a *ApprovalWeightManager) markerVotes(marker markersold.Marker) (markerVotes map[Voter]uint64) {
 	markerVotes = make(map[Voter]uint64)
 	a.tangle.Storage.AllLatestMarkerVotes(marker.SequenceID()).Consume(func(latestMarkerVotes *LatestMarkerVotes) {
 		lastPower, exists := latestMarkerVotes.Power(marker.Index())
@@ -288,10 +288,10 @@ func (a *ApprovalWeightManager) updateSequenceVoters(block *Block) {
 	a.tangle.Storage.BlockMetadata(block.ID()).Consume(func(blockMetadata *BlockMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
-		supportWalker := walker.New[markers.Marker](false)
+		supportWalker := walker.New[markersold.Marker](false)
 
-		blockMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			supportWalker.Push(markers.NewMarker(sequenceID, index))
+		blockMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markersold.SequenceID, index markersold.Index) bool {
+			supportWalker.Push(markersold.NewMarker(sequenceID, index))
 
 			return true
 		})
@@ -302,7 +302,7 @@ func (a *ApprovalWeightManager) updateSequenceVoters(block *Block) {
 	})
 }
 
-func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, block *Block, walk *walker.Walker[markers.Marker]) {
+func (a *ApprovalWeightManager) addVoteToMarker(marker markersold.Marker, block *Block, walk *walker.Walker[markersold.Marker]) {
 	// We don't add the voter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the
 	// voters of the marker to the conflict. Since the marker is already seen as confirmed it should not matter too much though.
@@ -320,9 +320,9 @@ func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, block *Bl
 			a.updateMarkerWeights(marker.SequenceID(), previousHighestIndex+1, marker.Index())
 		}
 
-		a.tangle.Booker.MarkersManager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-				walk.Push(markers.NewMarker(sequenceID, index))
+		a.tangle.Booker.MarkersManager.Sequence(marker.SequenceID()).Consume(func(sequence *markersold.Sequence) {
+			sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markersold.SequenceID, index markersold.Index) bool {
+				walk.Push(markersold.NewMarker(sequenceID, index))
 
 				return true
 			})
@@ -331,14 +331,14 @@ func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, block *Bl
 }
 
 // updateMarkerWeights updates the marker weights in the given range and triggers the MarkerWeightChanged event.
-func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex, rangeEndIndex markers.Index) {
+func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markersold.SequenceID, rangeStartIndex, rangeEndIndex markersold.Index) {
 	if rangeStartIndex <= 1 {
 		rangeStartIndex = a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(sequenceID)
 	}
 
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 	for i := rangeStartIndex; i <= rangeEndIndex; i++ {
-		currentMarker := markers.NewMarker(sequenceID, i)
+		currentMarker := markersold.NewMarker(sequenceID, i)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if a.tangle.Booker.MarkersManager.BlockID(currentMarker) == EmptyBlockID {
@@ -389,7 +389,7 @@ func (a *ApprovalWeightManager) processForkedBlock(blockID BlockID, forkedConfli
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
-func (a *ApprovalWeightManager) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID) {
+func (a *ApprovalWeightManager) processForkedMarker(marker markersold.Marker, forkedConflictID utxo.TransactionID) {
 	conflictVotesUpdated := false
 	a.tangle.Storage.ConflictVoters(forkedConflictID, NewConflictVoters).Consume(func(conflictVoters *ConflictVoters) {
 		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(forkedConflictID).Consume(func(forkedConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {

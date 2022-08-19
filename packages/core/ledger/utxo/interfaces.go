@@ -1,7 +1,7 @@
 package utxo
 
 import (
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 )
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////

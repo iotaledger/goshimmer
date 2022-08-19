@@ -2,11 +2,11 @@ package ledger
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
@@ -143,7 +143,7 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 					return
 				}
 
-				conflictingTransactions.Add(utxo.TransactionID{conflictMember.ConflictID().Identifier})
+				conflictingTransactions.Add(utxo.TransactionID{Identifier: conflictMember.ConflictID().Identifier})
 			})
 		}
 	})

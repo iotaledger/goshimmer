@@ -1,9 +1,13 @@
 package causalorder
 
-import "github.com/iotaledger/hive.go/generics/options"
+import (
+	"github.com/iotaledger/hive.go/core/generics/options"
 
-func WithReferenceValidator[IDType comparable, EntityType Entity[IDType]](referenceValidator func(entity EntityType, parent EntityType) bool) options.Option[CausalOrder[IDType, EntityType]] {
-	return func(causalOrder *CausalOrder[IDType, EntityType]) {
-		causalOrder.optsReferenceValidator = referenceValidator
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+)
+
+func WithReferenceValidator[ID epoch.IndexedID, Entity OrderedEntity[ID]](referenceValidator func(entity Entity, parent Entity) (err error)) options.Option[CausalOrder[ID, Entity]] {
+	return func(causalOrder *CausalOrder[ID, Entity]) {
+		causalOrder.checkReference = referenceValidator
 	}
 }

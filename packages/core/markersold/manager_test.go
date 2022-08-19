@@ -1,10 +1,10 @@
-package markers
+package markersold
 
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 )
 

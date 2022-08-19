@@ -3,22 +3,22 @@ package tangleold
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region markerIndexConflictIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexConflictIDMap struct {
-	T *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
+	T *thresholdmap.ThresholdMap[markersold.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
 func newMarkerIndexConflictIDMap() *markerIndexConflictIDMap {
-	return &markerIndexConflictIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
+	return &markerIndexConflictIDMap{thresholdmap.New[markersold.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,12 +27,12 @@ func newMarkerIndexConflictIDMap() *markerIndexConflictIDMap {
 
 // MarkerIndexConflictIDMapping is a data structure that allows to map marker Indexes to a ConflictID.
 type MarkerIndexConflictIDMapping struct {
-	model.Storable[markers.SequenceID, MarkerIndexConflictIDMapping, *MarkerIndexConflictIDMapping, markerIndexConflictIDMap] `serix:"0"`
+	model.Storable[markersold.SequenceID, MarkerIndexConflictIDMapping, *MarkerIndexConflictIDMapping, markerIndexConflictIDMap] `serix:"0"`
 }
 
 // NewMarkerIndexConflictIDMapping creates a new MarkerIndexConflictIDMapping for the given SequenceID.
-func NewMarkerIndexConflictIDMapping(sequenceID markers.SequenceID) (markerConflictMapping *MarkerIndexConflictIDMapping) {
-	markerConflictMapping = model.NewStorable[markers.SequenceID, MarkerIndexConflictIDMapping](
+func NewMarkerIndexConflictIDMapping(sequenceID markersold.SequenceID) (markerConflictMapping *MarkerIndexConflictIDMapping) {
+	markerConflictMapping = model.NewStorable[markersold.SequenceID, MarkerIndexConflictIDMapping](
 		newMarkerIndexConflictIDMap(),
 	)
 	markerConflictMapping.SetID(sequenceID)
@@ -40,12 +40,12 @@ func NewMarkerIndexConflictIDMapping(sequenceID markers.SequenceID) (markerConfl
 }
 
 // SequenceID returns the SequenceID that this MarkerIndexConflictIDMapping represents.
-func (m *MarkerIndexConflictIDMapping) SequenceID() markers.SequenceID {
+func (m *MarkerIndexConflictIDMapping) SequenceID() markersold.SequenceID {
 	return m.ID()
 }
 
 // ConflictIDs returns the ConflictID that is associated to the given marker Index.
-func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markers.Index) (conflictIDs utxo.TransactionIDs) {
+func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markersold.Index) (conflictIDs utxo.TransactionIDs) {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -58,7 +58,7 @@ func (m *MarkerIndexConflictIDMapping) ConflictIDs(markerIndex markers.Index) (c
 }
 
 // SetConflictIDs creates a mapping between the given marker Index and the given ConflictID.
-func (m *MarkerIndexConflictIDMapping) SetConflictIDs(index markers.Index, conflictIDs utxo.TransactionIDs) {
+func (m *MarkerIndexConflictIDMapping) SetConflictIDs(index markersold.Index, conflictIDs utxo.TransactionIDs) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -67,7 +67,7 @@ func (m *MarkerIndexConflictIDMapping) SetConflictIDs(index markers.Index, confl
 }
 
 // DeleteConflictID deletes a mapping between the given marker Index and the stored ConflictID.
-func (m *MarkerIndexConflictIDMapping) DeleteConflictID(index markers.Index) {
+func (m *MarkerIndexConflictIDMapping) DeleteConflictID(index markersold.Index) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -77,7 +77,7 @@ func (m *MarkerIndexConflictIDMapping) DeleteConflictID(index markers.Index) {
 
 // Floor returns the largest Index that is <= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexConflictIDMapping) Floor(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerIndexConflictIDMapping) Floor(index markersold.Index) (marker markersold.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -90,7 +90,7 @@ func (m *MarkerIndexConflictIDMapping) Floor(index markers.Index) (marker marker
 
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped ConflictID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexConflictIDMapping) Ceiling(index markers.Index) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerIndexConflictIDMapping) Ceiling(index markersold.Index) (marker markersold.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -107,22 +107,22 @@ func (m *MarkerIndexConflictIDMapping) Ceiling(index markers.Index) (marker mark
 
 // MarkerBlockMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var MarkerBlockMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceID(0).Length(), markers.Index(0).Length())
+var MarkerBlockMappingPartitionKeys = objectstorage.PartitionKey(markersold.SequenceID(0).Length(), markersold.Index(0).Length())
 
 // MarkerBlockMapping is a data structure that denotes a mapping from a Marker to a Block.
 type MarkerBlockMapping struct {
-	model.Storable[markers.Marker, MarkerBlockMapping, *MarkerBlockMapping, BlockID] `serix:"0"`
+	model.Storable[markersold.Marker, MarkerBlockMapping, *MarkerBlockMapping, BlockID] `serix:"0"`
 }
 
 // NewMarkerBlockMapping is the constructor for the MarkerBlockMapping.
-func NewMarkerBlockMapping(marker markers.Marker, blockID BlockID) *MarkerBlockMapping {
-	markerBlockMapping := model.NewStorable[markers.Marker, MarkerBlockMapping](&blockID)
+func NewMarkerBlockMapping(marker markersold.Marker, blockID BlockID) *MarkerBlockMapping {
+	markerBlockMapping := model.NewStorable[markersold.Marker, MarkerBlockMapping](&blockID)
 	markerBlockMapping.SetID(marker)
 	return markerBlockMapping
 }
 
 // Marker returns the Marker that is mapped to a BlockID.
-func (m *MarkerBlockMapping) Marker() *markers.Marker {
+func (m *MarkerBlockMapping) Marker() *markersold.Marker {
 	marker := m.ID()
 	return &marker
 }

@@ -1,38 +1,32 @@
 package tangle
 
-import "github.com/iotaledger/hive.go/generics/event"
+import "github.com/iotaledger/hive.go/core/generics/event"
 
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Events is the event interface of the Tangle.
+// Events is a collection of Tangle related Events
 type Events struct {
-	Error *event.Event[error]
+	// BlockAttached is triggered when a previously unknown Block is attached.
+	BlockAttached *event.Event[*Block]
 
-	// BlockStored is triggered when a block is stored.
-	BlockStored *event.Event[*BlockMetadata]
+	// BlockSolid is triggered when a Block becomes solid (its entire past cone is known and solid).
+	BlockSolid *event.Event[*Block]
 
-	// BlockSolid is triggered when a block becomes solid, i.e. its past cone is known and solid.
-	BlockSolid *event.Event[*BlockMetadata]
+	// BlockMissing is triggered when a referenced Block was not attached, yet.
+	BlockMissing *event.Event[*Block]
 
-	// BlockMissing is triggered when a block references an unknown parent Block.
-	BlockMissing *event.Event[*BlockMetadata]
+	// MissingBlockAttached is triggered when a previously missing Block was attached.
+	MissingBlockAttached *event.Event[*Block]
 
-	// MissingBlockStored fired when a block which was previously marked as missing was received.
-	MissingBlockStored *event.Event[*BlockMetadata]
-
-	// MissingBlockStored fired when a block which was previously marked as missing was invalid.
-	BlockInvalid *event.Event[*BlockMetadata]
+	// BlockInvalid is triggered when a Block is found to be invalid.
+	BlockInvalid *event.Event[*Block]
 }
 
+// newEvents creates a new Events instance.
 func newEvents() *Events {
 	return &Events{
-		Error:              event.New[error](),
-		BlockStored:        event.New[*BlockMetadata](),
-		BlockSolid:         event.New[*BlockMetadata](),
-		BlockMissing:       event.New[*BlockMetadata](),
-		MissingBlockStored: event.New[*BlockMetadata](),
-		BlockInvalid:       event.New[*BlockMetadata](),
+		BlockAttached:        event.New[*Block](),
+		BlockSolid:           event.New[*Block](),
+		BlockMissing:         event.New[*Block](),
+		MissingBlockAttached: event.New[*Block](),
+		BlockInvalid:         event.New[*Block](),
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

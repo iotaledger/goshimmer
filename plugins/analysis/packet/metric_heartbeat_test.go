@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/protocol/message"
-	"github.com/iotaledger/hive.go/protocol/tlv"
+	"github.com/iotaledger/hive.go/core/protocol/message"
+	"github.com/iotaledger/hive.go/core/protocol/tlv"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/stretchr/testify/require"
 

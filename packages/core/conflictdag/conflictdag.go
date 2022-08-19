@@ -3,10 +3,10 @@ package conflictdag
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
@@ -195,6 +195,75 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) ConfirmationState(confl
 	}
 
 	return confirmationState
+}
+
+// DetermineVotes iterates over a set of conflicts and, taking into account the opinion a Voter expressed previously,
+// computes the conflicts that will receive additional weight, the ones that will see their weight revoked, and if the
+// result constitutes an overrall valid state transition.
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) DetermineVotes(conflictIDs *set.AdvancedSet[ConflictID]) (addedConflicts, revokedConflicts *set.AdvancedSet[ConflictID], isInvalid bool) {
+	addedConflicts = set.NewAdvancedSet[ConflictID]()
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		votedConflictID := it.Next()
+
+		// The starting conflicts should not be considered as having common Parents, hence we treat them separately.
+		conflictAddedConflicts, _ := b.determineConflictsToAdd(set.NewAdvancedSet(votedConflictID))
+		addedConflicts.AddAll(conflictAddedConflicts)
+	}
+	revokedConflicts, isInvalid = b.determineConflictsToRevoke(addedConflicts)
+
+	return
+}
+
+// determineConflictsToAdd iterates through the past cone of the given Conflicts and determines the ConflictIDs that
+// are affected by the Vote.
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToAdd(conflictIDs *set.AdvancedSet[ConflictID]) (addedConflicts *set.AdvancedSet[ConflictID], allParentsAdded bool) {
+	addedConflicts = set.NewAdvancedSet[ConflictID]()
+
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		currentConflictID := it.Next()
+
+		b.Storage.CachedConflict(currentConflictID).Consume(func(conflict *Conflict[ConflictID, ConflictingResourceID]) {
+			addedConflictsOfCurrentConflict, allParentsOfCurrentConflictAdded := b.determineConflictsToAdd(conflict.Parents())
+			allParentsAdded = allParentsAdded && allParentsOfCurrentConflictAdded
+
+			addedConflicts.AddAll(addedConflictsOfCurrentConflict)
+		})
+
+		addedConflicts.Add(currentConflictID)
+	}
+
+	return
+}
+
+// determineConflictsToRevoke determines which Conflicts of the conflicting future cone of the added Conflicts are affected
+// by the vote and if the vote is valid (not voting for conflicting Conflicts).
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToRevoke(addedConflicts *set.AdvancedSet[ConflictID]) (revokedConflicts *set.AdvancedSet[ConflictID], isInvalid bool) {
+	revokedConflicts = set.NewAdvancedSet[ConflictID]()
+	subTractionWalker := walker.New[ConflictID]()
+	for it := addedConflicts.Iterator(); it.HasNext(); {
+		b.Utils.ForEachConflictingConflictID(it.Next(), func(conflictingConflictID ConflictID) bool {
+			subTractionWalker.Push(conflictingConflictID)
+
+			return true
+		})
+	}
+
+	for subTractionWalker.HasNext() {
+		//currentVote := vote.WithConflictID(subTractionWalker.Next())
+		//
+		//if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
+		//	return
+		//}
+		currentConflictID := subTractionWalker.Next()
+
+		revokedConflicts.Add(currentConflictID)
+
+		b.Storage.CachedChildConflicts(currentConflictID).Consume(func(childConflict *ChildConflict[ConflictID]) {
+			subTractionWalker.Push(childConflict.ChildConflictID())
+		})
+	}
+
+	return
 }
 
 // Shutdown shuts down the stateful elements of the ConflictDAG (the Storage).

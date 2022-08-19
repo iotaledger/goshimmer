@@ -3,7 +3,7 @@ package gracefulshutdown
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of configuration parameters used by the graceful shutdown plugin.
@@ -16,5 +16,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "gracefulShutdown")
+	config.BindParameters(Parameters, "gracefulShutdown")
 }

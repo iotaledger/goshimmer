@@ -3,8 +3,8 @@ package bootstrapmanager
 import (
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"

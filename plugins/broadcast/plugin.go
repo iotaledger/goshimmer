@@ -3,12 +3,12 @@ package broadcast
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/plugins/config"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
@@ -30,7 +30,7 @@ type dependencies struct {
 
 func init() {
 	Plugin = node.NewPlugin(pluginName, deps, node.Disabled, run)
-	configuration.BindParameters(Parameters, "Broadcast")
+	config.BindParameters(Parameters, "Broadcast")
 }
 
 // ParametersDefinition contains the configuration parameters used by the plugin.
@@ -51,7 +51,7 @@ func run(_ *node.Plugin) {
 		}
 		<-ctx.Done()
 	}); err != nil {
-		Plugin.LogFatalf("Failed to start Broadcast daemon: %v", err)
+		Plugin.LogFatalfAndExit("Failed to start Broadcast daemon: %v", err)
 	}
 
 	// Get Blocks from node.

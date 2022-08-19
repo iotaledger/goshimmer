@@ -3,7 +3,7 @@ package jsonmodels
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 )
 
 // WalletOutputsOnAddress represents wallet outputs on an address.

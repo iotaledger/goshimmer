@@ -153,19 +153,17 @@ func createSnapshot(snapshotInfo SnapshotInfo) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to decode master seed")
 	}
-	createdSnapshot, err := snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
-	if err != nil {
-		return err
-	}
 
 	// default to /assets/snapshot.bin
 	if snapshotInfo.FilePath == "" {
 		snapshotInfo.FilePath = "/assets/snapshot.bin"
 	}
 
-	if err = createdSnapshot.WriteFile(snapshotInfo.FilePath); err != nil {
+	err = snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
+	if err != nil {
 		return err
 	}
+
 	return nil
 }
 

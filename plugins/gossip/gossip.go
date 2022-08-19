@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto"
+	"github.com/iotaledger/hive.go/core/crypto"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
@@ -40,7 +40,7 @@ func createManager(p2pManager *p2p.Manager, t *tangleold.Tangle) *gossip.Manager
 			Plugin.Logger().With("rateLimiter", "blocksRateLimiter"),
 		)
 		if mrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize blocks rate limiter: %+v", mrlErr)
+			Plugin.LogFatalfAndExit("Failed to initialize blocks rate limiter: %+v", mrlErr)
 		}
 		opts = append(opts, gossip.WithBlocksRateLimiter(mrl))
 	}
@@ -52,7 +52,7 @@ func createManager(p2pManager *p2p.Manager, t *tangleold.Tangle) *gossip.Manager
 			Plugin.Logger().With("rateLimiter", "blockRequestsRateLimiter"),
 		)
 		if mrrlErr != nil {
-			Plugin.LogFatalf("Failed to initialize block requests rate limiter: %+v", mrrlErr)
+			Plugin.LogFatalfAndExit("Failed to initialize block requests rate limiter: %+v", mrrlErr)
 		}
 		opts = append(opts, gossip.WithBlockRequestsRateLimiter(mrrl))
 	}

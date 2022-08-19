@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/model"
+	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/stretchr/testify/assert"
 )
 

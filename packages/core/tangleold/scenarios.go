@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // TestStep defines a test scenario step.
@@ -105,52 +105,52 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.3)
 
-			IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
+			IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Block2
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block2", WithStrongParents("Block1"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.45)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.45)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.15)
 
-			IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.45,
-				markers.NewMarker(0, 2): 0.15,
+			IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.45,
+				markersold.NewMarker(0, 2): 0.15,
 			})
 		},
 		// ISSUE Block3
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["C"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.70)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.40)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.70)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.40)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.25)
 
-			IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.70,
-				markers.NewMarker(0, 2): 0.40,
-				markers.NewMarker(0, 3): 0.25,
+			IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.70,
+				markersold.NewMarker(0, 2): 0.40,
+				markersold.NewMarker(0, 3): 0.25,
 			})
 		},
 		// ISSUE Block4
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block4", WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.90)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.60)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.45)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.90)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.60)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.45)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.20)
 
-			IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.90,
-				markers.NewMarker(0, 2): 0.60,
-				markers.NewMarker(0, 3): 0.45,
-				markers.NewMarker(0, 4): 0.20,
+			IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.90,
+				markersold.NewMarker(0, 2): 0.60,
+				markersold.NewMarker(0, 3): 0.45,
+				markersold.NewMarker(0, 4): 0.20,
 			})
 		},
 		// ISSUE Block5
@@ -158,17 +158,17 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 			testFramework.CreateBlock("Block5", WithStrongParents("Block4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500))
 			testFramework.RegisterConflictID("Conflict1", "Block5")
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.90)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.75)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.50)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 0.90)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.75)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.50)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 5), 0.30)
 
-			IssueAndValidateBlockApproval(t, "Block5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.90,
-				markers.NewMarker(0, 2): 0.90,
-				markers.NewMarker(0, 3): 0.75,
-				markers.NewMarker(0, 4): 0.50,
-				markers.NewMarker(0, 5): 0.30,
+			IssueAndValidateBlockApproval(t, "Block5", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.90,
+				markersold.NewMarker(0, 2): 0.90,
+				markersold.NewMarker(0, 3): 0.75,
+				markersold.NewMarker(0, 4): 0.50,
+				markersold.NewMarker(0, 5): 0.30,
 			})
 		},
 		// ISSUE Block6
@@ -176,10 +176,10 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 			testFramework.CreateBlock("Block6", WithStrongParents("Block4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500))
 			testFramework.RegisterConflictID("Conflict2", "Block6")
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 1.0)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.60)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 1.0)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 2), 1.0)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 3), 0.85)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.60)
 
 			testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.30)
 			testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.10)
@@ -187,54 +187,54 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 			IssueAndValidateBlockApproval(t, "Block6", testEventMock, testFramework, map[string]float64{
 				"Conflict1": 0.3,
 				"Conflict2": 0.1,
-			}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 1,
-				markers.NewMarker(0, 2): 1,
-				markers.NewMarker(0, 3): 0.85,
-				markers.NewMarker(0, 4): 0.60,
-				markers.NewMarker(0, 5): 0.30,
+			}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 1,
+				markersold.NewMarker(0, 2): 1,
+				markersold.NewMarker(0, 3): 0.85,
+				markersold.NewMarker(0, 4): 0.60,
+				markersold.NewMarker(0, 5): 0.30,
 			})
 		},
 		// ISSUE Block7
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block7", WithStrongParents("Block5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.85)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.55)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.25)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 4), 0.85)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 5), 0.55)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 6), 0.25)
 
 			testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.55)
 
 			IssueAndValidateBlockApproval(t, "Block7", testEventMock, testFramework, map[string]float64{
 				"Conflict1": 0.55,
 				"Conflict2": 0.1,
-			}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 1,
-				markers.NewMarker(0, 2): 1,
-				markers.NewMarker(0, 3): 0.85,
-				markers.NewMarker(0, 4): 0.85,
-				markers.NewMarker(0, 5): 0.55,
-				markers.NewMarker(0, 6): 0.25,
+			}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 1,
+				markersold.NewMarker(0, 2): 1,
+				markersold.NewMarker(0, 3): 0.85,
+				markersold.NewMarker(0, 4): 0.85,
+				markersold.NewMarker(0, 5): 0.55,
+				markersold.NewMarker(0, 6): 0.25,
 			})
 		},
 		// ISSUE Block7.1
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block7.1", WithStrongParents("Block7"), WithIssuer(nodes["A"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 6), 0.55)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 7), 0.30)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 6), 0.55)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 7), 0.30)
 
 			IssueAndValidateBlockApproval(t, "Block7.1", testEventMock, testFramework, map[string]float64{
 				"Conflict1": 0.55,
 				"Conflict2": 0.1,
-			}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 1,
-				markers.NewMarker(0, 2): 1,
-				markers.NewMarker(0, 3): 0.85,
-				markers.NewMarker(0, 4): 0.85,
-				markers.NewMarker(0, 5): 0.55,
-				markers.NewMarker(0, 6): 0.55,
-				markers.NewMarker(0, 7): 0.30,
+			}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 1,
+				markersold.NewMarker(0, 2): 1,
+				markersold.NewMarker(0, 3): 0.85,
+				markersold.NewMarker(0, 4): 0.85,
+				markersold.NewMarker(0, 5): 0.55,
+				markersold.NewMarker(0, 6): 0.55,
+				markersold.NewMarker(0, 7): 0.30,
 			})
 		},
 		// ISSUE Block8
@@ -246,14 +246,14 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 			IssueAndValidateBlockApproval(t, "Block8", testEventMock, testFramework, map[string]float64{
 				"Conflict1": 0.55,
 				"Conflict2": 0.30,
-			}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 1,
-				markers.NewMarker(0, 2): 1,
-				markers.NewMarker(0, 3): 0.85,
-				markers.NewMarker(0, 4): 0.85,
-				markers.NewMarker(0, 5): 0.55,
-				markers.NewMarker(0, 6): 0.55,
-				markers.NewMarker(0, 7): 0.30,
+			}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 1,
+				markersold.NewMarker(0, 2): 1,
+				markersold.NewMarker(0, 3): 0.85,
+				markersold.NewMarker(0, 4): 0.85,
+				markersold.NewMarker(0, 5): 0.55,
+				markersold.NewMarker(0, 6): 0.55,
+				markersold.NewMarker(0, 7): 0.30,
 			})
 		},
 		// TODO: this tests reorg, which is not yet supported
@@ -462,56 +462,56 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block0", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.30)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(0, 1), 0.30)
 
-			IssueAndValidateBlockApproval(t, "Block0", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
+			IssueAndValidateBlockApproval(t, "Block0", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Block1
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
-			IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
+			IssueAndValidateBlockApproval(t, "Block1", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Block2
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block2", WithStrongParents("Block1"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.15)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 1), 0.15)
 
-			IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
-				markers.NewMarker(1, 1): 0.15,
+			IssueAndValidateBlockApproval(t, "Block2", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
+				markersold.NewMarker(1, 1): 0.15,
 			})
 		},
 		// ISSUE Block3
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block3", WithStrongParents("Block2"), WithIssuer(nodes["B"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.15)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 2), 0.15)
 
-			IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
-				markers.NewMarker(1, 1): 0.15,
-				markers.NewMarker(1, 2): 0.15,
+			IssueAndValidateBlockApproval(t, "Block3", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
+				markersold.NewMarker(1, 1): 0.15,
+				markersold.NewMarker(1, 2): 0.15,
 			})
 		},
 		// ISSUE Block4
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
 			testFramework.CreateBlock("Block4", WithWeakParents("Block2"), WithStrongParents("Block3"), WithIssuer(nodes["D"].PublicKey()))
 
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.35)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.35)
-			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.20)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 1), 0.35)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 2), 0.35)
+			testEventMock.Expect("MarkerWeightChanged", markersold.NewMarker(1, 3), 0.20)
 
-			IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				markers.NewMarker(0, 1): 0.30,
-				markers.NewMarker(1, 1): 0.35,
-				markers.NewMarker(1, 2): 0.35,
-				markers.NewMarker(1, 3): 0.20,
+			IssueAndValidateBlockApproval(t, "Block4", testEventMock, testFramework, map[string]float64{}, map[markersold.Marker]float64{
+				markersold.NewMarker(0, 1): 0.30,
+				markersold.NewMarker(1, 1): 0.35,
+				markersold.NewMarker(1, 2): 0.35,
+				markersold.NewMarker(1, 3): 0.20,
 			})
 		},
 	}
@@ -520,7 +520,7 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 
 // IssueAndValidateBlockApproval issues the blk by the given alias and assets the expected weights.
 //nolint:gomnd
-func IssueAndValidateBlockApproval(t *testing.T, blockAlias string, eventMock *EventMock, testFramework *BlockTestFramework, expectedConflictWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {
+func IssueAndValidateBlockApproval(t *testing.T, blockAlias string, eventMock *EventMock, testFramework *BlockTestFramework, expectedConflictWeights map[string]float64, expectedMarkerWeights map[markersold.Marker]float64) {
 	eventMock.Expect("BlockProcessed", testFramework.Block(blockAlias).ID())
 
 	t.Logf("ISSUE:\tBlockID(%s)", blockAlias)

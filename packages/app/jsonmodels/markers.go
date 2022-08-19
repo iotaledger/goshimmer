@@ -1,12 +1,12 @@
 package jsonmodels
 
 import (
-	markersPackage "github.com/iotaledger/goshimmer/packages/core/markers"
+	markersPackage "github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
 
-// StructureDetails represents the JSON model of the markers.StructureDetails.
+// StructureDetails represents the JSON model of the markersold.StructureDetails.
 type StructureDetails struct {
 	Rank          uint64   `json:"rank"`
 	PastMarkerGap uint64   `json:"pastMarkerGap"`
@@ -14,7 +14,7 @@ type StructureDetails struct {
 	PastMarkers   *Markers `json:"pastMarkers"`
 }
 
-// NewStructureDetails returns the StructureDetails from the given markers.StructureDetails.
+// NewStructureDetails returns the StructureDetails from the given markersold.StructureDetails.
 func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *StructureDetails {
 	if structureDetails == nil {
 		return nil
@@ -32,14 +32,14 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 
 // region Markers //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Markers represents the JSON model of the markers.Markers.
+// Markers represents the JSON model of the markersold.Markers.
 type Markers struct {
 	Markers      map[markersPackage.SequenceID]markersPackage.Index `json:"markers"`
 	HighestIndex markersPackage.Index                               `json:"highestIndex"`
 	LowestIndex  markersPackage.Index                               `json:"lowestIndex"`
 }
 
-// NewMarkers returns the Markers from the given markers.Markers.
+// NewMarkers returns the Markers from the given markersold.Markers.
 func NewMarkers(markers *markersPackage.Markers) *Markers {
 	return &Markers{
 		Markers: func() (mappedMarkers map[markersPackage.SequenceID]markersPackage.Index) {
