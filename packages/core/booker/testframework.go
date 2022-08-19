@@ -25,50 +25,48 @@ import (
 type TestFramework struct {
 	T *testing.T
 
-	evictionManager *eviction.Manager
-	booker          *Booker
-
+	evictionManager       *eviction.Manager
+	booker                *Booker
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
+	optsBooker            []options.Option[Booker]
 
-	optsBooker []options.Option[Booker]
-
-	*TangleTestFramework
-	*LedgerTestFramework
+	*tangleTestFramework
+	*ledgerTestFramework
 }
 
-func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	newTestFramework = options.Apply(&TestFramework{T: t}, opts)
-	newTestFramework.LedgerTestFramework = ledger.NewTestFramework(t)
-	newTestFramework.TangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(newTestFramework.Booker().Tangle), tangle.WithEvictionManager(newTestFramework.EvictionManager()))
+func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	testFramework = options.Apply(&TestFramework{T: t}, opts)
+	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
+	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
 
-	newTestFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
-			newTestFramework.T.Logf("BOOKED: %s", metadata.ID())
+			testFramework.T.Logf("BOOKED: %s", metadata.ID())
 		}
 
-		atomic.AddInt32(&(newTestFramework.bookedBlocks), 1)
+		atomic.AddInt32(&(testFramework.bookedBlocks), 1)
 	}))
 
-	newTestFramework.Booker().Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
+	testFramework.Booker().Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
 		if debug.GetEnabled() {
-			newTestFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
+			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
 
-		atomic.AddInt32(&(newTestFramework.blockConflictsUpdated), 1)
+		atomic.AddInt32(&(testFramework.blockConflictsUpdated), 1)
 	}))
 
-	newTestFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+	testFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
-			newTestFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
+			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
 		}
 
-		atomic.AddInt32(&(newTestFramework.markerConflictsAdded), 1)
+		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)
 	}))
 
-	newTestFramework.Booker().Events.Error.Hook(event.NewClosure(func(err error) {
-		newTestFramework.T.Logf("ERROR: %s", err)
+	testFramework.Booker().Events.Error.Hook(event.NewClosure(func(err error) {
+		testFramework.T.Logf("ERROR: %s", err)
 	}))
 
 	return
@@ -96,7 +94,7 @@ func (t *TestFramework) EvictionManager() *eviction.Manager {
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
-	block, ok := t.Booker().block(t.TangleTestFramework.Block(alias).ID())
+	block, ok := t.Booker().block(t.tangleTestFramework.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
@@ -196,9 +194,9 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-type TangleTestFramework = tangle.TestFramework
+type tangleTestFramework = tangle.TestFramework
 
-type LedgerTestFramework = ledger.TestFramework
+type ledgerTestFramework = ledger.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

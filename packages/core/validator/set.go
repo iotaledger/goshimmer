@@ -48,3 +48,10 @@ func (s *Set) Get(id identity.ID) (validator *Validator, exists bool) {
 
 	return s.validators.Get(id)
 }
+
+func (s *Set) Add(validator *Validator) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.validators.Set(validator.ID(), validator)
+}

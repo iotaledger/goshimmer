@@ -1,4 +1,4 @@
-package otv
+package votes
 
 import (
 	"sync"
@@ -10,16 +10,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type Vote[ConflictIDType comparable, VotePowerType VotePower[any]] struct {
+type Vote[ConflictIDType comparable] struct {
 	Voter      *validator.Validator
 	ConflictID ConflictIDType
 	Opinion    Opinion
-	VotePower  VotePowerType
+	VotePower  VotePower
 }
 
 // NewVote derives a Vote for th.
-func NewVote[ConflictIDType comparable, VotePowerType VotePower[any]](voter *validator.Validator, votePower VotePowerType, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
-	return &Vote[ConflictIDType, VotePowerType]{
+func NewVote[ConflictIDType comparable](voter *validator.Validator, votePower VotePower, opinion Opinion) (voteWithOpinion *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
 		Voter:     voter,
 		VotePower: votePower,
 		Opinion:   opinion,
@@ -27,8 +27,8 @@ func NewVote[ConflictIDType comparable, VotePowerType VotePower[any]](voter *val
 }
 
 // WithOpinion derives a vote for the given Opinion.
-func (v *Vote[ConflictIDType, VotePowerType]) WithOpinion(opinion Opinion) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
-	return &Vote[ConflictIDType, VotePowerType]{
+func (v *Vote[ConflictIDType]) WithOpinion(opinion Opinion) (voteWithOpinion *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
 		Voter:      v.Voter,
 		ConflictID: v.ConflictID,
 		Opinion:    opinion,
@@ -37,8 +37,8 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithOpinion(opinion Opinion) (vote
 }
 
 // WithConflictID derives a vote for the given ConflictID.
-func (v *Vote[ConflictIDType, VotePowerType]) WithConflictID(conflictID ConflictIDType) (voteWithConflictID *Vote[ConflictIDType, VotePowerType]) {
-	return &Vote[ConflictIDType, VotePowerType]{
+func (v *Vote[ConflictIDType]) WithConflictID(conflictID ConflictIDType) (voteWithConflictID *Vote[ConflictIDType]) {
+	return &Vote[ConflictIDType]{
 		Voter:      v.Voter,
 		ConflictID: conflictID,
 		Opinion:    v.Opinion,
@@ -48,19 +48,19 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithConflictID(conflictID Conflict
 
 // region Votes ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Votes[ConflictIDType comparable, VotePowerType VotePower[any]] struct {
-	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType, VotePowerType]]
+type Votes[ConflictIDType comparable] struct {
+	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType]]
 
 	m sync.RWMutex
 }
 
-func NewVotes[ConflictIDType comparable, VotePowerType VotePower[any]]() *Votes[ConflictIDType, VotePowerType] {
-	return &Votes[ConflictIDType, VotePowerType]{
-		o: *orderedmap.New[identity.ID, *Vote[ConflictIDType, VotePowerType]](),
+func NewVotes[ConflictIDType comparable]() *Votes[ConflictIDType] {
+	return &Votes[ConflictIDType]{
+		o: *orderedmap.New[identity.ID, *Vote[ConflictIDType]](),
 	}
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, VotePowerType]) (added bool, opinionChanged bool) {
+func (v *Votes[ConflictIDType]) Add(vote *Vote[ConflictIDType]) (added bool, opinionChanged bool) {
 	v.m.Lock()
 	defer v.m.Unlock()
 
@@ -75,20 +75,20 @@ func (v *Votes[ConflictIDType, VotePowerType]) Add(vote *Vote[ConflictIDType, Vo
 	return v.o.Set(vote.Voter.ID(), vote), previousVote.Opinion != vote.Opinion
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType, VotePowerType]) (deleted bool) {
+func (v *Votes[ConflictIDType]) Delete(vote *Vote[ConflictIDType]) (deleted bool) {
 	v.m.Lock()
 	defer v.m.Unlock()
 
 	return v.o.Delete(vote.Voter.ID())
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
+func (v *Votes[ConflictIDType]) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
 	voters = set.NewAdvancedSet[*validator.Validator]()
 
 	v.m.RLock()
 	defer v.m.RUnlock()
 
-	v.o.ForEach(func(id identity.ID, vote *Vote[ConflictIDType, VotePowerType]) bool {
+	v.o.ForEach(func(id identity.ID, vote *Vote[ConflictIDType]) bool {
 		if vote.Opinion == Like {
 			voters.Add(vote.Voter)
 		}
@@ -104,8 +104,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet
 // Currently, the used VotePower is the SequenceNumber embedded in the Block Layout, so that, regardless
 // of the order in which votes are received, the same conclusion is computed.
 // Alternatively, the objective timestamp of a Block could be used.
-type VotePower[T any] interface {
-	CompareTo(other T) int
+type VotePower interface {
+	CompareTo(other VotePower) int
 }
 
 // region Opinion //////////////////////////////////////////////////////////////////////////////////////////////////////
