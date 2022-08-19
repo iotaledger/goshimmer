@@ -10,23 +10,23 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type VotesTracker[ConflictIDType, ResourceIDType comparable] struct {
-	votes *memstorage.Storage[ConflictIDType, *Votes[ConflictIDType]]
+type VotesTracker[ConflictIDType, ResourceIDType comparable, VotePowerType VotePower[any]] struct {
+	votes *memstorage.Storage[ConflictIDType, *Votes[ConflictIDType, VotePowerType]]
 
 	conflictDAG  *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
 	validatorSet *validator.Set
 	Events       *Events[ConflictIDType]
 }
 
-func NewVotesTracker[ConflictIDType, ResourceIDType comparable](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *VotesTracker[ConflictIDType, ResourceIDType] {
-	return &VotesTracker[ConflictIDType, ResourceIDType]{
+func NewVotesTracker[ConflictIDType, ResourceIDType comparable, VotePowerType VotePower[any]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validatorSet *validator.Set) *VotesTracker[ConflictIDType, ResourceIDType, VotePowerType] {
+	return &VotesTracker[ConflictIDType, ResourceIDType, VotePowerType]{
 		conflictDAG:  conflictDAG,
 		validatorSet: validatorSet,
 		Events:       newEvents[ConflictIDType](),
 	}
 }
 
-func (v *VotesTracker[ConflictIDType, ResourceIDType]) TrackVote(initialVote *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePower) (added, invalid bool) {
+func (v *VotesTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
 	addedConflictIDs, revokedConflictIDs, invalid := v.conflictDAG.DetermineVotes(initialVote)
 	if invalid {
 		return false, true
@@ -44,10 +44,10 @@ func (v *VotesTracker[ConflictIDType, ResourceIDType]) TrackVote(initialVote *se
 	return true, false
 }
 
-func (v *VotesTracker[ConflictIDType, ResourceIDType]) applyVotes(defaultVote *Vote[ConflictIDType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*VoterEvent[ConflictIDType]]) {
+func (v *VotesTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*VoterEvent[ConflictIDType]]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
-		votes, _ := v.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType])
+		votes, _ := v.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType, VotePowerType])
 
 		if added, opinionChanged := votes.Add(defaultVote.WithConflictID(conflict)); added && opinionChanged {
 			triggerEvent.Trigger(&VoterEvent[ConflictIDType]{Voter: defaultVote.Voter, Resource: conflict})
@@ -55,7 +55,7 @@ func (v *VotesTracker[ConflictIDType, ResourceIDType]) applyVotes(defaultVote *V
 	}
 }
 
-func (v *VotesTracker[ConflictIDType, ResourceIDType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[*validator.Validator]) {
+func (v *VotesTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[*validator.Validator]) {
 	votes, exists := v.votes.Get(conflict)
 	if !exists {
 		return set.NewAdvancedSet[*validator.Validator]()
