@@ -726,7 +726,7 @@ func Test_Prune(t *testing.T) {
 		), alias
 	}
 
-	assert.EqualValues(t, 0, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
+	assert.EqualValues(t, 0, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)
@@ -735,7 +735,7 @@ func Test_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.Tangle.Attach(block)
+		_, wasAttached, err := tf.Tangle().Attach(block)
 		assert.True(t, wasAttached, "block should be attached")
 		assert.NoError(t, err, "should not be able to attach a block after shutdown")
 
@@ -745,7 +745,7 @@ func Test_Prune(t *testing.T) {
 		}
 	}
 
-	_, wasAttached, err := tf.Tangle.Attach(tf.CreateBlock(
+	_, wasAttached, err := tf.Tangle().Attach(tf.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
@@ -760,27 +760,27 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.EvictEpoch(epochCount / 4)
+	tf.EvictionManager().EvictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.EvictEpoch(epochCount / 10)
+	tf.EvictionManager().EvictEpoch(epochCount / 10)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.EvictEpoch(epochCount / 2)
+	tf.EvictionManager().EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 
-	_, wasAttached, err = tf.Tangle.Attach(tf.CreateBlock(
+	_, wasAttached, err = tf.Tangle().Attach(tf.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),

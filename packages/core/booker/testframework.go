@@ -31,15 +31,11 @@ type TestFramework struct {
 }
 
 func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
-	evictionManager := eviction.NewManager(func(id models.BlockID) (isRootBlock bool) {
-		return id == models.EmptyBlockID
-	})
-
 	newTestFramework = &TestFramework{
 		ledgerTf: ledger.NewTestFramework(t),
 	}
-	newTestFramework.Booker = New(evictionManager, newTestFramework.ledgerTf.Ledger())
-	newTestFramework.TestFramework = tangle.NewTestFramework(t, tangle.WithTangle(newTestFramework.Booker.Tangle), tangle.WithEvictionManager(evictionManager))
+	newTestFramework.Booker = New(eviction.NewManager(models.IsEmptyBlockID), newTestFramework.ledgerTf.Ledger())
+	newTestFramework.TestFramework = tangle.NewTestFramework(t, tangle.WithTangle(newTestFramework.Booker.Tangle), tangle.WithEvictionManager(newTestFramework.Booker.evictionManager.Manager))
 	newTestFramework.Setup()
 
 	return

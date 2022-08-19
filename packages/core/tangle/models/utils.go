@@ -4,23 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/serializer/v2"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
-func IsEmptyBlockID(blockID BlockID) bool {
-	return blockID == EmptyBlockID
-}
-
-var EmptyBlock *Block
-
 func init() {
-	EmptyBlock = NewEmptyBlock(EmptyBlockID)
-	EmptyBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
-
 	blockIDsArrayRules := &serix.ArrayRules{
 		Min:            MinParentsCount,
 		Max:            MaxParentsCount,

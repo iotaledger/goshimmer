@@ -21,16 +21,15 @@ import (
 // simplified way.
 type TestFramework struct {
 	T               *testing.T
-	EvictionManager *eviction.Manager
-	Tangle          *Tangle
+	evictionManager *eviction.Manager
+	tangle          *Tangle
 
 	solidBlocks    int32
 	missingBlocks  int32
 	invalidBlocks  int32
 	attachedBlocks int32
 
-	optsEvictionManager *eviction.Manager
-	optsTangle          []options.Option[Tangle]
+	optsTangle []options.Option[Tangle]
 
 	*models.TestFramework
 }
@@ -39,52 +38,59 @@ type TestFramework struct {
 func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	t = options.Apply(&TestFramework{
 		T:             testingT,
-		TestFramework: models.NewTestFramework(models.WithBlock("Genesis", models.EmptyBlock)),
+		TestFramework: models.NewTestFramework(models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID))),
 	}, opts)
-
-	if t.EvictionManager == nil {
-		t.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
-	}
-
-	if t.Tangle == nil {
-		t.Tangle = New(t.EvictionManager, t.optsTangle...)
-	}
-
 	t.Setup()
 
 	return
 }
 
+func (t *TestFramework) EvictionManager() *eviction.Manager {
+	if t.evictionManager == nil {
+		t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
+	}
+
+	return t.evictionManager
+}
+
+func (t *TestFramework) Tangle() *Tangle {
+	if t.tangle == nil {
+		t.tangle = New(t.EvictionManager(), t.optsTangle...)
+	}
+
+	return t.tangle
+}
+
 func (t *TestFramework) Setup() {
-	t.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	t.Tangle().Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	}))
 
-	t.Tangle.Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+	t.Tangle().Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	}))
 
-	t.Tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	t.Tangle().Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
-	t.Tangle.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	t.Tangle().Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("INVALID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	}))
 
-	t.Tangle.Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	t.Tangle().Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("ATTACHED: %s", metadata.ID())
 		}
@@ -98,7 +104,7 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 		currentBlock := t.Block(alias)
 
 		event.Loop.Submit(func() {
-			_, _, _ = t.Tangle.Attach(currentBlock)
+			_, _, _ = t.Tangle().Attach(currentBlock)
 		})
 	}
 
@@ -153,7 +159,7 @@ func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...inter
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.Tangle.Block(t.Block(alias).ID())
+	block, exists := t.Tangle().Block(t.Block(alias).ID())
 	require.True(t.T, exists, "Block %s not found", alias)
 	callback(block)
 }
@@ -188,13 +194,13 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 
 func WithEvictionManager(evictionManager *eviction.Manager) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.EvictionManager = evictionManager
+		t.evictionManager = evictionManager
 	}
 }
 
 func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.Tangle = tangle
+		t.tangle = tangle
 	}
 }
 
