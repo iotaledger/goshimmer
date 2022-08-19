@@ -71,11 +71,13 @@ type Storage struct {
 	missingBlockStorage                 *objectstorage.ObjectStorage[*MissingBlock]
 	attachmentStorage                   *objectstorage.ObjectStorage[*Attachment]
 	markerIndexConflictIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexConflictIDMapping]
-	conflictVotersStorage               *objectstorage.ObjectStorage[*ConflictVoters]
-	latestConflictVotesStorage          *objectstorage.ObjectStorage[*LatestConflictVotes]
-	latestMarkerVotesStorage            *objectstorage.ObjectStorage[*LatestMarkerVotes]
-	conflictWeightStorage               *objectstorage.ObjectStorage[*ConflictWeight]
-	markerBlockMappingStorage           *objectstorage.ObjectStorage[*MarkerBlockMapping]
+
+	conflictVotersStorage      *objectstorage.ObjectStorage[*ConflictVoters]
+	latestConflictVotesStorage *objectstorage.ObjectStorage[*LatestConflictVotes]
+	latestMarkerVotesStorage   *objectstorage.ObjectStorage[*LatestMarkerVotes]
+	conflictWeightStorage      *objectstorage.ObjectStorage[*ConflictWeight]
+
+	markerBlockMappingStorage *objectstorage.ObjectStorage[*MarkerBlockMapping]
 
 	Events   *StorageEvents
 	shutdown chan struct{}
