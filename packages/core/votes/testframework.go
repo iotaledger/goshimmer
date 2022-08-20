@@ -16,7 +16,7 @@ import (
 )
 
 type TestFramework struct {
-	VotesTracker *VotesTracker[utxo.TransactionID, utxo.OutputID]
+	VotesTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower]
 	validatorSet *validator.Set
 
 	validatorsByAlias map[string]*validator.Validator
@@ -31,7 +31,7 @@ func NewTestFramework(t *testing.T) (newFramework *TestFramework) {
 	conflictDAGTf := conflictdag.NewTestFramework(t)
 	validatorSet := validator.NewSet()
 	return &TestFramework{
-		VotesTracker:      NewVotesTracker[utxo.TransactionID, utxo.OutputID](conflictDAGTf.ConflictDAG, validatorSet),
+		VotesTracker:      NewConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower](conflictDAGTf.ConflictDAG, validatorSet),
 		TestFramework:     conflictDAGTf,
 		validatorSet:      validatorSet,
 		validatorsByAlias: make(map[string]*validator.Validator),
@@ -74,14 +74,16 @@ func (t *TestFramework) validateStatementResults(expectedResults map[string]*set
 	}
 }
 
-type MockVotePower struct {
+type mockVotePower struct {
 	votePower int
 }
 
-func (p MockVotePower) CompareTo(other VotePower) int {
-	if specificOther, ok := other.(MockVotePower); ok {
-		return p.votePower - specificOther.votePower
+func (p mockVotePower) CompareTo(other mockVotePower) int {
+	if p.votePower-other.votePower < 0 {
+		return -1
+	} else if p.votePower-other.votePower > 0 {
+		return 1
+	} else {
+		return 0
 	}
-
-	return 1
 }

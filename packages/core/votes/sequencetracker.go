@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type SequenceTracker struct {
-	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes]]
+type SequenceTracker[VotePowerType VotePower[VotePowerType]] struct {
+	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]]
 
 	sequenceManager     *markers.SequenceManager
 	validatorSet        *validator.Set
@@ -21,9 +21,9 @@ type SequenceTracker struct {
 	Events *SequenceTrackerEvents
 }
 
-func NewSequenceTracker(sequenceManager *markers.SequenceManager, validatorSet *validator.Set, cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker {
-	return &SequenceTracker{
-		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes]](),
+func NewSequenceTracker[VotePowerType VotePower[VotePowerType]](sequenceManager *markers.SequenceManager, validatorSet *validator.Set, cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+	return &SequenceTracker[VotePowerType]{
+		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]](),
 		sequenceManager:     sequenceManager,
 		validatorSet:        validatorSet,
 		cutoffIndexCallback: cutoffIndexCallback,
@@ -31,7 +31,7 @@ func NewSequenceTracker(sequenceManager *markers.SequenceManager, validatorSet *
 	}
 }
 
-func (s *SequenceTracker) TrackVotes(pastMarkers *markers.Markers, voterID identity.ID, power VotePower) {
+func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers, voterID identity.ID, power VotePowerType) {
 	voter, exists := s.validatorSet.Get(voterID)
 	if !exists {
 		return
@@ -51,7 +51,7 @@ func (s *SequenceTracker) TrackVotes(pastMarkers *markers.Markers, voterID ident
 	}
 }
 
-func (s *SequenceTracker) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePower, walk *walker.Walker[markers.Marker]) {
+func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the
 	// voters of the marker to the conflict. Since the marker is already seen as confirmed it should not matter too much though.
@@ -59,9 +59,9 @@ func (s *SequenceTracker) addVoteToMarker(marker markers.Marker, voter *validato
 		return
 	}
 
-	sequenceStorage, _ := s.votes.RetrieveOrCreate(marker.SequenceID(), memstorage.New[identity.ID, *LatestMarkerVotes])
-	latestMarkerVotes, _ := sequenceStorage.RetrieveOrCreate(voter.ID(), func() *LatestMarkerVotes {
-		return NewLatestMarkerVotes(voter, marker.SequenceID())
+	sequenceStorage, _ := s.votes.RetrieveOrCreate(marker.SequenceID(), memstorage.New[identity.ID, *LatestMarkerVotes[VotePowerType]])
+	latestMarkerVotes, _ := sequenceStorage.RetrieveOrCreate(voter.ID(), func() *LatestMarkerVotes[VotePowerType] {
+		return NewLatestMarkerVotes[VotePowerType](voter)
 	})
 
 	stored, previousHighestIndex := latestMarkerVotes.Store(marker.Index(), power)

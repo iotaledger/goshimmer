@@ -13,33 +13,33 @@ import (
 // Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
-type LatestMarkerVotes struct {
+type LatestMarkerVotes[VotePowerType VotePower[VotePowerType]] struct {
 	voter *validator.Validator
-	t     thresholdmap.ThresholdMap[markers.Index, VotePower]
+	t     thresholdmap.ThresholdMap[markers.Index, VotePowerType]
 
 	m sync.RWMutex
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
-func NewLatestMarkerVotes(voter *validator.Validator, sequenceID markers.SequenceID) (newLatestMarkerVotes *LatestMarkerVotes) {
-	return &LatestMarkerVotes{
+func NewLatestMarkerVotes[VotePowerType VotePower[VotePowerType]](voter *validator.Validator) (newLatestMarkerVotes *LatestMarkerVotes[VotePowerType]) {
+	return &LatestMarkerVotes[VotePowerType]{
 		voter: voter,
-		t:     thresholdmap.ThresholdMap[markers.Index, VotePower]{},
+		t:     *thresholdmap.New[markers.Index, VotePowerType](thresholdmap.UpperThresholdMode),
 	}
 }
 
 // Voter returns the Voter for the LatestMarkerVotes.
-func (l *LatestMarkerVotes) Voter() *validator.Validator {
-	l.t.RLock()
-	defer l.t.RUnlock()
+func (l *LatestMarkerVotes[VotePowerType]) Voter() *validator.Validator {
+	l.m.RLock()
+	defer l.m.RUnlock()
 
 	return l.voter
 }
 
 // Power returns the power of the vote for the given marker Index.
-func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists bool) {
-	l.t.RLock()
-	defer l.t.RUnlock()
+func (l *LatestMarkerVotes[VotePowerType]) Power(index markers.Index) (power VotePower[VotePowerType], exists bool) {
+	l.m.RLock()
+	defer l.m.RUnlock()
 
 	key, exists := l.t.Get(index)
 	if !exists {
@@ -51,9 +51,9 @@ func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists 
 
 // Store stores the vote with the given marker Index and votePower.
 // The votePower parameter is used to determine the order of the vote.
-func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored bool, previousHighestIndex markers.Index) {
-	l.t.Lock()
-	defer l.t.Unlock()
+func (l *LatestMarkerVotes[VotePowerType]) Store(index markers.Index, power VotePowerType) (stored bool, previousHighestIndex markers.Index) {
+	l.m.Lock()
+	defer l.m.Unlock()
 
 	if maxElement := l.t.MaxElement(); maxElement != nil {
 		previousHighestIndex = maxElement.Key()
