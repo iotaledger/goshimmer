@@ -118,34 +118,6 @@ func TestScheduler_Discarded(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 }
 
-func TestScheduler_DiscardedAtShutdown(t *testing.T) {
-	tangle := NewTestTangle(Identity(selfLocalIdentity))
-	defer tangle.Shutdown()
-
-	blockDiscarded := make(chan BlockID, 1)
-	tangle.Scheduler.Events.BlockDiscarded.Hook(event.NewClosure(func(event *BlockDiscardedEvent) {
-		blockDiscarded <- event.BlockID
-	}))
-
-	tangle.Scheduler.Start()
-
-	blk := newBlock(selfNode.PublicKey())
-	tangle.Storage.StoreBlock(blk)
-	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
-
-	time.Sleep(100 * time.Millisecond)
-	tangle.Scheduler.Shutdown()
-
-	assert.Eventually(t, func() bool {
-		select {
-		case id := <-blockDiscarded:
-			return assert.Equal(t, blk.ID(), id)
-		default:
-			return false
-		}
-	}, 1*time.Second, 10*time.Millisecond)
-}
-
 func TestScheduler_SetRateBeforeStart(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
