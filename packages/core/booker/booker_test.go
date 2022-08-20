@@ -682,14 +682,14 @@ func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expect
 
 		normalizedRetrievedConflictIDs := blockConflictIDs.Clone()
 		for it := blockConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker().ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker().Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker().ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker().Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}

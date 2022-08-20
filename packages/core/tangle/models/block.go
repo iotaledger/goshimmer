@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
@@ -60,6 +61,7 @@ const (
 type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
 	payload                                       payload.Payload
+	issuerID                                      *identity.ID
 }
 
 type block struct {
@@ -176,6 +178,13 @@ func (m *Block) ParentsCountByType(parentType ParentsType) uint8 {
 // IssuerPublicKey returns the public key of the block issuer.
 func (m *Block) IssuerPublicKey() ed25519.PublicKey {
 	return m.M.IssuerPublicKey
+}
+
+func (m *Block) IssuerID() identity.ID {
+	if m.issuerID == nil {
+		*m.issuerID = identity.NewID(m.IssuerPublicKey())
+	}
+	return *m.issuerID
 }
 
 // IssuingTime returns the time when this block was created.

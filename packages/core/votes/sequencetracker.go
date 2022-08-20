@@ -15,17 +15,17 @@ import (
 type SequenceTracker[VotePowerType VotePower[VotePowerType]] struct {
 	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]]
 
-	sequenceManager     *markers.SequenceManager
+	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
 	validatorSet        *validator.Set
 	cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index
 
 	Events *SequenceTrackerEvents
 }
 
-func NewSequenceTracker[VotePowerType VotePower[VotePowerType]](sequenceManager *markers.SequenceManager, validatorSet *validator.Set, cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+func NewSequenceTracker[VotePowerType VotePower[VotePowerType]](validatorSet *validator.Set, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
 		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]](),
-		sequenceManager:     sequenceManager,
+		sequenceCallback:    sequenceCallback,
 		validatorSet:        validatorSet,
 		cutoffIndexCallback: cutoffIndexCallback,
 		Events:              newSequenceTrackerEvents(),
@@ -102,7 +102,7 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 	}
 
 	// Walk the SequenceDAG to propagate votes to referenced sequences.
-	sequence, exists := s.sequenceManager.Sequence(marker.SequenceID())
+	sequence, exists := s.sequenceCallback(marker.SequenceID())
 	if !exists {
 		panic(fmt.Sprintf("sequence %d does not exist", marker.SequenceID()))
 	}

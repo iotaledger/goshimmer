@@ -29,7 +29,7 @@ type Booker struct {
 	// Events contains the Events of Tangle.
 	Events *Events
 
-	ledger          *ledger.Ledger
+	Ledger          *ledger.Ledger
 	bookingOrder    *causalorder.CausalOrder[models.BlockID, *Block]
 	attachments     *attachments
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
@@ -58,7 +58,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 	}, opts)
 	booker.Tangle = tangle.New(evictionManager, booker.optsTangle...)
 	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
-	booker.ledger = ledger.New(booker.optsLedger...)
+	booker.Ledger = ledger.New(booker.optsLedger...)
 
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
@@ -68,13 +68,13 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		}
 	}))
 
-	booker.ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	booker.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
 
-	booker.ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
+	booker.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
 		contextBlockID := models.BlockIDFromContext(e.Context)
 
 		for _, block := range booker.attachments.Get(e.TransactionID) {
@@ -118,6 +118,11 @@ func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	return b.block(id)
 }
 
+func (b *Booker) BlockConflicts(block *Block) (blockConflictIDs utxo.TransactionIDs) {
+	_, blockConflictIDs = b.blockBookingDetails(block)
+	return
+}
+
 func (b *Booker) BlockBookingDetails(block *Block) (pastMarkersConflictIDs, blockConflictIDs utxo.TransactionIDs) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
@@ -138,11 +143,18 @@ func (b *Booker) PayloadConflictIDs(block *Block) (conflictIDs utxo.TransactionI
 		return
 	}
 
-	b.ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	b.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		conflictIDs.AddAll(transactionMetadata.ConflictIDs())
 	})
 
 	return
+}
+
+func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, exists bool) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	return b.markerManager.sequenceManager.Sequence(id)
 }
 
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
@@ -164,7 +176,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 
 	b.attachments.Store(tx.ID(), block)
 
-	if err = b.ledger.StoreAndProcessTransaction(
+	if err = b.Ledger.StoreAndProcessTransaction(
 		models.BlockIDToContext(context.Background(), block.ID()), tx,
 	); errors.Is(err, ledger.ErrTransactionUnsolid) {
 		return false, nil
@@ -266,9 +278,9 @@ func (b *Booker) determineBookingDetails(block *Block) (parentsStructureDetails 
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
-	inheritedConflictIDs.DeleteAll(b.ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+	inheritedConflictIDs.DeleteAll(b.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
-	return parentsStructureDetails, b.ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
+	return parentsStructureDetails, b.Ledger.ConflictDAG.UnconfirmedConflicts(parentsPastMarkersConflictIDs), b.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedConflictIDs), nil
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Block's strong parents.
@@ -331,9 +343,9 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *Block) (collectedL
 
 		collectedLikedConflictIDs.AddAll(b.PayloadConflictIDs(parentBlock))
 
-		for it := b.ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
+		for it := b.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 			conflictingTransactionID := it.Next()
-			dislikedConflicts, dislikedConflictsErr := b.ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
+			dislikedConflicts, dislikedConflictsErr := b.Ledger.Utils.TransactionConflictIDs(conflictingTransactionID)
 			if dislikedConflictsErr != nil {
 				err = errors.Errorf("failed to retrieve disliked ConflictIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentBlockID, block.ID(), dislikedConflictsErr)
 				return false
@@ -361,7 +373,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 	// We always need to subtract all conflicts in the future cone of the SubtractedConflictIDs due to the fact that
 	// conflicts in the future cone can be propagated later. Specifically, through changing a marker mapping, the base
 	// of the block's conflicts changes, and thus it might implicitly "inherit" conflicts that were previously removed.
-	if subtractedConflictIDs := b.ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
+	if subtractedConflictIDs := b.Ledger.Utils.ConflictIDsInFutureCone(block.SubtractedConflictIDs()); !subtractedConflictIDs.IsEmpty() {
 		blockConflictIDs.DeleteAll(subtractedConflictIDs)
 	}
 
