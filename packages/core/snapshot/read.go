@@ -227,7 +227,7 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActivity, err error) {
 	var activityLen int64
 	if lenErr := binary.Read(reader, binary.LittleEndian, &activityLen); lenErr != nil {
-		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", lenErr)
+		return nil, errors.Wrap(lenErr, "unable to read activity len")
 	}
 
 	activityLogs = epoch.NewSnapshotEpochActivity()
@@ -237,8 +237,8 @@ func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActi
 		if eiErr := binary.Read(reader, binary.LittleEndian, &epochIndex); eiErr != nil {
 			return nil, errors.Errorf("unable to read epoch index: %w", eiErr)
 		}
-		var activityLog *epoch.SnapshotNodeActivity
-		if alErr := binary.Read(reader, binary.LittleEndian, &activityLog); alErr != nil {
+		activityLog := epoch.NewSnapshotNodeActivity()
+		if alErr := binary.Read(reader, binary.LittleEndian, activityLog); alErr != nil {
 			return nil, errors.Errorf("unable to read activity log: %w", alErr)
 		}
 		activityLogs[epochIndex] = activityLog

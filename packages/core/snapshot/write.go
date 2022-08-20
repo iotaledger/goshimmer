@@ -154,12 +154,12 @@ func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nm
 }
 
 func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error {
-	writeFunc := func(name string, value any) error {
+	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
 
 	spentLen := len(diffs.Spent())
-	if err := writeFunc("epochDiffs spent Len", int64(spentLen)); err != nil {
+	if err := writeFuncWrap("epochDiffs spent Len", int64(spentLen)); err != nil {
 		return err
 	}
 
@@ -178,7 +178,7 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 	}
 
 	createdLen := len(diffs.Created())
-	if err := writeFunc("epochDiffs created Len", int64(createdLen)); err != nil {
+	if err := writeFuncWrap("epochDiffs created Len", int64(createdLen)); err != nil {
 		return err
 	}
 	c := diffs.Created()
@@ -202,7 +202,8 @@ func writeActivityLog(writeSeeker io.WriteSeeker, activityLog epoch.SnapshotEpoc
 		return writeFunc(writeSeeker, name, value)
 	}
 	// write activityLog length
-	if err := writeFuncWrap("activity log len", len(activityLog)); err != nil {
+	activityLen := len(activityLog)
+	if err := writeFuncWrap("activity log len", int64(activityLen)); err != nil {
 		return err
 	}
 
@@ -212,7 +213,11 @@ func writeActivityLog(writeSeeker io.WriteSeeker, activityLog epoch.SnapshotEpoc
 			return err
 		}
 		// write activity log
-		if err := writeFuncWrap("activity log per epoch", al); err != nil {
+		alBytes, err := al.Bytes()
+		if err != nil {
+			return err
+		}
+		if err := writeFuncWrap("activity log per epoch", alBytes); err != nil {
 			return err
 		}
 	}
