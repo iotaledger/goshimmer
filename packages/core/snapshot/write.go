@@ -217,7 +217,12 @@ func writeActivityLog(writeSeeker io.WriteSeeker, activityLog epoch.SnapshotEpoc
 		if err != nil {
 			return err
 		}
-		if err := writeFuncWrap("activity log per epoch", alBytes); err != nil {
+
+		if err := writeFuncWrap("activity log bytes len", int64(len(alBytes))); err != nil {
+			return err
+		}
+
+		if err := writeFuncWrap("activity log", alBytes); err != nil {
 			return err
 		}
 	}
