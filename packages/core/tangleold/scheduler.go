@@ -296,24 +296,6 @@ func (s *Scheduler) GetManaFromCache(nodeID identity.ID) int64 {
 	return int64(math.Ceil(s.AccessManaCache().GetCachedMana(nodeID)))
 }
 
-// Clear removes all submitted blocks (ready or not) from the scheduler.
-// The BlockDiscarded event is triggered for each of these blocks.
-func (s *Scheduler) Clear() {
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
-
-	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
-		s.buffer.RemoveNode(q.NodeID())
-		for _, id := range q.IDs() {
-			blockID := blockIDFromElementID(id)
-			s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
-				blockMetadata.SetDiscardedTime(clock.SyncedTime())
-			})
-			s.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockID})
-		}
-	}
-}
-
 // isEligible returns true if the given blockID has either been scheduled or confirmed.
 func (s *Scheduler) isEligible(blockID BlockID) (eligible bool) {
 	s.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
@@ -529,9 +511,6 @@ loop:
 			break loop
 		}
 	}
-
-	// remove all unscheduled blocks
-	s.Clear()
 }
 
 func (s *Scheduler) GetDeficit(nodeID identity.ID) *big.Rat {
