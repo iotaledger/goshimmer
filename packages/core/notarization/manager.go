@@ -116,18 +116,18 @@ func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(
 func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 
-	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	latestConfirmedEpoch, err := m.LatestConfirmedEpochIndex()
 	if err != nil {
 		return
 	}
-	ecRecord = m.epochCommitmentFactory.loadECRecord(latestCommittableEpoch)
+	ecRecord = m.epochCommitmentFactory.loadECRecord(latestConfirmedEpoch)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
 		return
 	}
 
-	// The snapshottable ledgerstate always sits at latestCommittableEpoch - snapshotDepth
-	fullEpochIndex = latestCommittableEpoch - epoch.Index(m.epochCommitmentFactory.snapshotDepth)
+	// The snapshottable ledgerstate always sits at latestConfirmedEpoch - snapshotDepth
+	fullEpochIndex = latestConfirmedEpoch - epoch.Index(m.epochCommitmentFactory.snapshotDepth)
 	if fullEpochIndex < 0 {
 		fullEpochIndex = 0
 	}

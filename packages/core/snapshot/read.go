@@ -101,7 +101,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 	// read seps EI
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Errorf("unable to read fullEpochIndex: %w", err)
+		return nil, errors.Errorf("unable to read epoch index: %w", err)
 	}
 	seps.EI = epoch.Index(index)
 
