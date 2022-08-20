@@ -3,6 +3,7 @@ package votes
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -51,6 +52,29 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
+	voters = set.NewAdvancedSet[*validator.Validator]()
+	votes, exists := s.votes.Get(marker.SequenceID())
+	if !exists {
+		return
+	}
+
+	votes.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
+		_, voteExists := validatorVotes.Power(marker.Index())
+		if !voteExists {
+			return true
+		}
+
+		voter, validatorExists := s.validatorSet.Get(identityID)
+		if validatorExists {
+			voters.Add(voter)
+		}
+		return true
+	})
+
+	return
+}
+
 func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the
@@ -70,10 +94,10 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 	}
 
 	// Trigger events for all newly supported markers.
-	for i := previousHighestIndex; i < marker.Index(); i++ {
+	for i := previousHighestIndex + 1; i <= marker.Index(); i++ {
 		s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
 			Voter:  voter,
-			Marker: marker,
+			Marker: markers.NewMarker(marker.SequenceID(), i),
 		})
 	}
 
