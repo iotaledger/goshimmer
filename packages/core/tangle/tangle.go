@@ -82,6 +82,16 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	return
 }
 
+func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (wasUpdated bool) {
+	if wasUpdated = block.setMarkedOrphaned(orphaned); wasUpdated {
+		t.Events.BlockOrphaned.Trigger(block)
+
+		t.propagateOrphanage(block.Children())
+	}
+
+	return
+}
+
 // evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
 func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
 	t.solidifier.EvictEpoch(epochIndex)

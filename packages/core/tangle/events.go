@@ -18,6 +18,9 @@ type Events struct {
 
 	// BlockInvalid is triggered when a Block is found to be invalid.
 	BlockInvalid *event.Event[*Block]
+
+	// BlockOrphaned is triggered when a Block is orphaned.
+	BlockOrphaned *event.Event[*Block]
 }
 
 // newEvents creates a new Events instance.

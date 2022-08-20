@@ -11,12 +11,14 @@ import (
 
 // Block represents a Block annotated with Tangle related metadata.
 type Block struct {
-	missing              bool
-	solid                bool
-	invalid              bool
-	strongChildren       []*Block
-	weakChildren         []*Block
-	likedInsteadChildren []*Block
+	missing                   bool
+	solid                     bool
+	invalid                   bool
+	markedOrphaned            bool
+	orphanedParentsInPastCone models.BlockIDs
+	strongChildren            []*Block
+	weakChildren              []*Block
+	likedInsteadChildren      []*Block
 
 	*models.Block
 }
@@ -53,6 +55,44 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	defer b.RUnlock()
 
 	return b.invalid
+}
+
+// IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
+// orphaned Blocks in its past cone).
+func (b *Block) IsOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.markedOrphaned || !b.orphanedParentsInPastCone.Empty()
+}
+
+// IsMarkedOrphaned returns true if the Block is marked as orphaned itself.
+func (b *Block) IsMarkedOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.markedOrphaned
+}
+
+func (b *Block) setMarkedOrphaned(orphaned bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.markedOrphaned == orphaned {
+		return false
+	}
+
+	b.markedOrphaned = orphaned
+
+	return true
+}
+
+// OrphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
+func (b *Block) OrphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphanedParentsInPastCone
 }
 
 // Children returns the children of the Block.
@@ -174,6 +214,22 @@ func WithMissing(missing bool) options.Option[Block] {
 func WithSolid(solid bool) options.Option[Block] {
 	return func(block *Block) {
 		block.solid = solid
+	}
+}
+
+// WithMarkedOrphaned is a constructor Option for Blocks that initializes the given block with a specific markedOrphaned
+// flag.
+func WithMarkedOrphaned(markedOrphaned bool) options.Option[Block] {
+	return func(block *Block) {
+		block.markedOrphaned = markedOrphaned
+	}
+}
+
+// WithOrphanedParentsInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
+// orphaned parents in its past cone.
+func WithOrphanedParentsInPastCone(orphanedParentsInPastCone models.BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		block.orphanedParentsInPastCone = orphanedParentsInPastCone
 	}
 }
 
