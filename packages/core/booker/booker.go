@@ -38,24 +38,28 @@ type Booker struct {
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsTangle []options.Option[tangle.Tangle]
+	optsTangle        []options.Option[tangle.Tangle]
+	optsMarkerManager []options.Option[MarkerManager]
+	optsLedger        []ledger.Option
 
 	*tangle.Tangle
 }
 
-func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
-		Events:          newEvents(),
-		ledger:          ledgerInstance,
-		attachments:     newAttachments(),
-		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		markerManager:   NewMarkerManager(),
-		bookingMutex:    syncutils.NewDAGMutex[models.BlockID](),
-		sequenceMutex:   syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionManager: evictionManager.Lockable(),
-		optsTangle:      make([]options.Option[tangle.Tangle], 0),
+		Events:            newEvents(),
+		attachments:       newAttachments(),
+		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
+		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
+		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
+		evictionManager:   evictionManager.Lockable(),
+		optsTangle:        make([]options.Option[tangle.Tangle], 0),
+		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 	}, opts)
 	booker.Tangle = tangle.New(evictionManager, booker.optsTangle...)
+	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
+	booker.ledger = ledger.New(booker.optsLedger...)
+
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
 	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
@@ -64,7 +68,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledg
 		}
 	}))
 
-	ledgerInstance.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+	booker.ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
 			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -517,6 +521,18 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsTangle = opts
+	}
+}
+
+func WithLedgerOptions(opts ...ledger.Option) options.Option[Booker] {
+	return func(b *Booker) {
+		b.optsLedger = opts
+	}
+}
+
+func WithMarkerManagerOptions(opts ...options.Option[MarkerManager]) options.Option[Booker] {
+	return func(b *Booker) {
+		b.optsMarkerManager = opts
 	}
 }
 

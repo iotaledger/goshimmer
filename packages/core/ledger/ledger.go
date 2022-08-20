@@ -41,13 +41,13 @@ type Ledger struct {
 	booker *booker
 
 	// options is a dictionary for configuration parameters of the Ledger.
-	options *options
+	options *optionsLedger
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
 }
 
-// New returns a new Ledger from the given options.
+// New returns a new Ledger from the given optionsLedger.
 func New(options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
 		Events:  newEvents(),

@@ -142,7 +142,7 @@ func TestScenario_3(t *testing.T) {
 // 1. It tests whether a new sequence is created after max past marker gap is reached.
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewTestFramework(t, WithBookerOptions(WithMarkerManagerOptions(WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3)))))
 
 	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX0", 4, "Genesis")))
 	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
@@ -866,7 +866,7 @@ func Test_BlockInvalid(t *testing.T) {
 
 	tf.AssertBooked(map[string]bool{
 		"Block1": true,
-		"Block2": false, //TODO: set as booked when actually booked instead of setting as booked by causal order
+		"Block2": false, // TODO: set as booked when actually booked instead of setting as booked by causal order
 		"Block3": false,
 		"Block4": true,
 		"Block5": false,

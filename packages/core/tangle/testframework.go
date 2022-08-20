@@ -204,12 +204,18 @@ func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) opti
 
 func WithTangle(tangle *Tangle) options.Option[TestFramework] {
 	return func(t *TestFramework) {
+		if t.optsTangle != nil {
+			panic("Tangle options already set")
+		}
 		t.tangle = tangle
 	}
 }
 
 func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
+		if t.tangle != nil {
+			panic("Tangle already set")
+		}
 		t.optsTangle = opts
 	}
 }

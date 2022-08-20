@@ -1,6 +1,7 @@
 package booker
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -18,19 +19,21 @@ type MarkerManager struct {
 
 	sequenceLastUsed *memstorage.Storage[markers.SequenceID, epoch.Index]
 	sequenceEviction *memstorage.Storage[epoch.Index, set.Set[markers.SequenceID]]
+
+	optsSequenceManager []options.Option[markers.SequenceManager]
 }
 
-func NewMarkerManager() *MarkerManager {
-	manager := &MarkerManager{
-		sequenceManager: markers.NewSequenceManager(markers.WithMaxPastMarkerDistance(3)),
-
+func NewMarkerManager(opts ...options.Option[MarkerManager]) *MarkerManager {
+	manager := options.Apply(&MarkerManager{
 		markerBlockMapping:         memstorage.New[markers.Marker, *Block](),
 		markerBlockMappingEviction: memstorage.New[epoch.Index, set.Set[markers.Marker]](),
 
 		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
 		sequenceLastUsed:             memstorage.New[markers.SequenceID, epoch.Index](),
 		sequenceEviction:             memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
-	}
+		optsSequenceManager:          make([]options.Option[markers.SequenceManager], 0),
+	}, opts)
+	manager.sequenceManager = markers.NewSequenceManager(manager.optsSequenceManager...)
 
 	manager.SetConflictIDs(markers.NewMarker(0, 0), utxo.NewTransactionIDs())
 	manager.registerSequenceEviction(epoch.Index(0), markers.SequenceID(0))
@@ -221,6 +224,16 @@ func (m *MarkerManager) addMarkerBlockMapping(marker markers.Marker, block *Bloc
 	m.markerBlockMapping.Set(marker, block)
 	markerSet, _ := m.markerBlockMappingEviction.RetrieveOrCreate(block.ID().EpochIndex, func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
 	markerSet.Add(marker)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithSequenceManagerOptions(opts ...options.Option[markers.SequenceManager]) options.Option[MarkerManager] {
+	return func(b *MarkerManager) {
+		b.optsSequenceManager = opts
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

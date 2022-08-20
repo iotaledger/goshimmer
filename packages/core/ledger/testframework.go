@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
@@ -59,33 +60,38 @@ type TestFramework struct {
 
 	// outputIDsByAliasMutex contains a mutex that is used to synchronize parallel access to the outputIDsByAlias.
 	outputIDsByAliasMutex sync.RWMutex
+
+	ledgerOpts []Option
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
-func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
-	new = &TestFramework{
+func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (tf *TestFramework) {
+	tf = options.Apply(&TestFramework{
 		t:                   t,
-		ledger:              New(options...),
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
-	}
+	}, opts)
 
 	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 	genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
 
 	genesisOutput.ID().RegisterAlias("Genesis")
-	new.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+	tf.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 
-	new.ledger.Storage.outputStorage.Store(genesisOutput).Release()
-	new.ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+	tf.Ledger().Storage.outputStorage.Store(genesisOutput).Release()
+	tf.Ledger().Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
-	return new
+	return tf
 }
 
 // Ledger returns the Ledger instance that is used by the TestFramework.
 func (t *TestFramework) Ledger() *Ledger {
+	if t.ledger == nil {
+		t.ledger = New(t.ledgerOpts...)
+	}
+
 	return t.ledger
 }
 
@@ -505,5 +511,27 @@ func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outp
 
 // code contract (make sure the struct implements all required methods).
 var _ vm.VM = new(MockedVM)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithLedgerOptions(opts ...Option) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.ledger != nil {
+			panic("ledger already set")
+		}
+		tf.ledgerOpts = opts
+	}
+}
+
+func WithLedger(ledger *Ledger) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.ledgerOpts != nil {
+			panic("ledger options already set")
+		}
+		tf.ledger = ledger
+	}
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

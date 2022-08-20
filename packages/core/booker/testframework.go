@@ -36,7 +36,7 @@ type TestFramework struct {
 
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
 	testFramework = options.Apply(new(TestFramework), opts)
-	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
+	testFramework.ledgerTestFramework = ledger.NewTestFramework(t, ledger.WithLedger(testFramework.Booker().ledger))
 	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
 
 	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
@@ -72,7 +72,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 
 func (t *TestFramework) Booker() (booker *Booker) {
 	if t.booker == nil {
-		t.booker = New(t.EvictionManager(), t.Ledger(), t.optsBooker...)
+		t.booker = New(t.EvictionManager(), t.optsBooker...)
 	}
 
 	return t.booker
@@ -202,7 +202,19 @@ type ledgerTestFramework = ledger.TestFramework
 
 func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
+		if tf.booker != nil {
+			panic("Booker already set")
+		}
 		tf.optsBooker = opts
+	}
+}
+
+func WithBooker(booker *Booker) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.optsBooker != nil {
+			panic("Booker options already set")
+		}
+		tf.booker = booker
 	}
 }
 
