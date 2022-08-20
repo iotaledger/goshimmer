@@ -24,28 +24,24 @@ func streamSnapshotDataFrom(
 
 	header, err := readSnapshotHeader(reader)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to stream snapshot header from snapshot")
 	}
 	headerConsumer(header)
 
 	// read solid entry points
 	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
-		seps, err := readSolidEntryPoints(reader)
-		if err != nil {
-			return err
+		seps, solidErr := readSolidEntryPoints(reader)
+		if solidErr != nil {
+			return errors.Wrap(solidErr, "failed to stream solid entry points from snapshot")
 		}
 		sepsConsumer(seps)
-	}
-	header.LatestECRecord = ecRecord
-	if headerConsumer != nil {
-		headerConsumer(header)
 	}
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, err := readOutputsWithMetadatas(reader)
-		if err != nil {
-			return err
+		outputs, outErr := readOutputsWithMetadatas(reader)
+		if outErr != nil {
+			return errors.Wrap(outErr, "failed to stream output with metadata from snapshot")
 		}
 		i += len(outputs)
 		outputConsumer(outputs)
@@ -53,14 +49,14 @@ func streamSnapshotDataFrom(
 
 	// read epochDiffs
 	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiffs, err := readEpochDiffs(reader)
-		if err != nil {
-			return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		epochDiffs, epochErr := readEpochDiffs(reader)
+		if epochErr != nil {
+			return errors.Wrapf(epochErr, "failed to parse epochDiffs from bytes")
 		}
 		epochDiffsConsumer(epochDiffs)
 	}
 
-	activityLog, err := readActivityLog(scanner)
+	activityLog, err := readActivityLog(reader)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse activity log from bytes")
 	}
@@ -228,17 +224,25 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 }
 
 // readActivityLog consumes the ActivityLog from the given reader.
-func readActivityLog(scanner *bufio.Scanner) (activityLogs epoch.SnapshotEpochActivity, err error) {
+func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActivity, err error) {
+	var activityLen int64
+	if lenErr := binary.Read(reader, binary.LittleEndian, &activityLen); lenErr != nil {
+		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", lenErr)
+	}
+
 	activityLogs = epoch.NewSnapshotEpochActivity()
 
-	scanner.Scan()
-	data := scanner.Bytes()
-
-	if len(data) > 0 {
-		_, err = serix.DefaultAPI.Decode(context.Background(), data, &activityLogs, serix.WithValidation())
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to parse activityLog from bytes")
+	for i := 0; i < int(activityLen); i++ {
+		var epochIndex epoch.Index
+		if eiErr := binary.Read(reader, binary.LittleEndian, &epochIndex); eiErr != nil {
+			return nil, errors.Errorf("unable to read epoch index: %w", eiErr)
 		}
+		var activityLog *epoch.SnapshotNodeActivity
+		if alErr := binary.Read(reader, binary.LittleEndian, &activityLog); alErr != nil {
+			return nil, errors.Errorf("unable to read activity log: %w", alErr)
+		}
+		activityLogs[epochIndex] = activityLog
 	}
+
 	return
 }
