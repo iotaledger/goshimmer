@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
@@ -99,27 +98,20 @@ func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetad
 }
 
 // LoadEpochDiffs loads EpochDiffs from a snapshot file to the storage.
-func (l *Ledger) LoadEpochDiffs(header *SnapshotHeader, epochDiffs map[epoch.Index]*EpochDiff) error {
-	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochdiff, exists := epochDiffs[ei]
-		if !exists {
-			panic("epoch diff not found for epoch")
-		}
+func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
+	for _, spent := range epochDiff.Spent() {
+		l.Storage.outputStorage.Delete(spent.ID().Bytes())
+		l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
+	}
 
-		for _, spent := range epochdiff.Spent() {
-			l.Storage.outputStorage.Delete(spent.ID().Bytes())
-			l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
-		}
+	for _, created := range epochDiff.Created() {
+		outputMetadata := NewOutputMetadata(created.ID())
+		outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
+		outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
+		outputMetadata.SetConfirmationState(confirmation.Confirmed)
 
-		for _, created := range epochdiff.Created() {
-			outputMetadata := NewOutputMetadata(created.ID())
-			outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
-			outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
-			outputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-			l.Storage.outputStorage.Store(created.Output()).Release()
-			l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-		}
+		l.Storage.outputStorage.Store(created.Output()).Release()
+		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 	}
 
 	return nil

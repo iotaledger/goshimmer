@@ -5,13 +5,12 @@ import (
 	"log"
 
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
-	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -139,14 +138,17 @@ func readSnapshotFromFile(filePath string) (err error) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
-	epochDiffsConsumer := func(_ *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
 		fmt.Println(epochDiffs)
 	}
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
 	}
+	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
+		fmt.Println(s)
+	}
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, outputWithMetadataConsumer, epochDiffsConsumer)
+	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer)
 
 	return
 }
