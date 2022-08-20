@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -202,36 +203,39 @@ func TestTangle_AttachBlockTwice_1(t *testing.T) {
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
-	storage := tf.Tangle().memStorage.Get(tf.Block("block2").ID().Index(), true)
-	storage.Lock()
+
 	var (
 		wasAttached1 bool
 		wasAttached2 bool
 		err1         error
 		err2         error
 		started      uint8
+		startMutex   sync.RWMutex
 	)
 
 	event.Loop.Submit(func() {
+		startMutex.Lock()
 		started++
+		startMutex.Unlock()
+
 		_, wasAttached1, err1 = tf.Tangle().Attach(tf.Block("block2"))
 	})
 	event.Loop.Submit(func() {
+		startMutex.Lock()
 		started++
+		startMutex.Unlock()
+
 		_, wasAttached2, err2 = tf.Tangle().Attach(tf.Block("block2"))
 	})
 
-	time.Sleep(1 * time.Second)
+	tf.WaitUntilAllTasksProcessed()
 
 	assert.Eventually(t, func() bool {
-		if started == 2 {
-			storage.Unlock()
-			return true
-		}
-		return false
-	}, time.Second*10, time.Millisecond*10)
+		startMutex.RLock()
+		defer startMutex.RUnlock()
 
-	tf.WaitUntilAllTasksProcessed()
+		return started == 2
+	}, time.Second*10, time.Millisecond*10)
 
 	assert.NoError(t, err1, "should not return an error")
 	assert.NoError(t, err2, "should not return an error")
