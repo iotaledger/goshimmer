@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"log"
 
 	"github.com/iotaledger/hive.go/core/identity"

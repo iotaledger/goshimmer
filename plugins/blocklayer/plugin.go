@@ -166,8 +166,8 @@ func configure(plugin *node.Plugin) {
 
 		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
 		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
-		emptyActivityConsumer := func(activity *epoch.SnapshotEpochActivity) {}
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyActivityConsumer, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer)
+		emptyActivityConsumer := func(activity epoch.SnapshotEpochActivity) {}
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer, emptyActivityConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

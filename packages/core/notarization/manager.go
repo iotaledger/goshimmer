@@ -220,8 +220,8 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 
 // LoadActivityLogs loads activity logs from the snapshot and updates the activity tree.
 func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
-	m.WriteLockLedger()
-	defer m.WriteUnlockLedger()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	for ei, nodeActivity := range epochActivity {
 		for nodeID, acceptedCount := range nodeActivity.NodesLog() {
@@ -304,8 +304,8 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 
 // OnBlockStored is a handler fo Block stored event that updates the activity log.
 func (m *Manager) OnBlockStored(block *tangleold.Block) {
-	m.WriteLockLedger()
-	defer m.WriteUnlockLedger()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(block.IssuingTime())
 
@@ -711,8 +711,8 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 }
 
 // SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
-func (m *Manager) SnapshotEpochActivity(provider tangleold.WeightProvider) (epochActivity epoch.SnapshotEpochActivity, err error) {
-	epochActivity = provider.SnapshotEpochActivity()
+func (m *Manager) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity, err error) {
+	epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity()
 	return
 }
 

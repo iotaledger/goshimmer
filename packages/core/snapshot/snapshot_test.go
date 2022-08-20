@@ -32,7 +32,7 @@ var nodesToPledge = []string{
 
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
-	activityLog         = make(epoch.SnapshotEpochActivity)
+	activityLog         = epoch.NewSnapshotEpochActivity()
 	epochDiffs          = make([]*ledger.EpochDiff, 0)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints    = make([]*SolidEntryPoints, 0)
@@ -41,11 +41,12 @@ var (
 func Test_CreateAndReadSnapshot(t *testing.T) {
 	header := createSnapshot(t)
 
-	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
+	rheader, rseps, rstates, repochDiffs, ractivity := readSnapshot(t)
 	compareSnapshotHeader(t, header, rheader)
 	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
 	compareEpochDiffs(t, epochDiffs, repochDiffs)
 	compareSolidEntryPoints(t, solidEntryPoints, rseps)
+	compareActivityLogs(t, activityLog, ractivity)
 
 	err := os.Remove(snapshotFileName)
 	require.NoError(t, err)
@@ -105,8 +106,11 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	sepsProd := func() (s *SolidEntryPoints) {
 		return seps
 	}
+	activityLogProd := func() (n epoch.SnapshotEpochActivity) {
+		return activityLog
+	}
 
-	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
+	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd, activityLogProd)
 	require.NoError(t, err)
 
 	return header
@@ -190,7 +194,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs map[epoch.Index]*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}

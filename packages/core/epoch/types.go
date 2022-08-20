@@ -262,7 +262,7 @@ func (a *ActivityLog) Clone() *ActivityLog {
 type SnapshotEpochActivity map[Index]*SnapshotNodeActivity
 
 // NewSnapshotEpochActivity creates a new SnapshotEpochActivity instance.
-func NewSnapshotEpochActivity() map[Index]*SnapshotNodeActivity {
+func NewSnapshotEpochActivity() SnapshotEpochActivity {
 	return make(SnapshotEpochActivity)
 }
 
