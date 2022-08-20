@@ -27,11 +27,11 @@ type Tangle struct {
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
 	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
-	evictionManager *eviction.LockableManager
+	evictionManager *eviction.LockableManager[models.BlockID]
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	newTangle = options.Apply(&Tangle{
 		Events:          newEvents(),
 		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),

@@ -36,14 +36,14 @@ type Booker struct {
 	markerManager   *MarkerManager
 	bookingMutex    *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
-	evictionManager *eviction.LockableManager
+	evictionManager *eviction.LockableManager[models.BlockID]
 
 	optsTangle []options.Option[tangle.Tangle]
 
 	*tangle.Tangle
 }
 
-func New(evictionManager *eviction.Manager, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	booker = options.Apply(&Booker{
 		Events:          newEvents(),
 		ledger:          ledgerInstance,

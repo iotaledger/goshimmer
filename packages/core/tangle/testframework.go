@@ -21,7 +21,7 @@ import (
 // simplified way.
 type TestFramework struct {
 	T               *testing.T
-	evictionManager *eviction.Manager
+	evictionManager *eviction.Manager[models.BlockID]
 	tangle          *Tangle
 
 	solidBlocks    int32
@@ -45,7 +45,7 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]
 	return
 }
 
-func (t *TestFramework) EvictionManager() *eviction.Manager {
+func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 	if t.evictionManager == nil {
 		if t.tangle != nil {
 			t.evictionManager = t.tangle.evictionManager.Manager
@@ -196,7 +196,7 @@ func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEvictionManager(evictionManager *eviction.Manager) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.evictionManager = evictionManager
 	}

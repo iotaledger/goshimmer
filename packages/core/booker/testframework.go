@@ -23,9 +23,7 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	T *testing.T
-
-	evictionManager       *eviction.Manager
+	evictionManager       *eviction.Manager[models.BlockID]
 	booker                *Booker
 	bookedBlocks          int32
 	blockConflictsUpdated int32
@@ -37,7 +35,7 @@ type TestFramework struct {
 }
 
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	testFramework = options.Apply(&TestFramework{T: t}, opts)
+	testFramework = options.Apply(new(TestFramework), opts)
 	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
 	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
 
@@ -80,7 +78,7 @@ func (t *TestFramework) Booker() (booker *Booker) {
 	return t.booker
 }
 
-func (t *TestFramework) EvictionManager() *eviction.Manager {
+func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 	if t.evictionManager == nil {
 		if t.booker != nil {
 			t.evictionManager = t.booker.evictionManager.Manager
