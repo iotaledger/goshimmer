@@ -12,30 +12,40 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
+type conflictDAGTestFramework = *conflictdag.TestFramework
+type markersTestFramework = *markers.TestFramework
+
 type TestFramework struct {
-	VotesTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower]
-	validatorSet *validator.Set
+	VotesTracker    *ConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower]
+	SequenceTracker *SequenceTracker
+	validatorSet    *validator.Set
 
 	validatorsByAlias map[string]*validator.Validator
 
 	t *testing.T
 
-	*conflictdag.TestFramework
+	conflictDAGTestFramework
+	markersTestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(t *testing.T) (newFramework *TestFramework) {
 	conflictDAGTf := conflictdag.NewTestFramework(t)
+	markersTf := markers.NewTestFramework(t)
+
 	validatorSet := validator.NewSet()
 	return &TestFramework{
-		VotesTracker:      NewConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower](conflictDAGTf.ConflictDAG, validatorSet),
-		TestFramework:     conflictDAGTf,
-		validatorSet:      validatorSet,
-		validatorsByAlias: make(map[string]*validator.Validator),
-		t:                 t,
+		VotesTracker:             NewConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower](conflictDAGTf.ConflictDAG, validatorSet),
+		SequenceTracker:          NewSequenceTracker(markersTf.SequenceManager, validatorSet, func(sequenceID markers.SequenceID) markers.Index { return 0 }),
+		conflictDAGTestFramework: conflictDAGTf,
+		markersTestFramework:     markersTf,
+		validatorSet:             validatorSet,
+		validatorsByAlias:        make(map[string]*validator.Validator),
+		t:                        t,
 	}
 }
 
@@ -71,6 +81,17 @@ func (t *TestFramework) validateStatementResults(expectedResults map[string]*set
 		actualVoters := t.VotesTracker.Voters(t.ConflictID(conflictIDAlias))
 
 		assert.Truef(t.t, actualVoters.Equal(expectedVoters), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
+	}
+}
+
+func (t *TestFramework) validateMarkerVoters(expectedVoters map[string]*set.AdvancedSet[*validator.Validator]) {
+	for markerAlias, expectedVotersOfMarker := range expectedVoters {
+		// sanity check
+		assert.Equal(t.t, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
+
+		voters := t.SequenceTracker.Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
+
+		assert.True(t.t, expectedVotersOfMarker.Equal(voters), "expected %s but got %s", expectedVotersOfMarker, voters)
 	}
 }
 

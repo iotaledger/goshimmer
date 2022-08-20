@@ -3,6 +3,7 @@ package votes
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -49,6 +50,23 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	for supportWalker.HasNext() {
 		s.addVoteToMarker(supportWalker.Next(), voter, power, supportWalker)
 	}
+}
+
+func (s *SequenceTracker) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
+	voters = set.NewAdvancedSet[*validator.Validator]()
+	votes, exists := s.votes.Get(marker.SequenceID())
+	if !exists {
+		return
+	}
+
+	votes.ForEachKey(func(identityID identity.ID) bool {
+		if voter, validatorExists := s.validatorSet.Get(identityID); validatorExists {
+			voters.Add(voter)
+		}
+		return true
+	})
+
+	return
 }
 
 func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
