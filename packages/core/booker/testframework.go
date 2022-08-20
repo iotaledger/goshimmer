@@ -7,76 +7,92 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
-type TestFramework struct {
-	Booker       *Booker
-	genesisBlock *Block
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
+type TestFramework struct {
+	evictionManager       *eviction.Manager[models.BlockID]
+	booker                *Booker
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
+	optsBooker            []options.Option[Booker]
 
-	*tangle.TestFramework
-	ledgerTf *ledger.TestFramework
+	*tangleTestFramework
+	*ledgerTestFramework
 }
 
-func NewTestFramework(t *testing.T) (newTestFramework *TestFramework) {
-	genesis := NewBlock(tangle.NewBlock(models.NewEmptyBlock(models.EmptyBlockID), tangle.WithSolid(true)), WithBooked(true), WithStructureDetails(markers.NewStructureDetails()))
-	genesis.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	testFramework = options.Apply(new(TestFramework), opts)
+	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
+	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
 
-	newTestFramework = &TestFramework{
-		TestFramework: tangle.NewTestFramework(t),
-		ledgerTf:      ledger.NewTestFramework(t),
-		genesisBlock:  genesis,
-	}
-	newTestFramework.Booker = New(newTestFramework.Tangle, newTestFramework.ledgerTf.Ledger(), newTestFramework.TestFramework.Manager)
-	newTestFramework.Setup()
+	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			testFramework.T.Logf("BOOKED: %s", metadata.ID())
+		}
+
+		atomic.AddInt32(&(testFramework.bookedBlocks), 1)
+	}))
+
+	testFramework.Booker().Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
+		if debug.GetEnabled() {
+			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
+		}
+
+		atomic.AddInt32(&(testFramework.blockConflictsUpdated), 1)
+	}))
+
+	testFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+		if debug.GetEnabled() {
+			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
+		}
+
+		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)
+	}))
+
+	testFramework.Booker().Events.Error.Hook(event.NewClosure(func(err error) {
+		testFramework.T.Logf("ERROR: %s", err)
+	}))
+
 	return
 }
 
-func (t *TestFramework) Setup() {
-	t.Booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
-		if debug.GetEnabled() {
-			t.T.Logf("BOOKED: %s", metadata.ID())
-		}
-		atomic.AddInt32(&(t.bookedBlocks), 1)
-	}))
+func (t *TestFramework) Booker() (booker *Booker) {
+	if t.booker == nil {
+		t.booker = New(t.EvictionManager(), t.Ledger(), t.optsBooker...)
+	}
 
-	t.Booker.Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
-		if debug.GetEnabled() {
-			t.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
-		}
-		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
-	}))
+	return t.booker
+}
 
-	t.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
-		if debug.GetEnabled() {
-			t.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
+func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
+	if t.evictionManager == nil {
+		if t.booker != nil {
+			t.evictionManager = t.booker.evictionManager.Manager
+		} else {
+			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
 		}
-		atomic.AddInt32(&(t.markerConflictsAdded), 1)
-	}))
+	}
 
-	t.Booker.Events.Error.Hook(event.NewClosure(func(err error) {
-		t.T.Logf("ERROR: %s", err)
-	}))
+	return t.evictionManager
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
-	innerBlock := t.TestFramework.Block(alias)
-	block, ok := t.Booker.block(innerBlock.ID())
+	block, ok := t.Booker().block(t.tangleTestFramework.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
@@ -85,7 +101,7 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.Booker.Block(t.Block(alias).ID())
+	block, exists := t.Booker().Block(t.Block(alias).ID())
 	require.True(t.T, exists, "Block %s not found", alias)
 	callback(block)
 }
@@ -112,7 +128,7 @@ func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCoun
 
 func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
-		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockID))
+		_, retrievedConflictIDs := t.Booker().blockBookingDetails(t.Block(blockID))
 		assert.True(t.T, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
 	}
 }
@@ -132,7 +148,7 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 				continue
 			}
 
-			mappedBlockIDOfMarker, exists := t.Booker.markerManager.BlockFromMarker(expectedMarker)
+			mappedBlockIDOfMarker, exists := t.Booker().markerManager.BlockFromMarker(expectedMarker)
 			assert.True(t.T, exists, "Marker %s is not mapped to any block", expectedMarker)
 
 			if !block.StructureDetails().IsPastMarker() {
@@ -148,18 +164,18 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 
 func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockAlias))
+		_, retrievedConflictIDs := t.Booker().blockBookingDetails(t.Block(blockAlias))
 
 		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
 		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-			t.ledgerTf.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			t.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			t.ledgerTf.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			t.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
@@ -176,11 +192,18 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-// rootBlockProvider is a default function that determines whether a block is a root of the Tangle.
-func (t *TestFramework) rootBlockProvider(blockID models.BlockID) (block *Block) {
-	if blockID != t.genesisBlock.ID() {
-		return
-	}
+type tangleTestFramework = tangle.TestFramework
 
-	return t.genesisBlock
+type ledgerTestFramework = ledger.TestFramework
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsBooker = opts
+	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

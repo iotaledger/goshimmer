@@ -149,6 +149,10 @@ func BlockIDToContext(ctx context.Context, blockID BlockID) context.Context {
 	return context.WithValue(ctx, "blockID", blockID)
 }
 
+func IsEmptyBlockID(blockID BlockID) bool {
+	return blockID == EmptyBlockID
+}
+
 var (
 	// _BlockIDAliases contains a dictionary of BlockIDs associated to their human-readable alias.
 	_BlockIDAliases = make(map[BlockID]string)
