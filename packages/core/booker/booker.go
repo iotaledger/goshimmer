@@ -219,8 +219,6 @@ func (b *Booker) book(block *Block) (err error) {
 		return errors.Errorf("error inheriting conflict IDs: %w", err)
 	}
 
-	block.setBooked()
-
 	b.Events.BlockBooked.Trigger(block)
 
 	return nil
@@ -247,17 +245,17 @@ func (b *Booker) inheritConflictIDs(block *Block) (err error) {
 	newStructureDetails := b.markerManager.ProcessBlock(block, parentsStructureDetails, inheritedConflictIDs)
 	block.setStructureDetails(newStructureDetails)
 
-	if newStructureDetails.IsPastMarker() {
-		return
+	if !newStructureDetails.IsPastMarker() {
+		addedConflictIDs := inheritedConflictIDs.Clone()
+		addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
+		block.AddAllAddedConflictIDs(addedConflictIDs)
+
+		subtractedConflictIDs := pastMarkersConflictIDs.Clone()
+		subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
+		block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
 	}
 
-	addedConflictIDs := inheritedConflictIDs.Clone()
-	addedConflictIDs.DeleteAll(pastMarkersConflictIDs)
-	block.AddAllAddedConflictIDs(addedConflictIDs)
-
-	subtractedConflictIDs := pastMarkersConflictIDs.Clone()
-	subtractedConflictIDs.DeleteAll(inheritedConflictIDs)
-	block.AddAllSubtractedConflictIDs(subtractedConflictIDs)
+	block.setBooked()
 
 	return
 }
