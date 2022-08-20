@@ -31,9 +31,9 @@ func init() {
 		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
 
-	err = serix.DefaultAPI.RegisterTypeSettings(map[epoch.Index]*ledger.EpochDiff{}, ts)
+	err = serix.DefaultAPI.RegisterTypeSettings([]tangleold.BlockID{}, ts)
 	if err != nil {
-		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
+		panic(fmt.Errorf("error registering block ID slice type settings: %w", err))
 	}
 }
 
@@ -84,10 +84,10 @@ type UTXOStatesProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadat
 type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
 // EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
-type EpochDiffProducerFunc func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error)
+type EpochDiffProducerFunc func() (epochDiffs *ledger.EpochDiff)
 
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
-type EpochDiffsConsumerFunc func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff)
+type EpochDiffsConsumerFunc func(epochDiffs *ledger.EpochDiff)
 
 // HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
 type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)

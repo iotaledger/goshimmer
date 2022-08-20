@@ -1096,7 +1096,6 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	snapshot.Header = header
 
 	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
-	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
 	m.LoadECandEIs(snapshot.Header)
 }
 
