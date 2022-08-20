@@ -154,19 +154,20 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
-			err := deps.Tangle.Ledger.LoadEpochDiffs(header, epochDiffs)
+		epochDiffsConsumer := func(epochDiff *ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiff(epochDiff)
 			if err != nil {
 				panic(err)
 			}
-			for _, epochDiff := range epochDiffs {
-				for _, outputWithMetadata := range epochDiff.Created() {
-					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
-				}
+			for _, outputWithMetadata := range epochDiff.Created() {
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
 
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, nil, utxoStatesConsumer, epochDiffsConsumer, nil)
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyActivityConsumer := func(activity *epoch.SnapshotEpochActivity) {}
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyActivityConsumer, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

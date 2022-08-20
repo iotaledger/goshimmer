@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -44,9 +45,13 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return
 	}
 
-	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-		fmt.Println(epochDiffs)
+	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
+		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
+	}
+
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -83,7 +88,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return epochActivity
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd, activityLogProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd, activityLogProd)
 
 	return
 }
@@ -142,9 +147,14 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 		return
 	}
-	epochDiffsProd := func() (epochDiffs map[epoch.Index]*ledger.EpochDiff, err error) {
-		epochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
-		fmt.Println(epochDiffs)
+
+	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
+		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
+	}
+
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -152,7 +162,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return epochActivity
 	}
 
-	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, utxoStatesProd, epochDiffsProd, activityLogProd)
+	_, err = snapshot.CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd, activityLogProd)
 
 	return
 }
