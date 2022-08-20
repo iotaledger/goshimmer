@@ -52,15 +52,21 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
-func (s *SequenceTracker) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
 	voters = set.NewAdvancedSet[*validator.Validator]()
 	votes, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
 	}
 
-	votes.ForEachKey(func(identityID identity.ID) bool {
-		if voter, validatorExists := s.validatorSet.Get(identityID); validatorExists {
+	votes.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
+		_, voteExists := validatorVotes.Power(marker.Index())
+		if !voteExists {
+			return true
+		}
+
+		voter, validatorExists := s.validatorSet.Get(identityID)
+		if validatorExists {
 			voters.Add(voter)
 		}
 		return true
@@ -88,10 +94,10 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 	}
 
 	// Trigger events for all newly supported markers.
-	for i := previousHighestIndex; i < marker.Index(); i++ {
+	for i := previousHighestIndex + 1; i <= marker.Index(); i++ {
 		s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
 			Voter:  voter,
-			Marker: marker,
+			Marker: markers.NewMarker(marker.SequenceID(), i),
 		})
 	}
 

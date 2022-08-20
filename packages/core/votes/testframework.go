@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -21,7 +23,7 @@ type markersTestFramework = *markers.TestFramework
 
 type TestFramework struct {
 	VotesTracker    *ConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower]
-	SequenceTracker *SequenceTracker
+	SequenceTracker *SequenceTracker[mockVotePower]
 	validatorSet    *validator.Set
 
 	validatorsByAlias map[string]*validator.Validator
@@ -38,15 +40,23 @@ func NewTestFramework(t *testing.T) (newFramework *TestFramework) {
 	markersTf := markers.NewTestFramework(t)
 
 	validatorSet := validator.NewSet()
-	return &TestFramework{
+	tf := &TestFramework{
 		VotesTracker:             NewConflictTracker[utxo.TransactionID, utxo.OutputID, mockVotePower](conflictDAGTf.ConflictDAG, validatorSet),
-		SequenceTracker:          NewSequenceTracker(markersTf.SequenceManager, validatorSet, func(sequenceID markers.SequenceID) markers.Index { return 0 }),
+		SequenceTracker:          NewSequenceTracker[mockVotePower](markersTf.SequenceManager, validatorSet, func(sequenceID markers.SequenceID) markers.Index { return 0 }),
 		conflictDAGTestFramework: conflictDAGTf,
 		markersTestFramework:     markersTf,
 		validatorSet:             validatorSet,
 		validatorsByAlias:        make(map[string]*validator.Validator),
 		t:                        t,
 	}
+
+	tf.SequenceTracker.Events.VoterAdded.Hook(event.NewClosure(func(evt *SequenceVoterEvent) {
+		if debug.GetEnabled() {
+			tf.t.Logf("VOTER ADDED: %v", evt.Marker)
+		}
+	}))
+
+	return tf
 }
 
 func (t *TestFramework) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
@@ -91,7 +101,7 @@ func (t *TestFramework) validateMarkerVoters(expectedVoters map[string]*set.Adva
 
 		voters := t.SequenceTracker.Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
 
-		assert.True(t.t, expectedVotersOfMarker.Equal(voters), "expected %s but got %s", expectedVotersOfMarker, voters)
+		assert.True(t.t, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 

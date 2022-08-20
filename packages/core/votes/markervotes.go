@@ -54,7 +54,6 @@ func (l *LatestMarkerVotes[VotePowerType]) Power(index markers.Index) (power Vot
 func (l *LatestMarkerVotes[VotePowerType]) Store(index markers.Index, power VotePowerType) (stored bool, previousHighestIndex markers.Index) {
 	l.m.Lock()
 	defer l.m.Unlock()
-
 	if maxElement := l.t.MaxElement(); maxElement != nil {
 		previousHighestIndex = maxElement.Key()
 	}
