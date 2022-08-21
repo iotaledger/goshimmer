@@ -99,5 +99,5 @@ func runSnapshotPlugin(*node.Plugin) {
 }
 
 func newSnapshotManager(deps snapshotDependencies) *snapshot.Manager {
-	return snapshot.NewManager(deps.Storage, deps.NotarizationMgr, NotarizationParameters.SnapshotDepth)
+	return snapshot.NewManager(deps.NotarizationMgr, NotarizationParameters.SnapshotDepth)
 }

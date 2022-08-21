@@ -1,7 +1,6 @@
 package tangleold
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -182,9 +181,7 @@ func (t *Tangle) Shutdown() {
 	t.Parser.Shutdown()
 	t.BlockFactory.Shutdown()
 	t.RateSetter.Shutdown()
-	fmt.Println("======= Shutdown scheduler starts")
 	t.Scheduler.Shutdown()
-	fmt.Println("======= Shutdown scheduler ends")
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()

@@ -61,9 +61,7 @@ func streamSnapshotDataFrom(
 	if err != nil {
 		return errors.Wrap(err, "failed to parse activity log from bytes")
 	}
-	if activityLogConsumer != nil {
-		activityLogConsumer(activityLog)
-	}
+	activityLogConsumer(activityLog)
 
 	return nil
 }
