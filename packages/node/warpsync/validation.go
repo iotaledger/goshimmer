@@ -24,6 +24,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 	ecChain = make(map[epoch.Index]epoch.EC)
 	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
 	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsIDs()...)
+	activePeers := set.NewAdvancedSet[identity.ID]()
 	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
 
 	// We do not request the start nor the ending epoch, as we know the beginning (snapshot) and the end (tip received via gossip) of the chain.
@@ -48,6 +49,8 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.EI()
 			m.log.Debugw("read committment", "EI", commitmentEI, "EC", ecRecord.ComputeEC().Base58())
+
+			activePeers.Add(peerID)
 			// Ignore invalid neighbor.
 			if !validPeers.Has(peerID) {
 				m.log.Debugw("ignoring invalid neighbor", "ID", peerID, "validPeers", validPeers)
@@ -101,6 +104,11 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 						continue
 					}
 
+					// If we already stored the target epoch for the chain, we just keep validating neighbors.
+					if _, exists := ecRecordChain[epochToValidate]; exists {
+						continue
+					}
+
 					// We store the valid committment for this chain.
 					ecRecordChain[epochToValidate] = proposedECRecord
 					ecChain[epochToValidate] = proposedECRecord.ComputeEC()
@@ -122,6 +130,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, syncedStartPrevEC)
 				}
 				m.log.Infof("range %d-%d validated", start, end)
+				validPeers = validPeers.Intersect(activePeers)
 				return ecChain, validPeers, nil
 			}
 
