@@ -267,7 +267,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 
 // OnBlockStored is the handler for block stored event.
 func (m *Manager) OnBlockStored(block *tangleold.Block) {
-	blockEI := block.EI()
+	blockEI := block.ECRecordEI()
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
 	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
 

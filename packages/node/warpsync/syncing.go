@@ -59,7 +59,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 
 	epochProcessingChan := make(chan epoch.Index)
 	epochProcessingStopChan := make(chan struct{})
-	resultChan := make(chan epoch.Index)
+	epochProcessedChan := make(chan epoch.Index)
 	flowErrChan := make(chan error)
 	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
@@ -109,7 +109,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.endEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
-						resultChan <- targetEpoch
+						epochProcessedChan <- targetEpoch
 						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
 					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
 						discardedPeers.Add(params.peerID)
@@ -137,7 +137,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 		}()
 	}
 
-	m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, resultChan)
+	m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
 	close(epochProcessingStopChan)
 
 	select {
@@ -150,7 +150,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	return nil
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, resultChan chan epoch.Index) {
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) {
 	processedEpochs := make(map[epoch.Index]types.Empty)
 	for ei := startRange; ei < startRange+epoch.Index(m.concurrency); ei++ {
 		epochProcessingChan <- ei
@@ -159,7 +159,7 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 	lowestProcessing := startRange
 	for {
 		select {
-		case processedEpoch := <-resultChan:
+		case processedEpoch := <-epochProcessedChan:
 			processedEpochs[processedEpoch] = types.Void
 			for {
 				if _, processed := processedEpochs[lowestProcessing]; processed {
