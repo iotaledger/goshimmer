@@ -2,6 +2,7 @@ package otv
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -119,7 +120,7 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	// ISSUE Block7.1
-	tf.CreateBlock("Block7.1", models.WithStrongParents(tf.BlockIDs("Block7")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.CreateBlock("Block7.1", models.WithStrongParents(tf.BlockIDs("Block7")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
 	tf.IssueBlocks("Block7.1").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
@@ -127,7 +128,19 @@ func TestOTV_Track(t *testing.T) {
 		markers.NewMarker(0, 7): tf.Validators("A"),
 	}))
 
-	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{}))
+	// ISSUE Block7.2
+	tf.CreateBlock("Block7.2", models.WithStrongParents(tf.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("C").PublicKey()))
+	tf.IssueBlocks("Block7.2").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 7): tf.Validators("A", "C"),
+		markers.NewMarker(0, 8): tf.Validators("C"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A"),
+		tf.Transaction("Tx2").ID(): tf.Validators("E", "C"),
+	}))
 
 	// ISSUE Block8
 	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("D").PublicKey()))
@@ -136,7 +149,7 @@ func TestOTV_Track(t *testing.T) {
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx2").ID(): tf.Validators("D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators("C", "D", "E"),
 	}))
 
 	// ISSUE Block9
@@ -147,10 +160,7 @@ func TestOTV_Track(t *testing.T) {
 		markers.NewMarker(1, 5): tf.Validators("A"),
 	}))
 
-	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx1").ID(): tf.Validators("C"),
-		tf.Transaction("Tx2").ID(): tf.Validators("A", "D", "E"),
-	}))
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{}))
 
 	// ISSUE Block10
 	tf.CreateBlock("Block10", models.WithStrongParents(tf.BlockIDs("Block9")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -164,7 +174,7 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx2").ID(): tf.Validators("A", "B", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B", "C", "D", "E"),
 	}))
 
 	// ISSUE Block11
@@ -174,10 +184,8 @@ func TestOTV_Track(t *testing.T) {
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx1").ID(): tf.Validators("A", "C"),
-		tf.Transaction("Tx2").ID(): tf.Validators("B", "D", "E"),
-
-		tf.Transaction("Tx3").ID(): tf.Validators("C"),
+		tf.Transaction("Tx1").ID(): tf.Validators("A"),
+		tf.Transaction("Tx3").ID(): tf.Validators("A"),
 		tf.Transaction("Tx4").ID(): tf.Validators("A"),
 	}))
 
@@ -190,9 +198,9 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx1").ID(): tf.Validators("A", "C", "D"),
-		tf.Transaction("Tx2").ID(): tf.Validators("B", "E"),
-		tf.Transaction("Tx4").ID(): tf.Validators("A", "D"),
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "D"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B", "C", "E"),
+		tf.Transaction("Tx4").ID(): tf.Validators("D"),
 	}))
 
 	// ISSUE Block13
@@ -205,9 +213,9 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx1").ID(): tf.Validators("A", "C", "D", "E"),
-		tf.Transaction("Tx2").ID(): tf.Validators("B"),
-		tf.Transaction("Tx4").ID(): tf.Validators("A", "D", "E"),
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B", "C"),
+		tf.Transaction("Tx4").ID(): tf.Validators("D", "E"),
 	}))
 
 	// ISSUE Block14
@@ -221,8 +229,8 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
-		tf.Transaction("Tx1").ID(): tf.Validators("A", "B", "C", "D", "E"),
-		tf.Transaction("Tx2").ID(): tf.Validators(),
-		tf.Transaction("Tx4").ID(): tf.Validators("A", "B", "D", "E"),
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "B", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators("C"),
+		tf.Transaction("Tx4").ID(): tf.Validators("B", "D", "E"),
 	}))
 }
