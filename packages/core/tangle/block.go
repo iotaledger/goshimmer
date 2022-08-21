@@ -26,10 +26,11 @@ type Block struct {
 // NewBlock creates a new Block with the given options.
 func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		strongChildren:       make([]*Block, 0),
-		weakChildren:         make([]*Block, 0),
-		likedInsteadChildren: make([]*Block, 0),
-		Block:                data,
+		strongChildren:            make([]*Block, 0),
+		weakChildren:              make([]*Block, 0),
+		likedInsteadChildren:      make([]*Block, 0),
+		orphanedParentsInPastCone: models.NewBlockIDs(),
+		Block:                     data,
 	}, opts)
 }
 
@@ -85,6 +86,30 @@ func (b *Block) setMarkedOrphaned(orphaned bool) (wasUpdated bool) {
 	b.markedOrphaned = orphaned
 
 	return true
+}
+
+// addOrphanedParents adds the given BlockID to the list of orphaned parents in the past cone.
+func (b *Block) addOrphanedParentInPastCone(id models.BlockID) (wasAdded bool, becameOrphaned bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.orphanedParentsInPastCone.Contains(id) {
+		return false, false
+	}
+
+	return true, len(b.orphanedParentsInPastCone.Add(id)) == 1 && !b.markedOrphaned
+}
+
+// removeOrphanedParentInPastCone removes the given BlockID from the list of orphaned parents in the past cone.
+func (b *Block) removeOrphanedParentInPastCone(id models.BlockID) (wasRemoved bool, becameUnorphaned bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if !b.orphanedParentsInPastCone.Contains(id) {
+		return false, false
+	}
+
+	return true, len(b.orphanedParentsInPastCone.Remove(id)) == 0 && !b.markedOrphaned
 }
 
 // OrphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
