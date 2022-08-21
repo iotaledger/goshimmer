@@ -98,7 +98,8 @@ func TestOTV_Track(t *testing.T) {
 	}))
 
 	// ISSUE Block7
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("C").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx3", 1, "Tx2.0")))
+	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("C").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx3", 1, "Tx1.0")))
+	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
 		markers.NewMarker(0, 4): tf.Validators("A", "C", "D", "E"),
@@ -113,6 +114,7 @@ func TestOTV_Track(t *testing.T) {
 
 	// ISSUE Block7.1
 	tf.CreateBlock("Block7.1", models.WithStrongParents(tf.BlockIDs("Block7")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.IssueBlocks("Block7.1").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
 		markers.NewMarker(0, 6): tf.Validators("A", "C"),
@@ -123,163 +125,98 @@ func TestOTV_Track(t *testing.T) {
 
 	// ISSUE Block8
 	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("D").PublicKey()))
+	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{}))
 
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
 		tf.Transaction("Tx2").ID(): tf.Validators("D", "E"),
 	}))
-	// TODO: this tests reorg, which is not yet supported
+
 	// ISSUE Block9
-	// 		testFramework.CreateBlock("Block9", WithStrongParents("Block8"), WithIssuer(nodes["A"].PublicKey()))
-	//
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.30)
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.25)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.60)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block9", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 0.25,
-	// 			"Conflict2": 0.60,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 0.85,
-	// 			markers.NewMarker(0, 4): 0.85,
-	// 			markers.NewMarker(0, 5): 0.55,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.30,
-	// 		})
-	// 	// ISSUE Block10
-	// 		testFramework.CreateBlock("Block10", WithStrongParents("Block9"), WithIssuer(nodes["B"].PublicKey()))
-	//
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 1.0)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 1.0)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 5), 0.45)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 6), 0.15)
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.75)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block10", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 0.25,
-	// 			"Conflict2": 0.75,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 1,
-	// 			markers.NewMarker(0, 4): 1,
-	// 			markers.NewMarker(0, 5): 0.55,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.45,
-	// 			markers.NewMarker(1, 6): 0.15,
-	// 		})
-	// 	// ISSUE Block11
-	// 		testFramework.CreateBlock("Block11", WithStrongParents("Block5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
-	// 		testFramework.RegisterConflictID("Conflict3", "Block7")
-	// 		testFramework.RegisterConflictID("Conflict4", "Block11")
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.55)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.45)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict3"), 0.25)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict4"), 0.30)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block11", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 0.55,
-	// 			"Conflict2": 0.45,
-	// 			"Conflict3": 0.25,
-	// 			"Conflict4": 0.30,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 1,
-	// 			markers.NewMarker(0, 4): 1,
-	// 			markers.NewMarker(0, 5): 0.55,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.45,
-	// 			markers.NewMarker(1, 6): 0.15,
-	// 		})
-	// 	// ISSUE Block12
-	// 		testFramework.CreateBlock("Block12", WithStrongParents("Block11"), WithIssuer(nodes["D"].PublicKey()))
-	//
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.75)
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.75)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.25)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict4"), 0.50)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block12", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 0.75,
-	// 			"Conflict2": 0.25,
-	// 			"Conflict3": 0.25,
-	// 			"Conflict4": 0.50,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 1,
-	// 			markers.NewMarker(0, 4): 1,
-	// 			markers.NewMarker(0, 5): 0.75,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.45,
-	// 			markers.NewMarker(1, 6): 0.15,
-	// 		})
-	// 	// ISSUE Block13
-	// 		testFramework.CreateBlock("Block13", WithStrongParents("Block12"), WithIssuer(nodes["E"].PublicKey()))
-	//
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.85)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.10)
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 0.85)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.15)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict4"), 0.60)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block13", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 0.85,
-	// 			"Conflict2": 0.15,
-	// 			"Conflict3": 0.25,
-	// 			"Conflict4": 0.60,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 1,
-	// 			markers.NewMarker(0, 4): 1,
-	// 			markers.NewMarker(0, 5): 0.85,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.45,
-	// 			markers.NewMarker(1, 6): 0.15,
-	// 			markers.NewMarker(2, 6): 0.10,
-	// 		})
-	// 	// ISSUE Block14
-	// 		testFramework.CreateBlock("Block14", WithStrongParents("Block13"), WithIssuer(nodes["B"].PublicKey()))
-	//
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 1.00)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 6), 0.25)
-	// 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(2, 7), 0.15)
-	//
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict1"), 1.0)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict2"), 0.0)
-	// 		testEventMock.Expect("ConflictWeightChanged", testFramework.ConflictID("Conflict4"), 0.75)
-	//
-	// 		IssueAndValidateBlockApproval(t, "Block14", testEventMock, testFramework, map[string]float64{
-	// 			"Conflict1": 1,
-	// 			"Conflict2": 0,
-	// 			"Conflict3": 0.25,
-	// 			"Conflict4": 0.75,
-	// 		}, map[markers.Marker]float64{
-	// 			markers.NewMarker(0, 1): 1,
-	// 			markers.NewMarker(0, 2): 1,
-	// 			markers.NewMarker(0, 3): 1,
-	// 			markers.NewMarker(0, 4): 1,
-	// 			markers.NewMarker(0, 5): 1,
-	// 			markers.NewMarker(0, 6): 0.55,
-	// 			markers.NewMarker(0, 7): 0.30,
-	// 			markers.NewMarker(1, 5): 0.45,
-	// 			markers.NewMarker(1, 6): 0.15,
-	// 			markers.NewMarker(2, 6): 0.25,
-	// 			markers.NewMarker(2, 7): 0.15,
-	// 		})
+	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block8")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(1, 5): tf.Validators("A"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("C"),
+		tf.Transaction("Tx2").ID(): tf.Validators("A", "D", "E"),
+	}))
+
+	// ISSUE Block10
+	tf.CreateBlock("Block10", models.WithStrongParents(tf.BlockIDs("Block9")), models.WithIssuer(tf.Identity("B").PublicKey()))
+	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 3): tf.Validators("A", "B", "C", "D"),
+		markers.NewMarker(0, 4): tf.Validators("A", "B", "D"),
+		markers.NewMarker(1, 5): tf.Validators("A", "B"),
+		markers.NewMarker(1, 6): tf.Validators("B"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx2").ID(): tf.Validators("A", "B", "D", "E"),
+	}))
+
+	// ISSUE Block11
+	tf.CreateBlock("Block11", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx4", 1, "Tx1.0")))
+	tf.IssueBlocks("Block11").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "C"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B", "D", "E"),
+
+		tf.Transaction("Tx3").ID(): tf.Validators("C"),
+		tf.Transaction("Tx4").ID(): tf.Validators("A"),
+	}))
+
+	// ISSUE Block12
+	tf.CreateBlock("Block12", models.WithStrongParents(tf.BlockIDs("Block11")), models.WithIssuer(tf.Identity("D").PublicKey()))
+	tf.IssueBlocks("Block12").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 5): tf.Validators("A", "C", "D"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "C", "D"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B", "E"),
+		tf.Transaction("Tx4").ID(): tf.Validators("A", "D"),
+	}))
+
+	// ISSUE Block13
+	tf.CreateBlock("Block13", models.WithStrongParents(tf.BlockIDs("Block12")), models.WithIssuer(tf.Identity("E").PublicKey()))
+	tf.IssueBlocks("Block13").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 5): tf.Validators("A", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.Validators("E"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "C", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators("B"),
+		tf.Transaction("Tx4").ID(): tf.Validators("A", "D", "E"),
+	}))
+
+	// ISSUE Block14
+	tf.CreateBlock("Block14", models.WithStrongParents(tf.BlockIDs("Block13")), models.WithIssuer(tf.Identity("B").PublicKey()))
+	tf.IssueBlocks("Block13").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 5): tf.Validators("A", "B", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.Validators("B", "E"),
+		markers.NewMarker(2, 7): tf.Validators("B"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "B", "C", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators(),
+		tf.Transaction("Tx4").ID(): tf.Validators("A", "B", "D", "E"),
+	}))
 }
