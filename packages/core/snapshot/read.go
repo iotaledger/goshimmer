@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
@@ -231,26 +230,21 @@ func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActi
 
 	activityLogs = epoch.NewSnapshotEpochActivity()
 
-	fmt.Println("for loop:", activityLen)
 	for i := 0; i < int(activityLen); i++ {
 		var epochIndex epoch.Index
 		if eiErr := binary.Read(reader, binary.LittleEndian, &epochIndex); eiErr != nil {
 			return nil, errors.Errorf("unable to read epoch index: %w", eiErr)
 		}
-		fmt.Println("ei:", epochIndex)
 		var activityBytesLen int64
 		if activityLenErr := binary.Read(reader, binary.LittleEndian, &activityBytesLen); activityLenErr != nil {
 			return nil, errors.Errorf("unable to read activity log length: %w", activityLenErr)
 		}
-		fmt.Println("activity log length:", activityBytesLen)
 		activityLogBytes := make([]byte, activityBytesLen)
 		if alErr := binary.Read(reader, binary.LittleEndian, activityLogBytes); alErr != nil {
 			return nil, errors.Errorf("unable to read activity log: %w", alErr)
 		}
 		activityLog := new(epoch.SnapshotNodeActivity)
 		activityLog.FromBytes(activityLogBytes)
-
-		fmt.Println("activity log:", activityLog)
 
 		activityLogs[epochIndex] = activityLog
 	}
