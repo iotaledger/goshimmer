@@ -78,6 +78,10 @@ func (t *TestFramework) Booker() (booker *Booker) {
 	return t.booker
 }
 
+func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
+	return t.Booker().markerManager.sequenceManager
+}
+
 func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 	if t.evictionManager == nil {
 		if t.booker != nil {
@@ -215,6 +219,15 @@ func WithBooker(booker *Booker) options.Option[TestFramework] {
 			panic("Booker options already set")
 		}
 		tf.booker = booker
+	}
+}
+
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.evictionManager != nil {
+			panic("Eviction manager already set")
+		}
+		tf.evictionManager = evictionManager
 	}
 }
 

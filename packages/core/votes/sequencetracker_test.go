@@ -18,7 +18,7 @@ import (
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
 func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	debug.SetEnabled(true)
-	tf := NewTestFramework(t)
+	tf := NewTestFramework[mockVotePower](t)
 
 	tf.CreateValidator("A")
 	tf.CreateValidator("B")
@@ -72,9 +72,9 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	}
 	// CASE1: APPROVE MARKER(0, 3)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A").ID(), mockVotePower{0})
+		tf.SequenceTracker().TrackVotes(markers.NewMarkers(markers.NewMarker(0, 3)), tf.Validator("A").ID(), mockVotePower{0})
 
-		tf.validateMarkerVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
 			"0,1": tf.Validators("A"),
 			"0,2": tf.Validators("A"),
 			"0,3": tf.Validators("A"),
@@ -82,9 +82,9 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	}
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A").ID(), mockVotePower{1})
+		tf.SequenceTracker().TrackVotes(markers.NewMarkers(markers.NewMarker(0, 4), markers.NewMarker(2, 6)), tf.Validator("A").ID(), mockVotePower{1})
 
-		tf.validateMarkerVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
 			"0,4": tf.Validators("A"),
 			"1,2": tf.Validators("A"),
 			"1,3": tf.Validators("A"),
@@ -96,9 +96,9 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(4, 8)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A").ID(), mockVotePower{2})
+		tf.SequenceTracker().TrackVotes(markers.NewMarkers(markers.NewMarker(4, 8)), tf.Validator("A").ID(), mockVotePower{2})
 
-		tf.validateMarkerVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
 			"2,7": tf.Validators("A"),
 			"4,8": tf.Validators("A"),
 		}))
@@ -106,9 +106,9 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 
 	// CASE4: APPROVE MARKER(1, 5)
 	{
-		tf.SequenceTracker.TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B").ID(), mockVotePower{3})
+		tf.SequenceTracker().TrackVotes(markers.NewMarkers(markers.NewMarker(1, 5)), tf.Validator("B").ID(), mockVotePower{3})
 
-		tf.validateMarkerVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
+		tf.ValidateStructureDetailsVoters(lo.MergeMaps(expectedVoters, map[string]*set.AdvancedSet[*validator.Validator]{
 			"0,1": tf.Validators("A", "B"),
 			"1,2": tf.Validators("A", "B"),
 			"1,3": tf.Validators("A", "B"),

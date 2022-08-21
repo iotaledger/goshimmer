@@ -180,11 +180,15 @@ func (m *Block) IssuerPublicKey() ed25519.PublicKey {
 	return m.M.IssuerPublicKey
 }
 
-func (m *Block) IssuerID() identity.ID {
-	if m.issuerID == nil {
-		*m.issuerID = identity.NewID(m.IssuerPublicKey())
+func (m *Block) IssuerID() (issuerID identity.ID) {
+	if m.issuerID != nil {
+		return *m.issuerID
 	}
-	return *m.issuerID
+
+	issuerID = identity.NewID(m.IssuerPublicKey())
+	m.issuerID = &issuerID
+
+	return
 }
 
 // IssuingTime returns the time when this block was created.

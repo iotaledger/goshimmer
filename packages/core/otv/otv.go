@@ -54,13 +54,6 @@ func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.B
 	return otv
 }
 
-func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
-	o.evictionManager.Lock()
-	defer o.evictionManager.Unlock()
-
-	o.blocks.EvictEpoch(epochIndex)
-}
-
 func (o *OnTangleVoting) Track(block *Block) {
 	if o.track(block) {
 		o.Events.BlockTracked.Trigger(block)
@@ -79,13 +72,19 @@ func (o *OnTangleVoting) track(block *Block) (tracked bool) {
 
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	if _, invalid := o.conflictTracker.TrackVote(o.Booker.BlockConflicts(block.Block), block.IssuerID(), votePower); invalid {
-
 		return false
 	}
 
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
 
 	return true
+}
+
+func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
+	o.evictionManager.Lock()
+	defer o.evictionManager.Unlock()
+
+	o.blocks.EvictEpoch(epochIndex)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

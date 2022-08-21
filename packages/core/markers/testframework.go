@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 )
 
 type TestFramework struct {
-	SequenceManager *SequenceManager
+	sequenceManager *SequenceManager
 
 	t *testing.T
 
@@ -16,17 +17,16 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(t *testing.T) (newFramework *TestFramework) {
-	return &TestFramework{
-		SequenceManager:         NewSequenceManager(),
+func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
+	return options.Apply(&TestFramework{
 		structureDetailsByAlias: make(map[string]*StructureDetails),
 
 		t: t,
-	}
+	}, opts)
 }
 
 func (t *TestFramework) InheritStructureDetails(alias string, inheritedStructureDetails []*StructureDetails) (structureDetails *StructureDetails, created bool) {
-	structureDetails, created = t.SequenceManager.InheritStructureDetails(inheritedStructureDetails)
+	structureDetails, created = t.SequenceManager().InheritStructureDetails(inheritedStructureDetails)
 	t.structureDetailsByAlias[alias] = structureDetails
 
 	return
@@ -48,4 +48,21 @@ func (t *TestFramework) StructureDetailsSet(aliases ...string) (structureDetails
 	}
 
 	return structureDetailsSet.Slice()
+}
+
+func (t *TestFramework) SequenceManager() (sequenceTracker *SequenceManager) {
+	if t.sequenceManager == nil {
+		t.sequenceManager = NewSequenceManager()
+	}
+
+	return t.sequenceManager
+}
+
+func WithSequenceManager(sequenceManager *SequenceManager) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.sequenceManager != nil {
+			panic("sequence manager already set")
+		}
+		tf.sequenceManager = sequenceManager
+	}
 }

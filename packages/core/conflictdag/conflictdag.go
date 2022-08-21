@@ -22,7 +22,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	Utils *Utils[ConflictIDType, ResourceIDType]
 
 	// options is a dictionary for configuration parameters of the ConflictDAG.
-	options *options
+	options *optionsConflictDAG
 
 	// RWMutex is a mutex that prevents that two processes simultaneously update the ConfirmationState.
 	sync.RWMutex
