@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -54,9 +55,16 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	defer m.endSyncing()
 
 	var wg sync.WaitGroup
+	defer wg.Wait()
+
 	epochProcessingChan := make(chan epoch.Index)
 	epochProcessingStopChan := make(chan struct{})
+	resultChan := make(chan epoch.Index)
+	flowErrChan := make(chan error)
+	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
+	errCtx, cancelErrCtx := context.WithCancel(ctx)
+	defer cancelErrCtx()
 
 	// Spawn concurreny amount of goroutines.
 	for worker := 0; worker < m.concurrency; worker++ {
@@ -68,6 +76,8 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 				var targetEpoch epoch.Index
 				select {
 				case <-epochProcessingStopChan:
+					return
+				case <-errCtx.Done():
 					return
 				case targetEpoch = <-epochProcessingChan:
 				}
@@ -99,12 +109,13 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.endEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
+						resultChan <- targetEpoch
 						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
 					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
 						discardedPeers.Add(params.peerID)
 						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
 					}).Run(&syncingFlowParams{
-						ctx:           ctx,
+						ctx:           errCtx,
 						targetEpoch:   targetEpoch,
 						targetEC:      ecChain[targetEpoch],
 						targetPrevEC:  ecChain[targetEpoch-1],
@@ -116,28 +127,55 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 				}
 
 				if !success {
-					err = errors.Errorf("unable to sync epoch %d", targetEpoch)
+					cancelErrCtx()
+					select {
+					case flowErrChan <- errors.Errorf("unable to sync epoch %d", targetEpoch):
+					case <-flowErrStopChan:
+					}
 				}
 			}
 		}()
 	}
 
-	for ei := startRange; ei <= endRange; ei++ {
-		select {
-		case epochProcessingChan <- ei:
-		case <-ctx.Done():
-		}
-	}
+	m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, resultChan)
 	close(epochProcessingStopChan)
 
-	wg.Wait()
-	close(epochProcessingChan)
-
-	if err != nil {
-		return errors.Errorf("sync failed for range %d-%d", start, end)
+	select {
+	case err := <-flowErrChan:
+		close(flowErrStopChan)
+		return errors.Wrapf(err, "sync failed for range %d-%d", start, end)
+	default:
 	}
 
 	return nil
+}
+
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, resultChan chan epoch.Index) {
+	processedEpochs := make(map[epoch.Index]types.Empty)
+	for ei := startRange; ei < startRange+epoch.Index(m.concurrency); ei++ {
+		epochProcessingChan <- ei
+	}
+
+	lowestProcessing := startRange
+	for {
+		select {
+		case processedEpoch := <-resultChan:
+			processedEpochs[processedEpoch] = types.Void
+			for {
+				if _, processed := processedEpochs[lowestProcessing]; processed {
+					if lowestProcessing+epoch.Index(m.concurrency) > endRange {
+						break
+					}
+					epochProcessingChan <- lowestProcessing + epoch.Index(m.concurrency)
+					lowestProcessing++
+				} else {
+					break
+				}
+			}
+		case <-errCtx.Done():
+			return
+		}
+	}
 }
 
 func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
