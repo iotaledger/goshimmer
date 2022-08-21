@@ -49,6 +49,13 @@ func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.B
 		otv.Track(NewBlock(block))
 	}))
 
+	otv.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
+		otv.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+	}))
+	otv.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
+		otv.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+	}))
+
 	otv.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(otv.evictEpoch))
 
 	return otv
@@ -85,6 +92,23 @@ func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
 	defer o.evictionManager.Unlock()
 
 	o.blocks.EvictEpoch(epochIndex)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
+func (o *OnTangleVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
+	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
+}
+
+// take everything in future cone because it was not conflicting before and move to new conflict.
+func (o *OnTangleVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
+		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

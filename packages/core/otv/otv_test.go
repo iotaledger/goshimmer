@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
+	"github.com/iotaledger/goshimmer/packages/core/booker"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -14,9 +15,14 @@ import (
 )
 
 func TestOTV_Track(t *testing.T) {
+	// TODO: extend this test to cover the following cases:
+	//  - when forking there is already a vote with higher power that should not be migrated
+	//  - a voter that supports a marker does not support all the forked conflict's parents
+	//  - test issuing votes out of order, votes have same time (possibly separate test case)
+
 	debug.SetEnabled(true)
 
-	tf := NewTestFramework(t)
+	tf := NewTestFramework(t, WithOnTangleVotingOptions(WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(30))
 	tf.CreateIdentity("B", validator.WithWeight(15))
 	tf.CreateIdentity("C", validator.WithWeight(25))
@@ -148,11 +154,11 @@ func TestOTV_Track(t *testing.T) {
 
 	// ISSUE Block10
 	tf.CreateBlock("Block10", models.WithStrongParents(tf.BlockIDs("Block9")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
-		markers.NewMarker(0, 3): tf.Validators("A", "B", "C", "D"),
-		markers.NewMarker(0, 4): tf.Validators("A", "B", "D"),
+		markers.NewMarker(0, 3): tf.Validators("A", "B", "C", "D", "E"),
+		markers.NewMarker(0, 4): tf.Validators("A", "B", "C", "D", "E"),
 		markers.NewMarker(1, 5): tf.Validators("A", "B"),
 		markers.NewMarker(1, 6): tf.Validators("B"),
 	}))
@@ -206,7 +212,7 @@ func TestOTV_Track(t *testing.T) {
 
 	// ISSUE Block14
 	tf.CreateBlock("Block14", models.WithStrongParents(tf.BlockIDs("Block13")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block13").WaitUntilAllTasksProcessed()
+	tf.IssueBlocks("Block14").WaitUntilAllTasksProcessed()
 
 	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
 		markers.NewMarker(0, 5): tf.Validators("A", "B", "C", "D", "E"),

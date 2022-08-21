@@ -47,7 +47,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 		atomic.AddInt32(&(testFramework.bookedBlocks), 1)
 	}))
 
-	testFramework.Booker().Events.BlockConflictUpdated.Hook(event.NewClosure(func(evt *BlockConflictUpdatedEvent) {
+	testFramework.Booker().Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
 		if debug.GetEnabled() {
 			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
@@ -57,7 +57,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 
 	testFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
-			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.NewConflictID)
+			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
 
 		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)

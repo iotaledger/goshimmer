@@ -75,6 +75,29 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 	return
 }
 
+func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) (voters map[identity.ID]VotePowerType) {
+	voters = make(map[identity.ID]VotePowerType)
+
+	votes, exists := s.votes.Get(marker.SequenceID())
+	if !exists {
+		return
+	}
+	votes.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
+		power, voteExists := validatorVotes.Power(marker.Index())
+		if !voteExists {
+			return true
+		}
+
+		voter, validatorExists := s.validatorSet.Get(identityID)
+		if validatorExists {
+			voters[voter.ID()] = power
+		}
+		return true
+	})
+
+	return
+}
+
 func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the

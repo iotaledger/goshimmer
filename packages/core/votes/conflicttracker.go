@@ -1,6 +1,8 @@
 package votes
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -27,28 +29,28 @@ func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType
 	}
 }
 
-func (v *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
-	addedConflictIDs, revokedConflictIDs, invalid := v.conflictDAG.DetermineVotes(initialVote)
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
+	addedConflictIDs, revokedConflictIDs, invalid := c.conflictDAG.DetermineVotes(initialVote)
 	if invalid {
 		return false, true
 	}
 
-	voter, exists := v.validatorSet.Get(voterID)
+	voter, exists := c.validatorSet.Get(voterID)
 	if !exists {
 		return false, false
 	}
 
 	defaultVote := NewVote[ConflictIDType, VotePowerType](voter, power, UndefinedOpinion)
 
-	v.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, v.Events.VoterAdded)
-	v.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, v.Events.VoterRemoved)
+	c.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, c.Events.VoterAdded)
+	c.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, c.Events.VoterRemoved)
 	return true, false
 }
 
-func (v *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*ConflictVoterEvent[ConflictIDType]]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*ConflictVoterEvent[ConflictIDType]]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
-		votes, _ := v.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType, VotePowerType])
+		votes, _ := c.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType, VotePowerType])
 
 		if added, opinionChanged := votes.Add(defaultVote.WithConflictID(conflict)); added && opinionChanged {
 			triggerEvent.Trigger(&ConflictVoterEvent[ConflictIDType]{Voter: defaultVote.Voter, ConflictID: conflict})
@@ -56,11 +58,57 @@ func (v *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 	}
 }
 
-func (v *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[*validator.Validator]) {
-	votes, exists := v.votes.Get(conflict)
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[*validator.Validator]) {
+	votes, exists := c.votes.Get(conflict)
 	if !exists {
 		return set.NewAdvancedSet[*validator.Validator]()
 	}
 
 	return votes.Voters()
+}
+
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
+	voter, exists := c.validatorSet.Get(voterID)
+	if !exists {
+		return
+	}
+
+	// We need to make sure that the voter supports all the conflict's parents.
+	if !c.voterSupportsAllConflicts(voter, parentConflictIDs) {
+		return
+	}
+
+	vote := NewVote[ConflictIDType, VotePowerType](voter, power, Like).WithConflictID(forkedConflictID)
+
+	votes, _ := c.votes.RetrieveOrCreate(forkedConflictID, NewVotes[ConflictIDType, VotePowerType])
+	if added, opinionChanged := votes.Add(vote); added && opinionChanged {
+		c.Events.VoterAdded.Trigger(&ConflictVoterEvent[ConflictIDType]{Voter: voter, ConflictID: forkedConflictID})
+	}
+
+	return
+}
+
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter *validator.Validator, conflictIDs *set.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+
+		if !c.voterSupportsConflict(voter, conflictID) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsConflict(voter *validator.Validator, conflictID ConflictIDType) bool {
+	votes, exists := c.votes.Get(conflictID)
+	if !exists {
+		panic(fmt.Sprintf("votes for conflict %s not found", conflictID))
+	}
+
+	vote, exists := votes.Vote(voter)
+	if !exists {
+		return false
+	}
+	return vote.Opinion == Like
 }

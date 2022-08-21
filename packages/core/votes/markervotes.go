@@ -37,16 +37,11 @@ func (l *LatestMarkerVotes[VotePowerType]) Voter() *validator.Validator {
 }
 
 // Power returns the power of the vote for the given marker Index.
-func (l *LatestMarkerVotes[VotePowerType]) Power(index markers.Index) (power VotePower[VotePowerType], exists bool) {
+func (l *LatestMarkerVotes[VotePowerType]) Power(index markers.Index) (power VotePowerType, exists bool) {
 	l.m.RLock()
 	defer l.m.RUnlock()
 
-	key, exists := l.t.Get(index)
-	if !exists {
-		return nil, exists
-	}
-
-	return key, exists
+	return l.t.Get(index)
 }
 
 // Store stores the vote with the given marker Index and votePower.

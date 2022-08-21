@@ -406,9 +406,10 @@ func (b *Booker) PropagateForkedConflict(transactionID utxo.TransactionID, added
 			continue
 		}
 
-		b.Events.BlockConflictUpdated.Trigger(&BlockConflictUpdatedEvent{
-			Block:      block,
-			ConflictID: addedConflictID,
+		b.Events.BlockConflictAdded.Trigger(&BlockConflictAddedEvent{
+			Block:             block,
+			ConflictID:        addedConflictID,
+			ParentConflictIDs: removedConflictIDs,
 		})
 
 		if propagateFurther {
@@ -496,8 +497,9 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 
 	// trigger event
 	b.Events.MarkerConflictAdded.Trigger(&MarkerConflictAddedEvent{
-		Marker:        currentMarker,
-		NewConflictID: newConflictID,
+		Marker:            currentMarker,
+		ConflictID:        newConflictID,
+		ParentConflictIDs: removedConflictIDs,
 	})
 
 	// propagate updates to later ConflictID mappings of the same sequence.

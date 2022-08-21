@@ -98,6 +98,13 @@ func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet
 	return
 }
 
+func (v *Votes[ConflictIDType, VotePowerType]) Vote(voter *validator.Validator) (vote *Vote[ConflictIDType, VotePowerType], exists bool) {
+	v.m.RLock()
+	defer v.m.RUnlock()
+
+	return v.o.Get(voter.ID())
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // VotePower is used to establish an absolute order of votes, regardless of their arrival order.
