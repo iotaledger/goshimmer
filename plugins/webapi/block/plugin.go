@@ -111,7 +111,7 @@ func GetBlock(c echo.Context) (err error) {
 		var payloadBytes []byte
 		payloadBytes, err = block.Payload().Bytes()
 
-		ecRecord := epoch.NewECRecord(block.EI())
+		ecRecord := epoch.NewECRecord(block.ECRecordEI())
 		ecRecord.SetECR(block.ECR())
 		ecRecord.SetPrevEC(block.PrevEC())
 
@@ -135,7 +135,7 @@ func GetBlock(c echo.Context) (err error) {
 				return ""
 			}(),
 			EC:                   ecRecord.ComputeEC().Base58(),
-			EI:                   uint64(block.EI()),
+			EI:                   uint64(block.ECRecordEI()),
 			ECR:                  block.ECR().Base58(),
 			PrevEC:               block.PrevEC().Base58(),
 			Payload:              payloadBytes,

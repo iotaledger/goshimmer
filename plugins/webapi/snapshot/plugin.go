@@ -9,26 +9,20 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	snapshotFileName = "snapshot.bin"
+	snapshotFileName = "/tmp/snapshot.bin"
 )
 
 type dependencies struct {
 	dig.In
 
-	Server          *echo.Echo
-	Tangle          *tangleold.Tangle
-	NotarizationMgr *notarization.Manager
+	Server      *echo.Echo
+	SnapshotMgr *snapshot.Manager
 }
 
 var (
@@ -39,7 +33,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin("Snapshot", deps, node.Disabled, configure)
+	Plugin = node.NewPlugin("WebAPISnapshot", deps, node.Disabled, configure)
 }
 
 func configure(_ *node.Plugin) {
@@ -52,20 +46,7 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	ecRecord, lastConfirmedEpoch, err := deps.Tangle.Options.CommitmentFunc()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
-	}
-
-	// lock the entire ledger in notarization manager until the snapshot is created.
-	deps.NotarizationMgr.WriteLockLedger()
-	defer deps.NotarizationMgr.WriteUnlockLedger()
-
-	headerPord := headerProducer(ecRecord, lastConfirmedEpoch)
-	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.NotarizationMgr)
-	epochDiffsProd := snapshot.NewEpochDiffsProducer(lastConfirmedEpoch, ecRecord.EI(), deps.NotarizationMgr)
-
-	header, err := snapshot.CreateSnapshot(snapshotFileName, headerPord, outputWithMetadataProd, epochDiffsProd)
+	header, err := deps.SnapshotMgr.CreateSnapshot(snapshotFileName)
 	if err != nil {
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
@@ -77,17 +58,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
-}
-
-func headerProducer(ecRecord *epoch.ECRecord, lastConfirmedEpoch epoch.Index) snapshot.HeaderProducerFunc {
-	return func() (header *ledger.SnapshotHeader, err error) {
-		header = &ledger.SnapshotHeader{
-			FullEpochIndex: lastConfirmedEpoch,
-			DiffEpochIndex: ecRecord.EI(),
-			LatestECRecord: ecRecord,
-		}
-		return header, nil
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

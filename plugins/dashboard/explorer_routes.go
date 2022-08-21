@@ -83,7 +83,7 @@ func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 
 	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)
 
-	ecRecord := epoch.NewECRecord(blk.EI())
+	ecRecord := epoch.NewECRecord(blk.ECRecordEI())
 	ecRecord.SetECR(blk.ECR())
 	ecRecord.SetPrevEC(blk.PrevEC())
 
@@ -112,7 +112,7 @@ func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 		PayloadType:             uint32(blk.Payload().Type()),
 		Payload:                 ProcessPayload(blk.Payload()),
 		EC:                      ecRecord.ComputeEC().Base58(),
-		EI:                      uint64(blk.EI()),
+		EI:                      uint64(blk.ECRecordEI()),
 		ECR:                     blk.ECR().Base58(),
 		PrevEC:                  blk.PrevEC().Base58(),
 		LatestConfirmedEpoch:    uint64(blk.LatestConfirmedEpoch()),

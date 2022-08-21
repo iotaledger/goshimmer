@@ -45,7 +45,7 @@ type EpochCommitmentFactory struct {
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
-	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
+	// manaRootTree stores the mana tree at the LastCommittedEpoch.
 	manaRootTree *smt.SparseMerkleTree
 
 	// snapshotDepth defines how far back the ledgerstate is kept with respect to the latest committed epoch.
@@ -307,9 +307,7 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created [
 
 func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWithMetadata)) {
 	f.storage.ledgerstateStorage.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			consumer(outputWithMetadata)
-		})
+		cachedOutputWithMetadata.Consume(consumer)
 		return true
 	})
 

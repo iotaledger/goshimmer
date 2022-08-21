@@ -394,7 +394,7 @@ func saveEpochVotersWeight(block *tangleold.Block) {
 
 	epochVotersWeightMutex.Lock()
 	defer epochVotersWeightMutex.Unlock()
-	epochIndex := block.EI()
+	epochIndex := block.ECRecordEI()
 	ecr := block.ECR()
 	if _, ok := epochVotersWeight.Get(epochIndex); !ok {
 		epochVotersWeight.Set(epochIndex, make(map[epoch.ECR]map[identity.ID]float64))

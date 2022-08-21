@@ -1072,8 +1072,10 @@ func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
 // loadSnapshotToLedger loads a snapshot of the Ledger from the given snapshot.
 func loadSnapshotToLedger(l *ledger.Ledger, s *ledger.Snapshot) {
 	l.LoadOutputWithMetadatas(s.OutputsWithMetadata)
-	err := l.LoadEpochDiffs(s.Header, s.EpochDiffs)
-	if err != nil {
-		panic("Failed to load epochDiffs from snapshot")
+	for _, diffs := range s.EpochDiffs {
+		err := l.LoadEpochDiff(diffs)
+		if err != nil {
+			panic("Failed to load epochDiffs from snapshot")
+		}
 	}
 }

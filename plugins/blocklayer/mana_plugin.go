@@ -218,28 +218,19 @@ func runManaPlugin(_ *node.Plugin) {
 
 				}
 
-				epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
+				epochDiffsConsumer := func(diff *ledger.EpochDiff) {
 					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-					for ei := header.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
-						diff, exists := epochDiffs[ei]
-						if !exists {
-							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
-						}
-						processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
-						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-						processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
-						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-					}
+
+					processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+					processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+					processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+					processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
 
 					// Only the aMana will be loaded until the latest snapshot's epoch
-					for ei := cManaTargetEpoch + 1; ei <= header.DiffEpochIndex; ei++ {
-						diff, exists := epochDiffs[ei]
-						if !exists {
-							panic(fmt.Sprintf("diff with index %d missing from snapshot", ei))
-						}
-						processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-					}
+
+					processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+					processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+
 				}
 
 				headerConsumer := func(header *ledger.SnapshotHeader) {
@@ -249,8 +240,9 @@ func runManaPlugin(_ *node.Plugin) {
 					}
 
 				}
+				emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
 
-				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
+				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
