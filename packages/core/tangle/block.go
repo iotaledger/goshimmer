@@ -240,10 +240,10 @@ func WithOrphaned(markedOrphaned bool) options.Option[Block] {
 }
 
 // WithOrphanedBlocksInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
-// orphaned parents in its past cone.
-func WithOrphanedBlocksInPastCone(orphanedBlocksInPastCone models.BlockIDs) options.Option[Block] {
+// orphaned Blocks in its past cone.
+func WithOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) options.Option[Block] {
 	return func(block *Block) {
-		block.orphanedBlocksInPastCone = orphanedBlocksInPastCone
+		block.orphanedBlocksInPastCone = orphanedBlocks
 	}
 }
 
