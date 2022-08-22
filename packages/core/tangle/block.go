@@ -26,10 +26,10 @@ type Block struct {
 // NewBlock creates a new Block with the given options.
 func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
+		orphanedBlocksInPastCone: models.NewBlockIDs(),
 		strongChildren:           make([]*Block, 0),
 		weakChildren:             make([]*Block, 0),
 		likedInsteadChildren:     make([]*Block, 0),
-		orphanedBlocksInPastCone: models.NewBlockIDs(),
 		Block:                    data,
 	}, opts)
 }

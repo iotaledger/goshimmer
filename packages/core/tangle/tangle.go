@@ -109,13 +109,13 @@ func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
 }
 
 // SetUnorphaned marks a Block as unorphaned and propagates it to its future cone.
-func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
+func (t *Tangle) SetUnorphaned(block *Block) (becameUnorphaned bool) {
 	if len(block.orphanedParentsInPastCone()) != 0 {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
-	wasUpdated, becameUnorphaned := block.setOrphaned(false)
-	if !wasUpdated {
+	updated, becameUnorphaned := block.setOrphaned(false)
+	if !updated {
 		return
 	}
 
@@ -123,19 +123,9 @@ func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
 		t.Events.BlockUnorphaned.Trigger(block)
 	}
 
-	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
-		currentChild := childWalker.Next()
+	t.propagateOrphanage(block)
 
-		if wasRemoved, becameUnorphaned := currentChild.removeOrphanedBlockInPastCone(block.ID()); wasRemoved {
-			if becameUnorphaned {
-				t.Events.BlockUnorphaned.Trigger(currentChild)
-			}
-
-			childWalker.PushAll(currentChild.Children()...)
-		}
-	}
-
-	return true
+	return becameUnorphaned
 }
 
 // evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
@@ -258,6 +248,24 @@ func (t *Tangle) propagateInvalidity(children []*Block) {
 
 			childWalker.PushAll(child.Children()...)
 		}
+	}
+}
+
+// propagateOrphanage propagates the orphanage of the given Block to its future cone.
+func (t *Tangle) propagateOrphanage(block *Block) {
+	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
+		currentChild := childWalker.Next()
+
+		wasRemoved, wasChildUnorphaned := currentChild.removeOrphanedBlockInPastCone(block.ID())
+		if !wasRemoved {
+			continue
+		}
+
+		if wasChildUnorphaned {
+			t.Events.BlockUnorphaned.Trigger(currentChild)
+		}
+
+		childWalker.PushAll(currentChild.Children()...)
 	}
 }
 
