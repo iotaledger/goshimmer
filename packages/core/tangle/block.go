@@ -145,7 +145,7 @@ func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.Bl
 
 // setOrphaned sets the orphaned flag of the Block. It is private even though it locks because we want to prevent people
 // from setting the orphaned flag manually.
-func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool, wasOrphanedStateUpdated bool) {
+func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
