@@ -155,24 +155,24 @@ func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpda
 }
 
 // addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
-func (b *Block) addOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) (wasAdded bool, becameOrphaned bool) {
+func (b *Block) addOrphanedBlocksInPastCone(ids models.BlockIDs) (wasAdded bool, becameOrphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
 	initialCount := len(b.orphanedBlocksInPastCone)
-	b.orphanedBlocksInPastCone.AddAll(orphanedBlocks)
+	b.orphanedBlocksInPastCone.AddAll(ids)
 	newCount := len(b.orphanedBlocksInPastCone)
 
 	return newCount > initialCount, initialCount == 0 && !b.orphaned
 }
 
-// removeOrphanedBlockInPastCone removes the given BlockID from the list of orphaned Blocks in the past cone.
-func (b *Block) removeOrphanedBlockInPastCone(id models.BlockID) (wasRemoved bool, becameUnorphaned bool) {
+// removeOrphanedBlocksInPastCone removes the given BlockIDs from the list of orphaned Blocks in the past cone.
+func (b *Block) removeOrphanedBlocksInPastCone(ids models.BlockIDs) (wasRemoved bool, becameUnorphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
 	initialCount := len(b.orphanedBlocksInPastCone)
-	b.orphanedBlocksInPastCone.Remove(id)
+	b.orphanedBlocksInPastCone.RemoveAll(ids)
 	newCount := len(b.orphanedBlocksInPastCone)
 
 	return newCount < initialCount, initialCount != 0 && newCount == 0 && !b.orphaned

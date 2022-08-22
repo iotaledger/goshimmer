@@ -109,7 +109,7 @@ func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (statusChanged bool) {
 		}
 	}
 
-	t.propagateOrphanage(block, orphaned)
+	t.propagateOrphanageUpdate(block, orphaned)
 
 	return statusChanged
 }
@@ -233,26 +233,26 @@ func (t *Tangle) walkFutureCone(block *Block, callback func(currentBlock *Block)
 	}
 }
 
-// propagateOrphanage propagates the orphanage status of a Block to its future cone.
-func (t *Tangle) propagateOrphanage(block *Block, orphaned bool) {
-	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
-		var updated, statusChanged bool
-		if orphaned {
-			updated, statusChanged = currentBlock.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID()))
-		} else {
-			updated, statusChanged = currentBlock.removeOrphanedBlockInPastCone(block.ID())
-		}
+// propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
+func (t *Tangle) propagateOrphanageUpdate(block *Block, orphaned bool) {
+	var updateEvent *event.Event[*Block]
+	var updateFunc func(block *Block, blockIDs models.BlockIDs) (bool, bool)
+	if orphaned {
+		updateEvent = t.Events.BlockOrphaned
+		updateFunc = (*Block).addOrphanedBlocksInPastCone
+	} else {
+		updateEvent = t.Events.BlockUnorphaned
+		updateFunc = (*Block).removeOrphanedBlocksInPastCone
+	}
 
+	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
+		updated, statusChanged := updateFunc(currentBlock, models.NewBlockIDs(block.ID()))
 		if !updated {
 			return nil
 		}
 
 		if statusChanged {
-			if orphaned {
-				t.Events.BlockOrphaned.Trigger(currentBlock)
-			} else {
-				t.Events.BlockUnorphaned.Trigger(currentBlock)
-			}
+			updateEvent.Trigger(currentBlock)
 		}
 
 		return currentBlock.Children()

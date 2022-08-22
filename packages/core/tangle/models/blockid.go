@@ -203,6 +203,15 @@ func (m BlockIDs) Add(blockID BlockID) BlockIDs {
 	return m
 }
 
+// AddAll adds all BlockIDs to the collection and returns the collection to enable chaining.
+func (m BlockIDs) AddAll(blockIDs BlockIDs) BlockIDs {
+	for blockID := range blockIDs {
+		m.Add(blockID)
+	}
+
+	return m
+}
+
 // Remove removes a BlockID from the collection and returns the collection to enable chaining.
 func (m BlockIDs) Remove(blockID BlockID) BlockIDs {
 	delete(m, blockID)
@@ -210,10 +219,10 @@ func (m BlockIDs) Remove(blockID BlockID) BlockIDs {
 	return m
 }
 
-// AddAll adds all BlockIDs to the collection and returns the collection to enable chaining.
-func (m BlockIDs) AddAll(blockIDs BlockIDs) BlockIDs {
+// RemoveAll removes the BlockIDs from the collection and returns the collection to enable chaining.
+func (m BlockIDs) RemoveAll(blockIDs BlockIDs) BlockIDs {
 	for blockID := range blockIDs {
-		m.Add(blockID)
+		m.Remove(blockID)
 	}
 
 	return m
