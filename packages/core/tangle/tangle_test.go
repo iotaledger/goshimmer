@@ -205,6 +205,7 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")))
 	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3")))
 	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
+	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
 	tf.IssueBlocks("block1", "block2", "block3", "block4", "block5").WaitUntilAllTasksProcessed()
 
 	block1, _ := tf.Tangle().Block(tf.Block("block1").ID())
@@ -230,6 +231,10 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	tf.Tangle().SetUnorphaned(block2)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5"))
+
+	tf.IssueBlocks("block6")
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5", "block6"))
 
 	tf.Tangle().SetUnorphaned(block4)
 	event.Loop.WaitUntilAllTasksProcessed()

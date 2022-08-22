@@ -11,14 +11,14 @@ import (
 
 // Block represents a Block annotated with Tangle related metadata.
 type Block struct {
-	missing                   bool
-	solid                     bool
-	invalid                   bool
-	markedOrphaned            bool
-	orphanedParentsInPastCone models.BlockIDs
-	strongChildren            []*Block
-	weakChildren              []*Block
-	likedInsteadChildren      []*Block
+	missing                  bool
+	solid                    bool
+	invalid                  bool
+	orphaned                 bool
+	orphanedBlocksInPastCone models.BlockIDs
+	strongChildren           []*Block
+	weakChildren             []*Block
+	likedInsteadChildren     []*Block
 
 	*models.Block
 }
@@ -26,11 +26,11 @@ type Block struct {
 // NewBlock creates a new Block with the given options.
 func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		strongChildren:            make([]*Block, 0),
-		weakChildren:              make([]*Block, 0),
-		likedInsteadChildren:      make([]*Block, 0),
-		orphanedParentsInPastCone: models.NewBlockIDs(),
-		Block:                     data,
+		strongChildren:           make([]*Block, 0),
+		weakChildren:             make([]*Block, 0),
+		likedInsteadChildren:     make([]*Block, 0),
+		orphanedBlocksInPastCone: models.NewBlockIDs(),
+		Block:                    data,
 	}, opts)
 }
 
@@ -64,23 +64,7 @@ func (b *Block) IsOrphaned() (isOrphaned bool) {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.markedOrphaned || !b.orphanedParentsInPastCone.Empty()
-}
-
-// IsMarkedOrphaned returns true if the Block is marked as orphaned itself.
-func (b *Block) IsMarkedOrphaned() (isOrphaned bool) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.markedOrphaned
-}
-
-// OrphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
-func (b *Block) OrphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.orphanedParentsInPastCone
+	return b.orphaned || !b.orphanedBlocksInPastCone.Empty()
 }
 
 // Children returns the children of the Block.
@@ -151,18 +135,26 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
+// orphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
+func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphanedBlocksInPastCone
+}
+
 // setMarkedOrphaned marks a block as orphaned.
 func (b *Block) setMarkedOrphaned() (wasUpdated bool, becameOrphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.markedOrphaned {
+	if b.orphaned {
 		return false, false
 	}
 
-	b.markedOrphaned = true
+	b.orphaned = true
 
-	return true, b.orphanedParentsInPastCone.Empty()
+	return true, b.orphanedBlocksInPastCone.Empty()
 }
 
 // setMarkedOrphaned marks a block as orphaned.
@@ -170,37 +162,35 @@ func (b *Block) setMarkedUnorphaned() (wasUpdated bool, becameUnorphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if !b.markedOrphaned {
+	if !b.orphaned {
 		return false, false
 	}
+	b.orphaned = false
 
-	b.markedOrphaned = false
-
-	return true, b.orphanedParentsInPastCone.Empty()
+	return true, b.orphanedBlocksInPastCone.Empty()
 }
 
-// addOrphanedParents adds the given BlockID to the list of orphaned parents in the past cone.
-func (b *Block) addOrphanedParentInPastCone(id models.BlockID) (wasAdded bool, becameOrphaned bool) {
+// addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
+func (b *Block) addOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) (wasAdded bool, becameOrphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.orphanedParentsInPastCone.Contains(id) {
-		return false, false
-	}
+	initialElementCount := len(b.orphanedBlocksInPastCone)
+	b.orphanedBlocksInPastCone.AddAll(orphanedBlocks)
 
-	return true, len(b.orphanedParentsInPastCone.Add(id)) == 1 && !b.markedOrphaned
+	return len(b.orphanedBlocksInPastCone) > initialElementCount, initialElementCount == 0 && !b.orphaned
 }
 
-// removeOrphanedParentInPastCone removes the given BlockID from the list of orphaned parents in the past cone.
-func (b *Block) removeOrphanedParentInPastCone(id models.BlockID) (wasRemoved bool, becameUnorphaned bool) {
+// removeOrphanedBlockInPastCone removes the given BlockID from the list of orphaned Blocks in the past cone.
+func (b *Block) removeOrphanedBlockInPastCone(id models.BlockID) (wasRemoved bool, becameUnorphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if !b.orphanedParentsInPastCone.Contains(id) {
-		return false, false
-	}
+	initialElementCount := len(b.orphanedBlocksInPastCone)
+	b.orphanedBlocksInPastCone.Remove(id)
+	newElementCount := len(b.orphanedBlocksInPastCone)
 
-	return true, len(b.orphanedParentsInPastCone.Remove(id)) == 0 && !b.markedOrphaned
+	return newElementCount < initialElementCount, initialElementCount != 0 && newElementCount == 0 && !b.orphaned
 }
 
 // appendChild adds a child of the corresponding type to the Block.
@@ -257,19 +247,18 @@ func WithSolid(solid bool) options.Option[Block] {
 	}
 }
 
-// WithMarkedOrphaned is a constructor Option for Blocks that initializes the given block with a specific markedOrphaned
-// flag.
-func WithMarkedOrphaned(markedOrphaned bool) options.Option[Block] {
+// WithOrphaned is a constructor Option for Blocks that initializes the given block with a specific orphaned flag.
+func WithOrphaned(markedOrphaned bool) options.Option[Block] {
 	return func(block *Block) {
-		block.markedOrphaned = markedOrphaned
+		block.orphaned = markedOrphaned
 	}
 }
 
-// WithOrphanedParentsInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
+// WithOrphanedBlocksInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
 // orphaned parents in its past cone.
-func WithOrphanedParentsInPastCone(orphanedParentsInPastCone models.BlockIDs) options.Option[Block] {
+func WithOrphanedBlocksInPastCone(orphanedParentsInPastCone models.BlockIDs) options.Option[Block] {
 	return func(block *Block) {
-		block.orphanedParentsInPastCone = orphanedParentsInPastCone
+		block.orphanedBlocksInPastCone = orphanedParentsInPastCone
 	}
 }
 

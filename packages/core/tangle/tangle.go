@@ -96,7 +96,7 @@ func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
 		currentChild := childWalker.Next()
 
-		if wasAdded, becameOrphaned := currentChild.addOrphanedParentInPastCone(block.ID()); wasAdded {
+		if wasAdded, becameOrphaned := currentChild.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID())); wasAdded {
 			if becameOrphaned {
 				t.Events.BlockOrphaned.Trigger(currentChild)
 			}
@@ -110,7 +110,7 @@ func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
 
 // SetUnorphaned marks a Block as unorphaned and propagates it to its future cone.
 func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
-	if len(block.OrphanedParentsInPastCone()) != 0 {
+	if len(block.orphanedParentsInPastCone()) != 0 {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
@@ -126,7 +126,7 @@ func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
 		currentChild := childWalker.Next()
 
-		if wasRemoved, becameUnorphaned := currentChild.removeOrphanedParentInPastCone(block.ID()); wasRemoved {
+		if wasRemoved, becameUnorphaned := currentChild.removeOrphanedBlockInPastCone(block.ID()); wasRemoved {
 			if becameUnorphaned {
 				t.Events.BlockUnorphaned.Trigger(currentChild)
 			}
@@ -230,6 +230,10 @@ func (t *Tangle) registerChild(child *Block, parent models.Parent) {
 	})
 
 	parentBlock.appendChild(child, parent.Type)
+
+	if _, becameOrphaned := child.addOrphanedBlocksInPastCone(parentBlock.orphanedParentsInPastCone()); becameOrphaned {
+		t.Events.BlockOrphaned.Trigger(child)
+	}
 }
 
 // block retrieves the Block with given id from the mem-storage.
