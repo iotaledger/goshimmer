@@ -1,4 +1,4 @@
-package tangleold
+package parser
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/bytesfilter"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/bytesfilter"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 const recentlySeenBytesFilterSize = 100000
@@ -119,7 +119,7 @@ func (p *Parser) setupBlockFilterDataFlow() {
 		numberOfBlockFilters := len(p.blockFilters)
 		for i := 0; i < numberOfBlockFilters; i++ {
 			if i == numberOfBlockFilters-1 {
-				p.blockFilters[i].OnAccept(func(blk *tangle.Block, peer *peer.Peer) {
+				p.blockFilters[i].OnAccept(func(blk *models.Block, peer *peer.Peer) {
 					p.Events.BlockParsed.Trigger(&BlockParsedEvent{
 						Block: blk,
 						Peer:  peer,
@@ -128,7 +128,7 @@ func (p *Parser) setupBlockFilterDataFlow() {
 			} else {
 				p.blockFilters[i].OnAccept(p.blockFilters[i+1].Filter)
 			}
-			p.blockFilters[i].OnReject(func(blk *tangle.Block, err error, peer *peer.Peer) {
+			p.blockFilters[i].OnReject(func(blk *models.Block, err error, peer *peer.Peer) {
 				p.Events.BlockRejected.Trigger(&BlockRejectedEvent{
 					Block: blk,
 					Peer:  peer,
@@ -143,7 +143,8 @@ func (p *Parser) setupBlockFilterDataFlow() {
 // parseBlock parses the given block and emits.
 func (p *Parser) parseBlock(bytes []byte, source *peer.Peer) {
 	// Validation of the block is implicitly done while decoding the bytes with serix.
-	blk := new(tangle.Block)
+	blk := new(models.Block)
+
 	if _, err := serix.DefaultAPI.Decode(context.Background(), bytes, blk); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
@@ -188,11 +189,11 @@ type BytesFilter interface {
 type BlockFilter interface {
 	// Filter filters up on the given block and peer and calls the acceptance callback
 	// if the input passes or the rejection callback if the input is rejected.
-	Filter(blk *tangle.Block, peer *peer.Peer)
+	Filter(blk *models.Block, peer *peer.Peer)
 	// OnAccept registers the given callback as the acceptance function of the filter.
-	OnAccept(callback func(blk *tangle.Block, peer *peer.Peer))
+	OnAccept(callback func(blk *models.Block, peer *peer.Peer))
 	// OnReject registers the given callback as the rejection function of the filter.
-	OnReject(callback func(blk *tangle.Block, err error, peer *peer.Peer))
+	OnReject(callback func(blk *models.Block, err error, peer *peer.Peer))
 	// Closer closes the filter.
 	io.Closer
 }
@@ -203,8 +204,8 @@ type BlockFilter interface {
 
 // BlockSignatureFilter filters blocks based on whether their signatures are valid.
 type BlockSignatureFilter struct {
-	onAcceptCallback func(blk *tangle.Block, peer *peer.Peer)
-	onRejectCallback func(blk *tangle.Block, err error, peer *peer.Peer)
+	onAcceptCallback func(blk *models.Block, peer *peer.Peer)
+	onRejectCallback func(blk *models.Block, err error, peer *peer.Peer)
 
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
@@ -217,7 +218,7 @@ func NewBlockSignatureFilter() *BlockSignatureFilter {
 
 // Filter filters up on the given bytes and peer and calls the acceptance callback
 // if the input passes or the rejection callback if the input is rejected.
-func (f *BlockSignatureFilter) Filter(blk *tangle.Block, p *peer.Peer) {
+func (f *BlockSignatureFilter) Filter(blk *models.Block, p *peer.Peer) {
 	if valid, _ := blk.VerifySignature(); valid {
 		f.getAcceptCallback()(blk, p)
 		return
@@ -226,27 +227,27 @@ func (f *BlockSignatureFilter) Filter(blk *tangle.Block, p *peer.Peer) {
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
-func (f *BlockSignatureFilter) OnAccept(callback func(blk *tangle.Block, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) OnAccept(callback func(blk *models.Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.Lock()
 	f.onAcceptCallback = callback
 	f.onAcceptCallbackMutex.Unlock()
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
-func (f *BlockSignatureFilter) OnReject(callback func(blk *tangle.Block, err error, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) OnReject(callback func(blk *models.Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.Lock()
 	f.onRejectCallback = callback
 	f.onRejectCallbackMutex.Unlock()
 }
 
-func (f *BlockSignatureFilter) getAcceptCallback() (result func(blk *tangle.Block, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) getAcceptCallback() (result func(blk *models.Block, peer *peer.Peer)) {
 	f.onAcceptCallbackMutex.RLock()
 	result = f.onAcceptCallback
 	f.onAcceptCallbackMutex.RUnlock()
 	return
 }
 
-func (f *BlockSignatureFilter) getRejectCallback() (result func(blk *tangle.Block, err error, peer *peer.Peer)) {
+func (f *BlockSignatureFilter) getRejectCallback() (result func(blk *models.Block, err error, peer *peer.Peer)) {
 	f.onRejectCallbackMutex.RLock()
 	result = f.onRejectCallback
 	f.onRejectCallbackMutex.RUnlock()

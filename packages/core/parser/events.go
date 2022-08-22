@@ -1,10 +1,10 @@
-package tangleold
+package parser
 
 import (
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // Events represents events happening in the Parser.
@@ -38,7 +38,7 @@ type BytesRejectedEvent struct {
 // BlockRejectedEvent holds the information provided by the BlockRejected event that gets triggered when the Block
 // was detected to be invalid.
 type BlockRejectedEvent struct {
-	Block *tangle.Block
+	Block *models.Block
 	Peer  *peer.Peer
 	Error error
 }
@@ -47,7 +47,7 @@ type BlockRejectedEvent struct {
 // fully parsed and syntactically validated.
 type BlockParsedEvent struct {
 	// Block contains the parsed Block.
-	Block *tangle.Block
+	Block *models.Block
 
 	// Peer contains the node that sent this Block to the node.
 	Peer *peer.Peer

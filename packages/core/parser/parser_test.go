@@ -1,24 +1,30 @@
-package tangleold
+package parser
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/labstack/gommon/log"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
-	blkBytes := lo.PanicOnErr(tangle.NewTestDataBlock("Test").Bytes())
+	parentBlocks := models.NewParentBlockIDs()
+	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+
+	blkBytes := lo.PanicOnErr(models.NewBlock(models.WithParents(parentBlocks)).Bytes())
 	blkParser := NewParser()
 	blkParser.Setup()
 
@@ -30,9 +36,12 @@ func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
 }
 
 func BenchmarkBlockParser_ParseBytesDifferent(b *testing.B) {
+	parentBlocks := models.NewParentBlockIDs()
+	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+
 	blockBytes := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		blockBytes[i] = lo.PanicOnErr(tangle.NewTestDataBlock("Test" + strconv.Itoa(i)).Bytes())
+		blockBytes[i] = lo.PanicOnErr(models.NewBlock(models.WithParents(parentBlocks), models.WithPayload(payload.NewGenericDataPayload([]byte(fmt.Sprintf("Payload-%d", i))))).Bytes())
 	}
 
 	blkParser := NewParser()
@@ -46,7 +55,10 @@ func BenchmarkBlockParser_ParseBytesDifferent(b *testing.B) {
 }
 
 func TestBlockParser_ParseBlock(t *testing.T) {
-	blk := tangle.NewTestDataBlock("Test")
+	parentBlocks := models.NewParentBlockIDs()
+	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+
+	blk := models.NewBlock(models.WithParents(parentBlocks), models.WithPayload(payload.NewGenericDataPayload([]byte("Test"))))
 
 	blkParser := NewParser()
 	blkParser.Setup()
@@ -107,6 +119,9 @@ var (
 //}
 
 func TestPowFilter_Filter(t *testing.T) {
+	parentBlocks := models.NewParentBlockIDs()
+	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+
 	filter := NewPowFilter(testWorker, testDifficulty)
 
 	// set callbacks
@@ -119,7 +134,9 @@ func TestPowFilter_Filter(t *testing.T) {
 		filter.Filter(nil, testPeer)
 	})
 
-	blk := tangle.NewTestNonceBlock(0)
+	issuer := ed25519.GenerateKeyPair().PublicKey
+
+	blk := models.NewBlock(models.WithParents(parentBlocks), models.WithIssuer(issuer), models.WithIssuingTime(time.Unix(100, 0)), models.WithNonce(0))
 	blkBytes := lo.PanicOnErr(blk.Bytes())
 
 	t.Run("reject invalid nonce", func(t *testing.T) {
@@ -130,7 +147,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), blkBytes[:len(blkBytes)-len(blk.Signature())-pow.NonceBytes], testDifficulty)
 	require.NoError(t, err)
 
-	blkPOW := tangle.NewTestNonceBlock(nonce)
+	blkPOW := models.NewBlock(models.WithParents(parentBlocks), models.WithIssuer(issuer), models.WithIssuingTime(time.Unix(100, 0)), models.WithNonce(nonce))
 	blkPOWBytes := lo.PanicOnErr(blkPOW.Bytes())
 
 	t.Run("accept valid nonce", func(t *testing.T) {
