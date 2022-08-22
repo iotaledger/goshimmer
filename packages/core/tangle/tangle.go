@@ -76,7 +76,15 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	if wasUpdated = block.setInvalid(); wasUpdated {
 		t.Events.BlockInvalid.Trigger(block)
 
-		t.walkFutureCone(block, t.propagateInvalidity)
+		t.walkFutureCone(block, func(currentBlock *Block) []*Block {
+			if !currentBlock.setInvalid() {
+				return nil
+			}
+
+			t.Events.BlockInvalid.Trigger(currentBlock)
+
+			return currentBlock.Children()
+		})
 	}
 
 	return
@@ -84,15 +92,26 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
 func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (statusChanged bool) {
-	if orphaned {
-		return t.setOrphaned(block, orphaned, t.Events.BlockOrphaned, t.propagateOrphanage)
-	}
-
-	if !block.OrphanedBlocksInPastCone().Empty() {
+	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
-	return t.setOrphaned(block, orphaned, t.Events.BlockUnorphaned, t.propagateUnorphanage)
+	updated, statusChanged := block.setOrphaned(orphaned)
+	if !updated {
+		return
+	}
+
+	if statusChanged {
+		if orphaned {
+			t.Events.BlockOrphaned.Trigger(block)
+		} else {
+			t.Events.BlockUnorphaned.Trigger(block)
+		}
+	}
+
+	t.propagateOrphanage(block, orphaned)
+
+	return statusChanged
 }
 
 // evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
@@ -207,69 +226,37 @@ func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-// setOrphaned changes the orphaned flag of a Block and propagates the changes to its future cone.
-func (t *Tangle) setOrphaned(block *Block, orphaned bool, event *event.Event[*Block],
-	propagationCallBack func(block, currentBlock *Block) (nextChildren []*Block)) (statusChanged bool) {
-
-	updated, statusChanged := block.setOrphaned(orphaned)
-	if !updated {
-		return
-	}
-
-	if statusChanged {
-		event.Trigger(block)
-	}
-
-	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
-		return propagationCallBack(block, currentBlock)
-	})
-
-	return statusChanged
-}
-
-// propagateInvalidity marks the children (and their future cone) as invalid.
-func (t *Tangle) propagateInvalidity(block *Block) (nextChildren []*Block) {
-	if !block.setInvalid() {
-		return
-	}
-
-	t.Events.BlockInvalid.Trigger(block)
-
-	return block.Children()
-}
-
-// propagateOrphanage propagates the orphanage of the given Block to its future cone.
-func (t *Tangle) propagateOrphanage(block, currentBlock *Block) (nextChildren []*Block) {
-	wasAdded, becameOrphaned := currentBlock.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID()))
-	if !wasAdded {
-		return
-	}
-
-	if becameOrphaned {
-		t.Events.BlockOrphaned.Trigger(currentBlock)
-	}
-
-	return currentBlock.Children()
-}
-
-func (t *Tangle) propagateUnorphanage(block, currentBlock *Block) (nextChildren []*Block) {
-	wasRemoved, wasChildUnorphaned := currentBlock.removeOrphanedBlockInPastCone(block.ID())
-	if !wasRemoved {
-		return nil
-	}
-
-	if wasChildUnorphaned {
-		t.Events.BlockUnorphaned.Trigger(currentBlock)
-	}
-
-	return currentBlock.Children()
-}
-
 // walkFutureCone traverses the future cone of the given Block and calls the given callback for each Block.
 func (t *Tangle) walkFutureCone(block *Block, callback func(currentBlock *Block) (nextChildren []*Block)) {
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
 		childWalker.PushAll(callback(childWalker.Next())...)
 	}
+}
+
+// propagateOrphanage propagates the orphanage status of a Block to its future cone.
+func (t *Tangle) propagateOrphanage(block *Block, orphaned bool) {
+	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
+		var updated, statusChanged bool
+		if orphaned {
+			updated, statusChanged = currentBlock.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID()))
+		} else {
+			updated, statusChanged = currentBlock.removeOrphanedBlockInPastCone(block.ID())
+		}
+
+		if !updated {
+			return nil
+		}
+
+		if statusChanged {
+			if orphaned {
+				t.Events.BlockOrphaned.Trigger(currentBlock)
+			} else {
+				t.Events.BlockUnorphaned.Trigger(currentBlock)
+			}
+		}
+
+		return currentBlock.Children()
+	})
 }
 
 // checkReference checks if the reference between the child and its parent is valid.
