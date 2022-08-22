@@ -84,7 +84,7 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
 func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
-	wasUpdated, becameOrphaned := block.setMarkedOrphaned()
+	wasUpdated, becameOrphaned := block.setOrphaned(true)
 	if !wasUpdated {
 		return false
 	}
@@ -114,7 +114,7 @@ func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
-	wasUpdated, becameUnorphaned := block.setMarkedUnorphaned()
+	wasUpdated, becameUnorphaned := block.setOrphaned(false)
 	if !wasUpdated {
 		return
 	}

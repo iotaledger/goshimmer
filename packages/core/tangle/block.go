@@ -143,31 +143,18 @@ func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.Bl
 	return b.orphanedBlocksInPastCone
 }
 
-// setMarkedOrphaned marks a block as orphaned.
-func (b *Block) setMarkedOrphaned() (wasUpdated bool, becameOrphaned bool) {
+// setOrphaned sets the orphaned flag of the Block. It is private even though it locks because we want to prevent people
+// from setting the orphaned flag manually.
+func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool, wasOrphanedStateUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.orphaned {
+	if b.orphaned == orphaned {
 		return false, false
 	}
+	b.orphaned = orphaned
 
-	b.orphaned = true
-
-	return true, b.orphanedBlocksInPastCone.Empty()
-}
-
-// setMarkedOrphaned marks a block as orphaned.
-func (b *Block) setMarkedUnorphaned() (wasUpdated bool, becameUnorphaned bool) {
-	b.Lock()
-	defer b.Unlock()
-
-	if !b.orphaned {
-		return false, false
-	}
-	b.orphaned = false
-
-	return true, b.orphanedBlocksInPastCone.Empty()
+	return true, len(b.orphanedBlocksInPastCone) == 0
 }
 
 // addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
@@ -175,10 +162,11 @@ func (b *Block) addOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) (was
 	b.Lock()
 	defer b.Unlock()
 
-	initialElementCount := len(b.orphanedBlocksInPastCone)
+	initialCount := len(b.orphanedBlocksInPastCone)
 	b.orphanedBlocksInPastCone.AddAll(orphanedBlocks)
+	newCount := len(b.orphanedBlocksInPastCone)
 
-	return len(b.orphanedBlocksInPastCone) > initialElementCount, initialElementCount == 0 && !b.orphaned
+	return newCount > initialCount, initialCount == 0 && !b.orphaned
 }
 
 // removeOrphanedBlockInPastCone removes the given BlockID from the list of orphaned Blocks in the past cone.
@@ -186,11 +174,11 @@ func (b *Block) removeOrphanedBlockInPastCone(id models.BlockID) (wasRemoved boo
 	b.Lock()
 	defer b.Unlock()
 
-	initialElementCount := len(b.orphanedBlocksInPastCone)
+	initialCount := len(b.orphanedBlocksInPastCone)
 	b.orphanedBlocksInPastCone.Remove(id)
-	newElementCount := len(b.orphanedBlocksInPastCone)
+	newCount := len(b.orphanedBlocksInPastCone)
 
-	return newElementCount < initialElementCount, initialElementCount != 0 && newElementCount == 0 && !b.orphaned
+	return newCount < initialCount, initialCount != 0 && newCount == 0 && !b.orphaned
 }
 
 // appendChild adds a child of the corresponding type to the Block.
