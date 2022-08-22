@@ -4,10 +4,11 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/crypto"
+
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/node/gossip"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
@@ -15,13 +16,20 @@ import (
 // ErrBlockNotFound is returned when a block could not be found in the Tangle.
 var ErrBlockNotFound = errors.New("block not found")
 
-func createManager(p2pManager *p2p.Manager, t *tangle.Tangle) *gossip.Manager {
+func createManager(p2pManager *p2p.Manager, t *tangleold.Tangle) *gossip.Manager {
 	// loads the given block from the block layer and returns it or an error if not found.
-	loadBlock := func(blkID models.BlockID) ([]byte, error) {
-		if block, exists := t.Block(blkID); exists {
-			return block.Bytes()
+	loadBlock := func(blkID tangleold.BlockID) ([]byte, error) {
+		cachedBlock := t.Storage.Block(blkID)
+		defer cachedBlock.Release()
+		if !cachedBlock.Exists() {
+			if crypto.Randomness.Float64() < Parameters.MissingBlockRequestRelayProbability {
+				t.Solidifier.RetrieveMissingBlock(blkID)
+			}
+
+			return nil, ErrBlockNotFound
 		}
-		return nil, ErrBlockNotFound
+		blk, _ := cachedBlock.Unwrap()
+		return blk.Bytes()
 	}
 	var opts []gossip.ManagerOption
 	if Parameters.BlocksRateLimit != (blocksLimitParameters{}) {

@@ -28,7 +28,6 @@ var (
 type dependencies struct {
 	dig.In
 
-	// TODO: replace with the new tangle
 	Tangle    *tangleold.Tangle
 	GossipMgr *gossip.Manager
 	P2PMgr    *p2p.Manager
