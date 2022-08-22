@@ -16,7 +16,7 @@ import (
 
 // WithVM is an Option for the Ledger that allows to configure which VM is supposed to be used to process transactions.
 func WithVM(vm vm.VM) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.vm = vm
 	}
 }
@@ -28,7 +28,7 @@ func WithVM(vm vm.VM) (option Option) {
 // WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
 // (the default option is to use a MapDB).
 func WithStore(store kvstore.KVStore) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.store = store
 	}
 }
@@ -40,7 +40,7 @@ func WithStore(store kvstore.KVStore) (option Option) {
 // WithCacheTimeProvider is an Option for the Ledger that allows to configure which CacheTimeProvider is supposed to
 // be used.
 func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.cacheTimeProvider = cacheTimeProvider
 	}
 }
@@ -52,7 +52,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) (optio
 // WithTransactionCacheTime is an Option for the Ledger that allows to configure how long Transaction objects stay
 // cached after they have been released.
 func WithTransactionCacheTime(transactionCacheTime time.Duration) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.transactionCacheTime = transactionCacheTime
 	}
 }
@@ -64,7 +64,7 @@ func WithTransactionCacheTime(transactionCacheTime time.Duration) (option Option
 // WithTransactionMetadataCacheTime is an Option for the Ledger that allows to configure how long TransactionMetadata
 // objects stay cached after they have been released.
 func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.transactionMetadataCacheTime = transactionMetadataCacheTime
 	}
 }
@@ -76,7 +76,7 @@ func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration
 // WithOutputCacheTime is an Option for the Ledger that allows to configure how long Output objects stay cached after
 // they have been released.
 func WithOutputCacheTime(outputCacheTime time.Duration) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.outputCacheTime = outputCacheTime
 	}
 }
@@ -88,7 +88,7 @@ func WithOutputCacheTime(outputCacheTime time.Duration) (option Option) {
 // WithOutputMetadataCacheTime is an Option for the Ledger that allows to configure how long OutputMetadata objects stay
 // cached after they have been released.
 func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.outputMetadataCacheTime = outputMetadataCacheTime
 	}
 }
@@ -100,7 +100,7 @@ func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) (option 
 // WithConsumerCacheTime is an Option for the Ledger that allows to configure how long Consumer objects stay cached
 // after they have been released.
 func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.consumerCacheTime = consumerCacheTime
 	}
 }
@@ -109,19 +109,19 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
 
 // region WithConsumerCacheTime ////////////////////////////////////////////////////////////////////////////////////////
 
-// WithConflictDAGOptions is an Option for the Ledger that allows to configure the options for the ConflictDAG
+// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG
 func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option Option) {
-	return func(options *options) {
+	return func(options *optionsLedger) {
 		options.conflictDAGOptions = conflictDAGOptions
 	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region options //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region optionsLedger //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// options is a container for all configurable parameters of the Ledger.
-type options struct {
+// optionsLedger is a container for all configurable parameters of the Ledger.
+type optionsLedger struct {
 	// vm contains the virtual machine that is used to execute Transactions.
 	vm vm.VM
 
@@ -148,14 +148,14 @@ type options struct {
 	// consumerCacheTime contains the duration that Consumer objects stay cached after they have been released.
 	consumerCacheTime time.Duration
 
-	// conflictDAGOptions contains the options for the ConflictDAG.
+	// conflictDAGOptions contains the optionsLedger for the ConflictDAG.
 	conflictDAGOptions []conflictdag.Option
 }
 
-// newOptions returns a new options object that corresponds to the handed in options and which is derived from the
-// default options.
-func newOptions(option ...Option) (new *options) {
-	return (&options{
+// newOptions returns a new optionsLedger object that corresponds to the handed in optionsLedger and which is derived from the
+// default optionsLedger.
+func newOptions(option ...Option) (new *optionsLedger) {
+	return (&optionsLedger{
 		store:                        mapdb.NewMapDB(),
 		cacheTimeProvider:            database.NewCacheTimeProvider(0),
 		vm:                           NewMockedVM(),
@@ -167,8 +167,8 @@ func newOptions(option ...Option) (new *options) {
 	}).apply(option...)
 }
 
-// apply modifies the options object by overriding the handed in options.
-func (o *options) apply(options ...Option) (self *options) {
+// apply modifies the optionsLedger object by overriding the handed in optionsLedger.
+func (o *optionsLedger) apply(options ...Option) (self *optionsLedger) {
 	for _, option := range options {
 		option(o)
 	}
@@ -178,6 +178,6 @@ func (o *options) apply(options ...Option) (self *options) {
 
 // Option represents the return type of optional parameters that can be handed into the constructor of the Ledger
 // to configure its behavior.
-type Option func(*options)
+type Option func(*optionsLedger)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

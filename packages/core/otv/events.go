@@ -2,23 +2,15 @@ package otv
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
-type Events[ConflictIDType comparable] struct {
-	VoterAdded   *event.Event[*VoterEvent[ConflictIDType]]
-	VoterRemoved *event.Event[*VoterEvent[ConflictIDType]]
+type Events struct {
+	BlockTracked *event.Event[*Block]
 }
 
-type VoterEvent[ConflictIDType comparable] struct {
-	Voter    *validator.Validator
-	Resource ConflictIDType
-}
-
-func newEvents[ConflictIDType comparable]() *Events[ConflictIDType] {
-	return &Events[ConflictIDType]{
-		VoterAdded:   event.New[*VoterEvent[ConflictIDType]](),
-		VoterRemoved: event.New[*VoterEvent[ConflictIDType]](),
+// newEvents creates a new Events instance.
+func newEvents() *Events {
+	return &Events{
+		BlockTracked: event.New[*Block](),
 	}
 }

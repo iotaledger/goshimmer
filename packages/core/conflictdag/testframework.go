@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
+
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
 
 type TestFramework struct {
-	ConflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	conflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	t *testing.T
 
@@ -17,14 +19,13 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(t *testing.T) (newFramework *TestFramework) {
-	return &TestFramework{
-		ConflictDAG:        New[utxo.TransactionID, utxo.OutputID](),
+func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
+	return options.Apply(&TestFramework{
 		conflictIDsByAlias: make(map[string]utxo.TransactionID),
 		resourceByAlias:    make(map[string]utxo.OutputID),
 
 		t: t,
-	}
+	}, opts)
 }
 
 func (t *TestFramework) randomConflictID() (randomConflictID utxo.TransactionID) {
@@ -52,7 +53,7 @@ func (t *TestFramework) CreateConflict(conflictSetAlias, conflictAlias string, p
 	t.conflictIDsByAlias[conflictAlias] = t.randomConflictID()
 	t.conflictIDsByAlias[conflictAlias].RegisterAlias(conflictAlias)
 
-	t.ConflictDAG.CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
+	t.ConflictDAG().CreateConflict(t.conflictIDsByAlias[conflictAlias], parentConflictIDs, t.ConflictSetIDs(conflictSetAlias))
 }
 
 func (t *TestFramework) ConflictID(alias string) (conflictID utxo.TransactionID) {
@@ -89,4 +90,21 @@ func (t *TestFramework) ConflictSetIDs(aliases ...string) (conflictSetIDs utxo.O
 	}
 
 	return
+}
+
+func (t *TestFramework) ConflictDAG() (booker *ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
+	if t.conflictDAG == nil {
+		t.conflictDAG = New[utxo.TransactionID, utxo.OutputID]()
+	}
+
+	return t.conflictDAG
+}
+
+func WithConflictDAG(conflictDAG *ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		if tf.conflictDAG != nil {
+			panic("conflict DAG already set")
+		}
+		tf.conflictDAG = conflictDAG
+	}
 }

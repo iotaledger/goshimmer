@@ -3,7 +3,6 @@ package tangle
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
@@ -12,8 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,9 +20,6 @@ type Tangle struct {
 	// Events contains the Events of Tangle.
 	Events *Events
 
-	// dbManager contains the database manager instance used to store a Block on disk.
-	dbManager *database.Manager
-
 	// memStorage contains the in-memory storage of the Tangle.
 	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
 
@@ -33,14 +27,13 @@ type Tangle struct {
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
 
 	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
-	evictionManager *eviction.LockableManager
+	evictionManager *eviction.LockableManager[models.BlockID]
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
-func New(dbManager *database.Manager, evictionManager *eviction.Manager, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	newTangle = options.Apply(&Tangle{
 		Events:          newEvents(),
-		dbManager:       dbManager,
 		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
 		evictionManager: evictionManager.Lockable(),
 	}, opts)
@@ -128,8 +121,6 @@ func (t *Tangle) attach(data *models.Block) (block *Block, wasAttached bool, err
 		t.Events.MissingBlockAttached.Trigger(block)
 	}
 
-	t.storeData(data)
-
 	block.ForEachParent(func(parent models.Parent) {
 		t.registerChild(block, parent)
 	})
@@ -165,13 +156,6 @@ func (t *Tangle) canAttachToParents(storedBlock *Block, data *models.Block) (blo
 	}
 
 	return storedBlock, true, nil
-}
-
-// storeData stores the given Block on disk.
-func (t *Tangle) storeData(block *models.Block) {
-	if err := t.dbManager.Get(block.ID().EpochIndex, []byte{tangleold.PrefixBlock}).Set(block.IDBytes(), lo.PanicOnErr(block.Bytes())); err != nil {
-		panic(errors.Errorf("failed to store block with %s on disk: %w", block.ID(), err))
-	}
 }
 
 // registerChild registers the given Block as a child of the parent. It triggers a BlockMissing event if the referenced

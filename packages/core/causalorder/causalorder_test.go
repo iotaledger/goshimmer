@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 // This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
@@ -15,23 +17,28 @@ func TestTangle_Queue(t *testing.T) {
 	tf.CreateEntity("D", 3, WithParents(tf.EntityIDs("C", "B")))
 	tf.CreateEntity("E", 4, WithParents(tf.EntityIDs("C", "D")))
 
-	lastOrderedID := NewID(-1)
+	lastOrderedID := NewID(0)
 
-	causalOrder := New[MockEntityID, *MockOrderedEntity](func(id MockEntityID) (entity *MockOrderedEntity, exists bool) {
-		entity, exists = tf.Get(id.alias)
-		return
-	}, func(entity *MockOrderedEntity) (isOrdered bool) {
-		return entity.ordered
-	}, func(entity *MockOrderedEntity) (err error) {
-		entity.ordered = true
+	causalOrder := New[MockEntityID, *MockOrderedEntity](
+		eviction.NewManager[MockEntityID](func(id MockEntityID) (isRootBlock bool) {
+			return id == NewID(0)
+		}),
+		func(id MockEntityID) (entity *MockOrderedEntity, exists bool) {
+			entity, exists = tf.Get(id.alias)
+			return
+		}, func(entity *MockOrderedEntity) (isOrdered bool) {
+			return entity.ordered
+		}, func(entity *MockOrderedEntity) (err error) {
+			entity.ordered = true
 
-		assert.Greater(t, entity.ID().id, lastOrderedID.id)
-		lastOrderedID = entity.ID()
+			assert.Greater(t, entity.ID().id, lastOrderedID.id)
+			lastOrderedID = entity.ID()
 
-		return nil
-	}, func(entity *MockOrderedEntity, reason error) {
-		assert.Fail(t, "Entity should not be dropped")
-	})
+			return nil
+		}, func(entity *MockOrderedEntity, reason error) {
+			assert.Fail(t, "Entity should not be dropped")
+		},
+	)
 
 	causalOrder.Queue(tf.Entity("A"))
 	causalOrder.Queue(tf.Entity("D"))

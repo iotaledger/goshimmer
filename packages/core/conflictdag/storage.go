@@ -29,7 +29,7 @@ type Storage[ConflictID comparable, ConflictSetID comparable] struct {
 }
 
 // newStorage returns a new Storage instance configured with the given options.
-func newStorage[ConflictID comparable, ConflictSetID comparable](options *options) (storage *Storage[ConflictID, ConflictSetID]) {
+func newStorage[ConflictID comparable, ConflictSetID comparable](options *optionsConflictDAG) (storage *Storage[ConflictID, ConflictSetID]) {
 	storage = &Storage[ConflictID, ConflictSetID]{
 		conflictStorage: objectstorage.NewStructStorage[Conflict[ConflictID, ConflictSetID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixConflictStorage),
