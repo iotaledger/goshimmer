@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ var nodesToPledge = []string{
 
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	activityLog         = epoch.NewSnapshotEpochActivity()
 	epochDiffs          = make([]*ledger.EpochDiff, 0)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints    = make([]*SolidEntryPoints, 0)
@@ -39,11 +41,12 @@ var (
 func Test_CreateAndReadSnapshot(t *testing.T) {
 	header := createSnapshot(t)
 
-	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
+	rheader, rseps, rstates, repochDiffs, ractivity := readSnapshot(t)
 	compareSnapshotHeader(t, header, rheader)
 	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
 	compareEpochDiffs(t, epochDiffs, repochDiffs)
 	compareSolidEntryPoints(t, solidEntryPoints, rseps)
+	compareActivityLogs(t, activityLog, ractivity)
 
 	err := os.Remove(snapshotFileName)
 	require.NoError(t, err)
@@ -58,10 +61,11 @@ func Test_CreateAndReadEmptySnapshot(t *testing.T) {
 
 	header := createEmptySnapshot(t)
 
-	rheader, rseps, rstates, repochDiffs := readSnapshot(t)
+	rheader, rseps, rstates, repochDiffs, ractivity := readSnapshot(t)
 	compareSnapshotHeader(t, header, rheader)
 	compareOutputWithMetadataSlice(t, outputsWithMetadata, rstates)
 	compareEpochDiffs(t, epochDiffs, repochDiffs)
+	compareActivityLogs(t, activityLog, ractivity)
 	compareSolidEntryPoints(t, solidEntryPoints, rseps)
 
 	err := os.Remove(snapshotFileName)
@@ -102,8 +106,11 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	sepsProd := func() (s *SolidEntryPoints) {
 		return seps
 	}
+	activityLogProd := func() (n epoch.SnapshotEpochActivity) {
+		return activityLog
+	}
 
-	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
+	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd, activityLogProd)
 	require.NoError(t, err)
 
 	return header
@@ -128,7 +135,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	}
 
 	// prepare outputsWithMetadata
-	createsOutputsWithMetadatas(t, 110)
+	createsOutputsWithMetadatas(110)
 	i := 0
 	utxoStatesProd := func() *ledger.OutputWithMetadata {
 		if i == len(outputsWithMetadata) {
@@ -164,13 +171,30 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return s
 	}
 
-	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd)
+	activityLogProd := func() epoch.SnapshotEpochActivity {
+		for ei := fullEpochIndex - 1; ei <= diffEpochIndex; ei++ {
+			activityLog[epoch.Index(ei)] = epoch.NewSnapshotNodeActivity()
+
+			for _, str := range nodesToPledge {
+				nodeID, decodeErr := identity.DecodeIDBase58(str)
+				require.NoError(t, decodeErr)
+
+				for r := 0; r < rand.Intn(10); r++ {
+					activityLog[epoch.Index(ei)].SetNodeActivity(nodeID, 1)
+				}
+			}
+		}
+		return activityLog
+	}
+
+	header, err := CreateSnapshot(snapshotFileName, headerProd, sepsProd, utxoStatesProd, epochDiffsProd, activityLogProd)
+
 	require.NoError(t, err)
 
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
@@ -180,11 +204,14 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
 	}
+	activityLogConsumer := func(ea epoch.SnapshotEpochActivity) {
+		activity = ea
+	}
 	sepsConsumer := func(s *SolidEntryPoints) {
 		seps = append(seps, s)
 	}
 
-	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer)
+	err := LoadSnapshot(snapshotFileName, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer, activityLogConsumer)
 	require.NoError(t, err)
 	return
 }
@@ -230,7 +257,7 @@ func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[id
 
 var outputCounter uint16 = 1
 
-func createsOutputsWithMetadatas(t *testing.T, total int) {
+func createsOutputsWithMetadatas(total int) {
 	now := time.Now()
 	for i := 0; i < total; {
 		for nodeID, value := range manaDistribution {
@@ -303,5 +330,23 @@ func compareEpochDiffs(t *testing.T, created, unmarshal []*ledger.EpochDiff) {
 
 		compareOutputWithMetadataSlice(t, diffs.Spent(), uDiffs.Spent())
 		compareOutputWithMetadataSlice(t, diffs.Created(), uDiffs.Created())
+	}
+}
+
+func compareActivityLogs(t *testing.T, created, unmarshal epoch.SnapshotEpochActivity) {
+	assert.Equal(t, len(created), len(unmarshal))
+	for ei, al := range created {
+		uLog, ok := unmarshal[ei]
+		require.True(t, ok)
+		compareActivityLog(t, al, uLog)
+	}
+}
+
+func compareActivityLog(t *testing.T, created, unmarshal *epoch.SnapshotNodeActivity) {
+	require.Equal(t, len(created.NodesLog()), len(unmarshal.NodesLog()))
+	for nodeID, acceptedCount := range created.NodesLog() {
+		same := unmarshal.NodeActivity(nodeID) == acceptedCount
+		require.True(t, same)
+
 	}
 }

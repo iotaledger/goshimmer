@@ -886,7 +886,7 @@ func (p *replenishmentState) SetRemainderOutput(output *FaucetOutput) {
 	p.remainderOutput = output
 }
 
-// nextSupplyOutput returns the first supply address in the list.
+// NextSupplyOutput returns the first supply address in the list.
 func (p *replenishmentState) NextSupplyOutput() (supplyOutput *FaucetOutput, err error) {
 	p.Lock()
 	defer p.Unlock()
@@ -936,7 +936,7 @@ func (p *replenishmentState) GetLastFundingOutputAddressIndex() uint64 {
 	return p.lastFundingOutputAddressIndex
 }
 
-// GetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
+// SetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
 func (p *replenishmentState) SetLastFundingOutputAddressIndex(index uint64) {
 	p.Lock()
 	defer p.Unlock()

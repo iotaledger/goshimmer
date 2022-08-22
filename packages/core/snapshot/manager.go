@@ -9,12 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
-)
-
-const (
-	prefixSolidEntryPoint byte = iota
 )
 
 // Manager is the snapshot manager.
@@ -27,7 +22,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new snapshot manager.
-func NewManager(store kvstore.KVStore, nmgr *notarization.Manager, depth int) (new *Manager) {
+func NewManager(nmgr *notarization.Manager, depth int) (new *Manager) {
 	new = &Manager{
 		notarizationMgr: nmgr,
 		seps:            shrinkingmap.New[epoch.Index, map[tangleold.BlockID]types.Empty](),
@@ -58,8 +53,9 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	sepsProd := NewSolidEntryPointsProducer(fullEpochIndex, ecRecord.EI(), m)
 	outputWithMetadataProd := NewLedgerUTXOStatesProducer(m.notarizationMgr)
 	epochDiffsProd := NewEpochDiffsProducer(fullEpochIndex, ecRecord.EI(), m.notarizationMgr)
+	activityProducer := NewActivityLogProducer(m.notarizationMgr)
 
-	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd)
+	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd, activityProducer)
 
 	return
 }

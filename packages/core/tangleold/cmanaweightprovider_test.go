@@ -19,22 +19,21 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		"node3": identity.GenerateIdentity().ID(),
 	}
 
-	activeNodes := make(map[identity.ID]*ActivityLog)
+	activeNodes := make(epoch.NodesActivityLog)
+
 	for _, nodeID := range nodes {
-		a := NewActivityLog()
-
 		for i := 0; i < crypto.Randomness.Intn(100); i++ {
-			a.Add(time.Now().Add(time.Duration(i)*time.Minute + time.Hour))
+			activeNodes[epoch.Index(i)] = epoch.NewActivityLog()
+			activeNodes[epoch.Index(i)].Add(nodeID)
 		}
-
-		activeNodes[nodeID] = a
 	}
-	activeNodesBytes := activeNodesToBytes(activeNodes)
-	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)
+	activeNodesBytes := activeNodes.Bytes()
+	activeNodes2 := make(epoch.NodesActivityLog)
+	err := activeNodes2.FromBytes(activeNodesBytes)
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.setTimes.Size(), activeNodes2[nodeID].setTimes.Size())
+		assert.EqualValues(t, a.SetEpochs.Size(), activeNodes2[nodeID].SetEpochs.Size())
 	}
 }
 
@@ -53,31 +52,37 @@ func TestCManaWeightProvider(t *testing.T) {
 		}
 	}
 
-	tangleTime := time.Unix(epoch.GenesisTime, 0)
-	timeRetrieverFunc := func() time.Time { return tangleTime }
-
+	startEpoch := epoch.IndexFromTime(time.Now())
+	epochManager := &struct {
+		ei epoch.Index
+	}{
+		ei: startEpoch,
+	}
+	epochRetrieverFunc := func() epoch.Index { return epochManager.ei }
+	timeRetrieverFunc := func() time.Time { return epochRetrieverFunc().StartTime() }
 	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc)
 
-	// Add node1 as active in the genesis.
+	// Add node1 as active in the genesis epoch.
 	{
-		weightProvider.Update(tangleTime, nodes["1"])
+		weightProvider.Update(epochRetrieverFunc(), nodes["1"])
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 		})
 	}
 
-	// Add node2 and node3 activity at tangleTime+20 -> only node1 is active.
+	// Add node2 and node3 activity at epoch == 2 -> only node1 is active.
 	{
-		weightProvider.Update(tangleTime.Add(3*time.Minute), nodes["2"])
-		weightProvider.Update(tangleTime.Add(3*time.Minute), nodes["3"])
+		weightProvider.Update(epochRetrieverFunc()+1, nodes["2"])
+		weightProvider.Update(epochRetrieverFunc()+1, nodes["3"])
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 		})
 	}
 
-	// Advance TangleTime by 4min -> all nodes are active.
+	// Advance LatestCommittableEpoch by one epoch -> all nodes are active.
 	{
-		tangleTime = tangleTime.Add(4 * time.Minute)
+
+		epochManager.ei = epochRetrieverFunc() + 1
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 			"2": 50,
@@ -85,18 +90,18 @@ func TestCManaWeightProvider(t *testing.T) {
 		})
 	}
 
-	// Advance TangleTime by 10min -> node1 and node2 are active.
+	// Advance LatestCommittableEpoch by two epochs -> node1 and node2 are active.
 	{
-		tangleTime = tangleTime.Add(2 * time.Minute)
+		epochManager.ei = epochRetrieverFunc() + activeEpochThreshold
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"2": 50,
 			"3": 30,
 		})
 	}
 
-	// Advance tangleTime by 25min -> no node is active anymore.
+	// Advance LatestCommittableEpoch by three epochs -> no node is active anymore.
 	{
-		tangleTime = tangleTime.Add(4 * time.Minute)
+		epochManager.ei = epochRetrieverFunc() + 2
 		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{})
 	}
 }

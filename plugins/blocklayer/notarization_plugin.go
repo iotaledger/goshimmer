@@ -52,13 +52,17 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
+
 	if Parameters.Snapshot.File != "" {
 		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyActivityConsumer := func(activityLogs epoch.SnapshotEpochActivity) {}
+
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			notarizationDeps.Manager.LoadECandEIs,
 			emptySepsConsumer,
 			notarizationDeps.Manager.LoadOutputsWithMetadata,
-			notarizationDeps.Manager.LoadEpochDiff)
+			notarizationDeps.Manager.LoadEpochDiff,
+			emptyActivityConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}
@@ -80,7 +84,7 @@ func newNotarizationManager(deps notarizationManagerDependencies) *notarization.
 	return notarization.NewManager(
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		deps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))

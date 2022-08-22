@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"github.com/iotaledger/hive.go/core/identity"
 	"sync"
 	"time"
 
@@ -65,8 +66,14 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
 			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
 			Bootstrapped:              event.New[*BootstrappedEvent](),
+			ActivityTreeInserted:      event.New[*ActivityTreeUpdatedEvent](),
+			ActivityTreeRemoved:       event.New[*ActivityTreeUpdatedEvent](),
 		},
 	}
+
+	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
+		new.OnBlockStored(event.Block)
+	}))
 
 	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.BlockAcceptedEvent) {
 		new.OnBlockAccepted(event.Block)
@@ -147,7 +154,7 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
+		err := insertLeaf(m.epochCommitmentFactory.stateRootTree, outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes())
 		if err != nil {
 			m.log.Error(err)
 		}
@@ -209,6 +216,21 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
+}
+
+// LoadActivityLogs loads activity logs from the snapshot and updates the activity tree.
+func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	for ei, nodeActivity := range epochActivity {
+		for nodeID, acceptedCount := range nodeActivity.NodesLog() {
+			err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID, acceptedCount)
+			if err != nil {
+				m.log.Error(err)
+			}
+		}
+	}
 }
 
 // SnapshotEpochDiffs returns the EpochDiffs when a snapshot is created.
@@ -280,6 +302,22 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
+// OnBlockStored is a handler fo Block stored event that updates the activity log.
+func (m *Manager) OnBlockStored(block *tangleold.Block) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	ei := epoch.IndexFromTime(block.IssuingTime())
+
+	nodeID := identity.NewID(block.IssuerPublicKey())
+	err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID)
+	if err != nil && m.log != nil {
+		m.log.Error(err)
+		return
+	}
+	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+}
+
 // OnBlockOrphaned is the handler for block orphaned event.
 func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -296,7 +334,26 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 	}
 
 	m.Events.TangleTreeRemoved.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
+
 	transaction, isTransaction := block.Payload().(utxo.Transaction)
+	nodeID := identity.NewID(block.IssuerPublicKey())
+
+	updatedCount := uint64(1)
+	// if block has been accepted, counter was increased two times, on booking and on acceptance
+	if m.tangle.ConfirmationOracle.IsBlockConfirmed(block.ID()) {
+		updatedCount++
+	}
+
+	noActivityLeft := m.tangle.WeightProvider.Remove(ei, nodeID, updatedCount)
+	if noActivityLeft {
+		err = m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
+		if err != nil && m.log != nil {
+			m.log.Error(err)
+			return
+		}
+		m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+	}
+
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
@@ -435,6 +492,7 @@ func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittabl
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
 		return nil, nil
 	}
+	// moved to the next epoch
 	if ei > currentEpochIndex {
 		err = m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
 		if err != nil {
@@ -652,6 +710,12 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 	}
 }
 
+// SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
+func (m *Manager) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity, err error) {
+	epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity()
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -703,6 +767,7 @@ func Log(log *logger.Logger) ManagerOption {
 type Events struct {
 	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
 	EpochCommittable *event.Event[*EpochCommittableEvent]
+	// ManaVectorUpdate is an event that gets triggered when we move to the next epoch and mana vector should be updated.
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
@@ -718,6 +783,10 @@ type Events struct {
 	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
 	// Bootstrapped is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
 	Bootstrapped *event.Event[*BootstrappedEvent]
+	// ActivityTreeInserted is an event that gets triggered when nodeID is added to the activity tree.
+	ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
+	// ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
+	ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -766,6 +835,14 @@ type ManaVectorUpdateEvent struct {
 	EI               epoch.Index
 	EpochDiffCreated []*ledger.OutputWithMetadata
 	EpochDiffSpent   []*ledger.OutputWithMetadata
+}
+
+// ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
+type ActivityTreeUpdatedEvent struct {
+	// EI is the index of the epoch.
+	EI epoch.Index
+	// NodeID is the issuer nodeID.
+	NodeID identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
