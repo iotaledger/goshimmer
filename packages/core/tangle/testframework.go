@@ -28,6 +28,7 @@ type TestFramework struct {
 	missingBlocks  int32
 	invalidBlocks  int32
 	attachedBlocks int32
+	orphanedBlocks int32
 
 	optsTangle []options.Option[Tangle]
 
@@ -100,6 +101,20 @@ func (t *TestFramework) Setup() {
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	}))
+
+	t.Tangle().Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.T.Logf("ORPHANED: %s", metadata.ID())
+		}
+		atomic.AddInt32(&(t.orphanedBlocks), 1)
+	}))
+
+	t.Tangle().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.T.Logf("UNORPHANED: %s", metadata.ID())
+		}
+		atomic.AddInt32(&(t.orphanedBlocks), -1)
+	}))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
@@ -160,6 +175,10 @@ func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...int
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
 	assert.EqualValues(t.T, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertOrphanedCount(orphanedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.T, orphanedCount, atomic.LoadInt32(&(t.orphanedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {

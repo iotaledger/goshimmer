@@ -152,17 +152,31 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 }
 
 // setMarkedOrphaned marks a block as orphaned.
-func (b *Block) setMarkedOrphaned(orphaned bool) (wasUpdated bool) {
+func (b *Block) setMarkedOrphaned() (wasUpdated bool, becameOrphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if b.markedOrphaned == orphaned {
-		return false
+	if b.markedOrphaned {
+		return false, false
 	}
 
-	b.markedOrphaned = orphaned
+	b.markedOrphaned = true
 
-	return true
+	return true, b.orphanedParentsInPastCone.Empty()
+}
+
+// setMarkedOrphaned marks a block as orphaned.
+func (b *Block) setMarkedUnorphaned() (wasUpdated bool, becameUnorphaned bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if !b.markedOrphaned {
+		return false, false
+	}
+
+	b.markedOrphaned = false
+
+	return true, b.orphanedParentsInPastCone.Empty()
 }
 
 // addOrphanedParents adds the given BlockID to the list of orphaned parents in the past cone.

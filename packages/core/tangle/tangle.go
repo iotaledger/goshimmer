@@ -84,11 +84,14 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
 func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
-	if !block.setMarkedOrphaned(true) {
+	wasUpdated, becameOrphaned := block.setMarkedOrphaned()
+	if !wasUpdated {
 		return false
 	}
 
-	t.Events.BlockOrphaned.Trigger(block)
+	if becameOrphaned {
+		t.Events.BlockOrphaned.Trigger(block)
+	}
 
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
 		currentChild := childWalker.Next()
@@ -111,11 +114,14 @@ func (t *Tangle) SetUnorphaned(block *Block) (wasUpdated bool) {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
-	if !block.setMarkedOrphaned(false) {
-		return false
+	wasUpdated, becameUnorphaned := block.setMarkedUnorphaned()
+	if !wasUpdated {
+		return
 	}
 
-	t.Events.BlockUnorphaned.Trigger(block)
+	if becameUnorphaned {
+		t.Events.BlockUnorphaned.Trigger(block)
+	}
 
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
 		currentChild := childWalker.Next()

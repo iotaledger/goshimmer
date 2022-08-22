@@ -34,5 +34,7 @@ func newEvents() *Events {
 		BlockMissing:         event.New[*Block](),
 		MissingBlockAttached: event.New[*Block](),
 		BlockInvalid:         event.New[*Block](),
+		BlockOrphaned:        event.New[*Block](),
+		BlockUnorphaned:      event.New[*Block](),
 	}
 }
