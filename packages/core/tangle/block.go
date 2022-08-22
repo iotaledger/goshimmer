@@ -107,8 +107,8 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	return b.likedInsteadChildren
 }
 
-// orphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
-func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
+// OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
+func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -241,9 +241,9 @@ func WithOrphaned(markedOrphaned bool) options.Option[Block] {
 
 // WithOrphanedBlocksInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
 // orphaned parents in its past cone.
-func WithOrphanedBlocksInPastCone(orphanedParentsInPastCone models.BlockIDs) options.Option[Block] {
+func WithOrphanedBlocksInPastCone(orphanedBlocksInPastCone models.BlockIDs) options.Option[Block] {
 	return func(block *Block) {
-		block.orphanedBlocksInPastCone = orphanedParentsInPastCone
+		block.orphanedBlocksInPastCone = orphanedBlocksInPastCone
 	}
 }
 

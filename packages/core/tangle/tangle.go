@@ -102,7 +102,7 @@ func (t *Tangle) SetOrphaned(block *Block) (becameOrphaned bool) {
 
 // SetUnorphaned marks a Block as unorphaned and propagates it to its future cone.
 func (t *Tangle) SetUnorphaned(block *Block) (becameUnorphaned bool) {
-	if len(block.orphanedParentsInPastCone()) != 0 {
+	if len(block.OrphanedBlocksInPastCone()) != 0 {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
@@ -215,7 +215,7 @@ func (t *Tangle) registerChild(child *Block, parent models.Parent) {
 
 	parentBlock.appendChild(child, parent.Type)
 
-	if _, becameOrphaned := child.addOrphanedBlocksInPastCone(parentBlock.orphanedParentsInPastCone()); becameOrphaned {
+	if _, becameOrphaned := child.addOrphanedBlocksInPastCone(parentBlock.OrphanedBlocksInPastCone()); becameOrphaned {
 		t.Events.BlockOrphaned.Trigger(child)
 	}
 }
