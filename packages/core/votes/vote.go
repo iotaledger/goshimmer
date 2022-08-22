@@ -46,6 +46,16 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithConflictID(conflictID Conflict
 	}
 }
 
+// WithVotePower derives a vote for the given VotePower.
+func (v *Vote[ConflictIDType, VotePowerType]) WithVotePower(power VotePowerType) (voteWithOpinion *Vote[ConflictIDType, VotePowerType]) {
+	return &Vote[ConflictIDType, VotePowerType]{
+		Voter:      v.Voter,
+		ConflictID: v.ConflictID,
+		Opinion:    v.Opinion,
+		VotePower:  power,
+	}
+}
+
 // region Votes ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Votes[ConflictIDType comparable, VotePowerType VotePower[VotePowerType]] struct {

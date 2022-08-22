@@ -56,8 +56,10 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 		conflictVote := defaultVote.WithConflictID(conflict)
 
 		// Only handle Like opinion because dislike should always be created and exist before.
-		if created && conflictVote.Opinion == Like && c.revokeConflictInstead(conflict, defaultVote) {
-			conflictVote = conflictVote.WithOpinion(Dislike)
+		if created && conflictVote.Opinion == Like {
+			if votePower, dislikeInstead := c.revokeConflictInstead(conflict, defaultVote); dislikeInstead {
+				conflictVote = conflictVote.WithOpinion(Dislike).WithVotePower(votePower)
+			}
 		}
 
 		if added, opinionChanged := votes.Add(conflictVote); added && opinionChanged {
@@ -121,25 +123,28 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 	return vote.Opinion == Like
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *Vote[ConflictIDType, VotePowerType]) (revokeInstead bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *Vote[ConflictIDType, VotePowerType]) (votePower VotePowerType, revokeInstead bool) {
 	c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
 		votes, conflictVotesExist := c.votes.Get(conflictingConflictID)
 		if !conflictVotesExist {
 			revokeInstead = false
 			return false
 		}
+
 		existingVote, voteExists := votes.Vote(vote.Voter)
 		if !voteExists {
 			revokeInstead = false
 			return false
 		}
+
 		if existingVote.VotePower.CompareTo(vote.VotePower) >= 0 {
 			revokeInstead = true
+			votePower = existingVote.VotePower
 			return false
 		}
 
 		return true
 	})
 
-	return revokeInstead
+	return votePower, revokeInstead
 }
