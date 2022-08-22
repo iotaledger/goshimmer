@@ -119,19 +119,20 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeInstead(initialVote *set.AdvancedSet[ConflictIDType], voter *validator.Validator, power VotePowerType) (revokeInstead bool) {
-
-	for it := initialVote.Iterator(); it.HasNext() && !revokeInstead; {
+	missingVotes := false
+	for it := initialVote.Iterator(); it.HasNext() && !revokeInstead && !missingVotes; {
 		conflictID := it.Next()
 		c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
+			fmt.Println(conflictingConflictID)
 			votes, conflictVotesExist := c.votes.Get(conflictingConflictID)
 			if !conflictVotesExist {
-				// TODO: can return from here?
-				return true
+				missingVotes = true
+				return false
 			}
 			vote, voteExists := votes.Vote(voter)
 			if !voteExists {
-				// TODO: can return from here?
-				return true
+				missingVotes = true
+				return false
 			}
 			if vote.VotePower.CompareTo(power) >= 0 {
 				revokeInstead = true
