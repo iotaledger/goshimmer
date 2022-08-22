@@ -151,7 +151,7 @@ func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpda
 	}
 	b.orphaned = orphaned
 
-	return true, len(b.orphanedBlocksInPastCone) == 0
+	return true, b.orphanedBlocksInPastCone.Empty()
 }
 
 // addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
