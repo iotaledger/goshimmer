@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -24,11 +25,13 @@ type TestFramework struct {
 	evictionManager *eviction.Manager[models.BlockID]
 	tangle          *Tangle
 
-	solidBlocks    int32
-	missingBlocks  int32
-	invalidBlocks  int32
-	attachedBlocks int32
-	orphanedBlocks int32
+	solidBlocks         int32
+	missingBlocks       int32
+	invalidBlocks       int32
+	attachedBlocks      int32
+	orphanedBlocksCount int32
+	orphanedBlocks      models.BlockIDs
+	orphanedBlocksMutex sync.Mutex
 
 	optsTangle []options.Option[Tangle]
 
@@ -38,8 +41,9 @@ type TestFramework struct {
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	t = options.Apply(&TestFramework{
-		T:             testingT,
-		TestFramework: models.NewTestFramework(models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID))),
+		T:              testingT,
+		TestFramework:  models.NewTestFramework(models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID))),
+		orphanedBlocks: models.NewBlockIDs(),
 	}, opts)
 	t.Setup()
 
@@ -106,14 +110,20 @@ func (t *TestFramework) Setup() {
 		if debug.GetEnabled() {
 			t.T.Logf("ORPHANED: %s", metadata.ID())
 		}
-		atomic.AddInt32(&(t.orphanedBlocks), 1)
+
+		t.orphanedBlocksMutex.Lock()
+		t.orphanedBlocks.Add(metadata.ID())
+		t.orphanedBlocksMutex.Unlock()
 	}))
 
 	t.Tangle().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("UNORPHANED: %s", metadata.ID())
 		}
-		atomic.AddInt32(&(t.orphanedBlocks), -1)
+
+		t.orphanedBlocksMutex.Lock()
+		t.orphanedBlocks.Remove(metadata.ID())
+		t.orphanedBlocksMutex.Unlock()
 	}))
 }
 
@@ -161,6 +171,13 @@ func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	}
 }
 
+func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msgAndArgs ...interface{}) {
+	t.orphanedBlocksMutex.Lock()
+	t.orphanedBlocksMutex.Unlock()
+
+	assert.EqualValues(t.T, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
+}
+
 func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
 	assert.EqualValues(t.T, solidCount, atomic.LoadInt32(&(t.solidBlocks)), msgAndArgs...)
 }
@@ -175,10 +192,6 @@ func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...int
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
 	assert.EqualValues(t.T, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
-}
-
-func (t *TestFramework) AssertOrphanedCount(orphanedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.T, orphanedCount, atomic.LoadInt32(&(t.orphanedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
