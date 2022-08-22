@@ -89,7 +89,7 @@ func newFaucet() *Faucet {
 		Plugin.LogFatalfAndExit("the total supply should be more than 0")
 	}
 
-	return NewFaucet(walletseed.NewSeed(seedBytes))
+	return NewFaucet(walletseed.NewSeed(seedBytes), Parameters.FaucetWalletFile)
 }
 
 func configure(plugin *node.Plugin) {
@@ -119,13 +119,14 @@ func run(plugin *node.Plugin) {
 		}
 		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
-		_faucet.DeriveStateFromTangle()
 		initDone.Store(true)
 
 		go _faucet.Start(ctx, requestChan)
 
 		<-ctx.Done()
 		close(requestChan)
+		writeWalletStateFile(_faucet.Wallet, Parameters.FaucetWalletFile)
+
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
