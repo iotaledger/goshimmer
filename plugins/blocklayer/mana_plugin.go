@@ -335,6 +335,15 @@ func GetCMana() map[identity.ID]float64 {
 	return m
 }
 
+// GetConfirmedEI is a wrapper for the weightProvider to get confirmed epoch index.
+func GetConfirmedEI() epoch.Index {
+	ei, err := deps.NotarizationMgr.LatestConfirmedEpochIndex()
+	if err != nil {
+		panic(err)
+	}
+	return ei
+}
+
 // GetTotalMana returns sum of mana of all nodes in the network.
 func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	if !QueryAllowed() {

@@ -711,8 +711,8 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 }
 
 // SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
-func (m *Manager) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity, err error) {
-	epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity()
+func (m *Manager) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity, err error) {
+	epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
 	return
 }
 

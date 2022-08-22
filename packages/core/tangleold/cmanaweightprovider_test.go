@@ -60,7 +60,8 @@ func TestCManaWeightProvider(t *testing.T) {
 	}
 	epochRetrieverFunc := func() epoch.Index { return epochManager.ei }
 	timeRetrieverFunc := func() time.Time { return epochRetrieverFunc().StartTime() }
-	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc, confirmedRetrieverFunc)
 
 	// Add node1 as active in the genesis epoch.
 	{
