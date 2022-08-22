@@ -2,6 +2,7 @@ package blocklayer
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -57,12 +58,14 @@ func configureSnapshotPlugin(plugin *node.Plugin) {
 		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
 		emptyOutputsConsumer := func([]*ledger.OutputWithMetadata) {}
 		emptyEpochDiffsConsumer := func(*ledger.EpochDiff) {}
+		emptyActivityLogConsumer := func(activity epoch.SnapshotEpochActivity) {}
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
 			emptyHeaderConsumer,
 			snapshotDeps.Manager.LoadSolidEntryPoints,
 			emptyOutputsConsumer,
-			emptyEpochDiffsConsumer)
+			emptyEpochDiffsConsumer,
+			emptyActivityLogConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}
@@ -96,5 +99,5 @@ func runSnapshotPlugin(*node.Plugin) {
 }
 
 func newSnapshotManager(deps snapshotDependencies) *snapshot.Manager {
-	return snapshot.NewManager(deps.Storage, deps.NotarizationMgr, NotarizationParameters.SnapshotDepth)
+	return snapshot.NewManager(deps.NotarizationMgr, NotarizationParameters.SnapshotDepth)
 }

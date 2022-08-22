@@ -60,6 +60,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 4. check whether all issued blocks are available on to the new peer
 	tests.RequireBlocksAvailable(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
 	tests.RequireBlocksEqual(t, []*framework.Node{newPeer}, ids, time.Minute, tests.Tick)
+
 	require.True(t, tests.Synced(t, newPeer))
 
 	// 5. shut down newly added peer

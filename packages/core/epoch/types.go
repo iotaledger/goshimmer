@@ -3,6 +3,10 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"strings"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
@@ -10,8 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 var (
@@ -66,11 +68,6 @@ func (i Index) StartTime() time.Time {
 func (i Index) EndTime() time.Time {
 	endUnix := GenesisTime + int64(i-1)*Duration + Duration - 1
 	return time.Unix(endUnix, 0)
-}
-
-// CurrentEpochIndex returns the EI at the current RATT time.
-func CurrentEpochIndex() Index {
-	return IndexFromTime(clock.SyncedTime())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -227,3 +224,122 @@ func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) E
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
+
+type NodesActivityLog map[Index]*ActivityLog
+
+func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, al, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse activeNodes: %w", err)
+		return
+	}
+	return
+}
+
+func (al *NodesActivityLog) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), *al, serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
+	return objBytes
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
+// functionality to query for certain timeframes.
+type ActivityLog struct {
+	SetEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
+}
+
+// NewActivityLog is the constructor for ActivityLog.
+func NewActivityLog() *ActivityLog {
+
+	a := &ActivityLog{
+		SetEpochs: set.NewAdvancedSet[identity.ID](),
+	}
+
+	return a
+}
+
+// Add adds a node to the activity log.
+func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
+	return a.SetEpochs.Add(nodeID)
+}
+
+// Remove removes a node from the activity log.
+func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
+	return a.SetEpochs.Delete(nodeID)
+}
+
+// Active returns true if the provided node was active.
+func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
+	if a.SetEpochs.Has(nodeID) {
+		return true
+	}
+
+	return
+}
+
+// String returns a human-readable version of ActivityLog.
+func (a *ActivityLog) String() string {
+	var builder strings.Builder
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
+	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
+		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
+		return
+	})
+	builder.WriteString(")")
+	return builder.String()
+}
+
+// Clone clones the ActivityLog.
+func (a *ActivityLog) Clone() *ActivityLog {
+	clone := NewActivityLog()
+	clone.SetEpochs = a.SetEpochs.Clone()
+	return clone
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SnapshotEpochActivity is the data structure to store node activity for the snapshot.
+type SnapshotEpochActivity map[Index]*SnapshotNodeActivity
+
+// NewSnapshotEpochActivity creates a new SnapshotEpochActivity instance.
+func NewSnapshotEpochActivity() SnapshotEpochActivity {
+	return make(SnapshotEpochActivity)
+}
+
+// SnapshotNodeActivity is structure to store nodes activity for an epoch.
+type SnapshotNodeActivity struct {
+	model.Mutable[SnapshotNodeActivity, *SnapshotNodeActivity, nodeActivityModel] `serix:"0"`
+}
+
+// NewSnapshotNodeActivity creates a new SnapshotNodeActivity instance.
+func NewSnapshotNodeActivity() *SnapshotNodeActivity {
+	return model.NewImmutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
+}
+
+// nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.
+type nodeActivityModel struct {
+	NodesLog map[identity.ID]uint64 `serix:"0,lengthPrefixType=uint32"`
+}
+
+// NodesLog returns its activity map of nodes.
+func (s *SnapshotNodeActivity) NodesLog() map[identity.ID]uint64 {
+	return s.M.NodesLog
+}
+
+// NodeActivity returns activity counter for a given node.
+func (s *SnapshotNodeActivity) NodeActivity(nodeID identity.ID) uint64 {
+	return s.M.NodesLog[nodeID]
+}
+
+// SetNodeActivity adds a node activity record to the activity log.
+func (s *SnapshotNodeActivity) SetNodeActivity(nodeID identity.ID, activity uint64) {
+	s.M.NodesLog[nodeID] = activity
+}

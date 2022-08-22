@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 )
 
@@ -79,7 +80,7 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range s.nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			weightProvider.Update(1, node.ID())
 		}
 		return map[identity.ID]float64{
 			s.nodes["A"].ID(): 30,
@@ -89,7 +90,10 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	testEpoch := epoch.IndexFromTime(time.Now())
+	epochRetrieverFunc := func() epoch.Index { return testEpoch }
+	timeProvider := func() time.Time { return epochRetrieverFunc().StartTime() }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
@@ -100,9 +104,14 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 
 	s.testEventMock = NewEventMock(t, s.Tangle.ApprovalWeightManager)
 	s.TestFramework = NewBlockTestFramework(s.Tangle, WithGenesisOutput("A", 500))
+
 	s.Steps = []TestStep{
 		// ISSUE Block1
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			// Make all nodes active
+			for node := range nodes {
+				weightProvider.Update(epochRetrieverFunc(), nodes[node].ID())
+			}
 			testFramework.CreateBlock("Block1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
@@ -437,7 +446,7 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range s.nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			weightProvider.Update(epoch.Index(1), node.ID())
 		}
 		return map[identity.ID]float64{
 			s.nodes["A"].ID(): 30,
@@ -447,7 +456,10 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 			s.nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	testEpoch := epoch.IndexFromTime(time.Now())
+	epochRetrieverFunc := func() epoch.Index { return testEpoch }
+	timeProvider := func() time.Time { return epochRetrieverFunc().StartTime() }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
@@ -460,6 +472,10 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 	s.Steps = []TestStep{
 		// ISSUE Block0
 		func(t *testing.T, testFramework *BlockTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			// Make all nodes active
+			for node := range nodes {
+				weightProvider.Update(epochRetrieverFunc(), nodes[node].ID())
+			}
 			testFramework.CreateBlock("Block0", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.30)

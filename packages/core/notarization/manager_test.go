@@ -77,7 +77,8 @@ func TestManager_GetLatestEC(t *testing.T) {
 	}
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
-		weightProvider.Update(time.Now(), nodes["A"].ID())
+		ei := epoch.IndexFromTime(time.Now())
+		weightProvider.Update(ei, nodes["A"].ID())
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 100,
 		}
@@ -141,7 +142,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -276,7 +278,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -444,7 +447,8 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -608,7 +612,8 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -777,7 +782,8 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -962,6 +968,102 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	eventHandlerMock.AssertExpectations(t)
 }
 
+func TestManager_ActivityTree(t *testing.T) {
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+	// Make Current Epoch be epoch 5
+	epochInterval := 1 * time.Second
+	genesisTime := time.Now().Add(-epochInterval * 5)
+
+	timeManager := struct{ time time.Time }{time: genesisTime}
+	timeRetrieverFunc := func() time.Time { return timeManager.time }
+
+	var weightProvider *tangleold.CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}
+	//for _, node := range nodes {
+	//	ei := epoch.IndexFromTime(time.Now())
+	//	weightProvider.Update(ei, node.ID())
+	//}
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc)
+	testFramework, _, _ := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+
+	// expected activity records
+	activeNodesTest := make(map[epoch.Index][]identity.ID)
+	activeNodesTest[epoch.Index(6)] = []identity.ID{nodes["A"].ID(), nodes["B"].ID()}
+	activeNodesTest[epoch.Index(7)] = []identity.ID{nodes["A"].ID(), nodes["B"].ID(), nodes["C"].ID()}
+	activeNodesTest[epoch.Index(10)] = []identity.ID{nodes["C"].ID()}
+
+	issuingTime := genesisTime.Add(epochInterval * 5)
+	timeManager.time = issuingTime
+	// Block1, issuing time epoch 1
+	{
+		fmt.Println("block 1 and block 2 in epoch 1")
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		ei := epoch.IndexFromTime(issuingTime)
+
+		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C1", 400), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Block2", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("C2", 400), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		weightProvider.Update(ei, nodes["A"].ID())
+		weightProvider.Update(ei, nodes["B"].ID())
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
+	issuingTime = issuingTime.Add(epochInterval)
+	timeManager.time = issuingTime
+
+	{
+		fmt.Println("block 3 in epoch 2")
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		ei := epoch.IndexFromTime(issuingTime)
+
+		testFramework.CreateBlock("Block3", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C1"), tangleold.WithInputs("C2"), tangleold.WithOutput("E1", 800), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+		weightProvider.Update(epoch.IndexFromTime(issuingTime), nodes["C"].ID())
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
+	issuingTime = issuingTime.Add(epochInterval * 16)
+	timeManager.time = issuingTime
+
+	{
+		ei := epoch.IndexFromTime(issuingTime)
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
+}
+
 func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Duration, minCommittable time.Duration, options ...tangleold.Option) (testFramework *tangleold.BlockTestFramework, eventMock *EventMock, m *Manager) {
 	epoch.Duration = int64(epochInterval.Seconds())
 
@@ -1098,6 +1200,7 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 
 	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
 	m.LoadECandEIs(snapshot.Header)
+	m.LoadActivityLogs(snapshot.EpochActiveNodes)
 }
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {

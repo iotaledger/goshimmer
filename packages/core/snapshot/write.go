@@ -22,7 +22,8 @@ func streamSnapshotDataTo(
 	headerProd HeaderProducerFunc,
 	sepsProd SolidEntryPointsProducerFunc,
 	outputProd UTXOStatesProducerFunc,
-	epochDiffsProd EpochDiffProducerFunc) (*ledger.SnapshotHeader, error) {
+	epochDiffsProd EpochDiffProducerFunc,
+	activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
 
 	writeFunc := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
@@ -35,13 +36,15 @@ func streamSnapshotDataTo(
 
 	err = writeSnapshotHeader(writeSeeker, header)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to write snapshot header to snapshot")
 	}
 
 	// write solid entry points
 	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
 		seps := sepsProd()
-		writeSolidEntryPoints(writeSeeker, seps)
+		if err := writeSolidEntryPoints(writeSeeker, seps); err != nil {
+			return nil, errors.Wrap(err, "failed to write solid entry points to snapshot")
+		}
 	}
 
 	// write outputWithMetadata
@@ -54,7 +57,7 @@ func streamSnapshotDataTo(
 			// write rests of outputWithMetadatas
 			err = writeOutputsWithMetadatas(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "failed to write outputs metadata to snapshot")
 			}
 			break
 		}
@@ -62,7 +65,7 @@ func streamSnapshotDataTo(
 		outputChunkCounter++
 		chunksOutputWithMetadata = append(chunksOutputWithMetadata, output)
 
-		// put a delimeter every chunkSize outputs
+		// put a delimiter every chunkSize outputs
 		if outputChunkCounter == chunkSize {
 			err = writeOutputsWithMetadatas(writeSeeker, chunksOutputWithMetadata)
 			if err != nil {
@@ -76,14 +79,22 @@ func streamSnapshotDataTo(
 	// write epochDiffs
 	for i := header.FullEpochIndex + 1; i <= header.DiffEpochIndex; i++ {
 		epochDiffs := epochDiffsProd()
-		writeEpochDiffs(writeSeeker, epochDiffs)
+		if epochErr := writeEpochDiffs(writeSeeker, epochDiffs); epochErr != nil {
+			return nil, errors.Wrap(epochErr, "failed to write epochDiffs to snapshot")
+		}
+	}
+
+	// write active nodes
+	activeNodes := activityLogProd()
+	if actErr := writeActivityLog(writeSeeker, activeNodes); actErr != nil {
+		return nil, errors.Wrap(actErr, "failed to write activity log to snapshot")
 	}
 
 	// seek back to the file position of the outputWithMetadata counter
 	if _, err := writeSeeker.Seek(0, io.SeekStart); err != nil {
 		return nil, errors.Errorf("unable to seek to LS counter placeholders: %w", err)
 	}
-	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
+	if err = writeFunc(fmt.Sprintf("outputWithMetadata counter %d", outputWithMetadataCounter), outputWithMetadataCounter); err != nil {
 		return nil, err
 	}
 	header.OutputWithMetadataCount = outputWithMetadataCounter
@@ -143,12 +154,12 @@ func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nm
 }
 
 func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error {
-	writeFunc := func(name string, value any) error {
+	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
 
 	spentLen := len(diffs.Spent())
-	if err := writeFunc("epochDiffs spent Len", int64(spentLen)); err != nil {
+	if err := writeFuncWrap("epochDiffs spent Len", int64(spentLen)); err != nil {
 		return err
 	}
 
@@ -160,12 +171,14 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 		} else {
 			end = i + chunkSize
 		}
-		writeOutputsWithMetadatas(writeSeeker, s[i:end])
+		if err := writeOutputsWithMetadatas(writeSeeker, s[i:end]); err != nil {
+			return errors.Wrap(err, "unable to write output with metadata to snapshot")
+		}
 		i = end
 	}
 
 	createdLen := len(diffs.Created())
-	if err := writeFunc("epochDiffs created Len", int64(createdLen)); err != nil {
+	if err := writeFuncWrap("epochDiffs created Len", int64(createdLen)); err != nil {
 		return err
 	}
 	c := diffs.Created()
@@ -175,26 +188,60 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 		} else {
 			end = i + chunkSize
 		}
-		writeOutputsWithMetadatas(writeSeeker, c[i:end])
+		if err := writeOutputsWithMetadatas(writeSeeker, c[i:end]); err != nil {
+			return errors.Wrap(err, "unable to write output with metadata to snapshot")
+		}
 		i = end
 	}
 
 	return nil
 }
 
+func writeActivityLog(writeSeeker io.WriteSeeker, activityLog epoch.SnapshotEpochActivity) error {
+	writeFuncWrap := func(name string, value any) error {
+		return writeFunc(writeSeeker, name, value)
+	}
+	// write activityLog length
+	activityLen := len(activityLog)
+	if err := writeFuncWrap("activity log len", int64(activityLen)); err != nil {
+		return err
+	}
+
+	for ei, al := range activityLog {
+		// write epoch index
+		if err := writeFuncWrap("epoch index", ei); err != nil {
+			return err
+		}
+		// write activity log
+		alBytes, err := al.Bytes()
+		if err != nil {
+			return err
+		}
+
+		if err := writeFuncWrap("activity log bytes len", int64(len(alBytes))); err != nil {
+			return err
+		}
+
+		if err := writeFuncWrap("activity log", alBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) error {
-	writeFunc := func(name string, value any) error {
+	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
 
 	// write EI
-	if err := writeFunc("solid entry points epoch", seps.EI); err != nil {
+	if err := writeFuncWrap("solid entry points epoch", seps.EI); err != nil {
 		return err
 	}
 
 	// write number of solid entry points
 	sepsLen := len(seps.Seps)
-	if err := writeFunc("solid entry points Len", int64(sepsLen)); err != nil {
+	if err := writeFuncWrap("solid entry points Len", int64(sepsLen)); err != nil {
 		return err
 	}
 
@@ -213,17 +260,27 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 			return err
 		}
 
-		if err := writeFunc("sepsBytesLen", int64(len(data))); err != nil {
+		if err := writeFuncWrap("sepsBytesLen", int64(len(data))); err != nil {
 			return err
 		}
-		if err := writeFunc("seps", data); err != nil {
+		if err := writeFuncWrap("seps", data); err != nil {
 			return err
 		}
 
 		i = end
 	}
-
 	return nil
+}
+
+// NewActivityLogProducer returns an ActivityLogProducerFunc that provides activity log from weightProvider and notarization manager.
+func NewActivityLogProducer(notarizationMgr *notarization.Manager) ActivityLogProducerFunc {
+	activityLog, err := notarizationMgr.SnapshotEpochActivity()
+	if err != nil {
+		panic(err)
+	}
+	return func() (activityLogs epoch.SnapshotEpochActivity) {
+		return activityLog
+	}
 }
 
 func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*ledger.OutputWithMetadata) error {
@@ -231,7 +288,7 @@ func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*ledg
 		return nil
 	}
 
-	writeFunc := func(name string, value any) error {
+	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
 
@@ -239,29 +296,29 @@ func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*ledg
 	if err != nil {
 		return err
 	}
-	if err := writeFunc("outputsBytesLen", int64(len(data))); err != nil {
+	if err := writeFuncWrap("outputsBytesLen", int64(len(data))); err != nil {
 		return err
 	}
-	if err := writeFunc("outputs", data); err != nil {
+	if err := writeFuncWrap("outputs", data); err != nil {
 		return err
 	}
 	return nil
 }
 
 func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHeader) error {
-	writeFunc := func(name string, value any) error {
+	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	if err := writeFunc(fmt.Sprintf("outputWithMetadata counter %d", header.OutputWithMetadataCount), header.OutputWithMetadataCount); err != nil {
+	if err := writeFuncWrap(fmt.Sprintf("outputWithMetadata counter %d", header.OutputWithMetadataCount), header.OutputWithMetadataCount); err != nil {
 		return err
 	}
 
-	if err := writeFunc(fmt.Sprintf("fullEpochIndex %d", header.FullEpochIndex), header.FullEpochIndex); err != nil {
+	if err := writeFuncWrap(fmt.Sprintf("fullEpochIndex %d", header.FullEpochIndex), header.FullEpochIndex); err != nil {
 		return err
 	}
 
-	if err := writeFunc(fmt.Sprintf("diffEpochIndex %d", header.DiffEpochIndex), header.DiffEpochIndex); err != nil {
+	if err := writeFuncWrap(fmt.Sprintf("diffEpochIndex %d", header.DiffEpochIndex), header.DiffEpochIndex); err != nil {
 		return err
 	}
 
@@ -270,12 +327,12 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 		return err
 	}
 
-	if err := writeFunc("latestECRecordBytesLen", int64(len(data))); err != nil {
-		return err
+	if latestLenErr := writeFuncWrap("latestECRecordBytesLen", int64(len(data))); latestLenErr != nil {
+		return latestLenErr
 	}
 
-	if err := writeFunc("latestECRecord", data); err != nil {
-		return err
+	if latestErr := writeFuncWrap("latestECRecord", data); err != nil {
+		return latestErr
 	}
 
 	return nil

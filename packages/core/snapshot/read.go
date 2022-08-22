@@ -7,11 +7,10 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/serix"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/hive.go/core/serix"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
@@ -20,28 +19,29 @@ func streamSnapshotDataFrom(
 	headerConsumer HeaderConsumerFunc,
 	sepsConsumer SolidEntryPointsConsumerFunc,
 	outputConsumer UTXOStatesConsumerFunc,
-	epochDiffsConsumer EpochDiffsConsumerFunc) error {
+	epochDiffsConsumer EpochDiffsConsumerFunc,
+	activityLogConsumer ActivityLogConsumerFunc) error {
 
 	header, err := readSnapshotHeader(reader)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to stream snapshot header from snapshot")
 	}
 	headerConsumer(header)
 
 	// read solid entry points
 	for i := header.FullEpochIndex; i <= header.DiffEpochIndex; i++ {
-		seps, err := readSolidEntryPoints(reader)
-		if err != nil {
-			return err
+		seps, solidErr := readSolidEntryPoints(reader)
+		if solidErr != nil {
+			return errors.Wrap(solidErr, "failed to stream solid entry points from snapshot")
 		}
 		sepsConsumer(seps)
 	}
 
 	// read outputWithMetadata
 	for i := 0; uint64(i) < header.OutputWithMetadataCount; {
-		outputs, err := readOutputsWithMetadatas(reader)
-		if err != nil {
-			return err
+		outputs, outErr := readOutputsWithMetadatas(reader)
+		if outErr != nil {
+			return errors.Wrap(outErr, "failed to stream output with metadata from snapshot")
 		}
 		i += len(outputs)
 		outputConsumer(outputs)
@@ -49,12 +49,18 @@ func streamSnapshotDataFrom(
 
 	// read epochDiffs
 	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiffs, err := readEpochDiffs(reader)
-		if err != nil {
-			return errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		epochDiffs, epochErr := readEpochDiffs(reader)
+		if epochErr != nil {
+			return errors.Wrapf(epochErr, "failed to parse epochDiffs from bytes")
 		}
 		epochDiffsConsumer(epochDiffs)
 	}
+
+	activityLog, err := readActivityLog(reader)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse activity log from bytes")
+	}
+	activityLogConsumer(activityLog)
 
 	return nil
 }
@@ -63,17 +69,17 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
-		return nil, errors.Errorf("unable to read outputWithMetadata length: %w", err)
+		return nil, errors.Wrap(err, "unable to read outputWithMetadata length")
 	}
 
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Errorf("unable to read fullEpochIndex: %w", err)
+		return nil, errors.Wrap(err, "unable to read fullEpochIndex")
 	}
 	header.FullEpochIndex = epoch.Index(index)
 
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
-		return nil, errors.Errorf("unable to read diffEpochIndex: %w", err)
+		return nil, errors.Wrap(err, "unable to read diffEpochIndex")
 	}
 	header.DiffEpochIndex = epoch.Index(index)
 
@@ -209,7 +215,38 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 	ecRecord = &epoch.ECRecord{}
 	err = ecRecord.FromBytes(scanner.Bytes())
 	if err != nil {
-		return nil, errors.Errorf("failed to parse epochDiffs from bytes: %w", err)
+		return nil, errors.Wrap(err, "failed to parse epochDiffs from bytes")
+	}
+
+	return
+}
+
+// readActivityLog consumes the ActivityLog from the given reader.
+func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActivity, err error) {
+	var activityLen int64
+	if lenErr := binary.Read(reader, binary.LittleEndian, &activityLen); lenErr != nil {
+		return nil, errors.Wrap(lenErr, "unable to read activity len")
+	}
+
+	activityLogs = epoch.NewSnapshotEpochActivity()
+
+	for i := 0; i < int(activityLen); i++ {
+		var epochIndex epoch.Index
+		if eiErr := binary.Read(reader, binary.LittleEndian, &epochIndex); eiErr != nil {
+			return nil, errors.Errorf("unable to read epoch index: %w", eiErr)
+		}
+		var activityBytesLen int64
+		if activityLenErr := binary.Read(reader, binary.LittleEndian, &activityBytesLen); activityLenErr != nil {
+			return nil, errors.Errorf("unable to read activity log length: %w", activityLenErr)
+		}
+		activityLogBytes := make([]byte, activityBytesLen)
+		if alErr := binary.Read(reader, binary.LittleEndian, activityLogBytes); alErr != nil {
+			return nil, errors.Errorf("unable to read activity log: %w", alErr)
+		}
+		activityLog := new(epoch.SnapshotNodeActivity)
+		activityLog.FromBytes(activityLogBytes)
+
+		activityLogs[epochIndex] = activityLog
 	}
 
 	return

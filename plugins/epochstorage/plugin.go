@@ -295,7 +295,7 @@ func insertBlockIntoEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	}
 
 	if err := blockStore.Set(blkID.Bytes(), blkID.Bytes()); err != nil {
-		return errors.New("Fail to insert block to epoch store")
+		return errors.New("fail to insert block to epoch store")
 	}
 	return nil
 }
@@ -307,7 +307,7 @@ func removeBlockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	}
 
 	if err := blockStore.Delete(blkID.Bytes()); err != nil {
-		return errors.New("Fail to remove block from epoch store")
+		return errors.New("fail to remove block from epoch store")
 	}
 	return nil
 }
@@ -319,7 +319,7 @@ func insertTransactionIntoEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	}
 
 	if err := txStore.Set(txID.Bytes(), txID.Bytes()); err != nil {
-		return errors.New("Fail to insert Transaction to epoch store")
+		return errors.New("fail to insert Transaction to epoch store")
 	}
 	return nil
 }
@@ -331,7 +331,7 @@ func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	}
 
 	if err := txStore.Delete(txID.Bytes()); err != nil {
-		return errors.New("Fail to remove Transaction from epoch store")
+		return errors.New("fail to remove Transaction from epoch store")
 	}
 	return nil
 }
@@ -349,13 +349,13 @@ func insertOutputsIntoEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 
 	for _, s := range spent {
 		if err := spentStore.Set(s.ID().Bytes(), s.ID().Bytes()); err != nil {
-			return errors.New("Fail to insert spent output to epoch store")
+			return errors.New("fail to insert spent output to epoch store")
 		}
 	}
 
 	for _, c := range created {
 		if err := createdStore.Set(c.ID().Bytes(), c.ID().Bytes()); err != nil {
-			return errors.New("Fail to insert created output to epoch store")
+			return errors.New("fail to insert created output to epoch store")
 		}
 	}
 
@@ -375,13 +375,13 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 
 	for _, s := range spent {
 		if err := spentStore.Delete(s.ID().Bytes()); err != nil {
-			return errors.New("Fail to remove spent output from epoch store")
+			return errors.New("fail to remove spent output from epoch store")
 		}
 	}
 
 	for _, c := range created {
 		if err := createdStore.Delete(c.ID().Bytes()); err != nil {
-			return errors.New("Fail to remove created output from epoch store")
+			return errors.New("fail to remove created output from epoch store")
 		}
 	}
 

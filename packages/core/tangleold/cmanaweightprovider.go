@@ -1,53 +1,56 @@
 package tangleold
 
 import (
-	"container/heap"
-	"context"
 	"fmt"
-	"strings"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
+	"github.com/iotaledger/hive.go/core/types"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/serix"
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
 }
 
 const (
-	activeTimeThreshold  = 5 * time.Minute
 	minimumManaThreshold = 0
 	activeNodesKey       = "WeightProviderActiveNodes"
+	// activeEpochThreshold defines the activity window in number of epochs.
+	activeEpochThreshold = 15
 )
 
 // region CManaWeightProvider //////////////////////////////////////////////////////////////////////////////////////////
 
-type NodesActivityLog map[identity.ID]*ActivityLog
+// ActivityUpdatesCount stores the counters on how many times activity record was updated.
+type ActivityUpdatesCount map[identity.ID]uint64
 
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
-	store             kvstore.KVStore
-	mutex             sync.RWMutex
-	activeNodes       NodesActivityLog
-	manaRetrieverFunc ManaRetrieverFunc
-	timeRetrieverFunc TimeRetrieverFunc
+	store                kvstore.KVStore
+	mutex                sync.RWMutex
+	activityLog          epoch.NodesActivityLog
+	updatedActivityCount *shrinkingmap.ShrinkingMap[epoch.Index, ActivityUpdatesCount]
+	manaRetrieverFunc    ManaRetrieverFunc
+	timeRetrieverFunc    TimeRetrieverFunc
 }
 
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:       make(NodesActivityLog),
-		manaRetrieverFunc: manaRetrieverFunc,
-		timeRetrieverFunc: timeRetrieverFunc,
+		activityLog:          make(epoch.NodesActivityLog),
+		updatedActivityCount: shrinkingmap.New[epoch.Index, ActivityUpdatesCount](shrinkingmap.WithShrinkingThresholdCount(activeEpochThreshold + 1)),
+		manaRetrieverFunc:    manaRetrieverFunc,
+		timeRetrieverFunc:    timeRetrieverFunc,
 	}
 
 	if len(store) == 0 {
@@ -62,7 +65,8 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 	}
 	// Load from storage if key was found.
 	if marshaledActiveNodes != nil {
-		if cManaWeightProvider.activeNodes, err = activeNodesFromBytes(marshaledActiveNodes); err != nil {
+
+		if err = cManaWeightProvider.activityLog.FromBytes(marshaledActiveNodes); err != nil {
 			panic(err)
 		}
 		return
@@ -72,24 +76,42 @@ func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFu
 }
 
 // Update updates the underlying data structure and keeps track of active nodes.
-func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
-	// We only want to log node activity that is relevant, i.e., node activity before TangleTime-activeTimeThreshold
-	// does not matter anymore since the TangleTime advances towards the present/future.
-	staleThreshold := c.timeRetrieverFunc().Add(-activeTimeThreshold)
-	if t.Before(staleThreshold) {
-		return
-	}
-
+func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
+	// We don't check if the epoch index is too old, as this is handled by the NotarizationManager
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	a, exists := c.activeNodes[nodeID]
+	a, exists := c.activityLog[ei]
 	if !exists {
-		a = NewActivityLog()
-		c.activeNodes[nodeID] = a
+		a = epoch.NewActivityLog()
+		c.activityLog[ei] = a
 	}
 
-	a.Add(t)
+	a.Add(nodeID)
+
+	c.updateActivityCount(ei, nodeID, 1)
+}
+
+// Remove updates the underlying data structure by decreasing updatedActivityCount and removing node from active list if no activity left.
+func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, updatedActivityCount uint64) (removed bool) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	epochUpdatesCount, exist := c.updatedActivityCount.Get(ei)
+	if exist {
+		_, exists := epochUpdatesCount[nodeID]
+		if exists {
+			epochUpdatesCount[nodeID] -= updatedActivityCount
+		}
+	}
+	// if that was the last activity for this node in the ei epoch, then remove it from activity list
+	if epochUpdatesCount[nodeID] == 0 {
+		if a, exists := c.activityLog[ei]; exists {
+			a.Remove(nodeID)
+			return true
+		}
+	}
+	return false
 }
 
 // Weight returns the weight and total weight for the given block.
@@ -103,54 +125,86 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	weights = make(map[identity.ID]float64)
 
 	mana := c.manaRetrieverFunc()
-	targetTime := c.timeRetrieverFunc()
-	lowerBoundTargetTime := targetTime.Add(-activeTimeThreshold)
+
+	lowerBoundEpoch, upperBoundEpoch := c.activityBoundaries()
+
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for nodeID, al := range c.activeNodes {
-		nodeMana := mana[nodeID]
-
-		// Determine whether node was active in time window.
-		if active, empty := al.Active(lowerBoundTargetTime, targetTime); !active {
-			if empty {
-				delete(c.activeNodes, nodeID)
+	// nodes mana is counted only once for total weight calculation
+	totalWeightOnce := make(map[identity.ID]types.Empty)
+	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
+		al, exists := c.activityLog[ei]
+		if !exists {
+			continue
+		}
+		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+			nodeMana := mana[nodeID]
+			// Do this check after determining whether a node was active because otherwise we would never clean up
+			// the ActivityLog of nodes lower than the threshold.
+			// Skip node if it does not fulfill minimumManaThreshold.
+			if nodeMana <= minimumManaThreshold {
+				return nil
 			}
-			continue
-		}
 
-		// Do this check after determining whether a node was active because otherwise we would never clean up
-		// the ActivityLog of nodes lower than the threshold.
-		// Skip node if it does not fulfill minimumManaThreshold.
-		if nodeMana <= minimumManaThreshold {
-			continue
-		}
-
-		weights[nodeID] = nodeMana
-		totalWeight += nodeMana
+			weights[nodeID] = nodeMana
+			if _, notFirstTime := totalWeightOnce[nodeID]; !notFirstTime {
+				totalWeight += nodeMana
+				totalWeightOnce[nodeID] = types.Void
+			}
+			return nil
+		})
 	}
+	c.clean(lowerBoundEpoch)
+
 	return weights, totalWeight
+}
+
+// SnapshotEpochActivity returns the activity log for snapshotting.
+func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+	epochActivity = epoch.NewSnapshotEpochActivity()
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for ei, al := range c.activityLog {
+		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+			if _, ok := epochActivity[ei]; !ok {
+				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
+			}
+			// Snapshot activity counts
+			activityCount, exists := c.updatedActivityCount.Get(ei)
+			if exists {
+				epochActivity[ei].SetNodeActivity(nodeID, activityCount[nodeID])
+			}
+			return nil
+		})
+	}
+	return
 }
 
 // Shutdown shuts down the WeightProvider and persists its state.
 func (c *CManaWeightProvider) Shutdown() {
 	if c.store != nil {
-		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodesToBytes(c.ActiveNodes()))
+		activeNodes := c.activeNodes()
+		_ = c.store.Set(kvstore.Key(activeNodesKey), activeNodes.Bytes())
 	}
 }
 
-// ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes NodesActivityLog) {
-	activeNodes = make(NodesActivityLog)
-
+// LoadActiveNodes loads the activity log to weight provider.
+func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for nodeID, al := range c.activeNodes {
-		activeNodes[nodeID] = al.Clone()
+	for ei, epochActivity := range loadedActiveNodes {
+		if _, ok := c.activityLog[ei]; !ok {
+			c.activityLog[ei] = epoch.NewActivityLog()
+		}
+		for nodeID, activityCount := range epochActivity.NodesLog() {
+			c.activityLog[ei].Add(nodeID)
+			c.updateActivityCount(ei, nodeID, activityCount)
+		}
 	}
-
-	return activeNodes
 }
 
 // ManaRetrieverFunc is a function type to retrieve consensus mana (e.g. via the mana plugin).
@@ -159,190 +213,53 @@ type ManaRetrieverFunc func() map[identity.ID]float64
 // TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// activeNodes returns the map of the active nodes.
+func (c *CManaWeightProvider) activeNodes() (activeNodes epoch.NodesActivityLog) {
+	activeNodes = make(epoch.NodesActivityLog)
 
-// region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-func activeNodesFromBytes(data []byte) (activeNodes NodesActivityLog, err error) {
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &activeNodes, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse activeNodes: %w", err)
-		return
+	for nodeID, al := range c.activityLog {
+		activeNodes[nodeID] = al.Clone()
+	}
+
+	return activeNodes
+}
+
+func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundEpoch epoch.Index) {
+	currentTime := c.timeRetrieverFunc()
+	upperBoundEpoch = epoch.IndexFromTime(currentTime)
+	lowerBoundEpoch = upperBoundEpoch - activeEpochThreshold
+	if lowerBoundEpoch < 0 {
+		lowerBoundEpoch = 0
 	}
 	return
 }
 
-func activeNodesToBytes(activeNodes NodesActivityLog) []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), activeNodes, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
-
-// granularity defines the granularity in seconds with which we log node activities.
-const granularity = 60
-
-// timeToUnixGranularity converts a time t to a unix timestamp with granularity.
-func timeToUnixGranularity(t time.Time) int64 {
-	return t.Unix() / granularity
-}
-
-// ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
-// functionality to query for certain timeframes.
-type ActivityLog struct {
-	setTimes set.Set[int64] `serix:"0,lengthPrefixType=uint32"`
-	times    *minHeap
-}
-
-// NewActivityLog is the constructor for ActivityLog.
-func NewActivityLog() *ActivityLog {
-	var mh minHeap
-
-	a := &ActivityLog{
-		setTimes: set.New[int64](),
-		times:    &mh,
-	}
-	heap.Init(a.times)
-
-	return a
-}
-
-// Add adds a node activity to the log.
-func (a *ActivityLog) Add(t time.Time) (added bool) {
-	u := timeToUnixGranularity(t)
-	if !a.setTimes.Add(u) {
-		return false
-	}
-
-	heap.Push(a.times, u)
-	return true
-}
-
-// Active returns true if the node was active between lower and upper bound.
-// It cleans up the log on the fly, meaning that old/stale times are deleted.
-// If the log ends up empty after cleaning up, empty is set to true.
-func (a *ActivityLog) Active(lowerBound, upperBound time.Time) (active, empty bool) {
-	lb, ub := timeToUnixGranularity(lowerBound), timeToUnixGranularity(upperBound)
-
-	for a.times.Len() > 0 {
-		// Get the lowest element of the min-heap = the earliest time.
-		earliestActivity := (*a.times)[0]
-
-		// We clean up possible stale times < lowerBound because we don't need them anymore.
-		if earliestActivity < lb {
-			a.setTimes.Delete(earliestActivity)
-			heap.Pop(a.times)
-			continue
+// clean removes all activity logs for epochs lower than provided bound.
+func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
+	for ei := range c.activityLog {
+		if ei < lowerBound {
+			delete(c.activityLog, ei)
 		}
-
-		// Check if time is between lower and upper bound. Because of cleanup, earliestActivity >= lb is implicitly given.
-		if earliestActivity <= ub {
-			return true, false
+	}
+	// clean also the updates counting map
+	c.updatedActivityCount.ForEach(func(ei epoch.Index, count ActivityUpdatesCount) bool {
+		if ei < lowerBound {
+			c.updatedActivityCount.Delete(ei)
 		}
-		// Otherwise, the node has active times in the future of upperBound but is not currently active.
-		return false, false
-	}
-
-	// If the heap is empty, there's no activity anymore and the object might potentially be cleaned up.
-	return false, true
-}
-
-// Times returns all times stored in this ActivityLog.
-func (a *ActivityLog) Times() (times []int64) {
-	times = make([]int64, 0, a.times.Len())
-
-	for _, u := range *a.times {
-		times = append(times, u)
-	}
-
-	return times
-}
-
-// String returns a human-readable version of ActivityLog.
-func (a *ActivityLog) String() string {
-	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.times.Len()))
-	for _, u := range *a.times {
-		builder.WriteString(fmt.Sprintf("%d, ", u))
-	}
-	builder.WriteString(")")
-	return builder.String()
-}
-
-// Clone clones the ActivityLog.
-func (a *ActivityLog) Clone() *ActivityLog {
-	clone := NewActivityLog()
-
-	for _, u := range *a.times {
-		clone.setTimes.Add(u)
-		heap.Push(clone.times, u)
-	}
-
-	return clone
-}
-
-// Encode ActivityLog a serialized byte slice of the object.
-func (a *ActivityLog) Encode() ([]byte, error) {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.setTimes, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes, nil
-}
-
-// Decode deserializes bytes into a valid object.
-func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
-	var mh minHeap
-
-	a.setTimes = set.New[int64]()
-	a.times = &mh
-	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.setTimes, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ActivityLog: %w", err)
-		return
-	}
-	a.setTimes.ForEach(func(time int64) {
-		heap.Push(a.times, time)
+		return true
 	})
-	return
 }
 
-// minHeap is an int64 min heap.
-type minHeap []int64
-
-// Len is the number of elements in the collection.
-func (h minHeap) Len() int {
-	return len(h)
-}
-
-// Less reports whether the element with index i must sort before the element with index j.
-func (h minHeap) Less(i, j int) bool {
-	return h[i] < h[j]
-}
-
-// Swap swaps the elements with indexes i and j.
-func (h minHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-// Push pushes the element x onto the heap.
-func (h *minHeap) Push(x interface{}) {
-	*h = append(*h, x.(int64))
-}
-
-// Pop removes and returns the minimum element (according to Less) from the heap.
-func (h *minHeap) Pop() interface{} {
-	n := len(*h)
-	x := (*h)[n-1]
-	*h = (*h)[:n-1]
-	return x
+func (c *CManaWeightProvider) updateActivityCount(ei epoch.Index, nodeID identity.ID, increase uint64) {
+	_, exist := c.updatedActivityCount.Get(ei)
+	if !exist {
+		c.updatedActivityCount.Set(ei, make(ActivityUpdatesCount))
+	}
+	epochUpdatesCount, _ := c.updatedActivityCount.Get(ei)
+	epochUpdatesCount[nodeID] += increase
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
