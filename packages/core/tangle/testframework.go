@@ -107,23 +107,25 @@ func (t *TestFramework) Setup() {
 	}))
 
 	t.Tangle().Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
+		t.orphanedBlocksMutex.Lock()
+		defer t.orphanedBlocksMutex.Unlock()
+
 		if debug.GetEnabled() {
 			t.T.Logf("ORPHANED: %s", metadata.ID())
 		}
 
-		t.orphanedBlocksMutex.Lock()
 		t.orphanedBlocks.Add(metadata.ID())
-		t.orphanedBlocksMutex.Unlock()
 	}))
 
 	t.Tangle().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
+		t.orphanedBlocksMutex.Lock()
+		defer t.orphanedBlocksMutex.Unlock()
+
 		if debug.GetEnabled() {
 			t.T.Logf("UNORPHANED: %s", metadata.ID())
 		}
 
-		t.orphanedBlocksMutex.Lock()
 		t.orphanedBlocks.Remove(metadata.ID())
-		t.orphanedBlocksMutex.Unlock()
 	}))
 }
 
@@ -173,7 +175,7 @@ func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 
 func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msgAndArgs ...interface{}) {
 	t.orphanedBlocksMutex.Lock()
-	t.orphanedBlocksMutex.Unlock()
+	defer t.orphanedBlocksMutex.Unlock()
 
 	assert.EqualValues(t.T, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
 }
