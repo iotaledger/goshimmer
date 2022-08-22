@@ -107,8 +107,15 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	return b.likedInsteadChildren
 }
 
-// setSolid marks the Block as solid. It is private even though it locks because we want to prevent people from
-// setting the solid flag manually.
+// orphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
+func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphanedBlocksInPastCone
+}
+
+// setSolid marks the Block as solid.
 func (b *Block) setSolid() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -120,8 +127,7 @@ func (b *Block) setSolid() (wasUpdated bool) {
 	return
 }
 
-// setInvalid marks the Block as invalid. It is private even though it locks because we want to prevent people from
-// setting the invalid flag manually.
+// setInvalid marks the Block as invalid.
 func (b *Block) setInvalid() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -135,16 +141,7 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
-// orphanedParentsInPastCone returns the list of orphaned parents in the past cone of the Block.
-func (b *Block) orphanedParentsInPastCone() (orphanedParentsInPastCone models.BlockIDs) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.orphanedBlocksInPastCone
-}
-
-// setOrphaned sets the orphaned flag of the Block. It is private even though it locks because we want to prevent people
-// from setting the orphaned flag manually.
+// setOrphaned sets the orphaned flag of the Block.
 func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
