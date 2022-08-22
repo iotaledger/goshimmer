@@ -141,6 +141,13 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
+func (b *Block) isOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphaned
+}
+
 // setOrphaned sets the orphaned flag of the Block.
 func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpdated bool) {
 	b.Lock()

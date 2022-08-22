@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -76,7 +78,7 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	if wasUpdated = block.setInvalid(); wasUpdated {
 		t.Events.BlockInvalid.Trigger(block)
 
-		t.walkFutureCone(block, func(currentBlock *Block) []*Block {
+		t.walkFutureCone(block.Children(), func(currentBlock *Block) []*Block {
 			if !currentBlock.setInvalid() {
 				return nil
 			}
@@ -106,7 +108,7 @@ func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (updated bool, statusC
 		updateEvent.Trigger(block)
 	}
 
-	t.propagateOrphanageUpdate(block, updateEvent, updateFunc)
+	t.propagateOrphanageUpdate(block.Children(), models.NewBlockIDs(block.ID()), updateEvent, updateFunc)
 
 	return
 }
@@ -124,9 +126,31 @@ func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
 func (t *Tangle) markSolid(block *Block) (err error) {
 	block.setSolid()
 
+	if orphanedBlocks := t.inheritOrphanedBlocks(block); !orphanedBlocks.Empty() {
+		t.propagateOrphanageUpdate([]*Block{block}, orphanedBlocks, t.Events.BlockOrphaned, (*Block).addOrphanedBlocksInPastCone)
+	}
+
 	t.Events.BlockSolid.Trigger(block)
 
 	return nil
+}
+
+// inheritOrphanedBlocks returns an aggregation of the orphaned Blocks of the parents of the given Block.
+func (t *Tangle) inheritOrphanedBlocks(block *Block) (orphanedBlocks models.BlockIDs) {
+	orphanedBlocks = models.NewBlockIDs()
+	block.ForEachParent(func(parent models.Parent) {
+		parentBlock, exists := t.Block(parent.ID)
+		if !exists {
+			panic(fmt.Sprintf("failed to find parent block with %s", parent.ID))
+		}
+
+		orphanedBlocks.AddAll(parentBlock.OrphanedBlocksInPastCone())
+		if parentBlock.isOrphaned() {
+			orphanedBlocks.Add(parentBlock.ID())
+		}
+	})
+
+	return
 }
 
 func (t *Tangle) markInvalid(block *Block, reason error) {
@@ -203,10 +227,6 @@ func (t *Tangle) registerChild(child *Block, parent models.Parent) {
 	})
 
 	parentBlock.appendChild(child, parent.Type)
-
-	if _, becameOrphaned := child.addOrphanedBlocksInPastCone(parentBlock.OrphanedBlocksInPastCone()); becameOrphaned {
-		t.Events.BlockOrphaned.Trigger(child)
-	}
 }
 
 // block retrieves the Block with given id from the mem-storage.
@@ -224,8 +244,8 @@ func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // walkFutureCone traverses the future cone of the given Block and calls the given callback for each Block.
-func (t *Tangle) walkFutureCone(block *Block, callback func(currentBlock *Block) (nextChildren []*Block)) {
-	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
+func (t *Tangle) walkFutureCone(blocks []*Block, callback func(currentBlock *Block) (nextChildren []*Block)) {
+	for childWalker := walker.New[*Block](false).PushAll(blocks...); childWalker.HasNext(); {
 		childWalker.PushAll(callback(childWalker.Next())...)
 	}
 }
@@ -240,9 +260,9 @@ func (t *Tangle) orphanageUpdaters(orphaned bool) (updateEvent *event.Event[*Blo
 }
 
 // propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
-func (t *Tangle) propagateOrphanageUpdate(block *Block, updateEvent *event.Event[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
-	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
-		updated, statusChanged := updateFunc(currentBlock, models.NewBlockIDs(block.ID()))
+func (t *Tangle) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.Event[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
+	t.walkFutureCone(blocks, func(currentBlock *Block) []*Block {
+		updated, statusChanged := updateFunc(currentBlock, orphanedBlocks)
 		if !updated {
 			return nil
 		}
