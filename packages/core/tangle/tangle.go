@@ -83,43 +83,16 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 }
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
-func (t *Tangle) SetOrphaned(block *Block) (becameOrphaned bool) {
-	updated, becameOrphaned := block.setOrphaned(true)
-	if !updated {
-		return false
+func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (statusChanged bool) {
+	if orphaned {
+		return t.setOrphaned(block, orphaned, t.Events.BlockOrphaned, t.propagateOrphanage)
 	}
 
-	if becameOrphaned {
-		t.Events.BlockOrphaned.Trigger(block)
-	}
-
-	t.walkFutureCone(block, func(currentBlock *Block) (nextChildren []*Block) {
-		return t.propagateOrphanage(block, currentBlock)
-	})
-
-	return becameOrphaned
-}
-
-// SetUnorphaned marks a Block as unorphaned and propagates it to its future cone.
-func (t *Tangle) SetUnorphaned(block *Block) (becameUnorphaned bool) {
-	if len(block.OrphanedBlocksInPastCone()) != 0 {
+	if !block.OrphanedBlocksInPastCone().Empty() {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
 
-	updated, becameUnorphaned := block.setOrphaned(false)
-	if !updated {
-		return
-	}
-
-	if becameUnorphaned {
-		t.Events.BlockUnorphaned.Trigger(block)
-	}
-
-	t.walkFutureCone(block, func(currentBlock *Block) (nextChildren []*Block) {
-		return t.propagateUnorphanage(block, currentBlock)
-	})
-
-	return becameUnorphaned
+	return t.setOrphaned(block, orphaned, t.Events.BlockUnorphaned, t.propagateUnorphanage)
 }
 
 // evictEpoch is used to evictEpoch the Tangle of all Blocks that are too old.
@@ -232,6 +205,26 @@ func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
 	}
 
 	return storage.Get(id)
+}
+
+// setOrphaned changes the orphaned flag of a Block and propagates the changes to its future cone.
+func (t *Tangle) setOrphaned(block *Block, orphaned bool, event *event.Event[*Block],
+	propagationCallBack func(block, currentBlock *Block) (nextChildren []*Block)) (statusChanged bool) {
+
+	updated, statusChanged := block.setOrphaned(orphaned)
+	if !updated {
+		return
+	}
+
+	if statusChanged {
+		event.Trigger(block)
+	}
+
+	t.walkFutureCone(block, func(currentBlock *Block) []*Block {
+		return propagationCallBack(block, currentBlock)
+	})
+
+	return statusChanged
 }
 
 // propagateInvalidity marks the children (and their future cone) as invalid.

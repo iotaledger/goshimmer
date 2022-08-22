@@ -212,23 +212,23 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	block2, _ := tf.Tangle().Block(tf.Block("block2").ID())
 	block4, _ := tf.Tangle().Block(tf.Block("block4").ID())
 
-	tf.Tangle().SetOrphaned(block1)
+	tf.Tangle().SetOrphaned(block1, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block2)
+	tf.Tangle().SetOrphaned(block2, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block4)
+	tf.Tangle().SetOrphaned(block4, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetUnorphaned(block1)
+	tf.Tangle().SetOrphaned(block1, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetUnorphaned(block2)
+	tf.Tangle().SetOrphaned(block2, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5"))
 
@@ -236,7 +236,7 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5", "block6"))
 
-	tf.Tangle().SetUnorphaned(block4)
+	tf.Tangle().SetOrphaned(block4, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(models.NewBlockIDs())
 }
