@@ -28,11 +28,10 @@ type SequenceManager struct {
 
 // NewSequenceManager is the constructor of the SequenceManager that takes a KVStore to persist its state.
 func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceManager) {
-	m = &SequenceManager{
+	m = options.Apply(&SequenceManager{
 		maxPastMarkerDistance: 30,
 		sequences:             memstorage.New[SequenceID, *Sequence](),
-	}
-	options.Apply(m, opts)
+	}, opts)
 
 	m.sequences.Set(0, NewSequence(0, NewMarkers()))
 

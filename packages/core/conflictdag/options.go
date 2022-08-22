@@ -14,7 +14,7 @@ import (
 // WithStore is an Option for the ConflictDAG that allows to configure which KVStore is supposed to be used to persist
 // data (the default option is to use a MapDB).
 func WithStore(store kvstore.KVStore) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.store = store
 	}
 }
@@ -26,7 +26,7 @@ func WithStore(store kvstore.KVStore) Option {
 // WithCacheTimeProvider is an Option for the ConflictDAG that allows to configure which CacheTimeProvider is supposed to
 // be used.
 func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.cacheTimeProvider = cacheTimeProvider
 	}
 }
@@ -38,7 +38,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option
 // WithConflictCacheTime is an Option for the ConflictDAG that allows to configure how long Conflict objects stay cached after
 // they have been released.
 func WithConflictCacheTime(conflictCacheTime time.Duration) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.conflictCacheTime = conflictCacheTime
 	}
 }
@@ -50,7 +50,7 @@ func WithConflictCacheTime(conflictCacheTime time.Duration) Option {
 // WithChildConflictCacheTime is an Option for the ConflictDAG that allows to configure how long ChildConflict objects stay
 // cached after they have been released.
 func WithChildConflictCacheTime(childConflictCacheTime time.Duration) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.childConflictCacheTime = childConflictCacheTime
 	}
 }
@@ -62,7 +62,7 @@ func WithChildConflictCacheTime(childConflictCacheTime time.Duration) Option {
 // WithConflictMemberCacheTime is an Option for the ConflictDAG that allows to configure how long ConflictMember objects
 // stay cached after they have been released.
 func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.conflictMemberCacheTime = conflictMemberCacheTime
 	}
 }
@@ -74,7 +74,7 @@ func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 // WithMergeToMaster is an Option for the ConflictDAG that allows to configure whether the ConflictDAG should merge
 // confirmed Conflicts to the MasterConflict.
 func WithMergeToMaster(mergeToMaster bool) Option {
-	return func(options *options) {
+	return func(options *optionsConflictDAG) {
 		options.mergeToMaster = mergeToMaster
 	}
 }
@@ -84,7 +84,7 @@ func WithMergeToMaster(mergeToMaster bool) Option {
 // region options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // options is a container for all configurable parameters of a ConflictDAG.
-type options struct {
+type optionsConflictDAG struct {
 	// store contains the KVStore that is used to persist data.
 	store kvstore.KVStore
 
@@ -108,8 +108,8 @@ type options struct {
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.
-func newOptions(option ...Option) (new *options) {
-	return (&options{
+func newOptions(option ...Option) (new *optionsConflictDAG) {
+	return (&optionsConflictDAG{
 		store:                   mapdb.NewMapDB(),
 		cacheTimeProvider:       database.NewCacheTimeProvider(0),
 		conflictCacheTime:       60 * time.Second,
@@ -120,7 +120,7 @@ func newOptions(option ...Option) (new *options) {
 }
 
 // apply modifies the options object by overriding the handed in options.
-func (o *options) apply(options ...Option) (self *options) {
+func (o *optionsConflictDAG) apply(options ...Option) (self *optionsConflictDAG) {
 	for _, option := range options {
 		option(o)
 	}
@@ -129,6 +129,6 @@ func (o *options) apply(options ...Option) (self *options) {
 }
 
 // Option represents a configurable parameter for the ConflictDAG that modifies its behavior.
-type Option func(*options)
+type Option func(*optionsConflictDAG)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

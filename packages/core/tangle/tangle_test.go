@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -202,36 +203,39 @@ func TestTangle_AttachBlockTwice_1(t *testing.T) {
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
-	storage := tf.Tangle.memStorage.Get(tf.Block("block2").ID().Index(), true)
-	storage.Lock()
+
 	var (
 		wasAttached1 bool
 		wasAttached2 bool
 		err1         error
 		err2         error
 		started      uint8
+		startMutex   sync.RWMutex
 	)
 
 	event.Loop.Submit(func() {
+		startMutex.Lock()
 		started++
-		_, wasAttached1, err1 = tf.Tangle.Attach(tf.Block("block2"))
+		startMutex.Unlock()
+
+		_, wasAttached1, err1 = tf.Tangle().Attach(tf.Block("block2"))
 	})
 	event.Loop.Submit(func() {
+		startMutex.Lock()
 		started++
-		_, wasAttached2, err2 = tf.Tangle.Attach(tf.Block("block2"))
+		startMutex.Unlock()
+
+		_, wasAttached2, err2 = tf.Tangle().Attach(tf.Block("block2"))
 	})
 
-	time.Sleep(1 * time.Second)
+	tf.WaitUntilAllTasksProcessed()
 
 	assert.Eventually(t, func() bool {
-		if started == 2 {
-			storage.Unlock()
-			return true
-		}
-		return false
-	}, time.Second*10, time.Millisecond*10)
+		startMutex.RLock()
+		defer startMutex.RUnlock()
 
-	tf.WaitUntilAllTasksProcessed()
+		return started == 2
+	}, time.Second*10, time.Millisecond*10)
 
 	assert.NoError(t, err1, "should not return an error")
 	assert.NoError(t, err2, "should not return an error")
@@ -244,11 +248,11 @@ func TestTangle_AttachBlockTwice_2(t *testing.T) {
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
-	_, wasAttached, err := tf.Tangle.Attach(tf.Block("block2"))
+	_, wasAttached, err := tf.Tangle().Attach(tf.Block("block2"))
 	assert.NoError(t, err, "should not return an error")
 	assert.True(t, wasAttached, "should have been attached")
 
-	_, wasAttached, err = tf.Tangle.Attach(tf.Block("block2"))
+	_, wasAttached, err = tf.Tangle().Attach(tf.Block("block2"))
 	assert.NoError(t, err, "should not return an error")
 	assert.False(t, wasAttached, "should not have been attached")
 
@@ -283,9 +287,9 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune tangle.
-	tf.EvictEpoch(epochCount / 2)
+	tf.EvictionManager().EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
@@ -310,8 +314,8 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	// Issue the first bunch of blocks. Those should be marked as invalid when the block with pruned parents is attached.
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
-			_, wasAttached, err := tf.Tangle.Attach(blocks[i])
-			if blocks[i].ID().Index()-1 > tf.MaxEvictedEpoch() {
+			_, wasAttached, err := tf.Tangle().Attach(blocks[i])
+			if blocks[i].ID().Index()-1 > tf.EvictionManager().MaxEvictedEpoch() {
 				assert.True(t, wasAttached, "block should be attached")
 				assert.NoError(t, err, "should not be able to attach a block after shutdown")
 				continue
@@ -329,7 +333,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	// Issue the second bunch of blocks. Those should be marked as invalid when the block attaches to a previously invalid block.
 	{
 		for i := len(blocks) - 1; i >= len(blocks)-10; i-- {
-			_, wasAttached, err := tf.Tangle.Attach(blocks[i])
+			_, wasAttached, err := tf.Tangle().Attach(blocks[i])
 			assert.True(t, wasAttached, "block should be attached")
 			assert.NoError(t, err, "should not be able to attach a block after shutdown")
 		}
@@ -378,7 +382,7 @@ func TestTangle_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.Tangle.Attach(block)
+		_, wasAttached, err := tf.Tangle().Attach(block)
 
 		if i >= epochCount/4 {
 			expectedMissing[alias] = false
@@ -397,7 +401,7 @@ func TestTangle_Prune(t *testing.T) {
 		if i == 1 {
 			continue
 		}
-		_, wasAttached, err := tf.Tangle.Attach(blk)
+		_, wasAttached, err := tf.Tangle().Attach(blk)
 
 		if i >= epochCount/2 {
 			expectedMissing[alias] = false
@@ -414,21 +418,21 @@ func TestTangle_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.EvictEpoch(epochCount / 4)
+	tf.EvictionManager().EvictEpoch(epochCount / 4)
 	tf.WaitUntilAllTasksProcessed()
 
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	tf.EvictEpoch(epochCount / 10)
+	tf.EvictionManager().EvictEpoch(epochCount / 10)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/4, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
+	assert.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
-	tf.EvictEpoch(epochCount / 2)
+	tf.EvictionManager().EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
-	assert.EqualValues(t, epochCount/2, tf.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
+	assert.EqualValues(t, epochCount/2, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 }
@@ -437,19 +441,19 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 	for i := 1; i <= maxDroppedEpoch; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.Tangle.Block(blkID)
+		_, exists := tf.Tangle().Block(blkID)
 		assert.False(tf.T, exists, "block %s should not be in the tangle", blkID)
 
-		assert.Nil(tf.T, tf.Tangle.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		assert.Nil(tf.T, tf.Tangle().memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.Tangle.Block(blkID)
+		_, exists := tf.Tangle().Block(blkID)
 		assert.True(tf.T, exists, "block %s should be in the tangle", blkID)
 
-		assert.NotNil(tf.T, tf.Tangle.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		assert.NotNil(tf.T, tf.Tangle().memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
 	}
 }
 
@@ -497,16 +501,16 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 
-	tf.Tangle.Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
+	tf.Tangle().Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
 		time.Sleep(storeDelay)
 
-		_, _, err := tf.Tangle.Attach(blocks[metadata.ID()])
+		_, _, err := tf.Tangle().Attach(blocks[metadata.ID()])
 		assert.NoError(t, err, "should be able to attach a block")
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
-		_, _, err := tf.Tangle.Attach(blocks[key])
+		_, _, err := tf.Tangle().Attach(blocks[key])
 		assert.NoError(t, err, "should be able to attach a block")
 	})
 

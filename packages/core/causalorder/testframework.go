@@ -64,8 +64,7 @@ type MockEntityID struct {
 }
 
 func NewID(id int) MockEntityID {
-	entityID := MockEntityID{id: id}
-	return entityID
+	return MockEntityID{id: id, index: 1}
 }
 
 func (m MockEntityID) Index() epoch.Index {

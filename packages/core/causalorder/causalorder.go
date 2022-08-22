@@ -15,7 +15,7 @@ import (
 )
 
 type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
-	evictionManager  *eviction.LockableManager
+	evictionManager  *eviction.LockableManager[ID]
 	entityProvider   func(id ID) (entity Entity, exists bool)
 	isOrdered        func(entity Entity) (isOrdered bool)
 	orderedCallback  func(entity Entity) (err error)
@@ -31,7 +31,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](
-	evictionManager *eviction.Manager,
+	evictionManager *eviction.Manager[ID],
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),
