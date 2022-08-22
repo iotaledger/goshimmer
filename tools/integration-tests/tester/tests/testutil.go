@@ -35,7 +35,7 @@ const (
 
 	shutdownGraceTime = time.Minute
 
-	FaucetFundingOutputsAddrStart = 127
+	FaucetFundingOutputsAddrStart = 1
 )
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
@@ -136,18 +136,17 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 // AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
 func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
 	supplyOutputsCount := faucet.Config().SupplyOutputsCount
-	splittingMultiplier := faucet.Config().SplittingMultiplier
-	lastFundingOutputAddress := supplyOutputsCount*splittingMultiplier + FaucetFundingOutputsAddrStart - 1
-	addrToCheck := faucet.Address(lastFundingOutputAddress).Base58()
+	lastFundingOutputAddress := supplyOutputsCount + FaucetFundingOutputsAddrStart - 1
 
 	accepted := make(map[int]types.Empty)
 	require.Eventually(t, func() bool {
-		if len(accepted) == supplyOutputsCount*splittingMultiplier {
+		if len(accepted) == supplyOutputsCount {
 			return true
 		}
 		// wait for confirmation of each fundingOutput
 		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
 			if _, ok := accepted[fundingIndex]; !ok {
+				addrToCheck := faucet.Address(fundingIndex).Base58()
 				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
 				require.NoError(t, err)
 				if len(resp.UnspentOutputs[0].Outputs) != 0 {

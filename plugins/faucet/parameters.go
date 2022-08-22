@@ -26,11 +26,7 @@ type ParametersDefinition struct {
 	BlacklistCapacity int `default:"10000" usage:"holds the maximum amount the address blacklist holds"`
 
 	// SupplyOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
-	SupplyOutputsCount int `default:"20" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
-
-	// SplittingMultiplier defines how many outputs each splitting transaction will have.
-	// SplittingMultiplier * SupplyOutputsCount indicates how many funding outputs during funds replenishment.
-	SplittingMultiplier int `default:"25" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
+	SupplyOutputsCount int `default:"100" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
 
 	// GenesisTokenAmount is the total supply.
 	GenesisTokenAmount uint64 `default:"1000000000000000" usage:"GenesisTokenAmount is the total supply."`

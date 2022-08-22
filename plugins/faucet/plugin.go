@@ -85,9 +85,6 @@ func newFaucet() *Faucet {
 	if Parameters.SupplyOutputsCount <= 0 {
 		Plugin.LogFatalfAndExit("the number of faucet supply outputs should be more than 0")
 	}
-	if Parameters.SplittingMultiplier <= 0 {
-		Plugin.LogFatalfAndExit("the number of outputs for each supply transaction during funds splitting should be more than 0")
-	}
 	if Parameters.GenesisTokenAmount <= 0 {
 		Plugin.LogFatalfAndExit("the total supply should be more than 0")
 	}

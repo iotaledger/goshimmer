@@ -23,7 +23,6 @@ import (
 )
 
 var (
-	numOfOutputsToSplit  = 100
 	maxTxBookedAwaitTime = 5 * time.Second
 	waitForAcceptance    = 10 * time.Second
 	maxWaitAttempts      = 5
@@ -42,10 +41,10 @@ type Faucet struct {
 func NewFaucet(seed *seed.Seed) *Faucet {
 	f := &Faucet{
 		seed:             seed,
-		availableOutputs: queue.New[*faucetOutput](numOfOutputsToSplit),
+		availableOutputs: queue.New[*faucetOutput](Parameters.SupplyOutputsCount),
 	}
 
-	for i := uint64(0); i <= uint64(numOfOutputsToSplit); i++ {
+	for i := uint64(0); i <= uint64(Parameters.SupplyOutputsCount); i++ {
 		addrIndexMap[f.seed.Address(i).Address().Base58()] = i
 	}
 
@@ -75,7 +74,7 @@ func (f *Faucet) DeriveStateFromTangle() {
 	supplyFound := 0
 	var remainderAmount uint64
 
-	for i := uint64(0); i <= uint64(numOfOutputsToSplit); i++ {
+	for i := uint64(0); i <= uint64(Parameters.SupplyOutputsCount); i++ {
 		deps.Indexer.CachedAddressOutputMappings(f.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
 			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
@@ -105,6 +104,11 @@ func (f *Faucet) DeriveStateFromTangle() {
 				})
 			})
 		})
+	}
+
+	// split funds in advance if no supply output is found
+	if supplyFound == 0 {
+		f.prepareUnspentOutputs()
 	}
 
 	Plugin.LogInfof("Faucet has remainder with %d IOTA", remainderAmount)
@@ -147,7 +151,7 @@ func (f *Faucet) prepareFaucetTransaction(destAddr devnetvm.Address, fundingOutp
 }
 
 func (f *Faucet) getUnspentOutput() (*faucetOutput, error) {
-	// check if there's any unspent output in the queue
+	// split funds if no unspent output is in the queue
 	if f.availableOutputs.Size() == 0 {
 		if err := f.prepareUnspentOutputs(); err != nil {
 			return nil, err
@@ -159,7 +163,8 @@ func (f *Faucet) getUnspentOutput() (*faucetOutput, error) {
 }
 
 func (f *Faucet) prepareUnspentOutputs() error {
-	Plugin.LogInfof("Start splitting funds to %d addresses", numOfOutputsToSplit)
+	Plugin.LogInfof("Start splitting funds to %d addresses", Parameters.SupplyOutputsCount)
+
 	errChan := make(chan error)
 	listenerAttachedChan := make(chan types.Empty)
 	finished := make(chan types.Empty)
@@ -167,8 +172,8 @@ func (f *Faucet) prepareUnspentOutputs() error {
 	inputs := devnetvm.NewInputs(devnetvm.NewUTXOInput(f.remainderOutput.ID))
 	outputs := make(devnetvm.Outputs, 0)
 
-	// split outputs to numOfOutputsToSplit addresses
-	for i := uint64(1); i <= uint64(numOfOutputsToSplit); i++ {
+	// split outputs to Parameters.SupplyOutputsCount addresses
+	for i := uint64(1); i <= uint64(Parameters.SupplyOutputsCount); i++ {
 		addr := f.seed.Address(i).Address()
 		outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(
 			devnetvm.NewColoredBalances(
@@ -183,7 +188,7 @@ func (f *Faucet) prepareUnspentOutputs() error {
 	outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(
 		devnetvm.NewColoredBalances(
 			map[devnetvm.Color]uint64{
-				devnetvm.ColorIOTA: f.remainderOutput.Balance - uint64(Parameters.TokensPerRequest)*uint64(numOfOutputsToSplit),
+				devnetvm.ColorIOTA: f.remainderOutput.Balance - uint64(Parameters.TokensPerRequest)*uint64(Parameters.SupplyOutputsCount),
 			}),
 		f.remainderOutput.Address,
 	))
