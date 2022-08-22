@@ -516,6 +516,13 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 	return pendingConflicts
 }
 
+func (m *Manager) GetEpochDiffs(ei epoch.Index) (spent []*ledger.OutputWithMetadata, created []*ledger.OutputWithMetadata) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+	spent, created = m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	return
+}
+
 // Bootstrapped returns the current value of pendingConflictsCount per epoch.
 func (m *Manager) Bootstrapped() bool {
 	m.bootstrapMutex.RLock()
@@ -645,15 +652,8 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 }
 
 func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent) {
-	epochForManaVector := ei - epoch.Index(m.options.ManaEpochDelay)
-	if epochForManaVector < 1 {
-		return
-	}
-	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
 	return &ManaVectorUpdateEvent{
-		EI:               ei,
-		EpochDiffCreated: created,
-		EpochDiffSpent:   spent,
+		EI: ei,
 	}
 }
 
@@ -727,7 +727,6 @@ type ManagerOption func(options *ManagerOptions)
 type ManagerOptions struct {
 	MinCommittableEpochAge time.Duration
 	BootstrapWindow        time.Duration
-	ManaEpochDelay         uint
 	Log                    *logger.Logger
 }
 
@@ -742,13 +741,6 @@ func MinCommittableEpochAge(d time.Duration) ManagerOption {
 func BootstrapWindow(d time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.BootstrapWindow = d
-	}
-}
-
-// ManaDelay specifies the epoch offset for mana vector from the last committable epoch.
-func ManaDelay(d uint) ManagerOption {
-	return func(options *ManagerOptions) {
-		options.ManaEpochDelay = d
 	}
 }
 
@@ -832,9 +824,7 @@ type EpochCommittableEvent struct {
 // ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
 type ManaVectorUpdateEvent struct {
 	// EI is the index of committable epoch.
-	EI               epoch.Index
-	EpochDiffCreated []*ledger.OutputWithMetadata
-	EpochDiffSpent   []*ledger.OutputWithMetadata
+	EI epoch.Index
 }
 
 // ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
