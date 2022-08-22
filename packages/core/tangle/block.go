@@ -67,6 +67,14 @@ func (b *Block) IsOrphaned() (isOrphaned bool) {
 	return b.orphaned || !b.orphanedBlocksInPastCone.Empty()
 }
 
+// OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
+func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphanedBlocksInPastCone
+}
+
 // Children returns the children of the Block.
 func (b *Block) Children() (children []*Block) {
 	b.RLock()
@@ -105,14 +113,6 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
 	return b.likedInsteadChildren
-}
-
-// OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
-func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
-	b.RLock()
-	defer b.RUnlock()
-
-	return b.orphanedBlocksInPastCone
 }
 
 // setSolid marks the Block as solid.
