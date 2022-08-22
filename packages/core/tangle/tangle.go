@@ -76,16 +76,16 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 	if wasUpdated = block.setInvalid(); wasUpdated {
 		t.Events.BlockInvalid.Trigger(block)
 
-		t.propagateInvalidity(block.Children())
+		t.walkFutureCone(block, t.propagateInvalidity)
 	}
 
 	return
 }
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
-func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
-	wasUpdated, becameOrphaned := block.setOrphaned(true)
-	if !wasUpdated {
+func (t *Tangle) SetOrphaned(block *Block) (becameOrphaned bool) {
+	updated, becameOrphaned := block.setOrphaned(true)
+	if !updated {
 		return false
 	}
 
@@ -93,19 +93,11 @@ func (t *Tangle) SetOrphaned(block *Block) (wasUpdated bool) {
 		t.Events.BlockOrphaned.Trigger(block)
 	}
 
-	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
-		currentChild := childWalker.Next()
+	t.walkFutureCone(block, func(currentBlock *Block) (nextChildren []*Block) {
+		return t.propagateOrphanage(block, currentBlock)
+	})
 
-		if wasAdded, becameOrphaned := currentChild.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID())); wasAdded {
-			if becameOrphaned {
-				t.Events.BlockOrphaned.Trigger(currentChild)
-			}
-
-			childWalker.PushAll(currentChild.Children()...)
-		}
-	}
-
-	return true
+	return becameOrphaned
 }
 
 // SetUnorphaned marks a Block as unorphaned and propagates it to its future cone.
@@ -123,7 +115,9 @@ func (t *Tangle) SetUnorphaned(block *Block) (becameUnorphaned bool) {
 		t.Events.BlockUnorphaned.Trigger(block)
 	}
 
-	t.propagateOrphanage(block)
+	t.walkFutureCone(block, func(currentBlock *Block) (nextChildren []*Block) {
+		return t.propagateUnorphanage(block, currentBlock)
+	})
 
 	return becameUnorphaned
 }
@@ -241,31 +235,47 @@ func (t *Tangle) block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // propagateInvalidity marks the children (and their future cone) as invalid.
-func (t *Tangle) propagateInvalidity(children []*Block) {
-	for childWalker := walker.New[*Block](false).PushAll(children...); childWalker.HasNext(); {
-		if child := childWalker.Next(); child.setInvalid() {
-			t.Events.BlockInvalid.Trigger(child)
-
-			childWalker.PushAll(child.Children()...)
-		}
+func (t *Tangle) propagateInvalidity(block *Block) (nextChildren []*Block) {
+	if !block.setInvalid() {
+		return
 	}
+
+	t.Events.BlockInvalid.Trigger(block)
+
+	return block.Children()
 }
 
 // propagateOrphanage propagates the orphanage of the given Block to its future cone.
-func (t *Tangle) propagateOrphanage(block *Block) {
+func (t *Tangle) propagateOrphanage(block, currentBlock *Block) (nextChildren []*Block) {
+	wasAdded, becameOrphaned := currentBlock.addOrphanedBlocksInPastCone(models.NewBlockIDs(block.ID()))
+	if !wasAdded {
+		return
+	}
+
+	if becameOrphaned {
+		t.Events.BlockOrphaned.Trigger(currentBlock)
+	}
+
+	return currentBlock.Children()
+}
+
+func (t *Tangle) propagateUnorphanage(block, currentBlock *Block) (nextChildren []*Block) {
+	wasRemoved, wasChildUnorphaned := currentBlock.removeOrphanedBlockInPastCone(block.ID())
+	if !wasRemoved {
+		return nil
+	}
+
+	if wasChildUnorphaned {
+		t.Events.BlockUnorphaned.Trigger(currentBlock)
+	}
+
+	return currentBlock.Children()
+}
+
+// walkFutureCone traverses the future cone of the given Block and calls the given callback for each Block.
+func (t *Tangle) walkFutureCone(block *Block, callback func(currentBlock *Block) (nextChildren []*Block)) {
 	for childWalker := walker.New[*Block](false).PushAll(block.Children()...); childWalker.HasNext(); {
-		currentChild := childWalker.Next()
-
-		wasRemoved, wasChildUnorphaned := currentChild.removeOrphanedBlockInPastCone(block.ID())
-		if !wasRemoved {
-			continue
-		}
-
-		if wasChildUnorphaned {
-			t.Events.BlockUnorphaned.Trigger(currentChild)
-		}
-
-		childWalker.PushAll(currentChild.Children()...)
+		childWalker.PushAll(callback(childWalker.Next())...)
 	}
 }
 
