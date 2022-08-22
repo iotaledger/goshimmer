@@ -42,12 +42,8 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 
 	defaultVote := NewVote[ConflictIDType, VotePowerType](voter, power, UndefinedOpinion)
 
-	if c.revokeInstead(initialVote, voter, power) {
-		c.applyVotes(defaultVote.WithOpinion(Dislike), addedConflictIDs, c.Events.VoterRemoved)
-	} else {
-		c.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, c.Events.VoterAdded)
-		c.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, c.Events.VoterRemoved)
-	}
+	c.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, c.Events.VoterAdded)
+	c.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, c.Events.VoterRemoved)
 
 	return true, false
 }
@@ -55,9 +51,16 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType], triggerEvent *event.Event[*ConflictVoterEvent[ConflictIDType]]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
-		votes, _ := c.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType, VotePowerType])
+		votes, created := c.votes.RetrieveOrCreate(conflict, NewVotes[ConflictIDType, VotePowerType])
 
-		if added, opinionChanged := votes.Add(defaultVote.WithConflictID(conflict)); added && opinionChanged {
+		conflictVote := defaultVote.WithConflictID(conflict)
+
+		// Only handle Like opinion because dislike should always be created and exist before.
+		if created && conflictVote.Opinion == Like && c.revokeConflictInstead(conflict, defaultVote) {
+			conflictVote = conflictVote.WithOpinion(Dislike)
+		}
+
+		if added, opinionChanged := votes.Add(conflictVote); added && opinionChanged {
 			triggerEvent.Trigger(&ConflictVoterEvent[ConflictIDType]{Voter: defaultVote.Voter, ConflictID: conflict})
 		}
 	}
@@ -118,30 +121,25 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 	return vote.Opinion == Like
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeInstead(initialVote *set.AdvancedSet[ConflictIDType], voter *validator.Validator, power VotePowerType) (revokeInstead bool) {
-	missingVotes := false
-	for it := initialVote.Iterator(); it.HasNext() && !revokeInstead && !missingVotes; {
-		conflictID := it.Next()
-		c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
-			fmt.Println(conflictingConflictID)
-			votes, conflictVotesExist := c.votes.Get(conflictingConflictID)
-			if !conflictVotesExist {
-				missingVotes = true
-				return false
-			}
-			vote, voteExists := votes.Vote(voter)
-			if !voteExists {
-				missingVotes = true
-				return false
-			}
-			if vote.VotePower.CompareTo(power) >= 0 {
-				revokeInstead = true
-				return false
-			}
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *Vote[ConflictIDType, VotePowerType]) (revokeInstead bool) {
+	c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
+		votes, conflictVotesExist := c.votes.Get(conflictingConflictID)
+		if !conflictVotesExist {
+			revokeInstead = false
+			return false
+		}
+		existingVote, voteExists := votes.Vote(vote.Voter)
+		if !voteExists {
+			revokeInstead = false
+			return false
+		}
+		if existingVote.VotePower.CompareTo(vote.VotePower) >= 0 {
+			revokeInstead = true
+			return false
+		}
 
-			return true
-		})
-	}
+		return true
+	})
 
-	return
+	return revokeInstead
 }
