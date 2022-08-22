@@ -1,9 +1,10 @@
 package notarization
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/cockroachdb/errors"
 
@@ -287,25 +288,6 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
-// OnBlockStored is the handler for block stored event.
-func (m *Manager) OnBlockStored(block *tangleold.Block) {
-	blockEI := block.ECRecordEI()
-	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
-	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
-
-	m.log.Debugf("block committing to epoch %d stored, latest committable epoch is %d", blockEI, latestCommittableEI)
-
-	// If we are too far behind, we will warpsync
-	if epochDeltaSeconds > m.options.BootstrapWindow {
-		m.Events.SyncRange.Trigger(&SyncRangeEvent{
-			StartEI:   latestCommittableEI,
-			EndEI:     blockEI,
-			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ComputeEC(),
-			EndPrevEC: block.PrevEC(),
-		})
-	}
-}
-
 // OnBlockAccepted is the handler for block confirmed event.
 func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -327,7 +309,7 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
-// OnBlockStored is a handler fo Block stored event that updates the activity log.
+// OnBlockStored is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
 func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -341,6 +323,22 @@ func (m *Manager) OnBlockStored(block *tangleold.Block) {
 		return
 	}
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+
+	blockEI := block.ECRecordEI()
+	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
+	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
+
+	m.log.Debugf("block committing to epoch %d stored, latest committable epoch is %d", blockEI, latestCommittableEI)
+
+	// If we are too far behind, we will warpsync
+	if epochDeltaSeconds > m.options.BootstrapWindow {
+		m.Events.SyncRange.Trigger(&SyncRangeEvent{
+			StartEI:   latestCommittableEI,
+			EndEI:     blockEI,
+			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ComputeEC(),
+			EndPrevEC: block.PrevEC(),
+		})
+	}
 }
 
 // OnBlockOrphaned is the handler for block orphaned event.
@@ -785,79 +783,6 @@ func Log(log *logger.Logger) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.Log = log
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Events is a container that acts as a dictionary for the existing events of a notarization manager.
-type Events struct {
-	// EpochCommittable is an event that gets triggered whenever an epoch commitment is committable.
-	EpochCommittable *event.Event[*EpochCommittableEvent]
-	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
-	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
-	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
-	// TangleTreeRemoved is an event that gets triggered when a Block is removed from Tangle smt.
-	TangleTreeRemoved *event.Event[*TangleTreeUpdatedEvent]
-	// StateMutationTreeInserted is an event that gets triggered when a transaction is inserted into the state mutation smt.
-	StateMutationTreeInserted *event.Event[*StateMutationTreeUpdatedEvent]
-	// StateMutationTreeRemoved is an event that gets triggered when a transaction is removed from state mutation smt.
-	StateMutationTreeRemoved *event.Event[*StateMutationTreeUpdatedEvent]
-	// UTXOTreeInserted is an event that gets triggered when UTXOs are stored into the UTXO smt.
-	UTXOTreeInserted *event.Event[*UTXOUpdatedEvent]
-	// UTXOTreeRemoved is an event that gets triggered when UTXOs are removed from the UTXO smt.
-	UTXOTreeRemoved *event.Event[*UTXOUpdatedEvent]
-	// Bootstrapped is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
-	Bootstrapped *event.Event[*BootstrappedEvent]
-}
-
-// TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
-type TangleTreeUpdatedEvent struct {
-	// EI is the index of the block.
-	EI epoch.Index
-	// BlockID is the blockID that inserted/removed to/from the tangle smt.
-	BlockID tangleold.BlockID
-}
-
-// BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
-type BootstrappedEvent struct {
-	// EI is the index of the last commitable epoch
-	EI epoch.Index
-}
-
-// StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
-type StateMutationTreeUpdatedEvent struct {
-	// EI is the index of the transaction.
-	EI epoch.Index
-	// TransactionID is the transaction ID that inserted/removed to/from the state mutation smt.
-	TransactionID utxo.TransactionID
-}
-
-// UTXOUpdatedEvent is a container that acts as a dictionary for the UTXO update event related parameters.
-type UTXOUpdatedEvent struct {
-	// EI is the index of updated UTXO.
-	EI epoch.Index
-	// Created are the outputs created in a transaction.
-	Created []*ledger.OutputWithMetadata
-	// Spent are outputs that is spent in a transaction.
-	Spent []*ledger.OutputWithMetadata
-}
-
-// EpochCommittableEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
-type EpochCommittableEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.Index
-	// ECRecord is the ec root of committable epoch.
-	ECRecord *epoch.ECRecord
-}
-
-// ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
-type ManaVectorUpdateEvent struct {
-	// EI is the index of committable epoch.
-	EI               epoch.Index
-	EpochDiffCreated []*ledger.OutputWithMetadata
-	EpochDiffSpent   []*ledger.OutputWithMetadata
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
