@@ -62,6 +62,9 @@ func configureManaPlugin(*node.Plugin) {
 	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionAccepted(event.TransactionID) })
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		manaVectorEI := event.EI - epoch.Index(ManaParameters.EpochDelay)
+		if manaVectorEI < 1 {
+			return
+		}
 		spent, created := deps.NotarizationMgr.GetEpochDiffs(manaVectorEI)
 		baseManaVectors[mana.ConsensusMana].BookEpoch(created, spent)
 	})

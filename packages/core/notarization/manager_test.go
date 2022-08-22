@@ -354,6 +354,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -372,6 +373,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		EC1 = EC(ecRecord)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+
 		testFramework.CreateBlock("Block5", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
@@ -388,7 +391,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 		EC2 = EC(ecRecord)
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3))
+
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("D", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
@@ -408,7 +412,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(4))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4))
 		testFramework.CreateBlock("Block7", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block6"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
