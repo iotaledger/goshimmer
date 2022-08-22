@@ -57,7 +57,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 
 	testFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
-			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
+			testFramework.T.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
 
 		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)

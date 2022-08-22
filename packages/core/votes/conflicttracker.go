@@ -42,8 +42,13 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 
 	defaultVote := NewVote[ConflictIDType, VotePowerType](voter, power, UndefinedOpinion)
 
-	c.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, c.Events.VoterAdded)
-	c.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, c.Events.VoterRemoved)
+	if c.revokeInstead(initialVote, voter, power) {
+		c.applyVotes(defaultVote.WithOpinion(Dislike), addedConflictIDs, c.Events.VoterRemoved)
+	} else {
+		c.applyVotes(defaultVote.WithOpinion(Like), addedConflictIDs, c.Events.VoterAdded)
+		c.applyVotes(defaultVote.WithOpinion(Dislike), revokedConflictIDs, c.Events.VoterRemoved)
+	}
+
 	return true, false
 }
 
@@ -111,4 +116,31 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 		return false
 	}
 	return vote.Opinion == Like
+}
+
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeInstead(initialVote *set.AdvancedSet[ConflictIDType], voter *validator.Validator, power VotePowerType) (revokeInstead bool) {
+
+	for it := initialVote.Iterator(); it.HasNext() && !revokeInstead; {
+		conflictID := it.Next()
+		c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
+			votes, conflictVotesExist := c.votes.Get(conflictingConflictID)
+			if !conflictVotesExist {
+				// TODO: can return from here?
+				return true
+			}
+			vote, voteExists := votes.Vote(voter)
+			if !voteExists {
+				// TODO: can return from here?
+				return true
+			}
+			if vote.VotePower.CompareTo(power) >= 0 {
+				revokeInstead = true
+				return false
+			}
+
+			return true
+		})
+	}
+
+	return
 }

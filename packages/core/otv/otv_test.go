@@ -186,7 +186,7 @@ func TestOTV_Track(t *testing.T) {
 	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
 		tf.Transaction("Tx1").ID(): tf.Validators("A"),
 		tf.Transaction("Tx3").ID(): tf.Validators("A"),
-		tf.Transaction("Tx4").ID(): tf.Validators("A"),
+		tf.Transaction("Tx4").ID(): tf.Validators(),
 	}))
 
 	// ISSUE Block12
