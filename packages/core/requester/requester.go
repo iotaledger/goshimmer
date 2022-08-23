@@ -19,7 +19,7 @@ import (
 
 // Requester takes care of requesting blocks.
 type Requester struct {
-	tangle                 *blockdag2.Tangle
+	tangle                 *blockdag2.BlockDAG
 	timedExecutor          *timedexecutor.TimedExecutor
 	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timedexecutor.ScheduledTask]
 	scheduledRequestsCount int
@@ -32,7 +32,7 @@ type Requester struct {
 }
 
 // NewRequester creates a new block requester.
-func NewRequester(t *blockdag2.Tangle, evictionManager *eviction.LockableManager, opts ...options.Option[Requester]) *Requester {
+func NewRequester(t *blockdag2.BlockDAG, evictionManager *eviction.LockableManager, opts ...options.Option[Requester]) *Requester {
 	requester := &Requester{
 		tangle:            t,
 		timedExecutor:     timedexecutor.New(1),

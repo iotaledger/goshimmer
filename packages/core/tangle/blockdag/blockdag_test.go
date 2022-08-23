@@ -15,7 +15,7 @@ import (
 )
 
 // This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
-func TestTangle_AttachBlock(t *testing.T) {
+func TestBlockDAG_AttachBlock(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
@@ -198,7 +198,7 @@ func TestTangle_AttachBlock(t *testing.T) {
 	}
 }
 
-func TestTangle_SetOrphaned(t *testing.T) {
+func TestBlockDAG_SetOrphaned(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2")
@@ -208,27 +208,27 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
 	tf.IssueBlocks("block1", "block2", "block3", "block4", "block5").WaitUntilAllTasksProcessed()
 
-	block1, _ := tf.Tangle().Block(tf.Block("block1").ID())
-	block2, _ := tf.Tangle().Block(tf.Block("block2").ID())
-	block4, _ := tf.Tangle().Block(tf.Block("block4").ID())
+	block1, _ := tf.BlockDAG().Block(tf.Block("block1").ID())
+	block2, _ := tf.BlockDAG().Block(tf.Block("block2").ID())
+	block4, _ := tf.BlockDAG().Block(tf.Block("block4").ID())
 
-	tf.Tangle().SetOrphaned(block1, true)
+	tf.BlockDAG().SetOrphaned(block1, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block2, true)
+	tf.BlockDAG().SetOrphaned(block2, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block4, true)
+	tf.BlockDAG().SetOrphaned(block4, true)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block1, false)
+	tf.BlockDAG().SetOrphaned(block1, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block2", "block3", "block4", "block5"))
 
-	tf.Tangle().SetOrphaned(block2, false)
+	tf.BlockDAG().SetOrphaned(block2, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5"))
 
@@ -236,12 +236,12 @@ func TestTangle_SetOrphaned(t *testing.T) {
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5", "block6"))
 
-	tf.Tangle().SetOrphaned(block4, false)
+	tf.BlockDAG().SetOrphaned(block4, false)
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrphanedBlocks(models.NewBlockIDs())
 }
 
-func TestTangle_AttachBlockTwice_1(t *testing.T) {
+func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
@@ -261,14 +261,14 @@ func TestTangle_AttachBlockTwice_1(t *testing.T) {
 		started++
 		startMutex.Unlock()
 
-		_, wasAttached1, err1 = tf.Tangle().Attach(tf.Block("block2"))
+		_, wasAttached1, err1 = tf.BlockDAG().Attach(tf.Block("block2"))
 	})
 	event.Loop.Submit(func() {
 		startMutex.Lock()
 		started++
 		startMutex.Unlock()
 
-		_, wasAttached2, err2 = tf.Tangle().Attach(tf.Block("block2"))
+		_, wasAttached2, err2 = tf.BlockDAG().Attach(tf.Block("block2"))
 	})
 
 	tf.WaitUntilAllTasksProcessed()
@@ -285,17 +285,17 @@ func TestTangle_AttachBlockTwice_1(t *testing.T) {
 	assert.True(t, wasAttached1 != wasAttached2, "only one of the two should have been attached")
 }
 
-func TestTangle_AttachBlockTwice_2(t *testing.T) {
+func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
-	_, wasAttached, err := tf.Tangle().Attach(tf.Block("block2"))
+	_, wasAttached, err := tf.BlockDAG().Attach(tf.Block("block2"))
 	assert.NoError(t, err, "should not return an error")
 	assert.True(t, wasAttached, "should have been attached")
 
-	_, wasAttached, err = tf.Tangle().Attach(tf.Block("block2"))
+	_, wasAttached, err = tf.BlockDAG().Attach(tf.Block("block2"))
 	assert.NoError(t, err, "should not return an error")
 	assert.False(t, wasAttached, "should not have been attached")
 
@@ -304,9 +304,9 @@ func TestTangle_AttachBlockTwice_2(t *testing.T) {
 	assert.NoError(t, err, "should not return an error")
 }
 
-// This test prepares blocks across different epochs and tries to attach them in reverse order to a pruned tangle.
+// This test prepares blocks across different epochs and tries to attach them in reverse order to a pruned BlockDAG.
 // At the end of the test only blocks from non-pruned epochs should be attached and marked as invalid.
-func TestTangle_AttachInvalid(t *testing.T) {
+func TestBlockDAG_AttachInvalid(t *testing.T) {
 	const epochCount = 100
 
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
@@ -329,7 +329,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 		), alias
 	}
 
-	// Prune tangle.
+	// Prune BlockDAG.
 	tf.EvictionManager().EvictEpoch(epochCount / 2)
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
@@ -357,7 +357,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	// Issue the first bunch of blocks. Those should be marked as invalid when the block with pruned parents is attached.
 	{
 		for i := len(blocks) - 11; i >= 0; i-- {
-			_, wasAttached, err := tf.Tangle().Attach(blocks[i])
+			_, wasAttached, err := tf.BlockDAG().Attach(blocks[i])
 			if blocks[i].ID().Index()-1 > tf.EvictionManager().MaxEvictedEpoch() {
 				assert.True(t, wasAttached, "block should be attached")
 				assert.NoError(t, err, "should not be able to attach a block after shutdown")
@@ -376,7 +376,7 @@ func TestTangle_AttachInvalid(t *testing.T) {
 	// Issue the second bunch of blocks. Those should be marked as invalid when the block attaches to a previously invalid block.
 	{
 		for i := len(blocks) - 1; i >= len(blocks)-10; i-- {
-			_, wasAttached, err := tf.Tangle().Attach(blocks[i])
+			_, wasAttached, err := tf.BlockDAG().Attach(blocks[i])
 			assert.True(t, wasAttached, "block should be attached")
 			assert.NoError(t, err, "should not be able to attach a block after shutdown")
 		}
@@ -391,8 +391,8 @@ func TestTangle_AttachInvalid(t *testing.T) {
 }
 
 // This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
-// When evicting the tangle, the first chain should be evicted but not marked as invalid by the causal order component, while the other should be marked as invalid.
-func TestTangle_Prune(t *testing.T) {
+// When evicting the BlockDAG, the first chain should be evicted but not marked as invalid by the causal order component, while the other should be marked as invalid.
+func TestBlockDAG_Prune(t *testing.T) {
 	const epochCount = 100
 
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
@@ -425,7 +425,7 @@ func TestTangle_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.Tangle().Attach(block)
+		_, wasAttached, err := tf.BlockDAG().Attach(block)
 
 		if i >= epochCount/4 {
 			expectedMissing[alias] = false
@@ -444,7 +444,7 @@ func TestTangle_Prune(t *testing.T) {
 		if i == 1 {
 			continue
 		}
-		_, wasAttached, err := tf.Tangle().Attach(blk)
+		_, wasAttached, err := tf.BlockDAG().Attach(blk)
 
 		if i >= epochCount/2 {
 			expectedMissing[alias] = false
@@ -484,27 +484,27 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 	for i := 1; i <= maxDroppedEpoch; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.Tangle().Block(blkID)
-		assert.False(tf.T, exists, "block %s should not be in the tangle", blkID)
+		_, exists := tf.BlockDAG().Block(blkID)
+		assert.False(tf.T, exists, "block %s should not be in the BlockDAG", blkID)
 
-		assert.Nil(tf.T, tf.Tangle().memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		assert.Nil(tf.T, tf.BlockDAG().memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
-		_, exists := tf.Tangle().Block(blkID)
-		assert.True(tf.T, exists, "block %s should be in the tangle", blkID)
+		_, exists := tf.BlockDAG().Block(blkID)
+		assert.True(tf.T, exists, "block %s should be in the BlockDAG", blkID)
 
-		assert.NotNil(tf.T, tf.Tangle().memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		assert.NotNil(tf.T, tf.BlockDAG().memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
 	}
 }
 
-func TestTangle_MissingBlocks(t *testing.T) {
+func TestBlockDAG_MissingBlocks(t *testing.T) {
 	const (
-		blockCount  = 10000
-		tangleWidth = 500
-		storeDelay  = 0 * time.Millisecond
+		blockCount    = 10000
+		blockDAGWidth = 500
+		storeDelay    = 0 * time.Millisecond
 	)
 
 	tf := NewTestFramework(t)
@@ -525,8 +525,8 @@ func TestTangle_MissingBlocks(t *testing.T) {
 			strongParents = append(strongParents, selectedTip.Alias())
 		}
 		blk := tf.CreateBlock(fmt.Sprintf("msg-%d", idx), models.WithStrongParents(tf.BlockIDs(strongParents...)))
-		// remove a tip if the width of the tangle is reached
-		if tips.Size() >= tangleWidth {
+		// remove a tip if the width of the BlockDAG is reached
+		if tips.Size() >= blockDAGWidth {
 			tips.Delete(blk.ParentsByType(models.StrongParentType).First())
 		}
 
@@ -544,16 +544,16 @@ func TestTangle_MissingBlocks(t *testing.T) {
 		blocks[blk.ID()] = blk
 	}
 
-	tf.Tangle().Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
+	tf.BlockDAG().Events.BlockMissing.Attach(event.NewClosure(func(metadata *Block) {
 		time.Sleep(storeDelay)
 
-		_, _, err := tf.Tangle().Attach(blocks[metadata.ID()])
+		_, _, err := tf.BlockDAG().Attach(blocks[metadata.ID()])
 		assert.NoError(t, err, "should be able to attach a block")
 	}))
 
 	// issue tips to start solidification
 	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
-		_, _, err := tf.Tangle().Attach(blocks[key])
+		_, _, err := tf.BlockDAG().Attach(blocks[key])
 		assert.NoError(t, err, "should be able to attach a block")
 	})
 

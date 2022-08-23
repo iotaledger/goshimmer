@@ -37,7 +37,7 @@ type TestFramework struct {
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
 	testFramework = options.Apply(new(TestFramework), opts)
 	testFramework.ledgerTestFramework = ledger.NewTestFramework(t, ledger.WithLedger(testFramework.Booker().Ledger))
-	testFramework.tangleTestFramework = blockdag.NewTestFramework(t, blockdag.WithTangle(testFramework.Booker().Tangle), blockdag.WithEvictionManager(testFramework.EvictionManager()))
+	testFramework.tangleTestFramework = blockdag.NewTestFramework(t, blockdag.WithTangle(testFramework.Booker().BlockDAG), blockdag.WithEvictionManager(testFramework.EvictionManager()))
 
 	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {

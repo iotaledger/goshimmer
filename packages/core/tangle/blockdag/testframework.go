@@ -18,12 +18,12 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TestFramework implements a framework for conveniently issuing blocks in a tangle as part of unit tests in a
+// TestFramework implements a framework for conveniently issuing blocks in a blockDAG as part of unit tests in a
 // simplified way.
 type TestFramework struct {
 	T               *testing.T
 	evictionManager *eviction.Manager[models.BlockID]
-	tangle          *Tangle
+	blockDAG        *BlockDAG
 
 	solidBlocks         int32
 	missingBlocks       int32
@@ -32,7 +32,7 @@ type TestFramework struct {
 	orphanedBlocks      models.BlockIDs
 	orphanedBlocksMutex sync.Mutex
 
-	optsTangle []options.Option[Tangle]
+	optsBlockDAG []options.Option[BlockDAG]
 
 	*models.TestFramework
 }
@@ -51,8 +51,8 @@ func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]
 
 func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 	if t.evictionManager == nil {
-		if t.tangle != nil {
-			t.evictionManager = t.tangle.evictionManager.Manager
+		if t.blockDAG != nil {
+			t.evictionManager = t.blockDAG.evictionManager.Manager
 		} else {
 			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
 		}
@@ -61,51 +61,51 @@ func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 	return t.evictionManager
 }
 
-func (t *TestFramework) Tangle() *Tangle {
-	if t.tangle == nil {
-		t.tangle = New(t.EvictionManager(), t.optsTangle...)
+func (t *TestFramework) BlockDAG() *BlockDAG {
+	if t.blockDAG == nil {
+		t.blockDAG = New(t.EvictionManager(), t.optsBlockDAG...)
 	}
 
-	return t.tangle
+	return t.blockDAG
 }
 
 func (t *TestFramework) Setup() {
-	t.Tangle().Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockSolid.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("SOLID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.solidBlocks), 1)
 	}))
 
-	t.Tangle().Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockMissing.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("MISSING: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), 1)
 	}))
 
-	t.Tangle().Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.MissingBlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("MISSING BLOCK STORED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
-	t.Tangle().Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("INVALID: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	}))
 
-	t.Tangle().Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockAttached.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.T.Logf("ATTACHED: %s", metadata.ID())
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	}))
 
-	t.Tangle().Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -116,7 +116,7 @@ func (t *TestFramework) Setup() {
 		t.orphanedBlocks.Add(metadata.ID())
 	}))
 
-	t.Tangle().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
 		t.orphanedBlocksMutex.Lock()
 		defer t.orphanedBlocksMutex.Unlock()
 
@@ -128,13 +128,13 @@ func (t *TestFramework) Setup() {
 	}))
 }
 
-// IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
+// IssueBlocks stores the given Blocks in the Storage and triggers the processing by the BlockDAG.
 func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.Block(alias)
 
 		event.Loop.Submit(func() {
-			_, _, _ = t.Tangle().Attach(currentBlock)
+			_, _, _ = t.BlockDAG().Attach(currentBlock)
 		})
 	}
 
@@ -196,7 +196,7 @@ func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...inter
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.Tangle().Block(t.Block(alias).ID())
+	block, exists := t.BlockDAG().Block(t.Block(alias).ID())
 	require.True(t.T, exists, "Block %s not found", alias)
 	callback(block)
 }
@@ -235,21 +235,21 @@ func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) opti
 	}
 }
 
-func WithTangle(tangle *Tangle) options.Option[TestFramework] {
+func WithBlockDAG(blockDAG *BlockDAG) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		if t.optsTangle != nil {
-			panic("Tangle options already set")
+		if t.optsBlockDAG != nil {
+			panic("BlockDAG options already set")
 		}
-		t.tangle = tangle
+		t.blockDAG = blockDAG
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
+func WithBlockDAGOptions(opts ...options.Option[BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		if t.tangle != nil {
-			panic("Tangle already set")
+		if t.blockDAG != nil {
+			panic("BlockDAG already set")
 		}
-		t.optsTangle = opts
+		t.optsBlockDAG = opts
 	}
 }
 

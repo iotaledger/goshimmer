@@ -38,11 +38,11 @@ type Booker struct {
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsTangle        []options.Option[blockdag2.Tangle]
+	optsTangle        []options.Option[blockdag2.BlockDAG]
 	optsMarkerManager []options.Option[MarkerManager]
 	optsLedger        []ledger.Option
 
-	*blockdag2.Tangle
+	*blockdag2.BlockDAG
 }
 
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Booker]) (booker *Booker) {
@@ -53,16 +53,16 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   evictionManager.Lockable(),
-		optsTangle:        make([]options.Option[blockdag2.Tangle], 0),
+		optsTangle:        make([]options.Option[blockdag2.BlockDAG], 0),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 	}, opts)
-	booker.Tangle = blockdag2.New(evictionManager, booker.optsTangle...)
+	booker.BlockDAG = blockdag2.New(evictionManager, booker.optsTangle...)
 	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
 	booker.Ledger = ledger.New(booker.optsLedger...)
 
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
-	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag2.Block) {
+	booker.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag2.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
@@ -188,7 +188,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
-		tangleBlock, _ := b.Tangle.Block(id)
+		tangleBlock, _ := b.BlockDAG.Block(id)
 
 		genesisStructureDetails := markers.NewStructureDetails()
 		genesisStructureDetails.SetIsPastMarker(true)
@@ -530,7 +530,7 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTangleOptions(opts ...options.Option[blockdag2.Tangle]) options.Option[Booker] {
+func WithTangleOptions(opts ...options.Option[blockdag2.BlockDAG]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsTangle = opts
 	}
