@@ -26,7 +26,7 @@ import (
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Booker struct {
-	// Events contains the Events of Tangle.
+	// Events contains the Events of Booker.
 	Events *Events
 
 	Ledger          *ledger.Ledger
@@ -38,7 +38,7 @@ type Booker struct {
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsTangle        []options.Option[blockdag.BlockDAG]
+	optsBlockDAG      []options.Option[blockdag.BlockDAG]
 	optsMarkerManager []options.Option[MarkerManager]
 	optsLedger        []ledger.Option
 
@@ -53,10 +53,10 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   evictionManager.Lockable(),
-		optsTangle:        make([]options.Option[blockdag.BlockDAG], 0),
+		optsBlockDAG:      make([]options.Option[blockdag.BlockDAG], 0),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 	}, opts)
-	booker.BlockDAG = blockdag.New(evictionManager, booker.optsTangle...)
+	booker.BlockDAG = blockdag.New(evictionManager, booker.optsBlockDAG...)
 	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
 	booker.Ledger = ledger.New(booker.optsLedger...)
 
@@ -110,7 +110,7 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 	return b.isPayloadSolid(block)
 }
 
-// Block retrieves a Block with metadata from the in-memory storage of the Tangle.
+// Block retrieves a Block with metadata from the in-memory storage of the Booker.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
@@ -530,9 +530,9 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTangleOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[Booker] {
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[Booker] {
 	return func(b *Booker) {
-		b.optsTangle = opts
+		b.optsBlockDAG = opts
 	}
 }
 
