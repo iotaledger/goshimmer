@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/core/booker"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
@@ -22,6 +22,7 @@ func TestOTV_Track(t *testing.T) {
 	//  - test issuing votes out of order, votes have same time (possibly separate test case)
 
 	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithOnTangleVotingOptions(WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(30))

@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
@@ -30,14 +30,14 @@ type TestFramework struct {
 	markerConflictsAdded  int32
 	optsBooker            []options.Option[Booker]
 
-	*tangleTestFramework
+	*blockDAGTestFramework
 	*ledgerTestFramework
 }
 
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
 	testFramework = options.Apply(new(TestFramework), opts)
 	testFramework.ledgerTestFramework = ledger.NewTestFramework(t, ledger.WithLedger(testFramework.Booker().Ledger))
-	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
+	testFramework.blockDAGTestFramework = blockdag.NewTestFramework(t, blockdag.WithBlockDAG(testFramework.Booker().BlockDAG), blockdag.WithEvictionManager(testFramework.EvictionManager()))
 
 	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
@@ -96,7 +96,7 @@ func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
-	block, ok := t.Booker().block(t.tangleTestFramework.Block(alias).ID())
+	block, ok := t.Booker().block(t.blockDAGTestFramework.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
@@ -196,7 +196,7 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-type tangleTestFramework = tangle.TestFramework
+type blockDAGTestFramework = blockdag.TestFramework
 
 type ledgerTestFramework = ledger.TestFramework
 
