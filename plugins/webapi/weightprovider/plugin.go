@@ -33,11 +33,12 @@ func configure(_ *node.Plugin) {
 }
 
 func getNodesHandler(c echo.Context) (err error) {
-	activeNodes := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).ActiveNodes()
+	activeNodes, _ := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).WeightsOfRelevantVoters()
 
-	activeNodesString := make(map[string][]int64)
-	for nodeID, al := range activeNodes {
-		activeNodesString[nodeID.String()] = al.Times()
+	activeNodesString := make([]string, 0)
+
+	for id := range activeNodes {
+		activeNodesString = append(activeNodesString, id.String())
 	}
 
 	return c.JSON(http.StatusOK, activeNodesString)

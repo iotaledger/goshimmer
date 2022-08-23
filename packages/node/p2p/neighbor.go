@@ -1,17 +1,13 @@
 package p2p
 
 import (
-	"io"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-libp2p-core/protocol"
-	"github.com/libp2p/go-yamux/v2"
 )
 
 // NeighborsGroup is an enum type for various neighbors groups like auto/manual.
@@ -110,16 +106,14 @@ func (n *Neighbor) readLoop() {
 				packet := stream.packetFactory()
 				err := stream.ReadPacket(packet)
 				if err != nil {
-					if isPermanentError(err) {
-						if disconnectErr := n.disconnect(); disconnectErr != nil {
-							n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
-						}
-						return
+					if isTimeoutError(err) {
+						continue
 					}
-					if !isTimeoutError(err) {
-						n.Log.Debugw("Read error", "err", err)
+					n.Log.Infow("Stream read packet error", "err", err)
+					if disconnectErr := n.disconnect(); disconnectErr != nil {
+						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
 					}
-					continue
+					return
 				}
 				n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{
 					Neighbor: n,
@@ -150,10 +144,4 @@ func (n *Neighbor) disconnect() (err error) {
 		}
 	})
 	return err
-}
-
-func isPermanentError(err error) bool {
-	return strings.Contains(err.Error(), "use of closed network connection") ||
-		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) || errors.Is(err, yamux.ErrStreamClosed) ||
-		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
