@@ -212,6 +212,22 @@ func (m BlockIDs) AddAll(blockIDs BlockIDs) BlockIDs {
 	return m
 }
 
+// Remove removes a BlockID from the collection and returns the collection to enable chaining.
+func (m BlockIDs) Remove(blockID BlockID) BlockIDs {
+	delete(m, blockID)
+
+	return m
+}
+
+// RemoveAll removes the BlockIDs from the collection and returns the collection to enable chaining.
+func (m BlockIDs) RemoveAll(blockIDs BlockIDs) BlockIDs {
+	for blockID := range blockIDs {
+		m.Remove(blockID)
+	}
+
+	return m
+}
+
 // Empty checks if BlockIDs is empty.
 func (m BlockIDs) Empty() (empty bool) {
 	return len(m) == 0

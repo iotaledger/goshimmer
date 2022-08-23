@@ -198,6 +198,49 @@ func TestTangle_AttachBlock(t *testing.T) {
 	}
 }
 
+func TestTangle_SetOrphaned(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateBlock("block1")
+	tf.CreateBlock("block2")
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3")))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
+	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
+	tf.IssueBlocks("block1", "block2", "block3", "block4", "block5").WaitUntilAllTasksProcessed()
+
+	block1, _ := tf.Tangle().Block(tf.Block("block1").ID())
+	block2, _ := tf.Tangle().Block(tf.Block("block2").ID())
+	block4, _ := tf.Tangle().Block(tf.Block("block4").ID())
+
+	tf.Tangle().SetOrphaned(block1, true)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block3", "block4", "block5"))
+
+	tf.Tangle().SetOrphaned(block2, true)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
+
+	tf.Tangle().SetOrphaned(block4, true)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block1", "block2", "block3", "block4", "block5"))
+
+	tf.Tangle().SetOrphaned(block1, false)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block2", "block3", "block4", "block5"))
+
+	tf.Tangle().SetOrphaned(block2, false)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5"))
+
+	tf.IssueBlocks("block6")
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(tf.BlockIDs("block4", "block5", "block6"))
+
+	tf.Tangle().SetOrphaned(block4, false)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrphanedBlocks(models.NewBlockIDs())
+}
+
 func TestTangle_AttachBlockTwice_1(t *testing.T) {
 	tf := NewTestFramework(t)
 

@@ -11,12 +11,14 @@ import (
 
 // Block represents a Block annotated with Tangle related metadata.
 type Block struct {
-	missing              bool
-	solid                bool
-	invalid              bool
-	strongChildren       []*Block
-	weakChildren         []*Block
-	likedInsteadChildren []*Block
+	missing                  bool
+	solid                    bool
+	invalid                  bool
+	orphaned                 bool
+	orphanedBlocksInPastCone models.BlockIDs
+	strongChildren           []*Block
+	weakChildren             []*Block
+	likedInsteadChildren     []*Block
 
 	*models.Block
 }
@@ -24,10 +26,11 @@ type Block struct {
 // NewBlock creates a new Block with the given options.
 func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		strongChildren:       make([]*Block, 0),
-		weakChildren:         make([]*Block, 0),
-		likedInsteadChildren: make([]*Block, 0),
-		Block:                data,
+		orphanedBlocksInPastCone: models.NewBlockIDs(),
+		strongChildren:           make([]*Block, 0),
+		weakChildren:             make([]*Block, 0),
+		likedInsteadChildren:     make([]*Block, 0),
+		Block:                    data,
 	}, opts)
 }
 
@@ -53,6 +56,23 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	defer b.RUnlock()
 
 	return b.invalid
+}
+
+// IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
+// orphaned Blocks in its past cone).
+func (b *Block) IsOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphaned || !b.orphanedBlocksInPastCone.Empty()
+}
+
+// OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
+func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphanedBlocksInPastCone
 }
 
 // Children returns the children of the Block.
@@ -95,8 +115,7 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	return b.likedInsteadChildren
 }
 
-// setSolid marks the Block as solid. It is private even though it locks because we want to prevent people from
-// setting the solid flag manually.
+// setSolid marks the Block as solid.
 func (b *Block) setSolid() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -108,8 +127,7 @@ func (b *Block) setSolid() (wasUpdated bool) {
 	return
 }
 
-// setInvalid marks the Block as invalid. It is private even though it locks because we want to prevent people from
-// setting the invalid flag manually.
+// setInvalid marks the Block as invalid.
 func (b *Block) setInvalid() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
@@ -121,6 +139,50 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	b.invalid = true
 
 	return true
+}
+
+func (b *Block) isOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphaned
+}
+
+// setOrphaned sets the orphaned flag of the Block.
+func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if b.orphaned == orphaned {
+		return false, false
+	}
+	b.orphaned = orphaned
+
+	return true, b.orphanedBlocksInPastCone.Empty()
+}
+
+// addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
+func (b *Block) addOrphanedBlocksInPastCone(ids models.BlockIDs) (wasAdded bool, becameOrphaned bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	initialCount := len(b.orphanedBlocksInPastCone)
+	b.orphanedBlocksInPastCone.AddAll(ids)
+	newCount := len(b.orphanedBlocksInPastCone)
+
+	return newCount > initialCount, initialCount == 0 && newCount != 0 && !b.orphaned
+}
+
+// removeOrphanedBlocksInPastCone removes the given BlockIDs from the list of orphaned Blocks in the past cone.
+func (b *Block) removeOrphanedBlocksInPastCone(ids models.BlockIDs) (wasRemoved bool, becameUnorphaned bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	initialCount := len(b.orphanedBlocksInPastCone)
+	b.orphanedBlocksInPastCone.RemoveAll(ids)
+	newCount := len(b.orphanedBlocksInPastCone)
+
+	return newCount < initialCount, initialCount != 0 && newCount == 0 && !b.orphaned
 }
 
 // appendChild adds a child of the corresponding type to the Block.
@@ -174,6 +236,21 @@ func WithMissing(missing bool) options.Option[Block] {
 func WithSolid(solid bool) options.Option[Block] {
 	return func(block *Block) {
 		block.solid = solid
+	}
+}
+
+// WithOrphaned is a constructor Option for Blocks that initializes the given block with a specific orphaned flag.
+func WithOrphaned(markedOrphaned bool) options.Option[Block] {
+	return func(block *Block) {
+		block.orphaned = markedOrphaned
+	}
+}
+
+// WithOrphanedBlocksInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
+// orphaned Blocks in its past cone.
+func WithOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) options.Option[Block] {
+	return func(block *Block) {
+		block.orphanedBlocksInPastCone = orphanedBlocks
 	}
 }
 

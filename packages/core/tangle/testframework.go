@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -24,10 +25,12 @@ type TestFramework struct {
 	evictionManager *eviction.Manager[models.BlockID]
 	tangle          *Tangle
 
-	solidBlocks    int32
-	missingBlocks  int32
-	invalidBlocks  int32
-	attachedBlocks int32
+	solidBlocks         int32
+	missingBlocks       int32
+	invalidBlocks       int32
+	attachedBlocks      int32
+	orphanedBlocks      models.BlockIDs
+	orphanedBlocksMutex sync.Mutex
 
 	optsTangle []options.Option[Tangle]
 
@@ -37,8 +40,9 @@ type TestFramework struct {
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(testingT *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	t = options.Apply(&TestFramework{
-		T:             testingT,
-		TestFramework: models.NewTestFramework(models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID))),
+		T:              testingT,
+		TestFramework:  models.NewTestFramework(models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID))),
+		orphanedBlocks: models.NewBlockIDs(),
 	}, opts)
 	t.Setup()
 
@@ -100,6 +104,28 @@ func (t *TestFramework) Setup() {
 		}
 		atomic.AddInt32(&(t.attachedBlocks), 1)
 	}))
+
+	t.Tangle().Events.BlockOrphaned.Hook(event.NewClosure(func(metadata *Block) {
+		t.orphanedBlocksMutex.Lock()
+		defer t.orphanedBlocksMutex.Unlock()
+
+		if debug.GetEnabled() {
+			t.T.Logf("ORPHANED: %s", metadata.ID())
+		}
+
+		t.orphanedBlocks.Add(metadata.ID())
+	}))
+
+	t.Tangle().Events.BlockUnorphaned.Hook(event.NewClosure(func(metadata *Block) {
+		t.orphanedBlocksMutex.Lock()
+		defer t.orphanedBlocksMutex.Unlock()
+
+		if debug.GetEnabled() {
+			t.T.Logf("UNORPHANED: %s", metadata.ID())
+		}
+
+		t.orphanedBlocks.Remove(metadata.ID())
+	}))
 }
 
 // IssueBlocks stores the given Blocks in the Storage and triggers the processing by the Tangle.
@@ -144,6 +170,13 @@ func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 			assert.Equal(t.T, isSolid, block.IsSolid(), "block %s has incorrect solid flag", alias)
 		})
 	}
+}
+
+func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msgAndArgs ...interface{}) {
+	t.orphanedBlocksMutex.Lock()
+	defer t.orphanedBlocksMutex.Unlock()
+
+	assert.EqualValues(t.T, orphanedBlocks, t.orphanedBlocks, msgAndArgs...)
 }
 
 func (t *TestFramework) AssertSolidCount(solidCount int32, msgAndArgs ...interface{}) {
