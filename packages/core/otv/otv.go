@@ -33,7 +33,6 @@ type OnTangleVoting struct {
 
 func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
 	otv = options.Apply(&OnTangleVoting{
-		Events:          newEvents(),
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
 		evictionManager: evictionManager.Lockable(),
@@ -44,6 +43,7 @@ func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.B
 	otv.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, otv.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 		return 0
 	})
+	otv.Events = newEvents(otv.conflictTracker.Events, otv.sequenceTracker.Events)
 
 	otv.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		otv.Track(NewBlock(block))
