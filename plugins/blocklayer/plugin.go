@@ -114,7 +114,8 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
-			deps.Tangle.WeightProvider.Update(block.IssuingTime(), identity.NewID(block.IssuerPublicKey()))
+			ei := epoch.IndexFromTime(block.IssuingTime())
+			deps.Tangle.WeightProvider.Update(ei, identity.NewID(block.IssuerPublicKey()))
 		})
 	}))
 
@@ -153,21 +154,20 @@ func configure(plugin *node.Plugin) {
 			}
 		}
 
-		epochDiffsConsumer := func(header *ledger.SnapshotHeader, epochDiffs map[epoch.Index]*ledger.EpochDiff) {
-			err := deps.Tangle.Ledger.LoadEpochDiffs(header, epochDiffs)
+		epochDiffsConsumer := func(epochDiff *ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiff(epochDiff)
 			if err != nil {
 				panic(err)
 			}
-			for _, epochDiff := range epochDiffs {
-				for _, outputWithMetadata := range epochDiff.Created() {
-					deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
-				}
+			for _, outputWithMetadata := range epochDiff.Created() {
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
 
-		headerConsumer := func(*ledger.SnapshotHeader) {}
-
-		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer)
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyActivityConsumer := func(activity epoch.SnapshotEpochActivity) {}
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer, emptyActivityConsumer)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
 		}

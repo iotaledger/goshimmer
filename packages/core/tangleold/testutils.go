@@ -171,7 +171,7 @@ func (m *BlockTestFramework) PreventNewMarkers(enabled bool) *BlockTestFramework
 }
 
 // LatestCommitment gets the latest commitment.
-func (m *BlockTestFramework) LatestCommitment(blockAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+func (m *BlockTestFramework) LatestCommitment() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 	return m.tangle.Options.CommitmentFunc()
 }
 
@@ -203,7 +203,7 @@ func (m *BlockTestFramework) Block(alias string) (block *Block) {
 	return
 }
 
-// Block retrieves the Blocks that is associated with the given alias.
+// BlockIDs retrieves the Blocks that is associated with the given alias.
 func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {
@@ -310,9 +310,19 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
 		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
+	activeNodes := createActivityLog(manaPledgeTime, manaPledgeID)
 
-	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata, activeNodes)
 	loadSnapshotToLedger(m.tangle.Ledger, m.snapshot)
+}
+
+// createActivityLog create activity log and adds provided node for given time.
+func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.SnapshotEpochActivity {
+	ei := epoch.IndexFromTime(activityTime)
+	activeNodes := make(epoch.SnapshotEpochActivity)
+	activeNodes[ei] = epoch.NewSnapshotNodeActivity()
+	activeNodes[ei].SetNodeActivity(nodeID, 1)
+	return activeNodes
 }
 
 func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
@@ -929,8 +939,21 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
 
+func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+	return nil
+}
+
+// LoadActiveNodes mocks its interface function.
+func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
+}
+
 // Update mocks its interface function.
-func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
+func (m *MockWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
+}
+
+// Remove mocks its interface function.
+func (m *MockWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, count uint64) (removed bool) {
+	return true
 }
 
 // Weight mocks its interface function.
@@ -1072,8 +1095,10 @@ func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
 // loadSnapshotToLedger loads a snapshot of the Ledger from the given snapshot.
 func loadSnapshotToLedger(l *ledger.Ledger, s *ledger.Snapshot) {
 	l.LoadOutputWithMetadatas(s.OutputsWithMetadata)
-	err := l.LoadEpochDiffs(s.Header, s.EpochDiffs)
-	if err != nil {
-		panic("Failed to load epochDiffs from snapshot")
+	for _, diffs := range s.EpochDiffs {
+		err := l.LoadEpochDiff(diffs)
+		if err != nil {
+			panic("Failed to load epochDiffs from snapshot")
+		}
 	}
 }

@@ -93,7 +93,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Notarization.Enabled = true
 	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
-	c.Notarization.MinEpochCommitableAge = 10 * time.Second
+	c.Notarization.MinEpochCommittableAge = 10 * time.Second
 
 	c.RateSetter.Enabled = true
 	c.RateSetter.RateSetterParametersDefinition.Enable = false

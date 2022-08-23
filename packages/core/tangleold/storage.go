@@ -370,7 +370,9 @@ func (s *Storage) deleteChild(parent Parent, approvingBlock BlockID) {
 // Shutdown marks the tangle as stopped, so it will not accept any new blocks (waits for all backgroundTasks to finish).
 func (s *Storage) Shutdown() {
 	s.blockStorage.Shutdown()
+	fmt.Println("======= Shutdown block metadate starts")
 	s.blockMetadataStorage.Shutdown()
+	fmt.Println("======= Shutdown block metadate ends")
 	s.childStorage.Shutdown()
 	s.missingBlockStorage.Shutdown()
 	s.attachmentStorage.Shutdown()

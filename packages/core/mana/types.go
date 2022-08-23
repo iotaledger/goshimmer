@@ -1,6 +1,6 @@
-package mana // Type defines if mana is access or consensus type of mana.
+package mana
 
-// Type is the mana type.
+// Type defines if mana is access or consensus type of mana.
 type Type byte
 
 const (
