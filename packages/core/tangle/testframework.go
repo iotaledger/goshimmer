@@ -29,7 +29,6 @@ type TestFramework struct {
 	missingBlocks       int32
 	invalidBlocks       int32
 	attachedBlocks      int32
-	orphanedBlocksCount int32
 	orphanedBlocks      models.BlockIDs
 	orphanedBlocksMutex sync.Mutex
 

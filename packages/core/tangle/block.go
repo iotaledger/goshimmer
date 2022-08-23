@@ -170,7 +170,7 @@ func (b *Block) addOrphanedBlocksInPastCone(ids models.BlockIDs) (wasAdded bool,
 	b.orphanedBlocksInPastCone.AddAll(ids)
 	newCount := len(b.orphanedBlocksInPastCone)
 
-	return newCount > initialCount, initialCount == 0 && !b.orphaned
+	return newCount > initialCount, initialCount == 0 && newCount != 0 && !b.orphaned
 }
 
 // removeOrphanedBlocksInPastCone removes the given BlockIDs from the list of orphaned Blocks in the past cone.
