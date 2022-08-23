@@ -2,21 +2,16 @@ package faucet
 
 import (
 	"context"
-	"crypto/ed25519"
-	"os"
 	"time"
-	"unsafe"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/pkg/errors"
 )
 
@@ -32,27 +27,12 @@ type Faucet struct {
 }
 
 // NewFaucet creates a new Faucet instance.
-func NewFaucet(faucetSeed *seed.Seed, walletStates string) *Faucet {
-	seed, lastAddressIndex, spentAddresses, assetRegistry, err := importWalletStateFile(walletStates)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			panic(err)
-		}
-
-		seed = faucetSeed
-		lastAddressIndex = 0
-		spentAddresses = []bitmask.BitMask{}
-	}
-
-	if faucetSeed.String() != seed.String() {
-		panic("faucet seed is different from the one in wallet states file")
-	}
-
+func NewFaucet(faucetSeed *seed.Seed) *Faucet {
 	connector := NewConnector(deps.Tangle, deps.Indexer)
 
 	return &Faucet{wallet.New(
 		wallet.GenericConnector(connector),
-		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
+		wallet.Import(faucetSeed, 0, []bitmask.BitMask{}, nil),
 		wallet.ReusableAddress(true),
 		wallet.FaucetPowDifficulty(Parameters.PowDifficulty),
 	)}
@@ -105,49 +85,5 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 			return nil, errors.Errorf("TX %s is not confirmed in time")
 		}
 		attempt++
-	}
-}
-
-func importWalletStateFile(filename string) (seed *seed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
-	walletStateBytes, err := os.ReadFile(filename)
-	if err != nil {
-		return
-	}
-
-	marshalUtil := marshalutil.New(walletStateBytes)
-
-	seedBytes, err := marshalUtil.ReadBytes(ed25519.SeedSize)
-	seed = walletseed.NewSeed(seedBytes)
-	if err != nil {
-		return
-	}
-
-	lastAddressIndex, err = marshalUtil.ReadUint64()
-	if err != nil {
-		return
-	}
-
-	_, _, err = wallet.ParseAssetRegistry(marshalUtil)
-
-	spentAddressesBytes := marshalUtil.ReadRemainingBytes()
-	spentAddresses = *(*[]bitmask.BitMask)(unsafe.Pointer(&spentAddressesBytes))
-
-	return
-}
-
-func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
-	info, err := os.Stat(filename)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			panic(err)
-		}
-	}
-	if err == nil && info.IsDir() {
-		panic("found directory instead of file at " + filename)
-	}
-
-	err = os.WriteFile(filename, wallet.ExportState(), 0o644)
-	if err != nil {
-		panic(err)
 	}
 }

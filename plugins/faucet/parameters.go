@@ -11,9 +11,6 @@ type ParametersDefinition struct {
 	// Seed defines the base58 encoded seed the faucet uses.
 	Seed string `usage:"the base58 encoded seed of the faucet, must be defined if this faucet is enabled"`
 
-	// FaucetWalletFile defines the file name of faucet wallet states.
-	FaucetWalletFile string `default:"faucet.wallet" usage:"the states that is preserved for faucet wallet"`
-
 	// TokensPerRequest defines the amount of tokens the faucet should send for each request.
 	TokensPerRequest int `default:"1000000" usage:"the amount of tokens the faucet should send for each request"`
 

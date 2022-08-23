@@ -78,7 +78,7 @@ func newFaucet() *Faucet {
 		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
 	}
 
-	return NewFaucet(walletseed.NewSeed(seedBytes), Parameters.FaucetWalletFile)
+	return NewFaucet(walletseed.NewSeed(seedBytes))
 }
 
 func configure(plugin *node.Plugin) {
@@ -112,7 +112,6 @@ func run(plugin *node.Plugin) {
 
 		<-ctx.Done()
 		close(requestChan)
-		writeWalletStateFile(_faucet.Wallet, Parameters.FaucetWalletFile)
 
 		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
