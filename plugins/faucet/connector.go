@@ -76,7 +76,7 @@ func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) 
 
 	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxTxBookedAwaitTime)
 	if err != nil {
-		return errors.Errorf("%w: tx %s", err, tx.ID().String())
+		return errors.Errorf("%v: tx %s", err, tx.ID().String())
 	}
 	return nil
 }

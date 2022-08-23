@@ -82,7 +82,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 			return tx, nil
 		}
 		if attempt > maxWaitAttempts {
-			return nil, errors.Errorf("TX %s is not confirmed in time")
+			return nil, errors.Errorf("TX %s is not confirmed in time", tx.ID())
 		}
 		attempt++
 	}
