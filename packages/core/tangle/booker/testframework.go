@@ -29,17 +29,25 @@ type TestFramework struct {
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
 	optsBooker            []options.Option[Booker]
+	optsBlockDAG          []options.Option[blockdag.BlockDAG]
 
-	*blockDAGTestFramework
 	*ledgerTestFramework
+	*blockDAGTestFramework
 }
 
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	testFramework = options.Apply(new(TestFramework), opts)
-	testFramework.ledgerTestFramework = ledger.NewTestFramework(t, ledger.WithLedger(testFramework.Booker().Ledger))
-	testFramework.blockDAGTestFramework = blockdag.NewTestFramework(t, blockdag.WithBlockDAG(testFramework.Booker().BlockDAG), blockdag.WithEvictionManager(testFramework.EvictionManager()))
+	testFramework = options.Apply(&TestFramework{}, opts)
+	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
+	testFramework.blockDAGTestFramework = blockdag.NewTestFramework(t, blockdag.WithBlockDAGOptions(testFramework.optsBlockDAG...))
 
-	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+	testFramework.booker = New(
+		testFramework.EvictionManager,
+		testFramework.Ledger(),
+		testFramework.BlockDAG,
+		testFramework.optsBooker...,
+	)
+
+	testFramework.booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			testFramework.T.Logf("BOOKED: %s", metadata.ID())
 		}
@@ -47,7 +55,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 		atomic.AddInt32(&(testFramework.bookedBlocks), 1)
 	}))
 
-	testFramework.Booker().Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
+	testFramework.booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
 		if debug.GetEnabled() {
 			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
 		}
@@ -55,7 +63,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 		atomic.AddInt32(&(testFramework.blockConflictsUpdated), 1)
 	}))
 
-	testFramework.Booker().Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+	testFramework.booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
 		if debug.GetEnabled() {
 			testFramework.T.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
 		}
@@ -63,7 +71,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)
 	}))
 
-	testFramework.Booker().Events.Error.Hook(event.NewClosure(func(err error) {
+	testFramework.booker.Events.Error.Hook(event.NewClosure(func(err error) {
 		testFramework.T.Logf("ERROR: %s", err)
 	}))
 
@@ -72,7 +80,7 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (test
 
 func (t *TestFramework) Booker() (booker *Booker) {
 	if t.booker == nil {
-		t.booker = New(t.EvictionManager(), t.optsBooker...)
+		t.booker = New(t.EvictionManager(), t.Ledger(), t.BlockDAG(), t.optsBooker...)
 	}
 
 	return t.booker
@@ -80,18 +88,6 @@ func (t *TestFramework) Booker() (booker *Booker) {
 
 func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
 	return t.Booker().markerManager.sequenceManager
-}
-
-func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
-	if t.evictionManager == nil {
-		if t.booker != nil {
-			t.evictionManager = t.booker.evictionManager.Manager
-		} else {
-			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
-		}
-	}
-
-	return t.evictionManager
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
@@ -206,28 +202,13 @@ type ledgerTestFramework = ledger.TestFramework
 
 func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		if tf.booker != nil {
-			panic("Booker already set")
-		}
 		tf.optsBooker = opts
 	}
 }
 
-func WithBooker(booker *Booker) options.Option[TestFramework] {
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		if tf.optsBooker != nil {
-			panic("Booker options already set")
-		}
-		tf.booker = booker
-	}
-}
-
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.evictionManager != nil {
-			panic("Eviction manager already set")
-		}
-		tf.evictionManager = evictionManager
+		tf.optsBlockDAG = opts
 	}
 }
 

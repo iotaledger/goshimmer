@@ -12,29 +12,24 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
-type bookerTestFramework = *booker.TestFramework
-type votesTestFramework = *votes.TestFramework[BlockVotePower]
-
 type TestFramework struct {
-	evictionManager   *eviction.Manager[models.BlockID]
 	identitiesByAlias map[string]*identity.Identity
 	otv               *OnTangleVoting
 	trackedBlocks     uint32
+	optsBooker        []options.Option[booker.Booker]
 	optsOTV           []options.Option[OnTangleVoting]
 
 	t *testing.T
 
-	votesTestFramework
-	bookerTestFramework
+	*votesTestFramework
+	*bookerTestFramework
 }
 
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (tf *TestFramework) {
@@ -44,8 +39,9 @@ func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (tf *
 	}, opts)
 
 	validatorSet := validator.NewSet()
-	tf.otv = New(validatorSet, tf.EvictionManager(), tf.optsOTV...)
-	tf.bookerTestFramework = booker.NewTestFramework(t, booker.WithBooker(tf.OTV().Booker), booker.WithEvictionManager(tf.EvictionManager()))
+
+	tf.bookerTestFramework = booker.NewTestFramework(t, booker.WithBookerOptions(tf.optsBooker...))
+	tf.otv = New(tf.EvictionManager(), tf.Ledger(), tf.BlockDAG(), tf.Booker(), validatorSet, tf.optsOTV...)
 	tf.votesTestFramework = votes.NewTestFramework[BlockVotePower](t, votes.WithValidatorSet[BlockVotePower](validatorSet), votes.WithConflictTracker(tf.otv.conflictTracker), votes.WithSequenceTracker(tf.otv.sequenceTracker), votes.WithConflictDAG[BlockVotePower](tf.otv.Booker.Ledger.ConflictDAG), votes.WithSequenceManager[BlockVotePower](tf.bookerTestFramework.SequenceManager()))
 
 	tf.OTV().Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
@@ -86,18 +82,6 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 	return
 }
 
-func (t *TestFramework) EvictionManager() *eviction.Manager[models.BlockID] {
-	if t.evictionManager == nil {
-		if t.otv != nil {
-			t.evictionManager = t.otv.evictionManager.Manager
-		} else {
-			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
-		}
-	}
-
-	return t.evictionManager
-}
-
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[*validator.Validator]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker().Voters(marker)
@@ -118,6 +102,10 @@ func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
 	assert.Equal(t.t, blocksTracked, atomic.LoadUint32(&t.trackedBlocks), "expected %d blocks to be tracked but got %d", blocksTracked, atomic.LoadUint32(&t.trackedBlocks))
 }
 
+type bookerTestFramework = booker.TestFramework
+
+type votesTestFramework = votes.TestFramework[BlockVotePower]
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +116,12 @@ func WithOnTangleVotingOptions(opts ...options.Option[OnTangleVoting]) options.O
 			panic("OTV already set")
 		}
 		tf.optsOTV = opts
+	}
+}
+
+func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsBooker = opts
 	}
 }
 

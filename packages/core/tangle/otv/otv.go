@@ -6,9 +6,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -26,19 +28,16 @@ type OnTangleVoting struct {
 	sequenceTracker *votes.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsBooker []options.Option[booker.Booker]
-
 	*booker.Booker
 }
 
-func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
+func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledger.Ledger, blockDAG *blockdag.BlockDAG, bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
 	otv = options.Apply(&OnTangleVoting{
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
 		evictionManager: evictionManager.Lockable(),
-		optsBooker:      make([]options.Option[booker.Booker], 0),
+		Booker:          bookerInstance,
 	}, opts)
-	otv.Booker = booker.New(evictionManager, otv.optsBooker...)
 	otv.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](otv.Booker.Ledger.ConflictDAG, validatorSet)
 	otv.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, otv.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 		return 0
@@ -114,11 +113,5 @@ func (o *OnTangleVoting) processForkedMarker(marker markers.Marker, forkedConfli
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[OnTangleVoting] {
-	return func(b *OnTangleVoting) {
-		b.optsBooker = opts
-	}
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

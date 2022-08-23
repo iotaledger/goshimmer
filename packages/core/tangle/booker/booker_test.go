@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
@@ -20,9 +19,6 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	debug.SetEnabled(true)
-	defer debug.SetEnabled(false)
-
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
@@ -36,17 +32,6 @@ func TestScenario_1(t *testing.T) {
 	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")), models.WithPayload(tf.CreateTransaction("TX7", 1, "TX5.0")))
 
 	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
-
-	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9"} {
-		block := tf.Block(alias)
-		_, blockConflictIDs := tf.Booker().blockBookingDetails(block)
-		fmt.Println(alias, blockConflictIDs)
-
-		fmt.Println(alias, "added", block.AddedConflictIDs(), "subtracted", block.SubtractedConflictIDs())
-		fmt.Println(alias, "all", block.StructureDetails())
-		fmt.Println("UTXO", tf.Booker().PayloadConflictIDs(block))
-		fmt.Println("-----------------------------------------------------")
-	}
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -509,8 +494,6 @@ func TestWeakParent(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
-	debug.SetEnabled(true)
-
 	const layersNum = 127
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
@@ -823,8 +806,6 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 }
 
 func Test_BlockInvalid(t *testing.T) {
-	debug.SetEnabled(true)
-
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
