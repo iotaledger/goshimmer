@@ -32,9 +32,9 @@ type Requester struct {
 }
 
 // NewRequester creates a new block requester.
-func NewRequester(t *blockdag.BlockDAG, evictionManager *eviction.LockableManager[models.BlockID], opts ...options.Option[Requester]) *Requester {
+func NewRequester(blockDAG *blockdag.BlockDAG, evictionManager *eviction.LockableManager[models.BlockID], opts ...options.Option[Requester]) *Requester {
 	requester := &Requester{
-		blockDAG:          t,
+		blockDAG:          blockDAG,
 		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timedexecutor.ScheduledTask](),
 		evictionManager:   evictionManager.Lockable(),
