@@ -77,12 +77,6 @@ func newFaucet() *Faucet {
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
 		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
 	}
-	if Parameters.SupplyOutputsCount <= 0 {
-		Plugin.LogFatalfAndExit("the number of faucet supply outputs should be more than 0")
-	}
-	if Parameters.GenesisTokenAmount <= 0 {
-		Plugin.LogFatalfAndExit("the total supply should be more than 0")
-	}
 
 	return NewFaucet(walletseed.NewSeed(seedBytes), Parameters.FaucetWalletFile)
 }
@@ -90,7 +84,6 @@ func newFaucet() *Faucet {
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 	bootstrapped = make(chan bool, 1)
-	_faucet = newFaucet()
 
 	configureEvents()
 }
@@ -114,6 +107,7 @@ func run(plugin *node.Plugin) {
 
 		initDone.Store(true)
 
+		_faucet = newFaucet()
 		go _faucet.Start(ctx, requestChan)
 
 		<-ctx.Done()

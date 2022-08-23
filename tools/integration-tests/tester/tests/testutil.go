@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -133,35 +132,6 @@ func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	return info.Mana
 }
 
-// AwaitInitialFaucetOutputsPrepared waits until the initial outputs are prepared by the faucet.
-func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, peers []*framework.Node) {
-	supplyOutputsCount := faucet.Config().SupplyOutputsCount
-	lastFundingOutputAddress := supplyOutputsCount + FaucetFundingOutputsAddrStart - 1
-
-	accepted := make(map[int]types.Empty)
-	require.Eventually(t, func() bool {
-		if len(accepted) == supplyOutputsCount {
-			return true
-		}
-		// wait for confirmation of each fundingOutput
-		for fundingIndex := FaucetFundingOutputsAddrStart; fundingIndex <= lastFundingOutputAddress; fundingIndex++ {
-			if _, ok := accepted[fundingIndex]; !ok {
-				addrToCheck := faucet.Address(fundingIndex).Base58()
-				resp, err := faucet.PostAddressUnspentOutputs([]string{addrToCheck})
-				require.NoError(t, err)
-				if len(resp.UnspentOutputs[0].Outputs) != 0 {
-					if resp.UnspentOutputs[0].Outputs[0].ConfirmationState.IsAccepted() {
-						accepted[fundingIndex] = types.Void
-					}
-				}
-			}
-		}
-		return false
-	}, time.Minute, Tick)
-	// give the faucet time to save the latest accepted output
-	time.Sleep(3 * time.Second)
-}
-
 // AddressUnspentOutputs returns the unspent outputs on address.
 func AddressUnspentOutputs(t *testing.T, node *framework.Node, address devnetvm.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
@@ -192,7 +162,7 @@ func Balance(t *testing.T, node *framework.Node, address devnetvm.Address, color
 // SendFaucetRequest sends a data block on a given peer and returns the id and a DataBlockSent struct. By default,
 // it pledges mana to the peer making the request.
 func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address, manaPledgeIDs ...string) (string, DataBlockSent) {
-	nodeID := base58.Encode(node.ID().Bytes())
+	nodeID := node.ID().EncodeBase58()
 	aManaPledgeID, cManaPledgeID := nodeID, nodeID
 	if len(manaPledgeIDs) > 1 {
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]

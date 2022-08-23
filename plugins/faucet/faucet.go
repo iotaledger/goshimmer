@@ -13,13 +13,17 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/pkg/errors"
 )
 
 var (
 	maxTxBookedAwaitTime = 5 * time.Second
+	waitForAcceptance    = 10 * time.Second
+	maxWaitAttempts      = 5
 )
 
 // remainder stays on index 0
@@ -72,12 +76,36 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 	}
 }
 
+// handleFaucetRequest sends funds to the requested address and wait the transaction to be accepted.
 func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, error) {
-	return f.SendFunds(
+	tx, err := f.SendFunds(
 		sendoptions.Destination(address.Address{AddressBytes: p.Address().Array()}, uint64(Parameters.TokensPerRequest)),
-		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().String()),
-		sendoptions.ConsensusManaPledgeID(p.ConsensusManaPledgeID().String()),
+		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().EncodeBase58()),
+		sendoptions.ConsensusManaPledgeID(p.ConsensusManaPledgeID().EncodeBase58()),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	ticker := time.NewTicker(waitForAcceptance)
+	attempt := 0
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		accepted := false
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(t *ledger.TransactionMetadata) {
+			if t.ConfirmationState().IsAccepted() {
+				accepted = true
+			}
+		})
+		if accepted {
+			return tx, nil
+		}
+		if attempt > maxWaitAttempts {
+			return nil, errors.Errorf("TX %s is not confirmed in time")
+		}
+		attempt++
+	}
 }
 
 func importWalletStateFile(filename string) (seed *seed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
