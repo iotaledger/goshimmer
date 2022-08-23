@@ -19,7 +19,7 @@ import (
 
 // Requester takes care of requesting blocks.
 type Requester struct {
-	tangle                 *blockdag.BlockDAG
+	blockDAG               *blockdag.BlockDAG
 	timedExecutor          *timedexecutor.TimedExecutor
 	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timedexecutor.ScheduledTask]
 	scheduledRequestsCount int
@@ -34,7 +34,7 @@ type Requester struct {
 // NewRequester creates a new block requester.
 func NewRequester(t *blockdag.BlockDAG, evictionManager *eviction.LockableManager[models.BlockID], opts ...options.Option[Requester]) *Requester {
 	requester := &Requester{
-		tangle:            t,
+		blockDAG:          t,
 		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timedexecutor.ScheduledTask](),
 		evictionManager:   evictionManager.Lockable(),
@@ -53,10 +53,10 @@ func NewRequester(t *blockdag.BlockDAG, evictionManager *eviction.LockableManage
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.tangle.Events.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
+	r.blockDAG.Events.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
 		r.StartRequest(block.ID())
 	}))
-	r.tangle.Events.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
+	r.blockDAG.Events.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
 		r.StopRequest(block.ID())
 	}))
 
