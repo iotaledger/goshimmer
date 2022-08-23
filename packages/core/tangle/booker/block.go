@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 )
 
 type Block struct {
@@ -14,7 +14,7 @@ type Block struct {
 	addedConflictIDs      utxo.TransactionIDs
 	subtractedConflictIDs utxo.TransactionIDs
 
-	*tangle.Block
+	*blockdag.Block
 }
 
 func (b *Block) Transaction() (tx utxo.Transaction, isTransaction bool) {
@@ -68,7 +68,7 @@ func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
 	return b.subtractedConflictIDs.Clone()
 }
 
-func NewBlock(block *tangle.Block, opts ...options.Option[Block]) (newBlock *Block) {
+func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block:                 block,
 		addedConflictIDs:      utxo.NewTransactionIDs(),

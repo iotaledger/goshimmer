@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	blockdag2 "github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
@@ -38,11 +38,11 @@ type Booker struct {
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsTangle        []options.Option[tangle.Tangle]
+	optsTangle        []options.Option[blockdag2.Tangle]
 	optsMarkerManager []options.Option[MarkerManager]
 	optsLedger        []ledger.Option
 
-	*tangle.Tangle
+	*blockdag2.Tangle
 }
 
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Booker]) (booker *Booker) {
@@ -53,16 +53,16 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   evictionManager.Lockable(),
-		optsTangle:        make([]options.Option[tangle.Tangle], 0),
+		optsTangle:        make([]options.Option[blockdag2.Tangle], 0),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 	}, opts)
-	booker.Tangle = tangle.New(evictionManager, booker.optsTangle...)
+	booker.Tangle = blockdag2.New(evictionManager, booker.optsTangle...)
 	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
 	booker.Ledger = ledger.New(booker.optsLedger...)
 
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
-	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
+	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag2.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
@@ -379,7 +379,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 }
 
 func (b *Booker) strongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *tangle.Block) (bookerChild *Block) {
+	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *blockdag2.Block) (bookerChild *Block) {
 		bookerChild, exists := b.Block(tangleChild.ID())
 		if !exists {
 			return nil
@@ -530,7 +530,7 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Booker] {
+func WithTangleOptions(opts ...options.Option[blockdag2.Tangle]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsTangle = opts
 	}

@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/core/booker"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
+	booker2 "github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
@@ -23,7 +23,7 @@ func TestOTV_Track(t *testing.T) {
 
 	debug.SetEnabled(true)
 
-	tf := NewTestFramework(t, WithOnTangleVotingOptions(WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithOnTangleVotingOptions(WithBookerOptions(booker2.WithMarkerManagerOptions(booker2.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(30))
 	tf.CreateIdentity("B", validator.WithWeight(15))
 	tf.CreateIdentity("C", validator.WithWeight(25))

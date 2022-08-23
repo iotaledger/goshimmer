@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
@@ -37,7 +37,7 @@ type TestFramework struct {
 func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
 	testFramework = options.Apply(new(TestFramework), opts)
 	testFramework.ledgerTestFramework = ledger.NewTestFramework(t, ledger.WithLedger(testFramework.Booker().Ledger))
-	testFramework.tangleTestFramework = tangle.NewTestFramework(t, tangle.WithTangle(testFramework.Booker().Tangle), tangle.WithEvictionManager(testFramework.EvictionManager()))
+	testFramework.tangleTestFramework = blockdag.NewTestFramework(t, blockdag.WithTangle(testFramework.Booker().Tangle), blockdag.WithEvictionManager(testFramework.EvictionManager()))
 
 	testFramework.Booker().Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
@@ -196,7 +196,7 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-type tangleTestFramework = tangle.TestFramework
+type tangleTestFramework = blockdag.TestFramework
 
 type ledgerTestFramework = ledger.TestFramework
 

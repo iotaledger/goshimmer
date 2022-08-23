@@ -4,12 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/booker"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	booker2 "github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
@@ -26,9 +26,9 @@ type OnTangleVoting struct {
 	sequenceTracker *votes.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsBooker []options.Option[booker.Booker]
+	optsBooker []options.Option[booker2.Booker]
 
-	*booker.Booker
+	*booker2.Booker
 }
 
 func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
@@ -36,23 +36,23 @@ func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.B
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
 		evictionManager: evictionManager.Lockable(),
-		optsBooker:      make([]options.Option[booker.Booker], 0),
+		optsBooker:      make([]options.Option[booker2.Booker], 0),
 	}, opts)
-	otv.Booker = booker.New(evictionManager, otv.optsBooker...)
+	otv.Booker = booker2.New(evictionManager, otv.optsBooker...)
 	otv.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](otv.Booker.Ledger.ConflictDAG, validatorSet)
 	otv.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, otv.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 		return 0
 	})
 	otv.Events = newEvents(otv.conflictTracker.Events, otv.sequenceTracker.Events)
 
-	otv.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
+	otv.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker2.Block) {
 		otv.Track(NewBlock(block))
 	}))
 
-	otv.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
+	otv.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker2.BlockConflictAddedEvent) {
 		otv.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
 	}))
-	otv.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
+	otv.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker2.MarkerConflictAddedEvent) {
 		otv.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
 
@@ -99,7 +99,7 @@ func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *OnTangleVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *OnTangleVoting) processForkedBlock(block *booker2.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
@@ -115,7 +115,7 @@ func (o *OnTangleVoting) processForkedMarker(marker markers.Marker, forkedConfli
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[OnTangleVoting] {
+func WithBookerOptions(opts ...options.Option[booker2.Booker]) options.Option[OnTangleVoting] {
 	return func(b *OnTangleVoting) {
 		b.optsBooker = opts
 	}

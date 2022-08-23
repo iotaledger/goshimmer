@@ -1,4 +1,4 @@
-package tangle
+package blockdag
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package tangle
+package blockdag
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"

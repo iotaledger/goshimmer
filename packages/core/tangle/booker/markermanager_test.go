@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
@@ -28,12 +28,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 	createNewBlock := func(idx int, prefix string) (block *Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 1 {
-			return NewBlock(tangle.NewBlock(tf.CreateBlock(
+			return NewBlock(blockdag.NewBlock(tf.CreateBlock(
 				alias,
 				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 			))), alias
 		}
-		return NewBlock(tangle.NewBlock(tf.CreateBlock(
+		return NewBlock(blockdag.NewBlock(tf.CreateBlock(
 			alias,
 			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
 			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
