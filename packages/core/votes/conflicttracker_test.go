@@ -13,7 +13,7 @@ import (
 // TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.
 // The scenario can be found in images/approvalweight-updateConflictSupporters.png.
 func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := NewTestFramework[mockVotePower](t)
 
 	tf.CreateValidator("validator1")
 	tf.CreateValidator("validator2")

@@ -113,7 +113,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsConflict(voter *validator.Validator, conflictID ConflictIDType) bool {
 	votes, exists := c.votes.Get(conflictID)
 	if !exists {
-		panic(fmt.Sprintf("votes for conflict %s not found", conflictID))
+		panic(fmt.Sprintf("votes for conflict %v not found", conflictID))
 	}
 
 	vote, exists := votes.Vote(voter)
