@@ -2,14 +2,12 @@ package faucet
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/mr-tron/base58"
@@ -42,10 +40,7 @@ var (
 	requestChanSize     = 100
 	requestChan         = make(chan *faucet.Payload, requestChanSize)
 	targetPoWDifficulty int
-	// blacklist makes sure that an address might only request tokens once.
-	blacklist         *orderedmap.OrderedMap[string, bool]
-	blacklistCapacity int
-	blackListMutex    sync.RWMutex
+
 	// signals that the faucet has initialized itself and can start funding requests.
 	initDone     atomic.Bool
 	bootstrapped chan bool
@@ -94,8 +89,6 @@ func newFaucet() *Faucet {
 
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	blacklist = orderedmap.New[string, bool]()
-	blacklistCapacity = Parameters.BlacklistCapacity
 	bootstrapped = make(chan bool, 1)
 	_faucet = newFaucet()
 
@@ -233,11 +226,6 @@ func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) 
 		return errors.New("PoW requirement is not satisfied")
 	}
 
-	if IsAddressBlackListed(addr) {
-		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
-	}
-
 	emptyID := identity.ID{}
 	if len(pledge) == 2 {
 		if fundingRequest.AccessManaPledgeID() == emptyID {
@@ -273,31 +261,4 @@ func isFaucetRequestPoWValid(fundingRequest *faucet.Payload, addr devnetvm.Addre
 	}
 
 	return true
-}
-
-// IsAddressBlackListed returns if an address is blacklisted.
-// adds the given address to the blacklist and removes the oldest blacklist entry if it would go over capacity.
-func IsAddressBlackListed(address devnetvm.Address) bool {
-	blackListMutex.Lock()
-	defer blackListMutex.Unlock()
-
-	// see if it was already blacklisted
-	_, blacklisted := blacklist.Get(address.Base58())
-
-	if blacklisted {
-		return true
-	}
-
-	// add it to the blacklist
-	blacklist.Set(address.Base58(), true)
-	if blacklist.Size() > blacklistCapacity {
-		var headKey string
-		blacklist.ForEach(func(key string, value bool) bool {
-			headKey = key
-			return false
-		})
-		blacklist.Delete(headKey)
-	}
-
-	return false
 }
