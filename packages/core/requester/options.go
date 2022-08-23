@@ -3,7 +3,7 @@ package requester
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/options"
 )
 
 // RetryInterval creates an option which sets the retry interval to the given value.
