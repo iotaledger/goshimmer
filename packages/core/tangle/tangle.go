@@ -32,8 +32,8 @@ type Tangle struct {
 	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	// orphanMutex is a mutex that is used to synchronize updates to the orphanage flags.
-	orphanMutex *syncutils.DAGMutex[models.BlockID]
+	// orphanageMutex is a mutex that is used to synchronize updates to the orphanage flags.
+	orphanageMutex *syncutils.DAGMutex[models.BlockID]
 }
 
 // New is the constructor for the Tangle and creates a new Tangle instance.
@@ -42,7 +42,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		Events:          newEvents(),
 		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
 		evictionManager: evictionManager.Lockable(),
-		orphanMutex:     syncutils.NewDAGMutex[models.BlockID](),
+		orphanageMutex:  syncutils.NewDAGMutex[models.BlockID](),
 	}, opts)
 
 	newTangle.solidifier = causalorder.New(
@@ -99,8 +99,8 @@ func (t *Tangle) SetInvalid(block *Block) (wasUpdated bool) {
 
 // SetOrphaned marks a Block as orphaned and propagates it to its future cone.
 func (t *Tangle) SetOrphaned(block *Block, orphaned bool) (updated bool, statusChanged bool) {
-	t.orphanMutex.Lock(block.ID())
-	defer t.orphanMutex.Unlock(block.ID())
+	t.orphanageMutex.Lock(block.ID())
+	defer t.orphanageMutex.Unlock(block.ID())
 
 	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
 		panic("tried to unorphan a block that still has orphaned parents")
@@ -134,34 +134,11 @@ func (t *Tangle) evictEpoch(epochIndex epoch.Index) {
 func (t *Tangle) markSolid(block *Block) (err error) {
 	block.setSolid()
 
-	t.orphanMutex.RLock(block.Parents()...)
-	defer t.orphanMutex.RUnlock(block.Parents()...)
-
-	if orphanedBlocks := t.inheritOrphanedBlocks(block); !orphanedBlocks.Empty() {
-		t.propagateOrphanageUpdate([]*Block{block}, orphanedBlocks, t.Events.BlockOrphaned, (*Block).addOrphanedBlocksInPastCone)
-	}
+	t.inheritOrphanage(block)
 
 	t.Events.BlockSolid.Trigger(block)
 
 	return nil
-}
-
-// inheritOrphanedBlocks returns an aggregation of the orphaned Blocks of the parents of the given Block.
-func (t *Tangle) inheritOrphanedBlocks(block *Block) (orphanedBlocks models.BlockIDs) {
-	orphanedBlocks = models.NewBlockIDs()
-	block.ForEachParent(func(parent models.Parent) {
-		parentBlock, exists := t.Block(parent.ID)
-		if !exists {
-			panic(fmt.Sprintf("failed to find parent block with %s", parent.ID))
-		}
-
-		orphanedBlocks.AddAll(parentBlock.OrphanedBlocksInPastCone())
-		if parentBlock.isOrphaned() {
-			orphanedBlocks.Add(parentBlock.ID())
-		}
-	})
-
-	return
 }
 
 func (t *Tangle) markInvalid(block *Block, reason error) {
@@ -261,6 +238,34 @@ func (t *Tangle) walkFutureCone(blocks []*Block, callback func(currentBlock *Blo
 	}
 }
 
+// inheritOrphanage inherits the orphanage state of the parents to the given Block.
+func (t *Tangle) inheritOrphanage(block *Block) {
+	t.orphanageMutex.RLock(block.Parents()...)
+	defer t.orphanageMutex.RUnlock(block.Parents()...)
+
+	if orphanedBlocks := t.orphanedBlocksInPastCone(block); !orphanedBlocks.Empty() {
+		t.propagateOrphanageUpdate([]*Block{block}, orphanedBlocks, t.Events.BlockOrphaned, (*Block).addOrphanedBlocksInPastCone)
+	}
+}
+
+// orphanedBlocksInPastCone returns an aggregation of the orphaned Blocks of the parents of the given Block.
+func (t *Tangle) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models.BlockIDs) {
+	orphanedBlocks = models.NewBlockIDs()
+	block.ForEachParent(func(parent models.Parent) {
+		parentBlock, exists := t.Block(parent.ID)
+		if !exists {
+			panic(fmt.Sprintf("failed to find parent block with %s", parent.ID))
+		}
+
+		orphanedBlocks.AddAll(parentBlock.OrphanedBlocksInPastCone())
+		if parentBlock.isOrphaned() {
+			orphanedBlocks.Add(parentBlock.ID())
+		}
+	})
+
+	return
+}
+
 // orphanageUpdaters returns the Event and update function used for handling the different types of orphanage updates.
 func (t *Tangle) orphanageUpdaters(orphaned bool) (updateEvent *event.Event[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
 	if !orphaned {
@@ -273,8 +278,8 @@ func (t *Tangle) orphanageUpdaters(orphaned bool) (updateEvent *event.Event[*Blo
 // propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
 func (t *Tangle) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.Event[*Block], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
 	t.walkFutureCone(blocks, func(currentBlock *Block) []*Block {
-		t.orphanMutex.Lock(currentBlock.ID())
-		defer t.orphanMutex.Unlock(currentBlock.ID())
+		t.orphanageMutex.Lock(currentBlock.ID())
+		defer t.orphanageMutex.Unlock(currentBlock.ID())
 
 		updated, statusChanged := updateFunc(currentBlock, orphanedBlocks)
 		if !updated {
