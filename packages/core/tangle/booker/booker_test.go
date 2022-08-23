@@ -21,8 +21,8 @@ import (
 
 func TestScenario_1(t *testing.T) {
 	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
 
-	// tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
@@ -699,7 +699,7 @@ func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expect
 }
 
 // This test creates two chains of blocks from the genesis (1 block per epoch in each chain). The first chain is solid, the second chain is not.
-// When pruning the tangle, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
+// When pruning the BlockDAG, the first chain should be pruned but not marked as invalid by the causal order component, while the other should be marked as invalid.
 func Test_Prune(t *testing.T) {
 	const epochCount = 100
 
@@ -737,7 +737,7 @@ func Test_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.Tangle().Attach(block)
+		_, wasAttached, err := tf.BlockDAG().Attach(block)
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 
@@ -747,7 +747,7 @@ func Test_Prune(t *testing.T) {
 		}
 	}
 
-	_, wasAttached, err := tf.Tangle().Attach(tf.CreateBlock(
+	_, wasAttached, err := tf.BlockDAG().Attach(tf.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
@@ -782,7 +782,7 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, epochCount/2, epochCount)
 
-	_, wasAttached, err = tf.Tangle().Attach(tf.CreateBlock(
+	_, wasAttached, err = tf.BlockDAG().Attach(tf.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
@@ -798,7 +798,7 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 		alias := fmt.Sprintf("blk-%d", i)
 
 		_, exists := tf.Booker().Block(tf.TestFramework.Block(alias).ID())
-		require.True(tf.T, exists, "block should be in the tangle")
+		require.True(tf.T, exists, "block should be in the BlockDAG")
 		if i == 1 {
 			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
 			require.Len(tf.T, blocks, 2, "transaction blk-0 should have 2 attachments")
@@ -811,7 +811,7 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 	for i := 1; i <= maxPrunedEpoch; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 		_, exists := tf.Booker().Block(tf.TestFramework.Block(alias).ID())
-		require.False(tf.T, exists, "block should not be in the tangle")
+		require.False(tf.T, exists, "block should not be in the BlockDAG")
 		if i == 1 {
 			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
 			require.Len(tf.T, blocks, 1, "transaction should have 1 attachment")

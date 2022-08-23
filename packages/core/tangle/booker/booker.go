@@ -70,7 +70,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 
 	booker.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
+			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to BlockDAG: %w", event.TransactionID, err))
 		}
 	}))
 
@@ -188,13 +188,13 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
-		tangleBlock, _ := b.BlockDAG.Block(id)
+		blockDAGBlock, _ := b.BlockDAG.Block(id)
 
 		genesisStructureDetails := markers.NewStructureDetails()
 		genesisStructureDetails.SetIsPastMarker(true)
 		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
 
-		return NewBlock(tangleBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
+		return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -379,8 +379,8 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 }
 
 func (b *Booker) strongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *blockdag.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(tangleChild.ID())
+	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
+		bookerChild, exists := b.Block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}
