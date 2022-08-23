@@ -305,37 +305,37 @@ func TestManager(t *testing.T) {
 func TestManagerConvergence(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	structureDetails1, _ := tf.SequenceManager.InheritStructureDetails(nil)
+	structureDetails1, _ := tf.SequenceManager().InheritStructureDetails(nil)
 	assert.True(t, structureDetails1.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails2, _ := tf.SequenceManager.InheritStructureDetails(nil)
+	structureDetails2, _ := tf.SequenceManager().InheritStructureDetails(nil)
 	assert.True(t, structureDetails2.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails3, _ := tf.SequenceManager.InheritStructureDetails(nil)
+	structureDetails3, _ := tf.SequenceManager().InheritStructureDetails(nil)
 	assert.True(t, structureDetails3.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails4, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2})
+	structureDetails4, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2})
 	assert.True(t, structureDetails4.PastMarkers().Equals(NewMarkers(NewMarker(0, 2))))
 
-	structureDetails5, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3})
+	structureDetails5, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3})
 	assert.True(t, structureDetails5.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails6, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3})
+	structureDetails6, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3})
 	assert.True(t, structureDetails6.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails7, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3})
+	structureDetails7, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3})
 	assert.True(t, structureDetails7.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
 
-	structureDetails8, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5})
+	structureDetails8, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5})
 	assert.True(t, structureDetails8.PastMarkers().Equals(NewMarkers(NewMarker(0, 3))))
 
-	structureDetails9, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6})
+	structureDetails9, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6})
 	assert.True(t, structureDetails9.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails10, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7})
+	structureDetails10, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7})
 	assert.True(t, structureDetails10.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
-	structureDetails11, _ := tf.SequenceManager.InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10})
+	structureDetails11, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10})
 	assert.True(t, structureDetails11.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 }
 

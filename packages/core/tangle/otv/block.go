@@ -3,7 +3,7 @@ package otv
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/booker"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

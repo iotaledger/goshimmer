@@ -19,14 +19,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Booker struct {
-	// Events contains the Events of Tangle.
+	// Events contains the Events of Booker.
 	Events *Events
 
 	Ledger          *ledger.Ledger
@@ -38,11 +38,11 @@ type Booker struct {
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsTangle        []options.Option[tangle.Tangle]
+	optsBlockDAG      []options.Option[blockdag.BlockDAG]
 	optsMarkerManager []options.Option[MarkerManager]
 	optsLedger        []ledger.Option
 
-	*tangle.Tangle
+	*blockdag.BlockDAG
 }
 
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Booker]) (booker *Booker) {
@@ -53,16 +53,16 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   evictionManager.Lockable(),
-		optsTangle:        make([]options.Option[tangle.Tangle], 0),
+		optsBlockDAG:      make([]options.Option[blockdag.BlockDAG], 0),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 	}, opts)
-	booker.Tangle = tangle.New(evictionManager, booker.optsTangle...)
+	booker.BlockDAG = blockdag.New(evictionManager, booker.optsBlockDAG...)
 	booker.markerManager = NewMarkerManager(booker.optsMarkerManager...)
 	booker.Ledger = ledger.New(booker.optsLedger...)
 
 	booker.bookingOrder = causalorder.New(evictionManager, booker.Block, (*Block).IsBooked, booker.book, booker.markInvalid, causalorder.WithReferenceValidator[models.BlockID](isReferenceValid))
 
-	booker.Tangle.Events.BlockSolid.Hook(event.NewClosure(func(block *tangle.Block) {
+	booker.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
 		if _, err := booker.Queue(NewBlock(block)); err != nil {
 			panic(err)
 		}
@@ -70,7 +70,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 
 	booker.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
 		if err := booker.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to tangle: %w", event.TransactionID, err))
+			booker.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to BlockDAG: %w", event.TransactionID, err))
 		}
 	}))
 
@@ -110,7 +110,7 @@ func (b *Booker) queue(block *Block) (wasQueued bool, err error) {
 	return b.isPayloadSolid(block)
 }
 
-// Block retrieves a Block with metadata from the in-memory storage of the Tangle.
+// Block retrieves a Block with metadata from the in-memory storage of the Booker.
 func (b *Booker) Block(id models.BlockID) (block *Block, exists bool) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
@@ -188,13 +188,13 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
-		tangleBlock, _ := b.Tangle.Block(id)
+		blockDAGBlock, _ := b.BlockDAG.Block(id)
 
 		genesisStructureDetails := markers.NewStructureDetails()
 		genesisStructureDetails.SetIsPastMarker(true)
 		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
 
-		return NewBlock(tangleBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
+		return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -379,8 +379,8 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 }
 
 func (b *Booker) strongChildren(block *Block) []*Block {
-	return lo.Filter(lo.Map(block.StrongChildren(), func(tangleChild *tangle.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(tangleChild.ID())
+	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
+		bookerChild, exists := b.Block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}
@@ -530,9 +530,9 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Booker] {
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[Booker] {
 	return func(b *Booker) {
-		b.optsTangle = opts
+		b.optsBlockDAG = opts
 	}
 }
 
