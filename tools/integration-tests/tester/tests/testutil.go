@@ -33,8 +33,6 @@ const (
 	Tick = 500 * time.Millisecond
 
 	shutdownGraceTime = time.Minute
-
-	FaucetFundingOutputsAddrStart = 1
 )
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
