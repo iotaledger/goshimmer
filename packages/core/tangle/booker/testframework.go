@@ -35,7 +35,7 @@ type TestFramework struct {
 	*BlockDAGTestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {

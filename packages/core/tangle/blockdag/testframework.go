@@ -38,7 +38,7 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),

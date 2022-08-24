@@ -23,14 +23,17 @@ type BlockDAG struct {
 	// Events contains the Events of the BlockDAG.
 	Events *Events
 
+	// EvictionManager exposes the public manager used to orchestrate the eviction of old Blocks.
+	EvictionManager *eviction.Manager[models.BlockID]
+
+	// evictionManager contains the local manager used to orchestrate the eviction of old Blocks inside the BlockDAG.
+	evictionManager *eviction.LockableManager[models.BlockID]
+
 	// memStorage contains the in-memory storage of the BlockDAG.
 	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
 
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
 	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
-
-	// evictionManager contains the manager used to orchestrate the eviction of old Blocks.
-	evictionManager *eviction.LockableManager[models.BlockID]
 
 	// orphanageMutex is a mutex that is used to synchronize updates to the orphanage flags.
 	orphanageMutex *syncutils.DAGMutex[models.BlockID]
@@ -38,25 +41,24 @@ type BlockDAG struct {
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
-	newBlockDAG = options.Apply(&BlockDAG{
+	return options.Apply(&BlockDAG{
 		Events:          newEvents(),
-		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
+		EvictionManager: evictionManager,
 		evictionManager: evictionManager.Lockable(),
+		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
 		orphanageMutex:  syncutils.NewDAGMutex[models.BlockID](),
-	}, opts)
+	}, opts, func(b *BlockDAG) {
+		b.solidifier = causalorder.New(
+			evictionManager,
+			b.Block,
+			(*Block).IsSolid,
+			b.markSolid,
+			b.markInvalid,
+			causalorder.WithReferenceValidator[models.BlockID](checkReference),
+		)
 
-	newBlockDAG.solidifier = causalorder.New(
-		evictionManager,
-		newBlockDAG.Block,
-		(*Block).IsSolid,
-		newBlockDAG.markSolid,
-		newBlockDAG.markInvalid,
-		causalorder.WithReferenceValidator[models.BlockID](checkReference),
-	)
-
-	newBlockDAG.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(newBlockDAG.evictEpoch))
-
-	return newBlockDAG
+		b.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
+	})
 }
 
 // Attach is used to attach new Blocks to the BlockDAG. It is the main function of the BlockDAG that triggers Events.

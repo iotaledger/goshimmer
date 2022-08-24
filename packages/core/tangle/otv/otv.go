@@ -6,11 +6,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -31,11 +29,11 @@ type OnTangleVoting struct {
 	*booker.Booker
 }
 
-func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledger.Ledger, blockDAG *blockdag.BlockDAG, bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
+func New(bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
 	otv = options.Apply(&OnTangleVoting{
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
-		evictionManager: evictionManager.Lockable(),
+		evictionManager: bookerInstance.BlockDAG.EvictionManager.Lockable(),
 		Booker:          bookerInstance,
 	}, opts)
 	otv.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](otv.Booker.Ledger.ConflictDAG, validatorSet)

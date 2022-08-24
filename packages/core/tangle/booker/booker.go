@@ -43,21 +43,21 @@ type Booker struct {
 	*blockdag.BlockDAG
 }
 
-func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledger.Ledger, blockDAG *blockdag.BlockDAG, opts ...options.Option[Booker]) (booker *Booker) {
+func New(blockDAG *blockdag.BlockDAG, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            newEvents(),
 		attachments:       newAttachments(),
 		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
-		evictionManager:   evictionManager.Lockable(),
+		evictionManager:   blockDAG.EvictionManager.Lockable(),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
 		Ledger:            ledgerInstance,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
-			evictionManager,
+			blockDAG.EvictionManager,
 			b.Block,
 			(*Block).IsBooked,
 			b.book,
@@ -65,32 +65,6 @@ func New(evictionManager *eviction.Manager[models.BlockID], ledgerInstance *ledg
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 	}, (*Booker).setupEvents)
-}
-
-func (b *Booker) setupEvents() {
-	b.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if _, err := b.Queue(NewBlock(block)); err != nil {
-			panic(err)
-		}
-	}))
-
-	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
-		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to BlockDAG: %w", event.TransactionID, err))
-		}
-	}))
-
-	b.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
-		contextBlockID := models.BlockIDFromContext(e.Context)
-
-		for _, block := range b.attachments.Get(e.TransactionID) {
-			if contextBlockID != block.ID() {
-				b.bookingOrder.Queue(block)
-			}
-		}
-	}))
-
-	b.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
 }
 
 func (b *Booker) Queue(block *Block) (wasQueued bool, err error) {
@@ -392,6 +366,32 @@ func (b *Booker) strongChildren(block *Block) []*Block {
 	}), func(child *Block) bool {
 		return child != nil
 	})
+}
+
+func (b *Booker) setupEvents() {
+	b.BlockDAG.Events.BlockSolid.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if _, err := b.Queue(NewBlock(block)); err != nil {
+			panic(err)
+		}
+	}))
+
+	b.Ledger.Events.TransactionConflictIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionConflictIDUpdatedEvent) {
+		if err := b.PropagateForkedConflict(event.TransactionID, event.AddedConflictID, event.RemovedConflictIDs); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to propagate Conflict update of %s to BlockDAG: %w", event.TransactionID, err))
+		}
+	}))
+
+	b.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(e *ledger.TransactionBookedEvent) {
+		contextBlockID := models.BlockIDFromContext(e.Context)
+
+		for _, block := range b.attachments.Get(e.TransactionID) {
+			if contextBlockID != block.ID() {
+				b.bookingOrder.Queue(block)
+			}
+		}
+	}))
+
+	b.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
 }
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////

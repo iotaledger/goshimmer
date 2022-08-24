@@ -36,7 +36,7 @@ type TestFramework struct {
 	*VotesTestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:              test,
 		identitiesByAlias: make(map[string]*identity.Identity),
