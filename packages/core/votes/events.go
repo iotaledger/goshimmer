@@ -29,8 +29,9 @@ type SequenceTrackerEvents struct {
 }
 
 type SequenceVoterEvent struct {
-	Voter  *validator.Validator
-	Marker markers.Marker
+	Voter                  *validator.Validator
+	NewMaxSupportedMarker  markers.Marker
+	PrevMaxSupportedMarker markers.Marker
 }
 
 func newSequenceTrackerEvents() *SequenceTrackerEvents {

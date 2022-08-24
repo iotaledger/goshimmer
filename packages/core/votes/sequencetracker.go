@@ -117,12 +117,11 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 	}
 
 	// Trigger events for all newly supported markers.
-	for i := previousHighestIndex + 1; i <= marker.Index(); i++ {
-		s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
-			Voter:  voter,
-			Marker: markers.NewMarker(marker.SequenceID(), i),
-		})
-	}
+	s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
+		Voter:                  voter,
+		NewMaxSupportedMarker:  marker,
+		PrevMaxSupportedMarker: markers.NewMarker(marker.SequenceID(), previousHighestIndex),
+	})
 
 	// Walk the SequenceDAG to propagate votes to referenced sequences.
 	sequence, exists := s.sequenceCallback(marker.SequenceID())
