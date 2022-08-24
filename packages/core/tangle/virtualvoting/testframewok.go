@@ -1,4 +1,4 @@
-package otv
+package virtualvoting
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ import (
 
 type TestFramework struct {
 	ValidatorSet *validator.Set
-	OTV          *OnTangleVoting
+	OTV          *VirtualVoting
 
 	test              *testing.T
 	identitiesByAlias map[string]*identity.Identity
@@ -30,7 +30,7 @@ type TestFramework struct {
 
 	optsBlockDAG []options.Option[blockdag.BlockDAG]
 	optsBooker   []options.Option[booker.Booker]
-	optsOTV      []options.Option[OnTangleVoting]
+	optsOTV      []options.Option[VirtualVoting]
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -132,7 +132,7 @@ func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[Tes
 	}
 }
 
-func WithOnTangleVotingOptions(opts ...options.Option[OnTangleVoting]) options.Option[TestFramework] {
+func WithOnTangleVotingOptions(opts ...options.Option[VirtualVoting]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsOTV = opts
 	}

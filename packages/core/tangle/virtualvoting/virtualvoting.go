@@ -1,4 +1,4 @@
-package otv
+package virtualvoting
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -15,9 +15,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
-// region OnTangleVoting ///////////////////////////////////////////////////////////////////////////////////////////////
+// region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type OnTangleVoting struct {
+type VirtualVoting struct {
 	Events *Events
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
@@ -29,28 +29,28 @@ type OnTangleVoting struct {
 	*booker.Booker
 }
 
-func New(bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
-	return options.Apply(&OnTangleVoting{
+func New(bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+	return options.Apply(&VirtualVoting{
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
 		evictionManager: bookerInstance.BlockDAG.EvictionManager.Lockable(),
 		Booker:          bookerInstance,
-	}, opts, func(o *OnTangleVoting) {
+	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
 		o.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 			return 0
 		})
 		o.Events = newEvents(o.conflictTracker.Events, o.sequenceTracker.Events)
-	}, (*OnTangleVoting).setupEvents)
+	}, (*VirtualVoting).setupEvents)
 }
 
-func (o *OnTangleVoting) Track(block *Block) {
+func (o *VirtualVoting) Track(block *Block) {
 	if o.track(block) {
 		o.Events.BlockTracked.Trigger(block)
 	}
 }
 
-func (o *OnTangleVoting) setupEvents() {
+func (o *VirtualVoting) setupEvents() {
 	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		o.Track(NewBlock(block))
 	}))
@@ -65,7 +65,7 @@ func (o *OnTangleVoting) setupEvents() {
 	o.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
 }
 
-func (o *OnTangleVoting) track(block *Block) (tracked bool) {
+func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
@@ -85,7 +85,7 @@ func (o *OnTangleVoting) track(block *Block) (tracked bool) {
 	return true
 }
 
-func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
+func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 	o.evictionManager.Lock()
 	defer o.evictionManager.Unlock()
 
@@ -97,13 +97,13 @@ func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *OnTangleVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
-func (o *OnTangleVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}

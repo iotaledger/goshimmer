@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/otv"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
@@ -17,14 +17,14 @@ import (
 // Tangle is a conflict free replicated data type that allows users to issue their own Blocks.
 type Tangle struct {
 	*blockdag.BlockDAG
-	*booker.Booker
-	*otv.OnTangleVoting
 	*ledger.Ledger
+	*booker.Booker
+	*virtualvoting.VirtualVoting
 
-	optsLedger   []options.Option[ledger.Ledger]
-	optsBlockDAG []options.Option[blockdag.BlockDAG]
-	optsBooker   []options.Option[booker.Booker]
-	optsOTV      []options.Option[otv.OnTangleVoting]
+	optsBlockDAG      []options.Option[blockdag.BlockDAG]
+	optsLedger        []options.Option[ledger.Ledger]
+	optsBooker        []options.Option[booker.Booker]
+	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
 }
 
 // New is the constructor for a new Tangle.
@@ -33,7 +33,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], validatorSet *valida
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
 		t.Ledger = ledger.New( /* TODO CHANGE LEDGER OPTIONS TO GENERIC OPTS */ )
 		t.Booker = booker.New(t.BlockDAG, t.Ledger, t.optsBooker...)
-		t.OnTangleVoting = otv.New(t.Booker, validatorSet, t.optsOTV...)
+		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, t.optsVirtualVoting...)
 	})
 }
 
@@ -63,9 +63,9 @@ func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[Tan
 }
 
 // WithOTVOptions returns an Option for the Tangle that allows to pass in Options for the virtual voting mechanism.
-func WithOTVOptions(opts ...options.Option[otv.OnTangleVoting]) options.Option[Tangle] {
+func WithOTVOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Tangle] {
 	return func(tangle *Tangle) {
-		tangle.optsOTV = opts
+		tangle.optsVirtualVoting = opts
 	}
 }
 
