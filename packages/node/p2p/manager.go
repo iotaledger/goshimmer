@@ -135,6 +135,7 @@ func (m *Manager) GetP2PHost() host.Host {
 func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...ConnectPeerOption,
 ) error {
+	m.log.Debugw("adding outbound neighbor", "peer", p.ID())
 	return m.addNeighbor(ctx, p, group, m.dialPeer, connectOpts)
 }
 
@@ -142,6 +143,7 @@ func (m *Manager) AddOutbound(ctx context.Context, p *peer.Peer, group Neighbors
 func (m *Manager) AddInbound(ctx context.Context, p *peer.Peer, group NeighborsGroup,
 	connectOpts ...ConnectPeerOption,
 ) error {
+	m.log.Debugw("adding inbound neighbor", "peer", p.ID())
 	return m.addNeighbor(ctx, p, group, m.acceptPeer, connectOpts)
 }
 
@@ -166,15 +168,25 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 	return nil
 }
 
-// getNeighborWithGroup returns neighbor by ID and group.
-func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
-	m.neighborsMutex.RLock()
-	defer m.neighborsMutex.RUnlock()
-	nbr, ok := m.neighbors[id]
-	if !ok || nbr.Group != group {
-		return nil, ErrUnknownNeighbor
+// Send sends a message with the specific protocol to a set of neighbors.
+func (m *Manager) Send(packet proto.Message, protocolID protocol.ID, to ...identity.ID) []*Neighbor {
+	neighbors := m.GetNeighborsByID(to)
+	if len(neighbors) == 0 {
+		neighbors = m.AllNeighbors()
 	}
-	return nbr, nil
+
+	for _, nbr := range neighbors {
+		stream := nbr.GetStream(protocolID)
+		if stream == nil {
+			m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
+			continue
+		}
+		if err := stream.WritePacket(packet); err != nil {
+			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
+			nbr.Close()
+		}
+	}
+	return neighbors
 }
 
 // AllNeighbors returns all the neighbors that are currently connected.
@@ -186,6 +198,16 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 		result = append(result, n)
 	}
 	return result
+}
+
+// AllNeighborsIDs returns all the ids of the neighbors that are currently connected.
+func (m *Manager) AllNeighborsIDs() (ids []identity.ID) {
+	ids = make([]identity.ID, 0)
+	neighbors := m.AllNeighbors()
+	for _, nbr := range neighbors {
+		ids = append(ids, nbr.Peer.ID())
+	}
+	return
 }
 
 // GetNeighborsByID returns all the neighbors that are currently connected corresponding to the supplied ids.
@@ -203,6 +225,17 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 		}
 	}
 	return result
+}
+
+// getNeighborWithGroup returns neighbor by ID and group.
+func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
+	m.neighborsMutex.RLock()
+	defer m.neighborsMutex.RUnlock()
+	nbr, ok := m.neighbors[id]
+	if !ok || nbr.Group != group {
+		return nil, ErrUnknownNeighbor
+	}
+	return nbr, nil
 }
 
 func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group NeighborsGroup,
