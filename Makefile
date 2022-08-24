@@ -20,11 +20,10 @@ proto: $(PROTO_GO_FILES)
 # If $GOPATH/bin/protoc-gen-go does not exist, we'll run this command to install it.
 $(PROTOC_GEN_GO):
 	go install google.golang.org/protobuf/cmd/protoc-gen-go
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
 # Implicit compile rule for GRPC/proto files
 %.pb.go: %.proto | $(PROTOC_GEN_GO)
-	protoc $< --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:.
+	protoc $< --go_out=paths=source_relative:.
 
 .PHONY: clean_proto
 clean_proto:

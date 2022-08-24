@@ -612,6 +612,7 @@ func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, creationT
 	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		OutputID:              outputID,
 		Output:                output,
+		CreationTime:          creationTime,
 		ConsensusManaPledgeID: consensusManaPledgeID,
 		AccessManaPledgeID:    accessManaPledgeID,
 	})
