@@ -46,7 +46,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		t.BookerTestFramework = booker.NewTestFramework(test, booker.WithBlockDAGOptions(t.optsBlockDAG...),
 			booker.WithBookerOptions(t.optsBooker...))
 
-		t.OTV = New(t.EvictionManager, t.Ledger, t.BlockDAG, t.Booker, t.ValidatorSet, t.optsOTV...)
+		t.OTV = New(t.Booker, t.ValidatorSet, t.optsOTV...)
 
 		t.VotesTestFramework = votes.NewTestFramework[BlockVotePower](
 			test,
