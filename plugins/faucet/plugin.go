@@ -110,12 +110,9 @@ func run(plugin *node.Plugin) {
 		initDone.Store(true)
 
 		_faucet = newFaucet()
-		go _faucet.Start(ctx, requestChan)
+		_faucet.Start(ctx, requestChan)
 
-		<-ctx.Done()
 		close(requestChan)
-
-		plugin.LogInfof("Stopping %s ...", PluginName)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
