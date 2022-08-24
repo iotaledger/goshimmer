@@ -21,10 +21,10 @@ import (
 // TestFramework implements a framework for conveniently issuing blocks in a BlockDAG as part of unit tests in a
 // simplified way.
 type TestFramework struct {
-	EvictionManager *eviction.Manager[models.BlockID]
-	BlockDAG        *BlockDAG
+	BlockDAG *BlockDAG
 
 	test                *testing.T
+	evictionManager     *eviction.Manager[models.BlockID]
 	solidBlocks         int32
 	missingBlocks       int32
 	invalidBlocks       int32
@@ -43,11 +43,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
-		if t.EvictionManager == nil {
-			t.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
+		if t.evictionManager == nil {
+			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
 		}
 
-		t.BlockDAG = New(t.EvictionManager, t.optsBlockDAG...)
+		t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
 
 		t.ModelsTestFramework = models.NewTestFramework(
 			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
@@ -216,6 +216,12 @@ type ModelsTestFramework = models.TestFramework
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.evictionManager = evictionManager
+	}
+}
 
 func WithBlockDAGOptions(opts ...options.Option[BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {

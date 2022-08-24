@@ -711,7 +711,7 @@ func Test_Prune(t *testing.T) {
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)
@@ -745,23 +745,23 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.EvictionManager.EvictEpoch(epochCount / 4)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 4)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/4, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.EvictionManager.EvictEpoch(epochCount / 10)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 10)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/4, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.EvictionManager.EvictEpoch(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 2)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/2, tf.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 

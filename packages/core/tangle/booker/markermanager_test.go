@@ -52,12 +52,12 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, 0)
 
-	tf.EvictionManager.EvictEpoch(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 2)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount/2)
 
-	tf.EvictionManager.EvictEpoch(epochCount)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	validateBlockMarkerMappingPruning(t, markerBlockMapping, markerManager, epochCount)
