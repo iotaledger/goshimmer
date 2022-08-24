@@ -12,87 +12,52 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	evictionManager       *eviction.Manager[models.BlockID]
-	booker                *Booker
+	Booker *Booker
+
+	test                  *testing.T
 	bookedBlocks          int32
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
-	optsBooker            []options.Option[Booker]
-	optsBlockDAG          []options.Option[blockdag.BlockDAG]
 
-	*ledgerTestFramework
-	*blockDAGTestFramework
+	optsBlockDAG []options.Option[blockdag.BlockDAG]
+	optsBooker   []options.Option[Booker]
+
+	*LedgerTestFramework
+	*BlockDAGTestFramework
 }
 
-func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	testFramework = options.Apply(&TestFramework{}, opts)
-	testFramework.ledgerTestFramework = ledger.NewTestFramework(t)
-	testFramework.blockDAGTestFramework = blockdag.NewTestFramework(t, blockdag.WithBlockDAGOptions(testFramework.optsBlockDAG...))
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	return options.Apply(&TestFramework{
+		test: test,
+	}, opts, func(t *TestFramework) {
+		t.LedgerTestFramework = ledger.NewTestFramework(test)
+		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAGOptions(t.optsBlockDAG...))
 
-	testFramework.booker = New(
-		testFramework.EvictionManager,
-		testFramework.Ledger(),
-		testFramework.BlockDAG,
-		testFramework.optsBooker...,
-	)
-
-	testFramework.booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
-		if debug.GetEnabled() {
-			testFramework.T.Logf("BOOKED: %s", metadata.ID())
-		}
-
-		atomic.AddInt32(&(testFramework.bookedBlocks), 1)
-	}))
-
-	testFramework.booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
-		if debug.GetEnabled() {
-			testFramework.T.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
-		}
-
-		atomic.AddInt32(&(testFramework.blockConflictsUpdated), 1)
-	}))
-
-	testFramework.booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
-		if debug.GetEnabled() {
-			testFramework.T.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
-		}
-
-		atomic.AddInt32(&(testFramework.markerConflictsAdded), 1)
-	}))
-
-	testFramework.booker.Events.Error.Hook(event.NewClosure(func(err error) {
-		testFramework.T.Logf("ERROR: %s", err)
-	}))
-
-	return
-}
-
-func (t *TestFramework) Booker() (booker *Booker) {
-	if t.booker == nil {
-		t.booker = New(t.EvictionManager(), t.Ledger(), t.BlockDAG(), t.optsBooker...)
-	}
-
-	return t.booker
+		t.Booker = New(
+			t.EvictionManager,
+			t.Ledger(),
+			t.BlockDAG,
+			t.optsBooker...,
+		)
+	}, (*TestFramework).setupEvents)
 }
 
 func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
-	return t.Booker().markerManager.sequenceManager
+	return t.Booker.markerManager.sequenceManager
 }
 
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
-	block, ok := t.Booker().block(t.blockDAGTestFramework.Block(alias).ID())
+	block, ok := t.Booker.block(t.BlockDAGTestFramework.Block(alias).ID())
 	if !ok {
 		panic(fmt.Sprintf("Block alias %s not registered", alias))
 	}
@@ -101,42 +66,72 @@ func (t *TestFramework) Block(alias string) (block *Block) {
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
-	block, exists := t.Booker().Block(t.Block(alias).ID())
-	require.True(t.T, exists, "Block %s not found", alias)
+	block, exists := t.Booker.Block(t.Block(alias).ID())
+	require.True(t.test, exists, "Block %s not found", alias)
 	callback(block)
 }
 
 func (t *TestFramework) AssertBooked(expectedValues map[string]bool) {
 	for alias, isBooked := range expectedValues {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.T, isBooked, block.IsBooked(), "block %s has incorrect booked flag", alias)
+			assert.Equal(t.test, isBooked, block.IsBooked(), "block %s has incorrect booked flag", alias)
 		})
 	}
 }
 
 func (t *TestFramework) AssertBookedCount(bookedCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.T, bookedCount, atomic.LoadInt32(&(t.bookedBlocks)), msgAndArgs...)
+	assert.EqualValues(t.test, bookedCount, atomic.LoadInt32(&(t.bookedBlocks)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertMarkerConflictsAddCount(markerConflictsAddCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.T, markerConflictsAddCount, atomic.LoadInt32(&(t.markerConflictsAdded)), msgAndArgs...)
+	assert.EqualValues(t.test, markerConflictsAddCount, atomic.LoadInt32(&(t.markerConflictsAdded)), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlockConflictsUpdateCount(blockConflictsUpdateCount int32, msgAndArgs ...interface{}) {
-	assert.EqualValues(t.T, blockConflictsUpdateCount, atomic.LoadInt32(&(t.blockConflictsUpdated)), msgAndArgs...)
+	assert.EqualValues(t.test, blockConflictsUpdateCount, atomic.LoadInt32(&(t.blockConflictsUpdated)), msgAndArgs...)
+}
+
+func (t *TestFramework) setupEvents() {
+	t.Booker.Events.BlockBooked.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.test.Logf("BOOKED: %s", metadata.ID())
+		}
+
+		atomic.AddInt32(&(t.bookedBlocks), 1)
+	}))
+
+	t.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(evt *BlockConflictAddedEvent) {
+		if debug.GetEnabled() {
+			t.test.Logf("BLOCK CONFLICT UPDATED: %s - %s", evt.Block.ID(), evt.ConflictID)
+		}
+
+		atomic.AddInt32(&(t.blockConflictsUpdated), 1)
+	}))
+
+	t.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(evt *MarkerConflictAddedEvent) {
+		if debug.GetEnabled() {
+			t.test.Logf("MARKER CONFLICT UPDATED: %v - %v", evt.Marker, evt.ConflictID)
+		}
+
+		atomic.AddInt32(&(t.markerConflictsAdded), 1)
+	}))
+
+	t.Booker.Events.Error.Hook(event.NewClosure(func(err error) {
+		t.test.Logf("ERROR: %s", err)
+	}))
 }
 
 func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockID, blockExpectedConflictIDs := range expectedConflictIDs {
-		_, retrievedConflictIDs := t.Booker().blockBookingDetails(t.Block(blockID))
-		assert.True(t.T, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
+		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockID))
+		assert.True(t.test, blockExpectedConflictIDs.Equal(retrievedConflictIDs), "ConflictID of %s should be %s but is %s", blockID, blockExpectedConflictIDs, retrievedConflictIDs)
 	}
 }
 
 func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers) {
 	for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
 		block := t.Block(blockAlias)
-		assert.True(t.T, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
+		assert.True(t.test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
 			"Expected: %+v\nActual: %+v", blockAlias, expectedMarkersOfBlock, block.StructureDetails().PastMarkers())
 
 		// if we have only a single marker - check if the marker is mapped to this block (or its inherited past marker)
@@ -148,15 +143,15 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 				continue
 			}
 
-			mappedBlockIDOfMarker, exists := t.Booker().markerManager.BlockFromMarker(expectedMarker)
-			assert.True(t.T, exists, "Marker %s is not mapped to any block", expectedMarker)
+			mappedBlockIDOfMarker, exists := t.Booker.markerManager.BlockFromMarker(expectedMarker)
+			assert.True(t.test, exists, "Marker %s is not mapped to any block", expectedMarker)
 
 			if !block.StructureDetails().IsPastMarker() {
 				continue
 			}
 
-			assert.Equal(t.T, block.ID(), mappedBlockIDOfMarker.ID(), "Block with %s should be past marker %s", block.ID(), expectedMarker)
-			assert.True(t.T, block.StructureDetails().PastMarkers().Marker() == expectedMarker, "PastMarker of %s is wrong.\n"+
+			assert.Equal(t.test, block.ID(), mappedBlockIDOfMarker.ID(), "Block with %s should be past marker %s", block.ID(), expectedMarker)
+			assert.True(t.test, block.StructureDetails().PastMarkers().Marker() == expectedMarker, "PastMarker of %s is wrong.\n"+
 				"Expected: %+v\nActual: %+v", block.ID(), expectedMarker, block.StructureDetails().PastMarkers().Marker())
 		}
 	}
@@ -164,7 +159,7 @@ func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers
 
 func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-		_, retrievedConflictIDs := t.Booker().blockBookingDetails(t.Block(blockAlias))
+		_, retrievedConflictIDs := t.Booker.blockBookingDetails(t.Block(blockAlias))
 
 		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
 		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
@@ -180,35 +175,35 @@ func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedCon
 			})
 		}
 
-		assert.True(t.T, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
+		assert.True(t.test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
 	}
 }
 
 func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictIDs map[string][]utxo.TransactionIDs) {
 	for blockAlias, expectedDiffConflictID := range expectedDiffConflictIDs {
 		block := t.Block(blockAlias)
-		assert.True(t.T, expectedDiffConflictID[0].Equal(block.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[0], block.AddedConflictIDs())
-		assert.True(t.T, expectedDiffConflictID[1].Equal(block.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[1], block.SubtractedConflictIDs())
+		assert.True(t.test, expectedDiffConflictID[0].Equal(block.AddedConflictIDs()), "AddConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[0], block.AddedConflictIDs())
+		assert.True(t.test, expectedDiffConflictID[1].Equal(block.SubtractedConflictIDs()), "SubtractedConflictIDs of %s should be %s but is %s in the Metadata", blockAlias, expectedDiffConflictID[1], block.SubtractedConflictIDs())
 	}
 }
 
-type blockDAGTestFramework = blockdag.TestFramework
+type BlockDAGTestFramework = blockdag.TestFramework
 
-type ledgerTestFramework = ledger.TestFramework
+type LedgerTestFramework = ledger.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsBooker = opts
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBlockDAG = opts
 	}
 }
 
-func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsBlockDAG = opts
+func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBooker = opts
 	}
 }
 

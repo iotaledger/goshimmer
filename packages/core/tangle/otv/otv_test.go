@@ -24,7 +24,14 @@ func TestOTV_Track(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3)))))
+	tf := NewTestFramework(t, WithBookerOptions(
+		booker.WithMarkerManagerOptions(
+			booker.WithSequenceManagerOptions(
+				markers.WithMaxPastMarkerDistance(3),
+			),
+		),
+	))
+
 	tf.CreateIdentity("A", validator.WithWeight(30))
 	tf.CreateIdentity("B", validator.WithWeight(15))
 	tf.CreateIdentity("C", validator.WithWeight(25))

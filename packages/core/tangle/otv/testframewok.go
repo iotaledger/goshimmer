@@ -14,49 +14,46 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
 type TestFramework struct {
+	ValidatorSet *validator.Set
+	OTV          *OnTangleVoting
+
+	test              *testing.T
 	identitiesByAlias map[string]*identity.Identity
-	otv               *OnTangleVoting
 	trackedBlocks     uint32
-	optsBooker        []options.Option[booker.Booker]
-	optsOTV           []options.Option[OnTangleVoting]
 
-	t *testing.T
+	optsBlockDAG []options.Option[blockdag.BlockDAG]
+	optsBooker   []options.Option[booker.Booker]
+	optsOTV      []options.Option[OnTangleVoting]
 
-	*votesTestFramework
-	*bookerTestFramework
+	*BookerTestFramework
+	*VotesTestFramework
 }
 
-func NewTestFramework(t *testing.T, opts ...options.Option[TestFramework]) (tf *TestFramework) {
-	tf = options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	return options.Apply(&TestFramework{
+		test:              test,
 		identitiesByAlias: make(map[string]*identity.Identity),
-		t:                 t,
-	}, opts)
+	}, opts, func(t *TestFramework) {
+		t.ValidatorSet = validator.NewSet()
 
-	validatorSet := validator.NewSet()
-
-	tf.bookerTestFramework = booker.NewTestFramework(t, booker.WithBookerOptions(tf.optsBooker...))
-	tf.otv = New(tf.EvictionManager(), tf.Ledger(), tf.BlockDAG(), tf.Booker(), validatorSet, tf.optsOTV...)
-	tf.votesTestFramework = votes.NewTestFramework[BlockVotePower](t, votes.WithValidatorSet[BlockVotePower](validatorSet), votes.WithConflictTracker(tf.otv.conflictTracker), votes.WithSequenceTracker(tf.otv.sequenceTracker), votes.WithConflictDAG[BlockVotePower](tf.otv.Booker.Ledger.ConflictDAG), votes.WithSequenceManager[BlockVotePower](tf.bookerTestFramework.SequenceManager()))
-
-	tf.OTV().Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
-		if debug.GetEnabled() {
-			tf.T.Logf("TRACKED: %s", metadata.ID())
-		}
-
-		atomic.AddUint32(&(tf.trackedBlocks), 1)
-	}))
-
-	return
-}
-
-func (t *TestFramework) OTV() *OnTangleVoting {
-	return t.otv
+		t.BookerTestFramework = booker.NewTestFramework(test, booker.WithBlockDAGOptions(t.optsBlockDAG...), booker.WithBookerOptions(t.optsBooker...))
+		t.OTV = New(t.EvictionManager, t.Ledger(), t.BlockDAG, t.Booker, t.ValidatorSet, t.optsOTV...)
+		t.VotesTestFramework = votes.NewTestFramework[BlockVotePower](
+			test,
+			votes.WithValidatorSet[BlockVotePower](t.ValidatorSet),
+			votes.WithConflictTracker(t.OTV.conflictTracker),
+			votes.WithSequenceTracker(t.OTV.sequenceTracker),
+			votes.WithConflictDAG[BlockVotePower](t.OTV.Booker.Ledger.ConflictDAG),
+			votes.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
+		)
+	}, (*TestFramework).setupEvents)
 }
 
 func (t *TestFramework) CreateIdentity(alias string, opts ...options.Option[validator.Validator]) {
@@ -86,7 +83,7 @@ func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker().Voters(marker)
 
-		assert.True(t.t, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 
@@ -94,34 +91,47 @@ func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.Transacti
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker().Voters(conflictID)
 
-		assert.True(t.t, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 
 func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
-	assert.Equal(t.t, blocksTracked, atomic.LoadUint32(&t.trackedBlocks), "expected %d blocks to be tracked but got %d", blocksTracked, atomic.LoadUint32(&t.trackedBlocks))
+	assert.Equal(t.test, blocksTracked, atomic.LoadUint32(&t.trackedBlocks), "expected %d blocks to be tracked but got %d", blocksTracked, atomic.LoadUint32(&t.trackedBlocks))
 }
 
-type bookerTestFramework = booker.TestFramework
+func (t *TestFramework) setupEvents() {
+	t.OTV.Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.test.Logf("TRACKED: %s", metadata.ID())
+		}
 
-type votesTestFramework = votes.TestFramework[BlockVotePower]
+		atomic.AddUint32(&(t.trackedBlocks), 1)
+	}))
+}
+
+type BookerTestFramework = booker.TestFramework
+
+type VotesTestFramework = votes.TestFramework[BlockVotePower]
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithOnTangleVotingOptions(opts ...options.Option[OnTangleVoting]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		if tf.otv != nil {
-			panic("OTV already set")
-		}
-		tf.optsOTV = opts
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBlockDAG = opts
 	}
 }
 
 func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBooker = opts
+	}
+}
+
+func WithOnTangleVotingOptions(opts ...options.Option[OnTangleVoting]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsOTV = opts
 	}
 }
 

@@ -485,18 +485,18 @@ func validateState(tf *TestFramework, maxDroppedEpoch, epochCount int) {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.BlockDAG.Block(blkID)
-		assert.False(tf.t, exists, "block %s should not be in the BlockDAG", blkID)
+		assert.False(tf.test, exists, "block %s should not be in the BlockDAG", blkID)
 
-		assert.Nil(tf.t, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
+		assert.Nil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should not be in the memStorage", blkID.Index())
 	}
 
 	for i := maxDroppedEpoch + 1; i <= epochCount; i++ {
 		blkID := tf.Block(fmt.Sprintf("blk-%d", i)).ID()
 
 		_, exists := tf.BlockDAG.Block(blkID)
-		assert.True(tf.t, exists, "block %s should be in the BlockDAG", blkID)
+		assert.True(tf.test, exists, "block %s should be in the BlockDAG", blkID)
 
-		assert.NotNil(tf.t, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
+		assert.NotNil(tf.test, tf.BlockDAG.memStorage.Get(blkID.Index()), "epoch %s should be in the memStorage", blkID.Index())
 	}
 }
 
