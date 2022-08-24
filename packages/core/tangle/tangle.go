@@ -63,8 +63,9 @@ func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[Tan
 	}
 }
 
-// WithOTVOptions returns an Option for the Tangle that allows to pass in Options for the virtual voting mechanism.
-func WithOTVOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Tangle] {
+// WithVirtualVotingOptions returns an Option for the Tangle that allows to pass in Options for the virtual voting
+// mechanism.
+func WithVirtualVotingOptions(opts ...options.Option[virtualvoting.VirtualVoting]) options.Option[Tangle] {
 	return func(tangle *Tangle) {
 		tangle.optsVirtualVoting = opts
 	}
