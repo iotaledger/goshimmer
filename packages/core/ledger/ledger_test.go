@@ -156,7 +156,7 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
 			assert.NoError(t, testFramework.IssueTransaction(txAlias))
 		}
-		require.True(t, testFramework.ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXA").ID()))
+		require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXA").ID()))
 
 		testFramework.AssertConflictIDs(map[string][]string{
 			"G":   {},
@@ -177,12 +177,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
 	}
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
@@ -209,12 +209,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
 	}
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
@@ -244,12 +244,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
 	}
 
 	// When creating the conflicting TX (G) of the top layer conflicts F & G are spawned by the fork of G
@@ -282,17 +282,17 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
 	}
 
-	require.True(t, testFramework.ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXD").ID()))
+	require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXD").ID()))
 
 	// TX L combines a child (G) of a Rejected conflict (C) and a pending conflict H, resulting in (G,H)
 	{
@@ -325,18 +325,18 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Pending, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Pending, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
 	}
 
-	require.True(t, testFramework.ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXH").ID()))
+	require.True(t, testFramework.Ledger.ConflictDAG.SetConflictAccepted(testFramework.Transaction("TXH").ID()))
 
 	// The new TX M should be now booked under G, as conflict H confirmed, just G because we don't propagate H further.
 	{
@@ -370,15 +370,15 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
-		assert.Equal(t, confirmation.Accepted, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
-		assert.Equal(t, confirmation.Rejected, testFramework.ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXA")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXB")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXC")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXD")))
+		assert.Equal(t, confirmation.Accepted, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXH")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXI")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXF")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG")))
+		assert.Equal(t, confirmation.Rejected, testFramework.Ledger.ConflictDAG.ConfirmationState(testFramework.ConflictIDs("TXG", "TXH")))
 	}
 }
 

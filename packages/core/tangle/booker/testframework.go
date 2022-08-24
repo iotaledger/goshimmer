@@ -44,7 +44,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 
 		t.Booker = New(
 			t.EvictionManager,
-			t.Ledger(),
+			t.Ledger,
 			t.BlockDAG,
 			t.optsBooker...,
 		)
@@ -163,14 +163,14 @@ func (t *TestFramework) checkNormalizedConflictIDsContained(expectedContainedCon
 
 		normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
 		for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			t.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			t.Ledger().ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			t.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
