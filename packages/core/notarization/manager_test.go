@@ -241,6 +241,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
+
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3", "Block2"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -595,6 +597,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block7"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
