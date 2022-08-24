@@ -30,38 +30,39 @@ type OnTangleVoting struct {
 }
 
 func New(bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
-	otv = options.Apply(&OnTangleVoting{
+	return options.Apply(&OnTangleVoting{
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
 		evictionManager: bookerInstance.BlockDAG.EvictionManager.Lockable(),
 		Booker:          bookerInstance,
-	}, opts)
-	otv.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](otv.Booker.Ledger.ConflictDAG, validatorSet)
-	otv.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, otv.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
-		return 0
-	})
-	otv.Events = newEvents(otv.conflictTracker.Events, otv.sequenceTracker.Events)
-
-	otv.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
-		otv.Track(NewBlock(block))
-	}))
-
-	otv.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
-		otv.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-	}))
-	otv.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
-		otv.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-	}))
-
-	otv.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(otv.evictEpoch))
-
-	return otv
+	}, opts, func(o *OnTangleVoting) {
+		o.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
+		o.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
+			return 0
+		})
+		o.Events = newEvents(o.conflictTracker.Events, o.sequenceTracker.Events)
+	}, (*OnTangleVoting).setupEvents)
 }
 
 func (o *OnTangleVoting) Track(block *Block) {
 	if o.track(block) {
 		o.Events.BlockTracked.Trigger(block)
 	}
+}
+
+func (o *OnTangleVoting) setupEvents() {
+	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
+		o.Track(NewBlock(block))
+	}))
+
+	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
+		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+	}))
+	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
+		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+	}))
+
+	o.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
 }
 
 func (o *OnTangleVoting) track(block *Block) (tracked bool) {

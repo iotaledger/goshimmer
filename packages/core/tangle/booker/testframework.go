@@ -41,13 +41,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		t.LedgerTestFramework = ledger.NewTestFramework(test)
 		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAGOptions(t.optsBlockDAG...))
-
-		t.Booker = New(
-			t.EvictionManager,
-			t.Ledger,
-			t.BlockDAG,
-			t.optsBooker...,
-		)
+		t.Booker = New(t.BlockDAG, t.Ledger, t.optsBooker...)
 	}, (*TestFramework).setupEvents)
 }
 
