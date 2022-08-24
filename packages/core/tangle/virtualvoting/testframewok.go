@@ -21,16 +21,16 @@ import (
 )
 
 type TestFramework struct {
-	ValidatorSet *validator.Set
-	OTV          *VirtualVoting
+	ValidatorSet  *validator.Set
+	VirtualVoting *VirtualVoting
 
 	test              *testing.T
 	identitiesByAlias map[string]*identity.Identity
 	trackedBlocks     uint32
 
-	optsBlockDAG []options.Option[blockdag.BlockDAG]
-	optsBooker   []options.Option[booker.Booker]
-	optsOTV      []options.Option[VirtualVoting]
+	optsBlockDAG      []options.Option[blockdag.BlockDAG]
+	optsBooker        []options.Option[booker.Booker]
+	optsVirtualVoting []options.Option[VirtualVoting]
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -43,17 +43,20 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		t.ValidatorSet = validator.NewSet()
 
-		t.BookerTestFramework = booker.NewTestFramework(test, booker.WithBlockDAGOptions(t.optsBlockDAG...),
-			booker.WithBookerOptions(t.optsBooker...))
+		t.BookerTestFramework = booker.NewTestFramework(
+			test,
+			booker.WithBlockDAGOptions(t.optsBlockDAG...),
+			booker.WithBookerOptions(t.optsBooker...),
+		)
 
-		t.OTV = New(t.Booker, t.ValidatorSet, t.optsOTV...)
+		t.VirtualVoting = New(t.Booker, t.ValidatorSet, t.optsVirtualVoting...)
 
 		t.VotesTestFramework = votes.NewTestFramework[BlockVotePower](
 			test,
 			votes.WithValidatorSet[BlockVotePower](t.ValidatorSet),
-			votes.WithConflictTracker(t.OTV.conflictTracker),
-			votes.WithSequenceTracker(t.OTV.sequenceTracker),
-			votes.WithConflictDAG[BlockVotePower](t.OTV.Booker.Ledger.ConflictDAG),
+			votes.WithConflictTracker(t.VirtualVoting.conflictTracker),
+			votes.WithSequenceTracker(t.VirtualVoting.sequenceTracker),
+			votes.WithConflictDAG[BlockVotePower](t.VirtualVoting.Booker.Ledger.ConflictDAG),
 			votes.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
 		)
 	}, (*TestFramework).setupEvents)
@@ -103,7 +106,7 @@ func (t *TestFramework) AssertBlockTracked(blocksTracked uint32) {
 }
 
 func (t *TestFramework) setupEvents() {
-	t.OTV.Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
+	t.VirtualVoting.Events.BlockTracked.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("TRACKED: %s", metadata.ID())
 		}
@@ -132,9 +135,9 @@ func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[Tes
 	}
 }
 
-func WithOnTangleVotingOptions(opts ...options.Option[VirtualVoting]) options.Option[TestFramework] {
+func WithVirtualVotingOptions(opts ...options.Option[VirtualVoting]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsOTV = opts
+		t.optsVirtualVoting = opts
 	}
 }
 

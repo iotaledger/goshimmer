@@ -29,12 +29,12 @@ type VirtualVoting struct {
 	*booker.Booker
 }
 
-func New(bookerInstance *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		validatorSet:    validatorSet,
-		evictionManager: bookerInstance.BlockDAG.EvictionManager.Lockable(),
-		Booker:          bookerInstance,
+		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
+		Booker:          booker,
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
 		o.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
@@ -108,9 +108,5 @@ func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflic
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

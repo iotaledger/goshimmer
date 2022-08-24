@@ -43,7 +43,7 @@ type Booker struct {
 	*blockdag.BlockDAG
 }
 
-func New(blockDAG *blockdag.BlockDAG, ledgerInstance *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
+func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
 		Events:            newEvents(),
 		attachments:       newAttachments(),
@@ -52,7 +52,7 @@ func New(blockDAG *blockdag.BlockDAG, ledgerInstance *ledger.Ledger, opts ...opt
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   blockDAG.EvictionManager.Lockable(),
 		optsMarkerManager: make([]options.Option[MarkerManager], 0),
-		Ledger:            ledgerInstance,
+		Ledger:            ledger,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
 		b.markerManager = NewMarkerManager(b.optsMarkerManager...)

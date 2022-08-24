@@ -14,7 +14,8 @@ import (
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Tangle is a conflict free replicated data type that allows users to issue their own Blocks.
+// Tangle is a conflict free replicated data type that allows users to issue their own Blocks with each Block casting
+// virtual votes on existing conflicts.
 type Tangle struct {
 	*blockdag.BlockDAG
 	*ledger.Ledger

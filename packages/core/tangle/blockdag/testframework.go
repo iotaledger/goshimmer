@@ -43,15 +43,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
-		t.ModelsTestFramework = models.NewTestFramework(
-			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
-		)
-
 		if t.EvictionManager == nil {
 			t.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
 		}
 
 		t.BlockDAG = New(t.EvictionManager, t.optsBlockDAG...)
+
+		t.ModelsTestFramework = models.NewTestFramework(
+			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
+		)
 	}, (*TestFramework).setupEvents)
 }
 
