@@ -23,7 +23,6 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
@@ -46,9 +45,8 @@ var (
 	initDone     atomic.Bool
 	bootstrapped chan bool
 
-	waitForManaWindow   = 5 * time.Second
-	faucetRequestWindow = 3 * time.Minute
-	deps                = new(dependencies)
+	waitForManaWindow = 5 * time.Second
+	deps              = new(dependencies)
 )
 
 type dependencies struct {
@@ -190,7 +188,7 @@ func onBlockProcessed(blockID tangleold.BlockID) {
 		return
 	}
 	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-		if !faucet.IsFaucetReq(block) || clock.SyncedTime().Sub(block.IssuingTime()) > faucetRequestWindow {
+		if !faucet.IsFaucetReq(block) {
 			return
 		}
 		fundingRequest := block.Payload().(*faucet.Payload)
