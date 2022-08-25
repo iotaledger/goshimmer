@@ -539,7 +539,8 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 	return pendingConflicts
 }
 
-func (m *Manager) GetEpochDiffs(ei epoch.Index) (spent []*ledger.OutputWithMetadata, created []*ledger.OutputWithMetadata) {
+// GetEpochDiff returns the epoch diff of an epoch.
+func (m *Manager) GetEpochDiff(ei epoch.Index) (spent []*ledger.OutputWithMetadata, created []*ledger.OutputWithMetadata) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 	spent, created = m.epochCommitmentFactory.loadDiffUTXOs(ei)

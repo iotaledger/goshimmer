@@ -65,7 +65,7 @@ func configureManaPlugin(*node.Plugin) {
 		if manaVectorEI < 1 {
 			return
 		}
-		spent, created := deps.NotarizationMgr.GetEpochDiffs(manaVectorEI)
+		spent, created := deps.NotarizationMgr.GetEpochDiff(manaVectorEI)
 		baseManaVectors[mana.ConsensusMana].BookEpoch(created, spent)
 	})
 
