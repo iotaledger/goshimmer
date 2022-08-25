@@ -3,7 +3,7 @@ package acceptancegadget
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,11 +12,11 @@ import (
 type Block struct {
 	accepted bool
 
-	*booker.Block
+	*models.Block
 }
 
 // NewBlock creates a new Block with the given options.
-func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBlock *Block) {
+func NewBlock(bookerBlock *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block: bookerBlock,
 	}, opts)
@@ -38,6 +38,16 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 	}
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithAccepted(accepted bool) options.Option[Block] {
+	return func(b *Block) {
+		b.accepted = accepted
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

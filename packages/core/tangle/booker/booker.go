@@ -157,6 +157,13 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 	return b.markerManager.sequenceManager.Sequence(id)
 }
 
+func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	return b.markerManager.BlockFromMarker(marker)
+}
+
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
 	b.bookingOrder.EvictEpoch(epochIndex)
 

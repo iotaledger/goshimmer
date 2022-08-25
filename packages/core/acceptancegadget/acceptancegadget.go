@@ -12,54 +12,65 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/otv"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
+
+const defaultMarkerAcceptanceThreshold = 0.66
+
+// region AcceptanceGadget /////////////////////////////////////////////////////////////////////////////////////////////
 
 type AcceptanceGadget struct {
 	Events *Events
 
-	blocks     *memstorage.EpochStorage[models.BlockID, *Block]
+	blocks *memstorage.EpochStorage[models.BlockID, *Block]
+	// todo remove these maps
 	pruningMap *memstorage.Storage[epoch.Index, *markers.Markers]
 	votersMap  *memstorage.Storage[markers.Marker, *validator.Set]
 
 	lastAcceptedMarker *memstorage.Storage[markers.SequenceID, markers.Index]
 
 	validatorSet           *validator.Set
-	markerBlockMappingFunc func(marker markers.Marker) (block *booker.Block, exists bool)
+	markerBlockMappingFunc func(marker markers.Marker) (block *models.Block, exists bool)
+	blockRetrieverFunc     func(blockID models.BlockID) (block *models.Block, exists bool)
 
 	acceptanceOrder *causalorder.CausalOrder[models.BlockID, *Block]
 
-	otv             otv.OnTangleVoting
+	otv             *otv.OnTangleVoting
 	evictionManager *eviction.LockableManager[models.BlockID]
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 
 	optsMarkerAcceptanceThreshold float64
 }
 
-func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], otv otv.OnTangleVoting, markerBlockMappingFunc func(marker markers.Marker) (block *booker.Block, exists bool), opts ...options.Option[AcceptanceGadget]) *AcceptanceGadget {
+// todo hand in the tangle
+func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], blockRetrieverFunc func(blockID models.BlockID) (block *models.Block, exists bool), markerBlockMappingFunc func(marker markers.Marker) (block *models.Block, exists bool), opts ...options.Option[AcceptanceGadget]) *AcceptanceGadget {
 	gadget := options.Apply(&AcceptanceGadget{
 		Events: newEvents(),
 
+		// this is not needed, use tangle instead
 		validatorSet:           validatorSet,
 		markerBlockMappingFunc: markerBlockMappingFunc,
+		blockRetrieverFunc:     blockRetrieverFunc,
+		sequenceMutex:          syncutils.NewDAGMutex[markers.SequenceID](),
+		pruningMap:             memstorage.New[epoch.Index, *markers.Markers](),
+		votersMap:              memstorage.New[markers.Marker, *validator.Set](),
 
-		pruningMap:         memstorage.New[epoch.Index, *markers.Markers](),
-		votersMap:          memstorage.New[markers.Marker, *validator.Set](),
+		// tODO attach to sequence deleted event, should be exposed by the tangle
 		lastAcceptedMarker: memstorage.New[markers.SequenceID, markers.Index](),
-		otv:                otv,
+
+		blocks: memstorage.NewEpochStorage[models.BlockID, *Block](),
+
+		optsMarkerAcceptanceThreshold: defaultMarkerAcceptanceThreshold,
 
 		evictionManager: evictionManager.Lockable(),
 	}, opts)
 
 	gadget.acceptanceOrder = causalorder.New(evictionManager, gadget.Block, (*Block).Accepted, gadget.markAsAccepted, gadget.acceptanceFailed)
 
-	otv.Events.SequenceVoterAdded.Attach(event.NewClosure[*votes.SequenceVoterEvent](func(evt *votes.SequenceVoterEvent) {
-		gadget.update(evt.Voter, evt.NewMaxSupportedMarker, evt.PrevMaxSupportedMarker)
-	}))
+	//TODO: attach to voter added event here
+
 	gadget.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(gadget.evictEpoch))
 
 	return gadget
@@ -129,7 +140,7 @@ func (a *AcceptanceGadget) update(voter *validator.Validator, newMaxSupportedMar
 		markerVoters, isEvicted := a.getMarkerVoters(sequenceID, markerIndex)
 		if isEvicted {
 			a.Events.Error.Trigger(errors.Errorf("failed to update acceptance for %s with vote %s", markers.NewMarker(sequenceID, markerIndex), voter))
-			continue
+			return
 		}
 
 		markerVoters.Add(voter)
@@ -172,9 +183,9 @@ func (a *AcceptanceGadget) getMarkerVoters(sequenceID markers.SequenceID, marker
 
 func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionManager.IsRootBlock(id) {
-		otvBlock, _ := a.otv.Block(id)
+		otvBlock, _ := a.blockRetrieverFunc(id)
 
-		return NewBlock(otvBlock), true
+		return NewBlock(otvBlock, WithAccepted(true)), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -204,7 +215,7 @@ func (a *AcceptanceGadget) propagateAcceptance(sequenceID markers.SequenceID, in
 				continue
 			}
 
-			parentBlockBooker, parentExists := a.otv.Booker.Block(parentBlockID)
+			parentBlockBooker, parentExists := a.blockRetrieverFunc(parentBlockID)
 			if !parentExists {
 				return errors.Errorf("parent block %s does not exist", parentBlockID)
 			}
@@ -221,7 +232,7 @@ func (a *AcceptanceGadget) propagateAcceptance(sequenceID markers.SequenceID, in
 	return nil
 }
 
-func (a *AcceptanceGadget) getOrRegisterBlock(bookerBlock *booker.Block) (block *Block, err error) {
+func (a *AcceptanceGadget) getOrRegisterBlock(bookerBlock *models.Block) (block *Block, err error) {
 	block, exists := a.block(bookerBlock.ID())
 	if !exists {
 		block, err = a.registerBlock(bookerBlock)
@@ -251,7 +262,7 @@ func (a *AcceptanceGadget) evictEpoch(index epoch.Index) {
 	// TODO: implement me
 }
 
-func (a *AcceptanceGadget) registerBlock(bookerBlock *booker.Block) (block *Block, err error) {
+func (a *AcceptanceGadget) registerBlock(bookerBlock *models.Block) (block *Block, err error) {
 	if a.evictionManager.IsTooOld(bookerBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted epoch", bookerBlock.ID())
 	}
@@ -263,3 +274,15 @@ func (a *AcceptanceGadget) registerBlock(bookerBlock *booker.Block) (block *Bloc
 
 	return block, nil
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithMarkerAcceptanceThreshold(acceptanceThreshold float64) options.Option[AcceptanceGadget] {
+	return func(gadget *AcceptanceGadget) {
+		gadget.optsMarkerAcceptanceThreshold = acceptanceThreshold
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

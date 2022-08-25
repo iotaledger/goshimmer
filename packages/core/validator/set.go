@@ -54,4 +54,13 @@ func (s *Set) Add(validator *Validator) {
 	defer s.mutex.Unlock()
 
 	s.validators.Set(validator.ID(), validator)
+
+	s.totalWeight += validator.Weight()
+
+	validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](func(updatedEvent *WeightUpdatedEvent) {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		s.totalWeight += updatedEvent.NewWeight - updatedEvent.OldWeight
+	}))
 }

@@ -54,7 +54,7 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](t *testing.T, opts
 
 	tf.SequenceTracker().Events.VoterAdded.Hook(event.NewClosure(func(evt *SequenceVoterEvent) {
 		if debug.GetEnabled() {
-			tf.t.Logf("VOTER ADDED: %v", evt.Marker)
+			tf.t.Logf("VOTER ADDED: %v", evt.NewMaxSupportedMarker)
 		}
 	}))
 

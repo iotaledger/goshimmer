@@ -116,6 +116,11 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		return
 	}
 
+	if previousHighestIndex == 0 {
+		sequence, _ := s.sequenceCallback(marker.SequenceID())
+		previousHighestIndex = sequence.LowestIndex()
+	}
+
 	// Trigger events for all newly supported markers.
 	s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
 		Voter:                  voter,
