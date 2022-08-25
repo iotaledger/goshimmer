@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -42,17 +43,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		if t.optsBlockDAG != nil {
-			t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAG(t.optsBlockDAG))
-		} else {
-			t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAGOptions(t.optsBlockDAGOptions...))
-		}
-
-		if t.optsLedger != nil {
-			t.LedgerTestFramework = ledger.NewTestFramework(test, ledger.WithLedger(t.optsLedger))
-		} else {
-			t.LedgerTestFramework = ledger.NewTestFramework(test, ledger.WithLedgerOptions(t.optsLedgerOptions...))
-		}
+		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, lo.Cond(t.optsBlockDAG != nil, blockdag.WithBlockDAG(t.optsBlockDAG), blockdag.WithBlockDAGOptions(t.optsBlockDAGOptions...)))
+		t.LedgerTestFramework = ledger.NewTestFramework(test, lo.Cond(t.optsLedger != nil, ledger.WithLedger(t.optsLedger), ledger.WithLedgerOptions(t.optsLedgerOptions...)))
 
 		if t.Booker == nil {
 			t.Booker = New(t.BlockDAG, t.Ledger, t.optsBookerOptions...)

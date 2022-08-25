@@ -44,11 +44,10 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
-			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
-			}
-
-			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
+			t.BlockDAG = New(
+				lo.Cond(t.evictionManager == nil, eviction.NewManager(models.IsEmptyBlockID), t.evictionManager),
+				t.optsBlockDAG...,
+			)
 		}
 
 		t.ModelsTestFramework = models.NewTestFramework(
@@ -72,7 +71,6 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 
 // WaitUntilAllTasksProcessed waits until all tasks are processed.
 func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
-	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
 	return t
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -45,27 +46,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:              test,
 		identitiesByAlias: make(map[string]*identity.Identity),
 	}, opts, func(t *TestFramework) {
-		bookerTestFrameworkOptions := make([]options.Option[booker.TestFramework], 0)
-
-		if t.optsBlockDAG != nil {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBlockDAG(t.optsBlockDAG))
-		} else {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBlockDAGOptions(t.optsBlockDAGOptions...))
-		}
-
-		if t.optsLedger != nil {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithLedger(t.optsLedger))
-		} else {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithLedgerOptions(t.optsLedgerOptions...))
-		}
-
-		if t.optsBooker != nil {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBooker(t.optsBooker))
-		} else {
-			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBookerOptions(t.optsBookerOptions...))
-		}
-
-		t.BookerTestFramework = booker.NewTestFramework(test, bookerTestFrameworkOptions...)
+		t.BookerTestFramework = booker.NewTestFramework(
+			test,
+			lo.Cond(t.optsBlockDAG != nil, booker.WithBlockDAG(t.optsBlockDAG), booker.WithBlockDAGOptions(t.optsBlockDAGOptions...)),
+			lo.Cond(t.optsLedger != nil, booker.WithLedger(t.optsLedger), booker.WithLedgerOptions(t.optsLedgerOptions...)),
+			lo.Cond(t.optsBooker != nil, booker.WithBooker(t.optsBooker), booker.WithBookerOptions(t.optsBookerOptions...)),
+		)
 
 		if t.VirtualVoting == nil {
 			t.VirtualVoting = New(t.Booker, validator.NewSet(), t.optsVirtualVoting...)
