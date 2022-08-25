@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"strings"
 	"time"
@@ -227,7 +228,9 @@ func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) E
 
 // region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-type NodesActivityLog map[Index]*ActivityLog
+type NodesActivityLog struct {
+	shrinkingmap.ShrinkingMap[Index, *ActivityLog]
+}
 
 func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, al, serix.WithValidation())
@@ -246,7 +249,11 @@ func (al *NodesActivityLog) Bytes() []byte {
 	return objBytes
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+func NewNodesActivityLog() *NodesActivityLog {
+	return &NodesActivityLog{*shrinkingmap.New[Index, *ActivityLog]()}
+}
+
+// endregi`azon ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 

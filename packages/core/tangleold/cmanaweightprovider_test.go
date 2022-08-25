@@ -1,6 +1,7 @@
 package tangleold
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -19,22 +20,39 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		"node3": identity.GenerateIdentity().ID(),
 	}
 
-	activeNodes := make(epoch.NodesActivityLog)
+	activeNodes := epoch.NewNodesActivityLog()
+
+	for i := 0; i < 100; i++ {
+		ei := epoch.Index(i)
+		al := epoch.NewActivityLog()
+		activeNodes.Set(ei, al)
+		weight := 1.0
+		for _, nodeID := range nodes {
+			if rand.Float64() < 0.1*weight {
+				al.Add(nodeID)
+			}
+			weight += 1
+		}
+	}
 
 	for _, nodeID := range nodes {
 		for i := 0; i < crypto.Randomness.Intn(100); i++ {
-			activeNodes[epoch.Index(i)] = epoch.NewActivityLog()
-			activeNodes[epoch.Index(i)].Add(nodeID)
+			al := epoch.NewActivityLog()
+			al.Add(nodeID)
+			activeNodes.Set(epoch.Index(i), al)
 		}
 	}
 	activeNodesBytes := activeNodes.Bytes()
-	activeNodes2 := make(epoch.NodesActivityLog)
+	activeNodes2 := epoch.NewNodesActivityLog()
 	err := activeNodes2.FromBytes(activeNodesBytes)
 	require.NoError(t, err)
 
-	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.Size(), activeNodes2[nodeID].Size())
-	}
+	activeNodes.ForEach(func(ei epoch.Index, activity *epoch.ActivityLog) bool {
+		activity2, exists := activeNodes2.Get(ei)
+		require.True(t, exists)
+		assert.EqualValues(t, activity.Size(), activity2.Size())
+		return true
+	})
 }
 
 func TestCManaWeightProvider(t *testing.T) {
