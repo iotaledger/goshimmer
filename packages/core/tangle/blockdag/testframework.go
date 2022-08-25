@@ -43,11 +43,13 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:           test,
 		orphanedBlocks: models.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
-		if t.evictionManager == nil {
-			t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
-		}
+		if t.BlockDAG == nil {
+			if t.evictionManager == nil {
+				t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
+			}
 
-		t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
+			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
+		}
 
 		t.ModelsTestFramework = models.NewTestFramework(
 			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
@@ -226,6 +228,12 @@ func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) opti
 func WithBlockDAGOptions(opts ...options.Option[BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAG = opts
+	}
+}
+
+func WithBlockDAG(blockDAG *BlockDAG) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.BlockDAG = blockDAG
 	}
 }
 

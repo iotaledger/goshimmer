@@ -18,10 +18,10 @@ import (
 // region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type VirtualVoting struct {
-	Events *Events
+	Events       *Events
+	ValidatorSet *validator.Set
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	validatorSet    *validator.Set
 	conflictTracker *votes.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *votes.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
@@ -31,8 +31,8 @@ type VirtualVoting struct {
 
 func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
+		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		validatorSet:    validatorSet,
 		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
 		Booker:          booker,
 	}, opts, func(o *VirtualVoting) {

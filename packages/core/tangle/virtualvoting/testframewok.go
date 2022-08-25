@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
@@ -21,16 +22,19 @@ import (
 )
 
 type TestFramework struct {
-	ValidatorSet  *validator.Set
 	VirtualVoting *VirtualVoting
 
 	test              *testing.T
 	identitiesByAlias map[string]*identity.Identity
 	trackedBlocks     uint32
 
-	optsBlockDAG      []options.Option[blockdag.BlockDAG]
-	optsBooker        []options.Option[booker.Booker]
-	optsVirtualVoting []options.Option[VirtualVoting]
+	optsBlockDAG        *blockdag.BlockDAG
+	optsBlockDAGOptions []options.Option[blockdag.BlockDAG]
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
+	optsBooker          *booker.Booker
+	optsBookerOptions   []options.Option[booker.Booker]
+	optsVirtualVoting   []options.Option[VirtualVoting]
 
 	*BookerTestFramework
 	*VotesTestFramework
@@ -41,19 +45,35 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:              test,
 		identitiesByAlias: make(map[string]*identity.Identity),
 	}, opts, func(t *TestFramework) {
-		t.ValidatorSet = validator.NewSet()
+		bookerTestFrameworkOptions := make([]options.Option[booker.TestFramework], 0)
 
-		t.BookerTestFramework = booker.NewTestFramework(
-			test,
-			booker.WithBlockDAGOptions(t.optsBlockDAG...),
-			booker.WithBookerOptions(t.optsBooker...),
-		)
+		if t.optsBlockDAG != nil {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBlockDAG(t.optsBlockDAG))
+		} else {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBlockDAGOptions(t.optsBlockDAGOptions...))
+		}
 
-		t.VirtualVoting = New(t.Booker, t.ValidatorSet, t.optsVirtualVoting...)
+		if t.optsLedger != nil {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithLedger(t.optsLedger))
+		} else {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithLedgerOptions(t.optsLedgerOptions...))
+		}
+
+		if t.optsBooker != nil {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBooker(t.optsBooker))
+		} else {
+			bookerTestFrameworkOptions = append(bookerTestFrameworkOptions, booker.WithBookerOptions(t.optsBookerOptions...))
+		}
+
+		t.BookerTestFramework = booker.NewTestFramework(test, bookerTestFrameworkOptions...)
+
+		if t.VirtualVoting == nil {
+			t.VirtualVoting = New(t.Booker, validator.NewSet(), t.optsVirtualVoting...)
+		}
 
 		t.VotesTestFramework = votes.NewTestFramework[BlockVotePower](
 			test,
-			votes.WithValidatorSet[BlockVotePower](t.ValidatorSet),
+			votes.WithValidatorSet[BlockVotePower](t.VirtualVoting.ValidatorSet),
 			votes.WithConflictTracker(t.VirtualVoting.conflictTracker),
 			votes.WithSequenceTracker(t.VirtualVoting.sequenceTracker),
 			votes.WithConflictDAG[BlockVotePower](t.VirtualVoting.Booker.Ledger.ConflictDAG),
@@ -125,19 +145,49 @@ type VotesTestFramework = votes.TestFramework[BlockVotePower]
 
 func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsBlockDAG = opts
+		t.optsBlockDAGOptions = opts
+	}
+}
+
+func WithBlockDAG(blockDAG *blockdag.BlockDAG) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBlockDAG = blockDAG
+	}
+}
+
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsLedgerOptions = opts
+	}
+}
+
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsLedger = ledger
 	}
 }
 
 func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsBooker = opts
+		tf.optsBookerOptions = opts
+	}
+}
+
+func WithBooker(booker *booker.Booker) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBooker = booker
 	}
 }
 
 func WithVirtualVotingOptions(opts ...options.Option[VirtualVoting]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsVirtualVoting = opts
+	}
+}
+
+func WithVirtualVoting(virtualVoting *VirtualVoting) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.VirtualVoting = virtualVoting
 	}
 }
 

@@ -28,8 +28,11 @@ type TestFramework struct {
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
 
-	optsBlockDAG []options.Option[blockdag.BlockDAG]
-	optsBooker   []options.Option[Booker]
+	optsBlockDAG        *blockdag.BlockDAG
+	optsBlockDAGOptions []options.Option[blockdag.BlockDAG]
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
+	optsBookerOptions   []options.Option[Booker]
 
 	*LedgerTestFramework
 	*BlockDAGTestFramework
@@ -39,9 +42,21 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		t.LedgerTestFramework = ledger.NewTestFramework(test)
-		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAGOptions(t.optsBlockDAG...))
-		t.Booker = New(t.BlockDAG, t.Ledger, t.optsBooker...)
+		if t.optsBlockDAG != nil {
+			t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAG(t.optsBlockDAG))
+		} else {
+			t.BlockDAGTestFramework = blockdag.NewTestFramework(test, blockdag.WithBlockDAGOptions(t.optsBlockDAGOptions...))
+		}
+
+		if t.optsLedger != nil {
+			t.LedgerTestFramework = ledger.NewTestFramework(test, ledger.WithLedger(t.optsLedger))
+		} else {
+			t.LedgerTestFramework = ledger.NewTestFramework(test, ledger.WithLedgerOptions(t.optsLedgerOptions...))
+		}
+
+		if t.Booker == nil {
+			t.Booker = New(t.BlockDAG, t.Ledger, t.optsBookerOptions...)
+		}
 	}, (*TestFramework).setupEvents)
 }
 
@@ -191,13 +206,37 @@ type LedgerTestFramework = ledger.TestFramework
 
 func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsBlockDAG = opts
+		t.optsBlockDAGOptions = opts
+	}
+}
+
+func WithBlockDAG(blockDAG *blockdag.BlockDAG) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsBlockDAG = blockDAG
+	}
+}
+
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsLedgerOptions = opts
+	}
+}
+
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsLedger = ledger
 	}
 }
 
 func WithBookerOptions(opts ...options.Option[Booker]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsBooker = opts
+		t.optsBookerOptions = opts
+	}
+}
+
+func WithBooker(booker *Booker) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.Booker = booker
 	}
 }
 
