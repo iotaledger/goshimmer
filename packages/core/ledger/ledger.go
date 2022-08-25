@@ -5,12 +5,17 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,25 +44,59 @@ type Ledger struct {
 	// booker is a Ledger component that bundles the booking related API.
 	booker *booker
 
-	// options is a dictionary for configuration parameters of the Ledger.
-	options *optionsLedger
+	// optsVM contains the virtual machine that is used to execute Transactions.
+	optsVM vm.VM
+
+	// optsStore contains the KVStore that is used to persist data.
+	optsStore kvstore.KVStore
+
+	// optsCacheTimeProvider contains the CacheTimeProvider that overrides the local cache times.
+	optsCacheTimeProvider *database.CacheTimeProvider
+
+	// optsTransactionCacheTime contains the duration that Transaction objects stay cached after they have been
+	// released.
+	optsTransactionCacheTime time.Duration
+
+	// optTransactionMetadataCacheTime contains the duration that TransactionMetadata objects stay cached after they
+	// have been released.
+	optTransactionMetadataCacheTime time.Duration
+
+	// optsOutputCacheTime contains the duration that Output objects stay cached after they have been released.
+	optsOutputCacheTime time.Duration
+
+	// optsOutputMetadataCacheTime contains the duration that OutputMetadata objects stay cached after they have been
+	// released.
+	optsOutputMetadataCacheTime time.Duration
+
+	// optsConsumerCacheTime contains the duration that Consumer objects stay cached after they have been released.
+	optsConsumerCacheTime time.Duration
+
+	// optConflictDAG contains the optionsLedger for the ConflictDAG.
+	optConflictDAG []conflictdag.Option
 
 	// mutex is a DAGMutex that is used to make the Ledger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(options ...Option) (ledger *Ledger) {
-	ledger = &Ledger{
-		Events:  newEvents(),
-		options: newOptions(options...),
-		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
-	}
+func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
+	ledger = options.Apply(&Ledger{
+		Events:                          newEvents(),
+		optsStore:                       mapdb.NewMapDB(),
+		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
+		optsVM:                          NewMockedVM(),
+		optsTransactionCacheTime:        10 * time.Second,
+		optTransactionMetadataCacheTime: 10 * time.Second,
+		optsOutputCacheTime:             10 * time.Second,
+		optsOutputMetadataCacheTime:     10 * time.Second,
+		optsConsumerCacheTime:           10 * time.Second,
+		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
+	}, opts)
 
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(ledger.options.store),
-		conflictdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
-	}, ledger.options.conflictDAGOptions...)...)
+		conflictdag.WithStore(ledger.optsStore),
+		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
+	}, ledger.optConflictDAG...)...)
 
 	ledger.Storage = newStorage(ledger)
 	ledger.validator = newValidator(ledger)
@@ -263,6 +302,80 @@ func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
 			walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
 		})
 	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WithVM is an Option for the Ledger that allows to configure which VM is supposed to be used to process transactions.
+func WithVM(vm vm.VM) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsVM = vm
+	}
+}
+
+// WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
+// (the default option is to use a MapDB).
+func WithStore(store kvstore.KVStore) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsStore = store
+	}
+}
+
+// WithCacheTimeProvider is an Option for the Ledger that allows to configure which CacheTimeProvider is supposed to
+// be used.
+func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsCacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// WithTransactionCacheTime is an Option for the Ledger that allows to configure how long Transaction objects stay
+// cached after they have been released.
+func WithTransactionCacheTime(transactionCacheTime time.Duration) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsTransactionCacheTime = transactionCacheTime
+	}
+}
+
+// WithTransactionMetadataCacheTime is an Option for the Ledger that allows to configure how long TransactionMetadata
+// objects stay cached after they have been released.
+func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optTransactionMetadataCacheTime = transactionMetadataCacheTime
+	}
+}
+
+// WithOutputCacheTime is an Option for the Ledger that allows to configure how long Output objects stay cached after
+// they have been released.
+func WithOutputCacheTime(outputCacheTime time.Duration) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsOutputCacheTime = outputCacheTime
+	}
+}
+
+// WithOutputMetadataCacheTime is an Option for the Ledger that allows to configure how long OutputMetadata objects stay
+// cached after they have been released.
+func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsOutputMetadataCacheTime = outputMetadataCacheTime
+	}
+}
+
+// WithConsumerCacheTime is an Option for the Ledger that allows to configure how long Consumer objects stay cached
+// after they have been released.
+func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optsConsumerCacheTime = consumerCacheTime
+	}
+}
+
+// WithConflictDAGOptions is an Option for the Ledger that allows to configure the optionsLedger for the ConflictDAG
+func WithConflictDAGOptions(conflictDAGOptions ...conflictdag.Option) (option options.Option[Ledger]) {
+	return func(options *Ledger) {
+		options.optConflictDAG = conflictDAGOptions
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

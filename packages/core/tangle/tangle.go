@@ -32,7 +32,7 @@ type Tangle struct {
 func New(evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
-		t.Ledger = ledger.New( /* TODO CHANGE LEDGER OPTIONS TO GENERIC OPTS */ )
+		t.Ledger = ledger.New(t.optsLedger...)
 		t.Booker = booker.New(t.BlockDAG, t.Ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, t.optsVirtualVoting...)
 	})

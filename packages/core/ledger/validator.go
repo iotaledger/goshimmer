@@ -57,7 +57,7 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 // checkTransactionExecutionCommand is a ChainedCommand that aborts the DataFlow if the Transaction could not be
 // executed (is invalid).
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	utxoOutputs, err := v.ledger.options.vm.ExecuteTransaction(params.Transaction, params.Inputs)
+	utxoOutputs, err := v.ledger.options.optsVM.ExecuteTransaction(params.Transaction, params.Inputs)
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w: %w", params.Transaction.ID(), ErrTransactionInvalid, err)
 	}
