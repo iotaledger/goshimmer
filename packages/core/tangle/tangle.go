@@ -17,8 +17,8 @@ import (
 // Tangle is a conflict free replicated data type that allows users to issue their own Blocks with each Block casting
 // virtual votes on existing conflicts.
 type Tangle struct {
-	EvictionManager *eviction.Manager[models.BlockID]
-	ValidatorSet    *validator.Set
+	evictionManager *eviction.Manager[models.BlockID]
+	validatorSet    *validator.Set
 
 	optsBlockDAG      []options.Option[blockdag.BlockDAG]
 	optsLedger        []options.Option[ledger.Ledger]
@@ -34,8 +34,8 @@ type Tangle struct {
 // New is the constructor for a new Tangle.
 func New(evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(&Tangle{
-		EvictionManager: evictionManager,
-		ValidatorSet:    validatorSet,
+		evictionManager: evictionManager,
+		validatorSet:    validatorSet,
 	}, opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
 		t.Ledger = ledger.New(t.optsLedger...)

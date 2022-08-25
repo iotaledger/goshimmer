@@ -23,11 +23,8 @@ type BlockDAG struct {
 	// Events contains the Events of the BlockDAG.
 	Events *Events
 
-	// EvictionManager exposes the public manager used to orchestrate the eviction of old Blocks.
-	EvictionManager *eviction.Manager[models.BlockID]
-
-	// evictionManager contains the local manager used to orchestrate the eviction of old Blocks inside the BlockDAG.
-	evictionManager *eviction.LockableManager[models.BlockID]
+	// EvictionManager contains the local manager used to orchestrate the eviction of old Blocks inside the BlockDAG.
+	EvictionManager *eviction.LockableManager[models.BlockID]
 
 	// memStorage contains the in-memory storage of the BlockDAG.
 	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
@@ -43,8 +40,7 @@ type BlockDAG struct {
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
 		Events:          newEvents(),
-		EvictionManager: evictionManager,
-		evictionManager: evictionManager.Lockable(),
+		EvictionManager: evictionManager.Lockable(),
 		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
 		orphanageMutex:  syncutils.NewDAGMutex[models.BlockID](),
 	}, opts, func(b *BlockDAG) {
@@ -57,7 +53,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 			causalorder.WithReferenceValidator[models.BlockID](checkReference),
 		)
 
-		b.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
+		b.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
 	})
 }
 
@@ -74,8 +70,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, e
 
 // Block retrieves a Block with metadata from the in-memory storage of the BlockDAG.
 func (b *BlockDAG) Block(id models.BlockID) (block *Block, exists bool) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.EvictionManager.RLock()
+	defer b.EvictionManager.RUnlock()
 
 	return b.block(id)
 }
@@ -127,8 +123,8 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statu
 func (b *BlockDAG) evictEpoch(epochIndex epoch.Index) {
 	b.solidifier.EvictEpoch(epochIndex)
 
-	b.evictionManager.Lock()
-	defer b.evictionManager.Unlock()
+	b.EvictionManager.Lock()
+	defer b.EvictionManager.Unlock()
 
 	b.memStorage.EvictEpoch(epochIndex)
 }
@@ -149,8 +145,8 @@ func (b *BlockDAG) markInvalid(block *Block, reason error) {
 
 // attach tries to attach the given Block to the BlockDAG.
 func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, err error) {
-	b.evictionManager.RLock()
-	defer b.evictionManager.RUnlock()
+	b.EvictionManager.RLock()
+	defer b.EvictionManager.RUnlock()
 
 	if block, wasAttached, err = b.canAttach(data); !wasAttached {
 		return
@@ -173,7 +169,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
-	if b.evictionManager.IsTooOld(data.ID()) {
+	if b.EvictionManager.IsTooOld(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
 	}
 
@@ -189,7 +185,7 @@ func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, 
 // this condition but exists as a missing entry, we mark it as invalid.
 func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
-		if b.evictionManager.IsTooOld(parentID) {
+		if b.EvictionManager.IsTooOld(parentID) {
 			if storedBlock != nil {
 				b.SetInvalid(storedBlock)
 			}
@@ -204,7 +200,7 @@ func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (b
 // registerChild registers the given Block as a child of the parent. It triggers a BlockMissing event if the referenced
 // Block does not exist, yet.
 func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
-	if b.evictionManager.IsRootBlock(parent.ID) {
+	if b.EvictionManager.IsRootBlock(parent.ID) {
 		return
 	}
 
@@ -221,7 +217,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
-	if b.evictionManager.IsRootBlock(id) {
+	if b.EvictionManager.IsRootBlock(id) {
 		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
 	}
 
