@@ -18,14 +18,24 @@ type TestFramework struct {
 
 	test *testing.T
 
-	optsTangle []options.Option[Tangle]
+	optsEvictionManager *eviction.Manager[models.BlockID]
+	optsValidatorSet    *validator.Set
+	optsTangle          []options.Option[Tangle]
 
 	*VirtualVotingTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{}, opts, func(t *TestFramework) {
-		t.Tangle = New(eviction.NewManager[models.BlockID](models.IsEmptyBlockID), validator.NewSet(), t.optsTangle...)
+		if t.optsEvictionManager == nil {
+			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+		}
+
+		if t.optsValidatorSet == nil {
+			t.optsValidatorSet = validator.NewSet()
+		}
+
+		t.Tangle = New(t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
 			test,
@@ -42,6 +52,18 @@ type VirtualVotingTestFramework = virtualvoting.TestFramework
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsEvictionManager = evictionManager
+	}
+}
+
+func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsValidatorSet = validatorSet
+	}
+}
 
 func WithTangleOptions(opts ...options.Option[Tangle]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
