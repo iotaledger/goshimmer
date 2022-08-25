@@ -79,7 +79,7 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(opts ...Option[Ledger]) (ledger *Ledger) {
+func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
 		Events:                          newEvents(),
 		optsStore:                       mapdb.NewMapDB(),
