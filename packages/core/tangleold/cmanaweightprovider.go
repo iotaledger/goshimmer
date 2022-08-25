@@ -140,7 +140,7 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 		if !exists {
 			continue
 		}
-		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+		al.ForEach(func(nodeID identity.ID) error {
 			nodeMana := mana[nodeID]
 			// Do this check after determining whether a node was active because otherwise we would never clean up
 			// the ActivityLog of nodes lower than the threshold.
@@ -171,7 +171,7 @@ func (c *CManaWeightProvider) SnapshotEpochActivity(epochDiffIndex epoch.Index) 
 	defer c.mutex.Unlock()
 
 	for ei, al := range c.activityLog {
-		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+		al.ForEach(func(nodeID identity.ID) error {
 			// we save only activity log up to epochDiffIndex as it is the last snapshotted epoch
 			if ei > epochDiffIndex {
 				return nil

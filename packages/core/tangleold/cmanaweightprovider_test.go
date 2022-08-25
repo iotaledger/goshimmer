@@ -33,7 +33,7 @@ func TestActiveNodesMarshalling(t *testing.T) {
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.SetEpochs.Size(), activeNodes2[nodeID].SetEpochs.Size())
+		assert.EqualValues(t, a.Size(), activeNodes2[nodeID].Size())
 	}
 }
 
