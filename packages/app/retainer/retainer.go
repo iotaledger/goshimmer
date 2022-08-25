@@ -14,7 +14,7 @@ import (
 var retainerRealm = kvstore.Realm("retainer")
 
 type Retainer struct {
-	metadata *memstorage.EpochStorage[models.BlockID, *Metadata]
+	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
 
 	dbManager       *database.Manager
 	evictionManager *eviction.LockableManager[models.BlockID]
@@ -23,7 +23,7 @@ type Retainer struct {
 func NewRetainer(dbManager *database.Manager, evictionManager *eviction.Manager[models.BlockID]) (r *Retainer) {
 	r = &Retainer{
 		dbManager:       dbManager,
-		metadata:        memstorage.NewEpochStorage[models.BlockID, *Metadata](),
+		cachedMetadata:  memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
 		evictionManager: evictionManager.Lockable(),
 	}
 
@@ -40,12 +40,54 @@ func NewRetainer(dbManager *database.Manager, evictionManager *eviction.Manager[
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
+	metadata := r.createStorableMetadata(epochIndex)
+
+	// TODO: store cachedMetadata to disk
+	//  should we use object storage or just plain KV store?
+
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
-
-	// TODO: store metadata to disk and evict
-	//  should we use object storage or just plain KV store?
+	r.cachedMetadata.EvictEpoch(epochIndex)
 }
 
-// TODO: provide functionality to retrieve data from retainer
-//  metadata needs to be a storable and serializable -> potentially use serix JSON generation and get rid (partially) of jsonmodels?
+func (r *Retainer) createStorableMetadata(epochIndex epoch.Index) (metas []*BlockMetadata) {
+	r.evictionManager.RLock()
+	defer r.evictionManager.RUnlock()
+
+	storage := r.cachedMetadata.Get(epochIndex)
+
+	metas = make([]*BlockMetadata, 0, storage.Size())
+
+	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
+		metas = append(metas, newBlockMetadata(cm))
+		return true
+	})
+	return metas
+}
+
+func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
+	if storageExists, blockMetadata, blockExists := r.blockMetadataFromCache(blockID); storageExists {
+		return blockMetadata, blockExists
+	}
+
+	// TODO: read from KV store
+	kv := r.dbManager.Get(blockID.Index(), retainerRealm)
+	blockMeta, err := kv.Get(blockID.Bytes())
+	if err != nil {
+		return nil, false
+	}
+
+}
+
+func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists bool, metadata *BlockMetadata, exists bool) {
+	r.evictionManager.RLock()
+	defer r.evictionManager.RUnlock()
+
+	storage := r.cachedMetadata.Get(blockID.Index())
+	if storage == nil {
+		return false, nil, false
+	}
+
+	cm, exists := storage.Get(blockID)
+	return true, newBlockMetadata(cm), exists
+}
