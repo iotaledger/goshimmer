@@ -910,6 +910,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("G5"), tangleold.WithOutput("H6", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
