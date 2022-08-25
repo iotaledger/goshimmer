@@ -37,7 +37,7 @@ var (
 	Plugin              *node.Plugin
 	_faucet             *Faucet
 	powVerifier         = pow.New()
-	requestChanSize     = 100
+	requestChanSize     = 300
 	requestChan         = make(chan *faucet.Payload, requestChanSize)
 	targetPoWDifficulty int
 

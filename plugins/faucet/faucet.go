@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 )
 
@@ -58,10 +59,41 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 
 // handleFaucetRequest sends funds to the requested address and wait the transaction to be accepted.
 func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, error) {
+	// send funds to faucet in order to pledge mana
+	totalBalances := uint64(0)
+	confirmed, _, err := f.Balance(true)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range confirmed {
+		totalBalances += b
+	}
+
+	_, err = f.sendTransaction(
+		f.Seed().Address(0),
+		totalBalances-uint64(Parameters.TokensPerRequest),
+		deps.Local.ID(),
+		identity.ID{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// send funds to requester
+	tx, err := f.sendTransaction(
+		address.Address{AddressBytes: p.Address().Array()},
+		uint64(Parameters.TokensPerRequest),
+		p.AccessManaPledgeID(),
+		p.ConsensusManaPledgeID(),
+	)
+	return tx, err
+}
+
+func (f *Faucet) sendTransaction(destAddr address.Address, balance uint64, aManaPledgeID, cManaPledgeID identity.ID) (*devnetvm.Transaction, error) {
 	tx, err := f.SendFunds(
-		sendoptions.Destination(address.Address{AddressBytes: p.Address().Array()}, uint64(Parameters.TokensPerRequest)),
-		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().EncodeBase58()),
-		sendoptions.ConsensusManaPledgeID(p.ConsensusManaPledgeID().EncodeBase58()),
+		sendoptions.Destination(destAddr, balance),
+		sendoptions.AccessManaPledgeID(aManaPledgeID.EncodeBase58()),
+		sendoptions.ConsensusManaPledgeID(cManaPledgeID.EncodeBase58()),
 	)
 	if err != nil {
 		return nil, err
