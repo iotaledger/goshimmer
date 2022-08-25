@@ -35,8 +35,8 @@ func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 	}
 
 	new.addressOutputMappingStorage = objectstorage.NewStructStorage[AddressOutputMapping](
-		objectstorage.NewStoreWithRealm(new.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
-		new.cacheTimeProvider.CacheTime(new.addressOutputMappingCacheTime),
+		objectstorage.NewStoreWithRealm(new.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
+		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 		objectstorage.PartitionKey(devnetvm.AddressLength, utxo.OutputID{}.Length()),
