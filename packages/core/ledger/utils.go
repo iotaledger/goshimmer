@@ -54,7 +54,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 
 // ResolveInputs returns the OutputIDs that were referenced by the given Inputs.
 func (u *Utils) ResolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
-	return utxo.NewOutputIDs(lo.Map(inputs, u.ledger.options.vm.ResolveInput)...)
+	return utxo.NewOutputIDs(lo.Map(inputs, u.ledger.optsVM.ResolveInput)...)
 }
 
 // UnprocessedConsumingTransactions returns the unprocessed consuming transactions of the named OutputIDs.

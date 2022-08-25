@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
@@ -20,9 +19,6 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	debug.SetEnabled(true)
-	defer debug.SetEnabled(false)
-
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")))
@@ -36,17 +32,6 @@ func TestScenario_1(t *testing.T) {
 	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block4", "Block6")), models.WithPayload(tf.CreateTransaction("TX7", 1, "TX5.0")))
 
 	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
-
-	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5", "Block6", "Block7", "Block8", "Block9"} {
-		block := tf.Block(alias)
-		_, blockConflictIDs := tf.Booker().blockBookingDetails(block)
-		fmt.Println(alias, blockConflictIDs)
-
-		fmt.Println(alias, "added", block.AddedConflictIDs(), "subtracted", block.SubtractedConflictIDs())
-		fmt.Println(alias, "all", block.StructureDetails())
-		fmt.Println("UTXO", tf.Booker().PayloadConflictIDs(block))
-		fmt.Println("-----------------------------------------------------")
-	}
 
 	tf.checkConflictIDs(map[string]utxo.TransactionIDs{
 		"Block1": utxo.NewTransactionIDs(),
@@ -509,8 +494,6 @@ func TestWeakParent(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
-	debug.SetEnabled(true)
-
 	const layersNum = 127
 	const widthSize = 8 // since we reference all blocks in the layer below, this is limited by the max parents
 
@@ -678,18 +661,18 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 
 func checkNormalizedConflictIDsContained(t *testing.T, tf *TestFramework, expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
 	for blockID, blockExpectedConflictIDs := range expectedContainedConflictIDs {
-		_, blockConflictIDs := tf.Booker().blockBookingDetails(tf.Block(blockID))
+		_, blockConflictIDs := tf.Booker.blockBookingDetails(tf.Block(blockID))
 
 		normalizedRetrievedConflictIDs := blockConflictIDs.Clone()
 		for it := blockConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker().Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
 		for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
-			tf.Booker().Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			tf.Booker.Ledger.ConflictDAG.Storage.CachedConflict(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedConflictIDs.DeleteAll(b.Parents())
 			})
 		}
@@ -728,7 +711,7 @@ func Test_Prune(t *testing.T) {
 		), alias
 	}
 
-	require.EqualValues(t, 0, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
+	require.EqualValues(t, 0, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be 0")
 
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedBooked := make(map[string]bool, epochCount)
@@ -737,7 +720,7 @@ func Test_Prune(t *testing.T) {
 	for i := 1; i <= epochCount; i++ {
 		block, alias := createNewBlock(i, "")
 
-		_, wasAttached, err := tf.BlockDAG().Attach(block)
+		_, wasAttached, err := tf.BlockDAG.Attach(block)
 		require.True(t, wasAttached, "block should be attached")
 		require.NoError(t, err, "should not be able to attach a block after shutdown")
 
@@ -747,7 +730,7 @@ func Test_Prune(t *testing.T) {
 		}
 	}
 
-	_, wasAttached, err := tf.BlockDAG().Attach(tf.CreateBlock(
+	_, wasAttached, err := tf.BlockDAG.Attach(tf.CreateBlock(
 		"blk-1-reattachment",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(epochCount)*epoch.Duration, 0)),
@@ -762,27 +745,27 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.EvictionManager().EvictEpoch(epochCount / 4)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 4)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.EvictionManager().EvictEpoch(epochCount / 10)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 10)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/4, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
+	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.EvictionManager().EvictEpoch(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 2)
 	event.Loop.WaitUntilAllTasksProcessed()
 
-	require.EqualValues(t, epochCount/2, tf.EvictionManager().MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
+	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")
 
 	validateState(tf, epochCount/2, epochCount)
 
-	_, wasAttached, err = tf.BlockDAG().Attach(tf.CreateBlock(
+	_, wasAttached, err = tf.BlockDAG.Attach(tf.CreateBlock(
 		"blk-0.5",
 		models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", epochCount))),
 		models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
@@ -797,34 +780,32 @@ func validateState(tf *TestFramework, maxPrunedEpoch, epochCount int) {
 	for i := maxPrunedEpoch + 1; i <= epochCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		_, exists := tf.Booker().Block(tf.TestFramework.Block(alias).ID())
-		require.True(tf.T, exists, "block should be in the BlockDAG")
+		_, exists := tf.Booker.Block(tf.ModelsTestFramework.Block(alias).ID())
+		require.True(tf.test, exists, "block should be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
-			require.Len(tf.T, blocks, 2, "transaction blk-0 should have 2 attachments")
+			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			require.Len(tf.test, blocks, 2, "transaction blk-0 should have 2 attachments")
 		} else {
-			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
-			require.Len(tf.T, blocks, 1, "transaction should have 1 attachment")
+			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
 		}
 	}
 
 	for i := 1; i <= maxPrunedEpoch; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		_, exists := tf.Booker().Block(tf.TestFramework.Block(alias).ID())
-		require.False(tf.T, exists, "block should not be in the BlockDAG")
+		_, exists := tf.Booker.Block(tf.ModelsTestFramework.Block(alias).ID())
+		require.False(tf.test, exists, "block should not be in the BlockDAG")
 		if i == 1 {
-			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
-			require.Len(tf.T, blocks, 1, "transaction should have 1 attachment")
+			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			require.Len(tf.test, blocks, 1, "transaction should have 1 attachment")
 		} else {
-			blocks := tf.Booker().attachments.Get(tf.Transaction(alias).ID())
-			require.Empty(tf.T, blocks, "transaction should have no attachments")
+			blocks := tf.Booker.attachments.Get(tf.Transaction(alias).ID())
+			require.Empty(tf.test, blocks, "transaction should have no attachments")
 		}
 	}
 }
 
 func Test_BlockInvalid(t *testing.T) {
-	debug.SetEnabled(true)
-
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")))

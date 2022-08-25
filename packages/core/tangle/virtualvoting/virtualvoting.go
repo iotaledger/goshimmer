@@ -1,4 +1,4 @@
-package otv
+package virtualvoting
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -15,59 +15,57 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
-// region OnTangleVoting ///////////////////////////////////////////////////////////////////////////////////////////////
+// region VirtualVoting ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type OnTangleVoting struct {
-	Events *Events
+type VirtualVoting struct {
+	Events       *Events
+	ValidatorSet *validator.Set
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	validatorSet    *validator.Set
 	conflictTracker *votes.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *votes.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsBooker []options.Option[booker.Booker]
-
 	*booker.Booker
 }
 
-func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[OnTangleVoting]) (otv *OnTangleVoting) {
-	otv = options.Apply(&OnTangleVoting{
+func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+	return options.Apply(&VirtualVoting{
+		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		validatorSet:    validatorSet,
-		evictionManager: evictionManager.Lockable(),
-		optsBooker:      make([]options.Option[booker.Booker], 0),
-	}, opts)
-	otv.Booker = booker.New(evictionManager, otv.optsBooker...)
-	otv.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](otv.Booker.Ledger.ConflictDAG, validatorSet)
-	otv.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, otv.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
-		return 0
-	})
-	otv.Events = newEvents(otv.conflictTracker.Events, otv.sequenceTracker.Events)
-
-	otv.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
-		otv.Track(NewBlock(block))
-	}))
-
-	otv.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
-		otv.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
-	}))
-	otv.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
-		otv.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
-	}))
-
-	otv.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(otv.evictEpoch))
-
-	return otv
+		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
+		Booker:          booker,
+	}, opts, func(o *VirtualVoting) {
+		o.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
+		o.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
+			return 0
+		})
+		o.Events = newEvents(o.conflictTracker.Events, o.sequenceTracker.Events)
+	}, (*VirtualVoting).setupEvents)
 }
 
-func (o *OnTangleVoting) Track(block *Block) {
+func (o *VirtualVoting) Track(block *Block) {
 	if o.track(block) {
 		o.Events.BlockTracked.Trigger(block)
 	}
 }
 
-func (o *OnTangleVoting) track(block *Block) (tracked bool) {
+func (o *VirtualVoting) setupEvents() {
+	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
+		o.Track(NewBlock(block))
+	}))
+
+	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
+		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
+	}))
+	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
+		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
+	}))
+
+	o.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
+}
+
+func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
@@ -87,7 +85,7 @@ func (o *OnTangleVoting) track(block *Block) (tracked bool) {
 	return true
 }
 
-func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
+func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 	o.evictionManager.Lock()
 	defer o.evictionManager.Unlock()
 
@@ -99,25 +97,15 @@ func (o *OnTangleVoting) evictEpoch(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *OnTangleVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
-func (o *OnTangleVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[OnTangleVoting] {
-	return func(b *OnTangleVoting) {
-		b.optsBooker = opts
 	}
 }
 
