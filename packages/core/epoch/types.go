@@ -258,7 +258,6 @@ type ActivityLog struct {
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
-
 	a := &ActivityLog{
 		SetEpochs: set.NewAdvancedSet[identity.ID](),
 	}
