@@ -61,18 +61,19 @@ type TestFramework struct {
 	// outputIDsByAliasMutex contains a mutex that is used to synchronize parallel access to the outputIDsByAlias.
 	outputIDsByAliasMutex sync.RWMutex
 
-	ledgerOpts []Option
+	// optsLedger contains optional parameters for the Ledger instance.
+	optsLedger []options.Option[Ledger]
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
-func NewTestFramework(test *testing.T, opts ...Option[TestFramework]) (newTestFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:                test,
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
-		t.Ledger = New(t.ledgerOpts...)
+		t.Ledger = New(t.optsLedger...)
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 		genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
@@ -507,18 +508,18 @@ var _ vm.VM = new(MockedVM)
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithLedgerOptions(opts ...Option) options.Option[TestFramework] {
+func WithLedgerOptions(opts ...options.Option[Ledger]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		if tf.Ledger != nil {
 			panic("ledger already set")
 		}
-		tf.ledgerOpts = opts
+		tf.optsLedger = opts
 	}
 }
 
 func WithLedger(ledger *Ledger) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		if tf.ledgerOpts != nil {
+		if tf.optsLedger != nil {
 			panic("ledger options already set")
 		}
 		tf.Ledger = ledger
