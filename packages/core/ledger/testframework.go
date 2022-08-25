@@ -66,7 +66,7 @@ type TestFramework struct {
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:                test,
 		transactionsByAlias: make(map[string]*MockedTransaction),
