@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
+	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -34,8 +35,9 @@ type AcceptanceGadget struct {
 
 	otv             otv.OnTangleVoting
 	evictionManager *eviction.LockableManager[models.BlockID]
+	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 
-	optsMarkerConfirmationThreshold float64
+	optsMarkerAcceptanceThreshold float64
 }
 
 func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.BlockID], otv otv.OnTangleVoting, markerBlockMappingFunc func(marker markers.Marker) (block *booker.Block, exists bool), opts ...options.Option[AcceptanceGadget]) *AcceptanceGadget {
@@ -63,13 +65,46 @@ func New(validatorSet *validator.Set, evictionManager *eviction.Manager[models.B
 	return gadget
 }
 
-func (a *AcceptanceGadget) FirstUnconfirmedIndex(sequenceID markers.SequenceID) (firstUnconfirmedIndex markers.Index) {
-	firstConfirmedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
+// IsMarkerAccepted returns whether the given marker is accepted.
+func (a *AcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
+	a.evictionManager.RLock()
+	defer a.evictionManager.RUnlock()
+
+	return a.isMarkerAccepted(marker)
+}
+
+// IsBlockAccepted returns whether the given block is accepted.
+func (a *AcceptanceGadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
+	a.evictionManager.RLock()
+	defer a.evictionManager.RUnlock()
+
+	return a.isBlockAccepted(blockID)
+}
+
+func (a *AcceptanceGadget) isBlockAccepted(blockID models.BlockID) bool {
+	block, exists := a.block(blockID)
+	if exists && block.Accepted() {
+		return true
+	}
+	return false
+}
+
+func (a *AcceptanceGadget) isMarkerAccepted(marker markers.Marker) bool {
+	bookerBlock, exists := a.markerBlockMappingFunc(marker)
+	if !exists {
+		return false
+	}
+
+	return a.isBlockAccepted(bookerBlock.ID())
+}
+
+func (a *AcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
+	firstAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
 		return 0
 	}
 
-	return firstConfirmedIndex + 1
+	return firstAcceptedIndex + 1
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the AcceptanceGadget.
@@ -85,7 +120,9 @@ func (a *AcceptanceGadget) update(voter *validator.Validator, newMaxSupportedMar
 	defer a.evictionManager.RUnlock()
 
 	sequenceID := newMaxSupportedMarker.SequenceID()
-	// TODO: lock sequence
+
+	a.sequenceMutex.Lock(sequenceID)
+	defer a.sequenceMutex.Unlock(sequenceID)
 
 	// TODO: check what is received when sequence is not supported yet
 	for markerIndex := prevMaxSupportedMarker.Index() + 1; markerIndex <= newMaxSupportedMarker.Index(); markerIndex++ {
@@ -97,10 +134,8 @@ func (a *AcceptanceGadget) update(voter *validator.Validator, newMaxSupportedMar
 
 		markerVoters.Add(voter)
 
-		if markerVoters.TotalWeight() > uint64(float64(a.validatorSet.TotalWeight())*a.optsMarkerConfirmationThreshold) {
-			// TODO: check if marker is already accepted and proceed only if not accepted yet
-
-			err := a.acceptPastCone(sequenceID, markerIndex)
+		if markerVoters.TotalWeight() > uint64(float64(a.validatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(markers.NewMarker(sequenceID, markerIndex)) {
+			err := a.propagateAcceptance(sequenceID, markerIndex)
 			if err != nil {
 				a.Events.Error.Trigger(errors.Wrap(err, "could not mark past cone blocks as accepted"))
 			} else {
@@ -150,7 +185,7 @@ func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) 
 	return storage.Get(id)
 }
 
-func (a *AcceptanceGadget) acceptPastCone(sequenceID markers.SequenceID, index markers.Index) (err error) {
+func (a *AcceptanceGadget) propagateAcceptance(sequenceID markers.SequenceID, index markers.Index) (err error) {
 	bookerBlock, _ := a.markerBlockMappingFunc(markers.NewMarker(sequenceID, index))
 
 	block, err := a.getOrRegisterBlock(bookerBlock)
@@ -165,14 +200,18 @@ func (a *AcceptanceGadget) acceptPastCone(sequenceID markers.SequenceID, index m
 		a.acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
+			if a.isBlockAccepted(parentBlockID) {
+				continue
+			}
+
 			parentBlockBooker, parentExists := a.otv.Booker.Block(parentBlockID)
 			if !parentExists {
 				return errors.Errorf("parent block %s does not exist", parentBlockID)
 			}
 
-			parentBlock, err := a.getOrRegisterBlock(parentBlockBooker)
-			if err != nil {
-				return errors.Wrap(err, "could not mark past cone as accepted")
+			parentBlock, parentErr := a.getOrRegisterBlock(parentBlockBooker)
+			if parentErr != nil {
+				return errors.Wrap(parentErr, "could not mark past cone as accepted")
 			}
 
 			pastConeWalker.Push(parentBlock)
@@ -206,7 +245,6 @@ func (a *AcceptanceGadget) markAsAccepted(block *Block) (err error) {
 
 func (a *AcceptanceGadget) acceptanceFailed(block *Block, err error) {
 	a.Events.Error.Trigger(errors.Wrapf(err, "could not mark block %s as accepted", block.ID()))
-
 }
 
 func (a *AcceptanceGadget) evictEpoch(index epoch.Index) {
