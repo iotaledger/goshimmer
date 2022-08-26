@@ -1,6 +1,9 @@
 package faucet
 
 import (
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/pkg/errors"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
@@ -10,8 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/pkg/errors"
 )
 
 type FaucetConnector struct {
@@ -35,7 +36,6 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 				if typedOutput, ok := output.(devnetvm.Output); ok {
 					f.tangle.Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
-							addr := address.Address{AddressBytes: typedOutput.Address().Array()}
 							walletOutput := &wallet.Output{
 								Address:                  addr,
 								Object:                   typedOutput,

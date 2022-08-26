@@ -65,6 +65,14 @@ func Remainder(addr address.Address) SendFundsOption {
 	}
 }
 
+func Sources(addr ...address.Address) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		options.SourceAddresses = addr
+
+		return nil
+	}
+}
+
 // AccessManaPledgeID is an option for SendFunds call that defines the nodeID to pledge access mana to.
 func AccessManaPledgeID(nodeID string) SendFundsOption {
 	return func(options *SendFundsOptions) error {
@@ -143,6 +151,7 @@ type SendFundsOptions struct {
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool
 	UsePendingOutputs     bool
+	SourceAddresses       []address.Address
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.

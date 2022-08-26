@@ -115,7 +115,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 	// how much funds will we need to fund this transfer?
 	requiredFunds := sendOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs, sendOptions.SourceAddresses...)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -1968,13 +1968,15 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm.Alias
 
 // collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
 // It may collect pending outputs according to flag.
-func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool) (OutputsByAddressAndOutputID, error) {
+func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool, addresses ...address.Address) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
-	addresses := wallet.addressManager.Addresses()
+	if len(addresses) == 0 {
+		addresses = wallet.addressManager.Addresses()
+	}
 	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
 
 	collected := make(map[devnetvm.Color]uint64)
