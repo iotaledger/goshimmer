@@ -31,8 +31,8 @@ func (a Address) Base58() string {
 
 func (a Address) String() string {
 	return stringify.Struct("Address",
-		stringify.StructField("Address", a.Address()),
-		stringify.StructField("Index", a.Index),
+		stringify.NewStructField("Address", a.Address()),
+		stringify.NewStructField("Index", a.Index),
 	)
 }
 

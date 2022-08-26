@@ -135,9 +135,9 @@ func (i Inputs) Clone() (clonedInputs Inputs) {
 
 // String returns a human-readable version of the Inputs.
 func (i Inputs) String() string {
-	structBuilder := stringify.StructBuilder("Inputs")
+	structBuilder := stringify.NewStructBuilder("Inputs")
 	for i, input := range i {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), input))
+		structBuilder.AddField(stringify.NewStructField(strconv.Itoa(i), input))
 	}
 
 	return structBuilder.String()

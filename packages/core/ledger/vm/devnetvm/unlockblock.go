@@ -110,9 +110,9 @@ func (u UnlockBlocks) Bytes() []byte {
 
 // String returns a human readable version of the UnlockBlocks.
 func (u UnlockBlocks) String() string {
-	structBuilder := stringify.StructBuilder("UnlockBlocks")
+	structBuilder := stringify.NewStructBuilder("UnlockBlocks")
 	for i, unlockBlock := range u {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), unlockBlock))
+		structBuilder.AddField(stringify.NewStructField(strconv.Itoa(i), unlockBlock))
 	}
 
 	return structBuilder.String()

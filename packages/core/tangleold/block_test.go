@@ -655,7 +655,7 @@ func TestBlockFromBytes(t *testing.T) {
 }
 
 func randomTransaction() *devnetvm.Transaction {
-	ID, _ := identity.RandomID()
+	ID, _ := identity.RandomIDInsecure()
 	input := devnetvm.NewUTXOInput(utxo.EmptyOutputID)
 	var outputs devnetvm.Outputs
 	seed := ed25519.NewSeed()
