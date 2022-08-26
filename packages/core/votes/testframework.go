@@ -18,6 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
+
 type conflictDAGTestFramework = *conflictdag.TestFramework
 type markersTestFramework = *markers.TestFramework
 
@@ -54,9 +56,9 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, o
 			t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 		}
 
-		t.SequenceTracker().Events.VoterAdded.Hook(event.NewClosure(func(evt *SequenceVoterEvent) {
+		t.SequenceTracker().Events.SequenceVotersUpdated.Hook(event.NewClosure(func(evt *SequenceVotersUpdatedEvent) {
 			if debug.GetEnabled() {
-				t.test.Logf("VOTER ADDED: %v", evt.NewMaxSupportedMarker)
+				t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
 			}
 		}))
 	})
@@ -106,11 +108,23 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 		// sanity check
 		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
 
-		voters := t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
+		voters := ValidatorSetToAdvancedSet(t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker()))
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region utils //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func ValidatorSetToAdvancedSet(validatorSet *validator.Set) *set.AdvancedSet[*validator.Validator] {
+	return set.NewAdvancedSet[*validator.Validator](validatorSet.Slice()...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region mocks //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type mockVotePower struct {
 	votePower int
@@ -141,6 +155,10 @@ func (t *TestFramework[VotePowerType]) ConflictTracker() (conflictTracker *Confl
 
 	return t.conflictTracker
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func WithValidatorSet[VotePowerType VotePower[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
@@ -186,3 +204,5 @@ func WithSequenceManager[VotePowerType VotePower[VotePowerType]](sequenceManager
 		tf.sequenceManager = sequenceManager
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

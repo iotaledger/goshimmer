@@ -58,6 +58,14 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 	return o.block(id)
 }
 
+// MarkerVoters retrieves Vote
+func (o *VirtualVoting) MarkerVoters(marker markers.Marker) *validator.Set {
+	o.evictionManager.RLock()
+	defer o.evictionManager.RUnlock()
+
+	return o.sequenceTracker.Voters(marker)
+}
+
 func (o *VirtualVoting) setupEvents() {
 	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		o.Track(NewBlock(block))

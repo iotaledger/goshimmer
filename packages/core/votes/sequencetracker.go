@@ -3,7 +3,6 @@ package votes
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -52,8 +51,8 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
-func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
-	voters = set.NewAdvancedSet[*validator.Validator]()
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *validator.Set) {
+	voters = validator.NewSet()
 	votes, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
@@ -121,11 +120,10 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		previousHighestIndex = sequence.LowestIndex()
 	}
 
-	// Trigger events for all newly supported markers.
-	s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
-		Voter:                  voter,
-		NewMaxSupportedMarker:  marker,
-		PrevMaxSupportedMarker: markers.NewMarker(marker.SequenceID(), previousHighestIndex),
+	s.Events.SequenceVotersUpdated.Trigger(&SequenceVotersUpdatedEvent{
+		NewMaxSupportedIndex:  marker.Index(),
+		PrevMaxSupportedIndex: previousHighestIndex,
+		SequenceID:            marker.SequenceID(),
 	})
 
 	// Walk the SequenceDAG to propagate votes to referenced sequences.

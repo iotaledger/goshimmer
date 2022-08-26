@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
@@ -30,10 +29,6 @@ type AcceptanceGadget struct {
 	lastAcceptedMarker            *memstorage.Storage[markers.SequenceID, markers.Index]
 	acceptanceOrder               *causalorder.CausalOrder[models.BlockID, *Block]
 	optsMarkerAcceptanceThreshold float64
-
-	// todo remove these maps
-	pruningMap *memstorage.Storage[epoch.Index, *markers.Markers]
-	votersMap  *memstorage.Storage[markers.Marker, *validator.Set]
 }
 
 func New(tangle *tangle.Tangle, opts ...options.Option[AcceptanceGadget]) *AcceptanceGadget {
@@ -44,18 +39,14 @@ func New(tangle *tangle.Tangle, opts ...options.Option[AcceptanceGadget]) *Accep
 		lastAcceptedMarker:            memstorage.New[markers.SequenceID, markers.Index](),
 		blocks:                        memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMarkerAcceptanceThreshold: defaultMarkerAcceptanceThreshold,
-
-		// this is not needed, use tangle instead
-		pruningMap: memstorage.New[epoch.Index, *markers.Markers](),
-		votersMap:  memstorage.New[markers.Marker, *validator.Set](),
 	}, opts, func(a *AcceptanceGadget) {
 		a.acceptanceOrder = causalorder.New(a.EvictionManager.Manager, a.Block, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*AcceptanceGadget).setupEvents)
 }
 
 func (a *AcceptanceGadget) setupEvents() {
-	a.Tangle.VirtualVoting.Events.SequenceVoterAdded.Attach(event.NewClosure[*votes.SequenceVoterEvent](func(evt *votes.SequenceVoterEvent) {
-		a.update(evt.Voter, evt.NewMaxSupportedMarker, evt.PrevMaxSupportedMarker)
+	a.Tangle.VirtualVoting.Events.SequenceVoterAdded.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
+		a.RefreshAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
 	a.Tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
@@ -112,23 +103,17 @@ func (a *AcceptanceGadget) Block(id models.BlockID) (block *Block, exists bool) 
 	return a.block(id)
 }
 
-func (a *AcceptanceGadget) update(voter *validator.Validator, newMaxSupportedMarker, prevMaxSupportedMarker markers.Marker) {
+func (a *AcceptanceGadget) RefreshAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.EvictionManager.RLock()
 	defer a.EvictionManager.RUnlock()
 
-	sequenceID := newMaxSupportedMarker.SequenceID()
+	for markerIndex := prevMaxSupportedIndex + 1; markerIndex <= newMaxSupportedIndex; markerIndex++ {
+		marker := markers.NewMarker(sequenceID, markerIndex)
 
-	// TODO: check what is received when sequence is not supported yet
-	for markerIndex := prevMaxSupportedMarker.Index() + 1; markerIndex <= newMaxSupportedMarker.Index(); markerIndex++ {
-		markerVoters, isEvicted := a.getMarkerVoters(sequenceID, markerIndex)
-		if isEvicted {
-			a.Events.Error.Trigger(errors.Errorf("failed to update acceptance for %s with vote %s", markers.NewMarker(sequenceID, markerIndex), voter))
-			return
-		}
+		markerVoters := a.Tangle.VirtualVoting.MarkerVoters(marker)
 
-		markerVoters.Add(voter)
-		if markerVoters.TotalWeight() > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(markers.NewMarker(sequenceID, markerIndex)) {
-			err := a.propagateAcceptance(sequenceID, markerIndex)
+		if markerVoters.TotalWeight() > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(marker) {
+			err := a.propagateAcceptance(marker)
 			if err != nil {
 				a.Events.Error.Trigger(errors.Wrap(err, "could not mark past cone blocks as accepted"))
 			} else {
@@ -137,30 +122,6 @@ func (a *AcceptanceGadget) update(voter *validator.Validator, newMaxSupportedMar
 
 		}
 	}
-}
-
-func (a *AcceptanceGadget) getMarkerVoters(sequenceID markers.SequenceID, markerIndex markers.Index) (markerVoters *validator.Set, isTooOld bool) {
-	block, mappingExists := a.Tangle.BlockFromMarker(markers.NewMarker(sequenceID, markerIndex))
-	if !mappingExists {
-		panic(errors.Errorf("marker %s is not mapped to a block", markers.NewMarker(sequenceID, markerIndex)))
-	}
-
-	if a.EvictionManager.IsTooOld(block.ID()) {
-		return nil, true
-	}
-
-	markerVoters, created := a.votersMap.RetrieveOrCreate(markers.NewMarker(sequenceID, markerIndex), func() *validator.Set {
-		return validator.NewSet()
-	})
-
-	if created {
-		epochMarkers, _ := a.pruningMap.RetrieveOrCreate(block.ID().Index(), func() *markers.Markers {
-			return markers.NewMarkers()
-		})
-		epochMarkers.Set(sequenceID, markerIndex)
-
-	}
-	return markerVoters, false
 }
 
 func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) {
@@ -178,9 +139,9 @@ func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) 
 	return storage.Get(id)
 }
 
-func (a *AcceptanceGadget) propagateAcceptance(sequenceID markers.SequenceID, index markers.Index) (err error) {
+func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error) {
 	//TODO: should tangle expose BlockFromMarker that returns virtualvoting.Block?
-	bookerBlock, _ := a.Tangle.BlockFromMarker(markers.NewMarker(sequenceID, index))
+	bookerBlock, _ := a.Tangle.BlockFromMarker(marker)
 	virtualVotingBlock, _ := a.Tangle.Block(bookerBlock.ID())
 
 	block, err := a.getOrRegisterBlock(virtualVotingBlock)
