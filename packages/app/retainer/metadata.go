@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
 )
 
@@ -25,6 +26,8 @@ type blockWithTime[BlockType any] struct {
 }
 
 type BlockMetadata struct {
+	BlockID models.BlockID
+
 	// blockdag.Block
 	Missing                  bool     `serix:"0"`
 	Solid                    bool     `serix:"1"`
@@ -51,6 +54,7 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 	}
 
 	b = &BlockMetadata{
+		BlockID:  cm.BlockDAG.Block.ID(),
 		Missing:  cm.BlockDAG.Block.IsMissing(),
 		Solid:    cm.BlockDAG.Block.IsSolid(),
 		Invalid:  cm.BlockDAG.Block.IsInvalid(),
