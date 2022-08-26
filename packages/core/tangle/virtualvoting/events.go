@@ -1,4 +1,4 @@
-package otv
+package virtualvoting
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -8,7 +8,7 @@ import (
 )
 
 type Events struct {
-	BlockTracked          *event.Event[*Block]
+	BlockTracked         *event.Event[*Block]
 	ConflictVoterAdded   *event.Event[*votes.ConflictVoterEvent[utxo.TransactionID]]
 	ConflictVoterRemoved *event.Event[*votes.ConflictVoterEvent[utxo.TransactionID]]
 	SequenceVoterAdded   *event.Event[*votes.SequenceVoterEvent]

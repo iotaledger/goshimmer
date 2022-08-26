@@ -12,13 +12,12 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220819123901-2c0733476a13
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2
+	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825155653-0a69188181ca
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2.0.20220825155653-0a69188181ca
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
-	github.com/libp2p/go-yamux/v2 v2.2.0
 	github.com/magiconair/properties v1.8.6
 	github.com/markbates/pkger v0.17.1
 	github.com/mr-tron/base58 v1.2.0
@@ -26,6 +25,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6
 	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/paulbellamy/ratecounter v0.2.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.1
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.5
@@ -125,6 +125,7 @@ require (
 	github.com/libp2p/go-stream-muxer-multistream v0.3.0 // indirect
 	github.com/libp2p/go-tcp-transport v0.2.8 // indirect
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
+	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -153,7 +154,6 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/petermattis/goid v0.0.0-20220712135657-ac599d9cba15 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.30.0 // indirect

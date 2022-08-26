@@ -15,7 +15,7 @@ type TestFramework struct {
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
+func NewTestFramework(opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		blocksByAlias: make(map[string]*Block),
 	}, opts)

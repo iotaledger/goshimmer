@@ -294,7 +294,7 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 		return
 	}
 
-	manaPledgeID, err := identity.RandomID()
+	manaPledgeID, err := identity.RandomIDInsecure()
 	if err != nil {
 		panic(err)
 	}

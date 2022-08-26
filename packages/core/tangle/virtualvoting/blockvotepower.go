@@ -1,4 +1,4 @@
-package otv
+package virtualvoting
 
 import (
 	"time"

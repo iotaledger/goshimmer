@@ -237,9 +237,9 @@ func (o *Outputs) ForEach(callback func(output Output) error) (err error) {
 
 // Strings returns a human-readable version of the Outputs.
 func (o *Outputs) String() (humanReadable string) {
-	structBuilder := stringify.StructBuilder("Outputs")
+	structBuilder := stringify.NewStructBuilder("Outputs")
 	_ = o.ForEach(func(output Output) error {
-		structBuilder.AddField(stringify.StructField(output.ID().String(), output))
+		structBuilder.AddField(stringify.NewStructField(output.ID().String(), output))
 		return nil
 	})
 

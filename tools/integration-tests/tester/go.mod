@@ -7,7 +7,7 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220819123901-2c0733476a13
+	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825155653-0a69188181ca
 	github.com/mr-tron/base58 v1.2.0
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
@@ -56,7 +56,7 @@ require (
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2 // indirect
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2.0.20220825155653-0a69188181ca // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
