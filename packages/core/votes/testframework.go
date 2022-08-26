@@ -108,18 +108,10 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 		// sanity check
 		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
 
-		voters := ValidatorSetToAdvancedSet(t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker()))
+		voters := t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region utils //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func ValidatorSetToAdvancedSet(validatorSet *validator.Set) *set.AdvancedSet[*validator.Validator] {
-	return set.NewAdvancedSet[*validator.Validator](validatorSet.Slice()...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

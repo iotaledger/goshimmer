@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
@@ -111,8 +112,13 @@ func (a *AcceptanceGadget) RefreshAcceptance(sequenceID markers.SequenceID, newM
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.Tangle.VirtualVoting.MarkerVoters(marker)
+		var markerWeight uint64
+		_ = markerVoters.ForEach(func(validator *validator.Validator) error {
+			markerWeight += validator.Weight()
+			return nil
+		})
 
-		if markerVoters.TotalWeight() > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(marker) {
+		if markerWeight > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(marker) {
 			err := a.propagateAcceptance(marker)
 			if err != nil {
 				a.Events.Error.Trigger(errors.Wrap(err, "could not mark past cone blocks as accepted"))

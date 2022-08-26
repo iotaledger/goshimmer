@@ -93,7 +93,7 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[*validator.Validator]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
-		voters := votes.ValidatorSetToAdvancedSet(t.SequenceTracker().Voters(marker))
+		voters := t.SequenceTracker().Voters(marker)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}

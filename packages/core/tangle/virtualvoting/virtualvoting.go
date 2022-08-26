@@ -3,6 +3,7 @@ package virtualvoting
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
@@ -59,7 +60,7 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // MarkerVoters retrieves Vote
-func (o *VirtualVoting) MarkerVoters(marker markers.Marker) *validator.Set {
+func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
