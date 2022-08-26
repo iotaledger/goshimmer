@@ -399,8 +399,8 @@ func newBlock(id string, parents ...string) *block {
 
 func (m *block) String() string {
 	return stringify.Struct("block",
-		stringify.StructField("id", m.id),
-		stringify.StructField("forceNewMarker", m.forceNewMarker),
-		stringify.StructField("parents", m.parents),
+		stringify.NewStructField("id", m.id),
+		stringify.NewStructField("forceNewMarker", m.forceNewMarker),
+		stringify.NewStructField("parents", m.parents),
 	)
 }

@@ -19,8 +19,8 @@ import (
 func TestRequest(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	address := devnetvm.NewED25519Address(keyPair.PublicKey)
-	access, _ := identity.RandomID()
-	consensus, _ := identity.RandomID()
+	access, _ := identity.RandomIDInsecure()
+	consensus, _ := identity.RandomIDInsecure()
 
 	originalRequest := NewRequest(address, access, consensus, 0)
 

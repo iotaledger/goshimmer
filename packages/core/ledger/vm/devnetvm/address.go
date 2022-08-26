@@ -220,8 +220,8 @@ func (e *ED25519Address) Base58() string {
 // String returns a human readable version of the addresses for debug purposes.
 func (e *ED25519Address) String() string {
 	return stringify.Struct("ED25519Address",
-		stringify.StructField("Digest", e.Digest()),
-		stringify.StructField("Base58", e.Base58()),
+		stringify.NewStructField("Digest", e.Digest()),
+		stringify.NewStructField("Base58", e.Base58()),
 	)
 }
 
@@ -310,8 +310,8 @@ func (b *BLSAddress) Base58() string {
 // String returns a human readable version of the addresses for debug purposes.
 func (b *BLSAddress) String() string {
 	return stringify.Struct("BLSAddress",
-		stringify.StructField("Digest", b.Digest()),
-		stringify.StructField("Base58", b.Base58()),
+		stringify.NewStructField("Digest", b.Digest()),
+		stringify.NewStructField("Base58", b.Base58()),
 	)
 }
 
@@ -415,8 +415,8 @@ func (a *AliasAddress) Base58() string {
 // String returns a human readable version of the addresses for debug purposes.
 func (a *AliasAddress) String() string {
 	return stringify.Struct("AliasAddress",
-		stringify.StructField("Digest", a.Digest()),
-		stringify.StructField("Base58", a.Base58()),
+		stringify.NewStructField("Digest", a.Digest()),
+		stringify.NewStructField("Base58", a.Base58()),
 	)
 }
 

@@ -64,10 +64,10 @@ func GetSequence(c echo.Context) (err error) {
 	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
 		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markers.NewMarker(sequenceID, sequence.HighestIndex()))
 		err = c.String(http.StatusOK, stringify.Struct("Sequence",
-			stringify.StructField("ID", sequence.ID()),
-			stringify.StructField("LowestIndex", sequence.LowestIndex()),
-			stringify.StructField("HighestIndex", sequence.HighestIndex()),
-			stringify.StructField("BlockWithLastMarker", blockWithLastMarker),
+			stringify.NewStructField("ID", sequence.ID()),
+			stringify.NewStructField("LowestIndex", sequence.LowestIndex()),
+			stringify.NewStructField("HighestIndex", sequence.HighestIndex()),
+			stringify.NewStructField("BlockWithLastMarker", blockWithLastMarker),
 		))
 	}) {
 		return
