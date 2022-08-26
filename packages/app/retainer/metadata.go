@@ -8,14 +8,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/otv"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
 )
 
 type cachedMetadata struct {
 	BlockDAG blockWithTime[*blockdag.Block]
 	Booker   blockWithTime[*booker.Block]
-	OTV      blockWithTime[*otv.Block]
+	OTV      blockWithTime[*virtualvoting.Block]
 
 	m sync.RWMutex
 }
@@ -25,18 +24,17 @@ type blockWithTime[BlockType any] struct {
 	Time  time.Time
 }
 
-// TODO: make BlockMetadata work with serix serialization and JSON
 type BlockMetadata struct {
 	// blockdag.Block
-	missing                  bool
-	solid                    bool
-	invalid                  bool
-	orphaned                 bool
-	orphanedBlocksInPastCone models.BlockIDs
-	strongChildren           models.BlockIDs
-	weakChildren             models.BlockIDs
-	likedInsteadChildren     models.BlockIDs
-	solidTime                time.Time
+	Missing                  bool     `serix:"0"`
+	Solid                    bool     `serix:"1"`
+	Invalid                  bool     `serix:"2"`
+	Orphaned                 bool     `serix:"3"`
+	OrphanedBlocksInPastCone []string `serix:"4"`
+	// StrongChildren           models.BlockIDs `serix:"5"`
+	// WeakChildren             models.BlockIDs `serix:"6"`
+	// LikedInsteadChildren     models.BlockIDs `serix:"7"`
+	SolidTime time.Time `serix:"5"`
 
 	// // booker.Block
 	// booked                bool
@@ -53,20 +51,20 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 	}
 
 	b = &BlockMetadata{
-		missing:                  cm.BlockDAG.Block.IsMissing(),
-		solid:                    cm.BlockDAG.Block.IsSolid(),
-		invalid:                  cm.BlockDAG.Block.IsInvalid(),
-		orphaned:                 cm.BlockDAG.Block.IsOrphaned(),
-		orphanedBlocksInPastCone: cm.BlockDAG.Block.OrphanedBlocksInPastCone().Clone(),
-		strongChildren:           blocksToBlockIDs(cm.BlockDAG.Block.StrongChildren()),
-		weakChildren:             blocksToBlockIDs(cm.BlockDAG.Block.WeakChildren()),
-		likedInsteadChildren:     blocksToBlockIDs(cm.BlockDAG.Block.LikedInsteadChildren()),
-		solidTime:                cm.BlockDAG.Time,
+		Missing:  cm.BlockDAG.Block.IsMissing(),
+		Solid:    cm.BlockDAG.Block.IsSolid(),
+		Invalid:  cm.BlockDAG.Block.IsInvalid(),
+		Orphaned: cm.BlockDAG.Block.IsOrphaned(),
+		// OrphanedBlocksInPastCone: cm.BlockDAG.Block.OrphanedBlocksInPastCone().Clone(),
+		// StrongChildren:           blocksToBlockIDs(cm.BlockDAG.Block.StrongChildren()),
+		// WeakChildren:             blocksToBlockIDs(cm.BlockDAG.Block.WeakChildren()),
+		// LikedInsteadChildren:     blocksToBlockIDs(cm.BlockDAG.Block.LikedInsteadChildren()),
+		SolidTime: cm.BlockDAG.Time,
 	}
 
 	return b
 }
 
-func blocksToBlockIDs(blocks []*blockdag.Block) models.BlockIDs {
-	return models.NewBlockIDs(lo.Map(blocks, func(block *blockdag.Block) models.BlockID { return block.ID() })...)
+func blocksToBlockIDs(blocks []*blockdag.Block) []string {
+	return lo.Map(blocks, func(block *blockdag.Block) string { return block.ID().Base58() })
 }

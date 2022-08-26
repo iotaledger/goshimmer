@@ -40,7 +40,7 @@ func NewRetainer(dbManager *database.Manager, evictionManager *eviction.Manager[
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
-	metadata := r.createStorableMetadata(epochIndex)
+	// metadata := r.createStorableMetadata(epochIndex)
 
 	// TODO: store cachedMetadata to disk
 	//  should we use object storage or just plain KV store?
@@ -71,12 +71,12 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 	}
 
 	// TODO: read from KV store
-	kv := r.dbManager.Get(blockID.Index(), retainerRealm)
-	blockMeta, err := kv.Get(blockID.Bytes())
-	if err != nil {
-		return nil, false
-	}
-
+	// kv := r.dbManager.Get(blockID.Index(), retainerRealm)
+	// blockMeta, err := kv.Get(blockID.Bytes())
+	// if err != nil {
+	// 	return nil, false
+	// }
+	return nil, false
 }
 
 func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists bool, metadata *BlockMetadata, exists bool) {
