@@ -50,6 +50,14 @@ func (o *VirtualVoting) Track(block *Block) {
 	}
 }
 
+// Block retrieves a Block with metadata from the in-memory storage of the Booker.
+func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
+	o.evictionManager.RLock()
+	defer o.evictionManager.RUnlock()
+
+	return o.block(id)
+}
+
 func (o *VirtualVoting) setupEvents() {
 	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		o.Track(NewBlock(block))
@@ -83,6 +91,22 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
 
 	return true
+}
+
+// block retrieves the Block with given id from the mem-storage.
+func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
+	if o.evictionManager.IsRootBlock(id) {
+		bookerBlock, _ := o.Booker.Block(id)
+
+		return NewBlock(bookerBlock), true
+	}
+
+	storage := o.blocks.Get(id.Index(), false)
+	if storage == nil {
+		return nil, false
+	}
+
+	return storage.Get(id)
 }
 
 func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {

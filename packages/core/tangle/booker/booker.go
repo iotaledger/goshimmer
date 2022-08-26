@@ -64,6 +64,8 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 			b.markInvalid,
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
+
+		b.Events.SequenceEvicted = b.markerManager.Events.SequenceEvicted
 	}, (*Booker).setupEvents)
 }
 

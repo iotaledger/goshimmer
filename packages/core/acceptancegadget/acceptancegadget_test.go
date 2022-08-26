@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/otv"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
@@ -20,7 +20,7 @@ func TestAcceptanceGadget_update_conflictsStepwise(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithAcceptanceGadgetOptions(WithMarkerAcceptanceThreshold(0.5)), WithOnTangleVotingOptions(otv.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithAcceptanceGadgetOptions(WithMarkerAcceptanceThreshold(0.5)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(30))
 	tf.CreateIdentity("B", validator.WithWeight(15))
 	tf.CreateIdentity("C", validator.WithWeight(25))
@@ -236,7 +236,7 @@ func TestAcceptanceGadget_update_multipleSequences(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithAcceptanceGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithOnTangleVotingOptions(otv.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithAcceptanceGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(20))
 	tf.CreateIdentity("B", validator.WithWeight(30))
 

@@ -3,7 +3,7 @@ package acceptancegadget
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -12,13 +12,13 @@ import (
 type Block struct {
 	accepted bool
 
-	*models.Block
+	*virtualvoting.Block
 }
 
 // NewBlock creates a new Block with the given options.
-func NewBlock(bookerBlock *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
+func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		Block: bookerBlock,
+		Block: virtualVotingBlock,
 	}, opts)
 }
 
