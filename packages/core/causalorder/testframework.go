@@ -2,21 +2,64 @@ package causalorder
 
 import (
 	"fmt"
+	"sync"
+	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
+
 type TestFramework struct {
-	entitiesByAlias map[string]*MockOrderedEntity
+	test                 *testing.T
+	entitiesByAlias      map[string]*MockOrderedEntity
+	orderedEntities      map[string]bool
+	orderedEntitiesMutex sync.RWMutex
+	evictedEntities      map[string]bool
+	evictedEntitiesMutex sync.RWMutex
+
+	*CausalOrder[MockEntityID, *MockOrderedEntity]
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework(opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
 	return options.Apply(&TestFramework{
+		test:            test,
 		entitiesByAlias: make(map[string]*MockOrderedEntity),
-	}, opts)
+		orderedEntities: make(map[string]bool),
+		evictedEntities: make(map[string]bool),
+	}, opts, func(t *TestFramework) {
+		t.CausalOrder = New[MockEntityID, *MockOrderedEntity](
+			eviction.NewManager[MockEntityID](func(id MockEntityID) (isRootBlock bool) {
+				return id == NewID(0)
+			}),
+			func(id MockEntityID) (entity *MockOrderedEntity, exists bool) {
+				return t.Get(id.alias)
+			}, func(entity *MockOrderedEntity) (isOrdered bool) {
+				return entity.ordered
+			}, func(entity *MockOrderedEntity) (err error) {
+				entity.ordered = true
+
+				t.orderedEntitiesMutex.Lock()
+				t.orderedEntities[entity.id.alias] = true
+				t.orderedEntitiesMutex.Unlock()
+
+				return nil
+			}, func(entity *MockOrderedEntity, reason error) {
+				entity.invalid = true
+
+				t.evictedEntitiesMutex.Lock()
+				t.evictedEntities[entity.id.alias] = true
+				t.evictedEntitiesMutex.Unlock()
+			},
+		)
+
+		t.CreateEntity("Genesis", 0, WithOrdered(true), WithEpoch(0))
+	})
 }
 
 // CreateEntity creates a Entity with the given alias and options.
@@ -54,6 +97,15 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockEntityID) 
 
 	return
 }
+
+func (t *TestFramework) AssertOrdered(aliases ...string) {
+	t.orderedEntitiesMutex.RLock()
+	defer t.orderedEntitiesMutex.RUnlock()
+
+	require.Equal(t.test, len(aliases), len(t.orderedEntities))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Mocks ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
