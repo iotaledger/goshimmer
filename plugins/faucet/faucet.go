@@ -18,10 +18,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	waitForAcceptance = 10 * time.Second
-)
-
 // remainder stays on index 0
 type Faucet struct {
 	*wallet.Wallet
