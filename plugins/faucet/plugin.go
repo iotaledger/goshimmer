@@ -99,7 +99,7 @@ func run(plugin *node.Plugin) {
 		plugin.LogInfo("Waiting for node to become bootstrapped... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(ctx); err != nil {
+		if err := checkForMana(ctx); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
@@ -131,27 +131,18 @@ func waitUntilBootstrapped(ctx context.Context) bool {
 	}
 }
 
-func waitForMana(ctx context.Context) error {
+func checkForMana(ctx context.Context) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
-	for {
-		// stop polling, if we are shutting down
-		select {
-		case <-ctx.Done():
-			return errors.New("faucet shutting down")
-		default:
-		}
 
-		aMana, _, err := blocklayer.GetAccessMana(nodeID)
-		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-			return err
-		}
-		if aMana >= tangleold.MinMana {
-			return nil
-		}
-		Plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-		time.Sleep(waitForManaWindow)
+	aMana, _, err := blocklayer.GetAccessMana(nodeID)
+	// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+	if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		return err
 	}
+	if aMana < tangleold.MinMana {
+		return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
+	}
+	return nil
 }
 
 func configureEvents() {

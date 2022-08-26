@@ -10,16 +10,16 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 )
 
 var (
-	maxTxBookedAwaitTime = 5 * time.Second
-	waitForAcceptance    = 10 * time.Second
-	maxWaitAttempts      = 5
+	waitForAcceptance = 10 * time.Second
 )
 
 // remainder stays on index 0
@@ -49,7 +49,7 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 				Plugin.LogErrorf("fail to send funds to %s: %v", p.Address().Base58(), err)
 				return
 			}
-			Plugin.LogInfof("send funds to %s: TXID: %s", p.Address().Base58(), tx.ID().Base58())
+			Plugin.LogInfof("sent funds to %s: TXID: %s", p.Address().Base58(), tx.ID().Base58())
 
 		case <-ctx.Done():
 			return
@@ -57,7 +57,7 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 	}
 }
 
-// handleFaucetRequest sends funds to the requested address and wait the transaction to be accepted.
+// handleFaucetRequest sends funds to the requested address and waits for the transaction to become accepted.
 func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, error) {
 	// send funds to faucet in order to pledge mana
 	totalBalances := uint64(0)
@@ -70,7 +70,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 	}
 
 	_, err = f.sendTransaction(
-		f.Seed().Address(0),
+		f.Seed().Address(0), // we only reuse the address at index 0 for the wallet
 		totalBalances-uint64(Parameters.TokensPerRequest),
 		deps.Local.ID(),
 		identity.ID{},
@@ -90,6 +90,15 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 }
 
 func (f *Faucet) sendTransaction(destAddr address.Address, balance uint64, aManaPledgeID, cManaPledgeID identity.ID) (*devnetvm.Transaction, error) {
+	txAccepted := make(chan utxo.TransactionID, 10)
+	monitorTxAcceptance := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		txAccepted <- event.TransactionID
+	})
+
+	// listen on confirmation
+	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(monitorTxAcceptance)
+	defer deps.Tangle.Ledger.Events.TransactionAccepted.Detach(monitorTxAcceptance)
+
 	tx, err := f.SendFunds(
 		sendoptions.Destination(destAddr, balance),
 		sendoptions.AccessManaPledgeID(aManaPledgeID.EncodeBase58()),
@@ -99,23 +108,16 @@ func (f *Faucet) sendTransaction(destAddr address.Address, balance uint64, aMana
 		return nil, err
 	}
 
-	ticker := time.NewTicker(waitForAcceptance)
-	attempt := 0
+	ticker := time.NewTicker(Parameters.MaxAwait)
 	defer ticker.Stop()
 	for {
-		<-ticker.C
-		accepted := false
-		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(t *ledger.TransactionMetadata) {
-			if t.ConfirmationState().IsAccepted() {
-				accepted = true
+		select {
+		case txID := <-txAccepted:
+			if tx.ID() == txID {
+				return tx, nil
 			}
-		})
-		if accepted {
-			return tx, nil
-		}
-		if attempt > maxWaitAttempts {
+		case <-ticker.C:
 			return nil, errors.Errorf("TX %s is not confirmed in time", tx.ID())
 		}
-		attempt++
 	}
 }

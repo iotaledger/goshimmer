@@ -10,10 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
 
@@ -74,7 +71,7 @@ func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) 
 		return block, nil
 	}
 
-	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxTxBookedAwaitTime)
+	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), Parameters.MaxTransactionBookedAwaitTime)
 	if err != nil {
 		return errors.Errorf("%v: tx %s", err, tx.ID().String())
 	}
@@ -82,39 +79,18 @@ func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) 
 }
 
 func (f *FaucetConnector) RequestFaucetFunds(address address.Address, powTarget int) (err error) {
-	return nil
+	panic("RequestFaucetFunds is not implemented in faucet connector.")
 }
 
 func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	access := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
-	var accessNodes []string
-	access.Allowed.ForEach(func(element identity.ID) {
-		accessNodes = append(accessNodes, base58.Encode(element.Bytes()))
-	})
-	if len(accessNodes) == 0 {
-		return nil, errors.New("No access mana pledge IDs are accepted")
-	}
-
-	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
-	var consensusNodes []string
-	consensus.Allowed.ForEach(func(element identity.ID) {
-		consensusNodes = append(consensusNodes, base58.Encode(element.Bytes()))
-	})
-	if len(consensusNodes) == 0 {
-		return nil, errors.New("No consensus mana pledge IDs are accepted")
-	}
-
-	pledgeIDMap = map[mana.Type][]string{
-		mana.AccessMana:    accessNodes,
-		mana.ConsensusMana: consensusNodes,
-	}
+	pledgeIDMap = make(map[mana.Type][]string)
+	pledgeIDMap[mana.AccessMana] = []string{deps.Local.ID().EncodeBase58()}
+	pledgeIDMap[mana.ConsensusMana] = []string{deps.Local.ID().EncodeBase58()}
 
 	return
 }
 
 func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	Plugin.LogInfof("Start listening for confirmation")
-
 	f.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
@@ -122,5 +98,5 @@ func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionI
 }
 
 func (f *FaucetConnector) GetUnspentAliasOutput(address *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
-	return
+	panic("GetUnspentAliasOutput is not implemented in faucet connector.")
 }

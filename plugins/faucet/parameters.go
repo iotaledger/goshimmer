@@ -20,6 +20,9 @@ type ParametersDefinition struct {
 
 	// PowDifficulty defines the PoW difficulty for faucet payloads.
 	PowDifficulty int `default:"22" usage:"defines the PoW difficulty for faucet payloads"`
+
+	// MaxWaitAttempts defines the maximum time to wait for a transaction to be accepted.
+	MaxAwait time.Duration `default:"60s" usage:"the maximum time to wait for a transaction to be accepted"`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.
