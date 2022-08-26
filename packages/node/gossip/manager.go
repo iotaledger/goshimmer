@@ -113,7 +113,7 @@ func (m *Manager) Stop() {
 func (m *Manager) RequestBlock(blockID []byte, to ...identity.ID) {
 	blkReq := &gp.BlockRequest{Id: blockID}
 	packet := &gp.Packet{Body: &gp.Packet_BlockRequest{BlockRequest: blkReq}}
-	recipients := m.send(packet, to...)
+	recipients := m.p2pManager.Send(packet, protocolID, to...)
 	if m.blocksRateLimiter != nil {
 		for _, nbr := range recipients {
 			// Increase the limit by 2 for every block request to make rate limiter more forgiving during node sync.
@@ -127,22 +127,7 @@ func (m *Manager) RequestBlock(blockID []byte, to ...identity.ID) {
 func (m *Manager) SendBlock(blkData []byte, to ...identity.ID) {
 	blk := &gp.Block{Data: blkData}
 	packet := &gp.Packet{Body: &gp.Packet_Block{Block: blk}}
-	m.send(packet, to...)
-}
-
-func (m *Manager) send(packet *gp.Packet, to ...identity.ID) []*p2p.Neighbor {
-	neighbors := m.p2pManager.GetNeighborsByID(to)
-	if len(neighbors) == 0 {
-		neighbors = m.p2pManager.AllNeighbors()
-	}
-
-	for _, nbr := range neighbors {
-		if err := nbr.GetStream(protocolID).WritePacket(packet); err != nil {
-			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
-			nbr.Close()
-		}
-	}
-	return neighbors
+	m.p2pManager.Send(packet, protocolID, to...)
 }
 
 func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {

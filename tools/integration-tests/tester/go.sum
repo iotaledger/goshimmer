@@ -484,10 +484,10 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d h1:KYc/EkMX3CXvsYyUC9EvToUeYc0c74ZwjRg/0Wd27LU=
 github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d/go.mod h1:DuNKJ1G/vKugT7WGAoftMTu2aApNNxF4ADFMxLmKS2Y=
-github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825135323-7cbc4ea2560a h1:azzX8JjmIrZrFzUdOYq27XKYAlbYTKDx3aVSUoTXFa0=
-github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825135323-7cbc4ea2560a/go.mod h1:aBKzVl6kjSz2bHsNoxAmTJUpHf/sr1x0PdOJbteEcsQ=
-github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2 h1:3eiiw4JazsOgDcyxT5dA4UhFRHO5NCAWyWwOl8aRa94=
-github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2/go.mod h1:beZKjVT4HPayWfwsmItNNI5E81rS783vGx5ZwRbZQgY=
+github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825155653-0a69188181ca h1:IyCodMz8Hz51t9Hh6/dQIEoJH8Un5neyeTaNDmOmwpE=
+github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825155653-0a69188181ca/go.mod h1:aBKzVl6kjSz2bHsNoxAmTJUpHf/sr1x0PdOJbteEcsQ=
+github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2.0.20220825155653-0a69188181ca h1:ZCJLYXxqi9hUo89BnJ7UVXLqruLZjdXX9tEY0J0aXYE=
+github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2.0.20220825155653-0a69188181ca/go.mod h1:beZKjVT4HPayWfwsmItNNI5E81rS783vGx5ZwRbZQgY=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

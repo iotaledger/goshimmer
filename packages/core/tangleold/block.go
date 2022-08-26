@@ -357,7 +357,7 @@ func (m BlockIDs) String() string {
 
 	result := "BlockIDs{\n"
 	for blockID := range m {
-		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + blockID.String() + ",\n"
+		result += strings.Repeat(" ", stringify.IndentationSize) + blockID.String() + ",\n"
 	}
 	result += "}"
 
@@ -439,6 +439,14 @@ func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, is
 		return nil, errors.Errorf("failed to create block: %w", err)
 	}
 	return blk, nil
+}
+
+// FromBytes unmarshals a Block from a sequence of bytes.
+func (m *Block) FromBytes(bytes []byte) (err error) {
+	if err = m.Storable.FromBytes(bytes); err != nil {
+		return
+	}
+	return m.DetermineID()
 }
 
 // VerifySignature verifies the Signature of the block.
@@ -590,24 +598,24 @@ func (m *Block) Size() int {
 }
 
 func (m *Block) String() string {
-	builder := stringify.StructBuilder("Block", stringify.StructField("id", m.ID()))
+	builder := stringify.NewStructBuilder("Block", stringify.NewStructField("id", m.ID()))
 
 	for index, parent := range sortParents(m.ParentsByType(StrongParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 	}
 	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
 	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
 
-	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
-	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
-	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
-	builder.AddField(stringify.StructField("Payload", m.Payload()))
-	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
-	builder.AddField(stringify.StructField("Signature", m.Signature()))
+	builder.AddField(stringify.NewStructField("Issuer", m.IssuerPublicKey()))
+	builder.AddField(stringify.NewStructField("IssuingTime", m.IssuingTime()))
+	builder.AddField(stringify.NewStructField("SequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.NewStructField("Payload", m.Payload()))
+	builder.AddField(stringify.NewStructField("Nonce", m.Nonce()))
+	builder.AddField(stringify.NewStructField("Signature", m.Signature()))
 	return builder.String()
 }
 

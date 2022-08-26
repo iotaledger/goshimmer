@@ -90,12 +90,12 @@ func (p *PledgedEvent) ToJSONSerializable() interface{} {
 // String returns a human readable version of the event.
 func (p *PledgedEvent) String() string {
 	return stringify.Struct("PledgeEvent",
-		stringify.StructField("type", p.ManaType.String()),
-		stringify.StructField("shortNodeID", p.NodeID.String()),
-		stringify.StructField("fullNodeID", base58.Encode(p.NodeID.Bytes())),
-		stringify.StructField("time", p.Time.String()),
-		stringify.StructField("amount", p.Amount),
-		stringify.StructField("txID", p.TransactionID),
+		stringify.NewStructField("type", p.ManaType.String()),
+		stringify.NewStructField("shortNodeID", p.NodeID.String()),
+		stringify.NewStructField("fullNodeID", base58.Encode(p.NodeID.Bytes())),
+		stringify.NewStructField("time", p.Time.String()),
+		stringify.NewStructField("amount", p.Amount),
+		stringify.NewStructField("txID", p.TransactionID),
 	)
 }
 
@@ -184,13 +184,13 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 // String returns a human readable version of the event.
 func (r *RevokedEvent) String() string {
 	return stringify.Struct("RevokedEvent",
-		stringify.StructField("type", r.ManaType.String()),
-		stringify.StructField("shortNodeID", r.NodeID.String()),
-		stringify.StructField("fullNodeID", base58.Encode(r.NodeID.Bytes())),
-		stringify.StructField("time", r.Time.String()),
-		stringify.StructField("amount", r.Amount),
-		stringify.StructField("txID", r.TransactionID),
-		stringify.StructField("inputID", r.InputID),
+		stringify.NewStructField("type", r.ManaType.String()),
+		stringify.NewStructField("shortNodeID", r.NodeID.String()),
+		stringify.NewStructField("fullNodeID", base58.Encode(r.NodeID.Bytes())),
+		stringify.NewStructField("time", r.Time.String()),
+		stringify.NewStructField("amount", r.Amount),
+		stringify.NewStructField("txID", r.TransactionID),
+		stringify.NewStructField("inputID", r.InputID),
 	)
 }
 
@@ -257,11 +257,11 @@ func (u *UpdatedEvent) ToJSONSerializable() interface{} {
 // String returns a human readable version of the event.
 func (u *UpdatedEvent) String() string {
 	return stringify.Struct("UpdatedEvent",
-		stringify.StructField("type", u.ManaType.String()),
-		stringify.StructField("shortNodeID", u.NodeID.String()),
-		stringify.StructField("fullNodeID", base58.Encode(u.NodeID.Bytes())),
-		stringify.StructField("oldBaseMana", u.OldMana),
-		stringify.StructField("newBaseMana", u.NewMana),
+		stringify.NewStructField("type", u.ManaType.String()),
+		stringify.NewStructField("shortNodeID", u.NodeID.String()),
+		stringify.NewStructField("fullNodeID", base58.Encode(u.NodeID.Bytes())),
+		stringify.NewStructField("oldBaseMana", u.OldMana),
+		stringify.NewStructField("newBaseMana", u.NewMana),
 	)
 }
 

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto";
+
+package warpsyncproto;
+
+message Packet {
+  oneof body {
+    EpochBlocksStart epochBlocksStart = 1;
+    EpochBlocksBatch epochBlocksBatch = 2;
+    EpochBlocksEnd epochBlocksEnd = 3;
+    EpochBlocksRequest epochBlocksRequest = 4;
+    EpochCommittment epochCommitment = 5;
+    EpochCommittmentRequest epochCommitmentRequest = 6;
+    Negotiation negotiation = 7;
+  }
+}
+
+message EpochBlocksStart {
+  int64 EI = 1;
+  bytes EC = 2;
+  int64 blocksCount = 3;
+}
+
+message EpochBlocksBatch {
+  int64 EI = 1;
+  bytes EC = 2;
+  repeated bytes blocks = 3;
+}
+
+message EpochBlocksEnd {
+  int64 EI = 1;
+  bytes EC = 2;
+  bytes stateMutationRoot = 3;
+  bytes stateRoot = 4;
+  bytes manaRoot = 5;
+}
+
+message EpochBlocksRequest {
+  int64 EI = 1;
+  bytes EC = 2;
+}
+
+message EpochCommittment {
+  int64 EI = 1;
+  bytes prevEC = 2;
+  bytes ECR = 3;
+}
+
+message EpochCommittmentRequest {
+  int64 EI = 1;
+}
+
+message Negotiation {}

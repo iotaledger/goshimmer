@@ -275,9 +275,9 @@ func (l LastBlock) Bytes() (marshaledLastConfirmedBlock []byte) {
 // String returns a human-readable version of the LastBlock.
 func (l LastBlock) String() string {
 	return stringify.Struct("LastBlock",
-		stringify.StructField("BlockID", l.BlockID),
-		stringify.StructField("BlockTime", l.BlockTime),
-		stringify.StructField("UpdateTime", l.UpdateTime),
+		stringify.NewStructField("BlockID", l.BlockID),
+		stringify.NewStructField("BlockTime", l.BlockTime),
+		stringify.NewStructField("UpdateTime", l.UpdateTime),
 	)
 }
 

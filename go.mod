@@ -12,8 +12,8 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825135323-7cbc4ea2560a
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2
+	github.com/iotaledger/hive.go/core v1.0.0-beta.3.0.20220825155653-0a69188181ca
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.2.0.20220825155653-0a69188181ca
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
@@ -25,6 +25,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6
 	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/paulbellamy/ratecounter v0.2.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.1
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.5
@@ -153,7 +154,6 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/petermattis/goid v0.0.0-20220712135657-ac599d9cba15 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.30.0 // indirect
