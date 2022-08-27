@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -56,10 +57,11 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 
 // handleFaucetRequest sends funds to the requested address and waits for the transaction to become accepted.
 func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, error) {
-	tx, err := f.SendFunds(
+	_, err := f.SendFunds(
 		sendoptions.Sources(f.Seed().Address(0)),                                          // we only reuse the address at index 0 for the wallet
 		sendoptions.Destination(f.Seed().Address(1), uint64(Parameters.TokensPerRequest)), // we send the funds to address at index 1 so that we can be sure the correct output is sent to a requester
 		sendoptions.AccessManaPledgeID(deps.Local.ID().EncodeBase58()),
+		sendoptions.ConsensusManaPledgeID(identity.ID{}.EncodeBase58()),
 		sendoptions.WaitForConfirmation(true),
 	)
 	if err != nil {
@@ -67,7 +69,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 	}
 
 	// send funds to requester
-	tx, err = f.SendFunds(
+	tx, err := f.SendFunds(
 		sendoptions.Sources(f.Seed().Address(1)),
 		sendoptions.Destination(address.Address{AddressBytes: p.Address().Array()}, uint64(Parameters.TokensPerRequest)),
 		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().EncodeBase58()),
