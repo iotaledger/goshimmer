@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"context"
 	"reflect"
 	"time"
 	"unsafe"
@@ -169,7 +170,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 		return nil, err
 	}
 	if sendOptions.WaitForConfirmation {
-		err = wallet.WaitForTxAcceptance(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID(), sendOptions.Context)
 	}
 
 	return tx, err
@@ -1815,20 +1816,30 @@ func (wallet *Wallet) ExportState() []byte {
 // region WaitForTxAcceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 // WaitForTxAcceptance waits for the given tx to be accepted.
-func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID) (err error) {
+func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx ...context.Context) (err error) {
+	ctx := context.Background()
+	if len(optionalCtx) == 1 && optionalCtx[0] != nil {
+		ctx = optionalCtx[0]
+	}
+
+	ticker := time.NewTicker(wallet.ConfirmationPollInterval)
 	timeoutCounter := time.Duration(0)
 	for {
-		time.Sleep(wallet.ConfirmationPollInterval)
-		timeoutCounter += wallet.ConfirmationPollInterval
-		confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
-		if fetchErr != nil {
-			return fetchErr
-		}
-		if confirmationState.IsAccepted() {
-			return
-		}
-		if timeoutCounter > wallet.ConfirmationTimeout {
-			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
+		select {
+		case <-ctx.Done():
+			return errors.Errorf("context cancelled")
+		case <-ticker.C:
+			timeoutCounter += wallet.ConfirmationPollInterval
+			confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			if confirmationState.IsAccepted() {
+				return
+			}
+			if timeoutCounter > wallet.ConfirmationTimeout {
+				return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
+			}
 		}
 	}
 }

@@ -42,7 +42,7 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 	for {
 		select {
 		case p := <-requestChan:
-			tx, err := f.handleFaucetRequest(p)
+			tx, err := f.handleFaucetRequest(p, ctx)
 			if err != nil {
 				Plugin.LogErrorf("fail to send funds to %s: %v", p.Address().Base58(), err)
 				continue
@@ -56,13 +56,14 @@ func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) 
 }
 
 // handleFaucetRequest sends funds to the requested address and waits for the transaction to become accepted.
-func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, error) {
+func (f *Faucet) handleFaucetRequest(p *faucet.Payload, ctx context.Context) (*devnetvm.Transaction, error) {
 	_, err := f.SendFunds(
 		sendoptions.Sources(f.Seed().Address(0)),                                          // we only reuse the address at index 0 for the wallet
 		sendoptions.Destination(f.Seed().Address(1), uint64(Parameters.TokensPerRequest)), // we send the funds to address at index 1 so that we can be sure the correct output is sent to a requester
 		sendoptions.AccessManaPledgeID(deps.Local.ID().EncodeBase58()),
 		sendoptions.ConsensusManaPledgeID(identity.ID{}.EncodeBase58()),
 		sendoptions.WaitForConfirmation(true),
+		sendoptions.Context(ctx),
 	)
 	if err != nil {
 		return nil, err
@@ -75,6 +76,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload) (*devnetvm.Transaction, 
 		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().EncodeBase58()),
 		sendoptions.ConsensusManaPledgeID(p.ConsensusManaPledgeID().EncodeBase58()),
 		sendoptions.WaitForConfirmation(true),
+		sendoptions.Context(ctx),
 	)
 	return tx, err
 }
