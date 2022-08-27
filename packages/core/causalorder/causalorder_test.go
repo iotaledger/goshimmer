@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/stretchr/testify/require"
 )
 
+// TestCausalOrder_Queue tests the queueing of entities in the CausalOrder.
 func TestCausalOrder_Queue(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
@@ -39,6 +41,7 @@ func TestCausalOrder_Queue(t *testing.T) {
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 }
 
+// TestCausalOrder_EvictEpoch tests the eviction of entities in the CausalOrder.
 func TestCausalOrder_EvictEpoch(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
@@ -94,4 +97,30 @@ func TestCausalOrder_EvictEpoch(t *testing.T) {
 	event.Loop.WaitUntilAllTasksProcessed()
 	tf.AssertOrdered("A", "B", "C", "D", "E")
 	tf.AssertEvicted("F", "G", "H")
+}
+
+// TestCausalOrder_UnexpectedCases tests the unexpected cases of the CausalOrder.
+func TestCausalOrder_UnexpectedCases(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
+	tf.CreateEntity("B", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.CreateEntity("C", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.Queue(tf.Entity("C"))
+
+	// test queueing an entity with non-existing parents
+	tf.RemoveEntity("A")
+	tf.Queue(tf.Entity("B"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered()
+	tf.AssertEvicted("B")
+
+	// test eviction of non-existing entity
+	tf.RemoveEntity("C")
+	defer func() {
+		require.NotNil(t, recover())
+		event.Loop.WaitUntilAllTasksProcessed()
+		tf.AssertOrdered()
+		tf.AssertEvicted("B")
+	}()
+	tf.EvictEpoch(1)
 }

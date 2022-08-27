@@ -16,36 +16,37 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
+// TestFramework is the test framework for the CausalOrder.
 type TestFramework struct {
 	test                 *testing.T
 	idCounter            int
 	idCounterMutex       sync.Mutex
-	entitiesByAlias      map[string]*MockOrderedEntity
+	entitiesByAlias      map[string]*MockedOrderedEntity
 	orderedEntities      map[string]bool
 	orderedEntitiesMutex sync.RWMutex
 	evictedEntities      map[string]bool
 	evictedEntitiesMutex sync.RWMutex
 
-	*CausalOrder[MockEntityID, *MockOrderedEntity]
+	*CausalOrder[MockedEntityID, *MockedOrderedEntity]
 }
 
 // NewTestFramework is the constructor of the TestFramework.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
-		entitiesByAlias: make(map[string]*MockOrderedEntity),
+		entitiesByAlias: make(map[string]*MockedOrderedEntity),
 		orderedEntities: make(map[string]bool),
 		evictedEntities: make(map[string]bool),
 	}, opts, func(t *TestFramework) {
-		t.CausalOrder = New[MockEntityID, *MockOrderedEntity](
-			eviction.NewManager[MockEntityID](func(id MockEntityID) (isRootBlock bool) {
+		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
+			eviction.NewManager[MockedEntityID](func(id MockedEntityID) (isRootBlock bool) {
 				return id.id == 0
 			}),
-			func(id MockEntityID) (entity *MockOrderedEntity, exists bool) {
+			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
-			}, func(entity *MockOrderedEntity) (isOrdered bool) {
+			}, func(entity *MockedOrderedEntity) (isOrdered bool) {
 				return entity.ordered
-			}, func(entity *MockOrderedEntity) (err error) {
+			}, func(entity *MockedOrderedEntity) (err error) {
 				entity.ordered = true
 
 				if debug.GetEnabled() {
@@ -57,7 +58,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.orderedEntitiesMutex.Unlock()
 
 				return nil
-			}, func(entity *MockOrderedEntity, reason error) {
+			}, func(entity *MockedOrderedEntity, reason error) {
 				entity.invalid = true
 
 				if debug.GetEnabled() {
@@ -68,7 +69,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.evictedEntities[entity.id.alias] = true
 				t.evictedEntitiesMutex.Unlock()
 			},
-			WithReferenceValidator[MockEntityID, *MockOrderedEntity](func(entity, parent *MockOrderedEntity) (err error) {
+			WithReferenceValidator[MockedEntityID, *MockedOrderedEntity](func(entity, parent *MockedOrderedEntity) (err error) {
 				if entity.invalid {
 					return errors.Errorf("entity %s is invalid", entity.id.alias)
 				}
@@ -77,7 +78,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 					return errors.Errorf("parent %s of entity %s is invalid", parent.id.alias, entity.id.alias)
 				}
 
-				return checkReference[MockEntityID, *MockOrderedEntity](entity, parent)
+				return checkReference[MockedEntityID, *MockedOrderedEntity](entity, parent)
 			}),
 		)
 
@@ -86,8 +87,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 }
 
 // CreateEntity creates a Entity with the given alias and options.
-func (t *TestFramework) CreateEntity(alias string, opts ...options.Option[MockOrderedEntity]) (entity *MockOrderedEntity) {
-	entity = NewMockOrderedEntity(NewID(t.nextID()), opts...)
+func (t *TestFramework) CreateEntity(alias string, opts ...options.Option[MockedOrderedEntity]) (entity *MockedOrderedEntity) {
+	entity = NewMockOrderedEntity(NewMockedEntityID(t.nextID()), opts...)
 	entity.id.alias = alias
 
 	t.entitiesByAlias[alias] = entity
@@ -95,6 +96,12 @@ func (t *TestFramework) CreateEntity(alias string, opts ...options.Option[MockOr
 	return
 }
 
+// RemoveEntity removes the Entity that is associated with the given alias.
+func (t *TestFramework) RemoveEntity(alias string) {
+	delete(t.entitiesByAlias, alias)
+}
+
+// nextID returns the next ID and increases the idCounter.
 func (t *TestFramework) nextID() (nextID int) {
 	t.idCounterMutex.Lock()
 	defer t.idCounterMutex.Unlock()
@@ -106,7 +113,7 @@ func (t *TestFramework) nextID() (nextID int) {
 }
 
 // Entity retrieves the Entity that is associated with the given alias.
-func (t *TestFramework) Entity(alias string) (entity *MockOrderedEntity) {
+func (t *TestFramework) Entity(alias string) (entity *MockedOrderedEntity) {
 	entity, ok := t.entitiesByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Entity alias %s not registered", alias))
@@ -115,14 +122,14 @@ func (t *TestFramework) Entity(alias string) (entity *MockOrderedEntity) {
 }
 
 // Get retrieves the Entity that is associated with the given alias.
-func (t *TestFramework) Get(alias string) (entity *MockOrderedEntity, ok bool) {
+func (t *TestFramework) Get(alias string) (entity *MockedOrderedEntity, ok bool) {
 	entity, ok = t.entitiesByAlias[alias]
 	return
 }
 
 // EntityIDs retrieves the EntityIDs that are associated with the given aliases.
-func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockEntityID) {
-	entityIDs = make([]MockEntityID, len(aliases))
+func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID) {
+	entityIDs = make([]MockedEntityID, len(aliases))
 	for i, alias := range aliases {
 		entity := t.Entity(alias)
 		entityIDs[i] = entity.ID()
@@ -131,11 +138,13 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockEntityID) 
 	return
 }
 
+// EvictEpoch evicts all Entities that are older than the given epoch.
 func (t *TestFramework) EvictEpoch(index epoch.Index) {
 	t.evictionManager.EvictEpoch(index)
 	t.CausalOrder.EvictEpoch(index)
 }
 
+// AssertOrdered asserts that the given Entities are ordered.
 func (t *TestFramework) AssertOrdered(aliases ...string) {
 	t.orderedEntitiesMutex.RLock()
 	defer t.orderedEntitiesMutex.RUnlock()
@@ -147,6 +156,7 @@ func (t *TestFramework) AssertOrdered(aliases ...string) {
 	}
 }
 
+// AssertEvicted asserts that the given Entities are evicted.
 func (t *TestFramework) AssertEvicted(aliases ...string) {
 	t.evictedEntitiesMutex.RLock()
 	defer t.evictedEntitiesMutex.RUnlock()
@@ -160,70 +170,78 @@ func (t *TestFramework) AssertEvicted(aliases ...string) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Mocks ////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region MockedEntityID ///////////////////////////////////////////////////////////////////////////////////////////////
 
-type MockEntityID struct {
+// MockedEntityID is a mocked EntityID.
+type MockedEntityID struct {
 	id    int
 	index epoch.Index
 	alias string
 }
 
-func NewID(id int) MockEntityID {
-	return MockEntityID{
+// NewMockedEntityID creates a new MockedEntityID.
+func NewMockedEntityID(id int) MockedEntityID {
+	return MockedEntityID{
 		id:    id,
 		index: 1,
 	}
 }
 
-func (m MockEntityID) Index() epoch.Index {
+// Index returns the epoch.Index of the Entity.
+func (m MockedEntityID) Index() epoch.Index {
 	return m.index
 }
 
-func (m MockEntityID) String() string {
+// String returns a human-readable representation of the EntityID.
+func (m MockedEntityID) String() string {
 	return fmt.Sprintf("MockIndexedID(%s)", m.alias)
 }
 
-type MockOrderedEntity struct {
-	id      MockEntityID
-	parents []MockEntityID
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MockedOrderedEntity //////////////////////////////////////////////////////////////////////////////////////////
+
+type MockedOrderedEntity struct {
+	id      MockedEntityID
+	parents []MockedEntityID
 	ordered bool
 	invalid bool
 }
 
-func NewMockOrderedEntity(id MockEntityID, opts ...options.Option[MockOrderedEntity]) *MockOrderedEntity {
-	return options.Apply(&MockOrderedEntity{
+func NewMockOrderedEntity(id MockedEntityID, opts ...options.Option[MockedOrderedEntity]) *MockedOrderedEntity {
+	return options.Apply(&MockedOrderedEntity{
 		id: id,
 	}, opts)
 }
 
-func (m MockOrderedEntity) ID() MockEntityID {
+func (m MockedOrderedEntity) ID() MockedEntityID {
 	return m.id
 }
 
-func (m MockOrderedEntity) Parents() []MockEntityID {
+func (m MockedOrderedEntity) Parents() []MockedEntityID {
 	return m.parents
 }
 
-func WithParents(parents []MockEntityID) options.Option[MockOrderedEntity] {
-	return func(entity *MockOrderedEntity) {
+func WithParents(parents []MockedEntityID) options.Option[MockedOrderedEntity] {
+	return func(entity *MockedOrderedEntity) {
 		entity.parents = parents
 	}
 }
 
-func WithOrdered(ordered bool) options.Option[MockOrderedEntity] {
-	return func(entity *MockOrderedEntity) {
+func WithOrdered(ordered bool) options.Option[MockedOrderedEntity] {
+	return func(entity *MockedOrderedEntity) {
 		entity.ordered = ordered
 	}
 }
 
-func WithInvalid(invalid bool) options.Option[MockOrderedEntity] {
-	return func(entity *MockOrderedEntity) {
+func WithInvalid(invalid bool) options.Option[MockedOrderedEntity] {
+	return func(entity *MockedOrderedEntity) {
 		entity.invalid = invalid
 	}
 }
 
-func WithEpoch(index epoch.Index) options.Option[MockOrderedEntity] {
-	return func(entity *MockOrderedEntity) {
+func WithEpoch(index epoch.Index) options.Option[MockedOrderedEntity] {
+	return func(entity *MockedOrderedEntity) {
 		entity.id.index = index
 	}
 }

@@ -1,7 +1,6 @@
 package causalorder
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -169,15 +168,7 @@ func (c *CausalOrder[ID, Entity]) decreaseUnorderedParentsCounter(metadata Entit
 	defer c.unorderedParentsCounterMutex.Unlock()
 
 	unorderedParentsCounterStorage := c.unorderedParentsCounter.Get(metadata.ID().Index())
-	if unorderedParentsCounterStorage == nil {
-		panic(fmt.Sprintf("unordered parents counter epoch not found for %s", metadata.ID()))
-	}
-
-	newUnorderedParentsCounter, exists := unorderedParentsCounterStorage.Get(metadata.ID())
-	if !exists {
-		panic(fmt.Sprintf("unordered parents counter not found for %s", metadata.ID()))
-	}
-
+	newUnorderedParentsCounter, _ = unorderedParentsCounterStorage.Get(metadata.ID())
 	if newUnorderedParentsCounter--; newUnorderedParentsCounter == 0 {
 		unorderedParentsCounterStorage.Delete(metadata.ID())
 
