@@ -101,6 +101,8 @@ func (c *CausalOrder[ID, Entity]) triggerOrderedIfReady(entity Entity) {
 
 	if c.evictionManager.MaxEvictedEpoch() >= entity.ID().Index() {
 		c.evictionCallback(entity, errors.Errorf("entity %s below max evicted epoch", entity.ID()))
+
+		return
 	}
 
 	if !c.allParentsOrdered(entity) {
