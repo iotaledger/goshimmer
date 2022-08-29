@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	booker2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
@@ -26,10 +26,10 @@ type VirtualVoting struct {
 	sequenceTracker *votes.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	*booker2.Booker
+	*booker.Booker
 }
 
-func New(booker *booker2.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
 		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
@@ -51,14 +51,14 @@ func (o *VirtualVoting) Track(block *Block) {
 }
 
 func (o *VirtualVoting) setupEvents() {
-	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker2.Block) {
+	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		o.Track(NewBlock(block))
 	}))
 
-	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker2.BlockConflictAddedEvent) {
+	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
 		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
 	}))
-	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker2.MarkerConflictAddedEvent) {
+	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
 
@@ -97,7 +97,7 @@ func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) processForkedBlock(block *booker2.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
