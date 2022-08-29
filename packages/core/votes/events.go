@@ -15,6 +15,7 @@ type ConflictTrackerEvents[ConflictIDType comparable] struct {
 type ConflictVoterEvent[ConflictIDType comparable] struct {
 	Voter      *validator.Validator
 	ConflictID ConflictIDType
+	Opinion    Opinion
 }
 
 func newConflictTrackerEvents[ConflictIDType comparable]() *ConflictTrackerEvents[ConflictIDType] {

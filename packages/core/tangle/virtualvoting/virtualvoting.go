@@ -59,12 +59,20 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 	return o.block(id)
 }
 
-// MarkerVoters retrieves Vote
+// MarkerVoters retrieves Validators supporting a given marker.
 func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
 	return o.sequenceTracker.Voters(marker)
+}
+
+// ConflictVoters retrieves Validators voting for a given conflict.
+func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *set.AdvancedSet[*validator.Validator]) {
+	o.evictionManager.RLock()
+	defer o.evictionManager.RUnlock()
+
+	return o.conflictTracker.Voters(conflictID)
 }
 
 func (o *VirtualVoting) setupEvents() {
