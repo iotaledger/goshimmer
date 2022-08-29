@@ -213,14 +213,17 @@ func (a *AcceptanceGadget) evictEpoch(index epoch.Index) {
 	a.EvictionManager.Lock()
 	defer a.EvictionManager.Unlock()
 
-	// TODO: implement me
+	a.acceptanceOrder.EvictEpoch(index)
+	a.blocks.EvictEpoch(index)
 }
 
 func (a *AcceptanceGadget) evictSequence(sequenceID markers.SequenceID) {
 	a.EvictionManager.Lock()
 	defer a.EvictionManager.Unlock()
 
-	// TODO: implement me
+	if !a.lastAcceptedMarker.Delete(sequenceID) {
+		a.Events.Error.Trigger(errors.Errorf("could not evict sequenceID=%s", sequenceID))
+	}
 }
 
 func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
