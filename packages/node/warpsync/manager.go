@@ -124,13 +124,14 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	if validateErr != nil {
 		return errors.Wrapf(validateErr, "failed to validate range %d-%d", start, end)
 	}
-	if syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers); syncRangeErr != nil {
+	lowestProcessedEpoch, syncRangeErr := m.syncRange(ctx, start, end, startEC, ecChain, validPeers)
+	if syncRangeErr != nil {
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
 	}
 
 	m.log.Infof("range %d-%d synced", start, end)
 
-	m.successfulSyncEpoch = end
+	m.successfulSyncEpoch = lowestProcessedEpoch
 
 	return nil
 }

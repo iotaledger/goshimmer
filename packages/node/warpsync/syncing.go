@@ -47,7 +47,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (lowestProcessedEpoch epoch.Index, err error) {
 	startRange := start + 1
 	endRange := end - 1
 
@@ -137,20 +137,20 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 		}()
 	}
 
-	m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
+	lowestProcessedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
 	close(epochProcessingStopChan)
 
 	select {
 	case err := <-flowErrChan:
 		close(flowErrStopChan)
-		return errors.Wrapf(err, "sync failed for range %d-%d", start, end)
+		return lowestProcessedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
 	default:
 	}
 
-	return nil
+	return lowestProcessedEpoch, nil
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) {
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) (lowestProcessedEpoch epoch.Index) {
 	processedEpochs := make(map[epoch.Index]types.Empty)
 	for ei := startRange; ei < startRange+epoch.Index(m.concurrency); ei++ {
 		epochProcessingChan <- ei
@@ -164,6 +164,7 @@ processingLoop:
 			processedEpochs[processedEpoch] = types.Void
 			for {
 				if _, processed := processedEpochs[lowestProcessing]; processed {
+					lowestProcessedEpoch = lowestProcessing
 					if lowestProcessing+epoch.Index(m.concurrency) > endRange {
 						break processingLoop
 					}
@@ -177,6 +178,7 @@ processingLoop:
 			return
 		}
 	}
+	return
 }
 
 func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
