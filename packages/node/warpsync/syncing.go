@@ -157,6 +157,7 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 	}
 
 	lowestProcessing := startRange
+processingLoop:
 	for {
 		select {
 		case processedEpoch := <-epochProcessedChan:
@@ -164,7 +165,7 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 			for {
 				if _, processed := processedEpochs[lowestProcessing]; processed {
 					if lowestProcessing+epoch.Index(m.concurrency) > endRange {
-						break
+						break processingLoop
 					}
 					epochProcessingChan <- lowestProcessing + epoch.Index(m.concurrency)
 					lowestProcessing++
@@ -202,6 +203,7 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	defer m.syncingLock.Unlock()
 
 	epochChannels = m.epochsChannels[ei]
+
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
@@ -284,11 +286,13 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 	select {
 	case <-epochChannels.stopChan:
 		return
-	case epochChannels.startChan <- &epochSyncStart{
+	default:
+	}
+
+	epochChannels.startChan <- &epochSyncStart{
 		ei:          ei,
 		ec:          epoch.NewMerkleRoot(epochBlocksStart.GetEC()),
 		blocksCount: epochBlocksStart.GetBlocksCount(),
-	}:
 	}
 }
 
@@ -316,12 +320,14 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 		select {
 		case <-epochChannels.stopChan:
 			return
-		case epochChannels.blockChan <- &epochSyncBlock{
+		default:
+		}
+
+		epochChannels.blockChan <- &epochSyncBlock{
 			ei:    ei,
 			ec:    epoch.NewMerkleRoot(epochBlocksBatch.GetEC()),
 			peer:  nbr.Peer,
 			block: block,
-		}:
 		}
 	}
 }
@@ -343,13 +349,15 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 	select {
 	case <-epochChannels.stopChan:
 		return
-	case epochChannels.endChan <- &epochSyncEnd{
+	default:
+	}
+
+	epochChannels.endChan <- &epochSyncEnd{
 		ei:                ei,
 		ec:                epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
 		stateMutationRoot: epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
 		stateRoot:         epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
 		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
-	}:
 	}
 }
 
