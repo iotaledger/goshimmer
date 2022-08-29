@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
@@ -19,10 +19,10 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
-	tf.CreateBlock("block2", models2.WithStrongParents(tf.BlockIDs("block1")))
-	tf.CreateBlock("block3", models2.WithStrongParents(tf.BlockIDs("block1", "block2")))
-	tf.CreateBlock("block4", models2.WithStrongParents(tf.BlockIDs("block3", "block2")))
-	tf.CreateBlock("block5", models2.WithStrongParents(tf.BlockIDs("block3", "block4")))
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3", "block2")))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block3", "block4")))
 
 	// issue block2
 	{
@@ -202,10 +202,10 @@ func TestBlockDAG_SetOrphaned(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateBlock("block1")
 	tf.CreateBlock("block2")
-	tf.CreateBlock("block3", models2.WithStrongParents(tf.BlockIDs("block1", "block2")))
-	tf.CreateBlock("block4", models2.WithStrongParents(tf.BlockIDs("block3")))
-	tf.CreateBlock("block5", models2.WithStrongParents(tf.BlockIDs("block4")))
-	tf.CreateBlock("block6", models2.WithStrongParents(tf.BlockIDs("block5")))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")))
+	tf.CreateBlock("block4", models.WithStrongParents(tf.BlockIDs("block3")))
+	tf.CreateBlock("block5", models.WithStrongParents(tf.BlockIDs("block4")))
+	tf.CreateBlock("block6", models.WithStrongParents(tf.BlockIDs("block5")))
 	tf.IssueBlocks("block1", "block2", "block3", "block4", "block5").WaitUntilAllTasksProcessed()
 
 	block1, _ := tf.BlockDAG.Block(tf.Block("block1").ID())
@@ -238,14 +238,14 @@ func TestBlockDAG_SetOrphaned(t *testing.T) {
 
 	tf.BlockDAG.SetOrphaned(block4, false)
 	event.Loop.WaitUntilAllTasksProcessed()
-	tf.AssertOrphanedBlocks(models2.NewBlockIDs())
+	tf.AssertOrphanedBlocks(models.NewBlockIDs())
 }
 
 func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
-	tf.CreateBlock("block2", models2.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
 	var (
 		wasAttached1 bool
@@ -289,7 +289,7 @@ func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	tf.CreateBlock("block1")
-	tf.CreateBlock("block2", models2.WithStrongParents(tf.BlockIDs("block1")))
+	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
 
 	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block2"))
 	assert.NoError(t, err, "should not return an error")
@@ -314,18 +314,18 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models2.Block, alias string) {
+	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 		if idx == 0 {
 			return tf.CreateBlock(
 				alias,
-				models2.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 			), alias
 		}
 		return tf.CreateBlock(
 			alias,
-			models2.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models2.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
+			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx)*epoch.Duration, 0)),
 		), alias
 	}
 
@@ -334,7 +334,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
-	blocks := make([]*models2.Block, epochCount)
+	blocks := make([]*models.Block, epochCount)
 	expectedMissing := make(map[string]bool, epochCount)
 	expectedInvalid := make(map[string]bool, epochCount)
 	expectedSolid := make(map[string]bool, epochCount)
@@ -400,20 +400,20 @@ func TestBlockDAG_Prune(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int, prefix string) (block *models2.Block, alias string) {
+	createNewBlock := func(idx int, prefix string) (block *models.Block, alias string) {
 		alias = fmt.Sprintf("blk%s-%d", prefix, idx)
 
 		if idx == 1 {
 			return tf.CreateBlock(
 				alias,
-				models2.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 			), alias
 		}
 
 		return tf.CreateBlock(
 			alias,
-			models2.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models2.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
 		), alias
 	}
 
@@ -510,24 +510,24 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	tf := NewTestFramework(t)
 
 	// map to keep track of the tips
-	tips := randommap.New[models2.BlockID, models2.BlockID]()
-	tips.Set(models2.EmptyBlockID, models2.EmptyBlockID)
+	tips := randommap.New[models.BlockID, models.BlockID]()
+	tips.Set(models.EmptyBlockID, models.EmptyBlockID)
 
 	// create a helper function that creates the blocks
-	createNewBlock := func(idx int) *models2.Block {
+	createNewBlock := func(idx int) *models.Block {
 		// issue the payload
 		strongParents := make([]string, 0)
 		for _, selectedTip := range tips.RandomUniqueEntries(2) {
-			if selectedTip == models2.EmptyBlockID {
+			if selectedTip == models.EmptyBlockID {
 				strongParents = append(strongParents, "Genesis")
 				continue
 			}
 			strongParents = append(strongParents, selectedTip.Alias())
 		}
-		blk := tf.CreateBlock(fmt.Sprintf("msg-%d", idx), models2.WithStrongParents(tf.BlockIDs(strongParents...)))
+		blk := tf.CreateBlock(fmt.Sprintf("msg-%d", idx), models.WithStrongParents(tf.BlockIDs(strongParents...)))
 		// remove a tip if the width of the BlockDAG is reached
 		if tips.Size() >= blockDAGWidth {
-			tips.Delete(blk.ParentsByType(models2.StrongParentType).First())
+			tips.Delete(blk.ParentsByType(models.StrongParentType).First())
 		}
 
 		// add current block as a tip
@@ -538,7 +538,7 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	}
 
 	// generate the blocks we want to solidify
-	blocks := make(map[models2.BlockID]*models2.Block, blockCount)
+	blocks := make(map[models.BlockID]*models.Block, blockCount)
 	for i := 0; i < blockCount; i++ {
 		blk := createNewBlock(i)
 		blocks[blk.ID()] = blk
@@ -552,7 +552,7 @@ func TestBlockDAG_MissingBlocks(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key models2.BlockID, _ models2.BlockID) {
+	tips.ForEach(func(key models.BlockID, _ models.BlockID) {
 		_, _, err := tf.BlockDAG.Attach(blocks[key])
 		assert.NoError(t, err, "should be able to attach a block")
 	})
