@@ -1,10 +1,8 @@
 package tangleold
 
 import (
-	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
 	"sync"
 	"time"
@@ -13,13 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivitySerializableMap{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
-	if err != nil {
-		panic(fmt.Errorf("error registering NodesActivityLog type settings: %w", err))
-	}
-}
 
 const (
 	minimumManaThreshold = 0

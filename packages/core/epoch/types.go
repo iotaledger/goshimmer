@@ -24,6 +24,13 @@ var (
 	Duration int64 = 10
 )
 
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(nodesActivitySerializableMap{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering NodesActivityLog type settings: %w", err))
+	}
+}
+
 // Index is the ID of an epoch.
 type Index int64
 
@@ -228,9 +235,9 @@ func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) E
 
 // region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-type NodesActivitySerializableMap map[Index]*ActivityLog
+type nodesActivitySerializableMap map[Index]*ActivityLog
 
-func (al *NodesActivitySerializableMap) FromBytes(data []byte) (err error) {
+func (al *nodesActivitySerializableMap) FromBytes(data []byte) (err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, al, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse activeNodes: %w", err)
@@ -239,7 +246,7 @@ func (al *NodesActivitySerializableMap) FromBytes(data []byte) (err error) {
 	return
 }
 
-func (al *NodesActivitySerializableMap) Bytes() []byte {
+func (al *nodesActivitySerializableMap) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), *al, serix.WithValidation())
 	if err != nil {
 		panic(err)
@@ -247,7 +254,7 @@ func (al *NodesActivitySerializableMap) Bytes() []byte {
 	return objBytes
 }
 
-func (al *NodesActivitySerializableMap) nodesActivityLog() *NodesActivityLog {
+func (al *nodesActivitySerializableMap) nodesActivityLog() *NodesActivityLog {
 	activity := NewNodesActivityLog()
 	for ei, a := range *al {
 		activity.Set(ei, a)
@@ -260,7 +267,7 @@ type NodesActivityLog struct {
 }
 
 func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
-	m := make(NodesActivitySerializableMap)
+	m := make(nodesActivitySerializableMap)
 	err = m.FromBytes(data)
 	if err != nil {
 		return err
@@ -278,8 +285,8 @@ func NewNodesActivityLog() *NodesActivityLog {
 	return &NodesActivityLog{*shrinkingmap.New[Index, *ActivityLog]()}
 }
 
-func (al *NodesActivityLog) activityLogsMap() *NodesActivitySerializableMap {
-	activityMap := make(NodesActivitySerializableMap)
+func (al *NodesActivityLog) activityLogsMap() *nodesActivitySerializableMap {
+	activityMap := make(nodesActivitySerializableMap)
 	al.ForEach(func(ei Index, activity *ActivityLog) bool {
 		activityMap[ei] = activity
 		return true
@@ -287,7 +294,7 @@ func (al *NodesActivityLog) activityLogsMap() *NodesActivitySerializableMap {
 	return &activityMap
 }
 
-func (al *NodesActivityLog) loadActivityLogsMap(m NodesActivitySerializableMap) {
+func (al *NodesActivityLog) loadActivityLogsMap(m nodesActivitySerializableMap) {
 	for ei, a := range m {
 		al.Set(ei, a)
 	}
