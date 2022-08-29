@@ -360,16 +360,10 @@ func (a *ActivityLog) Clone() *ActivityLog {
 
 // ForEach iterates through the activity set and calls the callback for every element.
 func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (err error) {
-	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
-		if err = callback(nodeID); err != nil {
-			return err
-		}
-		return nil
-	})
-
-	return err
+	return a.SetEpochs.ForEach(callback)
 }
 
+// Size returns the size of the activity log.
 func (a *ActivityLog) Size() int {
 	return a.SetEpochs.Size()
 }
