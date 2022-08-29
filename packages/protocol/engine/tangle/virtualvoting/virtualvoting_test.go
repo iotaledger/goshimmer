@@ -10,9 +10,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	booker2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func TestOTV_Track(t *testing.T) {
@@ -25,8 +25,8 @@ func TestOTV_Track(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithBookerOptions(
-		booker.WithMarkerManagerOptions(
-			booker.WithSequenceManagerOptions(
+		booker2.WithMarkerManagerOptions(
+			booker2.WithSequenceManagerOptions(
 				markers.WithMaxPastMarkerDistance(3),
 			),
 		),

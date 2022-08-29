@@ -3,11 +3,12 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"strings"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
@@ -18,6 +19,7 @@ import (
 var (
 	// GenesisTime is the time (Unix in seconds) of the genesis.
 	GenesisTime int64 = 1660128716
+
 	// Duration is the default epoch duration in seconds.
 	Duration int64 = 10
 )
@@ -26,8 +28,7 @@ var (
 type Index int64
 
 func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
-	if err != nil {
+	if consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei); err != nil {
 		panic(err)
 	}
 

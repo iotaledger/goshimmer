@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
+	blockdag2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,8 +29,8 @@ type TestFramework struct {
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
 
-	optsBlockDAG        *blockdag.BlockDAG
-	optsBlockDAGOptions []options.Option[blockdag.BlockDAG]
+	optsBlockDAG        *blockdag2.BlockDAG
+	optsBlockDAGOptions []options.Option[blockdag2.BlockDAG]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsBookerOptions   []options.Option[Booker]
@@ -43,7 +43,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, lo.Cond(t.optsBlockDAG != nil, blockdag.WithBlockDAG(t.optsBlockDAG), blockdag.WithBlockDAGOptions(t.optsBlockDAGOptions...)))
+		t.BlockDAGTestFramework = blockdag2.NewTestFramework(test, lo.Cond(t.optsBlockDAG != nil, blockdag2.WithBlockDAG(t.optsBlockDAG), blockdag2.WithBlockDAGOptions(t.optsBlockDAGOptions...)))
 		t.LedgerTestFramework = ledger.NewTestFramework(test, lo.Cond(t.optsLedger != nil, ledger.WithLedger(t.optsLedger), ledger.WithLedgerOptions(t.optsLedgerOptions...)))
 
 		if t.Booker == nil {
@@ -188,7 +188,7 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-type BlockDAGTestFramework = blockdag.TestFramework
+type BlockDAGTestFramework = blockdag2.TestFramework
 
 type LedgerTestFramework = ledger.TestFramework
 
@@ -196,13 +196,13 @@ type LedgerTestFramework = ledger.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
+func WithBlockDAGOptions(opts ...options.Option[blockdag2.BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAGOptions = opts
 	}
 }
 
-func WithBlockDAG(blockDAG *blockdag.BlockDAG) options.Option[TestFramework] {
+func WithBlockDAG(blockDAG *blockdag2.BlockDAG) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAG = blockDAG
 	}

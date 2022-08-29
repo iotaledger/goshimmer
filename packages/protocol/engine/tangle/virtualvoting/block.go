@@ -3,7 +3,7 @@ package virtualvoting
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

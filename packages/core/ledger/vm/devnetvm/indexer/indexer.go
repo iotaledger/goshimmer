@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 // region Indexer //////////////////////////////////////////////////////////////////////////////////////////////////////

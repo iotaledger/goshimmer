@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
 
 type Block struct {

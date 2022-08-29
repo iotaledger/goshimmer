@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	db_pkg "github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"go.uber.org/dig"
 

@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 const (

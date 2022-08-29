@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {

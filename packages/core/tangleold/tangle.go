@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 const (

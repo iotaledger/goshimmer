@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
 )
 
 // region BlockTestFramework /////////////////////////////////////////////////////////////////////////////////////////

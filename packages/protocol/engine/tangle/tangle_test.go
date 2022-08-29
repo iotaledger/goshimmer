@@ -3,7 +3,7 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func Test(t *testing.T) {

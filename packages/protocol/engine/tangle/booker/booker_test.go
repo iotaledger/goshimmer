@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func TestScenario_1(t *testing.T) {
