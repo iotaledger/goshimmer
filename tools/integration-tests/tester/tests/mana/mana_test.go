@@ -155,7 +155,6 @@ func TestManaApis(t *testing.T) {
 	peers := n.Peers()
 	faucet := peers[0]
 
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 	log.Println("Request mana from faucet...")
 	// waiting for the faucet to have access mana
 	require.Eventually(t, func() bool {
