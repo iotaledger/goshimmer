@@ -275,7 +275,7 @@ func (m BlockIDs) String() string {
 
 	result := "BlockIDs{\n"
 	for blockID := range m {
-		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + blockID.String() + ",\n"
+		result += strings.Repeat(" ", stringify.IndentationSize) + blockID.String() + ",\n"
 	}
 	result += "}"
 

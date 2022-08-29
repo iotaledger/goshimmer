@@ -250,9 +250,9 @@ func (o Outputs) Filter(condition func(output Output) bool) (filteredOutputs Out
 
 // String returns a human-readable version of the Outputs.
 func (o Outputs) String() string {
-	structBuilder := stringify.StructBuilder("Outputs")
+	structBuilder := stringify.NewStructBuilder("Outputs")
 	for i, output := range o {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), output))
+		structBuilder.AddField(stringify.NewStructField(strconv.Itoa(i), output))
 	}
 
 	return structBuilder.String()
@@ -316,9 +316,9 @@ func (o OutputsByID) Clone() (clonedOutputs OutputsByID) {
 
 // String returns a human readable version of the OutputsByID.
 func (o OutputsByID) String() string {
-	structBuilder := stringify.StructBuilder("OutputsByID")
+	structBuilder := stringify.NewStructBuilder("OutputsByID")
 	for id, output := range o {
-		structBuilder.AddField(stringify.StructField(id.String(), output))
+		structBuilder.AddField(stringify.NewStructField(id.String(), output))
 	}
 
 	return structBuilder.String()
@@ -1914,12 +1914,12 @@ func (o *ExtendedLockedOutput) Compare(other Output) int {
 // String returns a human readable version of the Output.
 func (o *ExtendedLockedOutput) String() string {
 	return stringify.Struct("ExtendedLockedOutput",
-		stringify.StructField("id", o.ID()),
-		stringify.StructField("address", o.address),
-		stringify.StructField("balances", o.balances),
-		stringify.StructField("fallbackAddress", o.fallbackAddress),
-		stringify.StructField("fallbackDeadline", o.fallbackDeadline),
-		stringify.StructField("timelock", o.timelock),
+		stringify.NewStructField("id", o.ID()),
+		stringify.NewStructField("address", o.address),
+		stringify.NewStructField("balances", o.balances),
+		stringify.NewStructField("fallbackAddress", o.fallbackAddress),
+		stringify.NewStructField("fallbackDeadline", o.fallbackDeadline),
+		stringify.NewStructField("timelock", o.timelock),
 	)
 }
 

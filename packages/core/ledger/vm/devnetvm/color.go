@@ -184,9 +184,9 @@ func (c *ColoredBalances) Map() (balances map[Color]uint64) {
 
 // String returns a human-readable version of the ColoredBalances.
 func (c *ColoredBalances) String() string {
-	structBuilder := stringify.StructBuilder("ColoredBalances")
+	structBuilder := stringify.NewStructBuilder("ColoredBalances")
 	c.ForEach(func(color Color, balance uint64) bool {
-		structBuilder.AddField(stringify.StructField(color.String(), balance))
+		structBuilder.AddField(stringify.NewStructField(color.String(), balance))
 
 		return true
 	})

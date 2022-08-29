@@ -21,6 +21,8 @@ const (
 	PriorityPrometheus
 	// PriorityMetrics defines the shutdown priority for metrics server.
 	PriorityMetrics
+	// PriorityWarpsync defines the shutdown priority for warpsync.
+	PriorityWarpsync
 	// PriorityGossip defines the shutdown priority for gossip.
 	PriorityGossip
 	// PriorityP2P defines the shutdown priority for p2p.

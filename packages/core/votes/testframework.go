@@ -63,7 +63,7 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, o
 }
 
 func (t *TestFramework[VotePowerType]) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
-	return t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomID()), opts...)
+	return t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomIDInsecure()), opts...)
 }
 
 func (t *TestFramework[VotePowerType]) CreateValidatorWithID(alias string, id identity.ID, opts ...options.Option[validator.Validator]) *validator.Validator {

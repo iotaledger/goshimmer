@@ -4,7 +4,7 @@ option go_package = "github.com/iotaledger/goshimmer/packages/gossip/gossipproto
 
 package gossipproto;
 
-block Packet {
+message Packet {
   oneof body {
     Block block = 1;
     BlockRequest blockRequest = 2;
@@ -12,12 +12,12 @@ block Packet {
   }
 }
 
-block Block {
+message Block {
   bytes data = 1;
 }
 
-block BlockRequest {
+message BlockRequest {
   bytes id = 1;
 }
 
-block Negotiation {}
+message Negotiation {}
