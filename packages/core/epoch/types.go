@@ -323,7 +323,7 @@ func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (er
 }
 
 func (a *ActivityLog) Size() int {
-	return a.Size()
+	return a.setEpochs.Size()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
