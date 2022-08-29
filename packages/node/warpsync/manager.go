@@ -5,14 +5,15 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
 )
 
 const (

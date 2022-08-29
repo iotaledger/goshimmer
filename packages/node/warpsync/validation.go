@@ -4,12 +4,13 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
 )
 
 type neighborCommitment struct {
