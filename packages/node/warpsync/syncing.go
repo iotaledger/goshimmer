@@ -55,7 +55,6 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	defer m.endSyncing()
 
 	var wg sync.WaitGroup
-	defer wg.Wait()
 
 	epochProcessingChan := make(chan epoch.Index)
 	epochProcessingStopChan := make(chan struct{})
@@ -130,6 +129,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 					cancelErrCtx()
 					select {
 					case flowErrChan <- errors.Errorf("unable to sync epoch %d", targetEpoch):
+						close(flowErrStopChan)
 					case <-flowErrStopChan:
 					}
 				}
@@ -140,9 +140,10 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	lowestProcessedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
 	close(epochProcessingStopChan)
 
+	wg.Wait()
+
 	select {
 	case err := <-flowErrChan:
-		close(flowErrStopChan)
 		return lowestProcessedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
 	default:
 	}
