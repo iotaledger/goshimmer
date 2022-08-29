@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	blockdag2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
@@ -19,7 +19,7 @@ import (
 
 // Requester takes care of requesting blocks.
 type Requester struct {
-	blockDAG               *blockdag2.BlockDAG
+	blockDAG               *blockdag.BlockDAG
 	timedExecutor          *timedexecutor.TimedExecutor
 	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timedexecutor.ScheduledTask]
 	scheduledRequestsCount int
@@ -32,7 +32,7 @@ type Requester struct {
 }
 
 // NewRequester creates a new block requester.
-func NewRequester(blockDAG *blockdag2.BlockDAG, evictionManager *eviction.LockableManager[models.BlockID], opts ...options.Option[Requester]) *Requester {
+func NewRequester(blockDAG *blockdag.BlockDAG, evictionManager *eviction.LockableManager[models.BlockID], opts ...options.Option[Requester]) *Requester {
 	requester := &Requester{
 		blockDAG:          blockDAG,
 		timedExecutor:     timedexecutor.New(1),
@@ -53,10 +53,10 @@ func NewRequester(blockDAG *blockdag2.BlockDAG, evictionManager *eviction.Lockab
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.blockDAG.Events.BlockMissing.Hook(event.NewClosure(func(block *blockdag2.Block) {
+	r.blockDAG.Events.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
 		r.StartRequest(block.ID())
 	}))
-	r.blockDAG.Events.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag2.Block) {
+	r.blockDAG.Events.MissingBlockAttached.Hook(event.NewClosure(func(block *blockdag.Block) {
 		r.StopRequest(block.ID())
 	}))
 
