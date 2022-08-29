@@ -22,9 +22,9 @@ type TestFramework struct {
 	idCounter            int
 	idCounterMutex       sync.Mutex
 	entitiesByAlias      map[string]*MockedOrderedEntity
-	orderedEntities      map[string]bool
+	orderedEntities      map[string]*MockedOrderedEntity
 	orderedEntitiesMutex sync.RWMutex
-	evictedEntities      map[string]bool
+	evictedEntities      map[string]*MockedOrderedEntity
 	evictedEntitiesMutex sync.RWMutex
 
 	*CausalOrder[MockedEntityID, *MockedOrderedEntity]
@@ -35,8 +35,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test:            test,
 		entitiesByAlias: make(map[string]*MockedOrderedEntity),
-		orderedEntities: make(map[string]bool),
-		evictedEntities: make(map[string]bool),
+		orderedEntities: make(map[string]*MockedOrderedEntity),
+		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
 			eviction.NewManager[MockedEntityID](func(id MockedEntityID) (isRootBlock bool) {
@@ -44,37 +44,40 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			}),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
-			}, func(entity *MockedOrderedEntity) (isOrdered bool) {
-				return entity.ordered
-			}, func(entity *MockedOrderedEntity) (err error) {
-				entity.ordered = true
+			}, (*MockedOrderedEntity).IsOrdered,
+			func(entity *MockedOrderedEntity) (err error) {
+				if !entity.SetOrdered(true) {
+					return nil
+				}
 
 				if debug.GetEnabled() {
 					t.test.Logf("%s ordered", entity.id.alias)
 				}
 
 				t.orderedEntitiesMutex.Lock()
-				t.orderedEntities[entity.id.alias] = true
+				t.orderedEntities[entity.id.alias] = entity
 				t.orderedEntitiesMutex.Unlock()
 
 				return nil
 			}, func(entity *MockedOrderedEntity, reason error) {
-				entity.invalid = true
+				if !entity.SetInvalid(true) {
+					return
+				}
 
 				if debug.GetEnabled() {
 					t.test.Logf("%s evicted", entity.id.alias)
 				}
 
 				t.evictedEntitiesMutex.Lock()
-				t.evictedEntities[entity.id.alias] = true
+				t.evictedEntities[entity.id.alias] = entity
 				t.evictedEntitiesMutex.Unlock()
 			},
 			WithReferenceValidator[MockedEntityID, *MockedOrderedEntity](func(entity, parent *MockedOrderedEntity) (err error) {
-				if entity.invalid {
+				if entity.IsInvalid() {
 					return errors.Errorf("entity %s is invalid", entity.id.alias)
 				}
 
-				if parent.invalid {
+				if parent.IsInvalid() {
 					return errors.Errorf("parent %s of entity %s is invalid", parent.id.alias, entity.id.alias)
 				}
 
@@ -152,7 +155,9 @@ func (t *TestFramework) AssertOrdered(aliases ...string) {
 	require.Equal(t.test, len(aliases), len(t.orderedEntities))
 
 	for _, alias := range aliases {
-		require.True(t.test, t.orderedEntities[alias])
+		entity, exists := t.orderedEntities[alias]
+		require.True(t.test, exists)
+		require.True(t.test, entity.IsOrdered())
 	}
 }
 
@@ -164,7 +169,9 @@ func (t *TestFramework) AssertEvicted(aliases ...string) {
 	require.Equal(t.test, len(aliases), len(t.evictedEntities))
 
 	for _, alias := range aliases {
-		require.True(t.test, t.evictedEntities[alias])
+		entity, exists := t.evictedEntities[alias]
+		require.True(t.test, exists)
+		require.True(t.test, entity.IsInvalid())
 	}
 }
 
@@ -201,49 +208,113 @@ func (m MockedEntityID) String() string {
 
 // region MockedOrderedEntity //////////////////////////////////////////////////////////////////////////////////////////
 
+// MockedOrderedEntity is a mocked OrderedEntity.
 type MockedOrderedEntity struct {
-	id      MockedEntityID
+	// id contains the identifier of the Entity.
+	id MockedEntityID
+
+	// parents contains the parents of the Entity.
 	parents []MockedEntityID
+
+	// ordered contains a flag that indicates whether the Entity was ordered.
 	ordered bool
+
+	// invalid contains a flag that indicates whether the Entity was marked as invalid.
 	invalid bool
+
+	// RWMutex is used to synchronize access to the Entity.
+	sync.RWMutex
 }
 
+// NewMockOrderedEntity returns a new MockedOrderedEntity.
 func NewMockOrderedEntity(id MockedEntityID, opts ...options.Option[MockedOrderedEntity]) *MockedOrderedEntity {
 	return options.Apply(&MockedOrderedEntity{
 		id: id,
 	}, opts)
 }
 
-func (m MockedOrderedEntity) ID() MockedEntityID {
+// ID returns the identifier of the Entity.
+func (m *MockedOrderedEntity) ID() MockedEntityID {
 	return m.id
 }
 
-func (m MockedOrderedEntity) Parents() []MockedEntityID {
+// Parents returns the parents of the Entity.
+func (m *MockedOrderedEntity) Parents() []MockedEntityID {
 	return m.parents
 }
 
+// IsOrdered returns a flag that indicates whether the Entity was ordered.
+func (m *MockedOrderedEntity) IsOrdered() (isOrdered bool) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.ordered
+}
+
+// SetOrdered sets the ordered flag of the Entity.
+func (m *MockedOrderedEntity) SetOrdered(ordered bool) (updated bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.ordered == ordered {
+		return false
+	}
+	m.ordered = ordered
+
+	return true
+}
+
+// IsInvalid returns a flag that indicates whether the Entity was marked as invalid.
+func (m *MockedOrderedEntity) IsInvalid() (isInvalid bool) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.invalid
+}
+
+// SetInvalid sets the invalid flag of the Entity.
+func (m *MockedOrderedEntity) SetInvalid(invalid bool) (updated bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	if m.invalid == invalid {
+		return false
+	}
+	m.invalid = invalid
+
+	return true
+}
+
+// endregion //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WithParents is an option that sets the parents of the Entity.
 func WithParents(parents []MockedEntityID) options.Option[MockedOrderedEntity] {
 	return func(entity *MockedOrderedEntity) {
 		entity.parents = parents
 	}
 }
 
+// WithOrdered is an option that sets the ordered flag of the Entity.
 func WithOrdered(ordered bool) options.Option[MockedOrderedEntity] {
 	return func(entity *MockedOrderedEntity) {
 		entity.ordered = ordered
 	}
 }
 
+// WithInvalid is an option that sets the invalid flag of the Entity.
 func WithInvalid(invalid bool) options.Option[MockedOrderedEntity] {
 	return func(entity *MockedOrderedEntity) {
 		entity.invalid = invalid
 	}
 }
 
+// WithEpoch is an option that sets the epoch of the Entity.
 func WithEpoch(index epoch.Index) options.Option[MockedOrderedEntity] {
 	return func(entity *MockedOrderedEntity) {
 		entity.id.index = index
 	}
 }
 
-// endregion //////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
