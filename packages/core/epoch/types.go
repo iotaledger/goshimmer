@@ -228,11 +228,9 @@ func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) E
 
 // region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-type NodesActivityLog struct {
-	shrinkingmap.ShrinkingMap[Index, *ActivityLog]
-}
+type NodesActivitySerializableMap map[Index]*ActivityLog
 
-func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
+func (al *NodesActivitySerializableMap) FromBytes(data []byte) (err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, al, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse activeNodes: %w", err)
@@ -241,7 +239,7 @@ func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
 	return
 }
 
-func (al *NodesActivityLog) Bytes() []byte {
+func (al *NodesActivitySerializableMap) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), *al, serix.WithValidation())
 	if err != nil {
 		panic(err)
@@ -249,24 +247,67 @@ func (al *NodesActivityLog) Bytes() []byte {
 	return objBytes
 }
 
+func (al *NodesActivitySerializableMap) nodesActivityLog() *NodesActivityLog {
+	activity := NewNodesActivityLog()
+	for ei, a := range *al {
+		activity.Set(ei, a)
+	}
+	return activity
+}
+
+type NodesActivityLog struct {
+	shrinkingmap.ShrinkingMap[Index, *ActivityLog] `serix:"0,lengthPrefixType=uint32"`
+}
+
+func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
+	m := make(NodesActivitySerializableMap)
+	err = m.FromBytes(data)
+	if err != nil {
+		return err
+	}
+	al.loadActivityLogsMap(m)
+	return
+}
+
+func (al *NodesActivityLog) Bytes() []byte {
+	m := al.activityLogsMap()
+	return m.Bytes()
+}
+
 func NewNodesActivityLog() *NodesActivityLog {
 	return &NodesActivityLog{*shrinkingmap.New[Index, *ActivityLog]()}
 }
 
-// endregi`azon ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (al *NodesActivityLog) activityLogsMap() *NodesActivitySerializableMap {
+	activityMap := make(NodesActivitySerializableMap)
+	al.ForEach(func(ei Index, activity *ActivityLog) bool {
+		activityMap[ei] = activity
+		return true
+	})
+	return &activityMap
+}
+
+func (al *NodesActivityLog) loadActivityLogsMap(m NodesActivitySerializableMap) {
+	for ei, a := range m {
+		al.Set(ei, a)
+	}
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	setEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
+	SetEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
 	a := &ActivityLog{
-		setEpochs: set.NewAdvancedSet[identity.ID](),
+		SetEpochs: set.NewAdvancedSet[identity.ID](),
 	}
 
 	return a
@@ -274,17 +315,17 @@ func NewActivityLog() *ActivityLog {
 
 // Add adds a node to the activity log.
 func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
-	return a.setEpochs.Add(nodeID)
+	return a.SetEpochs.Add(nodeID)
 }
 
 // Remove removes a node from the activity log.
 func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
-	return a.setEpochs.Delete(nodeID)
+	return a.SetEpochs.Delete(nodeID)
 }
 
 // Active returns true if the provided node was active.
 func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
-	if a.setEpochs.Has(nodeID) {
+	if a.SetEpochs.Has(nodeID) {
 		return true
 	}
 
@@ -294,8 +335,8 @@ func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
 // String returns a human-readable version of ActivityLog.
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.setEpochs.Size()))
-	a.setEpochs.ForEach(func(nodeID identity.ID) (err error) {
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
+	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
 		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
 		return
 	})
@@ -306,13 +347,13 @@ func (a *ActivityLog) String() string {
 // Clone clones the ActivityLog.
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
-	clone.setEpochs = a.setEpochs.Clone()
+	clone.SetEpochs = a.SetEpochs.Clone()
 	return clone
 }
 
 // ForEach iterates through the activity set and calls the callback for every element.
 func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (err error) {
-	a.setEpochs.ForEach(func(nodeID identity.ID) (err error) {
+	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
 		if err = callback(nodeID); err != nil {
 			return err
 		}
@@ -323,7 +364,7 @@ func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (er
 }
 
 func (a *ActivityLog) Size() int {
-	return a.setEpochs.Size()
+	return a.SetEpochs.Size()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

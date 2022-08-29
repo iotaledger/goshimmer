@@ -15,9 +15,9 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivitySerializableMap{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
 	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+		panic(fmt.Errorf("error registering NodesActivityLog type settings: %w", err))
 	}
 }
 

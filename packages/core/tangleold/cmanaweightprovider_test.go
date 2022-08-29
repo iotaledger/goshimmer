@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,18 +34,11 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		}
 	}
 
-	for _, nodeID := range nodes {
-		for i := 0; i < crypto.Randomness.Intn(100); i++ {
-			al := epoch.NewActivityLog()
-			al.Add(nodeID)
-			activeNodes.Set(epoch.Index(i), al)
-		}
-	}
 	activeNodesBytes := activeNodes.Bytes()
+	require.NotNil(t, activeNodesBytes)
 	activeNodes2 := epoch.NewNodesActivityLog()
 	err := activeNodes2.FromBytes(activeNodesBytes)
 	require.NoError(t, err)
-
 	activeNodes.ForEach(func(ei epoch.Index, activity *epoch.ActivityLog) bool {
 		activity2, exists := activeNodes2.Get(ei)
 		require.True(t, exists)
