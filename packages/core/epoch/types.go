@@ -385,7 +385,7 @@ type SnapshotNodeActivity struct {
 
 // NewSnapshotNodeActivity creates a new SnapshotNodeActivity instance.
 func NewSnapshotNodeActivity() *SnapshotNodeActivity {
-	return model.NewImmutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
+	return model.NewMutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
 }
 
 // nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.
