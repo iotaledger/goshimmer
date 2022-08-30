@@ -503,15 +503,15 @@ func TestAcceptanceGadget_update_reorg(t *testing.T) {
 		tf.AssertReorgs(0)
 	}
 
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 			"Block2": true,
 			"Block4": true,
 			"Block5": true,
-			"Block8": false,
+			"Block6": false,
 		}))
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
