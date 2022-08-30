@@ -19,11 +19,13 @@ const (
 	protocolID = "warpsync/0.0.1"
 )
 
+const minimumWindowSize = 10
+
 // LoadBlockFunc defines a function that returns the block for the given id.
 type LoadBlockFunc func(blockId tangleold.BlockID) (*tangleold.Block, error)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
-type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)
+type ProcessBlockFunc func(blk *tangleold.Block, peer *peer.Peer)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
@@ -110,10 +112,14 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 	m.Lock()
 	defer m.Unlock()
 
-	if m.successfulSyncEpoch >= end {
+	// Skip warpsyncing if the requested range overlaps with a previous run.
+	if end-m.successfulSyncEpoch < minimumWindowSize {
 		m.log.Debugf("WarpRange: already synced to %d", m.successfulSyncEpoch)
 		return nil
 	}
+
+	// We always request from the last successfully-warpsynced epoch.
+	start = m.successfulSyncEpoch
 
 	m.active.Set()
 	defer m.active.UnSet()
