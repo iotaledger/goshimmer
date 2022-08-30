@@ -129,9 +129,9 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 		return errors.Wrapf(syncRangeErr, "failed to sync range %d-%d with peers %s", start, end, validPeers)
 	}
 
-	m.log.Infof("range %d-%d synced", start, end)
+	m.log.Infof("range %d-%d synced", start, lowestProcessedEpoch)
 
-	m.successfulSyncEpoch = lowestProcessedEpoch
+	m.successfulSyncEpoch = lowestProcessedEpoch + 1
 
 	return nil
 }
