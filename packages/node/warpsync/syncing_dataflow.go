@@ -121,12 +121,8 @@ func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Ne
 }
 
 func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
-	for _, block := range params.epochBlocks {
-		blockBytes, err := block.Bytes()
-		if err != nil {
-			return errors.Errorf("received block from %s failed to serialize: %s", params.peerID, err)
-		}
-		m.blockProcessorFunc(blockBytes, m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})[0].Peer)
+	for _, blk := range params.epochBlocks {
+		m.blockProcessorFunc(blk, m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})[0].Peer)
 	}
 
 	return next(params)

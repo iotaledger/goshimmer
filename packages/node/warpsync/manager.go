@@ -23,7 +23,7 @@ const (
 type LoadBlockFunc func(blockId tangleold.BlockID) (*tangleold.Block, error)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
-type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)
+type ProcessBlockFunc func(blk *tangleold.Block, peer *peer.Peer)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
