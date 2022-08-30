@@ -83,7 +83,9 @@ func TestManager_GetLatestEC(t *testing.T) {
 			nodes["A"].ID(): 100,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	genesisTime := time.Now().Add(-25 * time.Minute)
 	epochDuration := 5 * time.Minute
@@ -152,7 +154,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			nodes["D"].ID(): 25,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	epochInterval := 1 * time.Second
 
@@ -238,6 +241,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
+
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3", "Block2"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -289,7 +294,9 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	epochInterval := 1 * time.Second
 
@@ -354,6 +361,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -372,6 +380,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		EC1 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+
 		testFramework.CreateBlock("Block5", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
@@ -389,7 +399,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		EC2 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3))
+
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("D", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
@@ -409,7 +420,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(4))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4))
 		testFramework.CreateBlock("Block7", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block6"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
@@ -463,8 +474,9 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -586,6 +598,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block7"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
@@ -628,8 +641,9 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -793,13 +807,14 @@ func TestManager_DiffUTXOs(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
 	epochInterval := 1 * time.Second
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -895,6 +910,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("G5"), tangleold.WithOutput("H6", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
@@ -994,8 +1010,9 @@ func TestManager_ActivityTree(t *testing.T) {
 	//	ei := epoch.IndexFromTime(time.Now())
 	//	weightProvider.Update(ei, node.ID())
 	//}
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc, confirmedRetrieverFunc)
 	testFramework, _, _ := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	// expected activity records
@@ -1082,7 +1099,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), ManaDelay(2), Log(logger.NewExampleLogger("test")))
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), Log(logger.NewExampleLogger("test")))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()

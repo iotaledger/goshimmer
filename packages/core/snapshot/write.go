@@ -273,8 +273,8 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 }
 
 // NewActivityLogProducer returns an ActivityLogProducerFunc that provides activity log from weightProvider and notarization manager.
-func NewActivityLogProducer(notarizationMgr *notarization.Manager) ActivityLogProducerFunc {
-	activityLog, err := notarizationMgr.SnapshotEpochActivity()
+func NewActivityLogProducer(notarizationMgr *notarization.Manager, epochDiffIndex epoch.Index) ActivityLogProducerFunc {
+	activityLog, err := notarizationMgr.SnapshotEpochActivity(epochDiffIndex)
 	if err != nil {
 		panic(err)
 	}

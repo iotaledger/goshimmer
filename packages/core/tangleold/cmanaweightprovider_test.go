@@ -1,10 +1,10 @@
 package tangleold
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/crypto"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,22 +19,32 @@ func TestActiveNodesMarshalling(t *testing.T) {
 		"node3": identity.GenerateIdentity().ID(),
 	}
 
-	activeNodes := make(epoch.NodesActivityLog)
+	activeNodes := epoch.NewNodesActivityLog()
 
-	for _, nodeID := range nodes {
-		for i := 0; i < crypto.Randomness.Intn(100); i++ {
-			activeNodes[epoch.Index(i)] = epoch.NewActivityLog()
-			activeNodes[epoch.Index(i)].Add(nodeID)
+	for i := 0; i < 100; i++ {
+		ei := epoch.Index(i)
+		al := epoch.NewActivityLog()
+		activeNodes.Set(ei, al)
+		weight := 1.0
+		for _, nodeID := range nodes {
+			if rand.Float64() < 0.1*weight {
+				al.Add(nodeID)
+			}
+			weight += 1
 		}
 	}
+
 	activeNodesBytes := activeNodes.Bytes()
-	activeNodes2 := make(epoch.NodesActivityLog)
+	require.NotNil(t, activeNodesBytes)
+	activeNodes2 := epoch.NewNodesActivityLog()
 	err := activeNodes2.FromBytes(activeNodesBytes)
 	require.NoError(t, err)
-
-	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.SetEpochs.Size(), activeNodes2[nodeID].SetEpochs.Size())
-	}
+	activeNodes.ForEach(func(ei epoch.Index, activity *epoch.ActivityLog) bool {
+		activity2, exists := activeNodes2.Get(ei)
+		require.True(t, exists)
+		assert.EqualValues(t, activity.Size(), activity2.Size())
+		return true
+	})
 }
 
 func TestCManaWeightProvider(t *testing.T) {
@@ -60,7 +70,8 @@ func TestCManaWeightProvider(t *testing.T) {
 	}
 	epochRetrieverFunc := func() epoch.Index { return epochManager.ei }
 	timeRetrieverFunc := func() time.Time { return epochRetrieverFunc().StartTime() }
-	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc, confirmedRetrieverFunc)
 
 	// Add node1 as active in the genesis epoch.
 	{

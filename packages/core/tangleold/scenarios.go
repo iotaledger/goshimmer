@@ -93,7 +93,8 @@ func ProcessBlockScenario(t *testing.T, options ...Option) *TestScenario {
 	testEpoch := epoch.IndexFromTime(time.Now())
 	epochRetrieverFunc := func() epoch.Index { return testEpoch }
 	timeProvider := func() time.Time { return epochRetrieverFunc().StartTime() }
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider, confirmedRetrieverFunc)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
@@ -459,7 +460,9 @@ func ProcessBlockScenario2(t *testing.T, options ...Option) *TestScenario {
 	testEpoch := epoch.IndexFromTime(time.Now())
 	epochRetrieverFunc := func() epoch.Index { return testEpoch }
 	timeProvider := func() time.Time { return epochRetrieverFunc().StartTime() }
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, timeProvider, confirmedRetrieverFunc)
 
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
