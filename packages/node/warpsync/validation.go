@@ -191,11 +191,9 @@ func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packe
 	select {
 	case <-m.commitmentsStopChan:
 		return
-	default:
-	}
-
-	m.commitmentsChan <- &neighborCommitment{
+	case m.commitmentsChan <- &neighborCommitment{
 		neighbor: nbr,
 		ecRecord: ecRecord,
+	}:
 	}
 }
