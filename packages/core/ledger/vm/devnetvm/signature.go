@@ -190,8 +190,8 @@ func (e *ED25519Signature) Base58() string {
 // String returns a human readable version of the Signature.
 func (e *ED25519Signature) String() string {
 	return stringify.Struct("ED25519Signature",
-		stringify.StructField("publicKey", e.PublicKey),
-		stringify.StructField("signature", e.Signature),
+		stringify.NewStructField("publicKey", e.PublicKey),
+		stringify.NewStructField("signature", e.Signature),
 	)
 }
 
@@ -266,8 +266,8 @@ func (b *BLSSignature) Base58() string {
 // String returns a human readable version of the Signature.
 func (b *BLSSignature) String() string {
 	return stringify.Struct("BLSSignature",
-		stringify.StructField("publicKey", b.Signature.PublicKey),
-		stringify.StructField("signature", b.Signature.Signature),
+		stringify.NewStructField("publicKey", b.Signature.PublicKey),
+		stringify.NewStructField("signature", b.Signature.Signature),
 	)
 }
 

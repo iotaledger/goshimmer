@@ -358,7 +358,7 @@ func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
 // String returns a human-readable version of the MockedInput.
 func (m *MockedInput) String() (humanReadable string) {
 	return stringify.Struct("MockedInput",
-		stringify.StructField("OutputID", m.OutputID),
+		stringify.NewStructField("OutputID", m.OutputID),
 	)
 }
 

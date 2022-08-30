@@ -3,46 +3,124 @@ package causalorder
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/stretchr/testify/require"
 )
 
-// This test checks if the internal metadata is correct i.e. that children are assigned correctly and that all the flags are correct.
-func TestTangle_Queue(t *testing.T) {
-	tf := NewTestFramework()
-	tf.CreateEntity("A", 0, WithOrdered(true))
-	tf.CreateEntity("B", 1, WithParents(tf.EntityIDs("A")))
-	tf.CreateEntity("C", 2, WithParents(tf.EntityIDs("A", "B")))
-	tf.CreateEntity("D", 3, WithParents(tf.EntityIDs("C", "B")))
-	tf.CreateEntity("E", 4, WithParents(tf.EntityIDs("C", "D")))
+// TestCausalOrder_Queue tests the queueing of entities in the CausalOrder.
+func TestCausalOrder_Queue(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
+	tf.CreateEntity("B", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.CreateEntity("C", WithParents(tf.EntityIDs("A", "B")), WithEpoch(1))
+	tf.CreateEntity("D", WithParents(tf.EntityIDs("C", "B")), WithEpoch(1))
+	tf.CreateEntity("E", WithParents(tf.EntityIDs("C", "D")), WithEpoch(1))
 
-	lastOrderedID := NewID(0)
+	tf.Queue(tf.Entity("A"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
 
-	causalOrder := New[MockEntityID, *MockOrderedEntity](
-		eviction.NewManager[MockEntityID](func(id MockEntityID) (isRootBlock bool) {
-			return id == NewID(0)
-		}),
-		func(id MockEntityID) (entity *MockOrderedEntity, exists bool) {
-			entity, exists = tf.Get(id.alias)
-			return
-		}, func(entity *MockOrderedEntity) (isOrdered bool) {
-			return entity.ordered
-		}, func(entity *MockOrderedEntity) (err error) {
-			entity.ordered = true
+	tf.Queue(tf.Entity("A"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
 
-			assert.Greater(t, entity.ID().id, lastOrderedID.id)
-			lastOrderedID = entity.ID()
+	tf.Queue(tf.Entity("D"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
 
-			return nil
-		}, func(entity *MockOrderedEntity, reason error) {
-			assert.Fail(t, "Entity should not be dropped")
-		},
-	)
+	tf.Queue(tf.Entity("E"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
 
-	causalOrder.Queue(tf.Entity("A"))
-	causalOrder.Queue(tf.Entity("D"))
-	causalOrder.Queue(tf.Entity("E"))
-	causalOrder.Queue(tf.Entity("C"))
-	causalOrder.Queue(tf.Entity("B"))
+	tf.Queue(tf.Entity("C"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
+
+	tf.Queue(tf.Entity("B"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+}
+
+// TestCausalOrder_EvictEpoch tests the eviction of entities in the CausalOrder.
+func TestCausalOrder_EvictEpoch(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
+	tf.CreateEntity("B", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.CreateEntity("C", WithParents(tf.EntityIDs("A", "B")), WithEpoch(1))
+	tf.CreateEntity("D", WithParents(tf.EntityIDs("C", "B")), WithEpoch(1))
+	tf.CreateEntity("E", WithParents(tf.EntityIDs("C", "D")), WithEpoch(1))
+	tf.CreateEntity("F", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
+	tf.CreateEntity("G", WithParents(tf.EntityIDs("F")), WithEpoch(1))
+	tf.CreateEntity("H", WithParents(tf.EntityIDs("G")), WithEpoch(2))
+
+	tf.Queue(tf.Entity("A"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
+	tf.AssertEvicted()
+
+	tf.Queue(tf.Entity("D"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
+	tf.AssertEvicted()
+
+	tf.Queue(tf.Entity("E"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
+	tf.AssertEvicted()
+
+	tf.Queue(tf.Entity("C"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A")
+	tf.AssertEvicted()
+
+	tf.Queue(tf.Entity("B"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+	tf.AssertEvicted()
+
+	tf.Queue(tf.Entity("G"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+	tf.AssertEvicted()
+
+	tf.EvictEpoch(1)
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+	tf.AssertEvicted("F", "G")
+
+	tf.Queue(tf.Entity("F"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+	tf.AssertEvicted("F", "G")
+
+	tf.Queue(tf.Entity("H"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered("A", "B", "C", "D", "E")
+	tf.AssertEvicted("F", "G", "H")
+}
+
+// TestCausalOrder_UnexpectedCases tests the unexpected cases of the CausalOrder.
+func TestCausalOrder_UnexpectedCases(t *testing.T) {
+	tf := NewTestFramework(t)
+	tf.CreateEntity("A", WithParents(tf.EntityIDs("Genesis")), WithEpoch(1))
+	tf.CreateEntity("B", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.CreateEntity("C", WithParents(tf.EntityIDs("A")), WithEpoch(1))
+	tf.Queue(tf.Entity("C"))
+
+	// test queueing an entity with non-existing parents
+	tf.RemoveEntity("A")
+	tf.Queue(tf.Entity("B"))
+	event.Loop.WaitUntilAllTasksProcessed()
+	tf.AssertOrdered()
+	tf.AssertEvicted("B")
+
+	// test eviction of non-existing entity
+	tf.RemoveEntity("C")
+	defer func() {
+		require.NotNil(t, recover())
+		event.Loop.WaitUntilAllTasksProcessed()
+		tf.AssertOrdered()
+		tf.AssertEvicted("B")
+	}()
+	tf.EvictEpoch(1)
 }
