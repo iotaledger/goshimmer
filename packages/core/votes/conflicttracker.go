@@ -88,7 +88,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 
 		// Only handle Like opinion because dislike should always be created and exist before.
 		if created && conflictVote.Opinion == Like {
-			if votePower, dislikeInstead := c.revokeConflictInstead(conflict, defaultVote); dislikeInstead {
+			if votePower, dislikeInstead := c.revokeConflictInstead(conflict, conflictVote); dislikeInstead {
 				conflictVote = conflictVote.WithOpinion(Dislike).WithVotePower(votePower)
 			}
 		}
@@ -139,7 +139,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeC
 			return false
 		}
 
-		if existingVote.VotePower.CompareTo(vote.VotePower) >= 0 {
+		if existingVote.VotePower.CompareTo(vote.VotePower) >= 0 && existingVote.Opinion == Like {
 			revokeInstead = true
 			votePower = existingVote.VotePower
 			return false

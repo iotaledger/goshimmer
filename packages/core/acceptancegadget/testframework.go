@@ -7,9 +7,13 @@ import (
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
@@ -21,8 +25,12 @@ import (
 type TestFramework struct {
 	Gadget *AcceptanceGadget
 
-	test           *testing.T
-	acceptedBlocks uint32
+	test *testing.T
+
+	acceptedBlocks    uint32
+	conflictsAccepted uint32
+	conflictsRejected uint32
+	reorgCount        uint32
 
 	optsGadget          []options.Option[AcceptanceGadget]
 	optsTangle          []options.Option[tangle.Tangle]
@@ -67,11 +75,44 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.acceptedBlocks), 1)
 	}))
 
+	t.Gadget.Events.Reorg.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
+		if debug.GetEnabled() {
+			t.test.Logf("REORG NEEDED: %s", conflictID)
+		}
+		atomic.AddUint32(&(t.reorgCount), 1)
+	}))
+
+	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		if debug.GetEnabled() {
+			t.test.Logf("CONFLICT ACCEPTED: %s", event.ID)
+		}
+		atomic.AddUint32(&(t.conflictsAccepted), 1)
+	}))
+
+	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+		if debug.GetEnabled() {
+			t.test.Logf("CONFLICT REJECTED: %s", event.ID)
+		}
+
+		atomic.AddUint32(&(t.conflictsRejected), 1)
+	}))
 	return
 }
 
 func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
 	assert.Equal(t.test, blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks), "expected %d blocks to be accepted but got %d", blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks))
+}
+
+func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
+	assert.Equal(t.test, conflictsAccepted, atomic.LoadUint32(&t.conflictsAccepted), "expected %d conflicts to be accepted but got %d", conflictsAccepted, atomic.LoadUint32(&t.acceptedBlocks))
+}
+
+func (t *TestFramework) AssertConflictsRejected(conflictsRejected uint32) {
+	assert.Equal(t.test, conflictsRejected, atomic.LoadUint32(&t.conflictsRejected), "expected %d conflicts to be rejected but got %d", conflictsRejected, atomic.LoadUint32(&t.acceptedBlocks))
+}
+
+func (t *TestFramework) AssertReorgs(reorgCount uint32) {
+	assert.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bool) {
@@ -85,6 +126,13 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 	for marker, markerExpectedAccepted := range expectedConflictIDs {
 		actualMarkerAccepted := t.Gadget.IsMarkerAccepted(marker)
 		assert.Equal(t.test, markerExpectedAccepted, actualMarkerAccepted, "%s should be accepted=%t but is %t", marker, markerExpectedAccepted, actualMarkerAccepted)
+	}
+}
+
+func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
+	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
+		actualMarkerAccepted := t.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Transaction(conflictIDAlias).ID()))
+		assert.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, actualMarkerAccepted, actualMarkerAccepted)
 	}
 }
 

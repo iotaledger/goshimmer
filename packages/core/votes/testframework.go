@@ -49,12 +49,8 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, o
 			t.ValidatorSet = validator.NewSet()
 		}
 
-		if t.conflictDAG == nil {
-			t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
-		}
-		if t.sequenceManager == nil {
-			t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
-		}
+		t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
+		t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		t.SequenceTracker().Events.SequenceVotersUpdated.Hook(event.NewClosure(func(evt *SequenceVotersUpdatedEvent) {
 			if debug.GetEnabled() {

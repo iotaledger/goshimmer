@@ -117,8 +117,11 @@ func (a *AcceptanceGadget) Block(id models.BlockID) (block *Block, exists bool) 
 func (a *AcceptanceGadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.EvictionManager.RLock()
 	defer a.EvictionManager.RUnlock()
+	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
+		if markerIndex == 0 {
+			continue
+		}
 
-	for markerIndex := prevMaxSupportedIndex + 1; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.Tangle.VirtualVoting.MarkerVoters(marker)
@@ -156,15 +159,16 @@ func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error
 	bookerBlock, _ := a.Tangle.BlockFromMarker(marker)
 	virtualVotingBlock, _ := a.Tangle.Block(bookerBlock.ID())
 
-	block, err := a.getOrRegisterBlock(virtualVotingBlock)
+	err = a.registerBlockWithPastCone(virtualVotingBlock)
 	if err != nil {
 		return errors.Wrap(err, "could not mark past cone as accepted")
 	}
 
+	block, _ := a.block(virtualVotingBlock.ID())
+
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
-
 		a.acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
@@ -172,16 +176,7 @@ func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error
 				continue
 			}
 
-			parentBlockBooker, parentExists := a.Tangle.Block(parentBlockID)
-			if !parentExists {
-				return errors.Errorf("parent block %s does not exist", parentBlockID)
-			}
-
-			parentBlock, parentErr := a.getOrRegisterBlock(parentBlockBooker)
-			if parentErr != nil {
-				return errors.Wrap(parentErr, "could not mark past cone as accepted")
-			}
-
+			parentBlock, _ := a.block(parentBlockID)
 			pastConeWalker.Push(parentBlock)
 		}
 	}
@@ -189,22 +184,10 @@ func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error
 	return nil
 }
 
-func (a *AcceptanceGadget) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	block, exists := a.block(virtualVotingBlock.ID())
-	if !exists {
-		block, err = a.registerBlock(virtualVotingBlock)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return block, nil
-}
-
 func (a *AcceptanceGadget) markAsAccepted(block *Block) (err error) {
 	if a.EvictionManager.IsTooOld(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
-
 	if block.SetAccepted() {
 		a.Events.BlockAccepted.Trigger(block)
 
@@ -238,17 +221,43 @@ func (a *AcceptanceGadget) evictSequence(sequenceID markers.SequenceID) {
 	}
 }
 
-func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if a.EvictionManager.IsTooOld(virtualVotingBlock.ID()) {
-		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
+func (a *AcceptanceGadget) registerBlockWithPastCone(block *virtualvoting.Block) (err error) {
+	pastConeWalker := walker.New[*virtualvoting.Block](false).Push(block)
+	for pastConeWalker.HasNext() {
+		walkerBlock := pastConeWalker.Next()
+		created, registerErr := a.registerBlock(walkerBlock)
+		if registerErr != nil {
+			return registerErr
+		}
+		if created {
+			for _, parentID := range walkerBlock.Parents() {
+				parentBlock, parentExists := a.Tangle.Block(parentID)
+				if parentExists {
+					pastConeWalker.Push(parentBlock)
+				}
+			}
+		}
 	}
+
+	return nil
+}
+
+func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (registered bool, err error) {
+	if a.EvictionManager.IsTooOld(virtualVotingBlock.ID()) {
+		return false, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
+	}
+
+	if _, exists := a.block(virtualVotingBlock.ID()); exists {
+		return false, nil
+	}
+
 	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)
 
-	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	_, registered = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 
-	return block, nil
+	return registered, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -281,9 +290,10 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 		return markAsAccepted
 	})
 
-	// check if previously accepted conflict is differnet from the newly accepted one, then trigger the reorg
+	// check if previously accepted conflict is different from the newly accepted one, then trigger the reorg
 	if markAsAccepted && otherConflictAccepted {
 		a.Events.Error.Trigger(errors.Errorf("conflictID %s needs to be reorg-ed, but functionality not implemented yet!", conflictID))
+		a.Events.Reorg.Trigger(conflictID)
 		return
 	}
 
