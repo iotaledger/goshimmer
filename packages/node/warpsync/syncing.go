@@ -57,13 +57,11 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	var wg sync.WaitGroup
 
 	epochProcessingChan := make(chan epoch.Index)
-	epochProcessingStopChan := make(chan struct{})
 	epochProcessedChan := make(chan epoch.Index)
-	flowErrChan := make(chan error)
+	flowErrChan := make(chan error, 1)
 	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
 	errCtx, cancelErrCtx := context.WithCancel(ctx)
-	defer cancelErrCtx()
 
 	// Spawn concurreny amount of goroutines.
 	for worker := 0; worker < m.concurrency; worker++ {
@@ -74,8 +72,6 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 			for {
 				var targetEpoch epoch.Index
 				select {
-				case <-epochProcessingStopChan:
-					return
 				case <-errCtx.Done():
 					return
 				case targetEpoch = <-epochProcessingChan:
@@ -138,7 +134,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	}
 
 	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
-	close(epochProcessingStopChan)
+	cancelErrCtx()
 
 	wg.Wait()
 
