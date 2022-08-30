@@ -61,7 +61,7 @@ type epochChannels struct {
 	startChan chan *epochSyncStart
 	blockChan chan *epochSyncBlock
 	endChan   chan *epochSyncEnd
-	stopChan  chan struct{}
+	active    bool
 }
 
 // NewManager creates a new Manager.

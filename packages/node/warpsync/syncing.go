@@ -212,7 +212,7 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	epochChannels.startChan = make(chan *epochSyncStart)
 	epochChannels.blockChan = make(chan *epochSyncBlock)
 	epochChannels.endChan = make(chan *epochSyncEnd)
-	epochChannels.stopChan = make(chan struct{})
+	epochChannels.active = true
 
 	return
 }
@@ -223,7 +223,7 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 
 	epochChannels := m.epochsChannels[ei]
 
-	close(epochChannels.stopChan)
+	epochChannels.active = false
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
@@ -283,16 +283,16 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
+	if !epochChannels.active {
+		return
+	}
+
 	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
-	select {
-	case <-epochChannels.stopChan:
-		return
-	case epochChannels.startChan <- &epochSyncStart{
+	epochChannels.startChan <- &epochSyncStart{
 		ei:          ei,
 		ec:          epoch.NewMerkleRoot(epochBlocksStart.GetEC()),
 		blocksCount: epochBlocksStart.GetBlocksCount(),
-	}:
 	}
 }
 
@@ -308,6 +308,10 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
+	if !epochChannels.active {
+		return
+	}
+
 	blocksBytes := epochBlocksBatch.GetBlocks()
 	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "EI", ei, "blocksLen", len(blocksBytes))
 
@@ -317,15 +321,12 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return
 		}
-		select {
-		case <-epochChannels.stopChan:
-			return
-		case epochChannels.blockChan <- &epochSyncBlock{
+
+		epochChannels.blockChan <- &epochSyncBlock{
 			ei:    ei,
 			ec:    epoch.NewMerkleRoot(epochBlocksBatch.GetEC()),
 			peer:  nbr.Peer,
 			block: block,
-		}:
 		}
 	}
 }
@@ -344,16 +345,16 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 
 	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "EI", ei)
 
-	select {
-	case <-epochChannels.stopChan:
+	if !epochChannels.active {
 		return
-	case epochChannels.endChan <- &epochSyncEnd{
+	}
+
+	epochChannels.endChan <- &epochSyncEnd{
 		ei:                ei,
 		ec:                epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
 		stateMutationRoot: epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
 		stateRoot:         epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
 		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
-	}:
 	}
 }
 
