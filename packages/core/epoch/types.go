@@ -308,31 +308,32 @@ func (al *NodesActivityLog) loadActivityLogsMap(m nodesActivitySerializableMap) 
 // ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	SetEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
+	model.Mutable[ActivityLog, *ActivityLog, activityLogModel] `serix:"0"`
+}
+
+// nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.
+type activityLogModel struct {
+	ActivityLog *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
-	a := &ActivityLog{
-		SetEpochs: set.NewAdvancedSet[identity.ID](),
-	}
-
-	return a
+	return model.NewMutable[ActivityLog](&activityLogModel{ActivityLog: set.NewAdvancedSet[identity.ID]()})
 }
 
 // Add adds a node to the activity log.
 func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
-	return a.SetEpochs.Add(nodeID)
+	return a.InnerModel().ActivityLog.Add(nodeID)
 }
 
 // Remove removes a node from the activity log.
 func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
-	return a.SetEpochs.Delete(nodeID)
+	return a.InnerModel().ActivityLog.Delete(nodeID)
 }
 
 // Active returns true if the provided node was active.
 func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
-	if a.SetEpochs.Has(nodeID) {
+	if a.InnerModel().ActivityLog.Has(nodeID) {
 		return true
 	}
 
@@ -342,8 +343,8 @@ func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
 // String returns a human-readable version of ActivityLog.
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
-	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.Size()))
+	a.InnerModel().ActivityLog.ForEach(func(nodeID identity.ID) (err error) {
 		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
 		return
 	})
@@ -354,18 +355,18 @@ func (a *ActivityLog) String() string {
 // Clone clones the ActivityLog.
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
-	clone.SetEpochs = a.SetEpochs.Clone()
+	clone.InnerModel().ActivityLog = a.InnerModel().ActivityLog.Clone()
 	return clone
 }
 
 // ForEach iterates through the activity set and calls the callback for every element.
 func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (err error) {
-	return a.SetEpochs.ForEach(callback)
+	return a.InnerModel().ActivityLog.ForEach(callback)
 }
 
 // Size returns the size of the activity log.
 func (a *ActivityLog) Size() int {
-	return a.SetEpochs.Size()
+	return a.InnerModel().ActivityLog.Size()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
