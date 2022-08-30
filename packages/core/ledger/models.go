@@ -484,9 +484,9 @@ func (o *OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) 
 
 // String returns a human-readable version of the OutputsMetadata.
 func (o *OutputsMetadata) String() (humanReadable string) {
-	structBuilder := stringify.StructBuilder("OutputsMetadata")
+	structBuilder := stringify.NewStructBuilder("OutputsMetadata")
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) error {
-		structBuilder.AddField(stringify.StructField(outputMetadata.ID().String(), outputMetadata))
+		structBuilder.AddField(stringify.NewStructField(outputMetadata.ID().String(), outputMetadata))
 		return nil
 	})
 
@@ -597,12 +597,12 @@ type outputWithMetadataModel struct {
 
 // String returns a human-readable version of the OutputWithMetadata.
 func (o *OutputWithMetadata) String() string {
-	structBuilder := stringify.StructBuilder("OutputWithMetadata")
-	structBuilder.AddField(stringify.StructField("OutputID", o.ID()))
-	structBuilder.AddField(stringify.StructField("Output", o.Output()))
-	structBuilder.AddField(stringify.StructField("CreationTime", o.CreationTime()))
-	structBuilder.AddField(stringify.StructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
-	structBuilder.AddField(stringify.StructField("AccessPledgeID", o.AccessManaPledgeID()))
+	structBuilder := stringify.NewStructBuilder("OutputWithMetadata")
+	structBuilder.AddField(stringify.NewStructField("OutputID", o.ID()))
+	structBuilder.AddField(stringify.NewStructField("Output", o.Output()))
+	structBuilder.AddField(stringify.NewStructField("CreationTime", o.CreationTime()))
+	structBuilder.AddField(stringify.NewStructField("ConsensusPledgeID", o.ConsensusManaPledgeID()))
+	structBuilder.AddField(stringify.NewStructField("AccessPledgeID", o.AccessManaPledgeID()))
 
 	return structBuilder.String()
 }
