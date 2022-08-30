@@ -99,7 +99,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 					}
 					proposedECRecord := epochCommitment.ecRecord
 					if ecRecordChain[epochToValidate+1].PrevEC() != proposedECRecord.ComputeEC() {
-						m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
+						m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
 						validPeers.Delete(peerID)
 						continue
 					}

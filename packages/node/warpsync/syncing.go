@@ -62,6 +62,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
 	errCtx, cancelErrCtx := context.WithCancel(ctx)
+	defer cancelErrCtx()
 
 	// Spawn concurreny amount of goroutines.
 	for worker := 0; worker < m.concurrency; worker++ {
@@ -104,7 +105,11 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.endEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
-						epochProcessedChan <- targetEpoch
+						select {
+						case <-errCtx.Done():
+							return
+						case epochProcessedChan <- targetEpoch:
+						}
 						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
 					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
 						discardedPeers.Add(params.peerID)
@@ -209,9 +214,10 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
-	epochChannels.startChan = make(chan *epochSyncStart)
-	epochChannels.blockChan = make(chan *epochSyncBlock)
-	epochChannels.endChan = make(chan *epochSyncEnd)
+	epochChannels.startChan = make(chan *epochSyncStart, 1)
+	epochChannels.blockChan = make(chan *epochSyncBlock, 1)
+	epochChannels.endChan = make(chan *epochSyncEnd, 1)
+	epochChannels.stopChan = make(chan struct{})
 	epochChannels.active = true
 
 	return
@@ -224,6 +230,7 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 	epochChannels := m.epochsChannels[ei]
 
 	epochChannels.active = false
+	close(epochChannels.stopChan)
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
@@ -322,11 +329,15 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			return
 		}
 
-		epochChannels.blockChan <- &epochSyncBlock{
+		select {
+		case <-epochChannels.stopChan:
+			return
+		case epochChannels.blockChan <- &epochSyncBlock{
 			ei:    ei,
 			ec:    epoch.NewMerkleRoot(epochBlocksBatch.GetEC()),
 			peer:  nbr.Peer,
 			block: block,
+		}:
 		}
 	}
 }
@@ -343,11 +354,11 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
-	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "EI", ei)
-
 	if !epochChannels.active {
 		return
 	}
+
+	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "EI", ei)
 
 	epochChannels.endChan <- &epochSyncEnd{
 		ei:                ei,

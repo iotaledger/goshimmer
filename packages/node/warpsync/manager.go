@@ -61,6 +61,7 @@ type epochChannels struct {
 	startChan chan *epochSyncStart
 	blockChan chan *epochSyncBlock
 	endChan   chan *epochSyncEnd
+	stopChan  chan struct{}
 	active    bool
 }
 
@@ -117,9 +118,6 @@ func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC
 		m.log.Debugf("WarpRange: already synced to %d", m.successfulSyncEpoch)
 		return nil
 	}
-
-	// We always request from the last successfully-warpsynced epoch.
-	start = m.successfulSyncEpoch
 
 	m.active.Set()
 	defer m.active.UnSet()
