@@ -127,7 +127,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			if epochToValidate == start {
 				syncedStartPrevEC := ecRecordChain[start+1].PrevEC()
 				if startEC != syncedStartPrevEC {
-					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, syncedStartPrevEC)
+					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC.Base58(), syncedStartPrevEC.Base58())
 				}
 				m.log.Infof("range %d-%d validated", start, end)
 				validPeers = validPeers.Intersect(activePeers)
