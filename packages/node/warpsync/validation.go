@@ -67,7 +67,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			// If we already validated this epoch, we check if the neighbor is on the target chain.
 			if commitmentEI > epochToValidate {
 				if ecRecordChain[commitmentEI].ComputeEC() != ecRecord.ComputeEC() {
-					m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
+					m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
 					validPeers.Delete(peerID)
 				}
 				continue
