@@ -96,7 +96,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		return nil, ErrNoP2P
 	}
 
-	handleInboundStream := func(ctx context.Context, protocolID protocol.ID, registeredProtocols ...protocol.ID) (*PacketsStream, error) {
+	handleInboundStream := func(ctx context.Context, protocolID protocol.ID) (*PacketsStream, error) {
 		if buildConnectPeerConfig(opts).useDefaultTimeout {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)

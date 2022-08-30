@@ -234,7 +234,7 @@ func newTangle(tangleDeps tangledeps) *tangleold.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangleold.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangleold.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.ActivityTime, tangleDeps.Storage)
+	tangleInstance.WeightProvider = tangleold.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.ActivityTime, GetConfirmedEI, tangleDeps.Storage)
 	tangleInstance.OTVConsensusManager = tangleold.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfConflict))
 
 	acceptanceGadget = acceptance.NewSimpleFinalityGadget(tangleInstance)

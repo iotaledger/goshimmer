@@ -47,7 +47,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (completedEpoch epoch.Index, err error) {
 	startRange := start + 1
 	endRange := end - 1
 
@@ -55,7 +55,6 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	defer m.endSyncing()
 
 	var wg sync.WaitGroup
-	defer wg.Wait()
 
 	epochProcessingChan := make(chan epoch.Index)
 	epochProcessingStopChan := make(chan struct{})
@@ -130,6 +129,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 					cancelErrCtx()
 					select {
 					case flowErrChan <- errors.Errorf("unable to sync epoch %d", targetEpoch):
+						close(flowErrStopChan)
 					case <-flowErrStopChan:
 					}
 				}
@@ -137,37 +137,43 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 		}()
 	}
 
-	m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
+	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
 	close(epochProcessingStopChan)
+
+	wg.Wait()
 
 	select {
 	case err := <-flowErrChan:
-		close(flowErrStopChan)
-		return errors.Wrapf(err, "sync failed for range %d-%d", start, end)
+		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
 	default:
 	}
 
-	return nil
+	return completedEpoch, nil
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) {
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
 	processedEpochs := make(map[epoch.Index]types.Empty)
-	for ei := startRange; ei < startRange+epoch.Index(m.concurrency); ei++ {
+	for ei := startRange; ei < startRange+epoch.Index(m.concurrency) && ei <= endRange; ei++ {
 		epochProcessingChan <- ei
 	}
 
-	lowestProcessing := startRange
+	windowStart := startRange
+processingLoop:
 	for {
 		select {
 		case processedEpoch := <-epochProcessedChan:
 			processedEpochs[processedEpoch] = types.Void
 			for {
-				if _, processed := processedEpochs[lowestProcessing]; processed {
-					if lowestProcessing+epoch.Index(m.concurrency) > endRange {
-						break
+				if _, processed := processedEpochs[windowStart]; processed {
+					completedEpoch = windowStart
+					if completedEpoch == endRange {
+						break processingLoop
 					}
-					epochProcessingChan <- lowestProcessing + epoch.Index(m.concurrency)
-					lowestProcessing++
+					windowEnd := windowStart + epoch.Index(m.concurrency)
+					if windowEnd <= endRange {
+						epochProcessingChan <- windowEnd
+					}
+					windowStart++
 				} else {
 					break
 				}
@@ -176,6 +182,7 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 			return
 		}
 	}
+	return
 }
 
 func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
@@ -202,6 +209,7 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	defer m.syncingLock.Unlock()
 
 	epochChannels = m.epochsChannels[ei]
+
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 

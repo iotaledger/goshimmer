@@ -107,6 +107,6 @@ func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
 func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
-	e.Called(event.EI, event.EpochDiffCreated, event.EpochDiffSpent)
+	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }

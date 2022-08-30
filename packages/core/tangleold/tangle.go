@@ -356,7 +356,7 @@ type WeightProvider interface {
 	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// SnapshotEpochActivity returns the activity log for snapshotting.
-	SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity)
+	SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity)
 
 	// LoadActiveNodes loads active nodes from the snapshot activity log.
 	LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity)
