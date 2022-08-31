@@ -11,15 +11,15 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 const (
@@ -53,19 +53,6 @@ func New(tangle *tangle.Tangle, opts ...options.Option[AcceptanceGadget]) *Accep
 	}, opts, func(a *AcceptanceGadget) {
 		a.acceptanceOrder = causalorder.New(a.EvictionManager.Manager, a.GetOrRegisterBlock, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*AcceptanceGadget).setupEvents)
-}
-
-func (a *AcceptanceGadget) setupEvents() {
-	a.Tangle.VirtualVoting.Events.SequenceVoterUpdated.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
-		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}))
-
-	a.Tangle.VirtualVoting.Events.ConflictVoterAdded.Attach(event.NewClosure[*votes.ConflictVoterEvent[utxo.TransactionID]](func(evt *votes.ConflictVoterEvent[utxo.TransactionID]) {
-		a.RefreshConflictAcceptance(evt.ConflictID)
-	}))
-
-	a.Tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
-	a.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(a.evictEpoch))
 }
 
 // IsMarkerAccepted returns whether the given marker is accepted.
@@ -111,6 +98,13 @@ func (a *AcceptanceGadget) Block(id models.BlockID) (block *Block, exists bool) 
 	return a.block(id)
 }
 
+func (a *AcceptanceGadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
+	a.EvictionManager.RLock()
+	defer a.EvictionManager.RUnlock()
+
+	return a.getOrRegisterBlock(blockID)
+}
+
 func (a *AcceptanceGadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.EvictionManager.RLock()
 	defer a.EvictionManager.RUnlock()
@@ -126,6 +120,19 @@ func (a *AcceptanceGadget) RefreshSequenceAcceptance(sequenceID markers.Sequence
 			a.propagateAcceptance(marker)
 		}
 	}
+}
+
+func (a *AcceptanceGadget) setupEvents() {
+	a.Tangle.VirtualVoting.Events.SequenceVoterUpdated.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
+		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
+	}))
+
+	a.Tangle.VirtualVoting.Events.ConflictVoterAdded.Attach(event.NewClosure[*votes.ConflictVoterEvent[utxo.TransactionID]](func(evt *votes.ConflictVoterEvent[utxo.TransactionID]) {
+		a.RefreshConflictAcceptance(evt.ConflictID)
+	}))
+
+	a.Tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
+	a.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(a.evictEpoch))
 }
 
 func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) {
@@ -205,12 +212,6 @@ func (a *AcceptanceGadget) evictSequence(sequenceID markers.SequenceID) {
 	}
 }
 
-func (a *AcceptanceGadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
-	a.EvictionManager.RLock()
-	defer a.EvictionManager.RUnlock()
-
-	return a.getOrRegisterBlock(blockID)
-}
 func (a *AcceptanceGadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
 	block, exists = a.block(blockID)
 	if !exists {
@@ -257,9 +258,9 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 	isOtherConflictAccepted := false
 	var otherAcceptedConflict utxo.TransactionID
 
-	a.Tangle.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+	a.Tangle.Booker.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 		// check if another conflict is accepted, to evaluate reorg condition
-		if !isOtherConflictAccepted && a.Tangle.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
+		if !isOtherConflictAccepted && a.Tangle.Booker.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
 			isOtherConflictAccepted = true
 			otherAcceptedConflict = conflictingConflictID
 		}
@@ -282,7 +283,7 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 	}
 
 	if markAsAccepted {
-		a.Tangle.ConflictDAG.SetConflictAccepted(conflictID)
+		a.Tangle.Booker.Ledger.ConflictDAG.SetConflictAccepted(conflictID)
 	}
 }
 
