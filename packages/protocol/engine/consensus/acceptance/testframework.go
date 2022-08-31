@@ -1,4 +1,4 @@
-package acceptancegadget
+package acceptance
 
 import (
 	"sync/atomic"
@@ -23,7 +23,7 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Gadget *AcceptanceGadget
+	Gadget *Gadget
 
 	test *testing.T
 
@@ -32,7 +32,7 @@ type TestFramework struct {
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadget          []options.Option[AcceptanceGadget]
+	optsGadget          []options.Option[Gadget]
 	optsTangle          []options.Option[tangle.Tangle]
 	optsValidatorSet    *validator.Set
 	optsEvictionManager *eviction.Manager[models.BlockID]
@@ -140,7 +140,7 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithAcceptanceGadgetOptions(opts ...options.Option[AcceptanceGadget]) options.Option[TestFramework] {
+func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsGadget = opts
 	}
