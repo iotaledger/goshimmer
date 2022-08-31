@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"
@@ -43,7 +43,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle          *tangleold.Tangle
-	P2Pmgr          *p2p2.Manager       `optional:"true"`
+	P2Pmgr          *p2p.Manager        `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
 	NotarizationMgr *notarization.Manager
@@ -310,8 +310,8 @@ func registerLocalMetrics() {
 		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
-	deps.P2Pmgr.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
-	deps.P2Pmgr.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
+	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	deps.P2Pmgr.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	if deps.Selection != nil {
 		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)

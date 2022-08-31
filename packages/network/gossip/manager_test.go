@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
-	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 const graceTime = 10 * time.Millisecond
@@ -59,13 +59,13 @@ func TestClosedConnection(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -76,7 +76,7 @@ func TestClosedConnection(t *testing.T) {
 	mgrB.On("neighborRemoved", mock.Anything).Once()
 
 	// A drops B
-	err := mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p2.NeighborsGroupAuto)
+	err := mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p.NeighborsGroupAuto)
 	require.NoError(t, err)
 	time.Sleep(graceTime)
 
@@ -100,13 +100,13 @@ func TestP2PSend(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -150,13 +150,13 @@ func TestP2PSendTwice(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -204,23 +204,23 @@ func TestBroadcast(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerC, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerC, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrC.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrC.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -266,23 +266,23 @@ func TestSingleSend(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerC, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerC, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	go func() {
 		defer wg.Done()
-		err := mgrC.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrC.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -318,7 +318,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	defer closeA()
 	defer closeB()
 
-	err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+	err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 	assert.Error(t, err)
 
 	mgrA.AssertExpectations(t)
@@ -340,13 +340,13 @@ func TestBlockRequest(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto)
+		err := mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 	time.Sleep(graceTime)
 	go func() {
 		defer wg.Done()
-		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto)
+		err := mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto)
 		assert.NoError(t, err)
 	}()
 
@@ -384,48 +384,48 @@ func TestDropNeighbor(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signalA := event.NewClosure(func(_ *p2p2.NeighborAddedEvent) { wg.Done() })
-		signalB := event.NewClosure(func(_ *p2p2.NeighborAddedEvent) { wg.Done() })
+		signalA := event.NewClosure(func(_ *p2p.NeighborAddedEvent) { wg.Done() })
+		signalB := event.NewClosure(func(_ *p2p.NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Hook(signalA)
-		defer mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Detach(signalA)
-		mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Hook(signalB)
-		defer mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Detach(signalB)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalA)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalA)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(signalB)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() {
-			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupAuto))
+			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupAuto))
 		}()
 		time.Sleep(graceTime)
 		go func() {
-			assert.NoError(t, mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupAuto))
+			assert.NoError(t, mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupAuto))
 		}()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
 	// close connection
 	disconnect := func() {
 		var wg sync.WaitGroup
-		signal := event.NewClosure(func(_ *p2p2.NeighborRemovedEvent) { wg.Done() })
+		signal := event.NewClosure(func(_ *p2p.NeighborRemovedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
-		defer mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-		mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
-		defer mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(signal)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Detach(signal)
 
 		// assure that no p2pManager.DropNeighbor calls are leaking
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_ = mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p2.NeighborsGroupAuto)
+			_ = mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p.NeighborsGroupAuto)
 		}()
 		go func() {
 			defer wg.Done()
-			_ = mgrB.p2pManager.DropNeighbor(peerA.ID(), p2p2.NeighborsGroupAuto)
+			_ = mgrB.p2pManager.DropNeighbor(peerA.ID(), p2p.NeighborsGroupAuto)
 		}()
 		wg.Wait() // wait until the events were triggered and the go routines are done
 	}
@@ -451,22 +451,22 @@ func TestManager(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signal := event.NewClosure(func(_ *p2p2.NeighborAddedEvent) { wg.Done() })
+		signal := event.NewClosure(func(_ *p2p.NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Hook(signal)
-		defer mgrA.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Detach(signal)
-		mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Hook(signal)
-		defer mgrB.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Detach(signal)
+		mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
+		defer mgrA.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
+		mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Hook(signal)
+		defer mgrB.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() {
-			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p2.NeighborsGroupManual))
+			assert.NoError(t, mgrA.p2pManager.AddInbound(context.Background(), peerB, p2p.NeighborsGroupManual))
 		}()
 		time.Sleep(graceTime)
 		go func() {
-			assert.NoError(t, mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p2.NeighborsGroupManual))
+			assert.NoError(t, mgrB.p2pManager.AddOutbound(context.Background(), peerA, p2p.NeighborsGroupManual))
 		}()
 		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
@@ -477,11 +477,11 @@ func TestManager(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_ = mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p2.NeighborsGroupAuto)
+			_ = mgrA.p2pManager.DropNeighbor(peerB.ID(), p2p.NeighborsGroupAuto)
 		}()
 		go func() {
 			defer wg.Done()
-			_ = mgrB.p2pManager.DropNeighbor(peerA.ID(), p2p2.NeighborsGroupAuto)
+			_ = mgrB.p2pManager.DropNeighbor(peerA.ID(), p2p.NeighborsGroupAuto)
 		}()
 		wg.Wait() // wait until the events were triggered and the go routines are done
 	}
@@ -546,7 +546,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 		require.NoError(t, err)
 
 		// start the actual gossipping
-		p2pMgr := p2p2.NewManager(hst, local, l)
+		p2pMgr := p2p.NewManager(hst, local, l)
 		mgr := NewManager(p2pMgr, loadTestBlock, l)
 		require.NoError(t, err)
 		tearDown := func() {
@@ -577,8 +577,8 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
-	e.p2pManager.NeighborGroupEvents(p2p2.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
+	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
+	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
 	e.Events.BlockReceived.Hook(event.NewClosure(e.blockReceived))
 
 	return e
@@ -589,6 +589,6 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) neighborAdded(event *p2p2.NeighborAddedEvent)     { e.Called(event.Neighbor) }
-func (e *mockedManager) neighborRemoved(event *p2p2.NeighborRemovedEvent) { e.Called(event.Neighbor) }
-func (e *mockedManager) blockReceived(event *BlockReceivedEvent)          { e.Called(event) }
+func (e *mockedManager) neighborAdded(event *p2p.NeighborAddedEvent)     { e.Called(event.Neighbor) }
+func (e *mockedManager) neighborRemoved(event *p2p.NeighborRemovedEvent) { e.Called(event.Neighbor) }
+func (e *mockedManager) blockReceived(event *BlockReceivedEvent)         { e.Called(event) }
