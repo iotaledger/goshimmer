@@ -2,16 +2,9 @@ package warpsync
 
 import (
 	"context"
-	"sync"
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
-	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +12,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
 type epochSyncStart struct {
@@ -54,107 +55,88 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	m.startSyncing(startRange, endRange)
 	defer m.endSyncing()
 
-	var wg sync.WaitGroup
+	eg, errCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(m.concurrency)
 
-	epochProcessingChan := make(chan epoch.Index)
 	epochProcessedChan := make(chan epoch.Index)
-	flowErrChan := make(chan error, 1)
-	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
-	errCtx, cancelErrCtx := context.WithCancel(ctx)
 
-	// Spawn concurreny amount of goroutines.
-	for worker := 0; worker < m.concurrency; worker++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	workerFunc := m.syncEpochFunc(errCtx, eg, validPeers, discardedPeers, ecChain, epochProcessedChan)
+	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
 
-			for {
-				var targetEpoch epoch.Index
-				select {
-				case <-errCtx.Done():
-					return
-				case targetEpoch = <-epochProcessingChan:
-				}
-
-				success := false
-				for it := validPeers.Iterator(); it.HasNext() && !success; {
-					peerID := it.Next()
-					if discardedPeers.Has(peerID) {
-						m.log.Debugw("skipping discarded peer", "peer", peerID)
-						continue
-					}
-
-					db, _ := database.NewMemDB()
-					tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
-
-					epochChannels := m.startEpochSyncing(targetEpoch)
-					epochChannels.RLock()
-
-					m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
-
-					dataflow.New(
-						m.epochStartCommand,
-						m.epochBlockCommand,
-						m.epochEndCommand,
-						m.epochVerifyCommand,
-						m.epochProcessBlocksCommand,
-					).WithTerminationCallback(func(params *syncingFlowParams) {
-						epochChannels.RUnlock()
-						m.endEpochSyncing(targetEpoch)
-					}).WithSuccessCallback(func(params *syncingFlowParams) {
-						success = true
-						epochProcessedChan <- targetEpoch
-						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
-					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
-						discardedPeers.Add(params.peerID)
-						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
-					}).Run(&syncingFlowParams{
-						ctx:           errCtx,
-						targetEpoch:   targetEpoch,
-						targetEC:      ecChain[targetEpoch],
-						targetPrevEC:  ecChain[targetEpoch-1],
-						epochChannels: epochChannels,
-						peerID:        peerID,
-						tangleTree:    tangleTree,
-						epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
-					})
-				}
-
-				if !success {
-					cancelErrCtx()
-					select {
-					case flowErrChan <- errors.Errorf("unable to sync epoch %d", targetEpoch):
-						close(flowErrStopChan)
-					case <-flowErrStopChan:
-					}
-				}
-			}
-		}()
-	}
-
-	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
-	cancelErrCtx()
-
-	wg.Wait()
-
-	select {
-	case err := <-flowErrChan:
+	if err := eg.Wait(); err != nil {
 		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
-	default:
 	}
-
 	return completedEpoch, nil
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
+func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *set.AdvancedSet[identity.ID], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]epoch.EC, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
+	return func(targetEpoch epoch.Index) {
+		eg.Go(func() error {
+			success := false
+			for it := validPeers.Iterator(); it.HasNext() && !success; {
+				peerID := it.Next()
+				if discardedPeers.Has(peerID) {
+					m.log.Debugw("skipping discarded peer", "peer", peerID)
+					continue
+				}
+
+				db, _ := database.NewMemDB()
+				tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
+
+				epochChannels := m.startEpochSyncing(targetEpoch)
+				epochChannels.RLock()
+
+				m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
+
+				dataflow.New(
+					m.epochStartCommand,
+					m.epochBlockCommand,
+					m.epochEndCommand,
+					m.epochVerifyCommand,
+					m.epochProcessBlocksCommand,
+				).WithTerminationCallback(func(params *syncingFlowParams) {
+					params.epochChannels.RUnlock()
+					m.endEpochSyncing(params.targetEpoch)
+				}).WithSuccessCallback(func(params *syncingFlowParams) {
+					success = true
+					select {
+					case <-params.ctx.Done():
+						return
+					case epochProcessedChan <- params.targetEpoch:
+					}
+					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
+				}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
+					discardedPeers.Add(params.peerID)
+					m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
+				}).Run(&syncingFlowParams{
+					ctx:           errCtx,
+					targetEpoch:   targetEpoch,
+					targetEC:      ecChain[targetEpoch],
+					targetPrevEC:  ecChain[targetEpoch-1],
+					epochChannels: epochChannels,
+					peerID:        peerID,
+					tangleTree:    tangleTree,
+					epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
+				})
+			}
+
+			if !success {
+				return errors.Errorf("unable to sync epoch %d", targetEpoch)
+			}
+
+			return nil
+		})
+	}
+}
+
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, workerFunc func(epoch.Index), epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
 	processedEpochs := make(map[epoch.Index]types.Empty)
 	for ei := startRange; ei < startRange+epoch.Index(m.concurrency) && ei <= endRange; ei++ {
-		epochProcessingChan <- ei
+		workerFunc(ei)
 	}
 
 	windowStart := startRange
-processingLoop:
 	for {
 		select {
 		case processedEpoch := <-epochProcessedChan:
@@ -163,11 +145,11 @@ processingLoop:
 				if _, processed := processedEpochs[windowStart]; processed {
 					completedEpoch = windowStart
 					if completedEpoch == endRange {
-						break processingLoop
+						return
 					}
 					windowEnd := windowStart + epoch.Index(m.concurrency)
 					if windowEnd <= endRange {
-						epochProcessingChan <- windowEnd
+						workerFunc(windowEnd)
 					}
 					windowStart++
 				} else {
@@ -178,7 +160,6 @@ processingLoop:
 			return
 		}
 	}
-	return
 }
 
 func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
@@ -209,10 +190,11 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
 
-	epochChannels.startChan = make(chan *epochSyncStart)
-	epochChannels.blockChan = make(chan *epochSyncBlock)
-	epochChannels.endChan = make(chan *epochSyncEnd)
+	epochChannels.startChan = make(chan *epochSyncStart, 1)
+	epochChannels.blockChan = make(chan *epochSyncBlock, 1)
+	epochChannels.endChan = make(chan *epochSyncEnd, 1)
 	epochChannels.stopChan = make(chan struct{})
+	epochChannels.active = true
 
 	return
 }
@@ -223,6 +205,7 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 
 	epochChannels := m.epochsChannels[ei]
 
+	epochChannels.active = false
 	close(epochChannels.stopChan)
 	epochChannels.Lock()
 	defer epochChannels.Unlock()
@@ -283,16 +266,16 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
+	if !epochChannels.active {
+		return
+	}
+
 	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
-	select {
-	case <-epochChannels.stopChan:
-		return
-	case epochChannels.startChan <- &epochSyncStart{
+	epochChannels.startChan <- &epochSyncStart{
 		ei:          ei,
 		ec:          epoch.NewMerkleRoot(epochBlocksStart.GetEC()),
 		blocksCount: epochBlocksStart.GetBlocksCount(),
-	}:
 	}
 }
 
@@ -308,6 +291,10 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
+	if !epochChannels.active {
+		return
+	}
+
 	blocksBytes := epochBlocksBatch.GetBlocks()
 	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "EI", ei, "blocksLen", len(blocksBytes))
 
@@ -317,6 +304,7 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return
 		}
+
 		select {
 		case <-epochChannels.stopChan:
 			return
@@ -342,18 +330,18 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 	epochChannels.RLock()
 	defer epochChannels.RUnlock()
 
+	if !epochChannels.active {
+		return
+	}
+
 	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "EI", ei)
 
-	select {
-	case <-epochChannels.stopChan:
-		return
-	case epochChannels.endChan <- &epochSyncEnd{
+	epochChannels.endChan <- &epochSyncEnd{
 		ei:                ei,
 		ec:                epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
 		stateMutationRoot: epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
 		stateRoot:         epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
 		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
-	}:
 	}
 }
 
