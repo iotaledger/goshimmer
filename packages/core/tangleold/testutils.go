@@ -939,7 +939,7 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
 
-func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+func (m *MockWeightProvider) SnapshotEpochActivity(ei epoch.Index) (epochActivity epoch.SnapshotEpochActivity) {
 	return nil
 }
 

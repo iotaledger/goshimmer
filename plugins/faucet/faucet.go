@@ -1,0 +1,82 @@
+package faucet
+
+import (
+	"context"
+	"time"
+
+	"github.com/iotaledger/hive.go/core/bitmask"
+	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+)
+
+type Faucet struct {
+	*wallet.Wallet
+}
+
+// NewFaucet creates a new Faucet instance.
+func NewFaucet(faucetSeed *seed.Seed) (f *Faucet) {
+	connector := NewConnector(deps.Tangle, deps.Indexer)
+
+	f = &Faucet{wallet.New(
+		wallet.GenericConnector(connector),
+		wallet.Import(faucetSeed, 0, []bitmask.BitMask{}, nil),
+		wallet.ReusableAddress(true),
+		wallet.FaucetPowDifficulty(Parameters.PowDifficulty),
+		wallet.ConfirmationTimeout(Parameters.MaxAwait),
+		wallet.ConfirmationPollingInterval(500*time.Millisecond),
+	)}
+	// We use index 1 as a proxy address from which we send the funds to the requester.
+	f.Wallet.NewReceiveAddress()
+
+	return f
+}
+
+// Start starts the faucet to fulfill faucet requests.
+func (f *Faucet) Start(ctx context.Context, requestChan <-chan *faucet.Payload) {
+	for {
+		select {
+		case p := <-requestChan:
+			tx, err := f.handleFaucetRequest(p, ctx)
+			if err != nil {
+				Plugin.LogErrorf("fail to send funds to %s: %v", p.Address().Base58(), err)
+				continue
+			}
+			Plugin.LogInfof("sent funds to %s: TXID: %s", p.Address().Base58(), tx.ID().Base58())
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// handleFaucetRequest sends funds to the requested address and waits for the transaction to become accepted.
+func (f *Faucet) handleFaucetRequest(p *faucet.Payload, ctx context.Context) (*devnetvm.Transaction, error) {
+	_, err := f.SendFunds(
+		sendoptions.Sources(f.Seed().Address(0)),                                          // we only reuse the address at index 0 for the wallet
+		sendoptions.Destination(f.Seed().Address(1), uint64(Parameters.TokensPerRequest)), // we send the funds to address at index 1 so that we can be sure the correct output is sent to a requester
+		sendoptions.AccessManaPledgeID(deps.Local.ID().EncodeBase58()),
+		sendoptions.ConsensusManaPledgeID(identity.ID{}.EncodeBase58()),
+		sendoptions.WaitForConfirmation(true),
+		sendoptions.Context(ctx),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// send funds to requester
+	tx, err := f.SendFunds(
+		sendoptions.Sources(f.Seed().Address(1)),
+		sendoptions.Destination(address.Address{AddressBytes: p.Address().Array()}, uint64(Parameters.TokensPerRequest)),
+		sendoptions.AccessManaPledgeID(p.AccessManaPledgeID().EncodeBase58()),
+		sendoptions.ConsensusManaPledgeID(p.ConsensusManaPledgeID().EncodeBase58()),
+		sendoptions.WaitForConfirmation(true),
+		sendoptions.Context(ctx),
+	)
+	return tx, err
+}

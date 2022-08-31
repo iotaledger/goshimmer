@@ -56,8 +56,6 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
 
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-
 	fundingAddress := peer1.Address(0)
 	tests.SendFaucetRequest(t, peer1, fundingAddress)
 

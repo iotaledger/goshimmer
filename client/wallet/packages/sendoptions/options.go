@@ -1,6 +1,7 @@
 package sendoptions
 
 import (
+	"context"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -61,6 +62,25 @@ func Remainder(addr address.Address) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		options.RemainderAddress = addr
 
+		return nil
+	}
+}
+
+// Sources is an option for the SendFunds call that allows to specify the addresses from which the outputs for the
+// transfer should be sourced.
+func Sources(addr ...address.Address) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		options.SourceAddresses = addr
+
+		return nil
+	}
+}
+
+// Context is an option for SendFunds call that allows to specify a context that is used in case of waiting for
+// transaction acceptance.
+func Context(ctx context.Context) SendFundsOption {
+	return func(options *SendFundsOptions) error {
+		options.Context = ctx
 		return nil
 	}
 }
@@ -143,6 +163,8 @@ type SendFundsOptions struct {
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool
 	UsePendingOutputs     bool
+	SourceAddresses       []address.Address
+	Context               context.Context
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.

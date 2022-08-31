@@ -59,8 +59,6 @@ func TestValueTransactionPersistence(t *testing.T) {
 	}
 
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-
 	addrBalance := make(map[string]map[devnetvm.Color]uint64)
 
 	// request funds from faucet
@@ -143,8 +141,6 @@ func TestValueAliasPersistence(t *testing.T) {
 		}
 		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
-
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
 	w := wallet.New(wallet.WebAPI(nonFaucetPeers[0].BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))

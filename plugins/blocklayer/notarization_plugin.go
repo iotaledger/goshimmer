@@ -85,7 +85,6 @@ func newNotarizationManager(deps notarizationManagerDependencies) *notarization.
 		deps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))
 }
 

@@ -148,12 +148,10 @@ func checkEpochContentLimit() {
 		return
 	}
 
-	epochOrderMutex.Lock()
 	epochVotersWeightMutex.Lock()
 	committableEpochsMutex.Lock()
 
 	defer func() {
-		epochOrderMutex.Unlock()
 		epochVotersWeightMutex.Unlock()
 		committableEpochsMutex.Unlock()
 	}()

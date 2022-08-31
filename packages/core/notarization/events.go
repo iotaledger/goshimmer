@@ -99,10 +99,6 @@ type CompetingCommitmentDetectedEvent struct {
 type ManaVectorUpdateEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
-	// EpochDiffCreated is the list of outputs created in the epoch.
-	EpochDiffCreated []*ledger.OutputWithMetadata
-	// EpochDiffSpent is the list of outputs spent in the epoch.
-	EpochDiffSpent []*ledger.OutputWithMetadata
 }
 
 // SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.
