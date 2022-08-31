@@ -4,39 +4,42 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 )
 
+// region Set //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type Set struct {
-	validators  *memstorage.Storage[identity.ID, *Validator]
-	totalWeight uint64
+	validators     *memstorage.Storage[identity.ID, *Validator]
+	totalWeight    int64
+	optTrackEvents bool
 
 	mutex sync.RWMutex
 }
 
-func NewSet(validators ...*Validator) *Set {
-	newSet := &Set{
+func NewSet(opts ...options.Option[Set]) *Set {
+	return options.Apply(&Set{
 		validators: memstorage.New[identity.ID, *Validator](),
-	}
-
-	for _, validator := range validators {
-		newSet.validators.Set(validator.ID(), validator)
-		newSet.totalWeight += validator.Weight()
-
-		validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](func(updatedEvent *WeightUpdatedEvent) {
-			newSet.mutex.Lock()
-			defer newSet.mutex.Unlock()
-
-			newSet.totalWeight += updatedEvent.NewWeight - updatedEvent.OldWeight
-		}))
-	}
-
-	return newSet
+	}, opts)
 }
 
-func (s *Set) TotalWeight() uint64 {
+func (s *Set) AddAll(validators ...*Validator) *Set {
+	for _, validator := range validators {
+		s.validators.Set(validator.ID(), validator)
+		s.totalWeight += int64(validator.Weight())
+
+		if s.optTrackEvents {
+			validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
+		}
+	}
+
+	return s
+}
+
+func (s *Set) TotalWeight() int64 {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -53,14 +56,17 @@ func (s *Set) Add(validator *Validator) {
 
 	s.validators.Set(validator.ID(), validator)
 
-	s.totalWeight += validator.Weight()
+	s.totalWeight += int64(validator.Weight())
 
-	validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](func(updatedEvent *WeightUpdatedEvent) {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
+	if s.optTrackEvents {
+		validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
+	}
+}
+func (s *Set) handleWeightUpdatedEvent(updatedEvent *WeightUpdatedEvent) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-		s.totalWeight += updatedEvent.NewWeight - updatedEvent.OldWeight
-	}))
+	s.totalWeight += int64(updatedEvent.NewWeight) - int64(updatedEvent.OldWeight)
 }
 
 // ForEachKey iterates through the map and calls the consumer for every element.
@@ -86,3 +92,19 @@ func (s *Set) Slice() (validators []*Validator) {
 	})
 	return
 }
+
+func (s *Set) IsThresholdReached(otherWeight int64, threshold float64) bool {
+	return otherWeight > int64(float64(s.TotalWeight())*threshold)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithValidatorEventTracking(trackEvents bool) options.Option[Set] {
+	return func(set *Set) {
+		set.optTrackEvents = trackEvents
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

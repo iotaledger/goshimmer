@@ -3,7 +3,6 @@ package virtualvoting
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
@@ -60,7 +59,7 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // MarkerVoters retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
+func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.Set) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
@@ -68,7 +67,7 @@ func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *set.Advance
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
-func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *set.AdvancedSet[*validator.Validator]) {
+func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *validator.Set) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 

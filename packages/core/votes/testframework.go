@@ -95,7 +95,7 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 	for conflictIDAlias, expectedVoters := range expectedResults {
 		actualVoters := t.ConflictTracker().Voters(t.ConflictID(conflictIDAlias))
 
-		assert.Truef(t.test, actualVoters.Equal(expectedVoters), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
+		assert.Truef(t.test, expectedVoters.Equal(ValidatorSetToAdvancedSet(actualVoters)), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
 	}
 }
 
@@ -106,8 +106,17 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 
 		voters := t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
 	}
+}
+
+func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSet *set.AdvancedSet[*validator.Validator]) {
+	validatorAdvancedSet = set.NewAdvancedSet[*validator.Validator]()
+	validatorSet.ForEach(func(_ identity.ID, validator *validator.Validator) bool {
+		validatorAdvancedSet.Add(validator)
+		return true
+	})
+	return validatorAdvancedSet
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
