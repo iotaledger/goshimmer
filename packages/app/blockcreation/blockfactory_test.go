@@ -1,4 +1,4 @@
-package blockfactory
+package blockcreation
 
 import (
 	"context"
@@ -18,9 +18,10 @@ import (
 	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 const (

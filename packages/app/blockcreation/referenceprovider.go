@@ -1,4 +1,4 @@
-package blockfactory
+package blockcreation
 
 import (
 	"time"
@@ -9,10 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 // region ReferenceProvider ////////////////////////////////////////////////////////////////////////////////////////////

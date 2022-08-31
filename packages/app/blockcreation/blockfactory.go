@@ -1,4 +1,4 @@
-package blockfactory
+package blockcreation
 
 import (
 	"fmt"
@@ -11,10 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/node/clock"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 const (
@@ -228,13 +229,13 @@ func (f *BlockFactory) getIssuingTime(parents tangle.BlockIDs) time.Time {
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
 	// TODO: when TipManager is ready, we need to check the issuing time of the parents.
-	//for parent := range parents {
+	// for parent := range parents {
 	//	f.tangle.Storage.Block(parent).Consume(func(blk *tangle.Block) {
 	//		if blk.ID() != tangle.EmptyBlockID && !blk.IssuingTime().Before(issuingTime) {
 	//			issuingTime = blk.IssuingTime()
 	//		}
 	//	})
-	//}
+	// }
 
 	return issuingTime
 }
@@ -243,23 +244,23 @@ func (f *BlockFactory) tips(p payload.Payload, parentsCount int) (parents tangle
 	parents = f.selector.Tips(p, parentsCount)
 
 	// TODO: when Ledger is refactored, we need to rework the stuff below
-	//tx, ok := p.(utxo.Transaction)
-	//if !ok {
+	// tx, ok := p.(utxo.Transaction)
+	// if !ok {
 	//	return parents
-	//}
+	// }
 
 	// If the block is issuing a transaction and is a double spend, we add it in parallel to the earliest attachment
 	// to prevent a double spend from being issued in its past cone.
-	//if conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID()); !conflictingTransactions.IsEmpty() {
+	// if conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID()); !conflictingTransactions.IsEmpty() {
 	//	if earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment != nil {
 	//		return earliestAttachment.ParentsByType(tangle.StrongParentType)
 	//	}
-	//}
+	// }
 
 	return parents
 }
 
-//func (f *BlockFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs, earliestAttachmentMustBeBooked ...bool) (earliestAttachment *tangle.Block) {
+// func (f *BlockFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs, earliestAttachmentMustBeBooked ...bool) (earliestAttachment *tangle.Block) {
 //	var earliestIssuingTime time.Time
 //	for it := transactionIDs.Iterator(); it.HasNext(); {
 //		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
@@ -276,9 +277,9 @@ func (f *BlockFactory) tips(p payload.Payload, parentsCount int) (parents tangle
 //	}
 //
 //	return earliestAttachment
-//}
+// }
 //
-//func (f *BlockFactory) LatestAttachment(transactionID utxo.TransactionID) (latestAttachment *tangle.Block) {
+// func (f *BlockFactory) LatestAttachment(transactionID utxo.TransactionID) (latestAttachment *tangle.Block) {
 //	var latestIssuingTime time.Time
 //	f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
 //		f.tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangle.Block) {
@@ -292,7 +293,7 @@ func (f *BlockFactory) tips(p payload.Payload, parentsCount int) (parents tangle
 //	})
 //
 //	return latestAttachment
-//}
+// }
 
 // Shutdown closes the BlockFactory and persists the sequence number.
 func (f *BlockFactory) Shutdown() {

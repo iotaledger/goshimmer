@@ -1,4 +1,4 @@
-package blockfactory
+package blockcreation
 
 import (
 	"github.com/iotaledger/hive.go/generics/event"
