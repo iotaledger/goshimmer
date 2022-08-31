@@ -6,16 +6,14 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 const (
@@ -87,7 +85,7 @@ func (f *BlockFactory) SetTimeout(timeout time.Duration) {
 }
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
-func (f *BlockFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*tangle.Block, error) {
+func (f *BlockFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*models.Block, error) {
 	blk, err := f.issuePayload(p, nil, parentsCount...)
 	if err != nil {
 		f.Events.Error.Trigger(errors.Errorf("block could not be issued: %w", err))
@@ -99,7 +97,7 @@ func (f *BlockFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*ta
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
-func (f *BlockFactory) IssuePayloadWithReferences(p payload.Payload, references tangle.ParentBlockIDs, parentsCount ...int) (*tangle.Block, error) {
+func (f *BlockFactory) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, parentsCount ...int) (*models.Block, error) {
 	blk, err := f.issuePayload(p, references, parentsCount...)
 	if err != nil {
 		f.Events.Error.Trigger(errors.Errorf("block could not be issued: %w", err))
@@ -113,7 +111,7 @@ func (f *BlockFactory) IssuePayloadWithReferences(p payload.Payload, references 
 // issuePayload create a new block. If there are any supplied references, it uses them. Otherwise, uses tip selection.
 // It also triggers the BlockConstructed event once it's done, which is for example used by the plugins to listen for
 // blocks that shall be attached to the tangle.
-func (f *BlockFactory) issuePayload(p payload.Payload, references tangle.ParentBlockIDs, parentsCountOpt ...int) (*tangle.Block, error) {
+func (f *BlockFactory) issuePayload(p payload.Payload, references models.ParentBlockIDs, parentsCountOpt ...int) (*models.Block, error) {
 	parentsCount := 2
 	if len(parentsCountOpt) > 0 {
 		parentsCount = parentsCountOpt[0]
@@ -155,7 +153,7 @@ func (f *BlockFactory) issuePayload(p payload.Payload, references tangle.ParentB
 		return nil, errors.Errorf("signing failed: %w", err)
 	}
 
-	blk, err := tangle.NewBlockWithValidation(
+	blk, err := models.NewBlockWithValidation(
 		references,
 		issuingTime,
 		issuerPublicKey,
@@ -174,10 +172,10 @@ func (f *BlockFactory) issuePayload(p payload.Payload, references tangle.ParentB
 	return blk, nil
 }
 
-func (f *BlockFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences tangle.ParentBlockIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, lastConfirmedEpoch epoch.Index, epochCommittment *epoch.ECRecord) (references tangle.ParentBlockIDs, nonce uint64, issuingTime time.Time, err error) {
+func (f *BlockFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences models.ParentBlockIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, lastConfirmedEpoch epoch.Index, epochCommittment *epoch.ECRecord) (references models.ParentBlockIDs, nonce uint64, issuingTime time.Time, err error) {
 	// Perform PoW with given information if there are references provided.
 	if !providedReferences.IsEmpty() {
-		issuingTime = f.getIssuingTime(providedReferences[tangle.StrongParentType])
+		issuingTime = f.getIssuingTime(providedReferences[models.StrongParentType])
 		nonce, err = f.doPOW(providedReferences, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
 		if err != nil {
 			return providedReferences, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
@@ -199,18 +197,18 @@ func (f *BlockFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefere
 		}
 
 		// Make sure that there's no duplicate between strong and weak parents.
-		for strongParent := range references[tangle.StrongParentType] {
-			delete(references[tangle.WeakParentType], strongParent)
+		for strongParent := range references[models.StrongParentType] {
+			delete(references[models.WeakParentType], strongParent)
 		}
 
 		// fill up weak references with weak references to liked missing conflicts
-		if _, exists := references[tangle.WeakParentType]; !exists {
-			references[tangle.WeakParentType] = tangle.NewBlockIDs()
+		if _, exists := references[models.WeakParentType]; !exists {
+			references[models.WeakParentType] = models.NewBlockIDs()
 		}
-		references[tangle.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, tangle.MaxParentsCount-len(references[tangle.WeakParentType])))
+		references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
 
-		if len(references[tangle.WeakParentType]) == 0 {
-			delete(references, tangle.WeakParentType)
+		if len(references[models.WeakParentType]) == 0 {
+			delete(references, models.WeakParentType)
 		}
 
 		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
@@ -223,8 +221,8 @@ func (f *BlockFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefere
 	return references, nonce, issuingTime, nil
 }
 
-func (f *BlockFactory) getIssuingTime(parents tangle.BlockIDs) time.Time {
-	issuingTime := clock.SyncedTime()
+func (f *BlockFactory) getIssuingTime(parents models.BlockIDs) time.Time {
+	issuingTime := time.Now()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
@@ -240,7 +238,7 @@ func (f *BlockFactory) getIssuingTime(parents tangle.BlockIDs) time.Time {
 	return issuingTime
 }
 
-func (f *BlockFactory) tips(p payload.Payload, parentsCount int) (parents tangle.BlockIDs) {
+func (f *BlockFactory) tips(p payload.Payload, parentsCount int) (parents models.BlockIDs) {
 	parents = f.selector.Tips(p, parentsCount)
 
 	// TODO: when Ledger is refactored, we need to rework the stuff below
@@ -303,9 +301,9 @@ func (f *BlockFactory) Shutdown() {
 }
 
 // doPOW performs pow on the block and returns a nonce.
-func (f *BlockFactory) doPOW(references tangle.ParentBlockIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, blockPayload payload.Payload, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (uint64, error) {
+func (f *BlockFactory) doPOW(references models.ParentBlockIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, blockPayload payload.Payload, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (uint64, error) {
 	// create a dummy block to simplify marshaling
-	block := tangle.NewBlock(references, issuingTime, key, seq, blockPayload, 0, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
+	block := models.NewBlock(references, issuingTime, key, seq, blockPayload, 0, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummy, err := block.Bytes()
 	if err != nil {
 		return 0, err
@@ -316,9 +314,9 @@ func (f *BlockFactory) doPOW(references tangle.ParentBlockIDs, issuingTime time.
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *BlockFactory) sign(references tangle.ParentBlockIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, blockPayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
+func (f *BlockFactory) sign(references models.ParentBlockIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, blockPayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
 	// create a dummy block to simplify marshaling
-	dummy := tangle.NewBlock(references, issuingTime, key, seq, blockPayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
+	dummy := models.NewBlock(references, issuingTime, key, seq, blockPayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummyBytes, err := dummy.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err
@@ -334,7 +332,7 @@ func (f *BlockFactory) sign(references tangle.ParentBlockIDs, issuingTime time.T
 
 // A TipSelector selects two tips, parent2 and parent1, for a new block to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents tangle.BlockIDs)
+	Tips(p payload.Payload, countParents int) (parents models.BlockIDs)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,10 +340,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents tangle.BlockIDs)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents models.BlockIDs)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents tangle.BlockIDs) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents models.BlockIDs) {
 	return f(p, countParents)
 }
 
@@ -382,7 +380,7 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Block.
-type ReferencesFunc func(payload payload.Payload, strongParents tangle.BlockIDs, issuingTime time.Time) (references tangle.ParentBlockIDs, err error)
+type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs, issuingTime time.Time) (references models.ParentBlockIDs, err error)
 
 // CommitmentFunc is a function type that returns the commitment of the latest commitable epoch.
 type CommitmentFunc func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)

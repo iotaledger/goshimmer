@@ -3,9 +3,9 @@ package blockcreation
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/generics/options"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
 )
 
 func WithStore(store kvstore.KVStore) options.Option[BlockFactory] {
