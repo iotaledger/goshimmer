@@ -21,8 +21,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
-const defaultMarkerAcceptanceThreshold = 0.66
-const defaultConflictAcceptanceThreshold = 0.66
+const (
+	defaultMarkerAcceptanceThreshold   = 0.67
+	defaultConflictAcceptanceThreshold = 0.67
+)
 
 // region AcceptanceGadget /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -52,7 +54,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[AcceptanceGadget]) *Accep
 }
 
 func (a *AcceptanceGadget) setupEvents() {
-	a.Tangle.VirtualVoting.Events.SequenceVoterAdded.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
+	a.Tangle.VirtualVoting.Events.SequenceVoterUpdated.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
 		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
@@ -82,28 +84,21 @@ func (a *AcceptanceGadget) IsBlockAccepted(blockID models.BlockID) (accepted boo
 
 func (a *AcceptanceGadget) isBlockAccepted(blockID models.BlockID) bool {
 	block, exists := a.block(blockID)
-	if exists && block.Accepted() {
-		return true
-	}
-	return false
+	return exists && block.Accepted()
 }
 
 func (a *AcceptanceGadget) isMarkerAccepted(marker markers.Marker) bool {
-	bookerBlock, exists := a.Tangle.BlockFromMarker(marker)
-	if !exists {
-		return false
-	}
-
-	return a.isBlockAccepted(bookerBlock.ID())
+	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(marker.SequenceID())
+	return !exists || lastAcceptedIndex < marker.Index()
 }
 
 func (a *AcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
-	firstAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
+	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
 		return 0
 	}
 
-	return firstAcceptedIndex + 1
+	return lastAcceptedIndex + 1
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the AcceptanceGadget.
@@ -128,13 +123,12 @@ func (a *AcceptanceGadget) RefreshSequenceAcceptance(sequenceID markers.Sequence
 		markerWeight := TotalVotersWeight(markerVoters)
 
 		if markerWeight > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(marker) {
-			err := a.propagateAcceptance(marker)
-			if err != nil {
+			if err := a.propagateAcceptance(marker); err != nil {
 				a.Events.Error.Trigger(errors.Wrap(err, "could not mark past cone blocks as accepted"))
+				break
 			} else {
 				a.lastAcceptedMarker.Set(sequenceID, markerIndex)
 			}
-
 		}
 	}
 }
@@ -205,10 +199,11 @@ func (a *AcceptanceGadget) acceptanceFailed(block *Block, err error) {
 }
 
 func (a *AcceptanceGadget) evictEpoch(index epoch.Index) {
+	a.acceptanceOrder.EvictEpoch(index)
+
 	a.EvictionManager.Lock()
 	defer a.EvictionManager.Unlock()
 
-	a.acceptanceOrder.EvictEpoch(index)
 	a.blocks.EvictEpoch(index)
 }
 
@@ -273,11 +268,15 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 	}
 
 	markAsAccepted := true
-	otherConflictAccepted := false
+	isOtherConflictAccepted := false
+	var otherAcceptedConflict utxo.TransactionID
 
 	a.Tangle.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 		// check if another conflict is accepted, to evaluate reorg condition
-		otherConflictAccepted = otherConflictAccepted || a.Tangle.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted()
+		if !isOtherConflictAccepted && a.Tangle.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictingConflictID)).IsAccepted() {
+			isOtherConflictAccepted = true
+			otherAcceptedConflict = conflictingConflictID
+		}
 
 		conflictingConflictVoters := a.Tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
 		conflictingConflictWeight := TotalVotersWeight(conflictingConflictVoters)
@@ -291,9 +290,9 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 	})
 
 	// check if previously accepted conflict is different from the newly accepted one, then trigger the reorg
-	if markAsAccepted && otherConflictAccepted {
+	if markAsAccepted && isOtherConflictAccepted {
 		a.Events.Error.Trigger(errors.Errorf("conflictID %s needs to be reorg-ed, but functionality not implemented yet!", conflictID))
-		a.Events.Reorg.Trigger(conflictID)
+		a.Events.Reorg.Trigger(otherAcceptedConflict)
 		return
 	}
 
