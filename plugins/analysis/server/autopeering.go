@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics/graph"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
@@ -238,7 +238,7 @@ type EventHandlers struct {
 // EventHandlersConsumer defines the consumer function of an *EventHandlers.
 type EventHandlersConsumer = func(handler *EventHandlers)
 
-//// Methods for metrics calculation plugin ////
+// // Methods for metrics calculation plugin ////
 
 // NumOfNeighbors returns a map of nodeIDs to their neighbor count.
 func (nm *NetworkMap) NumOfNeighbors() map[string]*NeighborMetric {

@@ -7,10 +7,10 @@ import (
 	"github.com/capossele/asset-registry/pkg/registryclient"
 	"github.com/cockroachdb/errors"
 	"github.com/go-resty/resty/v2"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 const (

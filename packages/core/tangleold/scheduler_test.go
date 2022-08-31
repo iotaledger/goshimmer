@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
@@ -107,34 +107,6 @@ func TestScheduler_Discarded(t *testing.T) {
 	tangle.Storage.StoreBlock(blk)
 	err := tangle.Scheduler.Submit(blk.ID())
 	assert.Truef(t, errors.Is(err, schedulerutils.ErrInsufficientMana), "unexpected error: %v", err)
-
-	assert.Eventually(t, func() bool {
-		select {
-		case id := <-blockDiscarded:
-			return assert.Equal(t, blk.ID(), id)
-		default:
-			return false
-		}
-	}, 1*time.Second, 10*time.Millisecond)
-}
-
-func TestScheduler_DiscardedAtShutdown(t *testing.T) {
-	tangle := NewTestTangle(Identity(selfLocalIdentity))
-	defer tangle.Shutdown()
-
-	blockDiscarded := make(chan BlockID, 1)
-	tangle.Scheduler.Events.BlockDiscarded.Hook(event.NewClosure(func(event *BlockDiscardedEvent) {
-		blockDiscarded <- event.BlockID
-	}))
-
-	tangle.Scheduler.Start()
-
-	blk := newBlock(selfNode.PublicKey())
-	tangle.Storage.StoreBlock(blk)
-	assert.NoError(t, tangle.Scheduler.Submit(blk.ID()))
-
-	time.Sleep(100 * time.Millisecond)
-	tangle.Scheduler.Shutdown()
 
 	assert.Eventually(t, func() bool {
 		select {

@@ -11,24 +11,24 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/serializer"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 func init() {
@@ -357,7 +357,7 @@ func (m BlockIDs) String() string {
 
 	result := "BlockIDs{\n"
 	for blockID := range m {
-		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + blockID.String() + ",\n"
+		result += strings.Repeat(" ", stringify.IndentationSize) + blockID.String() + ",\n"
 	}
 	result += "}"
 
@@ -386,7 +386,7 @@ type blockModel struct {
 	IssuingTime          time.Time         `serix:"3"`
 	SequenceNumber       uint64            `serix:"4"`
 	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
-	EI                   epoch.Index       `serix:"6"`
+	ECRecordEI           epoch.Index       `serix:"6"`
 	ECR                  epoch.ECR         `serix:"7"`
 	PrevEC               epoch.EC          `serix:"8"`
 	LatestConfirmedEpoch epoch.Index       `serix:"9"`
@@ -410,7 +410,7 @@ func NewBlock(references ParentBlockIDs, issuingTime time.Time, issuerPublicKey 
 		IssuingTime:          issuingTime,
 		SequenceNumber:       sequenceNumber,
 		PayloadBytes:         lo.PanicOnErr(blkPayload.Bytes()),
-		EI:                   ecRecord.EI(),
+		ECRecordEI:           ecRecord.EI(),
 		ECR:                  ecRecord.ECR(),
 		PrevEC:               ecRecord.PrevEC(),
 		LatestConfirmedEpoch: latestConfirmedEpoch,
@@ -439,6 +439,14 @@ func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, is
 		return nil, errors.Errorf("failed to create block: %w", err)
 	}
 	return blk, nil
+}
+
+// FromBytes unmarshals a Block from a sequence of bytes.
+func (m *Block) FromBytes(bytes []byte) (err error) {
+	if err = m.Storable.FromBytes(bytes); err != nil {
+		return
+	}
+	return m.DetermineID()
 }
 
 // VerifySignature verifies the Signature of the block.
@@ -548,9 +556,9 @@ func (m *Block) Nonce() uint64 {
 	return m.M.Nonce
 }
 
-// EI returns the EI of the block.
-func (m *Block) EI() epoch.Index {
-	return m.M.EI
+// ECRecordEI returns the EI of the ECRecord a block contains.
+func (m *Block) ECRecordEI() epoch.Index {
+	return m.M.ECRecordEI
 }
 
 // ECR returns the ECR of the block.
@@ -590,24 +598,24 @@ func (m *Block) Size() int {
 }
 
 func (m *Block) String() string {
-	builder := stringify.StructBuilder("Block", stringify.StructField("id", m.ID()))
+	builder := stringify.NewStructBuilder("Block", stringify.NewStructField("id", m.ID()))
 
 	for index, parent := range sortParents(m.ParentsByType(StrongParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 	}
 	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
 	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
 
-	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
-	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
-	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
-	builder.AddField(stringify.StructField("Payload", m.Payload()))
-	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
-	builder.AddField(stringify.StructField("Signature", m.Signature()))
+	builder.AddField(stringify.NewStructField("Issuer", m.IssuerPublicKey()))
+	builder.AddField(stringify.NewStructField("IssuingTime", m.IssuingTime()))
+	builder.AddField(stringify.NewStructField("SequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.NewStructField("Payload", m.Payload()))
+	builder.AddField(stringify.NewStructField("Nonce", m.Nonce()))
+	builder.AddField(stringify.NewStructField("Signature", m.Signature()))
 	return builder.String()
 }
 
@@ -714,22 +722,22 @@ type BlockMetadata struct {
 }
 
 type blockMetadataModel struct {
-	ReceivedTime          time.Time                 `serix:"1"`
-	SolidificationTime    time.Time                 `serix:"2"`
-	Solid                 bool                      `serix:"3"`
-	StructureDetails      *markers.StructureDetails `serix:"4,optional"`
-	AddedConflictIDs      utxo.TransactionIDs       `serix:"5"`
-	SubtractedConflictIDs utxo.TransactionIDs       `serix:"6"`
-	Scheduled             bool                      `serix:"7"`
-	ScheduledTime         time.Time                 `serix:"8"`
-	Booked                bool                      `serix:"9"`
-	BookedTime            time.Time                 `serix:"10"`
-	ObjectivelyInvalid    bool                      `serix:"11"`
-	ConfirmationState     confirmation.State        `serix:"12"`
-	ConfirmationStateTime time.Time                 `serix:"13"`
-	DiscardedTime         time.Time                 `serix:"14"`
-	QueuedTime            time.Time                 `serix:"15"`
-	SubjectivelyInvalid   bool                      `serix:"16"`
+	ReceivedTime          time.Time                    `serix:"1"`
+	SolidificationTime    time.Time                    `serix:"2"`
+	Solid                 bool                         `serix:"3"`
+	StructureDetails      *markersold.StructureDetails `serix:"4,optional"`
+	AddedConflictIDs      utxo.TransactionIDs          `serix:"5"`
+	SubtractedConflictIDs utxo.TransactionIDs          `serix:"6"`
+	Scheduled             bool                         `serix:"7"`
+	ScheduledTime         time.Time                    `serix:"8"`
+	Booked                bool                         `serix:"9"`
+	BookedTime            time.Time                    `serix:"10"`
+	ObjectivelyInvalid    bool                         `serix:"11"`
+	ConfirmationState     confirmation.State           `serix:"12"`
+	ConfirmationStateTime time.Time                    `serix:"13"`
+	DiscardedTime         time.Time                    `serix:"14"`
+	QueuedTime            time.Time                    `serix:"15"`
+	SubjectivelyInvalid   bool                         `serix:"16"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata from the specified blockID.
@@ -786,7 +794,7 @@ func (m *BlockMetadata) SolidificationTime() time.Time {
 }
 
 // SetStructureDetails sets the structureDetails of the block.
-func (m *BlockMetadata) SetStructureDetails(structureDetails *markers.StructureDetails) (modified bool) {
+func (m *BlockMetadata) SetStructureDetails(structureDetails *markersold.StructureDetails) (modified bool) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -801,7 +809,7 @@ func (m *BlockMetadata) SetStructureDetails(structureDetails *markers.StructureD
 }
 
 // StructureDetails returns the structureDetails of the block.
-func (m *BlockMetadata) StructureDetails() *markers.StructureDetails {
+func (m *BlockMetadata) StructureDetails() *markersold.StructureDetails {
 	m.RLock()
 	defer m.RUnlock()
 

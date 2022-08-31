@@ -3,7 +3,7 @@ package tangleold
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/event"
 )
 
 // region OrphanageManager /////////////////////////////////////////////////////////////////////////////////////////////

@@ -10,14 +10,14 @@ import (
 	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 
-	"github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 // PluginName is the name of the database plugin.
@@ -64,7 +64,7 @@ func createStore() kvstore.KVStore {
 
 	var err error
 	if Parameters.InMemory {
-		db, err = database.NewMemDB()
+		db, err = database.NewMemDB("")
 	} else {
 		db, err = database.NewDB(Parameters.Directory)
 	}

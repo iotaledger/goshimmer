@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/timedexecutor"
+	"github.com/iotaledger/hive.go/core/crypto"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/timedexecutor"
 )
 
 // region Requester ////////////////////////////////////////////////////////////////////////////////////////////////////

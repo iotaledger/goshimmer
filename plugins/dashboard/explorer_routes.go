@@ -4,19 +4,18 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -84,7 +83,7 @@ func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 
 	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)
 
-	ecRecord := epoch.NewECRecord(blk.EI())
+	ecRecord := epoch.NewECRecord(blk.ECRecordEI())
 	ecRecord.SetECR(blk.ECR())
 	ecRecord.SetPrevEC(blk.PrevEC())
 
@@ -112,8 +111,8 @@ func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 		ConfirmationStateTime:   blockMetadata.ConfirmationStateTime().Unix(),
 		PayloadType:             uint32(blk.Payload().Type()),
 		Payload:                 ProcessPayload(blk.Payload()),
-		EC:                      notarization.EC(ecRecord).Base58(),
-		EI:                      uint64(blk.EI()),
+		EC:                      ecRecord.ComputeEC().Base58(),
+		EI:                      uint64(blk.ECRecordEI()),
 		ECR:                     blk.ECR().Base58(),
 		PrevEC:                  blk.PrevEC().Base58(),
 		LatestConfirmedEpoch:    uint64(blk.LatestConfirmedEpoch()),

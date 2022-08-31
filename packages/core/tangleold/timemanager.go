@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/timeutil"
+	"github.com/iotaledger/hive.go/core/cerrors"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
@@ -275,9 +275,9 @@ func (l LastBlock) Bytes() (marshaledLastConfirmedBlock []byte) {
 // String returns a human-readable version of the LastBlock.
 func (l LastBlock) String() string {
 	return stringify.Struct("LastBlock",
-		stringify.StructField("BlockID", l.BlockID),
-		stringify.StructField("BlockTime", l.BlockTime),
-		stringify.StructField("UpdateTime", l.UpdateTime),
+		stringify.NewStructField("BlockID", l.BlockID),
+		stringify.NewStructField("BlockTime", l.BlockTime),
+		stringify.NewStructField("UpdateTime", l.UpdateTime),
 	)
 }
 

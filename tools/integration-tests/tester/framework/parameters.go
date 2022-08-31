@@ -60,7 +60,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint", "ManaInitializer"}
+	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics", "epochStorage", "WebAPIEpochEndpoint", "ManaInitializer", "Warpsync"}
 
 	c.GenesisTime = GenesisTime
 
@@ -93,7 +93,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Notarization.Enabled = true
 	c.Notarization.BootstrapWindow = 0 // disable bootstrap window for tests
-	c.Notarization.MinEpochCommitableAge = 10 * time.Second
+	c.Notarization.MinEpochCommittableAge = 10 * time.Second
 
 	c.RateSetter.Enabled = true
 	c.RateSetter.RateSetterParametersDefinition.Enable = false
@@ -123,7 +123,7 @@ func EntryNodeConfig() config.GoShimmer {
 		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetRequestEndpoint", "WebAPIBlockEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPIRateSetterEndpoint", "WebAPISchedulerEndpoint",
 		"WebAPIEpochEndpoint", "EpochStorage", "remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization",
-		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager")
+		"Firewall", "WebAPILedgerstateEndpoint", "BootstrapManager", "Warpsync")
 	c.P2P.Enabled = false
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false

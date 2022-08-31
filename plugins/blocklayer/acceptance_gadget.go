@@ -1,8 +1,9 @@
 package blocklayer
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
@@ -29,6 +30,7 @@ func configureFinality() {
 
 	// we need to update the WeightProvider on confirmation
 	acceptanceGadget.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
-		deps.Tangle.WeightProvider.Update(event.Block.IssuingTime(), identity.NewID(event.Block.IssuerPublicKey()))
+		ei := epoch.IndexFromTime(event.Block.IssuingTime())
+		deps.Tangle.WeightProvider.Update(ei, identity.NewID(event.Block.IssuerPublicKey()))
 	}))
 }

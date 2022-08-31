@@ -3,10 +3,10 @@ package mana
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // BaseManaVector is an interface for vectors that store base mana values of nodes in the network.

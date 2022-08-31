@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/core/kvstore"
 
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 var (

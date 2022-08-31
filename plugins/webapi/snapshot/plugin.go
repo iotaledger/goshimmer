@@ -1,29 +1,28 @@
 package snapshot
 
 import (
-	"os"
+	"net/http"
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
+	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	snapshotFileName = "snapshot.bin"
+	snapshotFileName = "/tmp/snapshot.bin"
 )
 
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server      *echo.Echo
+	SnapshotMgr *snapshot.Manager
 }
 
 var (
@@ -34,7 +33,7 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin("Snapshot", deps, node.Disabled, configure)
+	Plugin = node.NewPlugin("WebAPISnapshot", deps, node.Disabled, configure)
 }
 
 func configure(_ *node.Plugin) {
@@ -47,19 +46,16 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	nodeSnapshot := new(snapshot.Snapshot)
-	nodeSnapshot.FromNode(deps.Tangle.Ledger)
-
-	snapshotBytes := nodeSnapshot.Bytes()
-	if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
-		Plugin.LogErrorf("unable to create snapshot file %s", err)
+	header, err := deps.SnapshotMgr.CreateSnapshot(snapshotFileName)
+	if err != nil {
+		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-
 	Plugin.LogInfo("Snapshot information: ")
-	Plugin.LogInfo("     Number of outputs: ", len(nodeSnapshot.LedgerSnapshot.OutputsWithMetadata))
-	Plugin.LogInfo("     Number of epochdiffs: ", len(nodeSnapshot.LedgerSnapshot.EpochDiffs))
-
-	Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
+	Plugin.LogInfo("     Number of outputs: ", header.OutputWithMetadataCount)
+	Plugin.LogInfo("     FullEpochIndex: ", header.FullEpochIndex)
+	Plugin.LogInfo("     DiffEpochIndex: ", header.DiffEpochIndex)
+	Plugin.LogInfo("     LatestECRecord: ", header.LatestECRecord)
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }

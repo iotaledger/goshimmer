@@ -7,26 +7,25 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
-	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
@@ -82,11 +81,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
-	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
+	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
-		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
+		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -107,7 +106,7 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionAcceptedClosure)
-	// mana.Events().Revoked.AttachBlock(onRevokeEventClosure)
+	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
 // func logPledgeEvent(ev *mana.PledgedEvent) {
@@ -192,27 +191,69 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				nodeSnapshot := new(snapshot.Snapshot)
-				if err := nodeSnapshot.FromFile(Parameters.Snapshot.File); err != nil {
+				var cManaTargetEpoch epoch.Index
+				consensusManaByNode := map[identity.ID]float64{}
+				accessManaByNode := map[identity.ID]float64{}
+				processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
+					for _, outputWithMetadata := range outputsWithMetadata {
+						devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+						balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+						if !exists {
+							continue
+						}
+						consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
+						if areCreated {
+							baseVector[consensusManaPledgeID] += float64(balance)
+						} else {
+							baseVector[consensusManaPledgeID] -= float64(balance)
+						}
+					}
+
+					return
+				}
+
+				utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+					processOutputs(outputsWithMetadatas, consensusManaByNode, true /* areCreated */)
+					processOutputs(outputsWithMetadatas, accessManaByNode, true /* areCreated */)
+
+				}
+
+				epochDiffsConsumer := func(diff *ledger.EpochDiff) {
+					// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+
+					processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
+					processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+					processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
+					processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+
+					// Only the aMana will be loaded until the latest snapshot's epoch
+
+					processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
+					processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
+
+				}
+
+				headerConsumer := func(header *ledger.SnapshotHeader) {
+					cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
+					if cManaTargetEpoch < 0 {
+						cManaTargetEpoch = 0
+					}
+
+				}
+				emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+
+				if err := snapshot.LoadSnapshot(
+					Parameters.Snapshot.File,
+					headerConsumer,
+					emptySepsConsumer,
+					utxoStatesConsumer,
+					epochDiffsConsumer,
+					deps.Tangle.WeightProvider.LoadActiveNodes,
+				); err != nil {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
-
-				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
-					Plugin.Panicf("Couldn't load snapshot: %s", err)
-				}
-
-				// initialize cMana WeightProvider with snapshot
-				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
-				t := deps.Tangle.Options.GenesisTime
-				genesisNodeID := identity.ID{}
-				for nodeID := range GetCMana() {
-					if nodeID == genesisNodeID {
-						continue
-					}
-					deps.Tangle.WeightProvider.Update(t, nodeID)
-				}
-
-				manaLogger.Infof("MANA: read snapshot from %s", Parameters.Snapshot.File)
+				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
 			}
 		}
 		pruneStorages()
@@ -754,62 +795,4 @@ func QueryAllowed() (allowed bool) {
 
 	// query allowed only when base mana vectors have been initialized
 	return len(baseManaVectors) > 0
-}
-
-// loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledger.Snapshot) error {
-	consensusManaByNode := map[identity.ID]float64{}
-	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector map[identity.ID]float64, areCreated bool) {
-		for _, outputWithMetadata := range outputsWithMetadata {
-			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
-			balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
-			if !exists {
-				continue
-			}
-			consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
-			if areCreated {
-				baseVector[consensusManaPledgeID] += float64(balance)
-			} else {
-				baseVector[consensusManaPledgeID] -= float64(balance)
-			}
-		}
-
-		return
-	}
-
-	processOutputs(snapshot.OutputsWithMetadata, consensusManaByNode, true /* areCreated */)
-	processOutputs(snapshot.OutputsWithMetadata, accessManaByNode, true /* areCreated */)
-
-	cManaTargetEpoch := snapshot.DiffEpochIndex - epoch.Index(ManaParameters.EpochDelay)
-	if cManaTargetEpoch < 0 {
-		cManaTargetEpoch = 0
-	}
-
-	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-	for ei := snapshot.FullEpochIndex + 1; ei <= cManaTargetEpoch; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), consensusManaByNode, true /* areCreated */)
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), consensusManaByNode, false /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	// Only the aMana will be loaded until the latest snapshot's epoch
-	for ei := cManaTargetEpoch + 1; ei <= snapshot.DiffEpochIndex; ei++ {
-		diff, exists := snapshot.EpochDiffs[ei]
-		if !exists {
-			return errors.Errorf("diff with index %d missing from snapshot", ei)
-		}
-		processOutputs(diff.Created(), accessManaByNode, true /* areCreated */)
-		processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
-	}
-
-	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
-	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
-
-	return nil
 }

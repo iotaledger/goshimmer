@@ -1,9 +1,9 @@
-import { IAddNodeBlock } from "../models/blocks/IAddNodeBlock";
-import { IRemoveNodeBlock } from "../models/blocks/IRemoveNodeBlock";
-import { IConnectNodesBlock } from "../models/blocks/IConnectNodesBlock";
-import { IDisconnectNodesBlock } from "../models/blocks/IDisconnectNodesBlock";
-import { WSBlkType } from "../models/ws/wsBlkType";
-import { WSBlock } from "../models/ws/IWSBlk";
+import {IAddNodeBlock} from "../models/blocks/IAddNodeBlock";
+import {IRemoveNodeBlock} from "../models/blocks/IRemoveNodeBlock";
+import {IConnectNodesBlock} from "../models/blocks/IConnectNodesBlock";
+import {IDisconnectNodesBlock} from "../models/blocks/IDisconnectNodesBlock";
+import {WSBlkType} from "../models/ws/wsBlkType";
+import {WSBlock} from "../models/ws/IWSBlk";
 
 type DataHandler<T> = (data: T) => void;
 

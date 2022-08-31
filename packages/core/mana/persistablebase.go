@@ -3,8 +3,8 @@ package mana
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // PersistableBaseMana represents a base mana vector that can be persisted.

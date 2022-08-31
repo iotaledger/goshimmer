@@ -8,25 +8,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // region BlockTestFramework /////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,7 @@ type BlockTestFramework struct {
 	outputsByAlias           map[string]devnetvm.Output
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *BlockTestFrameworkOptions
-	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	oldIncreaseIndexCallback markersold.IncreaseIndexCallback
 	snapshot                 *ledger.Snapshot
 	outputCounter            uint16
 }
@@ -149,7 +149,7 @@ func (m *BlockTestFramework) CreateBlock(blockAlias string, blockOptions ...Bloc
 
 // IncreaseMarkersIndexCallback is the IncreaseMarkersIndexCallback that the BlockTestFramework uses to determine when
 // to assign new Markers to blocks.
-func (m *BlockTestFramework) IncreaseMarkersIndexCallback(markers.SequenceID, markers.Index) bool {
+func (m *BlockTestFramework) IncreaseMarkersIndexCallback(markersold.SequenceID, markersold.Index) bool {
 	return false
 }
 
@@ -171,7 +171,7 @@ func (m *BlockTestFramework) PreventNewMarkers(enabled bool) *BlockTestFramework
 }
 
 // LatestCommitment gets the latest commitment.
-func (m *BlockTestFramework) LatestCommitment(blockAliases ...string) (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+func (m *BlockTestFramework) LatestCommitment() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 	return m.tangle.Options.CommitmentFunc()
 }
 
@@ -203,7 +203,7 @@ func (m *BlockTestFramework) Block(alias string) (block *Block) {
 	return
 }
 
-// Block retrieves the Blocks that is associated with the given alias.
+// BlockIDs retrieves the Blocks that is associated with the given alias.
 func (m *BlockTestFramework) BlockIDs(aliases ...string) (blockIDs BlockIDs) {
 	blockIDs = NewBlockIDs()
 	for _, alias := range aliases {
@@ -294,7 +294,7 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 		return
 	}
 
-	manaPledgeID, err := identity.RandomID()
+	manaPledgeID, err := identity.RandomIDInsecure()
 	if err != nil {
 		panic(err)
 	}
@@ -310,9 +310,19 @@ func (m *BlockTestFramework) createGenesisOutputs() {
 		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
 		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
+	activeNodes := createActivityLog(manaPledgeTime, manaPledgeID)
 
-	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
-	m.tangle.Ledger.LoadSnapshot(m.snapshot)
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata, activeNodes)
+	loadSnapshotToLedger(m.tangle.Ledger, m.snapshot)
+}
+
+// createActivityLog create activity log and adds provided node for given time.
+func createActivityLog(activityTime time.Time, nodeID identity.ID) epoch.SnapshotEpochActivity {
+	ei := epoch.IndexFromTime(activityTime)
+	activeNodes := make(epoch.SnapshotEpochActivity)
+	activeNodes[ei] = epoch.NewSnapshotNodeActivity()
+	activeNodes[ei].SetNodeActivity(nodeID, 1)
+	return activeNodes
 }
 
 func (m *BlockTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
@@ -890,12 +900,12 @@ type MockConfirmationOracle struct {
 }
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
-func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markersold.SequenceID) (unconfirmedMarkerIndex markersold.Index) {
 	return 0
 }
 
 // IsMarkerConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMarkerConfirmed(markers.Marker) bool {
+func (m *MockConfirmationOracle) IsMarkerConfirmed(markersold.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
 	return false
@@ -929,8 +939,21 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
 
+func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+	return nil
+}
+
+// LoadActiveNodes mocks its interface function.
+func (m *MockWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity) {
+}
+
 // Update mocks its interface function.
-func (m *MockWeightProvider) Update(t time.Time, nodeID identity.ID) {
+func (m *MockWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
+}
+
+// Remove mocks its interface function.
+func (m *MockWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, count uint64) (removed bool) {
+	return true
 }
 
 // Weight mocks its interface function.
@@ -1067,4 +1090,15 @@ func (e *EventMock) BlockProcessed(event *BlockProcessedEvent) {
 	e.Called(event.BlockID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
+}
+
+// loadSnapshotToLedger loads a snapshot of the Ledger from the given snapshot.
+func loadSnapshotToLedger(l *ledger.Ledger, s *ledger.Snapshot) {
+	l.LoadOutputWithMetadatas(s.OutputsWithMetadata)
+	for _, diffs := range s.EpochDiffs {
+		err := l.LoadEpochDiff(diffs)
+		if err != nil {
+			panic("Failed to load epochDiffs from snapshot")
+		}
+	}
 }

@@ -7,9 +7,9 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 )
 
 // PluginName is the name of the config plugin.
@@ -24,13 +24,12 @@ var (
 	configFilePath      = flag.StringP("config", "c", defaultConfigName, "file path of the config file")
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
-	// Node is viper
 	_node = configuration.New()
 )
 
 // Init triggers the Init event.
 func Init(container *dig.Container) {
-	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin, container})
+	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin: Plugin, Container: container})
 }
 
 func init() {
@@ -87,7 +86,7 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	}
 
 	// propagate values in the config back to bound parameters
-	configuration.UpdateBoundParameters(_node)
+	_node.UpdateBoundParameters()
 
 	if printConfig {
 		PrintConfig(ignoreSettingsAtPrint...)
@@ -106,6 +105,10 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 // PrintConfig prints the config.
 func PrintConfig(ignoreSettingsAtPrint ...[]string) {
 	_node.Print(ignoreSettingsAtPrint...)
+}
+
+func BindParameters(p any, namespace string) {
+	_node.BindParameters(flag.CommandLine, namespace, p)
 }
 
 func hasFlag(name string) bool {

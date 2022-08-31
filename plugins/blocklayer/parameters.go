@@ -3,7 +3,7 @@ package blocklayer
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // ParametersDefinition contains the definition of the parameters used by the blocklayer plugin.
@@ -75,8 +75,8 @@ type SchedulerParametersDefinition struct {
 
 // NotarizationParametersDefinition contains the definition of the parameters used by the notarization plugin.
 type NotarizationParametersDefinition struct {
-	// MinEpochCommitableAge defines the min age of a commitable epoch.
-	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
+	// MinEpochCommittableAge defines the min age of a committable epoch.
+	MinEpochCommittableAge time.Duration `default:"1m" usage:"min age of a committable epoch"`
 	// BootstrapWindow when notarization manager is considered to be bootstrapped
 	BootstrapWindow time.Duration `default:"2m" usage:"when notarization manager is considered to be bootstrapped"`
 	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
@@ -99,9 +99,9 @@ var SchedulerParameters = &SchedulerParametersDefinition{}
 var NotarizationParameters = &NotarizationParametersDefinition{}
 
 func init() {
-	configuration.BindParameters(Parameters, "blockLayer")
-	configuration.BindParameters(ManaParameters, "mana")
-	configuration.BindParameters(RateSetterParameters, "rateSetter")
-	configuration.BindParameters(SchedulerParameters, "scheduler")
-	configuration.BindParameters(NotarizationParameters, "notarization")
+	config.BindParameters(Parameters, "blockLayer")
+	config.BindParameters(ManaParameters, "mana")
+	config.BindParameters(RateSetterParameters, "rateSetter")
+	config.BindParameters(SchedulerParameters, "scheduler")
+	config.BindParameters(NotarizationParameters, "notarization")
 }

@@ -1,10 +1,10 @@
 package address
 
 import (
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // Address represents an address in a wallet. It extends the normal address type with an index number that was used to
@@ -31,8 +31,8 @@ func (a Address) Base58() string {
 
 func (a Address) String() string {
 	return stringify.Struct("Address",
-		stringify.StructField("Address", a.Address()),
-		stringify.StructField("Index", a.Index),
+		stringify.NewStructField("Address", a.Address()),
+		stringify.NewStructField("Index", a.Index),
 	)
 }
 

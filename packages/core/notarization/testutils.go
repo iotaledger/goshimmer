@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/types/confirmation"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 var (
 	// TestConflictAcceptanceStateTranslation translates a conflict's AW into a confirmation state.
-	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(conflictID utxo.TransactionID, aw float64) confirmation.State {
+	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(_ utxo.TransactionID, aw float64) confirmation.State {
 		if aw >= testingAcceptanceThreshold {
 			return confirmation.Accepted
 		}

@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )

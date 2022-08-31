@@ -4,15 +4,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -69,11 +69,11 @@ func configure(plugin *node.Plugin) {
 	// get origin public key from config
 	bytes, err := base58.Decode(Parameters.OriginPublicKey)
 	if err != nil {
-		plugin.LogFatalf("could not parse originPublicKey config entry as base58. %v", err)
+		plugin.LogFatalfAndExit("could not parse originPublicKey config entry as base58. %v", err)
 	}
 	originPublicKey, _, err = ed25519.PublicKeyFromBytes(bytes)
 	if err != nil {
-		plugin.LogFatalf("could not parse originPublicKey config entry as public key. %v", err)
+		plugin.LogFatalfAndExit("could not parse originPublicKey config entry as public key. %v", err)
 	}
 
 	configureWebAPI()

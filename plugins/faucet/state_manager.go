@@ -7,23 +7,23 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"go.uber.org/atomic"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -886,7 +886,7 @@ func (p *replenishmentState) SetRemainderOutput(output *FaucetOutput) {
 	p.remainderOutput = output
 }
 
-// nextSupplyOutput returns the first supply address in the list.
+// NextSupplyOutput returns the first supply address in the list.
 func (p *replenishmentState) NextSupplyOutput() (supplyOutput *FaucetOutput, err error) {
 	p.Lock()
 	defer p.Unlock()
@@ -936,7 +936,7 @@ func (p *replenishmentState) GetLastFundingOutputAddressIndex() uint64 {
 	return p.lastFundingOutputAddressIndex
 }
 
-// GetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
+// SetLastFundingOutputAddressIndex sets new lastFundingOutputAddressIndex.
 func (p *replenishmentState) SetLastFundingOutputAddressIndex(index uint64) {
 	p.Lock()
 	defer p.Unlock()

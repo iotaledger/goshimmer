@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/marshalutil"
+	"github.com/iotaledger/hive.go/core/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // TxInfo holds information related to the transaction which we are processing for mana calculation.
@@ -81,8 +81,8 @@ func (s *SnapshotNode) Bytes() (serialized []byte) {
 // String returns a human-readable version of the SnapshotNode.
 func (s *SnapshotNode) String() (humanReadable string) {
 	return stringify.Struct("SnapshotNode",
-		stringify.StructField("AccessMana", s.AccessMana),
-		stringify.StructField("SortedTxSnapshot", s.SortedTxSnapshot),
+		stringify.NewStructField("AccessMana", s.AccessMana),
+		stringify.NewStructField("SortedTxSnapshot", s.SortedTxSnapshot),
 	)
 }
 
@@ -115,8 +115,8 @@ func (a *AccessManaSnapshot) Bytes() (serialized []byte) {
 // String returns a human-readable version of the AccessManaSnapshot.
 func (a AccessManaSnapshot) String() (humanReadable string) {
 	return stringify.Struct("AccessManaSnapshot",
-		stringify.StructField("Value", a.Value),
-		stringify.StructField("Timestamp", a.Timestamp),
+		stringify.NewStructField("Value", a.Value),
+		stringify.NewStructField("Timestamp", a.Timestamp),
 	)
 }
 
@@ -159,9 +159,9 @@ func (t *TxSnapshot) Bytes() (serialized []byte) {
 // String returns a human-readable version of the TxSnapshot.
 func (t *TxSnapshot) String() (humanReadable string) {
 	return stringify.Struct("TxSnapshot",
-		stringify.StructField("Value", t.Value),
-		stringify.StructField("TxID", t.TxID),
-		stringify.StructField("Timestamp", t.Timestamp),
+		stringify.NewStructField("Value", t.Value),
+		stringify.NewStructField("TxID", t.TxID),
+		stringify.NewStructField("Timestamp", t.Timestamp),
 	)
 }
 

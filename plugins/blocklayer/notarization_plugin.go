@@ -3,16 +3,16 @@ package blocklayer
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
@@ -51,8 +51,20 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	if nodeSnapshot != nil {
-		notarizationDeps.Manager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+
+	if Parameters.Snapshot.File != "" {
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyActivityConsumer := func(activityLogs epoch.SnapshotEpochActivity) {}
+
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,
+			notarizationDeps.Manager.LoadECandEIs,
+			emptySepsConsumer,
+			notarizationDeps.Manager.LoadOutputsWithMetadata,
+			notarizationDeps.Manager.LoadEpochDiff,
+			emptyActivityConsumer)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
+		}
 	}
 	// attach mana plugin event after notarization manager has been initialized
 	notarizationDeps.Manager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
@@ -71,7 +83,7 @@ func newNotarizationManager(deps notarizationManagerDependencies) *notarization.
 	return notarization.NewManager(
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		deps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 		notarization.ManaDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))

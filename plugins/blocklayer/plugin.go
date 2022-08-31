@@ -5,31 +5,32 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/autopeering/discover"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
@@ -48,9 +49,8 @@ var (
 
 var (
 	// Plugin is the plugin instance of the blocklayer plugin.
-	Plugin       *node.Plugin
-	deps         = new(dependencies)
-	nodeSnapshot *snapshot.Snapshot
+	Plugin *node.Plugin
+	deps   = new(dependencies)
 )
 
 type dependencies struct {
@@ -114,7 +114,8 @@ func configure(plugin *node.Plugin) {
 
 	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
-			deps.Tangle.WeightProvider.Update(block.IssuingTime(), identity.NewID(block.IssuerPublicKey()))
+			ei := epoch.IndexFromTime(block.IssuingTime())
+			deps.Tangle.WeightProvider.Update(ei, identity.NewID(block.IssuerPublicKey()))
 		})
 	}))
 
@@ -146,23 +147,29 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		nodeSnapshot = new(snapshot.Snapshot)
-		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
-		if err != nil {
-			plugin.Panic("could not load snapshot file:", err)
+		utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
+			for _, outputWithMetadata := range outputsWithMetadatas {
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
+			}
 		}
 
-		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
-
-		// Add outputs to Indexer.
-		for _, outputWithMetadata := range nodeSnapshot.LedgerSnapshot.OutputsWithMetadata {
-			deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
-		}
-
-		for _, epochDiff := range nodeSnapshot.LedgerSnapshot.EpochDiffs {
+		epochDiffsConsumer := func(epochDiff *ledger.EpochDiff) {
+			err := deps.Tangle.Ledger.LoadEpochDiff(epochDiff)
+			if err != nil {
+				panic(err)
+			}
 			for _, outputWithMetadata := range epochDiff.Created() {
 				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
+		}
+
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
+		emptyActivityConsumer := func(activity epoch.SnapshotEpochActivity) {}
+		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer, emptyActivityConsumer)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
 		}
 
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)

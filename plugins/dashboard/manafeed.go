@@ -8,15 +8,15 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/iotaledger/hive.go/core/daemon"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
