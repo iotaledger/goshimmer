@@ -85,14 +85,14 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 					m.epochVerifyCommand,
 					m.epochProcessBlocksCommand,
 				).WithTerminationCallback(func(params *syncingFlowParams) {
-					epochChannels.RUnlock()
-					m.endEpochSyncing(targetEpoch)
+					params.epochChannels.RUnlock()
+					m.endEpochSyncing(params.targetEpoch)
 				}).WithSuccessCallback(func(params *syncingFlowParams) {
 					success = true
 					select {
-					case <-errCtx.Done():
+					case <-params.ctx.Done():
 						return
-					case epochProcessedChan <- targetEpoch:
+					case epochProcessedChan <- params.targetEpoch:
 					}
 					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
 				}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
@@ -133,7 +133,6 @@ func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRang
 	}
 
 	windowStart := startRange
-processingLoop:
 	for {
 		select {
 		case processedEpoch := <-epochProcessedChan:
@@ -142,7 +141,7 @@ processingLoop:
 				if _, processed := processedEpochs[windowStart]; processed {
 					completedEpoch = windowStart
 					if completedEpoch == endRange {
-						break processingLoop
+						return
 					}
 					windowEnd := windowStart + epoch.Index(m.concurrency)
 					if windowEnd <= endRange {
@@ -157,7 +156,6 @@ processingLoop:
 			return
 		}
 	}
-	return
 }
 
 func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
