@@ -95,7 +95,7 @@ func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*
 	for marker, expectedVotersOfMarker := range expectedVoters {
 		voters := t.SequenceTracker().Voters(marker)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 
@@ -103,7 +103,7 @@ func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.Transacti
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
 		voters := t.ConflictTracker().Voters(conflictID)
 
-		assert.True(t.test, expectedVotersOfMarker.Equal(voters), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
+		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
 }
 
