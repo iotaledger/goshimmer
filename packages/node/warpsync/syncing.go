@@ -2,7 +2,6 @@ package warpsync
 
 import (
 	"context"
-	"sync"
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
+	"golang.org/x/sync/errgroup"
 )
 
 type epochSyncStart struct {
@@ -54,108 +54,82 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	m.startSyncing(startRange, endRange)
 	defer m.endSyncing()
 
-	var wg sync.WaitGroup
+	eg, errCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(m.concurrency)
 
-	epochProcessingChan := make(chan epoch.Index)
 	epochProcessedChan := make(chan epoch.Index)
-	flowErrChan := make(chan error, 1)
-	flowErrStopChan := make(chan struct{})
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
-	errCtx, cancelErrCtx := context.WithCancel(ctx)
-	defer cancelErrCtx()
 
-	// Spawn concurreny amount of goroutines.
-	for worker := 0; worker < m.concurrency; worker++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for {
-				var targetEpoch epoch.Index
-				select {
-				case <-errCtx.Done():
-					return
-				case targetEpoch = <-epochProcessingChan:
+	workerFunc := func(targetEpoch epoch.Index) {
+		eg.Go(func() error {
+			success := false
+			for it := validPeers.Iterator(); it.HasNext() && !success; {
+				peerID := it.Next()
+				if discardedPeers.Has(peerID) {
+					m.log.Debugw("skipping discarded peer", "peer", peerID)
+					continue
 				}
 
-				success := false
-				for it := validPeers.Iterator(); it.HasNext() && !success; {
-					peerID := it.Next()
-					if discardedPeers.Has(peerID) {
-						m.log.Debugw("skipping discarded peer", "peer", peerID)
-						continue
-					}
+				db, _ := database.NewMemDB()
+				tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
 
-					db, _ := database.NewMemDB()
-					tangleTree := smt.NewSparseMerkleTree(db.NewStore(), db.NewStore(), lo.PanicOnErr(blake2b.New256(nil)))
+				epochChannels := m.startEpochSyncing(targetEpoch)
+				epochChannels.RLock()
 
-					epochChannels := m.startEpochSyncing(targetEpoch)
-					epochChannels.RLock()
+				m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
 
-					m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
-
-					dataflow.New(
-						m.epochStartCommand,
-						m.epochBlockCommand,
-						m.epochEndCommand,
-						m.epochVerifyCommand,
-						m.epochProcessBlocksCommand,
-					).WithTerminationCallback(func(params *syncingFlowParams) {
-						epochChannels.RUnlock()
-						m.endEpochSyncing(targetEpoch)
-					}).WithSuccessCallback(func(params *syncingFlowParams) {
-						success = true
-						select {
-						case <-errCtx.Done():
-							return
-						case epochProcessedChan <- targetEpoch:
-						}
-						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
-					}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
-						discardedPeers.Add(params.peerID)
-						m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
-					}).Run(&syncingFlowParams{
-						ctx:           errCtx,
-						targetEpoch:   targetEpoch,
-						targetEC:      ecChain[targetEpoch],
-						targetPrevEC:  ecChain[targetEpoch-1],
-						epochChannels: epochChannels,
-						peerID:        peerID,
-						tangleTree:    tangleTree,
-						epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
-					})
-				}
-
-				if !success {
-					cancelErrCtx()
+				dataflow.New(
+					m.epochStartCommand,
+					m.epochBlockCommand,
+					m.epochEndCommand,
+					m.epochVerifyCommand,
+					m.epochProcessBlocksCommand,
+				).WithTerminationCallback(func(params *syncingFlowParams) {
+					epochChannels.RUnlock()
+					m.endEpochSyncing(targetEpoch)
+				}).WithSuccessCallback(func(params *syncingFlowParams) {
+					success = true
 					select {
-					case flowErrChan <- errors.Errorf("unable to sync epoch %d", targetEpoch):
-						close(flowErrStopChan)
-					case <-flowErrStopChan:
+					case <-errCtx.Done():
+						return
+					case epochProcessedChan <- targetEpoch:
 					}
-				}
+					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
+				}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
+					discardedPeers.Add(params.peerID)
+					m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
+				}).Run(&syncingFlowParams{
+					ctx:           errCtx,
+					targetEpoch:   targetEpoch,
+					targetEC:      ecChain[targetEpoch],
+					targetPrevEC:  ecChain[targetEpoch-1],
+					epochChannels: epochChannels,
+					peerID:        peerID,
+					tangleTree:    tangleTree,
+					epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
+				})
 			}
-		}()
+
+			if !success {
+				return errors.Errorf("unable to sync epoch %d", targetEpoch)
+			}
+
+			return nil
+		})
 	}
 
-	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, epochProcessingChan, epochProcessedChan)
-	cancelErrCtx()
+	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
 
-	wg.Wait()
-
-	select {
-	case err := <-flowErrChan:
+	if err := eg.Wait(); err != nil {
 		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
-	default:
 	}
-
 	return completedEpoch, nil
 }
 
-func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, epochProcessingChan, epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
+func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, workerFunc func(epoch.Index), epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
 	processedEpochs := make(map[epoch.Index]types.Empty)
 	for ei := startRange; ei < startRange+epoch.Index(m.concurrency) && ei <= endRange; ei++ {
-		epochProcessingChan <- ei
+		workerFunc(ei)
 	}
 
 	windowStart := startRange
@@ -172,7 +146,7 @@ processingLoop:
 					}
 					windowEnd := windowStart + epoch.Index(m.concurrency)
 					if windowEnd <= endRange {
-						epochProcessingChan <- windowEnd
+						workerFunc(windowEnd)
 					}
 					windowStart++
 				} else {
