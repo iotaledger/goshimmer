@@ -241,4 +241,37 @@ func TestOTV_Track(t *testing.T) {
 		tf.Transaction("Tx2").ID(): tf.Validators("C"),
 		tf.Transaction("Tx4").ID(): tf.Validators("B", "D", "E"),
 	}))
+
+	// ISSUE Block15
+	tf.CreateBlock("Block15", models.WithStrongParents(tf.BlockIDs("Block14")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
+	tf.IssueBlocks("Block15").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(0, 5): tf.Validators("A", "B", "C", "D", "E"),
+		markers.NewMarker(2, 6): tf.Validators("A", "B", "E"),
+		markers.NewMarker(2, 7): tf.Validators("A", "B"),
+		markers.NewMarker(2, 8): tf.Validators("A"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx3").ID(): tf.Validators(),
+		tf.Transaction("Tx4").ID(): tf.Validators("A", "B", "D", "E"),
+	}))
+
+	// ISSUE Block16
+	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("C").PublicKey()))
+	tf.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
+
+	tf.ValidateMarkerVoters(lo.MergeMaps(initialMarkerVotes, map[markers.Marker]*set.AdvancedSet[*validator.Validator]{
+		markers.NewMarker(2, 6): tf.Validators("A", "B", "C", "E"),
+		markers.NewMarker(2, 7): tf.Validators("A", "B", "C"),
+		markers.NewMarker(2, 8): tf.Validators("A", "C"),
+		markers.NewMarker(2, 9): tf.Validators("C"),
+	}))
+
+	tf.ValidateConflictVoters(lo.MergeMaps(initialConflictVotes, map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]{
+		tf.Transaction("Tx1").ID(): tf.Validators("A", "B", "C", "D", "E"),
+		tf.Transaction("Tx2").ID(): tf.Validators(),
+		tf.Transaction("Tx4").ID(): tf.Validators("A", "B", "C", "D", "E"),
+	}))
 }

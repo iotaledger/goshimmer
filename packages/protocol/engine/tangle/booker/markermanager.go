@@ -11,6 +11,7 @@ import (
 )
 
 type MarkerManager struct {
+	Events                       *MarkerManagerEvents
 	sequenceManager              *markers.SequenceManager
 	markerIndexConflictIDMapping *memstorage.Storage[markers.SequenceID, *MarkerIndexConflictIDMapping]
 
@@ -25,6 +26,7 @@ type MarkerManager struct {
 
 func NewMarkerManager(opts ...options.Option[MarkerManager]) *MarkerManager {
 	manager := options.Apply(&MarkerManager{
+		Events:                     newMarkerManagerEvents(),
 		markerBlockMapping:         memstorage.New[markers.Marker, *Block](),
 		markerBlockMappingEviction: memstorage.New[epoch.Index, set.Set[markers.Marker]](),
 
@@ -80,6 +82,8 @@ func (m *MarkerManager) evictSequences(epochIndex epoch.Index) {
 				m.sequenceLastUsed.Delete(sequenceID)
 				m.markerIndexConflictIDMapping.Delete(sequenceID)
 				m.sequenceManager.Delete(sequenceID)
+
+				m.Events.SequenceEvicted.Trigger(sequenceID)
 			}
 		})
 	}

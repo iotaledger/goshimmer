@@ -73,7 +73,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}, opts, func(t *TestFramework) {
-		t.Ledger = New(t.optsLedger...)
+		if t.Ledger == nil {
+			t.Ledger = New(t.optsLedger...)
+		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 		genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())

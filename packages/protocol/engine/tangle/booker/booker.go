@@ -64,6 +64,8 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 			b.markInvalid,
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
+
+		b.Events.SequenceEvicted = b.markerManager.Events.SequenceEvicted
 	}, (*Booker).setupEvents)
 }
 
@@ -133,6 +135,13 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 	defer b.evictionManager.RUnlock()
 
 	return b.markerManager.sequenceManager.Sequence(id)
+}
+
+func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
+	b.evictionManager.RLock()
+	defer b.evictionManager.RUnlock()
+
+	return b.markerManager.BlockFromMarker(marker)
 }
 
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {

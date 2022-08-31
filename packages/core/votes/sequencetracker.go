@@ -3,7 +3,6 @@ package votes
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -52,8 +51,8 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 	}
 }
 
-func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *set.AdvancedSet[*validator.Validator]) {
-	voters = set.NewAdvancedSet[*validator.Validator]()
+func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *validator.Set) {
+	voters = validator.NewSet()
 	votes, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
@@ -100,7 +99,7 @@ func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) 
 
 func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, voter *validator.Validator, power VotePowerType, walk *walker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already accepted/confirmed. This prevents walking too much in the sequence DAG.
-	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives and we copy over the
+	// However, it might lead to inaccuracies when creating a new conflict once a conflict arrives, and we copy over the
 	// voters of the marker to the conflict. Since the marker is already seen as confirmed it should not matter too much though.
 	if s.cutoffIndexCallback(marker.SequenceID()) >= marker.Index() {
 		return
@@ -116,13 +115,16 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		return
 	}
 
-	// Trigger events for all newly supported markers.
-	for i := previousHighestIndex + 1; i <= marker.Index(); i++ {
-		s.Events.VoterAdded.Trigger(&SequenceVoterEvent{
-			Voter:  voter,
-			Marker: markers.NewMarker(marker.SequenceID(), i),
-		})
+	if previousHighestIndex == 0 {
+		sequence, _ := s.sequenceCallback(marker.SequenceID())
+		previousHighestIndex = sequence.LowestIndex()
 	}
+
+	s.Events.SequenceVotersUpdated.Trigger(&SequenceVotersUpdatedEvent{
+		NewMaxSupportedIndex:  marker.Index(),
+		PrevMaxSupportedIndex: previousHighestIndex,
+		SequenceID:            marker.SequenceID(),
+	})
 
 	// Walk the SequenceDAG to propagate votes to referenced sequences.
 	sequence, exists := s.sequenceCallback(marker.SequenceID())

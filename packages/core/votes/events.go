@@ -15,6 +15,7 @@ type ConflictTrackerEvents[ConflictIDType comparable] struct {
 type ConflictVoterEvent[ConflictIDType comparable] struct {
 	Voter      *validator.Validator
 	ConflictID ConflictIDType
+	Opinion    Opinion
 }
 
 func newConflictTrackerEvents[ConflictIDType comparable]() *ConflictTrackerEvents[ConflictIDType] {
@@ -25,16 +26,17 @@ func newConflictTrackerEvents[ConflictIDType comparable]() *ConflictTrackerEvent
 }
 
 type SequenceTrackerEvents struct {
-	VoterAdded *event.Event[*SequenceVoterEvent]
+	SequenceVotersUpdated *event.Event[*SequenceVotersUpdatedEvent]
 }
 
-type SequenceVoterEvent struct {
-	Voter  *validator.Validator
-	Marker markers.Marker
+type SequenceVotersUpdatedEvent struct {
+	NewMaxSupportedIndex  markers.Index
+	PrevMaxSupportedIndex markers.Index
+	SequenceID            markers.SequenceID
 }
 
 func newSequenceTrackerEvents() *SequenceTrackerEvents {
 	return &SequenceTrackerEvents{
-		VoterAdded: event.New[*SequenceVoterEvent](),
+		SequenceVotersUpdated: event.New[*SequenceVotersUpdatedEvent](),
 	}
 }
