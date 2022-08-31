@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"

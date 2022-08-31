@@ -3,7 +3,7 @@ package booker
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/core/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -21,8 +21,8 @@ type BlockConflictAddedEvent struct {
 }
 
 type MarkerConflictAddedEvent struct {
-	Marker            markers.Marker
-	ConflictID        utxo.TransactionID
+	Marker     markers.Marker
+	ConflictID utxo.TransactionID
 	ParentConflictIDs utxo.TransactionIDs
 }
 

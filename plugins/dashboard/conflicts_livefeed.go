@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/iotaledger/hive.go/core/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"

@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"

@@ -12,14 +12,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/markers"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	markers2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 type conflictDAGTestFramework = *conflictdag.TestFramework
-type markersTestFramework = *markers.TestFramework
+type markersTestFramework = *markers2.TestFramework
 
 type TestFramework[VotePowerType VotePower[VotePowerType]] struct {
 	conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
@@ -29,7 +29,7 @@ type TestFramework[VotePowerType VotePower[VotePowerType]] struct {
 	validatorsByAlias map[string]*validator.Validator
 
 	conflictDAG     *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
-	sequenceManager *markers.SequenceManager
+	sequenceManager *markers2.SequenceManager
 
 	test *testing.T
 
@@ -51,7 +51,7 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, o
 			t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
 		}
 		if t.sequenceManager == nil {
-			t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
+			t.markersTestFramework = markers2.NewTestFramework(t.test, markers2.WithSequenceManager(t.sequenceManager))
 		}
 
 		t.SequenceTracker().Events.VoterAdded.Hook(event.NewClosure(func(evt *SequenceVoterEvent) {
@@ -128,7 +128,7 @@ func (p mockVotePower) CompareTo(other mockVotePower) int {
 
 func (t *TestFramework[VotePowerType]) SequenceTracker() (sequenceTracker *SequenceTracker[VotePowerType]) {
 	if t.sequenceTracker == nil {
-		t.sequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 0 })
+		t.sequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers2.SequenceID) markers2.Index { return 0 })
 	}
 
 	return t.sequenceTracker
@@ -178,7 +178,7 @@ func WithConflictDAG[VotePowerType VotePower[VotePowerType]](conflictDAG *confli
 	}
 }
 
-func WithSequenceManager[VotePowerType VotePower[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
+func WithSequenceManager[VotePowerType VotePower[VotePowerType]](sequenceManager *markers2.SequenceManager) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.sequenceManager != nil {
 			panic("sequence manager already set")

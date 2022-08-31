@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
