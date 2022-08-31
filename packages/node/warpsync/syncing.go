@@ -5,12 +5,6 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
-	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -19,6 +13,13 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
+	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
 type epochSyncStart struct {
@@ -60,7 +61,17 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	epochProcessedChan := make(chan epoch.Index)
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
 
-	workerFunc := func(targetEpoch epoch.Index) {
+	workerFunc := m.syncEpochFunc(errCtx, eg, validPeers, discardedPeers, ecChain, epochProcessedChan)
+	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
+
+	if err := eg.Wait(); err != nil {
+		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
+	}
+	return completedEpoch, nil
+}
+
+func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *set.AdvancedSet[identity.ID], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]epoch.EC, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
+	return func(targetEpoch epoch.Index) {
 		eg.Go(func() error {
 			success := false
 			for it := validPeers.Iterator(); it.HasNext() && !success; {
@@ -117,13 +128,6 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 			return nil
 		})
 	}
-
-	completedEpoch = m.queueSlidingEpochs(errCtx, startRange, endRange, workerFunc, epochProcessedChan)
-
-	if err := eg.Wait(); err != nil {
-		return completedEpoch, errors.Wrapf(err, "sync failed for range %d-%d", start, end)
-	}
-	return completedEpoch, nil
 }
 
 func (m *Manager) queueSlidingEpochs(errCtx context.Context, startRange, endRange epoch.Index, workerFunc func(epoch.Index), epochProcessedChan chan epoch.Index) (completedEpoch epoch.Index) {
