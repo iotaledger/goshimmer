@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -18,6 +19,8 @@ type TestFramework struct {
 
 	test *testing.T
 
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
 	optsTangle          []options.Option[Tangle]
@@ -27,6 +30,10 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{}, opts, func(t *TestFramework) {
+		if t.optsLedger == nil {
+			t.optsLedger = ledger.New(t.optsLedgerOptions...)
+		}
+
 		if t.optsEvictionManager == nil {
 			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
 		}
@@ -35,7 +42,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.optsValidatorSet = validator.NewSet()
 		}
 
-		t.Tangle = New(t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+		t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
 			test,
@@ -52,6 +59,26 @@ type VirtualVotingTestFramework = virtualvoting.TestFramework
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		if t.optsLedgerOptions != nil {
+			panic("using the TestFramework with Ledger and LedgerOptions simultaneously is not allowed")
+		}
+
+		t.optsLedger = ledger
+	}
+}
+
+func WithLedgerOptions(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		if t.optsLedger != nil {
+			panic("using the TestFramework with Ledger and LedgerOptions simultaneously is not allowed")
+		}
+
+		t.optsLedger = ledger
+	}
+}
 
 func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {

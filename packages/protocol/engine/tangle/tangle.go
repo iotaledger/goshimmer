@@ -23,17 +23,15 @@ type Tangle struct {
 	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
 
 	*blockdag.BlockDAG
-	*ledger.Ledger
 	*booker.Booker
 	*virtualvoting.VirtualVoting
 }
 
 // New is the constructor for a new Tangle.
-func New(evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
+func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Tangle]) (newTangle *Tangle) {
 	return options.Apply(new(Tangle), opts, func(t *Tangle) {
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
-		t.Ledger = ledger.New(t.optsLedger...)
-		t.Booker = booker.New(t.BlockDAG, t.Ledger, t.optsBooker...)
+		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, t.optsVirtualVoting...)
 	})
 }
@@ -46,13 +44,6 @@ func New(evictionManager *eviction.Manager[models.BlockID], validatorSet *valida
 func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[Tangle] {
 	return func(tangle *Tangle) {
 		tangle.optsBlockDAG = opts
-	}
-}
-
-// WithLedgerOptions returns an Option for the Tangle that allows to pass in Options for the Ledger.
-func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tangle] {
-	return func(tangle *Tangle) {
-		tangle.optsLedger = opts
 	}
 }
 
