@@ -77,12 +77,15 @@ func TestManager_GetLatestEC(t *testing.T) {
 	}
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
-		weightProvider.Update(time.Now(), nodes["A"].ID())
+		ei := epoch.IndexFromTime(time.Now())
+		weightProvider.Update(ei, nodes["A"].ID())
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 100,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	genesisTime := time.Now().Add(-25 * time.Minute)
 	epochDuration := 5 * time.Minute
@@ -141,7 +144,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -150,7 +154,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			nodes["D"].ID(): 25,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	epochInterval := 1 * time.Second
 
@@ -169,14 +174,14 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC0 = EC(ecRecord)
+		EC0 = ecRecord.ComputeEC()
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -187,14 +192,14 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, EC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block2", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block1"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -209,14 +214,14 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, EC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block3", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block2"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -231,16 +236,18 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		assert.Equal(t, EC0, EC(ecRecord))
+		assert.Equal(t, EC0, ecRecord.ComputeEC())
 		// PrevEC of Epoch0 is the empty Merkle Root
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
+
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3", "Block2"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -260,7 +267,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
@@ -276,7 +283,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -286,7 +294,9 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	epochInterval := 1 * time.Second
 
@@ -303,12 +313,12 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC0 = EC(ecRecord)
+		EC0 = ecRecord.ComputeEC()
 		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -323,7 +333,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -338,7 +348,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -351,11 +361,12 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -366,14 +377,16 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC1 = EC(ecRecord)
+		EC1 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+
 		testFramework.CreateBlock("Block5", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 		assert.Equal(t, EC0, ecRecord.PrevEC())
 	}
 
@@ -383,14 +396,16 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
-		EC2 = EC(ecRecord)
+		EC2 = ecRecord.ComputeEC()
+
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3))
+
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("D", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(2), blk.EI())
+		assert.Equal(t, epoch.Index(2), blk.ECRecordEI())
 		assert.Equal(t, EC1, ecRecord.PrevEC())
 	}
 
@@ -405,12 +420,12 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(4))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4))
 		testFramework.CreateBlock("Block7", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block6"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(3), blk.EI())
+		assert.Equal(t, epoch.Index(3), blk.ECRecordEI())
 		assert.Equal(t, EC2, ecRecord.PrevEC())
 	}
 
@@ -424,7 +439,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(3), blk.EI())
+		assert.Equal(t, epoch.Index(3), blk.ECRecordEI())
 		assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
 			"Block5": true,
 			"Block6": true,
@@ -443,7 +458,8 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -458,8 +474,9 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -474,7 +491,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block2, issuing time epoch 1
 	{
@@ -486,7 +503,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block3, issuing time epoch 1
 	{
@@ -498,7 +515,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block4, issuing time epoch 1
 	{
@@ -510,7 +527,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	issuingTime = issuingTime.Add(epochInterval)
@@ -525,7 +542,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block6 TX2, issuing time epoch 2
 	{
@@ -537,7 +554,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -559,7 +576,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -581,11 +598,12 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block7"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfBlock(t, testFramework, notarizationMgr, map[string]bool{
@@ -607,7 +625,8 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -622,8 +641,9 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -638,7 +658,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block2, issuing time epoch 1
 	{
@@ -650,7 +670,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block3 TX1, issuing time epoch 1
 	{
@@ -662,7 +682,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block4 TX2, issuing time epoch 1
 	{
@@ -674,7 +694,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 
 		// pre-create block 8
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
@@ -692,7 +712,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block6, issuing time epoch 2
 	{
@@ -704,7 +724,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block7, issuing time epoch 2
 	{
@@ -716,14 +736,14 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block8, issuing time epoch 1, earlier attachment of Block6, with same tx
 	{
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block9, issuing time epoch 2
 	{
@@ -735,7 +755,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block9")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 	// Block10, issuing time epoch 2
 	{
@@ -747,7 +767,7 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 		testFramework.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block10")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertExistenceOfTransaction(t, testFramework, notarizationMgr, map[string]bool{
@@ -776,7 +796,8 @@ func TestManager_DiffUTXOs(t *testing.T) {
 	var weightProvider *tangleold.CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -786,13 +807,14 @@ func TestManager_DiffUTXOs(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
 	epochInterval := 1 * time.Second
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
 
-	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
 	issuingTime := genesisTime
@@ -808,7 +830,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block1")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block2, issuing time epoch 1
@@ -822,7 +844,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block2")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A"}, []string{"C1", "C1+"})
@@ -840,7 +862,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block3")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block4, issuing time epoch 2
@@ -854,7 +876,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block4")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"D2"}, []string{"E3"})
@@ -873,7 +895,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block5")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(1), []string{"A", "B"}, []string{"C1", "C1+", "D2"})
@@ -888,11 +910,12 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("G5"), tangleold.WithOutput("H6", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block6")
-		assert.Equal(t, epoch.Index(0), blk.EI())
+		assert.Equal(t, epoch.Index(0), blk.ECRecordEI())
 	}
 
 	// Block7, issuing time epoch 3, if we loaded the diff we should just have F4 and H6 as spent and created
@@ -907,7 +930,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block7")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block8, issuing time epoch 2, reattaches Block6's TX from epoch 3 to epoch 2
@@ -922,7 +945,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block8")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block9, issuing time epoch 3, confirms Block8 (reattachment of Block 6)
@@ -937,7 +960,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block9")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	// Block10, issuing time epoch 3, confirms Block9 and reattachment of Block 6
@@ -952,13 +975,110 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		testFramework.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 		blk := testFramework.Block("Block10")
-		assert.Equal(t, epoch.Index(1), blk.EI())
+		assert.Equal(t, epoch.Index(1), blk.ECRecordEI())
 	}
 
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(2), []string{"G5", "D2"}, []string{"F4", "H6"})
 	assertEpochDiff(t, testFramework, notarizationMgr, epoch.Index(3), []string{"F4"}, []string{"G5"})
 
 	eventHandlerMock.AssertExpectations(t)
+}
+
+func TestManager_ActivityTree(t *testing.T) {
+	nodes := make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		nodes[node] = identity.GenerateIdentity()
+	}
+	// Make Current Epoch be epoch 5
+	epochInterval := 1 * time.Second
+	genesisTime := time.Now().Add(-epochInterval * 5)
+
+	timeManager := struct{ time time.Time }{time: genesisTime}
+	timeRetrieverFunc := func() time.Time { return timeManager.time }
+
+	var weightProvider *tangleold.CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		return map[identity.ID]float64{
+			nodes["A"].ID(): 30,
+			nodes["B"].ID(): 15,
+			nodes["C"].ID(): 25,
+			nodes["D"].ID(): 20,
+			nodes["E"].ID(): 10,
+		}
+	}
+	//for _, node := range nodes {
+	//	ei := epoch.IndexFromTime(time.Now())
+	//	weightProvider.Update(ei, node.ID())
+	//}
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+
+	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc, confirmedRetrieverFunc)
+	testFramework, _, _ := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+
+	// expected activity records
+	activeNodesTest := make(map[epoch.Index][]identity.ID)
+	activeNodesTest[epoch.Index(6)] = []identity.ID{nodes["A"].ID(), nodes["B"].ID()}
+	activeNodesTest[epoch.Index(7)] = []identity.ID{nodes["A"].ID(), nodes["B"].ID(), nodes["C"].ID()}
+	activeNodesTest[epoch.Index(10)] = []identity.ID{nodes["C"].ID()}
+
+	issuingTime := genesisTime.Add(epochInterval * 5)
+	timeManager.time = issuingTime
+	// Block1, issuing time epoch 1
+	{
+		fmt.Println("block 1 and block 2 in epoch 1")
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		ei := epoch.IndexFromTime(issuingTime)
+
+		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C1", 400), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+		testFramework.CreateBlock("Block2", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("C2", 400), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+		weightProvider.Update(ei, nodes["A"].ID())
+		weightProvider.Update(ei, nodes["B"].ID())
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
+	issuingTime = issuingTime.Add(epochInterval)
+	timeManager.time = issuingTime
+
+	{
+		fmt.Println("block 3 in epoch 2")
+
+		ecRecord, _, err := testFramework.LatestCommitment()
+		require.NoError(t, err)
+		ei := epoch.IndexFromTime(issuingTime)
+
+		testFramework.CreateBlock("Block3", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C1"), tangleold.WithInputs("C2"), tangleold.WithOutput("E1", 800), tangleold.WithECRecord(ecRecord))
+		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+		weightProvider.Update(epoch.IndexFromTime(issuingTime), nodes["C"].ID())
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
+	issuingTime = issuingTime.Add(epochInterval * 16)
+	timeManager.time = issuingTime
+
+	{
+		ei := epoch.IndexFromTime(issuingTime)
+
+		activeNodes, _ := weightProvider.WeightsOfRelevantVoters()
+		assert.Equal(t, len(activeNodesTest[ei]), len(activeNodes))
+		for _, n := range activeNodesTest[ei] {
+			assert.Contains(t, activeNodes, n)
+		}
+	}
+
 }
 
 func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Duration, minCommittable time.Duration, options ...tangleold.Option) (testFramework *tangleold.BlockTestFramework, eventMock *EventMock, m *Manager) {
@@ -979,7 +1099,7 @@ func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Dura
 
 	// set up notarization manager
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
-	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), ManaDelay(2), Log(logger.NewExampleLogger("test")))
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), Log(logger.NewExampleLogger("test")))
 
 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 		ecRecord, err = m.GetLatestEC()
@@ -1096,8 +1216,8 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	snapshot.Header = header
 
 	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
-	m.LoadEpochDiffs(snapshot.Header, snapshot.EpochDiffs)
 	m.LoadECandEIs(snapshot.Header)
+	m.LoadActivityLogs(snapshot.EpochActiveNodes)
 }
 
 func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/node"
@@ -37,16 +38,16 @@ var (
 	baseStore kvstore.KVStore
 
 	committableEpochsMutex sync.RWMutex
-	committableEpochs      = make([]*epoch.ECRecord, 0)
+	committableEpochs      = shrinkingmap.New[epoch.Index, *epoch.ECRecord]()
 	epochVotersWeightMutex sync.RWMutex
-	epochVotersWeight      = make(map[epoch.Index]map[epoch.ECR]map[identity.ID]float64, 0)
-	epochVotersLatestVote  = make(map[identity.ID]*latestVote, 0)
+	epochVotersWeight      = shrinkingmap.New[epoch.Index, map[epoch.ECR]map[identity.ID]float64]()
+	epochVotersLatestVote  = shrinkingmap.New[identity.ID, *latestVote]()
 
 	maxEpochContentsToKeep   = 100
 	numEpochContentsToRemove = 20
 
 	epochOrderMutex sync.RWMutex
-	epochOrderMap   = make(map[epoch.Index]types.Empty, 0)
+	epochOrderMap   = shrinkingmap.New[epoch.Index, types.Empty]()
 	epochOrder      = make([]epoch.Index, 0)
 )
 
@@ -55,6 +56,7 @@ type latestVote struct {
 	ecr        epoch.ECR
 	issuedTime time.Time
 }
+
 type dependencies struct {
 	dig.In
 
@@ -80,26 +82,26 @@ func configure(plugin *node.Plugin) {
 
 	deps.NotarizationMgr.Events.TangleTreeInserted.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
 		epochOrderMutex.Lock()
-		if _, ok := epochOrderMap[event.EI]; !ok {
-			epochOrderMap[event.EI] = types.Void
+		if _, ok := epochOrderMap.Get(event.EI); !ok {
+			epochOrderMap.Set(event.EI, types.Void)
 			epochOrder = append(epochOrder, event.EI)
 			checkEpochContentLimit()
 		}
 		epochOrderMutex.Unlock()
 
-		err := insertblockToEpoch(event.EI, event.BlockID)
+		err := insertBlockIntoEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
 	deps.NotarizationMgr.Events.TangleTreeRemoved.Attach(event.NewClosure(func(event *notarization.TangleTreeUpdatedEvent) {
-		err := removeblockFromEpoch(event.EI, event.BlockID)
+		err := removeBlockFromEpoch(event.EI, event.BlockID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
 	}))
 	deps.NotarizationMgr.Events.StateMutationTreeInserted.Attach(event.NewClosure(func(event *notarization.StateMutationTreeUpdatedEvent) {
-		err := insertTransactionToEpoch(event.EI, event.TransactionID)
+		err := insertTransactionIntoEpoch(event.EI, event.TransactionID)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
@@ -111,7 +113,7 @@ func configure(plugin *node.Plugin) {
 		}
 	}))
 	deps.NotarizationMgr.Events.UTXOTreeInserted.Attach(event.NewClosure(func(event *notarization.UTXOUpdatedEvent) {
-		err := insertOutputsToEpoch(event.EI, event.Spent, event.Created)
+		err := insertOutputsIntoEpoch(event.EI, event.Spent, event.Created)
 		if err != nil {
 			plugin.LogDebug(err)
 		}
@@ -125,7 +127,7 @@ func configure(plugin *node.Plugin) {
 	deps.NotarizationMgr.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		committableEpochsMutex.Lock()
 		defer committableEpochsMutex.Unlock()
-		committableEpochs = append(committableEpochs, event.ECRecord)
+		committableEpochs.Set(event.EI, event.ECRecord)
 	}))
 
 	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
@@ -147,6 +149,14 @@ func checkEpochContentLimit() {
 		return
 	}
 
+	epochVotersWeightMutex.Lock()
+	committableEpochsMutex.Lock()
+
+	defer func() {
+		epochVotersWeightMutex.Unlock()
+		committableEpochsMutex.Unlock()
+	}()
+
 	// sort the order list to remove the oldest ones.
 	sort.Slice(epochOrder, func(i, j int) bool {
 		return epochOrder[i] < epochOrder[j]
@@ -158,44 +168,43 @@ func checkEpochContentLimit() {
 	epochOrder = epochOrder[numEpochContentsToRemove:]
 
 	for _, i := range epochToRemove {
-		delete(epochOrderMap, i)
+		epochOrderMap.Delete(i)
+		epochVotersWeight.Delete(i)
+		committableEpochs.Delete(i)
 	}
-
-	epochVotersWeightMutex.Lock()
-	for _, i := range epochToRemove {
-		delete(epochVotersWeight, i)
-	}
-	epochVotersWeightMutex.Unlock()
-
-	committableEpochsMutex.Lock()
-	if len(committableEpochs) < maxEpochContentsToKeep {
-		committableEpochsMutex.Unlock()
-		return
-	}
-	committableEpochs = committableEpochs[len(committableEpochs)-maxEpochContentsToKeep:]
-	committableEpochsMutex.Unlock()
 }
 
 func GetCommittableEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
-	ecRecords = make(map[epoch.Index]*epoch.ECRecord, 0)
-
 	committableEpochsMutex.RLock()
-	for _, record := range committableEpochs {
-		ecRecords[record.EI()] = record
-	}
-	committableEpochsMutex.RUnlock()
+	defer committableEpochsMutex.RUnlock()
+
+	ecRecords = make(map[epoch.Index]*epoch.ECRecord, committableEpochs.Size())
+	committableEpochs.ForEach(func(ei epoch.Index, ecRecord *epoch.ECRecord) bool {
+		ecRecords[ei] = ecRecord
+		return true
+	})
 
 	return
+}
+
+func GetEpochCommittment(ei epoch.Index) (ecRecord *epoch.ECRecord, exists bool) {
+	committableEpochsMutex.RLock()
+	defer committableEpochsMutex.RUnlock()
+
+	return committableEpochs.Get(ei)
 }
 
 func GetPendingConflictCount() map[epoch.Index]uint64 {
 	return deps.NotarizationMgr.PendingConflictsCountAll()
 }
 
-func GetEpochblocks(ei epoch.Index) (blockIDs []tangleold.BlockID) {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...)
+func GetEpochBlockIDs(ei epoch.Index) (blockIDs []tangleold.BlockID) {
+	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
+	blockStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var blockID tangleold.BlockID
 		if _, err := blockID.FromBytes(key); err != nil {
 			panic("BlockID could not be parsed!")
@@ -203,13 +212,17 @@ func GetEpochblocks(ei epoch.Index) (blockIDs []tangleold.BlockID) {
 		blockIDs = append(blockIDs, blockID)
 		return true
 	})
+
 	return
 }
 
 func GetEpochTransactions(ei epoch.Index) (txIDs []utxo.TransactionID) {
-	prefix := append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...)
+	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(prefix, func(key kvstore.Key) bool {
+	txStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var txID utxo.TransactionID
 		if _, err := txID.Decode(key); err != nil {
 			panic("TransactionID could not be parsed!")
@@ -222,10 +235,17 @@ func GetEpochTransactions(ei epoch.Index) (txIDs []utxo.TransactionID) {
 }
 
 func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
-	createdPrefix := append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...)
-	spentPrefix := append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...)
+	spentStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixSpentOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
-	baseStore.IterateKeys(spentPrefix, func(key kvstore.Key) bool {
+	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+
+	spentStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var outputID utxo.OutputID
 		if err := outputID.FromBytes(key); err != nil {
 			panic(err)
@@ -235,7 +255,7 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 		return true
 	})
 
-	baseStore.IterateKeys(createdPrefix, func(key kvstore.Key) bool {
+	createdStore.IterateKeys(kvstore.EmptyPrefix, func(key kvstore.Key) bool {
 		var outputID utxo.OutputID
 		if err := outputID.FromBytes(key); err != nil {
 			panic(err)
@@ -250,12 +270,13 @@ func GetEpochUTXOs(ei epoch.Index) (spent, created []utxo.OutputID) {
 func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID]float64) {
 	epochVotersWeightMutex.RLock()
 	defer epochVotersWeightMutex.RUnlock()
-	if _, ok := epochVotersWeight[ei]; !ok {
+	if _, ok := epochVotersWeight.Get(ei); !ok {
 		return
 	}
 
-	weights = make(map[epoch.ECR]map[identity.ID]float64, len(epochVotersWeight[ei]))
-	for ecr, voterWeights := range epochVotersWeight[ei] {
+	weights = make(map[epoch.ECR]map[identity.ID]float64, epochVotersWeight.Size())
+	epochVoters, _ := epochVotersWeight.Get(ei)
+	for ecr, voterWeights := range epochVoters {
 		subDuplicate := make(map[identity.ID]float64, len(voterWeights))
 		for id, w := range voterWeights {
 			subDuplicate[id] = w
@@ -265,38 +286,38 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
-func insertblockToEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
+func insertBlockIntoEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
 	if err := blockStore.Set(blkID.Bytes(), blkID.Bytes()); err != nil {
-		return errors.New("Fail to insert block to epoch store")
+		return errors.New("fail to insert block to epoch store")
 	}
 	return nil
 }
 
-func removeblockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
+func removeBlockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
 	if err := blockStore.Delete(blkID.Bytes()); err != nil {
-		return errors.New("Fail to remove block from epoch store")
+		return errors.New("fail to remove block from epoch store")
 	}
 	return nil
 }
 
-func insertTransactionToEpoch(ei epoch.Index, txID utxo.TransactionID) error {
+func insertTransactionIntoEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	txStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixTransactionIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
 	if err := txStore.Set(txID.Bytes(), txID.Bytes()); err != nil {
-		return errors.New("Fail to insert Transaction to epoch store")
+		return errors.New("fail to insert Transaction to epoch store")
 	}
 	return nil
 }
@@ -308,12 +329,12 @@ func removeTransactionFromEpoch(ei epoch.Index, txID utxo.TransactionID) error {
 	}
 
 	if err := txStore.Delete(txID.Bytes()); err != nil {
-		return errors.New("Fail to remove Transaction from epoch store")
+		return errors.New("fail to remove Transaction from epoch store")
 	}
 	return nil
 }
 
-func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
+func insertOutputsIntoEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) error {
 	createdStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixCreatedOutput}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
@@ -326,13 +347,13 @@ func insertOutputsToEpoch(ei epoch.Index, spent, created []*ledger.OutputWithMet
 
 	for _, s := range spent {
 		if err := spentStore.Set(s.ID().Bytes(), s.ID().Bytes()); err != nil {
-			return errors.New("Fail to insert spent output to epoch store")
+			return errors.New("fail to insert spent output to epoch store")
 		}
 	}
 
 	for _, c := range created {
 		if err := createdStore.Set(c.ID().Bytes(), c.ID().Bytes()); err != nil {
-			return errors.New("Fail to insert created output to epoch store")
+			return errors.New("fail to insert created output to epoch store")
 		}
 	}
 
@@ -352,13 +373,13 @@ func removeOutputsFromEpoch(ei epoch.Index, spent, created []*ledger.OutputWithM
 
 	for _, s := range spent {
 		if err := spentStore.Delete(s.ID().Bytes()); err != nil {
-			return errors.New("Fail to remove spent output from epoch store")
+			return errors.New("fail to remove spent output from epoch store")
 		}
 	}
 
 	for _, c := range created {
 		if err := createdStore.Delete(c.ID().Bytes()); err != nil {
-			return errors.New("Fail to remove created output from epoch store")
+			return errors.New("fail to remove created output from epoch store")
 		}
 	}
 
@@ -371,23 +392,26 @@ func saveEpochVotersWeight(block *tangleold.Block) {
 
 	epochVotersWeightMutex.Lock()
 	defer epochVotersWeightMutex.Unlock()
-	epochIndex := block.M.EI
-	ecr := block.M.ECR
-	if _, ok := epochVotersWeight[epochIndex]; !ok {
-		epochVotersWeight[epochIndex] = make(map[epoch.ECR]map[identity.ID]float64)
+	epochIndex := block.ECRecordEI()
+	ecr := block.ECR()
+	if _, ok := epochVotersWeight.Get(epochIndex); !ok {
+		epochVotersWeight.Set(epochIndex, make(map[epoch.ECR]map[identity.ID]float64))
 	}
-	if _, ok := epochVotersWeight[epochIndex][ecr]; !ok {
-		epochVotersWeight[epochIndex][ecr] = make(map[identity.ID]float64)
+	epochVoters, _ := epochVotersWeight.Get(epochIndex)
+	if _, ok := epochVoters[ecr]; !ok {
+		epochVoters[ecr] = make(map[identity.ID]float64)
 	}
 
-	vote, ok := epochVotersLatestVote[voter]
+	vote, ok := epochVotersLatestVote.Get(voter)
 	if ok {
-		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.M.IssuingTime) {
-			delete(epochVotersWeight[vote.ei][vote.ecr], voter)
+		if vote.ei == epochIndex && vote.ecr != ecr && vote.issuedTime.Before(block.IssuingTime()) {
+			epochVoters, _ := epochVotersWeight.Get(vote.ei)
+			delete(epochVoters[vote.ecr], voter)
 		}
 	}
-	epochVotersLatestVote[voter] = &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.M.IssuingTime}
-	epochVotersWeight[epochIndex][ecr][voter] = activeWeights[voter]
+
+	epochVotersLatestVote.Set(voter, &latestVote{ei: epochIndex, ecr: ecr, issuedTime: block.IssuingTime()})
+	epochVoters[ecr][voter] = activeWeights[voter]
 }
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////

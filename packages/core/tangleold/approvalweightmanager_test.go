@@ -3,6 +3,7 @@ package tangleold
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"testing"
 	"time"
 
@@ -28,13 +29,15 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
+		ei := epoch.IndexFromTime(time.Now())
 		for _, s := range voters {
-			weightProvider.Update(time.Now(), s.ID())
+			weightProvider.Update(ei, s.ID())
 			m[s.ID()] = 100
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -101,12 +104,15 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		nodeID := identity.NewID(keyPair.PublicKey)
-		weightProvider.Update(time.Now(), nodeID)
+		ei := epoch.IndexFromTime(time.Now())
+
+		weightProvider.Update(ei, nodeID)
 		return map[identity.ID]float64{
 			nodeID: 100,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -134,20 +140,20 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 		"Conflict 4.2":   set.NewAdvancedSet(randomConflictID()),
 	}
 
-	createConflict(t, tangle, "Conflict 1", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
-	createConflict(t, tangle, "Conflict 2", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
-	createConflict(t, tangle, "Conflict 3", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
-	createConflict(t, tangle, "Conflict 4", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
+	createConflict(tangle, "Conflict 1", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(tangle, "Conflict 2", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 1"])
+	createConflict(tangle, "Conflict 3", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
+	createConflict(tangle, "Conflict 4", conflictIDs, set.NewAdvancedSet[utxo.TransactionID](), resourceIDs["Conflict 2"])
 
-	createConflict(t, tangle, "Conflict 1.1", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
-	createConflict(t, tangle, "Conflict 1.2", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
-	createConflict(t, tangle, "Conflict 1.3", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.1", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.2", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
+	createConflict(tangle, "Conflict 1.3", conflictIDs, conflictIDs["Conflict 1"], resourceIDs["Conflict 3"])
 
-	createConflict(t, tangle, "Conflict 4.1", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
-	createConflict(t, tangle, "Conflict 4.2", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
+	createConflict(tangle, "Conflict 4.1", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
+	createConflict(tangle, "Conflict 4.2", conflictIDs, conflictIDs["Conflict 4"], resourceIDs["Conflict 4"])
 
-	createConflict(t, tangle, "Conflict 4.1.1", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
-	createConflict(t, tangle, "Conflict 4.1.2", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
+	createConflict(tangle, "Conflict 4.1.1", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
+	createConflict(tangle, "Conflict 4.1.2", conflictIDs, conflictIDs["Conflict 4.1"], resourceIDs["Conflict 5"])
 
 	conflictIDs["Conflict 1.1 + Conflict 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
 	conflictIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(conflictIDs["Conflict 1.1"])
@@ -250,12 +256,15 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
 		for _, s := range voters {
-			weightProvider.Update(time.Now(), s.ID())
+			ei := epoch.IndexFromTime(time.Now())
+
+			weightProvider.Update(ei, s.ID())
 			m[s.ID()] = 100
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -402,7 +411,8 @@ func TestAggregatedConflictApproval(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -412,7 +422,8 @@ func TestAggregatedConflictApproval(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -494,7 +505,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		for _, node := range nodes {
-			weightProvider.Update(time.Now(), node.ID())
+			ei := epoch.IndexFromTime(time.Now())
+			weightProvider.Update(ei, node.ID())
 		}
 		return map[identity.ID]float64{
 			nodes["A"].ID(): 30,
@@ -504,7 +516,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
@@ -884,7 +897,7 @@ func getSingleConflict(conflictes map[string]*set.AdvancedSet[utxo.TransactionID
 	return utxo.EmptyTransactionID
 }
 
-func createConflict(t *testing.T, tangle *Tangle, conflictAlias string, conflictIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentConflictIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
+func createConflict(tangle *Tangle, conflictAlias string, conflictIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentConflictIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
 	conflict := getSingleConflict(conflictIDs, conflictAlias)
 	tangle.Ledger.ConflictDAG.CreateConflict(conflict, parentConflictIDs, set.NewAdvancedSet(conflictID))
 	conflict.RegisterAlias(conflictAlias)

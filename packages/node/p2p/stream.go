@@ -96,23 +96,24 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		return nil, ErrNoP2P
 	}
 
-	handleInboundStream := func(protocolID protocol.ID) (*PacketsStream, error) {
-		conf := buildConnectPeerConfig(opts)
-		if conf.useDefaultTimeout {
+	handleInboundStream := func(ctx context.Context, protocolID protocol.ID) (*PacketsStream, error) {
+		if buildConnectPeerConfig(opts).useDefaultTimeout {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
 			defer cancel()
 		}
-		am, err := newAcceptMatcher(p)
+		am, err := m.newAcceptMatcher(p, protocolID)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		if ok := m.setAcceptMatcher(am); !ok {
+		if am == nil {
 			return nil, errors.WithStack(ErrDuplicateAccept)
 		}
-		defer m.removeAcceptMatcher(am)
+		defer m.removeAcceptMatcher(am, protocolID)
+
+		m.log.Debugw("waiting for incoming stream", "id", am.Peer.ID(), "proto", protocolID)
 		select {
-		case ps := <-am.StreamCh:
+		case ps := <-am.StreamCh[protocolID]:
 			if ps.Protocol() != protocolID {
 				return nil, fmt.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
 			}
@@ -120,7 +121,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		case <-ctx.Done():
 			err := ctx.Err()
 			if errors.Is(err, context.DeadlineExceeded) {
-				m.log.Debugw("accept timeout", "id", am.Peer.ID())
+				m.log.Debugw("accept timeout", "id", am.Peer.ID(), "proto", protocolID)
 				return nil, errors.WithStack(ErrTimeout)
 			}
 			m.log.Debugw("context error", "id", am.Peer.ID(), "err", err)
@@ -129,15 +130,15 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 
 	var acceptWG sync.WaitGroup
-	streams := make(map[protocol.ID]*PacketsStream)
+	streamsChan := make(chan *PacketsStream, len(m.registeredProtocols))
 	for protocolID := range m.registeredProtocols {
 		acceptWG.Add(1)
 		go func(protocolID protocol.ID) {
 			defer acceptWG.Done()
-			stream, err := handleInboundStream(protocolID)
+			stream, err := handleInboundStream(ctx, protocolID)
 			if err != nil {
 				m.log.Errorf(
-					"accept %s / %s proto %s failed: %w",
+					"accept %s / %s proto %s failed: %s",
 					net.JoinHostPort(p.IP().String(), strconv.Itoa(p2pEndpoint.Port())),
 					p.ID(),
 					protocolID,
@@ -150,10 +151,16 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 				"addr", stream.Conn().RemoteMultiaddr(),
 				"proto", protocolID,
 			)
-			streams[protocolID] = stream
+			streamsChan <- stream
 		}(protocolID)
 	}
 	acceptWG.Wait()
+	close(streamsChan)
+
+	streams := make(map[protocol.ID]*PacketsStream)
+	for stream := range streamsChan {
+		streams[stream.Protocol()] = stream
+	}
 
 	if len(streams) == 0 {
 		return nil, fmt.Errorf("no streams accepted from peer %s", p.ID())
@@ -188,23 +195,26 @@ func (m *Manager) handleStream(stream network.Stream) {
 	protocolHandler, registered := m.registeredProtocols[protocolID]
 	if !registered {
 		m.log.Errorf("cannot accept stream: protocol %s is not registered", protocolID)
-		m.CloseStream(stream)
+		m.closeStream(stream)
 		return
 	}
 	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
 	if err := protocolHandler.NegotiationReceive(ps); err != nil {
 		m.log.Errorw("failed to receive negotiation message", "proto", protocolID, "err", err)
-		m.CloseStream(stream)
+		m.closeStream(stream)
 		return
 	}
-	am := m.MatchNewStream(stream)
+	am := m.matchNewStream(stream)
+
 	if am != nil {
-		am.StreamCh <- ps
+		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
+		am.StreamCh[protocolID] <- ps
 	} else {
 		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
-			"id", stream.Conn().RemotePeer())
-		m.CloseStream(stream)
+			"id", stream.Conn().RemotePeer(), "proto", protocolID)
+		m.closeStream(stream)
+		stream.Conn().Close()
 	}
 }
 
@@ -212,48 +222,60 @@ func (m *Manager) handleStream(stream network.Stream) {
 type AcceptMatcher struct {
 	Peer     *peer.Peer // connecting peer
 	Libp2pID libp2ppeer.ID
-	StreamCh chan *PacketsStream
+	StreamCh map[protocol.ID]chan *PacketsStream
 }
 
-func newAcceptMatcher(p *peer.Peer) (*AcceptMatcher, error) {
+func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*AcceptMatcher, error) {
+	m.acceptMutex.Lock()
+	defer m.acceptMutex.Unlock()
+
 	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return &AcceptMatcher{
+
+	acceptMatcher, acceptExists := m.acceptMap[libp2pID]
+	if acceptExists {
+		if _, streamChanExists := acceptMatcher.StreamCh[protocolID]; streamChanExists {
+			return nil, nil
+		}
+		acceptMatcher.StreamCh[protocolID] = make(chan *PacketsStream)
+		return acceptMatcher, nil
+	}
+
+	am := &AcceptMatcher{
 		Peer:     p,
 		Libp2pID: libp2pID,
-		StreamCh: make(chan *PacketsStream, 1),
-	}, nil
-}
-
-func (m *Manager) setAcceptMatcher(am *AcceptMatcher) bool {
-	m.acceptMutex.Lock()
-	defer m.acceptMutex.Unlock()
-	_, exists := m.acceptMap[am.Libp2pID]
-	if exists {
-		return false
+		StreamCh: make(map[protocol.ID]chan *PacketsStream),
 	}
-	m.acceptMap[am.Libp2pID] = am
-	return true
+
+	am.StreamCh[protocolID] = make(chan *PacketsStream)
+
+	m.acceptMap[libp2pID] = am
+
+	return am, nil
 }
 
-func (m *Manager) removeAcceptMatcher(am *AcceptMatcher) {
+func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID) {
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
-	delete(m.acceptMap, am.Libp2pID)
+
+	close(m.acceptMap[am.Libp2pID].StreamCh[protocolID])
+	delete(m.acceptMap[am.Libp2pID].StreamCh, protocolID)
+
+	if len(m.acceptMap[am.Libp2pID].StreamCh) == 0 {
+		delete(m.acceptMap, am.Libp2pID)
+	}
 }
 
-// MatchNewStream matches a new stream with a peer.
-func (m *Manager) MatchNewStream(stream network.Stream) *AcceptMatcher {
+func (m *Manager) matchNewStream(stream network.Stream) *AcceptMatcher {
 	m.acceptMutex.RLock()
 	defer m.acceptMutex.RUnlock()
 	am := m.acceptMap[stream.Conn().RemotePeer()]
 	return am
 }
 
-// CloseStream closes a stream.
-func (m *Manager) CloseStream(s network.Stream) {
+func (m *Manager) closeStream(s network.Stream) {
 	if err := s.Close(); err != nil {
 		m.log.Warnw("close error", "err", err)
 	}

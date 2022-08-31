@@ -409,14 +409,14 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	}
 
 	thresholdStart := "0"
-	referencingMarkers := stringify.StructBuilder("ReferencingMarkers")
+	referencingMarkers := stringify.NewStructBuilder("ReferencingMarkers")
 	for _, index := range indexes {
 		thresholdEnd := strconv.FormatUint(uint64(index), 10)
 
 		if thresholdStart == thresholdEnd {
-			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencingMarkersByReferencingIndex[index]))
+			referencingMarkers.AddField(stringify.NewStructField("Index("+thresholdStart+")", referencingMarkersByReferencingIndex[index]))
 		} else {
-			referencingMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencingMarkersByReferencingIndex[index]))
+			referencingMarkers.AddField(stringify.NewStructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencingMarkersByReferencingIndex[index]))
 		}
 
 		thresholdStart = strconv.FormatUint(uint64(index)+1, 10)
@@ -530,7 +530,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 		}
 	}
 
-	referencedMarkers := stringify.StructBuilder("ReferencedMarkers")
+	referencedMarkers := stringify.NewStructBuilder("ReferencedMarkers")
 	for i, index := range indexes {
 		thresholdStart := strconv.FormatUint(uint64(index), 10)
 		thresholdEnd := "INF"
@@ -539,9 +539,9 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 		}
 
 		if thresholdStart == thresholdEnd {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[index]))
+			referencedMarkers.AddField(stringify.NewStructField("Index("+thresholdStart+")", referencedMarkersByReferencingIndex[index]))
 		} else {
-			referencedMarkers.AddField(stringify.StructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[index]))
+			referencedMarkers.AddField(stringify.NewStructField("Index("+thresholdStart+" ... "+thresholdEnd+")", referencedMarkersByReferencingIndex[index]))
 		}
 	}
 

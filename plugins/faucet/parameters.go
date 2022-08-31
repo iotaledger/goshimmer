@@ -21,19 +21,8 @@ type ParametersDefinition struct {
 	// PowDifficulty defines the PoW difficulty for faucet payloads.
 	PowDifficulty int `default:"22" usage:"defines the PoW difficulty for faucet payloads"`
 
-	// BlacklistCapacity holds the maximum amount the address blacklist holds.
-	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
-	BlacklistCapacity int `default:"10000" usage:"holds the maximum amount the address blacklist holds"`
-
-	// SupplyOutputsCount is the number of supply outputs, and splitting transactions accordingly, the faucet prepares.
-	SupplyOutputsCount int `default:"20" usage:"the number of supply outputs, and splitting transactions accordingly, the faucet prepares."`
-
-	// SplittingMultiplier defines how many outputs each splitting transaction will have.
-	// SplittingMultiplier * SupplyOutputsCount indicates how many funding outputs during funds replenishment.
-	SplittingMultiplier int `default:"25" usage:"SplittingMultiplier defines how many outputs each supply transaction will have."`
-
-	// GenesisTokenAmount is the total supply.
-	GenesisTokenAmount uint64 `default:"1000000000000000" usage:"GenesisTokenAmount is the total supply."`
+	// MaxWaitAttempts defines the maximum time to wait for a transaction to be accepted.
+	MaxAwait time.Duration `default:"60s" usage:"the maximum time to wait for a transaction to be accepted"`
 }
 
 // Parameters contains the configuration parameters of the faucet plugin.

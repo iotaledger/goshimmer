@@ -51,8 +51,8 @@ func configure(_ *node.Plugin) {
 func getAllCommittedEpochs(c echo.Context) error {
 	allEpochs := epochstorage.GetCommittableEpochs()
 	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
-	for _, ecr := range allEpochs {
-		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
+	for _, ecRecord := range allEpochs {
+		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecRecord))
 	}
 	sort.Slice(allEpochsInfos, func(i, j int) bool {
 		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
@@ -65,7 +65,7 @@ func getCurrentEC(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	ec := notarization.EC(ecRecord)
+	ec := ecRecord.ComputeEC()
 
 	return c.JSON(http.StatusOK, ec.Base58())
 }
@@ -107,7 +107,7 @@ func getBlocks(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	blockIDs := epochstorage.GetEpochblocks(ei)
+	blockIDs := epochstorage.GetEpochBlockIDs(ei)
 
 	blocks := make([]string, len(blockIDs))
 	for i, m := range blockIDs {

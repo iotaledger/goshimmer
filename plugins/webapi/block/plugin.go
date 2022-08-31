@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markers"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
@@ -65,10 +64,10 @@ func GetSequence(c echo.Context) (err error) {
 	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
 		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markers.NewMarker(sequenceID, sequence.HighestIndex()))
 		err = c.String(http.StatusOK, stringify.Struct("Sequence",
-			stringify.StructField("ID", sequence.ID()),
-			stringify.StructField("LowestIndex", sequence.LowestIndex()),
-			stringify.StructField("HighestIndex", sequence.HighestIndex()),
-			stringify.StructField("BlockWithLastMarker", blockWithLastMarker),
+			stringify.NewStructField("ID", sequence.ID()),
+			stringify.NewStructField("LowestIndex", sequence.LowestIndex()),
+			stringify.NewStructField("HighestIndex", sequence.HighestIndex()),
+			stringify.NewStructField("BlockWithLastMarker", blockWithLastMarker),
 		))
 	}) {
 		return
@@ -112,7 +111,7 @@ func GetBlock(c echo.Context) (err error) {
 		var payloadBytes []byte
 		payloadBytes, err = block.Payload().Bytes()
 
-		ecRecord := epoch.NewECRecord(block.EI())
+		ecRecord := epoch.NewECRecord(block.ECRecordEI())
 		ecRecord.SetECR(block.ECR())
 		ecRecord.SetPrevEC(block.PrevEC())
 
@@ -135,8 +134,8 @@ func GetBlock(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			EC:                   notarization.EC(ecRecord).Base58(),
-			EI:                   uint64(block.EI()),
+			EC:                   ecRecord.ComputeEC().Base58(),
+			EI:                   uint64(block.ECRecordEI()),
 			ECR:                  block.ECR().Base58(),
 			PrevEC:               block.PrevEC().Base58(),
 			Payload:              payloadBytes,

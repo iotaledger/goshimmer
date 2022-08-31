@@ -122,9 +122,9 @@ func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
 
 // String returns a human-readable version of the Voters.
 func (v *Voters) String() string {
-	structBuilder := stringify.StructBuilder("Voters")
+	structBuilder := stringify.NewStructBuilder("Voters")
 	v.Set.ForEach(func(voter Voter) {
-		structBuilder.AddField(stringify.StructField(voter.String(), "true"))
+		structBuilder.AddField(stringify.NewStructField(voter.String(), "true"))
 	})
 
 	return structBuilder.String()

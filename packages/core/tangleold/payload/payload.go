@@ -10,7 +10,7 @@ import (
 // MaxSize = MaxBlockSize -
 //                    (version(1) + parentsBlocksCount(1) + 3 * (parentsType(1) + parentsCount(1) + 8 * reference(40)) +
 //		      issuerPK(32) + issuanceTime(8) + seqNum(8) + payloadLength(4) +
-//		  + EI(8) + ECR(32) + PrevEC(32) + LatestConfirmedEpoch(8)
+//		  + ECRecordI(8) + ECR(32) + PrevEC(32) + LatestConfirmedEpoch(8)
 //		  + nonce(8) + signature(64)
 //		      = MaxBlockSize - 1172 bytes = 64364
 const MaxSize = 65536 - 1172
