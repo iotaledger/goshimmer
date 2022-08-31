@@ -15,7 +15,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 

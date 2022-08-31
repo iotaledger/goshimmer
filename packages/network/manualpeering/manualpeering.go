@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 const defaultReconnectInterval = 5 * time.Second
@@ -66,7 +66,7 @@ type KnownPeer struct {
 // manager will make sure gossip drops that connection.
 // Manager also subscribes to the gossip events and in case the connection with a manual peer fails it will reconnect.
 type Manager struct {
-	p2pm              *p2p.Manager
+	p2pm              *p2p2.Manager
 	log               *logger.Logger
 	local             *peer.Local
 	startOnce         sync.Once
@@ -78,12 +78,12 @@ type Manager struct {
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 
-	onGossipNeighborRemovedClosure *event.Closure[*p2p.NeighborRemovedEvent]
-	onGossipNeighborAddedClosure   *event.Closure[*p2p.NeighborAddedEvent]
+	onGossipNeighborRemovedClosure *event.Closure[*p2p2.NeighborRemovedEvent]
+	onGossipNeighborAddedClosure   *event.Closure[*p2p2.NeighborAddedEvent]
 }
 
 // NewManager initializes a new Manager instance.
-func NewManager(p2pm *p2p.Manager, local *peer.Local, log *logger.Logger) *Manager {
+func NewManager(p2pm *p2p2.Manager, local *peer.Local, log *logger.Logger) *Manager {
 	m := &Manager{
 		p2pm:              p2pm,
 		local:             local,
@@ -91,8 +91,8 @@ func NewManager(p2pm *p2p.Manager, local *peer.Local, log *logger.Logger) *Manag
 		reconnectInterval: defaultReconnectInterval,
 		knownPeers:        map[identity.ID]*knownPeer{},
 	}
-	m.onGossipNeighborRemovedClosure = event.NewClosure(func(event *p2p.NeighborRemovedEvent) { m.onGossipNeighborRemoved(event.Neighbor) })
-	m.onGossipNeighborAddedClosure = event.NewClosure(func(event *p2p.NeighborAddedEvent) { m.onGossipNeighborAdded(event.Neighbor) })
+	m.onGossipNeighborRemovedClosure = event.NewClosure(func(event *p2p2.NeighborRemovedEvent) { m.onGossipNeighborRemoved(event.Neighbor) })
+	m.onGossipNeighborAddedClosure = event.NewClosure(func(event *p2p2.NeighborAddedEvent) { m.onGossipNeighborAdded(event.Neighbor) })
 	return m
 }
 
@@ -175,8 +175,8 @@ func (m *Manager) GetPeers(opts ...GetPeersOption) []*KnownPeer {
 // Calling multiple times has no effect.
 func (m *Manager) Start() {
 	m.startOnce.Do(func() {
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
+		m.p2pm.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborRemoved.Attach(m.onGossipNeighborRemovedClosure)
+		m.p2pm.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Attach(m.onGossipNeighborAddedClosure)
 		m.isStarted.Set()
 	})
 }
@@ -191,8 +191,8 @@ func (m *Manager) Stop() (err error) {
 		defer m.stopMutex.Unlock()
 		m.isStopped = true
 		err = errors.WithStack(m.removeAllKnownPeers())
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
-		m.p2pm.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
+		m.p2pm.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborRemoved.Detach(m.onGossipNeighborRemovedClosure)
+		m.p2pm.NeighborGroupEvents(p2p2.NeighborsGroupManual).NeighborAdded.Detach(m.onGossipNeighborAddedClosure)
 	})
 	return err
 }
@@ -297,7 +297,7 @@ func (m *Manager) removePeerByID(peerID identity.ID) error {
 	delete(m.knownPeers, peerID)
 	close(kp.removeCh)
 	<-kp.doneCh
-	if err := m.p2pm.DropNeighbor(peerID, p2p.NeighborsGroupManual); err != nil && !errors.Is(err, p2p.ErrUnknownNeighbor) {
+	if err := m.p2pm.DropNeighbor(peerID, p2p2.NeighborsGroupManual); err != nil && !errors.Is(err, p2p2.ErrUnknownNeighbor) {
 		return errors.Wrapf(err, "failed to drop known peer %s in the gossip layer", peerID)
 	}
 	return nil
@@ -323,11 +323,11 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 			)
 			var err error
 			if kp.connDirection == ConnDirectionOutbound {
-				err = m.p2pm.AddOutbound(ctx, kp.peer, p2p.NeighborsGroupManual)
+				err = m.p2pm.AddOutbound(ctx, kp.peer, p2p2.NeighborsGroupManual)
 			} else if kp.connDirection == ConnDirectionInbound {
-				err = m.p2pm.AddInbound(ctx, kp.peer, p2p.NeighborsGroupManual, p2p.WithNoDefaultTimeout())
+				err = m.p2pm.AddInbound(ctx, kp.peer, p2p2.NeighborsGroupManual, p2p2.WithNoDefaultTimeout())
 			}
-			if err != nil && !errors.Is(err, p2p.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
+			if err != nil && !errors.Is(err, p2p2.ErrDuplicateNeighbor) && !errors.Is(err, context.Canceled) {
 				m.log.Errorw(
 					"Failed to connect a neighbor in the gossip layer",
 					"peerID", peerID, "connectionDirection", kp.connDirection, "err", err,
@@ -343,11 +343,11 @@ func (m *Manager) keepPeerConnected(kp *knownPeer) {
 	}
 }
 
-func (m *Manager) onGossipNeighborRemoved(neighbor *p2p.Neighbor) {
+func (m *Manager) onGossipNeighborRemoved(neighbor *p2p2.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusDisconnected)
 }
 
-func (m *Manager) onGossipNeighborAdded(neighbor *p2p.Neighbor) {
+func (m *Manager) onGossipNeighborAdded(neighbor *p2p2.Neighbor) {
 	m.changeNeighborStatus(neighbor, ConnStatusConnected)
 	m.log.Infow(
 		"Gossip layer successfully connected with the peer",
@@ -355,7 +355,7 @@ func (m *Manager) onGossipNeighborAdded(neighbor *p2p.Neighbor) {
 	)
 }
 
-func (m *Manager) changeNeighborStatus(neighbor *p2p.Neighbor, connStatus ConnectionStatus) {
+func (m *Manager) changeNeighborStatus(neighbor *p2p2.Neighbor, connStatus ConnectionStatus) {
 	m.knownPeersMutex.RLock()
 	defer m.knownPeersMutex.RUnlock()
 	kp, exists := m.knownPeers[neighbor.ID()]

@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	gp "github.com/iotaledger/goshimmer/packages/node/gossip/gossipproto"
-	"github.com/iotaledger/goshimmer/packages/node/libp2putil/libp2ptesting"
+	"github.com/iotaledger/goshimmer/packages/core/libp2putil/libp2ptesting"
+	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
 )
 
 var (

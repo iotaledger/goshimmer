@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 const (
@@ -28,7 +28,7 @@ type ProcessBlockFunc func(blockBytes []byte, peer *peer.Peer)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	p2pManager *p2p.Manager
+	p2pManager *p2p2.Manager
 
 	log *logger.Logger
 
@@ -64,7 +64,7 @@ type epochChannels struct {
 }
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
+func NewManager(p2pManager *p2p2.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
 	m := &Manager{
 		p2pManager:         p2pManager,
 		log:                log,
@@ -72,7 +72,7 @@ func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockPro
 		blockProcessorFunc: blockProcessorFunc,
 	}
 
-	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
+	m.p2pManager.RegisterProtocol(protocolID, &p2p2.ProtocolHandler{
 		PacketFactory:      warpsyncPacketFactory,
 		NegotiationSend:    sendNegotiationMessage,
 		NegotiationReceive: receiveNegotiationMessage,
@@ -147,7 +147,7 @@ func (m *Manager) Stop() {
 	m.p2pManager.UnregisterProtocol(protocolID)
 }
 
-func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) error {
+func submitTask[P any](packetProcessor func(packet P, nbr *p2p2.Neighbor), packet P, nbr *p2p2.Neighbor) error {
 	if added := event.Loop.TrySubmit(func() { packetProcessor(packet, nbr) }); !added {
 		return errors.Errorf("WorkerPool full: packet block discarded")
 	}

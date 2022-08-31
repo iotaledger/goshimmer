@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 // DoubleSpendFilter keeps a log of recently submitted transactions and their consumed outputs.

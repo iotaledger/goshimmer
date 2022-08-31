@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
@@ -27,7 +28,6 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

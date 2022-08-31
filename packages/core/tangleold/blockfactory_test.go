@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 

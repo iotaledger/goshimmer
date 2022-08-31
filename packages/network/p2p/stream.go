@@ -21,7 +21,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/node/libp2putil"
+	libp2putil2 "github.com/iotaledger/goshimmer/packages/core/libp2putil"
 )
 
 const (
@@ -47,7 +47,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if p2pEndpoint == nil {
 		return nil, ErrNoP2P
 	}
-	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
+	libp2pID, err := libp2putil2.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -229,7 +229,7 @@ func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*Accep
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
 
-	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
+	libp2pID, err := libp2putil2.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -287,9 +287,9 @@ type PacketsStream struct {
 	packetFactory func() proto.Message
 
 	readerLock     sync.Mutex
-	reader         *libp2putil.UvarintReader
+	reader         *libp2putil2.UvarintReader
 	writerLock     sync.Mutex
-	writer         *libp2putil.UvarintWriter
+	writer         *libp2putil2.UvarintWriter
 	packetsRead    *atomic.Uint64
 	packetsWritten *atomic.Uint64
 }
@@ -299,8 +299,8 @@ func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message)
 	return &PacketsStream{
 		Stream:         stream,
 		packetFactory:  packetFactory,
-		reader:         libp2putil.NewDelimitedReader(stream),
-		writer:         libp2putil.NewDelimitedWriter(stream),
+		reader:         libp2putil2.NewDelimitedReader(stream),
+		writer:         libp2putil2.NewDelimitedWriter(stream),
 		packetsRead:    atomic.NewUint64(0),
 		packetsWritten: atomic.NewUint64(0),
 	}

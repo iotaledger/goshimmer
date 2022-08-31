@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/libp2p/go-libp2p"
 
-	"github.com/iotaledger/goshimmer/packages/node/libp2putil"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 var localAddr *net.TCPAddr

@@ -2,15 +2,16 @@ package warpsync
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 )
 
-func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
+func (m *Manager) handlePacket(nbr *p2p2.Neighbor, packet proto.Message) error {
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
@@ -109,12 +110,12 @@ func warpsyncPacketFactory() proto.Message {
 	return &wp.Packet{}
 }
 
-func sendNegotiationMessage(ps *p2p.PacketsStream) error {
+func sendNegotiationMessage(ps *p2p2.PacketsStream) error {
 	packet := &wp.Packet{Body: &wp.Packet_Negotiation{Negotiation: &wp.Negotiation{}}}
 	return errors.WithStack(ps.WritePacket(packet))
 }
 
-func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
+func receiveNegotiationMessage(ps *p2p2.PacketsStream) (err error) {
 	packet := &wp.Packet{}
 	if err := ps.ReadPacket(packet); err != nil {
 		return errors.WithStack(err)
