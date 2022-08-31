@@ -3,9 +3,10 @@ package tangleold
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"

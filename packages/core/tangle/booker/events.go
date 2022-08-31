@@ -11,7 +11,13 @@ type Events struct {
 	BlockBooked         *event.Event[*Block]
 	BlockConflictAdded  *event.Event[*BlockConflictAddedEvent]
 	MarkerConflictAdded *event.Event[*MarkerConflictAddedEvent]
-	Error               *event.Event[error]
+	SequenceEvicted     *event.Event[markers.SequenceID]
+
+	Error *event.Event[error]
+}
+
+type MarkerManagerEvents struct {
+	SequenceEvicted *event.Event[markers.SequenceID]
 }
 
 type BlockConflictAddedEvent struct {
@@ -32,6 +38,14 @@ func newEvents() *Events {
 		BlockBooked:         event.New[*Block](),
 		BlockConflictAdded:  event.New[*BlockConflictAddedEvent](),
 		MarkerConflictAdded: event.New[*MarkerConflictAddedEvent](),
-		Error:               event.New[error](),
+
+		Error: event.New[error](),
+	}
+}
+
+// newEvents creates a new Events instance.
+func newMarkerManagerEvents() *MarkerManagerEvents {
+	return &MarkerManagerEvents{
+		SequenceEvicted: event.New[markers.SequenceID](),
 	}
 }

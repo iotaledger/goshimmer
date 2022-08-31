@@ -18,6 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
 
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
+
 type conflictDAGTestFramework = *conflictdag.TestFramework
 type markersTestFramework = *markers.TestFramework
 
@@ -47,16 +49,12 @@ func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, o
 			t.ValidatorSet = validator.NewSet()
 		}
 
-		if t.conflictDAG == nil {
-			t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
-		}
-		if t.sequenceManager == nil {
-			t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
-		}
+		t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
+		t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
-		t.SequenceTracker().Events.VoterAdded.Hook(event.NewClosure(func(evt *SequenceVoterEvent) {
+		t.SequenceTracker().Events.SequenceVotersUpdated.Hook(event.NewClosure(func(evt *SequenceVotersUpdatedEvent) {
 			if debug.GetEnabled() {
-				t.test.Logf("VOTER ADDED: %v", evt.Marker)
+				t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
 			}
 		}))
 	})
@@ -112,6 +110,10 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 	}
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region mocks //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type mockVotePower struct {
 	votePower int
 }
@@ -141,6 +143,10 @@ func (t *TestFramework[VotePowerType]) ConflictTracker() (conflictTracker *Confl
 
 	return t.conflictTracker
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func WithValidatorSet[VotePowerType VotePower[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
@@ -186,3 +192,5 @@ func WithSequenceManager[VotePowerType VotePower[VotePowerType]](sequenceManager
 		tf.sequenceManager = sequenceManager
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

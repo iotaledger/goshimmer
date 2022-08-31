@@ -151,7 +151,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 			}
 
 			b.Events.ConflictAccepted.Trigger(&ConflictAcceptedEvent[ConflictID]{
-				ID: conflictID,
+				ID: conflict.ID(),
 			})
 
 			confirmationWalker.PushAll(conflict.Parents().Slice()...)
