@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )

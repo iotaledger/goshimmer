@@ -9,9 +9,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -990,10 +990,10 @@ func TestManager_ActivityTree(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	//for _, node := range nodes {
+	// for _, node := range nodes {
 	//	ei := epoch.IndexFromTime(time.Now())
 	//	weightProvider.Update(ei, node.ID())
-	//}
+	// }
 
 	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc)
 	testFramework, _, _ := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))

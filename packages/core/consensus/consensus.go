@@ -3,7 +3,7 @@ package consensus
 import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // WeightFunc returns the approval weight for the given conflict.

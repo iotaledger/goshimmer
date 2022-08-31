@@ -4,12 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 // region Tangle ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,7 +18,6 @@ import (
 // virtual votes on existing conflicts.
 type Tangle struct {
 	optsBlockDAG      []options.Option[blockdag.BlockDAG]
-	optsLedger        []options.Option[ledger.Ledger]
 	optsBooker        []options.Option[booker.Booker]
 	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
 

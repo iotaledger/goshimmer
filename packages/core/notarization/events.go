@@ -2,9 +2,9 @@ package notarization
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 )
@@ -38,10 +38,9 @@ type Events struct {
 	// SyncRange is an event that gets triggered when an entire range of epochs needs to be requested, validated and solidified
 	SyncRange *event.Event[*SyncRangeEvent]
 	// ActivityTreeInserted is an event that gets triggered when nodeID is added to the activity tree.
-        ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
-        // ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
-        ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
-
+	ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
+	// ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
+	ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -116,10 +115,10 @@ type SyncRangeEvent struct {
 
 // ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
 type ActivityTreeUpdatedEvent struct {
-        // EI is the index of the epoch.
-        EI epoch.Index
-        // NodeID is the issuer nodeID.
-        NodeID identity.ID
+	// EI is the index of the epoch.
+	EI epoch.Index
+	// NodeID is the issuer nodeID.
+	NodeID identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,7 +21,7 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"

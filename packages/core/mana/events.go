@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 const (

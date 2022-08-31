@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func init() {

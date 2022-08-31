@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func init() {
