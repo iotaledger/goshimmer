@@ -345,7 +345,10 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	}
 
 	// We advance the LedgerState to the next epoch.
-	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
+	epochToCommit := ei - epoch.Index(f.snapshotDepth)
+	if epochToCommit > 0 {
+		f.commitLedgerState(epochToCommit)
+	}
 
 	commitmentRoots = &epoch.CommitmentRoots{
 		StateRoot:         epoch.NewMerkleRoot(stateRoot),
