@@ -38,7 +38,7 @@ const (
 type RateSetterModeType int8
 
 func ParseRateSetterMode(s string) RateSetterModeType {
-	switch s {
+	switch strings.ToLower(s) {
 	case "aimd":
 		return AIMDMode
 	case "disabled":
