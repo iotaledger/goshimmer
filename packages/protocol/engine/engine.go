@@ -15,10 +15,10 @@ import (
 // region Engine ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	*ledger.Ledger
-	*tangle.Tangle
-	*solidification.Solidification
-	*consensus.Consensus
+	Ledger         *ledger.Ledger
+	Tangle         *tangle.Tangle
+	Solidification *solidification.Solidification
+	Consensus      *consensus.Consensus
 
 	optsTangle         []options.Option[tangle.Tangle]
 	optsSolidification []options.Option[solidification.Solidification]

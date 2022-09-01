@@ -29,20 +29,24 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
-	return options.Apply(&TestFramework{}, opts, func(t *TestFramework) {
-		if t.optsLedger == nil {
-			t.optsLedger = ledger.New(t.optsLedgerOptions...)
-		}
+	return options.Apply(&TestFramework{
+		test: test,
+	}, opts, func(t *TestFramework) {
+		if t.Tangle == nil {
+			if t.optsLedger == nil {
+				t.optsLedger = ledger.New(t.optsLedgerOptions...)
+			}
 
-		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
-		}
+			if t.optsEvictionManager == nil {
+				t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+			}
 
-		if t.optsValidatorSet == nil {
-			t.optsValidatorSet = validator.NewSet()
-		}
+			if t.optsValidatorSet == nil {
+				t.optsValidatorSet = validator.NewSet()
+			}
 
-		t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+			t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+		}
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
 			test,
@@ -70,13 +74,13 @@ func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	}
 }
 
-func WithLedgerOptions(ledger *ledger.Ledger) options.Option[TestFramework] {
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		if t.optsLedger != nil {
 			panic("using the TestFramework with Ledger and LedgerOptions simultaneously is not allowed")
 		}
 
-		t.optsLedger = ledger
+		t.optsLedgerOptions = opts
 	}
 }
 
@@ -89,6 +93,12 @@ func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) opti
 func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsValidatorSet = validatorSet
+	}
+}
+
+func WithTangle(tangle *Tangle) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.Tangle = tangle
 	}
 }
 
