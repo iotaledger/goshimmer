@@ -323,9 +323,6 @@ func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message)
 func (ps *PacketsStream) WritePacket(message proto.Message) error {
 	ps.writerLock.Lock()
 	defer ps.writerLock.Unlock()
-	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
-		return errors.WithStack(err)
-	}
 	err := ps.writer.WriteBlk(message)
 	if err != nil {
 		return errors.WithStack(err)
