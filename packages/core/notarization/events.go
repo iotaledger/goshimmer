@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -20,7 +21,7 @@ type Events struct {
 	// CompetingCommitmentDetected is an event that gets triggered whenever a competing epoch commitment is detected.
 	CompetingCommitmentDetected *event.Event[*CompetingCommitmentDetectedEvent]
 	// ManaVectorUpdate is an event that gets triggered whenever the consensus mana vector needs to be updated.
-	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
+	ManaVectorUpdate *event.Event[*mana.ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
 	// TangleTreeRemoved is an event that gets triggered when a Block is removed from Tangle smt.
@@ -69,10 +70,10 @@ type StateMutationTreeUpdatedEvent struct {
 type UTXOUpdatedEvent struct {
 	// EI is the index of updated UTXO.
 	EI epoch.Index
-	// Created are the outputs created in a transaction.
-	Created []*ledger.OutputWithMetadata
 	// Spent are outputs that is spent in a transaction.
 	Spent []*ledger.OutputWithMetadata
+	// Created are the outputs created in a transaction.
+	Created []*ledger.OutputWithMetadata
 }
 
 // EpochCommittableEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
@@ -93,12 +94,6 @@ type EpochConfirmedEvent struct {
 type CompetingCommitmentDetectedEvent struct {
 	// Block is the block that contains the competing commitment.
 	Block *tangleold.Block
-}
-
-// ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
-type ManaVectorUpdateEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.Index
 }
 
 // SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.

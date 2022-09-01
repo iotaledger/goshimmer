@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 )
 
 const (
@@ -106,7 +107,7 @@ func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 }
 
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
-func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
+func (e *EventMock) ManaVectorUpdate(event *mana.ManaVectorUpdateEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }

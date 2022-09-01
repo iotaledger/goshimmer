@@ -6,7 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
@@ -43,7 +42,7 @@ var (
 	storages                     map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana]
 	allowedPledgeNodes           map[mana.Type]AllowedPledge
 	onTransactionAcceptedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
-	onManaVectorToUpdateClosure  *event.Closure[*notarization.ManaVectorUpdateEvent]
+	onManaVectorToUpdateClosure  *event.Closure[*mana.ManaVectorUpdateEvent]
 )
 
 func init() {
@@ -60,13 +59,8 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionAccepted(event.TransactionID) })
-	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
-		manaVectorEI := event.EI - epoch.Index(ManaParameters.EpochDelay)
-		if manaVectorEI < 1 {
-			return
-		}
-		spent, created := deps.NotarizationMgr.GetEpochDiff(manaVectorEI)
-		baseManaVectors[mana.ConsensusMana].BookEpoch(created, spent)
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *mana.ManaVectorUpdateEvent) {
+		baseManaVectors[mana.ConsensusMana].BookEpoch(event.Created, event.Spent)
 	})
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
