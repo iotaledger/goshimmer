@@ -75,16 +75,19 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.Ledger == nil {
 			t.Ledger = New(t.optsLedger...)
+		}
 
-			genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
+		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
+		cachedObject, stored := t.Ledger.Storage.outputStorage.StoreIfAbsent(genesisOutput)
+		if stored {
+			cachedObject.Release()
+
 			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-			genesisOutput.ID().RegisterAlias("Genesis")
-			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
-
-			t.Ledger.Storage.outputStorage.Store(genesisOutput).Release()
 			t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+
+			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+			genesisOutput.ID().RegisterAlias("Genesis")
 		}
 	})
 }

@@ -24,8 +24,8 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Gadget              *Gadget
-	TangleTestFramework *tangle.TestFramework
+	Gadget *Gadget
+	Tangle *tangle.TestFramework
 
 	test              *testing.T
 	acceptedBlocks    uint32
@@ -66,7 +66,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
 		}
 
-		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
+		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
 	}, (*TestFramework).setupEvents)
 }
 
@@ -86,14 +86,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.reorgCount), 1)
 	}))
 
-	t.TangleTestFramework.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	t.Tangle.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", event.ID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	}))
 
-	t.TangleTestFramework.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+	t.Tangle.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", event.ID)
 		}
@@ -121,7 +121,7 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedConflictIDs {
-		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.TangleTestFramework.Block(blockID).ID())
+		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Tangle.Block(blockID).ID())
 		assert.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }
@@ -135,7 +135,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.TangleTestFramework.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.TangleTestFramework.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Tangle.Transaction(conflictIDAlias).ID()))
 		assert.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
