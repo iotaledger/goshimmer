@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/bitmask"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -66,7 +67,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload, ctx context.Context) (*d
 		sendoptions.Context(ctx),
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to send first transaction from %s to %s", f.Seed().Address(0).Base58(), f.Seed().Address(1).Base58())
 	}
 
 	// send funds to requester
@@ -78,5 +79,5 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload, ctx context.Context) (*d
 		sendoptions.WaitForConfirmation(true),
 		sendoptions.Context(ctx),
 	)
-	return tx, err
+	return tx, errors.Wrapf(err, "failed to send second transaction from %s to %s", f.Seed().Address(1).Base58(), p.Address().Base58())
 }
