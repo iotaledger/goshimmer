@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
 const (

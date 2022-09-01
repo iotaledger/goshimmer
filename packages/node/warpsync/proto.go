@@ -2,12 +2,13 @@ package warpsync
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
 )
 
 func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {

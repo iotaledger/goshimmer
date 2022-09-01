@@ -9,10 +9,10 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/goshimmer/packages/app/spammer"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
 
 var blockSpammer *spammer.Spammer
