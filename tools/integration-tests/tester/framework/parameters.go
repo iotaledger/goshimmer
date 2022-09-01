@@ -98,7 +98,6 @@ func PeerConfig() config.GoShimmer {
 
 	// enable rate setter and set to disabled mode ;)
 	c.RateSetter.Enabled = true
-	c.RateSetter.Mode = tangleold.DisabledMode.String()
 	c.RateSetter.RateSetterParametersDefinition.Mode = tangleold.DisabledMode.String()
 
 	c.Faucet.Enabled = false
