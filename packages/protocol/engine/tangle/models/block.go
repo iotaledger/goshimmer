@@ -123,11 +123,6 @@ func (m *Block) VerifySignature() (valid bool, err error) {
 	return m.M.IssuerPublicKey.VerifySignature(content, signature), nil
 }
 
-// IDBytes implements Element interface in scheduler NodeQueue that returns the BlockID of the block in bytes.
-func (m *Block) IDBytes() []byte {
-	return m.ID().Bytes()
-}
-
 // Version returns the block Version.
 func (m *Block) Version() uint8 {
 	return m.M.Version

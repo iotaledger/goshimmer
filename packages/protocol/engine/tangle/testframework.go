@@ -42,7 +42,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.optsValidatorSet = validator.NewSet()
 		}
 
-		t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+		if t.Tangle == nil {
+			t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+		}
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
 			test,
@@ -59,6 +61,12 @@ type VirtualVotingTestFramework = virtualvoting.TestFramework
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithTangle(tangle *Tangle) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.Tangle = tangle
+	}
+}
 
 func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	return func(t *TestFramework) {

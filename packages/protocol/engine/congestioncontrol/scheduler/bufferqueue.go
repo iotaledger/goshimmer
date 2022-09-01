@@ -1,4 +1,4 @@
-package schedulerutils
+package scheduler
 
 import (
 	"container/ring"
@@ -6,6 +6,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // ErrInsufficientMana is returned when the mana is insufficient.
@@ -13,27 +15,27 @@ var ErrInsufficientMana = errors.New("insufficient node's mana to schedule the b
 
 // region BufferQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
-// BufferQueue represents a buffer of NodeQueue.
+// BufferQueue represents a buffer of IssuerQueue.
 type BufferQueue struct {
 	maxBuffer int
 
-	activeNodes map[identity.ID]*ring.Ring
-	ring        *ring.Ring
-	size        int
+	activeIssuers map[identity.ID]*ring.Ring
+	ring          *ring.Ring
+	size          int
 }
 
 // NewBufferQueue returns a new BufferQueue.
 func NewBufferQueue(maxBuffer int) *BufferQueue {
 	return &BufferQueue{
-		maxBuffer:   maxBuffer,
-		activeNodes: make(map[identity.ID]*ring.Ring),
-		ring:        nil,
+		maxBuffer:     maxBuffer,
+		activeIssuers: make(map[identity.ID]*ring.Ring),
+		ring:          nil,
 	}
 }
 
-// NumActiveNodes returns the number of active nodes in b.
-func (b *BufferQueue) NumActiveNodes() int {
-	return len(b.activeNodes)
+// NumActiveIssuers returns the number of active nodes in b.
+func (b *BufferQueue) NumActiveIssuers() int {
+	return len(b.activeIssuers)
 }
 
 // MaxSize returns the max size (in bytes) of all blocks in b.
@@ -46,31 +48,31 @@ func (b *BufferQueue) Size() int {
 	return b.size
 }
 
-// NodeQueue returns the queue for the corresponding node.
-func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
-	element, ok := b.activeNodes[nodeID]
+// IssuerQueue returns the queue for the corresponding node.
+func (b *BufferQueue) IssuerQueue(nodeID identity.ID) *IssuerQueue {
+	element, ok := b.activeIssuers[nodeID]
 	if !ok {
 		return nil
 	}
-	return element.Value.(*NodeQueue)
+	return element.Value.(*IssuerQueue)
 }
 
 // Submit submits a block. Return blocks dropped from the scheduler to make room for the submitted block.
 // The submitted block can also be returned as dropped if the issuing node does not have enough access mana.
-func (b *BufferQueue) Submit(blk Element, accessManaRetriever func(identity.ID) float64) (elements []ElementID, err error) {
+func (b *BufferQueue) Submit(blk *Block, accessManaRetriever func(identity.ID) float64) (elements []*Block, err error) {
 	nodeID := identity.NewID(blk.IssuerPublicKey())
-	element, nodeActive := b.activeNodes[nodeID]
-	var nodeQueue *NodeQueue
+	element, nodeActive := b.activeIssuers[nodeID]
+	var nodeQueue *IssuerQueue
 	if nodeActive {
-		nodeQueue = element.Value.(*NodeQueue)
+		nodeQueue = element.Value.(*IssuerQueue)
 	} else {
-		nodeQueue = NewNodeQueue(nodeID)
-		b.activeNodes[nodeID] = b.ringInsert(nodeQueue)
+		nodeQueue = NewIssuerQueue(nodeID)
+		b.activeIssuers[nodeID] = b.ringInsert(nodeQueue)
 	}
 
 	// first we submit the block, and if it turns out that the node doesn't have enough bandwidth to submit, it will be removed by dropHead
 	if !nodeQueue.Submit(blk) {
-		return nil, errors.Errorf("block already submitted")
+		return nil, errors.Errorf("block already submitted %s", blk.String())
 	}
 
 	b.size++
@@ -83,69 +85,71 @@ func (b *BufferQueue) Submit(blk Element, accessManaRetriever func(identity.ID) 
 	return nil, nil
 }
 
-func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (blocksDropped []ElementID) {
+func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (droppedBlocks []*Block) {
 	start := b.Current()
-
 	// remove as many blocks as necessary to stay within max buffer size
 	for b.Size() > b.maxBuffer {
+		// TODO: extract to util func
 		// find longest mana-scaled queue
 		maxScale := math.Inf(-1)
 		var maxNodeID identity.ID
 		for q := start; ; {
-			nodeMana := accessManaRetriever(q.NodeID())
+			nodeMana := accessManaRetriever(q.IssuerID())
 			if nodeMana > 0.0 {
 				if scale := float64(q.Size()) / nodeMana; scale > maxScale {
 					maxScale = scale
-					maxNodeID = q.NodeID()
+					maxNodeID = q.IssuerID()
 				}
 			} else if q.Size() > 0 {
 				maxScale = math.Inf(1)
-				maxNodeID = q.NodeID()
+				maxNodeID = q.IssuerID()
 			}
 			q = b.Next()
 			if q == start {
 				break
 			}
 		}
-		longestQueue := b.activeNodes[maxNodeID].Value.(*NodeQueue)
+		longestQueue := b.activeIssuers[maxNodeID].Value.(*IssuerQueue)
+
+		// TODO: extract to util func
 		// find oldest submitted and not-ready block in the longest queue
-		var oldestBlock Element
+		var oldestBlock *Block
 
 		for _, v := range longestQueue.submitted {
-			if oldestBlock == nil || oldestBlock.IssuingTime().After((*v).IssuingTime()) {
-				oldestBlock = *v
+			if oldestBlock == nil || oldestBlock.IssuingTime().After(v.IssuingTime()) {
+				oldestBlock = v
 			}
 		}
 
 		// if the oldest not-ready block is older than the oldest ready block, drop the former otherwise the latter
 		readyQueueFront := longestQueue.Front()
 		if oldestBlock != nil && (readyQueueFront == nil || oldestBlock.IssuingTime().Before(readyQueueFront.IssuingTime())) {
-			blocksDropped = append(blocksDropped, ElementIDFromBytes(oldestBlock.IDBytes()))
-			// no need to check if Unsubmit call succeeded, as the mutex of the scheduler is locked to current context
+			droppedBlocks = append(droppedBlocks, oldestBlock)
+
 			b.Unsubmit(oldestBlock)
 		} else if readyQueueFront != nil {
 			blk := longestQueue.PopFront()
 			b.size--
-			blocksDropped = append(blocksDropped, ElementIDFromBytes(blk.IDBytes()))
+			droppedBlocks = append(droppedBlocks, blk)
 		} else {
 			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
 		}
 	}
-	return blocksDropped
+	return droppedBlocks
 }
 
 // Unsubmit removes a block from the submitted blocks.
 // If that block is already marked as ready, Unsubmit has no effect.
-func (b *BufferQueue) Unsubmit(blk Element) bool {
-	nodeID := identity.NewID(blk.IssuerPublicKey())
+func (b *BufferQueue) Unsubmit(block *Block) bool {
+	issuerID := identity.NewID(block.IssuerPublicKey())
 
-	element, ok := b.activeNodes[nodeID]
+	element, ok := b.activeIssuers[issuerID]
 	if !ok {
 		return false
 	}
 
-	nodeQueue := element.Value.(*NodeQueue)
-	if !nodeQueue.Unsubmit(blk) {
+	nodeQueue := element.Value.(*IssuerQueue)
+	if !nodeQueue.Unsubmit(block) {
 		return false
 	}
 
@@ -154,24 +158,24 @@ func (b *BufferQueue) Unsubmit(blk Element) bool {
 }
 
 // Ready marks a previously submitted block as ready to be scheduled.
-func (b *BufferQueue) Ready(blk Element) bool {
-	element, ok := b.activeNodes[identity.NewID(blk.IssuerPublicKey())]
+func (b *BufferQueue) Ready(block *Block) bool {
+	element, ok := b.activeIssuers[identity.NewID(block.IssuerPublicKey())]
 	if !ok {
 		return false
 	}
 
-	nodeQueue := element.Value.(*NodeQueue)
-	return nodeQueue.Ready(blk)
+	issuerQueue := element.Value.(*IssuerQueue)
+	return issuerQueue.Ready(block)
 }
 
 // ReadyBlocksCount returns the number of ready blocks in the buffer.
-func (b *BufferQueue) ReadyBlocksCount() (readyBlkCount int) {
+func (b *BufferQueue) ReadyBlocksCount() (readyBlocksCount int) {
 	start := b.Current()
 	if start == nil {
 		return
 	}
 	for q := start; ; {
-		readyBlkCount += q.inbox.Len()
+		readyBlocksCount += q.inbox.Len()
 		q = b.Next()
 		if q == start {
 			break
@@ -181,14 +185,14 @@ func (b *BufferQueue) ReadyBlocksCount() (readyBlkCount int) {
 }
 
 // TotalBlocksCount returns the number of blocks in the buffer.
-func (b *BufferQueue) TotalBlocksCount() (blkCount int) {
+func (b *BufferQueue) TotalBlocksCount() (blocksCount int) {
 	start := b.Current()
 	if start == nil {
 		return
 	}
 	for q := start; ; {
-		blkCount += q.inbox.Len()
-		blkCount += len(q.submitted)
+		blocksCount += q.inbox.Len()
+		blocksCount += len(q.submitted)
 		q = b.Next()
 		if q == start {
 			break
@@ -197,58 +201,58 @@ func (b *BufferQueue) TotalBlocksCount() (blkCount int) {
 	return
 }
 
-// InsertNode creates a queue for the given node and adds it to the list of active nodes.
-func (b *BufferQueue) InsertNode(nodeID identity.ID) {
-	_, nodeActive := b.activeNodes[nodeID]
+// InsertIssuer creates a queue for the given node and adds it to the list of active nodes.
+func (b *BufferQueue) InsertIssuer(nodeID identity.ID) {
+	_, nodeActive := b.activeIssuers[nodeID]
 	if nodeActive {
 		return
 	}
 
-	nodeQueue := NewNodeQueue(nodeID)
-	b.activeNodes[nodeID] = b.ringInsert(nodeQueue)
+	nodeQueue := NewIssuerQueue(nodeID)
+	b.activeIssuers[nodeID] = b.ringInsert(nodeQueue)
 }
 
-// RemoveNode removes all blocks (submitted and ready) for the given node.
-func (b *BufferQueue) RemoveNode(nodeID identity.ID) {
-	element, ok := b.activeNodes[nodeID]
+// RemoveIssuer removes all blocks (submitted and ready) for the given node.
+func (b *BufferQueue) RemoveIssuer(nodeID identity.ID) {
+	element, ok := b.activeIssuers[nodeID]
 	if !ok {
 		return
 	}
 
-	nodeQueue := element.Value.(*NodeQueue)
+	nodeQueue := element.Value.(*IssuerQueue)
 	b.size -= nodeQueue.Size()
 
 	b.ringRemove(element)
-	delete(b.activeNodes, nodeID)
+	delete(b.activeIssuers, nodeID)
 }
 
-// Next returns the next NodeQueue in round robin order.
-func (b *BufferQueue) Next() *NodeQueue {
+// Next returns the next IssuerQueue in round-robin order.
+func (b *BufferQueue) Next() *IssuerQueue {
 	if b.ring != nil {
 		b.ring = b.ring.Next()
-		return b.ring.Value.(*NodeQueue)
+		return b.ring.Value.(*IssuerQueue)
 	}
 	return nil
 }
 
-// Current returns the current NodeQueue in round robin order.
-func (b *BufferQueue) Current() *NodeQueue {
+// Current returns the current IssuerQueue in round-robin order.
+func (b *BufferQueue) Current() *IssuerQueue {
 	if b.ring == nil {
 		return nil
 	}
-	return b.ring.Value.(*NodeQueue)
+	return b.ring.Value.(*IssuerQueue)
 }
 
 // PopFront removes the first ready block from the queue of the current node.
-func (b *BufferQueue) PopFront() Element {
+func (b *BufferQueue) PopFront() (block *Block) {
 	q := b.Current()
-	blk := q.PopFront()
+	block = q.PopFront()
 	b.size--
-	return blk
+	return block
 }
 
 // IDs returns the IDs of all submitted blocks (ready or not).
-func (b *BufferQueue) IDs() (ids []ElementID) {
+func (b *BufferQueue) IDs() (ids []models.BlockID) {
 	start := b.Current()
 	if start == nil {
 		return nil
@@ -263,15 +267,15 @@ func (b *BufferQueue) IDs() (ids []ElementID) {
 	return ids
 }
 
-// NodeIDs returns the nodeIDs of all nodes.
-func (b *BufferQueue) NodeIDs() []identity.ID {
+// IssuerIDs returns the nodeIDs of all nodes.
+func (b *BufferQueue) IssuerIDs() []identity.ID {
 	var nodeIDs []identity.ID
 	start := b.Current()
 	if start == nil {
 		return nil
 	}
 	for q := start; ; {
-		nodeIDs = append(nodeIDs, q.NodeID())
+		nodeIDs = append(nodeIDs, q.IssuerID())
 		q = b.Next()
 		if q == start {
 			break

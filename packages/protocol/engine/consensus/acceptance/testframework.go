@@ -32,8 +32,8 @@ type TestFramework struct {
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadget          []options.Option[Gadget]
-	optsTangle          []options.Option[tangle.Tangle]
+	optsGadgetOptions   []options.Option[Gadget]
+	optsTangleOptions   []options.Option[tangle.Tangle]
 	optsValidatorSet    *validator.Set
 	optsEvictionManager *eviction.Manager[models.BlockID]
 
@@ -51,16 +51,16 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
 		}
-
-		t.TestFramework = tangle.NewTestFramework(
-			test,
-			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionManager(t.optsEvictionManager),
-		)
-
+		if t.TestFramework == nil {
+			t.TestFramework = tangle.NewTestFramework(
+				test,
+				tangle.WithTangleOptions(t.optsTangleOptions...),
+				tangle.WithValidatorSet(t.optsValidatorSet),
+				tangle.WithEvictionManager(t.optsEvictionManager),
+			)
+		}
 		if t.Gadget == nil {
-			t.Gadget = New(t.Tangle, t.optsGadget...)
+			t.Gadget = New(t.Tangle, t.optsGadgetOptions...)
 		}
 
 	}, (*TestFramework).setupEvents)
@@ -142,13 +142,19 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsGadget = opts
+		tf.optsGadgetOptions = opts
 	}
 }
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsTangle = opts
+		tf.optsTangleOptions = opts
+	}
+}
+
+func WithTangleTestFramework(tangeTf *tangle.TestFramework) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.TestFramework = tangeTf
 	}
 }
 

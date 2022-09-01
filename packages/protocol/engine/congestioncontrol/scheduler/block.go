@@ -3,7 +3,7 @@ package scheduler
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ func (b *Block) SetScheduled() (wasUpdated bool) {
 	return
 }
 
-func (b *Block) Discarded() bool {
+func (b *Block) Dropped() bool {
 	b.RLock()
 	defer b.RUnlock()
 

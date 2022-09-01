@@ -35,7 +35,7 @@ func (b *ConflictMarkersMapper) InheritStructureDetails(block *Block, structureD
 	// newStructureDetails, newSequenceCreated = b.Manager.ProcessBlock(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
 	//	nodeID := identity.NewID(block.IssuerPublicKey())
 	//	bufferUsedRatio := float64(b.tangle.Scheduler.BufferSize()) / float64(b.tangle.Scheduler.MaxBufferSize())
-	//	nodeQueueRatio := float64(b.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(b.tangle.Scheduler.BufferSize())
+	//	nodeQueueRatio := float64(b.tangle.Scheduler.IssuerQueueSize(nodeID)) / float64(b.tangle.Scheduler.BufferSize())
 	//	if bufferUsedRatio > 0.01 && nodeQueueRatio > 0.1 {
 	//		return false
 	//	}
