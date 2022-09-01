@@ -20,21 +20,21 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithConflictAcceptanceThreshold(0.5), WithMarkerAcceptanceThreshold(0.5)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(30))
-	tf.CreateIdentity("B", validator.WithWeight(15))
-	tf.CreateIdentity("C", validator.WithWeight(25))
-	tf.CreateIdentity("D", validator.WithWeight(20))
-	tf.CreateIdentity("E", validator.WithWeight(10))
+	tf.TangleTestFramework.CreateIdentity("A", validator.WithWeight(30))
+	tf.TangleTestFramework.CreateIdentity("B", validator.WithWeight(15))
+	tf.TangleTestFramework.CreateIdentity("C", validator.WithWeight(25))
+	tf.TangleTestFramework.CreateIdentity("D", validator.WithWeight(20))
+	tf.TangleTestFramework.CreateIdentity("E", validator.WithWeight(10))
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedConflicts := make(map[string]confirmation.State)
 	initialAcceptedMarkers := make(map[markers.Marker]bool)
 
 	// ISSUE Block1
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block1", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Genesis")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-	tf.AssertBlockTracked(1)
+	tf.TangleTestFramework.AssertBlockTracked(1)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": false,
@@ -44,9 +44,9 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block2
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
-	tf.AssertBlockTracked(2)
+	tf.TangleTestFramework.CreateBlock("Block2", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block1")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.AssertBlockTracked(2)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": false,
@@ -56,9 +56,9 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block3
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuer(tf.Identity("C").PublicKey()))
-	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
-	tf.AssertBlockTracked(3)
+	tf.TangleTestFramework.CreateBlock("Block3", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block2")), models.WithIssuer(tf.TangleTestFramework.Identity("C").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.AssertBlockTracked(3)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": true,
@@ -71,9 +71,9 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block4
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithIssuer(tf.Identity("D").PublicKey()))
-	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
-	tf.AssertBlockTracked(4)
+	tf.TangleTestFramework.CreateBlock("Block4", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block3")), models.WithIssuer(tf.TangleTestFramework.Identity("D").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.AssertBlockTracked(4)
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": true,
@@ -86,9 +86,9 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block5
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()),
-		models.WithPayload(tf.CreateTransaction("Tx1", 1, "Genesis")))
-	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block5", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()),
+		models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx1", 1, "Genesis")))
+	tf.TangleTestFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block3": true,
@@ -101,9 +101,9 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block6
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("E").PublicKey()),
-		models.WithPayload(tf.CreateTransaction("Tx2", 1, "Genesis")))
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block6", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("E").PublicKey()),
+		models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx2", 1, "Genesis")))
+	tf.TangleTestFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block4": true,
@@ -120,8 +120,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block7
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("C").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx3", 1, "Tx1.0")))
-	tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block7", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block5")), models.WithIssuer(tf.TangleTestFramework.Identity("C").PublicKey()), models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx3", 1, "Tx1.0")))
+	tf.TangleTestFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block5": true,
@@ -134,8 +134,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block7.1
-	tf.CreateBlock("Block7.1", models.WithStrongParents(tf.BlockIDs("Block7")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
-	tf.IssueBlocks("Block7.1").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block7.1", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block7")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
+	tf.TangleTestFramework.IssueBlocks("Block7.1").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block7":   true,
@@ -150,8 +150,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block7.2
-	tf.CreateBlock("Block7.2", models.WithStrongParents(tf.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("C").PublicKey()))
-	tf.IssueBlocks("Block7.2").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block7.2", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.TangleTestFramework.BlockIDs("Block6")), models.WithIssuer(tf.TangleTestFramework.Identity("C").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block7.2").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block7.1": true,
@@ -165,8 +165,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block8
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("D").PublicKey()))
-	tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block8", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block6")), models.WithIssuer(tf.TangleTestFramework.Identity("D").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block8": false,
@@ -176,8 +176,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block9
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block8")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block9", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block8")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block9").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block9": false,
@@ -190,8 +190,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block10
-	tf.CreateBlock("Block10", models.WithStrongParents(tf.BlockIDs("Block9")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block10", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block9")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block10").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block10": false,
@@ -202,8 +202,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block11
-	tf.CreateBlock("Block11", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx4", 1, "Tx1.0")))
-	tf.IssueBlocks("Block11").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block11", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block5")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()), models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx4", 1, "Tx1.0")))
+	tf.TangleTestFramework.IssueBlocks("Block11").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block11": false,
@@ -217,8 +217,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block12
-	tf.CreateBlock("Block12", models.WithStrongParents(tf.BlockIDs("Block11")), models.WithIssuer(tf.Identity("D").PublicKey()))
-	tf.IssueBlocks("Block12").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block12", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block11")), models.WithIssuer(tf.TangleTestFramework.Identity("D").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block12").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block12": false,
@@ -229,8 +229,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block13
-	tf.CreateBlock("Block13", models.WithStrongParents(tf.BlockIDs("Block12")), models.WithIssuer(tf.Identity("E").PublicKey()))
-	tf.IssueBlocks("Block13").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block13", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block12")), models.WithIssuer(tf.TangleTestFramework.Identity("E").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block13").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block13": false,
@@ -243,8 +243,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block14
-	tf.CreateBlock("Block14", models.WithStrongParents(tf.BlockIDs("Block13")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block14").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block14", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block13")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block14").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block14": false,
@@ -258,8 +258,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block15
-	tf.CreateBlock("Block15", models.WithStrongParents(tf.BlockIDs("Block14")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
-	tf.IssueBlocks("Block15").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block15", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block14")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
+	tf.TangleTestFramework.IssueBlocks("Block15").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block11": true,
@@ -281,8 +281,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block16
-	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("C").PublicKey()))
-	tf.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block16", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block15")), models.WithIssuer(tf.TangleTestFramework.Identity("C").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block14": true,
@@ -307,33 +307,33 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.TangleTestFramework.CreateIdentity("A", validator.WithWeight(20))
+	tf.TangleTestFramework.CreateIdentity("B", validator.WithWeight(30))
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedMarkers := make(map[markers.Marker]bool)
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block1", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Genesis")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block2", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block1")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block3", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block2")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block4", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block3")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block5", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
 
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block7")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block9", models.WithStrongParents(tf.BlockIDs("Block8")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block10", models.WithStrongParents(tf.BlockIDs("Block9")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block6", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block7", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block6")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block8", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block7")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block9", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block8")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block10", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block9")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
 
-	tf.CreateBlock("Block11", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block12", models.WithStrongParents(tf.BlockIDs("Block11")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block13", models.WithStrongParents(tf.BlockIDs("Block12")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block14", models.WithStrongParents(tf.BlockIDs("Block13")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block15", models.WithStrongParents(tf.BlockIDs("Block14")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block11", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block12", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block11")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block13", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block12")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block14", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block13")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block15", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block14")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
 
-	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block6", "Block7", "Block8", "Block9", "Block10").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block11", "Block12", "Block13", "Block14", "Block15").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block6", "Block7", "Block8", "Block9", "Block10").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block11", "Block12", "Block13", "Block14", "Block15").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -370,8 +370,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 		tf.AssertBlockAccepted(0)
 	}
 
-	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block16", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block15")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 			"Block1":  true,
@@ -398,8 +398,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 		tf.AssertBlockAccepted(9)
 	}
 
-	tf.CreateBlock("Block17", models.WithStrongParents(tf.BlockIDs("Block10")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block17").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block17", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block10")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block17").WaitUntilAllTasksProcessed()
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 			"Block6":  true,
@@ -418,8 +418,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 		tf.AssertBlockAccepted(14)
 	}
 
-	tf.CreateBlock("Block18", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block18").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block18", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block5")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block18").WaitUntilAllTasksProcessed()
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 			"Block5":  true,
@@ -438,17 +438,17 @@ func TestGadget_update_reorg(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
-	tf.CreateIdentity("A", validator.WithWeight(20))
-	tf.CreateIdentity("B", validator.WithWeight(30))
+	tf.TangleTestFramework.CreateIdentity("A", validator.WithWeight(20))
+	tf.TangleTestFramework.CreateIdentity("B", validator.WithWeight(30))
 
 	initialAcceptedBlocks := make(map[string]bool)
 	initialAcceptedConflicts := make(map[string]confirmation.State)
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuer(tf.Identity("A").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx1", 1, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuer(tf.Identity("B").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx2", 1, "Genesis")))
+	tf.TangleTestFramework.CreateBlock("Block1", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Genesis")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()), models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx1", 1, "Genesis")))
+	tf.TangleTestFramework.CreateBlock("Block2", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Genesis")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()), models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx2", 1, "Genesis")))
 
-	tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
-	tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -465,9 +465,9 @@ func TestGadget_update_reorg(t *testing.T) {
 		tf.AssertConflictsRejected(0)
 	}
 
-	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuer(tf.Identity("B").PublicKey()), models.WithPayload(tf.CreateTransaction("Tx3", 1, "Tx1.0")))
+	tf.TangleTestFramework.CreateBlock("Block3", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block1")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()), models.WithPayload(tf.TangleTestFramework.CreateTransaction("Tx3", 1, "Tx1.0")))
 
-	tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -484,10 +484,10 @@ func TestGadget_update_reorg(t *testing.T) {
 		tf.AssertConflictsRejected(1)
 	}
 
-	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block4", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block2")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
+	tf.TangleTestFramework.CreateBlock("Block5", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block4")), models.WithIssuer(tf.TangleTestFramework.Identity("A").PublicKey()))
 
-	tf.IssueBlocks("Block4", "Block5").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.IssueBlocks("Block4", "Block5").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -503,8 +503,8 @@ func TestGadget_update_reorg(t *testing.T) {
 		tf.AssertReorgs(0)
 	}
 
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	tf.TangleTestFramework.CreateBlock("Block6", models.WithStrongParents(tf.TangleTestFramework.BlockIDs("Block5")), models.WithIssuer(tf.TangleTestFramework.Identity("B").PublicKey()))
+	tf.TangleTestFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{

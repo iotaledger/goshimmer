@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -23,46 +24,49 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Gadget *Gadget
+	Gadget              *Gadget
+	TangleTestFramework *tangle.TestFramework
 
-	test *testing.T
-
+	test              *testing.T
 	acceptedBlocks    uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
 	reorgCount        uint32
 
-	optsGadget          []options.Option[Gadget]
-	optsTangle          []options.Option[tangle.Tangle]
-	optsValidatorSet    *validator.Set
+	optsGadgetOptions   []options.Option[Gadget]
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsEvictionManager *eviction.Manager[models.BlockID]
-
-	*tangle.TestFramework
+	optsValidatorSet    *validator.Set
+	optsTangle          *tangle.Tangle
+	optsTangleOptions   []options.Option[tangle.Tangle]
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
-		}
-
-		if t.optsValidatorSet == nil {
-			t.optsValidatorSet = validator.NewSet()
-		}
-
-		t.TestFramework = tangle.NewTestFramework(
-			test,
-			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionManager(t.optsEvictionManager),
-		)
-
 		if t.Gadget == nil {
-			t.Gadget = New(t.Tangle, t.optsGadget...)
+			if t.optsTangle == nil {
+				if t.optsLedger == nil {
+					t.optsLedger = ledger.New(t.optsLedgerOptions...)
+				}
+
+				if t.optsEvictionManager == nil {
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+				}
+
+				if t.optsValidatorSet == nil {
+					t.optsValidatorSet = validator.NewSet()
+				}
+
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+			}
+
+			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
 		}
 
+		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
 	}, (*TestFramework).setupEvents)
 }
 
@@ -82,14 +86,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.reorgCount), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	t.TangleTestFramework.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", event.ID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+	t.TangleTestFramework.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", event.ID)
 		}
@@ -117,7 +121,7 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 
 func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bool) {
 	for blockID, blockExpectedAccepted := range expectedConflictIDs {
-		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
+		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.TangleTestFramework.Block(blockID).ID())
 		assert.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
 	}
 }
@@ -131,7 +135,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.TangleTestFramework.ConflictDAG().ConfirmationState(set.NewAdvancedSet(t.TangleTestFramework.Transaction(conflictIDAlias).ID()))
 		assert.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%t but is %t", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
@@ -140,15 +144,39 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+func WithGadget(gadget *Gadget) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.Gadget = gadget
+	}
+}
+
 func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsGadget = opts
+		tf.optsGadgetOptions = opts
+	}
+}
+
+func WithTangle(tangle *tangle.Tangle) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsTangle = tangle
 	}
 }
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.optsTangle = opts
+		tf.optsTangleOptions = opts
+	}
+}
+
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsLedger = ledger
+	}
+}
+
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsLedgerOptions = opts
 	}
 }
 
