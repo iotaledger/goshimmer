@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
@@ -35,7 +36,7 @@ type Manager struct {
 	epochCommitmentFactoryMutex sync.RWMutex
 	bootstrapMutex              sync.RWMutex
 	options                     *ManagerOptions
-	pendingConflictsCounters    map[epoch.Index]uint64
+	pendingConflictsCounters    *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 	log                         *logger.Logger
 	Events                      *Events
 	bootstrapped                bool
@@ -55,7 +56,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 	new = &Manager{
 		tangle:                   t,
 		epochCommitmentFactory:   epochCommitmentFactory,
-		pendingConflictsCounters: make(map[epoch.Index]uint64),
+		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
 		log:                      options.Log,
 		options:                  options,
 		Events: &Events{
@@ -172,7 +173,7 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 	}
 }
 
-// LoadEpochDiffs updates the state tree from a given snapshot.
+// LoadEpochDiff loads an epoch diff.
 func (m *Manager) LoadEpochDiff(epochDiff *ledger.EpochDiff) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -532,10 +533,11 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
-	pendingConflicts = make(map[epoch.Index]uint64, len(m.pendingConflictsCounters))
-	for k, v := range m.pendingConflictsCounters {
+	pendingConflicts = make(map[epoch.Index]uint64, m.pendingConflictsCounters.Size())
+	m.pendingConflictsCounters.ForEach(func(k epoch.Index, v uint64) bool {
 		pendingConflicts[k] = v
-	}
+		return true
+	})
 	return pendingConflicts
 }
 
@@ -564,15 +566,19 @@ func (m *Manager) Shutdown() {
 }
 
 func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
-	m.pendingConflictsCounters[ei]--
-	if m.pendingConflictsCounters[ei] == 0 {
+	count, _ := m.pendingConflictsCounters.Get(ei)
+	count--
+	m.pendingConflictsCounters.Set(ei, count)
+	if count == 0 {
 		return m.moveLatestCommittableEpoch(ei)
 	}
 	return nil, nil
 }
 
 func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
-	m.pendingConflictsCounters[ei]++
+	count, _ := m.pendingConflictsCounters.Get(ei)
+	count++
+	m.pendingConflictsCounters.Set(ei, count)
 }
 
 func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
@@ -611,7 +617,7 @@ func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved
 	}
 	// epoch is not committable if there are any not resolved conflicts in this and past epochs
 	for index := lastEI; index <= ei; index++ {
-		if m.pendingConflictsCounters[index] != 0 {
+		if count, _ := m.pendingConflictsCounters.Get(index); count != 0 {
 			return false
 		}
 	}
@@ -707,6 +713,9 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return nil, nil
 		}
+
+		// We do not need to track pending conflicts for a committed epoch anymore.
+		m.pendingConflictsCounters.Delete(ei)
 
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{
 			EI:       ei,
