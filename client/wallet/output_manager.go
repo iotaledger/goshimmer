@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
@@ -32,8 +34,11 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 	// go through the list of all addresses in the wallet
 	addressesToRefresh := o.addressManager.Addresses()
 
+	fmt.Println("outpust in o.unspentOutputs", o.unspentOutputs)
+
 	// fetch unspent outputs on these addresses
 	unspentOutputs, err := o.connector.UnspentOutputs(addressesToRefresh...)
+	fmt.Println(">>>> unspent outputs from connector", unspentOutputs)
 	if err != nil {
 		return err
 	}
@@ -45,10 +50,14 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 				o.unspentOutputs[addy] = make(map[utxo.OutputID]*Output)
 			}
 			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
-				output.Spent = true
-			}
+			// TODO: if an output is spent in a block that gets orphaned then the output is "locked" and always marked as spent locally.
+			//  for now we ignore it.
+			// if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
+			// 	fmt.Println("marking as spend")
+			// 	output.Spent = true
+			// }
 			o.unspentOutputs[addy][outputID] = output
+			fmt.Println("adding to o.unspentOutputs", addy, outputID, output)
 		}
 	}
 
