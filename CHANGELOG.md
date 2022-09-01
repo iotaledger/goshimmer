@@ -1,3 +1,11 @@
+# v0.9.6 - 2022-09-01
+
+> This release introduces major bugfixes to epoch notarization and networking.
+
+- Fix: several bugs in Notarization and Networking (#2412)
+- Wrap faucet errors and add faucet logging (#2411)
+- Fix concurrent map writes in integration network shutdown (#2410)
+
 # v0.9.5 - 2022-08-31
 
 > This release introduces a warpsync plugin for fast epochs retrieval, a simplified faucet, local snapshot improvements, and network and general bug fixes.
