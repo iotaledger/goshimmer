@@ -6,6 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
@@ -26,7 +27,8 @@ type EpochCommitmentStorage struct {
 	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
 
 	// Delta storages
-	epochDiffStorages map[epoch.Index]*epochDiffStorage
+	epochDiffStoragesMutex sync.Mutex
+	epochDiffStorages      *shrinkingmap.ShrinkingMap[epoch.Index, *epochDiffStorage]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -62,7 +64,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.epochDiffStorages = make(map[epoch.Index]*epochDiffStorage)
+	new.epochDiffStorages = shrinkingmap.New[epoch.Index, *epochDiffStorage]()
 
 	return new
 }
@@ -83,10 +85,13 @@ func (s *EpochCommitmentStorage) shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.ledgerstateStorage.Shutdown()
 		s.ecRecordStorage.Shutdown()
-		for _, epochDiffStorage := range s.epochDiffStorages {
+		s.epochDiffStoragesMutex.Lock()
+		defer s.epochDiffStoragesMutex.Unlock()
+		s.epochDiffStorages.ForEach(func(_ epoch.Index, epochDiffStorage *epochDiffStorage) bool {
 			epochDiffStorage.spent.Shutdown()
 			epochDiffStorage.created.Shutdown()
-		}
+			return true
+		})
 	})
 }
 
@@ -137,7 +142,11 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
 	// TODO: properly drop (delete epoch bucketed) storage
 	diffStorage := s.getEpochDiffStorage(ei)
-	delete(s.epochDiffStorages, ei)
+
+	s.epochDiffStoragesMutex.Lock()
+	defer s.epochDiffStoragesMutex.Unlock()
+
+	s.epochDiffStorages.Delete(ei)
 	go func() {
 		diffStorage.spent.Shutdown()
 		diffStorage.created.Shutdown()
@@ -145,7 +154,10 @@ func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
 }
 
 func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
-	if epochDiffStorage, exists := s.epochDiffStorages[ei]; exists {
+	s.epochDiffStoragesMutex.Lock()
+	defer s.epochDiffStoragesMutex.Unlock()
+
+	if epochDiffStorage, exists := s.epochDiffStorages.Get(ei); exists {
 		return epochDiffStorage
 	}
 
@@ -174,7 +186,7 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		),
 	}
 
-	s.epochDiffStorages[ei] = diffStorage
+	s.epochDiffStorages.Set(ei, diffStorage)
 
 	return
 }
