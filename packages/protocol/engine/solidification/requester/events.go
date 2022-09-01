@@ -8,9 +8,9 @@ import (
 
 // Events represents events happening on a block requester.
 type Events struct {
-	// RequestIssued is an event that is triggered when the requester wants to request the given Block from its
+	// BlockRequested is an event that is triggered when the requester wants to request the given Block from its
 	// neighbors.
-	RequestIssued *event.Event[models.BlockID]
+	BlockRequested *event.Event[models.BlockID]
 
 	// RequestStarted is an event that is triggered when a new request is started.
 	RequestStarted *event.Event[models.BlockID]
@@ -22,9 +22,10 @@ type Events struct {
 	RequestFailed *event.Event[models.BlockID]
 }
 
+// newEvents creates a new Events instance.
 func newEvents() (events *Events) {
 	return &Events{
-		RequestIssued:  event.New[models.BlockID](),
+		BlockRequested: event.New[models.BlockID](),
 		RequestStarted: event.New[models.BlockID](),
 		RequestStopped: event.New[models.BlockID](),
 		RequestFailed:  event.New[models.BlockID](),
