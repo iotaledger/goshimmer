@@ -1,6 +1,8 @@
 package acceptancegadget
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -17,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 )
 
@@ -34,6 +35,7 @@ type AcceptanceGadget struct {
 	EvictionManager                 *eviction.LockableManager[models.BlockID]
 	blocks                          *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker              *memstorage.Storage[markers.SequenceID, markers.Index]
+	lastAcceptedMarkerMutex         sync.Mutex
 	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
 	optsMarkerAcceptanceThreshold   float64
 	optsConflictAcceptanceThreshold float64
@@ -49,7 +51,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[AcceptanceGadget]) *Accep
 		optsMarkerAcceptanceThreshold:   defaultMarkerAcceptanceThreshold,
 		optsConflictAcceptanceThreshold: defaultConflictAcceptanceThreshold,
 	}, opts, func(a *AcceptanceGadget) {
-		a.acceptanceOrder = causalorder.New(a.EvictionManager.Manager, a.Block, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
+		a.acceptanceOrder = causalorder.New(a.EvictionManager.Manager, a.GetOrRegisterBlock, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*AcceptanceGadget).setupEvents)
 }
 
@@ -120,15 +122,8 @@ func (a *AcceptanceGadget) RefreshSequenceAcceptance(sequenceID markers.Sequence
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.Tangle.VirtualVoting.MarkerVoters(marker)
-		markerWeight := TotalVotersWeight(markerVoters)
-
-		if markerWeight > uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsMarkerAcceptanceThreshold) && !a.isMarkerAccepted(marker) {
-			if err := a.propagateAcceptance(marker); err != nil {
-				a.Events.Error.Trigger(errors.Wrap(err, "could not mark past cone blocks as accepted"))
-				break
-			} else {
-				a.lastAcceptedMarker.Set(sequenceID, markerIndex)
-			}
+		if a.Tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+			a.propagateAcceptance(marker)
 		}
 	}
 }
@@ -148,17 +143,13 @@ func (a *AcceptanceGadget) block(id models.BlockID) (block *Block, exists bool) 
 	return storage.Get(id)
 }
 
-func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error) {
-	//TODO: should tangle expose BlockFromMarker that returns virtualvoting.Block?
-	bookerBlock, _ := a.Tangle.BlockFromMarker(marker)
-	virtualVotingBlock, _ := a.Tangle.Block(bookerBlock.ID())
-
-	err = a.registerBlockWithPastCone(virtualVotingBlock)
-	if err != nil {
-		return errors.Wrap(err, "could not mark past cone as accepted")
+func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) {
+	bookerBlock, blockExists := a.Tangle.BlockFromMarker(marker)
+	if !blockExists {
+		return
 	}
 
-	block, _ := a.block(virtualVotingBlock.ID())
+	block, _ := a.getOrRegisterBlock(bookerBlock.ID())
 
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
@@ -170,12 +161,10 @@ func (a *AcceptanceGadget) propagateAcceptance(marker markers.Marker) (err error
 				continue
 			}
 
-			parentBlock, _ := a.block(parentBlockID)
+			parentBlock, _ := a.getOrRegisterBlock(parentBlockID)
 			pastConeWalker.Push(parentBlock)
 		}
 	}
-
-	return nil
 }
 
 func (a *AcceptanceGadget) markAsAccepted(block *Block) (err error) {
@@ -216,43 +205,41 @@ func (a *AcceptanceGadget) evictSequence(sequenceID markers.SequenceID) {
 	}
 }
 
-func (a *AcceptanceGadget) registerBlockWithPastCone(block *virtualvoting.Block) (err error) {
-	pastConeWalker := walker.New[*virtualvoting.Block](false).Push(block)
-	for pastConeWalker.HasNext() {
-		walkerBlock := pastConeWalker.Next()
-		created, registerErr := a.registerBlock(walkerBlock)
-		if registerErr != nil {
-			return registerErr
+func (a *AcceptanceGadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
+	a.EvictionManager.RLock()
+	defer a.EvictionManager.RUnlock()
+
+	return a.getOrRegisterBlock(blockID)
+}
+func (a *AcceptanceGadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
+	block, exists = a.block(blockID)
+	if !exists {
+		virtualVotingBlock, virtualVotingBlockExists := a.Tangle.Block(blockID)
+		if !virtualVotingBlockExists {
+			return nil, false
 		}
-		if created {
-			for _, parentID := range walkerBlock.Parents() {
-				parentBlock, parentExists := a.Tangle.Block(parentID)
-				if parentExists {
-					pastConeWalker.Push(parentBlock)
-				}
-			}
+
+		var err error
+		block, err = a.registerBlock(virtualVotingBlock)
+		if err != nil {
+			a.Events.Error.Trigger(errors.Wrapf(err, "could not register block %s", blockID))
+			return nil, false
 		}
 	}
-
-	return nil
+	return block, true
 }
 
-func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (registered bool, err error) {
+func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
 	if a.EvictionManager.IsTooOld(virtualVotingBlock.ID()) {
-		return false, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
-	}
-
-	if _, exists := a.block(virtualVotingBlock.ID()); exists {
-		return false, nil
+		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
 	}
 
 	blockStorage := a.blocks.Get(virtualVotingBlock.ID().Index(), true)
-
-	_, registered = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
+	block, _ = blockStorage.RetrieveOrCreate(virtualVotingBlock.ID(), func() *Block {
 		return NewBlock(virtualVotingBlock)
 	})
 
-	return registered, nil
+	return block, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -261,9 +248,8 @@ func (a *AcceptanceGadget) registerBlock(virtualVotingBlock *virtualvoting.Block
 
 func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	conflictVoters := a.Tangle.VirtualVoting.ConflictVoters(conflictID)
-	conflictWeight := TotalVotersWeight(conflictVoters)
-
-	if conflictWeight <= uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsConflictAcceptanceThreshold) {
+	conflictWeight := conflictVoters.TotalWeight()
+	if !a.Tangle.ValidatorSet.IsThresholdReached(conflictWeight, a.optsConflictAcceptanceThreshold) {
 		return
 	}
 
@@ -279,10 +265,9 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 		}
 
 		conflictingConflictVoters := a.Tangle.VirtualVoting.ConflictVoters(conflictingConflictID)
-		conflictingConflictWeight := TotalVotersWeight(conflictingConflictVoters)
 
 		// if 66% ahead of ALL conflicting conflicts, then set accepted
-		if conflictWeight-conflictingConflictWeight <= uint64(float64(a.Tangle.ValidatorSet.TotalWeight())*a.optsConflictAcceptanceThreshold) {
+		if conflictingConflictWeight := conflictingConflictVoters.TotalWeight(); !a.Tangle.ValidatorSet.IsThresholdReached(conflictWeight-conflictingConflictWeight, a.optsConflictAcceptanceThreshold) {
 			markAsAccepted = false
 		}
 
@@ -301,6 +286,17 @@ func (a *AcceptanceGadget) RefreshConflictAcceptance(conflictID utxo.Transaction
 	}
 }
 
+func (a *AcceptanceGadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
+	a.lastAcceptedMarkerMutex.Lock()
+	defer a.lastAcceptedMarkerMutex.Unlock()
+
+	if index, exists := a.lastAcceptedMarker.Get(marker.SequenceID()); !exists || index < marker.Index() {
+		a.lastAcceptedMarker.Set(marker.SequenceID(), marker.Index())
+		return true
+	}
+	return false
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -315,19 +311,6 @@ func WithConflictAcceptanceThreshold(acceptanceThreshold float64) options.Option
 	return func(gadget *AcceptanceGadget) {
 		gadget.optsConflictAcceptanceThreshold = acceptanceThreshold
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func TotalVotersWeight(voters *set.AdvancedSet[*validator.Validator]) uint64 {
-	var weight uint64
-	_ = voters.ForEach(func(validator *validator.Validator) error {
-		weight += validator.Weight()
-		return nil
-	})
-	return weight
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

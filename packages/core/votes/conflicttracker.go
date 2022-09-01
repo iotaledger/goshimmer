@@ -49,10 +49,10 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 	return true, false
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[*validator.Validator]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *validator.Set) {
 	votes, exists := c.votes.Get(conflict)
 	if !exists {
-		return set.NewAdvancedSet[*validator.Validator]()
+		return validator.NewSet()
 	}
 
 	return votes.Voters()

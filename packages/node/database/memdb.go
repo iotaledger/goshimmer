@@ -10,7 +10,7 @@ type memDB struct {
 }
 
 // NewMemDB returns a new in-memory (not persisted) DB object.
-func NewMemDB(_ string) (DB, error) {
+func NewMemDB(string) (DB, error) {
 	return &memDB{KVStore: mapdb.NewMapDB()}, nil
 }
 

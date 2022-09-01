@@ -53,7 +53,7 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	sepsProd := NewSolidEntryPointsProducer(fullEpochIndex, ecRecord.EI(), m)
 	outputWithMetadataProd := NewLedgerUTXOStatesProducer(m.notarizationMgr)
 	epochDiffsProd := NewEpochDiffsProducer(fullEpochIndex, ecRecord.EI(), m.notarizationMgr)
-	activityProducer := NewActivityLogProducer(m.notarizationMgr)
+	activityProducer := NewActivityLogProducer(m.notarizationMgr, ecRecord.EI())
 
 	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd, activityProducer)
 
