@@ -106,6 +106,9 @@ func (n *Neighbor) readLoop() {
 				packet := stream.packetFactory()
 				err := stream.ReadPacket(packet)
 				if err != nil {
+					if isTimeoutError(err) {
+						continue
+					}
 					n.Log.Infow("Stream read packet error", "err", err)
 					if disconnectErr := n.disconnect(); disconnectErr != nil {
 						n.Log.Warnw("Failed to disconnect", "err", disconnectErr)
