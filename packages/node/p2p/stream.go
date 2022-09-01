@@ -208,11 +208,11 @@ func (m *Manager) handleStream(stream network.Stream) {
 		return
 	}
 	am := m.matchNewStream(stream)
-	am.StreamChMutex.RLock()
-	streamCh := am.StreamCh[protocolID]
-	am.StreamChMutex.RUnlock()
-
 	if am != nil {
+		am.StreamChMutex.RLock()
+		streamCh := am.StreamCh[protocolID]
+		am.StreamChMutex.RUnlock()
+
 		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
 		streamCh <- ps
 	} else {
