@@ -329,8 +329,6 @@ func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
 	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
 
-	m.log.Debugf("block committing to epoch %d stored, latest committable epoch is %d", blockEI, latestCommittableEI)
-
 	// If we are too far behind, we will warpsync
 	if epochDeltaSeconds > m.options.BootstrapWindow {
 		m.Events.SyncRange.Trigger(&SyncRangeEvent{
