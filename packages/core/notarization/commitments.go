@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"golang.org/x/crypto/blake2b"
 
@@ -49,7 +50,7 @@ type CommitmentTrees struct {
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
 type EpochCommitmentFactory struct {
-	commitmentTrees map[epoch.Index]*CommitmentTrees
+	commitmentTrees *shrinkingmap.ShrinkingMap[epoch.Index, *CommitmentTrees]
 
 	storage *EpochCommitmentStorage
 	tangle  *tangleold.Tangle
@@ -74,7 +75,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangleold.Tangle, 
 	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
-		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
+		commitmentTrees: shrinkingmap.New[epoch.Index, *CommitmentTrees](),
 		storage:         epochCommitmentStorage,
 		tangle:          tangle,
 		snapshotDepth:   snapshotDepth,
@@ -354,7 +355,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	}
 
 	// We are never going to use this epoch's commitment trees again.
-	delete(f.commitmentTrees, ei)
+	f.commitmentTrees.Delete(ei)
 
 	return commitmentRoots, nil
 }
@@ -383,10 +384,10 @@ func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentT
 	if ei <= lastCommittedEpoch {
 		return nil, errors.Errorf("cannot get commitment trees for epoch %d, because it is already committed", ei)
 	}
-	commitmentTrees, ok := f.commitmentTrees[ei]
+	commitmentTrees, ok := f.commitmentTrees.Get(ei)
 	if !ok {
 		commitmentTrees = f.newCommitmentTrees(ei)
-		f.commitmentTrees[ei] = commitmentTrees
+		f.commitmentTrees.Set(ei, commitmentTrees)
 	}
 	return
 }
