@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"math"
 	"math/big"
 	"sync"
 	"time"
@@ -13,13 +14,13 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/acceptancegadget"
+	"github.com/iotaledger/goshimmer/packages/core/scheduler/schedulerutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/tangle"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 )
 
@@ -31,10 +32,12 @@ const (
 
 // MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
 // It must be >= MaxBlockSize.
-var MaxDeficit = new(big.Rat).SetInt64(int64(MaxBlockSize))
+var MaxDeficit = new(big.Rat).SetInt64(int64(models.MaxBlockSize))
 
 // ErrNotRunning is returned when a block is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
+
+// region Scheduler ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Scheduler is a Tangle component that takes care of scheduling the blocks that shall be booked.
 type Scheduler struct {
@@ -100,33 +103,18 @@ func (s *Scheduler) setupEvents() {
 
 		if err := s.Submit(block); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
-				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
+				s.Events.Error.Trigger(errors.Wrap(err, "failed to submit to scheduler"))
 			}
 		}
 		s.tryReady(block)
 	}))
 
-	s.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
-		s.updateChildren(block)
-	}))
-
-	onBlockAccepted := func(block *Block) {
-		scheduled := block.Scheduled()
-		if scheduled {
-			return
-		}
-		if clock.Since(block.IssuingTime()) > s.optsConfirmedBlockScheduleThreshold {
-			s.Unsubmit(block)
-			block.SetSkipped()
-			s.Events.BlockSkipped.Trigger(block)
-		}
-		s.updateChildren(block)
-	}
+	s.Events.BlockScheduled.Hook(event.NewClosure(s.updateChildren))
 
 	s.AcceptanceGadget.Events.BlockAccepted.Attach(event.NewClosure(func(sourceBlock *acceptancegadget.Block) {
 		block, _ := s.getOrRegisterBlock(sourceBlock.Block)
 
-		onBlockAccepted(block)
+		s.skipBlock(block)
 	}))
 }
 
@@ -204,6 +192,22 @@ func (s *Scheduler) TotalBlocksCount() int {
 	return s.buffer.TotalBlocksCount()
 }
 
+func (s *Scheduler) Quanta(nodeID identity.ID) *big.Rat {
+	return big.NewRat(int64(s.getNodeAccessMana(nodeID)), int64(s.optsTotalAccessManaRetrieveFunc()))
+}
+
+func (s *Scheduler) GetDeficit(nodeID identity.ID) *big.Rat {
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
+
+	deficit, exists := s.deficits[nodeID]
+	if !exists {
+		return new(big.Rat).SetInt64(0)
+	}
+
+	return deficit
+}
+
 // Shutdown shuts down the Scheduler.
 // Shutdown blocks until the scheduler has been shutdown successfully.
 func (s *Scheduler) Shutdown() {
@@ -214,6 +218,19 @@ func (s *Scheduler) Shutdown() {
 		s.stopped.Set()
 		close(s.shutdownSignal)
 	})
+}
+
+func (s *Scheduler) skipBlock(block *Block) {
+	scheduled := block.Scheduled()
+	if scheduled {
+		return
+	}
+	if clock.Since(block.IssuingTime()) > s.optsConfirmedBlockScheduleThreshold {
+		s.Unsubmit(block)
+		block.SetSkipped()
+		s.Events.BlockSkipped.Trigger(block)
+	}
+	s.updateChildren(block)
 }
 
 // Submit submits a block to be considered by the scheduler.
@@ -298,17 +315,27 @@ func (s *Scheduler) submit(block *Block) error {
 		return ErrNotRunning
 	}
 
-	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedBlockIDs, err := s.buffer.Submit(block, s.AccessManaCache().GetCachedMana)
+	// TODO: when removing the zero mana node solution, check if nodes have MinMana here
+	droppedBlockIDs, err := s.buffer.Submit(block, s.getNodeAccessMana)
 	if err != nil {
-		panic(errors.Errorf("failed to submit %s: %w", block.ID(), err))
+		return errors.Wrapf(err, "failed to submit %s", block.ID())
 	}
+
+	s.dropBlocks(droppedBlockIDs)
+
+	return nil
+}
+
+func (s *Scheduler) dropBlocks(droppedBlockIDs []schedulerutils.ElementID) {
 	for _, droppedBlockID := range droppedBlockIDs {
-		discardedBlock, _ := s.block(droppedBlockID)
+		var blkID models.BlockID
+		if _, parsingErr := blkID.FromBytes(droppedBlockID.Bytes()); parsingErr != nil {
+			panic(errors.Wrap(parsingErr, "BlockID could not be parsed"))
+		}
+		discardedBlock, _ := s.block(blkID)
 		s.Tangle.SetOrphaned(discardedBlock.Block.Block.Block, true)
 		s.Events.BlockDiscarded.Trigger(discardedBlock)
 	}
-	return nil
 }
 
 func (s *Scheduler) unsubmit(block *Block) {
@@ -317,10 +344,6 @@ func (s *Scheduler) unsubmit(block *Block) {
 
 func (s *Scheduler) ready(block *Block) {
 	s.buffer.Ready(block)
-}
-
-func (s *Scheduler) Quanta(nodeID identity.ID) *big.Rat {
-	return big.NewRat(s.GetManaFromCache(nodeID), int64(s.AccessManaCache().GetCachedTotalMana()))
 }
 
 // mainLoop periodically triggers the scheduling of ready blocks.
@@ -346,6 +369,122 @@ loop:
 	}
 }
 
+func (s *Scheduler) schedule() *Block {
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
+	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
+	// updated in the middle of the execution, as it could result in negative deficit values.
+	s.updateActiveNodesList(s.optsAccessManaMapRetrieverFunc())
+
+	start := s.buffer.Current()
+	// no blocks submitted
+	if start == nil {
+		return nil
+	}
+
+	var schedulingNode *schedulerutils.NodeQueue
+	rounds := new(big.Rat).SetInt64(math.MaxInt64)
+	for q := start; ; {
+		blk := q.Front()
+		// a block can be scheduled, if it is ready
+		// (its issuing time is not in the future and all of its parents are eligible).
+		// while loop to skip all the confirmed blocks
+		for blk != nil && !clock.SyncedTime().Before(blk.IssuingTime()) {
+			var blkID models.BlockID
+			if _, err := blkID.FromBytes(blk.IDBytes()); err != nil {
+				panic("BlockID could not be parsed!")
+			}
+			skippedBlock, _ := s.block(blkID)
+
+			if s.AcceptanceGadget.IsBlockAccepted(blkID) && clock.Since(blk.IssuingTime()) > s.optsConfirmedBlockScheduleThreshold {
+				// if a block is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
+				// do we want to mark those blocks somehow for debugging?
+				s.Events.BlockSkipped.Trigger(skippedBlock)
+				s.buffer.PopFront()
+				blk = q.Front()
+			} else {
+				// compute how often the deficit needs to be incremented until the block can be scheduled
+				remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(blk.Size()), 1), s.GetDeficit(q.NodeID())), new(big.Rat))
+				// calculate how many rounds we need to skip to accumulate enough deficit.
+				// Use for loop to account for float imprecision.
+				r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.NodeID())))
+				// find the first node that will be allowed to schedule a block
+				if r.Cmp(rounds) < 0 {
+					rounds = r
+					schedulingNode = q
+				}
+				break
+			}
+		}
+
+		q = s.buffer.Next()
+		if q == start {
+			break
+		}
+	}
+
+	// if there is no node with a ready block, we cannot schedule anything
+	if schedulingNode == nil {
+		return nil
+	}
+
+	if rounds.Cmp(big.NewRat(0, 1)) > 0 {
+		// increment every node's deficit for the required number of rounds
+		for q := start; ; {
+			s.updateDeficit(q.NodeID(), new(big.Rat).Mul(s.Quanta(q.NodeID()), rounds))
+
+			q = s.buffer.Next()
+			if q == start {
+				break
+			}
+		}
+	}
+
+	// increment the deficit for all nodes before schedulingNode one more time
+	for q := start; q != schedulingNode; q = s.buffer.Next() {
+		s.updateDeficit(q.NodeID(), s.Quanta(q.NodeID()))
+	}
+
+	// remove the block from the buffer and adjust node's deficit
+	blk := s.buffer.PopFront()
+	nodeID := identity.NewID(blk.IssuerPublicKey())
+	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(blk.Size())))
+
+	return blk.(*Block)
+}
+
+func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
+
+	// remove nodes that don't have mana and have empty queue
+	// this allows nodes with zero mana to issue blocks, however those nodes will only accumulate their deficit
+	// when there are blocks in the node's queue
+	currentNode := s.buffer.Current()
+	for i := 0; i < s.buffer.NumActiveNodes(); i++ {
+		if nodeMana, exists := manaCache[currentNode.NodeID()]; (!exists || nodeMana < MinMana) && currentNode.Size() == 0 {
+			s.buffer.RemoveNode(currentNode.NodeID())
+			delete(s.deficits, currentNode.NodeID())
+
+			currentNode = s.buffer.Current()
+		} else {
+			currentNode = s.buffer.Next()
+		}
+	}
+
+	// update list of active nodes with accumulating deficit
+	for nodeID, nodeMana := range manaCache {
+		if nodeMana < MinMana {
+			continue
+		}
+
+		if _, exists := s.deficits[nodeID]; !exists {
+			s.deficits[nodeID] = new(big.Rat).SetInt64(0)
+			s.buffer.InsertNode(nodeID)
+		}
+	}
+}
+
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.EvictionManager.IsRootBlock(id) {
@@ -360,6 +499,33 @@ func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	}
 
 	return storage.Get(id)
+}
+
+func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
+	deficit := new(big.Rat).Add(s.GetDeficit(nodeID), d)
+	if deficit.Sign() < 0 {
+		// this will never happen and is just here for debugging purposes
+		// TODO: remove print
+		panic("scheduler: deficit is less than 0")
+	}
+
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
+	s.deficits[nodeID] = minRat(deficit, MaxDeficit)
+}
+
+func minRat(x, y *big.Rat) *big.Rat {
+	if x.Cmp(y) < 0 {
+		return x
+	}
+	return y
+}
+
+func maxRat(x, y *big.Rat) *big.Rat {
+	if x.Cmp(y) > 0 {
+		return x
+	}
+	return y
 }
 
 func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
@@ -379,3 +545,13 @@ func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 
 	return block, nil
 }
+
+func (s *Scheduler) getNodeAccessMana(id identity.ID) float64 {
+	mana, exists := s.optsAccessManaMapRetrieverFunc()[id]
+	if exists {
+		return mana
+	}
+	return 0.0
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
