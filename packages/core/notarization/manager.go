@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/node/clock"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -67,7 +68,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 			UTXOTreeInserted:          event.New[*UTXOUpdatedEvent](),
 			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
-			ManaVectorUpdate:          event.New[*ManaVectorUpdateEvent](),
+			ManaVectorUpdate:          event.New[*mana.ManaVectorUpdateEvent](),
 			Bootstrapped:              event.New[*BootstrappedEvent](),
 			SyncRange:                 event.New[*SyncRangeEvent](),
 			ActivityTreeInserted:      event.New[*ActivityTreeUpdatedEvent](),
@@ -450,7 +451,7 @@ func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
 }
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
-func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -484,7 +485,7 @@ func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 }
 
 // OnConflictRejected is the handler for conflict created event.
-func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -504,7 +505,7 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 }
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
-func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -539,14 +540,6 @@ func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]u
 	return pendingConflicts
 }
 
-// GetEpochDiff returns the epoch diff of an epoch.
-func (m *Manager) GetEpochDiff(ei epoch.Index) (spent []*ledger.OutputWithMetadata, created []*ledger.OutputWithMetadata) {
-	m.epochCommitmentFactoryMutex.Lock()
-	defer m.epochCommitmentFactoryMutex.Unlock()
-	spent, created = m.epochCommitmentFactory.loadDiffUTXOs(ei)
-	return
-}
-
 // Bootstrapped returns the current value of pendingConflictsCount per epoch.
 func (m *Manager) Bootstrapped() bool {
 	m.bootstrapMutex.RLock()
@@ -563,7 +556,7 @@ func (m *Manager) Shutdown() {
 	m.epochCommitmentFactory.storage.shutdown()
 }
 
-func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	count, _ := m.pendingConflictsCounters.Get(ei)
 	count--
 	m.pendingConflictsCounters.Set(ei, count)
@@ -679,13 +672,23 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	return
 }
 
-func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *ManaVectorUpdateEvent) {
-	return &ManaVectorUpdateEvent{
-		EI: ei,
+func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdateEvent) {
+	manaEpoch := ei - epoch.Index(m.options.ManaEpochDelay)
+	spent := []*ledger.OutputWithMetadata{}
+	created := []*ledger.OutputWithMetadata{}
+
+	if manaEpoch > 0 {
+		spent, created = m.epochCommitmentFactory.loadDiffUTXOs(manaEpoch)
+	}
+
+	return &mana.ManaVectorUpdateEvent{
+		EI:      ei,
+		Spent:   spent,
+		Created: created,
 	}
 }
 
-func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*ManaVectorUpdateEvent) {
+func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		m.log.Errorf("could not obtain last committed epoch index: %v", err)
@@ -693,7 +696,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 	}
 
 	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
-	manaVectorUpdateEvents := make([]*ManaVectorUpdateEvent, 0)
+	manaVectorUpdateEvents := make([]*mana.ManaVectorUpdateEvent, 0)
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
 		if !m.isCommittable(ei) {
 			break
@@ -712,9 +715,6 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 			return nil, nil
 		}
 
-		// We do not need to track pending conflicts for a committed epoch anymore.
-		m.pendingConflictsCounters.Delete(ei)
-
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{
 			EI:       ei,
 			ECRecord: ecRecord,
@@ -722,11 +722,14 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 		if manaVectorUpdateEvent := m.manaVectorUpdate(ei); manaVectorUpdateEvent != nil {
 			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)
 		}
+
+		// We do not need to track pending conflicts for a committed epoch anymore.
+		m.pendingConflictsCounters.Delete(ei)
 	}
 	return epochCommittableEvents, manaVectorUpdateEvents
 }
 
-func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*ManaVectorUpdateEvent) {
+func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*mana.ManaVectorUpdateEvent) {
 	for _, epochCommittableEvent := range epochCommittableEvents {
 		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
 	}
@@ -762,6 +765,15 @@ type ManagerOptions struct {
 	MinCommittableEpochAge time.Duration
 	BootstrapWindow        time.Duration
 	Log                    *logger.Logger
+	ManaEpochDelay         uint
+}
+
+// ManaEpochDelay specifies how many epochs the consensus mana booking is delayed with respect to the latest committable
+// epoch.
+func ManaEpochDelay(manaEpochDelay uint) ManagerOption {
+	return func(options *ManagerOptions) {
+		options.ManaEpochDelay = manaEpochDelay
+	}
 }
 
 // MinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
