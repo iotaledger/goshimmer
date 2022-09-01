@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func TestPersistableEvent_Bytes(t *testing.T) {

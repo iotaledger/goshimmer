@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
@@ -75,7 +75,7 @@ var (
 	testDifficulty = 10
 )
 
-//func TestTransactionFilter_Filter(t *testing.T) {
+// func TestTransactionFilter_Filter(t *testing.T) {
 //	filter := NewTransactionFilter()
 //	// set callbacks
 //	m := &blockCallbackMock{}
@@ -90,9 +90,9 @@ var (
 //		m.On("Accept", blk, testPeer)
 //		filter.Filter(blk, testPeer)
 //	})
-//}
+// }
 
-//func Test_isBlockAndTransactionTimestampsValid(t *testing.T) {
+// func Test_isBlockAndTransactionTimestampsValid(t *testing.T) {
 //	blk := &tangle.Block{}
 //	blk.Init()
 //
@@ -116,7 +116,7 @@ var (
 //		blk.M.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
 //		assert.False(t, isBlockAndTransactionTimestampsValid(tx, blk))
 //	})
-//}
+// }
 
 func TestPowFilter_Filter(t *testing.T) {
 	parentBlocks := models.NewParentBlockIDs()

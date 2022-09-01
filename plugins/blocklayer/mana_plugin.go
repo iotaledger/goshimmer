@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	db_pkg "github.com/iotaledger/goshimmer/packages/node/database"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"go.uber.org/dig"
 
@@ -22,10 +22,10 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
@@ -77,11 +77,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
-	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
+	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
-		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
+		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensusResearch))
 	}
 
 	err := verifyPledgeNodes()

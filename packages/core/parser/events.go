@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // Events represents events happening in the Parser.

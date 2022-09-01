@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func TestMarkerIndexConflictIDMapping_Serialization(t *testing.T) {

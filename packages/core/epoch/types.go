@@ -3,12 +3,13 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
-	"strings"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -35,8 +36,7 @@ func init() {
 type Index int64
 
 func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
-	if err != nil {
+	if consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei); err != nil {
 		panic(err)
 	}
 

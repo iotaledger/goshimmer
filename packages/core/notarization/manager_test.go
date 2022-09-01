@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -1006,10 +1006,10 @@ func TestManager_ActivityTree(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	//for _, node := range nodes {
+	// for _, node := range nodes {
 	//	ei := epoch.IndexFromTime(time.Now())
 	//	weightProvider.Update(ei, node.ID())
-	//}
+	// }
 	confirmedRetrieverFunc := func() epoch.Index { return 0 }
 
 	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc, confirmedRetrieverFunc)

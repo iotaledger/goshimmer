@@ -14,7 +14,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )

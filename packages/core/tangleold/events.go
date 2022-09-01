@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
