@@ -338,9 +338,6 @@ func (ps *PacketsStream) WritePacket(message proto.Message) error {
 func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 	ps.readerLock.Lock()
 	defer ps.readerLock.Unlock()
-	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
-		return errors.WithStack(err)
-	}
 	if err := ps.reader.ReadBlk(message); err != nil {
 		return errors.WithStack(err)
 	}
