@@ -112,8 +112,11 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		defer m.removeAcceptMatcher(am, protocolID)
 
 		m.log.Debugw("waiting for incoming stream", "id", am.Peer.ID(), "proto", protocolID)
+		am.StreamChMutex.RLock()
+		streamCh := am.StreamCh[protocolID]
+		am.StreamChMutex.RUnlock()
 		select {
-		case ps := <-am.StreamCh[protocolID]:
+		case ps := <-streamCh:
 			if ps.Protocol() != protocolID {
 				return nil, fmt.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
 			}
@@ -205,10 +208,13 @@ func (m *Manager) handleStream(stream network.Stream) {
 		return
 	}
 	am := m.matchNewStream(stream)
+	am.StreamChMutex.RLock()
+	streamCh := am.StreamCh[protocolID]
+	am.StreamChMutex.RUnlock()
 
 	if am != nil {
 		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
-		am.StreamCh[protocolID] <- ps
+		streamCh <- ps
 	} else {
 		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
@@ -220,9 +226,10 @@ func (m *Manager) handleStream(stream network.Stream) {
 
 // AcceptMatcher holds data to match an existing connection with a peer.
 type AcceptMatcher struct {
-	Peer     *peer.Peer // connecting peer
-	Libp2pID libp2ppeer.ID
-	StreamCh map[protocol.ID]chan *PacketsStream
+	Peer          *peer.Peer // connecting peer
+	Libp2pID      libp2ppeer.ID
+	StreamChMutex sync.RWMutex
+	StreamCh      map[protocol.ID]chan *PacketsStream
 }
 
 func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*AcceptMatcher, error) {
@@ -236,6 +243,8 @@ func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*Accep
 
 	acceptMatcher, acceptExists := m.acceptMap[libp2pID]
 	if acceptExists {
+		acceptMatcher.StreamChMutex.Lock()
+		defer acceptMatcher.StreamChMutex.Unlock()
 		if _, streamChanExists := acceptMatcher.StreamCh[protocolID]; streamChanExists {
 			return nil, nil
 		}
@@ -260,10 +269,14 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
 
-	close(m.acceptMap[am.Libp2pID].StreamCh[protocolID])
-	delete(m.acceptMap[am.Libp2pID].StreamCh, protocolID)
+	existingAm := m.acceptMap[am.Libp2pID]
+	existingAm.StreamChMutex.Lock()
+	defer existingAm.StreamChMutex.Unlock()
 
-	if len(m.acceptMap[am.Libp2pID].StreamCh) == 0 {
+	close(existingAm.StreamCh[protocolID])
+	delete(existingAm.StreamCh, protocolID)
+
+	if len(existingAm.StreamCh) == 0 {
 		delete(m.acceptMap, am.Libp2pID)
 	}
 }
