@@ -15,10 +15,11 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
+type TangleTestFramework = tangle.TestFramework
+type AcceptanceTestFramework = acceptance.TestFramework
+
 type TestFramework struct {
-	Engine     *Engine
-	Tangle     *tangle.TestFramework
-	Acceptance *acceptance.TestFramework
+	Engine *Engine
 
 	test *testing.T
 
@@ -27,6 +28,9 @@ type TestFramework struct {
 	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
+
+	*TangleTestFramework
+	*AcceptanceTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
@@ -49,8 +53,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.Engine = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsEngineOptions...)
 		}
 
-		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.Acceptance = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle))
+		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
+		t.AcceptanceTestFramework = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.TangleTestFramework))
 	})
 }
 
