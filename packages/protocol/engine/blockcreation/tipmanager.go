@@ -1,99 +1,74 @@
 package blockcreation
 
 import (
-	"container/heap"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
-
-// TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
-	tangle              *Tangle
-	tips                *randommap.RandomMap[models.BlockID, models.BlockID]
-	tipsCleaner         *TipsCleaner
+	tangle              *tangle.Tangle
+	tips                *randommap.RandomMap[*virtualvoting.Block, *virtualvoting.Block]
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
+
+	optsWidth int
 }
 
-// NewTipManager creates a new tip-selector.
-func NewTipManager(tangle *Tangle, tips ...models.BlockID) *TipManager {
-	tipManager := &TipManager{
+func NewTipManager(tangle *tangle.Tangle, opts ...options.Option[TipManager]) *TipManager {
+	return options.Apply(&TipManager{
 		tangle:              tangle,
-		tips:                randommap.New[models.BlockID, models.BlockID](),
+		tips:                randommap.New[*virtualvoting.Block, *virtualvoting.Block](),
 		tipsConflictTracker: NewTipsConflictTracker(tangle),
 		Events:              newTipManagerEvents(),
-	}
-	tipManager.tipsCleaner = &TipsCleaner{
-		heap:       make([]*QueueElement, 0),
-		tipManager: tipManager,
-	}
-	if tips != nil {
-		tipManager.set(tips...)
-	}
-
-	return tipManager
+	}, opts)
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *BlockScheduledEvent) {
-		t.tangle.Storage.Block(event.BlockID).Consume(t.AddTip)
-	}))
-
-	t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
-		t.removeStrongParents(event.Block)
-	}))
-
-	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
-		t.deleteTip(event.Block.ID())
-	}))
-
-	t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
-		t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
-	}))
-
-	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-		if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-			return
-		}
-
-		t.addTip(block)
-	}))
+	// TODO:
+	// t.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *BlockScheduledEvent) {
+	// 	t.tangle.Storage.Block(event.BlockID).Consume(t.AddTip)
+	// }))
+	//
+	// t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
+	// 	t.removeStrongParents(event.Block)
+	// }))
+	//
+	// t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
+	// 	t.deleteTip(event.Block.ID())
+	// }))
+	//
+	// t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
+	// 	t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
+	// }))
+	//
+	// t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
+	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+	// 		return
+	// 	}
+	//
+	// 	t.addTip(block)
+	// }))
 
 	t.tipsConflictTracker.Setup()
 }
 
-// set adds the given blockIDs as tips.
-func (t *TipManager) set(tips ...BlockID) {
-	for _, blockID := range tips {
-		t.tips.Set(blockID, blockID)
-	}
-}
-
-// AddTip adds the block to the tip pool if its issuing time is within the tipLifeGracePeriod.
-// Parents of a block that are currently tip lose the tip status and are removed.
-func (t *TipManager) AddTip(block *Block) {
+func (t *TipManager) AddTip(block *virtualvoting.Block) {
 	blockID := block.ID()
-
-	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-		return
-	}
 
 	// Check if any children that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its children.
 	if t.checkChildren(blockID) {
@@ -104,8 +79,8 @@ func (t *TipManager) AddTip(block *Block) {
 		return
 	}
 
-	// skip removing tips if TangleWidth is enabled
-	if t.TipCount() <= t.tangle.Options.TangleWidth {
+	// skip removing tips if a width is set -> allows to artificially create a wide Tangle.
+	if t.TipCount() <= t.optsWidth {
 		return
 	}
 
@@ -113,37 +88,20 @@ func (t *TipManager) AddTip(block *Block) {
 	t.removeStrongParents(block)
 }
 
-func (t *TipManager) addTip(block *Block) (added bool) {
-	blockID := block.ID()
-
-	var invalid bool
-	t.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
-		invalid = blockMetadata.IsSubjectivelyInvalid()
-	})
-	if invalid {
-		// fmt.Println("TipManager: skipping adding tip because it is subjectively invalid", blockID)
-		return false
-	}
-
-	if t.tips.Set(blockID, blockID) {
-		t.tipsConflictTracker.AddTip(blockID)
-		t.Events.TipAdded.Trigger(&TipEvent{
-			BlockID: blockID,
-		})
-
-		t.tipsCleaner.Add(block.IssuingTime(), blockID)
+func (t *TipManager) addTip(block *virtualvoting.Block) (added bool) {
+	if t.tips.Set(block, block) {
+		t.tipsConflictTracker.AddTip(block)
+		t.Events.TipAdded.Trigger(block)
 		return true
 	}
 
 	return false
 }
 
-func (t *TipManager) deleteTip(blkID BlockID) (deleted bool) {
-	if _, deleted = t.tips.Delete(blkID); deleted {
-		t.tipsConflictTracker.RemoveTip(blkID)
-		t.Events.TipRemoved.Trigger(&TipEvent{
-			BlockID: blkID,
-		})
+func (t *TipManager) deleteTip(block *virtualvoting.Block) (deleted bool) {
+	if _, deleted = t.tips.Delete(block); deleted {
+		t.tipsConflictTracker.RemoveTip(block)
+		t.Events.TipRemoved.Trigger(block)
 	}
 	return
 }
@@ -180,16 +138,62 @@ func (t *TipManager) removeStrongParents(block *Block) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents BlockIDs) {
-	if countParents > MaxParentsCount {
-		countParents = MaxParentsCount
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents models.BlockIDs) {
+	if countParents > models.MaxParentsCount {
+		countParents = models.MaxParentsCount
 	}
-	if countParents < MinParentsCount {
-		countParents = MinParentsCount
+	if countParents < models.MinParentsCount {
+		countParents = models.MinParentsCount
 	}
 
 	return t.selectTips(p, countParents)
 }
+
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents models.BlockIDs) {
+	parents = models.NewBlockIDs()
+
+	tips := t.tips.RandomUniqueEntries(count)
+
+	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
+	// or selected ones had incorrect time-since-confirmation
+	if len(tips) == 0 {
+		parents.Add(EmptyBlockID)
+		return
+	}
+
+	// at least one tip is returned
+	for _, tip := range tips {
+		blockID := tip
+		if !parents.Contains(blockID) && t.isPastConeTimestampCorrect(blockID) {
+			parents.Add(blockID)
+		}
+	}
+	return
+}
+
+// AllTips returns a list of all tips that are stored in the TipManger.
+func (t *TipManager) AllTips() BlockIDs {
+	return retrieveAllTips(t.tips)
+}
+
+func retrieveAllTips(tipsMap *randommap.RandomMap[BlockID, BlockID]) BlockIDs {
+	mapKeys := tipsMap.Keys()
+	tips := NewBlockIDs()
+
+	for _, key := range mapKeys {
+		tips.Add(key)
+	}
+	return tips
+}
+
+// TipCount the amount of tips.
+func (t *TipManager) TipCount() int {
+	return t.tips.Size()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TSC to prevent lazy tips /////////////////////////////////////////////////////////////////////////////////////
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
@@ -409,145 +413,14 @@ func (t *TipManager) getPreviousConfirmedIndex(sequence *markersold.Sequence, ma
 	return markerIndex
 }
 
-// selectTips returns a list of parents. In case of a transaction, it references young enough attachments
-// of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents BlockIDs) {
-	parents = NewBlockIDs()
-
-	tips := t.tips.RandomUniqueEntries(count)
-
-	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
-	// or selected ones had incorrect time-since-confirmation
-	if len(tips) == 0 {
-		parents.Add(EmptyBlockID)
-		return
-	}
-
-	// at least one tip is returned
-	for _, tip := range tips {
-		blockID := tip
-		if !parents.Contains(blockID) && t.isPastConeTimestampCorrect(blockID) {
-			parents.Add(blockID)
-		}
-	}
-	return
-}
-
-// AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() BlockIDs {
-	return retrieveAllTips(t.tips)
-}
-
-func retrieveAllTips(tipsMap *randommap.RandomMap[BlockID, BlockID]) BlockIDs {
-	mapKeys := tipsMap.Keys()
-	tips := NewBlockIDs()
-
-	for _, key := range mapKeys {
-		tips.Add(key)
-	}
-	return tips
-}
-
-// TipCount the amount of strong tips.
-func (t *TipManager) TipCount() int {
-	return t.tips.Size()
-}
-
-// Shutdown stops the TipManager.
-func (t *TipManager) Shutdown() {
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region QueueElement /////////////////////////////////////////////////////////////////////////////////////////////////
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// QueueElement is an element in the TimedQueue. It
-type QueueElement struct {
-	// Value represents the value of the queued element.
-	Value BlockID
-
-	// Key represents the time of the element to be used as a key.
-	Key time.Time
-
-	index int
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type TipsCleaner struct {
-	heap       TimedHeap
-	tipManager *TipManager
-	heapMutex  sync.RWMutex
-}
-
-// Add adds a new element to the heap.
-func (t *TipsCleaner) Add(key time.Time, value BlockID) {
-	t.heapMutex.Lock()
-	defer t.heapMutex.Unlock()
-	heap.Push(&t.heap, &QueueElement{Value: value, Key: key})
-}
-
-// RemoveBefore removes the elements with key time earlier than the given time.
-func (t *TipsCleaner) RemoveBefore(minAllowedTime time.Time) {
-	t.heapMutex.Lock()
-	defer t.heapMutex.Unlock()
-	popCounter := 0
-	for i := 0; i < t.heap.Len(); i++ {
-		if t.heap[i].Key.After(minAllowedTime) {
-			break
-		}
-		popCounter++
-
-	}
-	for i := 0; i < popCounter; i++ {
-		block := heap.Pop(&t.heap)
-		t.tipManager.deleteTip(block.(*QueueElement).Value)
+func Width(maxWidth int) options.Option[TipManager] {
+	return func(t *TipManager) {
+		t.optsWidth = maxWidth
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimedHeap defines a heap based on times.
-type TimedHeap []*QueueElement
-
-// Len is the number of elements in the collection.
-func (h TimedHeap) Len() int {
-	return len(h)
-}
-
-// Less reports whether the element with index i should sort before the element with index j.
-func (h TimedHeap) Less(i, j int) bool {
-	return h[i].Key.Before(h[j].Key)
-}
-
-// Swap swaps the elements with indexes i and j.
-func (h TimedHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-	h[i].index, h[j].index = i, j
-}
-
-// Push adds x as the last element to the heap.
-func (h *TimedHeap) Push(x interface{}) {
-	data := x.(*QueueElement)
-	*h = append(*h, data)
-	data.index = len(*h) - 1
-}
-
-// Pop removes and returns the last element of the heap.
-func (h *TimedHeap) Pop() interface{} {
-	n := len(*h)
-	data := (*h)[n-1]
-	(*h)[n-1] = nil // avoid memory leak
-	*h = (*h)[:n-1]
-	data.index = -1
-	return data
-}
-
-// interface contract (allow the compiler to check if the implementation has all the required methods).
-var _ heap.Interface = &TimedHeap{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

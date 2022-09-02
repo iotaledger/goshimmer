@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 // Events represents events happening on a block factory.
@@ -28,24 +29,17 @@ func newEvents() (new *Events) {
 // TipManagerEvents represents events happening on the TipManager.
 type TipManagerEvents struct {
 	// Fired when a tip is added.
-	TipAdded *event.Event[*TipEvent]
+	TipAdded *event.Event[*virtualvoting.Block]
 
 	// Fired when a tip is removed.
-	TipRemoved *event.Event[*TipEvent]
+	TipRemoved *event.Event[*virtualvoting.Block]
 }
 
 func newTipManagerEvents() (new *TipManagerEvents) {
 	return &TipManagerEvents{
-		TipAdded:   event.New[*TipEvent](),
-		TipRemoved: event.New[*TipEvent](),
+		TipAdded:   event.New[*virtualvoting.Block](),
+		TipRemoved: event.New[*virtualvoting.Block](),
 	}
-}
-
-// TipEvent holds the information provided by the TipEvent event that gets triggered when a block gets added or
-// removed as tip.
-type TipEvent struct {
-	// BlockID of the added/removed tip.
-	BlockID models.BlockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
