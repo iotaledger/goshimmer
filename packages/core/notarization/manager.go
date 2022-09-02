@@ -163,7 +163,7 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := insertLeaf(m.epochCommitmentFactory.stateRootTree, outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes())
+		_, err := insertLeaf(m.epochCommitmentFactory.stateRootTree, outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes())
 		if err != nil {
 			m.log.Error(err)
 		}
@@ -234,8 +234,7 @@ func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
 
 	for ei, nodeActivity := range epochActivity {
 		for nodeID, acceptedCount := range nodeActivity.NodesLog() {
-			err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID, acceptedCount)
-			if err != nil {
+			if _, err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID, acceptedCount); err != nil {
 				m.log.Error(err)
 			}
 		}
@@ -301,7 +300,7 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 		m.log.Errorf("block %s accepted with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return
 	}
-	err := m.epochCommitmentFactory.insertTangleLeaf(ei, block.ID())
+	_, err := m.epochCommitmentFactory.insertTangleLeaf(ei, block.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 		return
@@ -319,8 +318,7 @@ func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	ei := epoch.IndexFromTime(block.IssuingTime())
 
 	nodeID := identity.NewID(block.IssuerPublicKey())
-	err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID)
-	if err != nil && m.log != nil {
+	if _, err := m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID); err != nil && m.log != nil {
 		m.log.Error(err)
 		return
 	}
@@ -351,8 +349,7 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 		m.log.Errorf("block %s orphaned with issuing time %s in already committed epoch %d", block.ID(), block.IssuingTime(), ei)
 		return
 	}
-	err := m.epochCommitmentFactory.removeTangleLeaf(ei, block.ID())
-	if err != nil && m.log != nil {
+	if _, err := m.epochCommitmentFactory.removeTangleLeaf(ei, block.ID()); err != nil && m.log != nil {
 		m.log.Error(err)
 	}
 
@@ -369,8 +366,7 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 
 	noActivityLeft := m.tangle.WeightProvider.Remove(ei, nodeID, updatedCount)
 	if noActivityLeft {
-		err = m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
-		if err != nil && m.log != nil {
+		if _, err := m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID); err != nil && m.log != nil {
 			m.log.Error(err)
 			return
 		}
@@ -573,9 +569,14 @@ func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
 }
 
 func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
-	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
+	existed, err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID)
+	if err != nil {
 		return err
 	}
+	if existed {
+		return nil
+	}
+
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
 
 	m.Events.StateMutationTreeInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
@@ -585,7 +586,7 @@ func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.In
 }
 
 func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
-	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
+	if _, err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
 	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
