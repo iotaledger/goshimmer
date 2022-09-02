@@ -210,8 +210,14 @@ func (m *Manager) handleStream(stream network.Stream) {
 	am := m.matchNewStream(stream)
 	if am != nil {
 		am.StreamChMutex.RLock()
+		defer am.StreamChMutex.RUnlock()
 		streamCh := am.StreamCh[protocolID]
-		am.StreamChMutex.RUnlock()
+
+		select {
+		case <-am.StreamChStop:
+			return
+		default:
+		}
 
 		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
 		streamCh <- ps
@@ -230,6 +236,7 @@ type AcceptMatcher struct {
 	Libp2pID      libp2ppeer.ID
 	StreamChMutex sync.RWMutex
 	StreamCh      map[protocol.ID]chan *PacketsStream
+	StreamChStop  chan struct{}
 }
 
 func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*AcceptMatcher, error) {
@@ -253,9 +260,10 @@ func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*Accep
 	}
 
 	am := &AcceptMatcher{
-		Peer:     p,
-		Libp2pID: libp2pID,
-		StreamCh: make(map[protocol.ID]chan *PacketsStream),
+		Peer:         p,
+		Libp2pID:     libp2pID,
+		StreamCh:     make(map[protocol.ID]chan *PacketsStream),
+		StreamChStop: make(chan struct{}),
 	}
 
 	am.StreamCh[protocolID] = make(chan *PacketsStream)
@@ -270,6 +278,8 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 	defer m.acceptMutex.Unlock()
 
 	existingAm := m.acceptMap[am.Libp2pID]
+
+	close(existingAm.StreamChStop)
 	existingAm.StreamChMutex.Lock()
 	defer existingAm.StreamChMutex.Unlock()
 
