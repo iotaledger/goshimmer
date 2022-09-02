@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -56,6 +58,16 @@ type Event interface {
 	ToPersistable() *PersistableEvent
 	// String returns a human readable version of the event.
 	String() string
+}
+
+// ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
+type ManaVectorUpdateEvent struct {
+	// EI is the index of committable epoch.
+	EI epoch.Index
+	// Spent are outputs that is spent in a transaction.
+	Spent []*ledger.OutputWithMetadata
+	// Created are the outputs created in a transaction.
+	Created []*ledger.OutputWithMetadata
 }
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.

@@ -7,12 +7,12 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	p2p2 "github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 // Firewall is a object responsible for taking actions on faulty peers.
 type Firewall struct {
-	p2pManager                *p2p2.Manager
+	p2pManager                *p2p.Manager
 	autopeering               *selection.Protocol
 	log                       *logger.Logger
 	peersFaultinessCountMutex sync.RWMutex
@@ -20,7 +20,7 @@ type Firewall struct {
 }
 
 // NewFirewall create a new instance of Firewall object.
-func NewFirewall(p2pManager *p2p2.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
+func NewFirewall(p2pManager *p2p.Manager, autopeering *selection.Protocol, log *logger.Logger) (*Firewall, error) {
 	return &Firewall{
 		p2pManager:           p2pManager,
 		autopeering:          autopeering,
@@ -53,7 +53,7 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID, "err", err)
 		return
 	}
-	if nbr.Group == p2p2.NeighborsGroupAuto {
+	if nbr.Group == p2p.NeighborsGroupAuto {
 		if f.autopeering != nil {
 			f.log.Infow(
 				"Blocklisting peer in the autopeering selection",
@@ -61,7 +61,7 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 			)
 			f.autopeering.BlockNeighbor(peerID)
 		}
-	} else if nbr.Group == p2p2.NeighborsGroupManual {
+	} else if nbr.Group == p2p.NeighborsGroupManual {
 		f.log.Warnw("To the node operator. One of neighbors connected via manual peering acts faulty, no automatic actions taken. Consider removing it from the known peers list.",
 			logKVList...)
 	}

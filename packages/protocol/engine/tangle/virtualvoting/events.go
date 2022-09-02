@@ -11,7 +11,7 @@ type Events struct {
 	BlockTracked         *event.Event[*Block]
 	ConflictVoterAdded   *event.Event[*votes.ConflictVoterEvent[utxo.TransactionID]]
 	ConflictVoterRemoved *event.Event[*votes.ConflictVoterEvent[utxo.TransactionID]]
-	SequenceVoterAdded   *event.Event[*votes.SequenceVoterEvent]
+	SequenceVoterUpdated *event.Event[*votes.SequenceVotersUpdatedEvent]
 }
 
 // newEvents creates a new Events instance.
@@ -20,6 +20,6 @@ func newEvents(conflictTrackerEvents *votes.ConflictTrackerEvents[utxo.Transacti
 		BlockTracked:         event.New[*Block](),
 		ConflictVoterAdded:   conflictTrackerEvents.VoterAdded,
 		ConflictVoterRemoved: conflictTrackerEvents.VoterRemoved,
-		SequenceVoterAdded:   sequenceTrackerEvents.VoterAdded,
+		SequenceVoterUpdated: sequenceTrackerEvents.SequenceVotersUpdated,
 	}
 }

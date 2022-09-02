@@ -1,7 +1,6 @@
 package tangleold
 
 import (
-	"fmt"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/types"
@@ -11,15 +10,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/serix"
 )
-
-func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(epoch.NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
-	if err != nil {
-		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
-	}
-}
 
 const (
 	minimumManaThreshold = 0
@@ -36,21 +27,23 @@ type ActivityUpdatesCount map[identity.ID]uint64
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
-	store                kvstore.KVStore
-	mutex                sync.RWMutex
-	activityLog          epoch.NodesActivityLog
-	updatedActivityCount *shrinkingmap.ShrinkingMap[epoch.Index, ActivityUpdatesCount]
-	manaRetrieverFunc    ManaRetrieverFunc
-	timeRetrieverFunc    TimeRetrieverFunc
+	store                       kvstore.KVStore
+	mutex                       sync.RWMutex
+	activityLog                 *epoch.NodesActivityLog
+	updatedActivityCount        *shrinkingmap.ShrinkingMap[epoch.Index, ActivityUpdatesCount]
+	manaRetrieverFunc           ManaRetrieverFunc
+	timeRetrieverFunc           TimeRetrieverFunc
+	confirmedEpochRetrieverFunc ConfirmedEpochRetrieverFunc
 }
 
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
-func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
+func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, confirmedEpochRetrieverFunc ConfirmedEpochRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activityLog:          make(epoch.NodesActivityLog),
-		updatedActivityCount: shrinkingmap.New[epoch.Index, ActivityUpdatesCount](shrinkingmap.WithShrinkingThresholdCount(activeEpochThreshold + 1)),
-		manaRetrieverFunc:    manaRetrieverFunc,
-		timeRetrieverFunc:    timeRetrieverFunc,
+		activityLog:                 epoch.NewNodesActivityLog(),
+		updatedActivityCount:        shrinkingmap.New[epoch.Index, ActivityUpdatesCount](shrinkingmap.WithShrinkingThresholdCount(100)),
+		manaRetrieverFunc:           manaRetrieverFunc,
+		timeRetrieverFunc:           timeRetrieverFunc,
+		confirmedEpochRetrieverFunc: confirmedEpochRetrieverFunc,
 	}
 
 	if len(store) == 0 {
@@ -81,10 +74,10 @@ func (c *CManaWeightProvider) Update(ei epoch.Index, nodeID identity.ID) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	a, exists := c.activityLog[ei]
+	a, exists := c.activityLog.Get(ei)
 	if !exists {
 		a = epoch.NewActivityLog()
-		c.activityLog[ei] = a
+		c.activityLog.Set(ei, a)
 	}
 
 	a.Add(nodeID)
@@ -106,7 +99,7 @@ func (c *CManaWeightProvider) Remove(ei epoch.Index, nodeID identity.ID, updated
 	}
 	// if that was the last activity for this node in the ei epoch, then remove it from activity list
 	if epochUpdatesCount[nodeID] == 0 {
-		if a, exists := c.activityLog[ei]; exists {
+		if a, exists := c.activityLog.Get(ei); exists {
 			a.Remove(nodeID)
 			return true
 		}
@@ -134,11 +127,11 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 	// nodes mana is counted only once for total weight calculation
 	totalWeightOnce := make(map[identity.ID]types.Empty)
 	for ei := lowerBoundEpoch; ei <= upperBoundEpoch; ei++ {
-		al, exists := c.activityLog[ei]
+		al, exists := c.activityLog.Get(ei)
 		if !exists {
 			continue
 		}
-		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+		al.ForEach(func(nodeID identity.ID) error {
 			nodeMana := mana[nodeID]
 			// Do this check after determining whether a node was active because otherwise we would never clean up
 			// the ActivityLog of nodes lower than the threshold.
@@ -155,20 +148,25 @@ func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID
 			return nil
 		})
 	}
-	c.clean(lowerBoundEpoch)
+	pruningPoint := c.confirmedEpochRetrieverFunc() - epoch.Index(activeEpochThreshold)
+	c.clean(pruningPoint)
 
 	return weights, totalWeight
 }
 
 // SnapshotEpochActivity returns the activity log for snapshotting.
-func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+func (c *CManaWeightProvider) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity) {
 	epochActivity = epoch.NewSnapshotEpochActivity()
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for ei, al := range c.activityLog {
-		al.SetEpochs.ForEach(func(nodeID identity.ID) error {
+	c.activityLog.ForEach(func(ei epoch.Index, activity *epoch.ActivityLog) bool {
+		activity.ForEach(func(nodeID identity.ID) error {
+			// we save only activity log up to epochDiffIndex as it is the last snapshotted epoch
+			if ei > epochDiffIndex {
+				return nil
+			}
 			if _, ok := epochActivity[ei]; !ok {
 				epochActivity[ei] = epoch.NewSnapshotNodeActivity()
 			}
@@ -179,7 +177,9 @@ func (c *CManaWeightProvider) SnapshotEpochActivity() (epochActivity epoch.Snaps
 			}
 			return nil
 		})
-	}
+		return true
+	})
+
 	return
 }
 
@@ -197,11 +197,14 @@ func (c *CManaWeightProvider) LoadActiveNodes(loadedActiveNodes epoch.SnapshotEp
 	defer c.mutex.Unlock()
 
 	for ei, epochActivity := range loadedActiveNodes {
-		if _, ok := c.activityLog[ei]; !ok {
-			c.activityLog[ei] = epoch.NewActivityLog()
+		var activityLog *epoch.ActivityLog
+		var ok bool
+		if activityLog, ok = c.activityLog.Get(ei); !ok {
+			activityLog = epoch.NewActivityLog()
+			c.activityLog.Set(ei, activityLog)
 		}
 		for nodeID, activityCount := range epochActivity.NodesLog() {
-			c.activityLog[ei].Add(nodeID)
+			activityLog.Add(nodeID)
 			c.updateActivityCount(ei, nodeID, activityCount)
 		}
 	}
@@ -213,16 +216,20 @@ type ManaRetrieverFunc func() map[identity.ID]float64
 // TimeRetrieverFunc is a function type to retrieve the time.
 type TimeRetrieverFunc func() time.Time
 
+// ConfirmedEpochRetrieverFunc is a function type to retrieve the confirmed epoch index.
+type ConfirmedEpochRetrieverFunc func() epoch.Index
+
 // activeNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) activeNodes() (activeNodes epoch.NodesActivityLog) {
-	activeNodes = make(epoch.NodesActivityLog)
+func (c *CManaWeightProvider) activeNodes() (activeNodes *epoch.NodesActivityLog) {
+	activeNodes = epoch.NewNodesActivityLog()
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for nodeID, al := range c.activityLog {
-		activeNodes[nodeID] = al.Clone()
-	}
+	c.activityLog.ForEach(func(ei epoch.Index, activity *epoch.ActivityLog) bool {
+		activeNodes.Set(ei, activity.Clone())
+		return true
+	})
 
 	return activeNodes
 }
@@ -238,15 +245,16 @@ func (c *CManaWeightProvider) activityBoundaries() (lowerBoundEpoch, upperBoundE
 }
 
 // clean removes all activity logs for epochs lower than provided bound.
-func (c *CManaWeightProvider) clean(lowerBound epoch.Index) {
-	for ei := range c.activityLog {
-		if ei < lowerBound {
-			delete(c.activityLog, ei)
+func (c *CManaWeightProvider) clean(cutoffEpoch epoch.Index) {
+	c.activityLog.ForEachKey(func(ei epoch.Index) bool {
+		if ei < cutoffEpoch {
+			c.activityLog.Delete(ei)
 		}
-	}
+		return true
+	})
 	// clean also the updates counting map
 	c.updatedActivityCount.ForEach(func(ei epoch.Index, count ActivityUpdatesCount) bool {
-		if ei < lowerBound {
+		if ei < cutoffEpoch {
 			c.updatedActivityCount.Delete(ei)
 		}
 		return true

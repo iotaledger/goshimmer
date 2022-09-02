@@ -8,6 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
@@ -19,11 +20,17 @@ import (
 
 var (
 	// GenesisTime is the time (Unix in seconds) of the genesis.
-	GenesisTime int64 = 1660128716
-
+	GenesisTime int64 = 1662035280
 	// Duration is the default epoch duration in seconds.
 	Duration int64 = 10
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(nodesActivitySerializableMap{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering NodesActivityLog type settings: %w", err))
+	}
+}
 
 // Index is the ID of an epoch.
 type Index int64
@@ -242,9 +249,9 @@ func ComputeECR(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) E
 
 // region NodesActivityLog //////////////////////////////////////////////////////////////////////////////////////////////////
 
-type NodesActivityLog map[Index]*ActivityLog
+type nodesActivitySerializableMap map[Index]*ActivityLog
 
-func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
+func (al *nodesActivitySerializableMap) FromBytes(data []byte) (err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, al, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse activeNodes: %w", err)
@@ -253,12 +260,59 @@ func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
 	return
 }
 
-func (al *NodesActivityLog) Bytes() []byte {
+func (al *nodesActivitySerializableMap) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), *al, serix.WithValidation())
 	if err != nil {
 		panic(err)
 	}
 	return objBytes
+}
+
+func (al *nodesActivitySerializableMap) nodesActivityLog() *NodesActivityLog {
+	activity := NewNodesActivityLog()
+	for ei, a := range *al {
+		activity.Set(ei, a)
+	}
+	return activity
+}
+
+type NodesActivityLog struct {
+	shrinkingmap.ShrinkingMap[Index, *ActivityLog] `serix:"0,lengthPrefixType=uint32"`
+}
+
+func (al *NodesActivityLog) FromBytes(data []byte) (err error) {
+	m := make(nodesActivitySerializableMap)
+	err = m.FromBytes(data)
+	if err != nil {
+		return err
+	}
+	al.loadActivityLogsMap(m)
+	return
+}
+
+func (al *NodesActivityLog) Bytes() []byte {
+	m := al.activityLogsMap()
+	return m.Bytes()
+}
+
+func NewNodesActivityLog() *NodesActivityLog {
+	return &NodesActivityLog{*shrinkingmap.New[Index, *ActivityLog]()}
+}
+
+func (al *NodesActivityLog) activityLogsMap() *nodesActivitySerializableMap {
+	activityMap := make(nodesActivitySerializableMap)
+	al.ForEach(func(ei Index, activity *ActivityLog) bool {
+		activityMap[ei] = activity
+		return true
+	})
+	return &activityMap
+}
+
+func (al *NodesActivityLog) loadActivityLogsMap(m nodesActivitySerializableMap) {
+	for ei, a := range m {
+		al.Set(ei, a)
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,32 +322,32 @@ func (al *NodesActivityLog) Bytes() []byte {
 // ActivityLog is a time-based log of node activity. It stores information when a node is active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	SetEpochs *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
+	model.Mutable[ActivityLog, *ActivityLog, activityLogModel] `serix:"0"`
+}
+
+// nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.
+type activityLogModel struct {
+	ActivityLog *set.AdvancedSet[identity.ID] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewActivityLog is the constructor for ActivityLog.
 func NewActivityLog() *ActivityLog {
-
-	a := &ActivityLog{
-		SetEpochs: set.NewAdvancedSet[identity.ID](),
-	}
-
-	return a
+	return model.NewMutable[ActivityLog](&activityLogModel{ActivityLog: set.NewAdvancedSet[identity.ID]()})
 }
 
 // Add adds a node to the activity log.
 func (a *ActivityLog) Add(nodeID identity.ID) (added bool) {
-	return a.SetEpochs.Add(nodeID)
+	return a.InnerModel().ActivityLog.Add(nodeID)
 }
 
 // Remove removes a node from the activity log.
 func (a *ActivityLog) Remove(nodeID identity.ID) (removed bool) {
-	return a.SetEpochs.Delete(nodeID)
+	return a.InnerModel().ActivityLog.Delete(nodeID)
 }
 
 // Active returns true if the provided node was active.
 func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
-	if a.SetEpochs.Has(nodeID) {
+	if a.InnerModel().ActivityLog.Has(nodeID) {
 		return true
 	}
 
@@ -303,8 +357,8 @@ func (a *ActivityLog) Active(nodeID identity.ID) (active bool) {
 // String returns a human-readable version of ActivityLog.
 func (a *ActivityLog) String() string {
 	var builder strings.Builder
-	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.SetEpochs.Size()))
-	a.SetEpochs.ForEach(func(nodeID identity.ID) (err error) {
+	builder.WriteString(fmt.Sprintf("ActivityLog(len=%d, elements=", a.Size()))
+	a.InnerModel().ActivityLog.ForEach(func(nodeID identity.ID) (err error) {
 		builder.WriteString(fmt.Sprintf("%s, ", nodeID.String()))
 		return
 	})
@@ -315,8 +369,18 @@ func (a *ActivityLog) String() string {
 // Clone clones the ActivityLog.
 func (a *ActivityLog) Clone() *ActivityLog {
 	clone := NewActivityLog()
-	clone.SetEpochs = a.SetEpochs.Clone()
+	clone.InnerModel().ActivityLog = a.InnerModel().ActivityLog.Clone()
 	return clone
+}
+
+// ForEach iterates through the activity set and calls the callback for every element.
+func (a *ActivityLog) ForEach(callback func(nodeID identity.ID) (err error)) (err error) {
+	return a.InnerModel().ActivityLog.ForEach(callback)
+}
+
+// Size returns the size of the activity log.
+func (a *ActivityLog) Size() int {
+	return a.InnerModel().ActivityLog.Size()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -336,7 +400,7 @@ type SnapshotNodeActivity struct {
 
 // NewSnapshotNodeActivity creates a new SnapshotNodeActivity instance.
 func NewSnapshotNodeActivity() *SnapshotNodeActivity {
-	return model.NewImmutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
+	return model.NewMutable[SnapshotNodeActivity](&nodeActivityModel{NodesLog: make(map[identity.ID]uint64)})
 }
 
 // nodeActivityModel stores node identities and corresponding accepted block counters indicating how many blocks node issued in a given epoch.

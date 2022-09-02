@@ -2,26 +2,22 @@ package faucet
 
 import (
 	"context"
-	"runtime"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
-	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
@@ -38,20 +34,13 @@ const (
 
 var (
 	// Plugin is the "plugin" instance of the faucet application.
-	Plugin                   *node.Plugin
-	_faucet                  *StateManager
-	powVerifier              = pow.New()
-	fundingWorkerPool        *workerpool.NonBlockingQueuedWorkerPool
-	fundingWorkerCount       = runtime.GOMAXPROCS(0)
-	fundingWorkerQueueSize   = 500
-	preparingWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	preparingWorkerCount     = runtime.GOMAXPROCS(0)
-	preparingWorkerQueueSize = MaxFaucetOutputsCount + 1
-	targetPoWDifficulty      int
-	// blacklist makes sure that an address might only request tokens once.
-	blacklist         *orderedmap.OrderedMap[string, bool]
-	blacklistCapacity int
-	blackListMutex    sync.RWMutex
+	Plugin              *node.Plugin
+	_faucet             *Faucet
+	powVerifier         = pow.New()
+	requestChanSize     = 300
+	requestChan         = make(chan *faucet.Payload, requestChanSize)
+	targetPoWDifficulty int
+
 	// signals that the faucet has initialized itself and can start funding requests.
 	initDone     atomic.Bool
 	bootstrapped chan bool
@@ -74,7 +63,7 @@ func init() {
 }
 
 // newFaucet gets the faucet component instance the faucet plugin has initialized.
-func newFaucet() *StateManager {
+func newFaucet() *Faucet {
 	if Parameters.Seed == "" {
 		Plugin.LogFatalAndExit("a seed must be defined when enabling the faucet plugin")
 	}
@@ -88,46 +77,12 @@ func newFaucet() *StateManager {
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
 		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
 	}
-	if Parameters.SupplyOutputsCount <= 0 {
-		Plugin.LogFatalfAndExit("the number of faucet supply outputs should be more than 0")
-	}
-	if Parameters.SplittingMultiplier <= 0 {
-		Plugin.LogFatalfAndExit("the number of outputs for each supply transaction during funds splitting should be more than 0")
-	}
-	if Parameters.GenesisTokenAmount <= 0 {
-		Plugin.LogFatalfAndExit("the total supply should be more than 0")
-	}
-	return NewStateManager(
-		uint64(Parameters.TokensPerRequest),
-		walletseed.NewSeed(seedBytes),
-		uint64(Parameters.SupplyOutputsCount),
-		uint64(Parameters.SplittingMultiplier),
 
-		Parameters.MaxTransactionBookedAwaitTime,
-	)
+	return NewFaucet(walletseed.NewSeed(seedBytes))
 }
 
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	blacklist = orderedmap.New[string, bool]()
-	blacklistCapacity = Parameters.BlacklistCapacity
-	_faucet = newFaucet()
-
-	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		faucetRequest := task.Param(0).(*faucet.Payload)
-		addr := faucetRequest.Address()
-
-		blk, txID, err := _faucet.FulFillFundingRequest(faucetRequest)
-		if err != nil {
-			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
-			return
-		}
-		plugin.LogInfof("sent funds to address %s via tx %s and blk %s", addr.Base58(), txID, blk.ID())
-	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
-
-	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
-		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
-
 	bootstrapped = make(chan bool, 1)
 
 	configureEvents()
@@ -144,28 +99,18 @@ func run(plugin *node.Plugin) {
 		plugin.LogInfo("Waiting for node to become bootstrapped... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := waitForMana(ctx); err != nil {
+		if err := checkForMana(ctx); err != nil {
 			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
 			return
 		}
 		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
-		plugin.LogInfof("Deriving faucet state from the ledger...")
-
-		// determine state, prepare more outputs if needed
-		if err := _faucet.DeriveStateFromTangle(ctx); err != nil {
-			plugin.LogErrorf("failed to derive state: %s", err)
-			return
-		}
-		plugin.LogInfo("Deriving faucet state from the ledger... done")
-
-		defer fundingWorkerPool.Stop()
-		defer preparingWorkerPool.Stop()
-
 		initDone.Store(true)
 
-		<-ctx.Done()
-		plugin.LogInfof("Stopping %s ...", PluginName)
+		_faucet = newFaucet()
+		_faucet.Start(ctx, requestChan)
+
+		close(requestChan)
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
@@ -186,27 +131,18 @@ func waitUntilBootstrapped(ctx context.Context) bool {
 	}
 }
 
-func waitForMana(ctx context.Context) error {
+func checkForMana(ctx context.Context) error {
 	nodeID := deps.Tangle.Options.Identity.ID()
-	for {
-		// stop polling, if we are shutting down
-		select {
-		case <-ctx.Done():
-			return errors.New("faucet shutting down")
-		default:
-		}
 
-		aMana, _, err := blocklayer.GetAccessMana(nodeID)
-		// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-		if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-			return err
-		}
-		if aMana >= tangleold.MinMana {
-			return nil
-		}
-		Plugin.LogDebugf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-		time.Sleep(waitForManaWindow)
+	aMana, _, err := blocklayer.GetAccessMana(nodeID)
+	// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+	if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		return err
 	}
+	if aMana < tangleold.MinMana {
+		return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
+	}
+	return nil
 }
 
 func configureEvents() {
@@ -271,11 +207,6 @@ func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) 
 		return errors.New("PoW requirement is not satisfied")
 	}
 
-	if IsAddressBlackListed(addr) {
-		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
-	}
-
 	emptyID := identity.ID{}
 	if len(pledge) == 2 {
 		if fundingRequest.AccessManaPledgeID() == emptyID {
@@ -287,12 +218,7 @@ func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) 
 	}
 
 	// finally add it to the faucet to be processed
-	_, added := fundingWorkerPool.TrySubmit(fundingRequest)
-	if !added {
-		RemoveAddressFromBlacklist(addr)
-		Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-		return errors.Newf("dropped funding request for address %s as queue is full", addr.Base58())
-	}
+	requestChan <- fundingRequest
 
 	Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
 	return nil
@@ -316,39 +242,4 @@ func isFaucetRequestPoWValid(fundingRequest *faucet.Payload, addr devnetvm.Addre
 	}
 
 	return true
-}
-
-// IsAddressBlackListed returns if an address is blacklisted.
-// adds the given address to the blacklist and removes the oldest blacklist entry if it would go over capacity.
-func IsAddressBlackListed(address devnetvm.Address) bool {
-	blackListMutex.Lock()
-	defer blackListMutex.Unlock()
-
-	// see if it was already blacklisted
-	_, blacklisted := blacklist.Get(address.Base58())
-
-	if blacklisted {
-		return true
-	}
-
-	// add it to the blacklist
-	blacklist.Set(address.Base58(), true)
-	if blacklist.Size() > blacklistCapacity {
-		var headKey string
-		blacklist.ForEach(func(key string, value bool) bool {
-			headKey = key
-			return false
-		})
-		blacklist.Delete(headKey)
-	}
-
-	return false
-}
-
-// RemoveAddressFromBlacklist removes an address from the blacklist.
-func RemoveAddressFromBlacklist(address devnetvm.Address) {
-	blackListMutex.Lock()
-	defer blackListMutex.Unlock()
-
-	blacklist.Delete(address.Base58())
 }

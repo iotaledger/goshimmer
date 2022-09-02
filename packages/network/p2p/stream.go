@@ -21,7 +21,7 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
-	libp2putil2 "github.com/iotaledger/goshimmer/packages/core/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
 )
 
 const (
@@ -47,7 +47,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	if p2pEndpoint == nil {
 		return nil, ErrNoP2P
 	}
-	libp2pID, err := libp2putil2.ToLibp2pPeerID(p)
+	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -96,7 +96,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		return nil, ErrNoP2P
 	}
 
-	handleInboundStream := func(ctx context.Context, protocolID protocol.ID, registeredProtocols ...protocol.ID) (*PacketsStream, error) {
+	handleInboundStream := func(ctx context.Context, protocolID protocol.ID) (*PacketsStream, error) {
 		if buildConnectPeerConfig(opts).useDefaultTimeout {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
@@ -112,8 +112,11 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		defer m.removeAcceptMatcher(am, protocolID)
 
 		m.log.Debugw("waiting for incoming stream", "id", am.Peer.ID(), "proto", protocolID)
+		am.StreamChMutex.RLock()
+		streamCh := am.StreamCh[protocolID]
+		am.StreamChMutex.RUnlock()
 		select {
-		case ps := <-am.StreamCh[protocolID]:
+		case ps := <-streamCh:
 			if ps.Protocol() != protocolID {
 				return nil, fmt.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
 			}
@@ -205,10 +208,13 @@ func (m *Manager) handleStream(stream network.Stream) {
 		return
 	}
 	am := m.matchNewStream(stream)
-
 	if am != nil {
+		am.StreamChMutex.RLock()
+		streamCh := am.StreamCh[protocolID]
+		am.StreamChMutex.RUnlock()
+
 		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
-		am.StreamCh[protocolID] <- ps
+		streamCh <- ps
 	} else {
 		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
@@ -220,22 +226,25 @@ func (m *Manager) handleStream(stream network.Stream) {
 
 // AcceptMatcher holds data to match an existing connection with a peer.
 type AcceptMatcher struct {
-	Peer     *peer.Peer // connecting peer
-	Libp2pID libp2ppeer.ID
-	StreamCh map[protocol.ID]chan *PacketsStream
+	Peer          *peer.Peer // connecting peer
+	Libp2pID      libp2ppeer.ID
+	StreamChMutex sync.RWMutex
+	StreamCh      map[protocol.ID]chan *PacketsStream
 }
 
 func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*AcceptMatcher, error) {
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
 
-	libp2pID, err := libp2putil2.ToLibp2pPeerID(p)
+	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	acceptMatcher, acceptExists := m.acceptMap[libp2pID]
 	if acceptExists {
+		acceptMatcher.StreamChMutex.Lock()
+		defer acceptMatcher.StreamChMutex.Unlock()
 		if _, streamChanExists := acceptMatcher.StreamCh[protocolID]; streamChanExists {
 			return nil, nil
 		}
@@ -260,10 +269,14 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
 
-	close(m.acceptMap[am.Libp2pID].StreamCh[protocolID])
-	delete(m.acceptMap[am.Libp2pID].StreamCh, protocolID)
+	existingAm := m.acceptMap[am.Libp2pID]
+	existingAm.StreamChMutex.Lock()
+	defer existingAm.StreamChMutex.Unlock()
 
-	if len(m.acceptMap[am.Libp2pID].StreamCh) == 0 {
+	close(existingAm.StreamCh[protocolID])
+	delete(existingAm.StreamCh, protocolID)
+
+	if len(existingAm.StreamCh) == 0 {
 		delete(m.acceptMap, am.Libp2pID)
 	}
 }
@@ -287,9 +300,9 @@ type PacketsStream struct {
 	packetFactory func() proto.Message
 
 	readerLock     sync.Mutex
-	reader         *libp2putil2.UvarintReader
+	reader         *libp2putil.UvarintReader
 	writerLock     sync.Mutex
-	writer         *libp2putil2.UvarintWriter
+	writer         *libp2putil.UvarintWriter
 	packetsRead    *atomic.Uint64
 	packetsWritten *atomic.Uint64
 }
@@ -299,8 +312,8 @@ func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message)
 	return &PacketsStream{
 		Stream:         stream,
 		packetFactory:  packetFactory,
-		reader:         libp2putil2.NewDelimitedReader(stream),
-		writer:         libp2putil2.NewDelimitedWriter(stream),
+		reader:         libp2putil.NewDelimitedReader(stream),
+		writer:         libp2putil.NewDelimitedWriter(stream),
 		packetsRead:    atomic.NewUint64(0),
 		packetsWritten: atomic.NewUint64(0),
 	}
@@ -310,9 +323,6 @@ func NewPacketsStream(stream network.Stream, packetFactory func() proto.Message)
 func (ps *PacketsStream) WritePacket(message proto.Message) error {
 	ps.writerLock.Lock()
 	defer ps.writerLock.Unlock()
-	if err := ps.SetWriteDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
-		return errors.WithStack(err)
-	}
 	err := ps.writer.WriteBlk(message)
 	if err != nil {
 		return errors.WithStack(err)
@@ -325,9 +335,6 @@ func (ps *PacketsStream) WritePacket(message proto.Message) error {
 func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 	ps.readerLock.Lock()
 	defer ps.readerLock.Unlock()
-	if err := ps.SetReadDeadline(time.Now().Add(ioTimeout)); err != nil && !isDeadlineUnsupportedError(err) {
-		return errors.WithStack(err)
-	}
 	if err := ps.reader.ReadBlk(message); err != nil {
 		return errors.WithStack(err)
 	}

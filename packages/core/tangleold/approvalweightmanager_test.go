@@ -3,9 +3,10 @@ package tangleold
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -36,7 +37,8 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -110,7 +112,8 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 			nodeID: 100,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -261,7 +264,8 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -419,7 +423,8 @@ func TestAggregatedConflictApproval(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -512,7 +517,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3

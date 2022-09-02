@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -219,10 +220,13 @@ func (n *Network) Shutdown(ctx context.Context) error {
 
 	// stop all peers in parallel
 	var eg errgroup.Group
+	var exitStatusMutex sync.Mutex
 	for _, peer := range n.peers {
 		peer := peer // capture range variable
 		eg.Go(func() error {
 			status, err := peer.Shutdown(ctx)
+			exitStatusMutex.Lock()
+			defer exitStatusMutex.Unlock()
 			exitStatus[peer.Name()] = status
 			return err
 		})

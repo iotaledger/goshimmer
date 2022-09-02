@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -52,7 +52,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, (*TestFramework).setupEvents)
 }
 
-func (t *TestFramework) SequenceManager() (sequenceManager *markers2.SequenceManager) {
+func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
 	return t.Booker.markerManager.sequenceManager
 }
 
@@ -129,7 +129,7 @@ func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.Tra
 	}
 }
 
-func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers2.Markers) {
+func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers) {
 	for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
 		block := t.Block(blockAlias)
 		assert.True(t.test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+

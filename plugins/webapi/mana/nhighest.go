@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 

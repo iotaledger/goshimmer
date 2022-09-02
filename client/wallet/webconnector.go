@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
