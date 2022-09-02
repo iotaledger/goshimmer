@@ -259,11 +259,19 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
+		cachedObj, stored := epochDiffStorage.spent.StoreIfAbsent(spentOutputWithMetadata)
+		if !stored {
+			continue
+		}
+		cachedObj.Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
+		cachedObj, stored := epochDiffStorage.created.StoreIfAbsent(createdOutputWithMetadata)
+		if !stored {
+			continue
+		}
+		cachedObj.Release()
 	}
 }
 
