@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -106,7 +107,7 @@ func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 }
 
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
-func (e *EventMock) ManaVectorUpdate(event *ManaVectorUpdateEvent) {
+func (e *EventMock) ManaVectorUpdate(event *mana.ManaVectorUpdateEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }

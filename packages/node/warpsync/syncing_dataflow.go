@@ -122,7 +122,11 @@ func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Ne
 
 func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
 	for _, blk := range params.epochBlocks {
-		m.blockProcessorFunc(blk, m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})[0].Peer)
+		neighbors := m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})
+		if len(neighbors) != 1 {
+			return errors.Errorf("neighbor %s not peered anymore after receiving warpsynced block")
+		}
+		m.blockProcessorFunc(blk, neighbors[0].Peer)
 	}
 
 	return next(params)
