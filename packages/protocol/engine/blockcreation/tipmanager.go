@@ -8,19 +8,19 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/markersold"
 )
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TipManager struct {
 	tangle              *tangle.Tangle
+	acceptanceGadget    *acceptance.Gadget
 	tips                *randommap.RandomMap[*virtualvoting.Block, *virtualvoting.Block]
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
@@ -39,7 +39,7 @@ func NewTipManager(tangle *tangle.Tangle, opts ...options.Option[TipManager]) *T
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	// TODO:
+	// TODO: wire up events
 	// t.tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *BlockScheduledEvent) {
 	// 	t.tangle.Storage.Block(event.BlockID).Consume(t.AddTip)
 	// }))
@@ -68,10 +68,8 @@ func (t *TipManager) Setup() {
 }
 
 func (t *TipManager) AddTip(block *virtualvoting.Block) {
-	blockID := block.ID()
-
 	// Check if any children that are confirmed or scheduled and return if true, to guarantee that the parents are not added to the tipset after its children.
-	if t.checkChildren(blockID) {
+	if t.checkChildren(block) {
 		return
 	}
 
@@ -107,38 +105,34 @@ func (t *TipManager) deleteTip(block *virtualvoting.Block) (deleted bool) {
 }
 
 // checkChildren returns true if the block has any confirmed or scheduled child.
-func (t *TipManager) checkChildren(blockID BlockID) bool {
-	childScheduledConfirmed := false
-	t.tangle.Storage.Children(blockID).Consume(func(child *Child) {
-		if childScheduledConfirmed {
-			return
+func (t *TipManager) checkChildren(block *virtualvoting.Block) (anyScheduledOrAccepted bool) {
+	for _, child := range block.Children() {
+		if childBlock, exists := t.acceptanceGadget.Block(child.ID()); exists {
+			if childBlock.Accepted() {
+				return true
+			}
 		}
+		// TODO: check if scheduled
+	}
 
-		childScheduledConfirmed = t.tangle.ConfirmationOracle.IsBlockConfirmed(child.ChildBlockID())
-		if !childScheduledConfirmed {
-			t.tangle.Storage.BlockMetadata(child.ChildBlockID()).Consume(func(blockMetadata *BlockMetadata) {
-				childScheduledConfirmed = blockMetadata.Scheduled()
-			})
-		}
-	})
-	return childScheduledConfirmed
+	return false
 }
 
-func (t *TipManager) removeStrongParents(block *Block) {
-	block.ForEachParentByType(StrongParentType, func(parentBlockID BlockID) bool {
+func (t *TipManager) removeStrongParents(block *virtualvoting.Block) {
+	block.ForEachParent(func(parent models.Parent) {
+		// TODO: what to do with this?
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
 		// }
-
-		t.deleteTip(parentBlockID)
-
-		return true
+		if parentBlock, exists := t.tangle.VirtualVoting.Block(parent.ID); exists {
+			t.deleteTip(parentBlock)
+		}
 	})
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents models.BlockIDs) {
+func (t *TipManager) Tips(countParents int) (parents virtualvoting.Blocks) {
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
@@ -146,44 +140,36 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents models.B
 		countParents = models.MinParentsCount
 	}
 
-	return t.selectTips(p, countParents)
+	return t.selectTips(countParents)
 }
 
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents models.BlockIDs) {
-	parents = models.NewBlockIDs()
+func (t *TipManager) selectTips(count int) (parents virtualvoting.Blocks) {
+	parents = virtualvoting.NewBlocks()
 
 	tips := t.tips.RandomUniqueEntries(count)
 
-	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
-	// or selected ones had incorrect time-since-confirmation
+	// only add genesis if no tips are available
 	if len(tips) == 0 {
-		parents.Add(EmptyBlockID)
-		return
+		// TODO: do we add one/multiple random solid entry point?
+		// parents.Add(EmptyBlockID)
+		return parents
 	}
 
 	// at least one tip is returned
 	for _, tip := range tips {
-		blockID := tip
-		if !parents.Contains(blockID) && t.isPastConeTimestampCorrect(blockID) {
-			parents.Add(blockID)
+		if t.isPastConeTimestampCorrect(tip) {
+			parents.Add(tip)
 		}
 	}
-	return
+
+	// TODO: should we retry if no valid tip is left?
+
+	return parents
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() BlockIDs {
-	return retrieveAllTips(t.tips)
-}
-
-func retrieveAllTips(tipsMap *randommap.RandomMap[BlockID, BlockID]) BlockIDs {
-	mapKeys := tipsMap.Keys()
-	tips := NewBlockIDs()
-
-	for _, key := range mapKeys {
-		tips.Add(key)
-	}
-	return tips
+func (t *TipManager) AllTips() []*virtualvoting.Block {
+	return t.tips.Keys()
 }
 
 // TipCount the amount of tips.
