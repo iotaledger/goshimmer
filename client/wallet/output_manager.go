@@ -1,8 +1,6 @@
 package wallet
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 )
@@ -12,14 +10,17 @@ type OutputManager struct {
 	addressManager *AddressManager
 	connector      Connector
 	unspentOutputs OutputsByAddressAndOutputID
+
+	optsStateless bool
 }
 
 // NewUnspentOutputManager creates a new UnspentOutputManager.
-func NewUnspentOutputManager(addressManager *AddressManager, connector Connector) (outputManager *OutputManager) {
+func NewUnspentOutputManager(addressManager *AddressManager, connector Connector, stateless bool) (outputManager *OutputManager) {
 	outputManager = &OutputManager{
 		addressManager: addressManager,
 		connector:      connector,
 		unspentOutputs: NewAddressToOutputs(),
+		optsStateless:  stateless,
 	}
 
 	if err := outputManager.Refresh(true); err != nil {
@@ -34,11 +35,8 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 	// go through the list of all addresses in the wallet
 	addressesToRefresh := o.addressManager.Addresses()
 
-	fmt.Println("outpust in o.unspentOutputs", o.unspentOutputs)
-
 	// fetch unspent outputs on these addresses
 	unspentOutputs, err := o.connector.UnspentOutputs(addressesToRefresh...)
-	fmt.Println(">>>> unspent outputs from connector", unspentOutputs)
 	if err != nil {
 		return err
 	}
@@ -49,15 +47,14 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 			if _, addressExists := o.unspentOutputs[addy]; !addressExists {
 				o.unspentOutputs[addy] = make(map[utxo.OutputID]*Output)
 			}
-			// mark the output as spent if we already marked it as spent locally
-			// TODO: if an output is spent in a block that gets orphaned then the output is "locked" and always marked as spent locally.
-			//  for now we ignore it.
-			// if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
-			// 	fmt.Println("marking as spend")
-			// 	output.Spent = true
-			// }
+
+			// mark the output as spent if we already marked it as spent locally, only in stateful mode.
+			if !o.optsStateless {
+				if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
+					output.Spent = true
+				}
+			}
 			o.unspentOutputs[addy][outputID] = output
-			fmt.Println("adding to o.unspentOutputs", addy, outputID, output)
 		}
 	}
 

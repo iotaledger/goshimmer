@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"time"
 	"unsafe"
@@ -57,6 +56,7 @@ type Wallet struct {
 	reusableAddress          bool
 	ConfirmationPollInterval time.Duration
 	ConfirmationTimeout      time.Duration
+	Stateless                bool
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -94,7 +94,7 @@ func New(options ...Option) (wallet *Wallet) {
 	}
 
 	// initialize output manager
-	wallet.outputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector)
+	wallet.outputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector, wallet.Stateless)
 	err := wallet.outputManager.Refresh(true)
 	if err != nil {
 		panic(err)
@@ -1990,7 +1990,6 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color
 		addresses = wallet.addressManager.Addresses()
 	}
 	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
-	fmt.Println(">> UnspentValueOutputs", unspentOutputs)
 
 	collected := make(map[devnetvm.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
@@ -2006,9 +2005,7 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color
 				}
 			}
 			contributingOutput := false
-			fmt.Println(">> fundingBalance", fundingBalance)
 			output.Object.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				fmt.Println("\t>> outputcolor", color, "balance", balance)
 				_, has := fundingBalance[color]
 				if has {
 					collected[color] += balance
