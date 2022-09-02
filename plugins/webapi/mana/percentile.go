@@ -9,7 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -19,7 +19,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := mana2.IDFromStr(request.NodeID)
+	ID, err := mana.IDFromStr(request.NodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -27,25 +27,25 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 	t := time.Now()
-	access, tAccess, err := manaPlugin.GetManaMap(mana2.AccessMana, t)
+	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	accessPercentile, err := access.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, mana2.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			accessPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensus, tConsensus, err := manaPlugin.GetManaMap(mana2.ConsensusMana, t)
+	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	consensusPercentile, err := consensus.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, mana2.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 			consensusPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})

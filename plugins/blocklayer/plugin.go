@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -262,15 +262,15 @@ func parseDuration(durationString string) time.Duration {
 }
 
 func accessManaMapRetriever() map[identity.ID]float64 {
-	nodeMap, _, err := GetManaMap(mana2.AccessMana)
+	nodeMap, _, err := GetManaMap(mana.AccessMana)
 	if err != nil {
-		return mana2.NodeMap{}
+		return mana.NodeMap{}
 	}
 	return nodeMap
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalMana(mana2.AccessMana)
+	totalMana, _, err := GetTotalMana(mana.AccessMana)
 	if err != nil {
 		return 0
 	}
