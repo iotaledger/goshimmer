@@ -1,6 +1,7 @@
 package blockdag
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
 
@@ -100,19 +101,19 @@ func (b *Block) Children() (children []*Block) {
 func (b *Block) StrongChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.strongChildren
+	return lo.CopySlice(b.strongChildren)
 }
 
 func (b *Block) WeakChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.weakChildren
+	return lo.CopySlice(b.weakChildren)
 }
 
 func (b *Block) LikedInsteadChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.likedInsteadChildren
+	return lo.CopySlice(b.likedInsteadChildren)
 }
 
 // setSolid marks the Block as solid.
