@@ -1,4 +1,4 @@
-package booker
+package markermanager
 
 import (
 	"fmt"

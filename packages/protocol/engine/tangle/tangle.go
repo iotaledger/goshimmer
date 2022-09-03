@@ -17,6 +17,8 @@ import (
 // Tangle is a conflict free replicated data type that allows users to issue their own Blocks with each Block casting
 // virtual votes on existing conflicts.
 type Tangle struct {
+	Events *Events
+
 	optsBlockDAG      []options.Option[blockdag.BlockDAG]
 	optsBooker        []options.Option[booker.Booker]
 	optsVirtualVoting []options.Option[virtualvoting.VirtualVoting]
@@ -32,6 +34,11 @@ func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID
 		t.BlockDAG = blockdag.New(evictionManager, t.optsBlockDAG...)
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, t.optsVirtualVoting...)
+
+		t.Events = &Events{
+			BlockDAG: t.BlockDAG.Events,
+			Booker:   t.Booker.Events,
+		}
 	})
 }
 

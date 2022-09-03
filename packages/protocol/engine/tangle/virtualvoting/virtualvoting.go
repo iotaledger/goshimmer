@@ -7,7 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -22,8 +23,8 @@ type VirtualVoting struct {
 	ValidatorSet *validator.Set
 
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	conflictTracker *votes.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
-	sequenceTracker *votes.SequenceTracker[BlockVotePower]
+	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
+	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
 	*booker.Booker
@@ -36,11 +37,14 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
 		Booker:          booker,
 	}, opts, func(o *VirtualVoting) {
-		o.conflictTracker = votes.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
-		o.sequenceTracker = votes.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
+		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 			return 0
 		})
-		o.Events = newEvents(o.conflictTracker.Events, o.sequenceTracker.Events)
+
+		o.Events = NewEvents()
+		o.Events.ConflictTracker.LinkTo(o.conflictTracker.Events)
+		o.Events.SequenceTracker.LinkTo(o.sequenceTracker.Events)
 	}, (*VirtualVoting).setupEvents)
 }
 

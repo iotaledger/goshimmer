@@ -1,4 +1,4 @@
-package votes
+package sequencetracker
 
 import (
 	"fmt"
@@ -8,26 +8,27 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
-type SequenceTracker[VotePowerType VotePower[VotePowerType]] struct {
+type SequenceTracker[VotePowerType votes.VotePower[VotePowerType]] struct {
+	Events *Events
+
 	votes *memstorage.Storage[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]]
 
 	sequenceCallback    func(id markers.SequenceID) (sequence *markers.Sequence, exists bool)
 	validatorSet        *validator.Set
 	cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index
-
-	Events *SequenceTrackerEvents
 }
 
-func NewSequenceTracker[VotePowerType VotePower[VotePowerType]](validatorSet *validator.Set, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
+func NewSequenceTracker[VotePowerType votes.VotePower[VotePowerType]](validatorSet *validator.Set, sequenceCallback func(id markers.SequenceID) (sequence *markers.Sequence, exists bool), cutoffIndexCallback func(sequenceID markers.SequenceID) markers.Index) *SequenceTracker[VotePowerType] {
 	return &SequenceTracker[VotePowerType]{
 		votes:               memstorage.New[markers.SequenceID, *memstorage.Storage[identity.ID, *LatestMarkerVotes[VotePowerType]]](),
 		sequenceCallback:    sequenceCallback,
 		validatorSet:        validatorSet,
 		cutoffIndexCallback: cutoffIndexCallback,
-		Events:              newSequenceTrackerEvents(),
+		Events:              NewEvents(),
 	}
 }
 
@@ -53,12 +54,12 @@ func (s *SequenceTracker[VotePowerType]) TrackVotes(pastMarkers *markers.Markers
 
 func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *validator.Set) {
 	voters = validator.NewSet()
-	votes, exists := s.votes.Get(marker.SequenceID())
+	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
 	}
 
-	votes.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
+	votesObj.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
 		_, voteExists := validatorVotes.Power(marker.Index())
 		if !voteExists {
 			return true
@@ -77,11 +78,11 @@ func (s *SequenceTracker[VotePowerType]) Voters(marker markers.Marker) (voters *
 func (s *SequenceTracker[VotePowerType]) VotersWithPower(marker markers.Marker) (voters map[identity.ID]VotePowerType) {
 	voters = make(map[identity.ID]VotePowerType)
 
-	votes, exists := s.votes.Get(marker.SequenceID())
+	votesObj, exists := s.votes.Get(marker.SequenceID())
 	if !exists {
 		return
 	}
-	votes.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
+	votesObj.ForEach(func(identityID identity.ID, validatorVotes *LatestMarkerVotes[VotePowerType]) bool {
 		power, voteExists := validatorVotes.Power(marker.Index())
 		if !voteExists {
 			return true

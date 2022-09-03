@@ -1,4 +1,4 @@
-package booker
+package markermanager
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -10,12 +10,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
-type MarkerManager struct {
-	Events                       *MarkerManagerEvents
-	sequenceManager              *markers.SequenceManager
+type MarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]] struct {
+	Events                       *Events
+	SequenceManager              *markers.SequenceManager
 	markerIndexConflictIDMapping *memstorage.Storage[markers.SequenceID, *MarkerIndexConflictIDMapping]
 
-	markerBlockMapping         *memstorage.Storage[markers.Marker, *Block]
+	markerBlockMapping         *memstorage.Storage[markers.Marker, MappedEntity]
 	markerBlockMappingEviction *memstorage.Storage[epoch.Index, set.Set[markers.Marker]]
 
 	sequenceLastUsed *memstorage.Storage[markers.SequenceID, epoch.Index]
@@ -24,10 +24,10 @@ type MarkerManager struct {
 	optsSequenceManager []options.Option[markers.SequenceManager]
 }
 
-func NewMarkerManager(opts ...options.Option[MarkerManager]) *MarkerManager {
-	manager := options.Apply(&MarkerManager{
-		Events:                     newMarkerManagerEvents(),
-		markerBlockMapping:         memstorage.New[markers.Marker, *Block](),
+func NewMarkerManager[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]](opts ...options.Option[MarkerManager[IndexedID, MappedEntity]]) *MarkerManager[IndexedID, MappedEntity] {
+	manager := options.Apply(&MarkerManager[IndexedID, MappedEntity]{
+		Events:                     NewEvents(),
+		markerBlockMapping:         memstorage.New[markers.Marker, MappedEntity](),
 		markerBlockMappingEviction: memstorage.New[epoch.Index, set.Set[markers.Marker]](),
 
 		markerIndexConflictIDMapping: memstorage.New[markers.SequenceID, *MarkerIndexConflictIDMapping](),
@@ -35,7 +35,7 @@ func NewMarkerManager(opts ...options.Option[MarkerManager]) *MarkerManager {
 		sequenceEviction:             memstorage.New[epoch.Index, set.Set[markers.SequenceID]](),
 		optsSequenceManager:          make([]options.Option[markers.SequenceManager], 0),
 	}, opts)
-	manager.sequenceManager = markers.NewSequenceManager(manager.optsSequenceManager...)
+	manager.SequenceManager = markers.NewSequenceManager(manager.optsSequenceManager...)
 
 	manager.SetConflictIDs(markers.NewMarker(0, 0), utxo.NewTransactionIDs())
 	manager.registerSequenceEviction(epoch.Index(0), markers.SequenceID(0))
@@ -47,8 +47,8 @@ func NewMarkerManager(opts ...options.Option[MarkerManager]) *MarkerManager {
 
 // ProcessBlock returns the structure Details of a Block that are derived from the StructureDetails of its
 // strong and like parents.
-func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
-	newStructureDetails, newSequenceCreated := m.sequenceManager.InheritStructureDetails(structureDetails)
+func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity, structureDetails []*markers.StructureDetails, conflictIDs utxo.TransactionIDs) (newStructureDetails *markers.StructureDetails) {
+	newStructureDetails, newSequenceCreated := m.SequenceManager.InheritStructureDetails(structureDetails)
 
 	if newSequenceCreated {
 		m.SetConflictIDs(newStructureDetails.PastMarkers().Marker(), conflictIDs)
@@ -68,12 +68,12 @@ func (m *MarkerManager) ProcessBlock(block *Block, structureDetails []*markers.S
 	return
 }
 
-func (m *MarkerManager) EvictEpoch(epochIndex epoch.Index) {
+func (m *MarkerManager[IndexedID, MappedEntity]) EvictEpoch(epochIndex epoch.Index) {
 	m.evictMarkerBlockMapping(epochIndex)
 	m.evictSequences(epochIndex)
 }
 
-func (m *MarkerManager) evictSequences(epochIndex epoch.Index) {
+func (m *MarkerManager[IndexedID, MappedEntity]) evictSequences(epochIndex epoch.Index) {
 	if sequenceSet, sequenceSetExists := m.sequenceEviction.Get(epochIndex); sequenceSetExists {
 		m.sequenceEviction.Delete(epochIndex)
 
@@ -81,7 +81,7 @@ func (m *MarkerManager) evictSequences(epochIndex epoch.Index) {
 			if lastUsed, exists := m.sequenceLastUsed.Get(sequenceID); exists && lastUsed <= epochIndex {
 				m.sequenceLastUsed.Delete(sequenceID)
 				m.markerIndexConflictIDMapping.Delete(sequenceID)
-				m.sequenceManager.Delete(sequenceID)
+				m.SequenceManager.Delete(sequenceID)
 
 				m.Events.SequenceEvicted.Trigger(sequenceID)
 			}
@@ -89,7 +89,7 @@ func (m *MarkerManager) evictSequences(epochIndex epoch.Index) {
 	}
 }
 
-func (m *MarkerManager) evictMarkerBlockMapping(epochIndex epoch.Index) {
+func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIndex epoch.Index) {
 	if markerSet, exists := m.markerBlockMappingEviction.Get(epochIndex); exists {
 		m.markerBlockMappingEviction.Delete(epochIndex)
 
@@ -99,7 +99,7 @@ func (m *MarkerManager) evictMarkerBlockMapping(epochIndex epoch.Index) {
 	}
 }
 
-func (m *MarkerManager) registerSequenceEviction(index epoch.Index, sequenceID markers.SequenceID) {
+func (m *MarkerManager[IndexedID, MappedEntity]) registerSequenceEviction(index epoch.Index, sequenceID markers.SequenceID) {
 	// add the sequence to the set of active sequences for the given epoch.Index. This is append-only (record of the past).
 	sequenceSet, _ := m.sequenceEviction.RetrieveOrCreate(index, func() set.Set[markers.SequenceID] {
 		return set.New[markers.SequenceID](true)
@@ -115,7 +115,7 @@ func (m *MarkerManager) registerSequenceEviction(index epoch.Index, sequenceID m
 // region MarkerIndexConflictIDMapping /////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDsFromStructureDetails returns the ConflictIDs from StructureDetails.
-func (m *MarkerManager) ConflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs) {
+func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsConflictIDs utxo.TransactionIDs) {
 	structureDetailsConflictIDs = utxo.NewTransactionIDs()
 
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
@@ -128,7 +128,7 @@ func (m *MarkerManager) ConflictIDsFromStructureDetails(structureDetails *marker
 }
 
 // SetConflictIDs associates ledger.ConflictIDs with the given Marker.
-func (m *MarkerManager) SetConflictIDs(marker markers.Marker, conflictIDs utxo.TransactionIDs) bool {
+func (m *MarkerManager[IndexedID, MappedEntity]) SetConflictIDs(marker markers.Marker, conflictIDs utxo.TransactionIDs) bool {
 	if floorMarker, floorConflictIDs, exists := m.floor(marker); exists {
 		if floorConflictIDs.Equal(conflictIDs) {
 			return false
@@ -145,7 +145,7 @@ func (m *MarkerManager) SetConflictIDs(marker markers.Marker, conflictIDs utxo.T
 }
 
 // ConflictIDs returns the ConflictID that is associated with the given Marker.
-func (m *MarkerManager) ConflictIDs(marker markers.Marker) (conflictIDs utxo.TransactionIDs) {
+func (m *MarkerManager[IndexedID, MappedEntity]) ConflictIDs(marker markers.Marker) (conflictIDs utxo.TransactionIDs) {
 	mapping, exists := m.markerIndexConflictIDMapping.Get(marker.SequenceID())
 	if !exists {
 		return utxo.NewTransactionIDs()
@@ -154,19 +154,19 @@ func (m *MarkerManager) ConflictIDs(marker markers.Marker) (conflictIDs utxo.Tra
 	return mapping.ConflictIDs(marker.Index())
 }
 
-func (m *MarkerManager) setConflictIDMapping(marker markers.Marker, conflictIDs utxo.TransactionIDs) {
+func (m *MarkerManager[IndexedID, MappedEntity]) setConflictIDMapping(marker markers.Marker, conflictIDs utxo.TransactionIDs) {
 	mapping, _ := m.markerIndexConflictIDMapping.RetrieveOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
 	mapping.SetConflictIDs(marker.Index(), conflictIDs)
 }
 
-func (m *MarkerManager) deleteConflictIDMapping(marker markers.Marker) {
+func (m *MarkerManager[IndexedID, MappedEntity]) deleteConflictIDMapping(marker markers.Marker) {
 	mapping, _ := m.markerIndexConflictIDMapping.RetrieveOrCreate(marker.SequenceID(), NewMarkerIndexConflictIDMapping)
 	mapping.DeleteConflictID(marker.Index())
 }
 
 // floor returns the largest Index that is <= the given Marker, it's ConflictIDs and a boolean value indicating if it
 // exists.
-func (m *MarkerManager) floor(referenceMarker markers.Marker) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerManager[IndexedID, MappedEntity]) floor(referenceMarker markers.Marker) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	mapping, exists := m.markerIndexConflictIDMapping.Get(referenceMarker.SequenceID())
 	if !exists {
 		return
@@ -176,7 +176,7 @@ func (m *MarkerManager) floor(referenceMarker markers.Marker) (marker markers.In
 
 // ceiling returns the smallest Index that is >= the given Marker, it's ConflictID and a boolean value indicating if it
 // exists.
-func (m *MarkerManager) ceiling(referenceMarker markers.Marker) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
+func (m *MarkerManager[IndexedID, MappedEntity]) ceiling(referenceMarker markers.Marker) (marker markers.Index, conflictIDs utxo.TransactionIDs, exists bool) {
 	mapping, exists := m.markerIndexConflictIDMapping.Get(referenceMarker.SequenceID())
 	if !exists {
 		return
@@ -186,7 +186,7 @@ func (m *MarkerManager) ceiling(referenceMarker markers.Marker) (marker markers.
 
 // ForEachConflictIDMapping iterates over all ConflictID mappings in the given Sequence that are bigger than the given
 // thresholdIndex. Setting the thresholdIndex to 0 will iterate over all existing mappings.
-func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker markers.Marker, mappedConflictIDs utxo.TransactionIDs)) {
+func (m *MarkerManager[IndexedID, MappedEntity]) ForEachConflictIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker markers.Marker, mappedConflictIDs utxo.TransactionIDs)) {
 	currentMarker := markers.NewMarker(sequenceID, thresholdIndex)
 	referencingMarkerIndexInSameSequence, mappedConflictIDs, exists := m.ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
 	for ; exists; referencingMarkerIndexInSameSequence, mappedConflictIDs, exists = m.ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1)) {
@@ -197,8 +197,8 @@ func (m *MarkerManager) ForEachConflictIDMapping(sequenceID markers.SequenceID, 
 
 // ForEachMarkerReferencingMarker executes the callback function for each Marker of other Sequences that directly
 // reference the given Marker.
-func (m *MarkerManager) ForEachMarkerReferencingMarker(referencedMarker markers.Marker, callback func(referencingMarker markers.Marker)) {
-	sequence, exists := m.sequenceManager.Sequence(referencedMarker.SequenceID())
+func (m *MarkerManager[IndexedID, MappedEntity]) ForEachMarkerReferencingMarker(referencedMarker markers.Marker, callback func(referencingMarker markers.Marker)) {
+	sequence, exists := m.SequenceManager.Sequence(referencedMarker.SequenceID())
 	if !exists {
 		return
 	}
@@ -219,14 +219,14 @@ func (m *MarkerManager) ForEachMarkerReferencingMarker(referencedMarker markers.
 // region MarkerBlockMapping ///////////////////////////////////////////////////////////////////////////////////////////
 
 // BlockFromMarker retrieves the Block of the given Marker.
-func (m *MarkerManager) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
+func (m *MarkerManager[IndexedID, MappedEntity]) BlockFromMarker(marker markers.Marker) (block MappedEntity, exists bool) {
 	return m.markerBlockMapping.Get(marker)
 }
 
 // addMarkerBlockMapping associates a Block with the given Marker.
-func (m *MarkerManager) addMarkerBlockMapping(marker markers.Marker, block *Block) {
+func (m *MarkerManager[IndexedID, MappedEntity]) addMarkerBlockMapping(marker markers.Marker, block MappedEntity) {
 	m.markerBlockMapping.Set(marker, block)
-	markerSet, _ := m.markerBlockMappingEviction.RetrieveOrCreate(block.ID().EpochIndex, func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
+	markerSet, _ := m.markerBlockMappingEviction.RetrieveOrCreate(block.ID().Index(), func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
 	markerSet.Add(marker)
 }
 
@@ -234,8 +234,8 @@ func (m *MarkerManager) addMarkerBlockMapping(marker markers.Marker, block *Bloc
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithSequenceManagerOptions(opts ...options.Option[markers.SequenceManager]) options.Option[MarkerManager] {
-	return func(b *MarkerManager) {
+func WithSequenceManagerOptions[IndexedID epoch.IndexedID, MappedEntity epoch.IndexedEntity[IndexedID]](opts ...options.Option[markers.SequenceManager]) options.Option[MarkerManager[IndexedID, MappedEntity]] {
+	return func(b *MarkerManager[IndexedID, MappedEntity]) {
 		b.optsSequenceManager = opts
 	}
 }

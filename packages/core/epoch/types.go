@@ -198,6 +198,10 @@ type IndexedID interface {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+type IndexedEntity[IDType IndexedID] interface {
+	ID() IDType
+}
+
 func (e *ECRecord) Bytes() (bytes []byte, err error) {
 	bytes, err = e.Storable.Bytes()
 	return
