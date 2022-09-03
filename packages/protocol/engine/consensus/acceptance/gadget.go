@@ -12,7 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -121,11 +122,11 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 }
 
 func (a *Gadget) setup() {
-	a.tangle.VirtualVoting.Events.SequenceVoterUpdated.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
+	a.tangle.VirtualVoting.Events.SequenceTracker.SequenceVotersUpdated.Attach(event.NewClosure[*sequencetracker.SequenceVotersUpdatedEvent](func(evt *sequencetracker.SequenceVotersUpdatedEvent) {
 		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
-	a.tangle.VirtualVoting.Events.ConflictVoterAdded.Attach(event.NewClosure[*votes.ConflictVoterEvent[utxo.TransactionID]](func(evt *votes.ConflictVoterEvent[utxo.TransactionID]) {
+	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoteEvent[utxo.TransactionID]](func(evt *conflicttracker.VoteEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 

@@ -43,8 +43,8 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 		})
 
 		o.Events = NewEvents()
-		o.Events.ConflictTracker.LinkTo(o.conflictTracker.Events)
-		o.Events.SequenceTracker.LinkTo(o.sequenceTracker.Events)
+		o.Events.ConflictTracker = o.conflictTracker.Events
+		o.Events.SequenceTracker = o.sequenceTracker.Events
 	}, (*VirtualVoting).setupEvents)
 }
 
