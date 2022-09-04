@@ -4,13 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
 
 type Events struct {
 	SwitchedEngine *event.LinkableCollectionEvent[*engine.Engine, Events, *Events]
 
-	BlockDAG *blockdag.Events
+	Engine *engine.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -21,14 +20,9 @@ var NewEvents = event.LinkableCollectionConstructor[Events](func(e *Events) {
 		e.SwitchedEngine.LinkTo(target.SwitchedEngine)
 	})
 
-	e.LinkTo(e)
+	e.Engine = engine.NewEvents()
+
+	e.OnLinkUpdated(func(linkTarget *Events) {
+		e.Engine.LinkTo(linkTarget.Engine)
+	})
 })
-
-func (e *Events) LinkToEngine(engine *engine.Engine) {
-	if e.BlockDAG == nil {
-		e.BlockDAG = blockdag.NewEvents(engine.Tangle.BlockDAG.Events)
-	} else {
-		e.BlockDAG.LinkTo(engine.Tangle.BlockDAG.Events)
-	}
-
-}
