@@ -265,7 +265,7 @@ func (b *BlockDAG) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models
 }
 
 // orphanageUpdaters returns the Event and update function used for handling the different types of orphanage updates.
-func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.LinkableCollectionEvent[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
+func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
 	if !orphaned {
 		return b.Events.BlockUnorphaned, (*Block).removeOrphanedBlocksInPastCone
 	}
@@ -274,7 +274,7 @@ func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable
 }
 
 // propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
-func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.LinkableCollectionEvent[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
+func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
 	b.walkFutureCone(blocks, func(currentBlock *Block) []*Block {
 		b.orphanageMutex.Lock(currentBlock.ID())
 		defer b.orphanageMutex.Unlock(currentBlock.ID())

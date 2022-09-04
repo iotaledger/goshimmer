@@ -109,10 +109,6 @@ func NewEmptyBlock(id BlockID) (newBlock *Block) {
 	return newBlock
 }
 
-func (b *Block) ID() BlockID {
-	return b.Storable.ID()
-}
-
 // VerifySignature verifies the Signature of the block.
 func (b *Block) VerifySignature() (valid bool, err error) {
 	blkBytes, err := b.Bytes()
