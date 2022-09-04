@@ -15,9 +15,14 @@ type Events[ConflictIDType comparable] struct {
 }
 
 func NewEvents[ConflictIDType comparable](optLinkTargets ...*Events[ConflictIDType]) *Events[ConflictIDType] {
-	return event.LinkableCollectionConstructor[Events[ConflictIDType]](func(e *Events[ConflictIDType]) {
-		e.VoterAdded = event.Link(event.NewLinkable[*VoterEvent[ConflictIDType], Events[ConflictIDType]](), e, func(target *Events[ConflictIDType]) { e.VoterAdded.LinkTo(target.VoterAdded) })
-		e.VoterRemoved = event.Link(event.NewLinkable[*VoterEvent[ConflictIDType], Events[ConflictIDType]](), e, func(target *Events[ConflictIDType]) { e.VoterRemoved.LinkTo(target.VoterRemoved) })
+	return event.NewLinkableEvents(func(self *Events[ConflictIDType]) (linker func(*Events[ConflictIDType])) {
+		self.VoterAdded = event.NewLinkable[*VoterEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]()
+		self.VoterRemoved = event.NewLinkable[*VoterEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]()
+
+		return func(newTarget *Events[ConflictIDType]) {
+			self.VoterAdded.LinkTo(newTarget.VoterAdded)
+			self.VoterRemoved.LinkTo(newTarget.VoterRemoved)
+		}
 	})(optLinkTargets...)
 }
 
