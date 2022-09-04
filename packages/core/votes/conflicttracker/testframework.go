@@ -30,7 +30,10 @@ func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testin
 	return options.Apply(&TestFramework[VotePowerType]{
 		test: test,
 	}, opts, func(t *TestFramework[VotePowerType]) {
-		t.VotesTestFramework = votes.NewTestFramework(test)
+		if t.VotesTestFramework == nil {
+			t.VotesTestFramework = votes.NewTestFramework(test)
+		}
+
 		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
 
 		if t.ConflictTracker == nil {
