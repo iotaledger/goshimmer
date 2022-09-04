@@ -25,5 +25,6 @@ var NewEvents = event.LinkableCollectionConstructor[Events](func(e *Events) {
 	e.OnLinkUpdated(func(linkTarget *Events) {
 		e.BlockDAG.LinkTo(linkTarget.BlockDAG)
 		e.Booker.LinkTo(linkTarget.Booker)
+		e.VirtualVoting.LinkTo(linkTarget.VirtualVoting)
 	})
 })

@@ -16,6 +16,8 @@ import (
 // region Engine ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
+	Events *Events
+
 	Clock     *Clock
 	Ledger    *ledger.Ledger
 	Tangle    *tangle.Tangle
@@ -35,6 +37,9 @@ func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID
 		e.Ledger = ledger
 		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangle...)
 		e.Consensus = consensus.New(e.Tangle, e.optsConsensus...)
+
+		e.Events = NewEvents()
+		e.Events.Tangle = e.Tangle.Events
 	})
 }
 
