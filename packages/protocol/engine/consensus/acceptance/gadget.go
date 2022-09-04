@@ -44,7 +44,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsConflictAcceptanceThreshold: 0.67,
 	}, opts, func(a *Gadget) {
-		a.Events = newEvents()
+		a.Events = NewEvents()
 
 		a.tangle = tangle
 		a.evictionManager = tangle.EvictionManager.Lockable()

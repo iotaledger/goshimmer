@@ -19,7 +19,7 @@ type Manager[ID epoch.IndexedID] struct {
 
 func NewManager[ID epoch.IndexedID](isRootBlock func(ID) (isRootBlock bool)) (newManager *Manager[ID]) {
 	return &Manager[ID]{
-		Events:      newEvents(),
+		Events:      NewEvents(),
 		isRootBlock: isRootBlock,
 	}
 }
