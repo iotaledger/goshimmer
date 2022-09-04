@@ -12,7 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220904040004-a0b1f7f2b883
+	github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220904154340-4a928e0de815
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
