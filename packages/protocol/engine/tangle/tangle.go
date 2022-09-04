@@ -35,15 +35,11 @@ func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID
 		t.Booker = booker.New(t.BlockDAG, ledger, t.optsBooker...)
 		t.VirtualVoting = virtualvoting.New(t.Booker, validatorSet, t.optsVirtualVoting...)
 
-		t.Events = &Events{
-			BlockDAG: t.BlockDAG.Events,
-			Booker:   t.Booker.Events,
-		}
+		t.Events = NewEvents()
+		t.Events.BlockDAG = t.BlockDAG.Events
+		t.Events.Booker = t.Booker.Events
+		t.Events.VirtualVoting = t.VirtualVoting.Events
 	})
-}
-
-func (t *Tangle) Block(blockID models.BlockID) (block *virtualvoting.Block, exists bool) {
-	return t.VirtualVoting.Block(blockID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

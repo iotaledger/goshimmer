@@ -137,7 +137,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionManager.IsRootBlock(id) {
-		virtualVotingBlock, _ := a.tangle.Block(id)
+		virtualVotingBlock, _ := a.tangle.VirtualVoting.Block(id)
 
 		return NewBlock(virtualVotingBlock, WithAccepted(true)), true
 	}
@@ -215,7 +215,7 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
 	block, exists = a.block(blockID)
 	if !exists {
-		virtualVotingBlock, virtualVotingBlockExists := a.tangle.Block(blockID)
+		virtualVotingBlock, virtualVotingBlockExists := a.tangle.VirtualVoting.Block(blockID)
 		if !virtualVotingBlockExists {
 			return nil, false
 		}
