@@ -15,11 +15,11 @@ import (
 type Protocol struct {
 	Events *Events
 
-	Solidification      *solidification.Solidification
+	DatabaseManager     *database.Manager
 	NotarizationManager bool
 	EvictionManager     *eviction.Manager[models.BlockID]
-	DatabaseManager     *database.Manager
 	Engine              *engine.Engine
+	Solidification      *solidification.Solidification
 	Network             bool
 
 	optsSolidification []options.Option[solidification.Solidification]
