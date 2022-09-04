@@ -8,24 +8,24 @@ import (
 )
 
 type Events[ConflictIDType comparable] struct {
-	VoterAdded   *event.LinkableCollectionEvent[*VoteEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]
-	VoterRemoved *event.LinkableCollectionEvent[*VoteEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]
+	VoterAdded   *event.LinkableCollectionEvent[*VoterEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]
+	VoterRemoved *event.LinkableCollectionEvent[*VoterEvent[ConflictIDType], Events[ConflictIDType], *Events[ConflictIDType]]
 
 	event.LinkableCollection[Events[ConflictIDType], *Events[ConflictIDType]]
 }
 
 func NewEvents[ConflictIDType comparable](optLinkTargets ...*Events[ConflictIDType]) *Events[ConflictIDType] {
 	return event.LinkableCollectionConstructor[Events[ConflictIDType]](func(e *Events[ConflictIDType]) {
-		e.VoterAdded = event.NewLinkableCollectionEvent[*VoteEvent[ConflictIDType]](e, func(target *Events[ConflictIDType]) {
+		e.VoterAdded = event.NewLinkableCollectionEvent[*VoterEvent[ConflictIDType]](e, func(target *Events[ConflictIDType]) {
 			e.VoterAdded.LinkTo(target.VoterAdded)
 		})
-		e.VoterRemoved = event.NewLinkableCollectionEvent[*VoteEvent[ConflictIDType]](e, func(target *Events[ConflictIDType]) {
+		e.VoterRemoved = event.NewLinkableCollectionEvent[*VoterEvent[ConflictIDType]](e, func(target *Events[ConflictIDType]) {
 			e.VoterRemoved.LinkTo(target.VoterRemoved)
 		})
 	})(optLinkTargets...)
 }
 
-type VoteEvent[ConflictIDType comparable] struct {
+type VoterEvent[ConflictIDType comparable] struct {
 	Voter      *validator.Validator
 	ConflictID ConflictIDType
 	Opinion    votes.Opinion

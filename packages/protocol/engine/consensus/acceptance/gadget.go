@@ -122,11 +122,11 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 }
 
 func (a *Gadget) setup() {
-	a.tangle.VirtualVoting.Events.SequenceTracker.SequenceVotersUpdated.Attach(event.NewClosure[*sequencetracker.SequenceVotersUpdatedEvent](func(evt *sequencetracker.SequenceVotersUpdatedEvent) {
+	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Attach(event.NewClosure[*sequencetracker.VoterUpdatedEvent](func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
-	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoteEvent[utxo.TransactionID]](func(evt *conflicttracker.VoteEvent[utxo.TransactionID]) {
+	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoterEvent[utxo.TransactionID]](func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 

@@ -74,13 +74,13 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 
 	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
-		c.Events.VoterAdded.Trigger(&VoteEvent[ConflictIDType]{Voter: voter, ConflictID: forkedConflictID})
+		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voter, ConflictID: forkedConflictID})
 	}
 
 	return
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType]) (collectedEvents []*VoteEvent[ConflictIDType]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 		votesObj, created := c.votes.RetrieveOrCreate(conflict, votes.NewVotes[ConflictIDType, VotePowerType])
@@ -95,7 +95,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVo
 		}
 
 		if added, opinionChanged := votesObj.Add(conflictVote); added && opinionChanged {
-			collectedEvents = append(collectedEvents, &VoteEvent[ConflictIDType]{Voter: conflictVote.Voter, ConflictID: conflict, Opinion: conflictVote.Opinion})
+			collectedEvents = append(collectedEvents, &VoterEvent[ConflictIDType]{Voter: conflictVote.Voter, ConflictID: conflict, Opinion: conflictVote.Opinion})
 		}
 	}
 	return collectedEvents
@@ -152,7 +152,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeC
 	return votePower, revokeInstead
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) triggerEvents(eventsToTrigger []*VoteEvent[ConflictIDType]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) triggerEvents(eventsToTrigger []*VoterEvent[ConflictIDType]) {
 	for _, event := range eventsToTrigger {
 		switch event.Opinion {
 		case votes.Like:
