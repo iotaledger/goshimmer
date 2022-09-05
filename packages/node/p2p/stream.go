@@ -81,7 +81,7 @@ func (m *Manager) dialPeer(ctx context.Context, p *peer.Peer, opts []ConnectPeer
 	}
 
 	if len(streams) == 0 {
-		return nil, fmt.Errorf("no streams initiated with peer %s / %s", address, p.ID())
+		return nil, errors.Errorf("no streams initiated with peer %s / %s", address, p.ID())
 	}
 
 	return streams, nil
@@ -102,7 +102,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 			ctx, cancel = context.WithTimeout(ctx, defaultConnectionTimeout)
 			defer cancel()
 		}
-		am, err := m.newAcceptMatcher(p, protocolID)
+		amCtx, am, err := m.newAcceptMatcher(ctx, p, protocolID)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -118,11 +118,11 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 		select {
 		case ps := <-streamCh:
 			if ps.Protocol() != protocolID {
-				return nil, fmt.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
+				return nil, errors.Errorf("accepted stream has wrong protocol: %s != %s", ps.Protocol(), protocolID)
 			}
 			return ps, nil
-		case <-ctx.Done():
-			err := ctx.Err()
+		case <-amCtx.Done():
+			err := amCtx.Err()
 			if errors.Is(err, context.DeadlineExceeded) {
 				m.log.Debugw("accept timeout", "id", am.Peer.ID(), "proto", protocolID)
 				return nil, errors.WithStack(ErrTimeout)
@@ -166,7 +166,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 	}
 
 	if len(streams) == 0 {
-		return nil, fmt.Errorf("no streams accepted from peer %s", p.ID())
+		return nil, errors.Errorf("no streams accepted from peer %s", p.ID())
 	}
 
 	return streams, nil
@@ -175,7 +175,7 @@ func (m *Manager) acceptPeer(ctx context.Context, p *peer.Peer, opts []ConnectPe
 func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, protocolID protocol.ID) (*PacketsStream, error) {
 	protocolHandler, registered := m.registeredProtocols[protocolID]
 	if !registered {
-		return nil, fmt.Errorf("cannot initiate stream protocol %s is not registered", protocolID)
+		return nil, errors.Errorf("cannot initiate stream protocol %s is not registered", protocolID)
 	}
 	stream, err := m.GetP2PHost().NewStream(ctx, libp2pID, protocolID)
 	if err != nil {
@@ -214,13 +214,10 @@ func (m *Manager) handleStream(stream network.Stream) {
 		streamCh := am.StreamCh[protocolID]
 
 		select {
-		case <-am.StreamChStop:
-			return
-		default:
+		case <-am.Ctx.Done():
+		case streamCh <- ps:
+			m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
 		}
-
-		m.log.Debugw("incoming stream matched", "id", am.Peer.ID(), "proto", protocolID)
-		streamCh <- ps
 	} else {
 		// close the connection if not matched
 		m.log.Debugw("unexpected connection", "addr", stream.Conn().RemoteMultiaddr(),
@@ -236,16 +233,17 @@ type AcceptMatcher struct {
 	Libp2pID      libp2ppeer.ID
 	StreamChMutex sync.RWMutex
 	StreamCh      map[protocol.ID]chan *PacketsStream
-	StreamChStop  chan struct{}
+	Ctx           context.Context
+	CtxCancel     context.CancelFunc
 }
 
-func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*AcceptMatcher, error) {
+func (m *Manager) newAcceptMatcher(ctx context.Context, p *peer.Peer, protocolID protocol.ID) (context.Context, *AcceptMatcher, error) {
 	m.acceptMutex.Lock()
 	defer m.acceptMutex.Unlock()
 
 	libp2pID, err := libp2putil.ToLibp2pPeerID(p)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, nil, errors.WithStack(err)
 	}
 
 	acceptMatcher, acceptExists := m.acceptMap[libp2pID]
@@ -253,24 +251,27 @@ func (m *Manager) newAcceptMatcher(p *peer.Peer, protocolID protocol.ID) (*Accep
 		acceptMatcher.StreamChMutex.Lock()
 		defer acceptMatcher.StreamChMutex.Unlock()
 		if _, streamChanExists := acceptMatcher.StreamCh[protocolID]; streamChanExists {
-			return nil, nil
+			return nil, nil, nil
 		}
 		acceptMatcher.StreamCh[protocolID] = make(chan *PacketsStream)
-		return acceptMatcher, nil
+		return acceptMatcher.Ctx, acceptMatcher, nil
 	}
 
+	cancelCtx, cancelCtxFunc := context.WithCancel(ctx)
+
 	am := &AcceptMatcher{
-		Peer:         p,
-		Libp2pID:     libp2pID,
-		StreamCh:     make(map[protocol.ID]chan *PacketsStream),
-		StreamChStop: make(chan struct{}),
+		Peer:      p,
+		Libp2pID:  libp2pID,
+		StreamCh:  make(map[protocol.ID]chan *PacketsStream),
+		Ctx:       cancelCtx,
+		CtxCancel: cancelCtxFunc,
 	}
 
 	am.StreamCh[protocolID] = make(chan *PacketsStream)
 
 	m.acceptMap[libp2pID] = am
 
-	return am, nil
+	return cancelCtx, am, nil
 }
 
 func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID) {
@@ -279,15 +280,12 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 
 	existingAm := m.acceptMap[am.Libp2pID]
 
-	close(existingAm.StreamChStop)
 	existingAm.StreamChMutex.Lock()
 	defer existingAm.StreamChMutex.Unlock()
 
-	close(existingAm.StreamCh[protocolID])
-	delete(existingAm.StreamCh, protocolID)
-
 	if len(existingAm.StreamCh) == 0 {
 		delete(m.acceptMap, am.Libp2pID)
+		existingAm.CtxCancel()
 	}
 }
 
