@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
 
 	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 )
@@ -20,8 +20,8 @@ const PluginName = "WebAPIHealthzEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle `optional:"true"`
+	Server           *echo.Echo
+	BootstrapManager *bootstrapmanager.Manager `optional:"true"`
 }
 
 var (
@@ -50,7 +50,7 @@ func worker(ctx context.Context) {
 }
 
 func getHealthz(c echo.Context) error {
-	if deps.Tangle != nil {
+	if deps.BootstrapManager != nil && !deps.BootstrapManager.Bootstrapped() {
 		return c.NoContent(http.StatusServiceUnavailable)
 	}
 	return c.NoContent(http.StatusOK)
