@@ -283,6 +283,8 @@ func (m *Manager) removeAcceptMatcher(am *AcceptMatcher, protocolID protocol.ID)
 	existingAm.StreamChMutex.Lock()
 	defer existingAm.StreamChMutex.Unlock()
 
+	delete(existingAm.StreamCh, protocolID)
+
 	if len(existingAm.StreamCh) == 0 {
 		delete(m.acceptMap, am.Libp2pID)
 		existingAm.CtxCancel()
