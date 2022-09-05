@@ -499,8 +499,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d h1:KYc/EkMX3CXvsYyUC9EvToUeYc0c74ZwjRg/0Wd27LU=
 github.com/iotaledger/grocksdb v1.7.5-0.20220808142449-1dc0b8ac4d7d/go.mod h1:DuNKJ1G/vKugT7WGAoftMTu2aApNNxF4ADFMxLmKS2Y=
-github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220904215422-d7b03ca5e526 h1:/uQysCLGSmdRIm99b2KKXThCsFidOy/en0kcnRKPmR0=
-github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220904215422-d7b03ca5e526/go.mod h1:Uzx13jMaIOFEv/3po2XwKUbmNd3C5D0PixTIcG97/o4=
+github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220905152758-099cf85232d5 h1:y6OAtxZy7Ua1C1J7oKtv2JJ/oe4W/SE1sUjwBKA3SZ4=
+github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220905152758-099cf85232d5/go.mod h1:Uzx13jMaIOFEv/3po2XwKUbmNd3C5D0PixTIcG97/o4=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3 h1:o7uLky3LQhNeMHZmNP7iaY67jdDUPRjKGL1GyvALQNM=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3/go.mod h1:OMyV/ZEKiCzfqxXAmt1IBxl4Xmr6ipZFg6bjnzomtGc=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
