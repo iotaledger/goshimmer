@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -18,22 +19,24 @@ import (
 type Engine struct {
 	Events *Events
 
-	Clock     *Clock
-	Ledger    *ledger.Ledger
-	Tangle    *tangle.Tangle
-	Consensus *consensus.Consensus
+	Clock             *Clock
+	Ledger            *ledger.Ledger
+	Tangle            *tangle.Tangle
+	Consensus         *consensus.Consensus
+	CongestionControl *congestioncontrol.CongestionControl
+	// TODO: FILL THIS IN
+	TipManager bool
 
 	optsBootstrappedThreshold time.Duration
 	optsTangle                []options.Option[tangle.Tangle]
 	optsConsensus             []options.Option[consensus.Consensus]
 }
 
-func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
+func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(&Engine{
 		optsBootstrappedThreshold: 10 * time.Second,
 	}, opts, func(e *Engine) {
-		// TODO: REPLACE WITH TIME OF LATEST CLEAN EPOCH
-		e.Clock = NewClock(time.Now())
+		e.Clock = NewClock(snapshotTime)
 		e.Ledger = ledger
 		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangle...)
 		e.Consensus = consensus.New(e.Tangle, e.optsConsensus...)
@@ -54,6 +57,12 @@ func (e *Engine) Shutdown() {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsBootstrappedThreshold = threshold
+	}
+}
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
