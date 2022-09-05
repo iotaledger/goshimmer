@@ -10,14 +10,17 @@ type OutputManager struct {
 	addressManager *AddressManager
 	connector      Connector
 	unspentOutputs OutputsByAddressAndOutputID
+
+	optsStateless bool
 }
 
 // NewUnspentOutputManager creates a new UnspentOutputManager.
-func NewUnspentOutputManager(addressManager *AddressManager, connector Connector) (outputManager *OutputManager) {
+func NewUnspentOutputManager(addressManager *AddressManager, connector Connector, stateless bool) (outputManager *OutputManager) {
 	outputManager = &OutputManager{
 		addressManager: addressManager,
 		connector:      connector,
 		unspentOutputs: NewAddressToOutputs(),
+		optsStateless:  stateless,
 	}
 
 	if err := outputManager.Refresh(true); err != nil {
@@ -44,9 +47,12 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 			if _, addressExists := o.unspentOutputs[addy]; !addressExists {
 				o.unspentOutputs[addy] = make(map[utxo.OutputID]*Output)
 			}
-			// mark the output as spent if we already marked it as spent locally
-			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
-				output.Spent = true
+
+			// mark the output as spent if we already marked it as spent locally, only in stateful mode.
+			if !o.optsStateless {
+				if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
+					output.Spent = true
+				}
 			}
 			o.unspentOutputs[addy][outputID] = output
 		}

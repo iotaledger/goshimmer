@@ -31,6 +31,7 @@ func NewFaucet(faucetSeed *seed.Seed) (f *Faucet) {
 		wallet.FaucetPowDifficulty(Parameters.PowDifficulty),
 		wallet.ConfirmationTimeout(Parameters.MaxAwait),
 		wallet.ConfirmationPollingInterval(500*time.Millisecond),
+		wallet.Stateless(true),
 	)}
 	// We use index 1 as a proxy address from which we send the funds to the requester.
 	f.Wallet.NewReceiveAddress()

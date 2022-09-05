@@ -179,6 +179,7 @@ func (m *Manager) Send(packet proto.Message, protocolID protocol.ID, to ...ident
 		stream := nbr.GetStream(protocolID)
 		if stream == nil {
 			m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
+			nbr.Close()
 			continue
 		}
 		if err := stream.WritePacket(packet); err != nil {
