@@ -135,29 +135,6 @@ func TestManager_GetLatestEC(t *testing.T) {
 	assert.Equal(t, epoch.Index(2), commitment.EI())
 }
 
-func TestManager_TransactionInclusionBeforeAcceptance(t *testing.T) {
-	nodes := map[string]*identity.Identity{
-		"A": identity.GenerateIdentity(),
-	}
-	epochInterval := 1 * time.Second
-
-	// Make Current Epoch be epoch 5
-	genesisTime := time.Now().Add(-epochInterval * 5)
-
-	testFramework, _, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2)
-
-	block := testFramework.CreateBlock("Block1", tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500))
-	notarizationMgr.OnTransactionInclusionUpdated(&ledger.TransactionInclusionUpdatedEvent{
-		TransactionID:         block.Payload().(utxo.Transaction).ID(),
-		InclusionTime:         time.Now(),
-		PreviousInclusionTime: genesisTime,
-	})
-
-	notarizationMgr.OnTransactionAccepted(&ledger.TransactionAcceptedEvent{
-		TransactionID: block.Payload().(utxo.Transaction).ID(),
-	})
-}
-
 func TestManager_UpdateTangleTree(t *testing.T) {
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
