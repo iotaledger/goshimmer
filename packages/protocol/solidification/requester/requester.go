@@ -34,7 +34,7 @@ type Requester struct {
 // New creates a new block requester.
 func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Requester]) *Requester {
 	return options.Apply(&Requester{
-		Events: newEvents(),
+		Events: NewEvents(),
 
 		evictionManager:   evictionManager.Lockable(),
 		timedExecutor:     timedexecutor.New(1),

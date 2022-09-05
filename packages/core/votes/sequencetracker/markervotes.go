@@ -1,4 +1,4 @@
-package votes
+package sequencetracker
 
 import (
 	"sync"
@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
@@ -13,7 +14,7 @@ import (
 // Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
-type LatestMarkerVotes[VotePowerType VotePower[VotePowerType]] struct {
+type LatestMarkerVotes[VotePowerType votes.VotePower[VotePowerType]] struct {
 	voter *validator.Validator
 	t     thresholdmap.ThresholdMap[markers.Index, VotePowerType]
 
@@ -21,7 +22,7 @@ type LatestMarkerVotes[VotePowerType VotePower[VotePowerType]] struct {
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
-func NewLatestMarkerVotes[VotePowerType VotePower[VotePowerType]](voter *validator.Validator) (newLatestMarkerVotes *LatestMarkerVotes[VotePowerType]) {
+func NewLatestMarkerVotes[VotePowerType votes.VotePower[VotePowerType]](voter *validator.Validator) (newLatestMarkerVotes *LatestMarkerVotes[VotePowerType]) {
 	return &LatestMarkerVotes[VotePowerType]{
 		voter: voter,
 		t:     *thresholdmap.New[markers.Index, VotePowerType](thresholdmap.UpperThresholdMode),
