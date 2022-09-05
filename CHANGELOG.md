@@ -1,3 +1,11 @@
+# v0.9.7 - 2022-09-05
+
+> This release introduces major bugfixes to the networking and the faucet.
+
+- Fix notarization and networking bugs (#2417)
+- Make wallet stateless to prevent faucet getting stuck (#2415)
+- Fix: /healthz endpoint (#2379)
+
 # v0.9.6 - 2022-09-01
 
 > This release introduces major bugfixes to epoch notarization and networking.
