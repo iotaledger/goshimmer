@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -25,44 +26,50 @@ import (
 type TestFramework struct {
 	Gadget *Gadget
 
-	test *testing.T
-
+	test              *testing.T
 	acceptedBlocks    uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
 	reorgCount        uint32
 
 	optsGadgetOptions   []options.Option[Gadget]
-	optsTangleOptions   []options.Option[tangle.Tangle]
-	optsValidatorSet    *validator.Set
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsEvictionManager *eviction.Manager[models.BlockID]
+	optsValidatorSet    *validator.Set
+	optsTangle          *tangle.Tangle
+	optsTangleOptions   []options.Option[tangle.Tangle]
 
-	*tangle.TestFramework
+	*TangleTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
-		}
-
-		if t.optsValidatorSet == nil {
-			t.optsValidatorSet = validator.NewSet()
-		}
-		if t.TestFramework == nil {
-			t.TestFramework = tangle.NewTestFramework(
-				test,
-				tangle.WithTangleOptions(t.optsTangleOptions...),
-				tangle.WithValidatorSet(t.optsValidatorSet),
-				tangle.WithEvictionManager(t.optsEvictionManager),
-			)
-		}
 		if t.Gadget == nil {
-			t.Gadget = New(t.Tangle, t.optsGadgetOptions...)
+			if t.optsTangle == nil {
+				if t.optsLedger == nil {
+					t.optsLedger = ledger.New(t.optsLedgerOptions...)
+				}
+
+				if t.optsEvictionManager == nil {
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+				}
+
+				if t.optsValidatorSet == nil {
+					t.optsValidatorSet = validator.NewSet()
+				}
+
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+			}
+
+			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
 		}
 
+		if t.TangleTestFramework == nil {
+			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
+		}
 	}, (*TestFramework).setupEvents)
 }
 
@@ -136,13 +143,27 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 	}
 }
 
+type TangleTestFramework = tangle.TestFramework
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+func WithGadget(gadget *Gadget) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.Gadget = gadget
+	}
+}
+
 func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsGadgetOptions = opts
+	}
+}
+
+func WithTangle(tangle *tangle.Tangle) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsTangle = tangle
 	}
 }
 
@@ -152,9 +173,21 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithTangleTestFramework(tangeTf *tangle.TestFramework) options.Option[TestFramework] {
+func WithTangleTestFramework(testFramework *tangle.TestFramework) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
-		tf.TestFramework = tangeTf
+		tf.TangleTestFramework = testFramework
+	}
+}
+
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsLedger = ledger
+	}
+}
+
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsLedgerOptions = opts
 	}
 }
 

@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 )
@@ -81,7 +81,7 @@ type Ledger struct {
 // New returns a new Ledger from the given optionsLedger.
 func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
-		Events:                          newEvents(),
+		Events:                          NewEvents(),
 		optsStore:                       mapdb.NewMapDB(),
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
 		optsVM:                          NewMockedVM(),

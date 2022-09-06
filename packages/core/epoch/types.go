@@ -20,7 +20,7 @@ import (
 
 var (
 	// GenesisTime is the time (Unix in seconds) of the genesis.
-	GenesisTime int64 = 1661859573
+	GenesisTime int64 = 1662035280
 	// Duration is the default epoch duration in seconds.
 	Duration int64 = 10
 )
@@ -197,6 +197,10 @@ type IndexedID interface {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type IndexedEntity[IDType IndexedID] interface {
+	ID() IDType
+}
 
 func (e *ECRecord) Bytes() (bytes []byte, err error) {
 	bytes, err = e.Storable.Bytes()

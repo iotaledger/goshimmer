@@ -110,35 +110,35 @@ func NewEmptyBlock(id BlockID) (newBlock *Block) {
 }
 
 // VerifySignature verifies the Signature of the block.
-func (m *Block) VerifySignature() (valid bool, err error) {
-	blkBytes, err := m.Bytes()
+func (b *Block) VerifySignature() (valid bool, err error) {
+	blkBytes, err := b.Bytes()
 	if err != nil {
 		return false, errors.Errorf("failed to create block bytes: %w", err)
 	}
-	signature := m.Signature()
+	signature := b.Signature()
 
 	contentLength := len(blkBytes) - len(signature)
 	content := blkBytes[:contentLength]
 
-	return m.M.IssuerPublicKey.VerifySignature(content, signature), nil
+	return b.M.IssuerPublicKey.VerifySignature(content, signature), nil
 }
 
 // Version returns the block Version.
-func (m *Block) Version() uint8 {
-	return m.M.Version
+func (b *Block) Version() uint8 {
+	return b.M.Version
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
-func (m *Block) ParentsByType(parentType ParentsType) BlockIDs {
-	if parents, ok := m.M.Parents[parentType]; ok {
+func (b *Block) ParentsByType(parentType ParentsType) BlockIDs {
+	if parents, ok := b.M.Parents[parentType]; ok {
 		return parents.Clone()
 	}
 	return NewBlockIDs()
 }
 
 // ForEachParent executes a consumer func for each parent.
-func (m *Block) ForEachParent(consumer func(parent Parent)) {
-	for parentType, parents := range m.M.Parents {
+func (b *Block) ForEachParent(consumer func(parent Parent)) {
+	for parentType, parents := range b.M.Parents {
 		for parentID := range parents {
 			consumer(Parent{
 				Type: parentType,
@@ -149,16 +149,16 @@ func (m *Block) ForEachParent(consumer func(parent Parent)) {
 }
 
 // Parents returns a copy of the parents of the block.
-func (m *Block) Parents() (parents []BlockID) {
-	m.ForEachParent(func(parent Parent) {
+func (b *Block) Parents() (parents []BlockID) {
+	b.ForEachParent(func(parent Parent) {
 		parents = append(parents, parent.ID)
 	})
 	return
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.
-func (m *Block) ForEachParentByType(parentType ParentsType, consumer func(parentBlockID BlockID) bool) {
-	for parentID := range m.ParentsByType(parentType) {
+func (b *Block) ForEachParentByType(parentType ParentsType, consumer func(parentBlockID BlockID) bool) {
+	for parentID := range b.ParentsByType(parentType) {
 		if !consumer(parentID) {
 			return
 		}
@@ -166,122 +166,122 @@ func (m *Block) ForEachParentByType(parentType ParentsType, consumer func(parent
 }
 
 // ParentsCountByType returns the total parents count of this block.
-func (m *Block) ParentsCountByType(parentType ParentsType) uint8 {
-	return uint8(len(m.ParentsByType(parentType)))
+func (b *Block) ParentsCountByType(parentType ParentsType) uint8 {
+	return uint8(len(b.ParentsByType(parentType)))
 }
 
 // IssuerPublicKey returns the public key of the block issuer.
-func (m *Block) IssuerPublicKey() ed25519.PublicKey {
-	return m.M.IssuerPublicKey
+func (b *Block) IssuerPublicKey() ed25519.PublicKey {
+	return b.M.IssuerPublicKey
 }
 
-func (m *Block) IssuerID() (issuerID identity.ID) {
-	if m.issuerID != nil {
-		return *m.issuerID
+func (b *Block) IssuerID() (issuerID identity.ID) {
+	if b.issuerID != nil {
+		return *b.issuerID
 	}
 
-	issuerID = identity.NewID(m.IssuerPublicKey())
-	m.issuerID = &issuerID
+	issuerID = identity.NewID(b.IssuerPublicKey())
+	b.issuerID = &issuerID
 
 	return
 }
 
 // IssuingTime returns the time when this block was created.
-func (m *Block) IssuingTime() time.Time {
-	return m.M.IssuingTime
+func (b *Block) IssuingTime() time.Time {
+	return b.M.IssuingTime
 }
 
 // SequenceNumber returns the sequence number of this block.
-func (m *Block) SequenceNumber() uint64 {
-	return m.M.SequenceNumber
+func (b *Block) SequenceNumber() uint64 {
+	return b.M.SequenceNumber
 }
 
 // Payload returns the Payload of the block.
-func (m *Block) Payload() payload.Payload {
-	m.Lock()
-	defer m.Unlock()
-	if m.payload == nil {
-		_, err := serix.DefaultAPI.Decode(context.Background(), m.M.PayloadBytes, &m.payload, serix.WithValidation())
+func (b *Block) Payload() payload.Payload {
+	b.Lock()
+	defer b.Unlock()
+	if b.payload == nil {
+		_, err := serix.DefaultAPI.Decode(context.Background(), b.M.PayloadBytes, &b.payload, serix.WithValidation())
 		if err != nil {
 			panic(err)
 		}
 
-		if tx, isTransaction := m.payload.(utxo.Transaction); isTransaction {
-			tx.SetID(utxo.NewTransactionID(m.M.PayloadBytes))
-			if devnetTx, isDevnetTx := m.payload.(*devnetvm.Transaction); isDevnetTx {
+		if tx, isTransaction := b.payload.(utxo.Transaction); isTransaction {
+			tx.SetID(utxo.NewTransactionID(b.M.PayloadBytes))
+			if devnetTx, isDevnetTx := b.payload.(*devnetvm.Transaction); isDevnetTx {
 				devnetvm.SetOutputID(devnetTx.Essence(), tx.ID())
 			}
 		}
 	}
 
-	return m.payload
+	return b.payload
 }
 
 // Nonce returns the Nonce of the block.
-func (m *Block) Nonce() uint64 {
-	return m.M.Nonce
+func (b *Block) Nonce() uint64 {
+	return b.M.Nonce
 }
 
 // EI returns the EI of the block.
-func (m *Block) EI() epoch.Index {
-	return m.M.EI
+func (b *Block) EI() epoch.Index {
+	return b.M.EI
 }
 
 // ECR returns the ECR of the block.
-func (m *Block) ECR() epoch.ECR {
-	return m.M.ECR
+func (b *Block) ECR() epoch.ECR {
+	return b.M.ECR
 }
 
 // PrevEC returns the PrevEC of the block.
-func (m *Block) PrevEC() epoch.EC {
-	return m.M.PrevEC
+func (b *Block) PrevEC() epoch.EC {
+	return b.M.PrevEC
 }
 
 // LatestConfirmedEpoch returns the LatestConfirmedEpoch of the block.
-func (m *Block) LatestConfirmedEpoch() epoch.Index {
-	return m.M.LatestConfirmedEpoch
+func (b *Block) LatestConfirmedEpoch() epoch.Index {
+	return b.M.LatestConfirmedEpoch
 }
 
 // Signature returns the Signature of the block.
-func (m *Block) Signature() ed25519.Signature {
-	return m.M.Signature
+func (b *Block) Signature() ed25519.Signature {
+	return b.M.Signature
 }
 
 // DetermineID calculates and sets the block's BlockID.
-func (m *Block) DetermineID() (err error) {
-	b, err := m.Bytes()
+func (b *Block) DetermineID() (err error) {
+	buf, err := b.Bytes()
 	if err != nil {
 		return errors.Errorf("failed to determine block ID: %w", err)
 	}
 
-	m.SetID(NewBlockID(blake2b.Sum256(b), epoch.IndexFromTime(m.IssuingTime())))
+	b.SetID(NewBlockID(blake2b.Sum256(buf), epoch.IndexFromTime(b.IssuingTime())))
 	return nil
 }
 
 // Size returns the block size in bytes.
-func (m *Block) Size() int {
-	return len(lo.PanicOnErr(m.Bytes()))
+func (b *Block) Size() int {
+	return len(lo.PanicOnErr(b.Bytes()))
 }
 
-func (m *Block) String() string {
-	builder := stringify.NewStructBuilder("Block", stringify.NewStructField("id", m.ID()))
+func (b *Block) String() string {
+	builder := stringify.NewStructBuilder("Block", stringify.NewStructField("id", b.ID()))
 
-	for index, parent := range sortParents(m.ParentsByType(StrongParentType)) {
+	for index, parent := range sortParents(b.ParentsByType(StrongParentType)) {
 		builder.AddField(stringify.NewStructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 	}
-	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
+	for index, parent := range sortParents(b.ParentsByType(WeakParentType)) {
 		builder.AddField(stringify.NewStructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
+	for index, parent := range sortParents(b.ParentsByType(ShallowLikeParentType)) {
 		builder.AddField(stringify.NewStructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
 
-	builder.AddField(stringify.NewStructField("Issuer", m.IssuerPublicKey()))
-	builder.AddField(stringify.NewStructField("IssuingTime", m.IssuingTime()))
-	builder.AddField(stringify.NewStructField("SequenceNumber", m.SequenceNumber()))
-	builder.AddField(stringify.NewStructField("Payload", m.Payload()))
-	builder.AddField(stringify.NewStructField("Nonce", m.Nonce()))
-	builder.AddField(stringify.NewStructField("Signature", m.Signature()))
+	builder.AddField(stringify.NewStructField("Issuer", b.IssuerPublicKey()))
+	builder.AddField(stringify.NewStructField("IssuingTime", b.IssuingTime()))
+	builder.AddField(stringify.NewStructField("SequenceNumber", b.SequenceNumber()))
+	builder.AddField(stringify.NewStructField("Payload", b.Payload()))
+	builder.AddField(stringify.NewStructField("Nonce", b.Nonce()))
+	builder.AddField(stringify.NewStructField("Signature", b.Signature()))
 	return builder.String()
 }
 

@@ -53,7 +53,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 }
 
 func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
-	return t.Booker.markerManager.sequenceManager
+	return t.Booker.markerManager.SequenceManager
 }
 
 // Block retrieves the Blocks that is associated with the given alias.

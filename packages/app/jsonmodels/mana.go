@@ -1,6 +1,8 @@
 package jsonmodels
 
-import "github.com/iotaledger/goshimmer/packages/core/mana"
+import (
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+)
 
 // GetManaRequest is the request for get mana.
 type GetManaRequest struct {

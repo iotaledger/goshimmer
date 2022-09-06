@@ -19,8 +19,8 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 )
@@ -78,14 +78,17 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		}
 
 		genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
-		genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
-		genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+		cachedObject, stored := t.Ledger.Storage.outputStorage.StoreIfAbsent(genesisOutput)
+		if stored {
+			cachedObject.Release()
 
-		genesisOutput.ID().RegisterAlias("Genesis")
-		t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+			genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
+			genesisOutputMetadata.SetConfirmationState(confirmation.Confirmed)
+			t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
-		t.Ledger.Storage.outputStorage.Store(genesisOutput).Release()
-		t.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+			t.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+			genesisOutput.ID().RegisterAlias("Genesis")
+		}
 	})
 }
 

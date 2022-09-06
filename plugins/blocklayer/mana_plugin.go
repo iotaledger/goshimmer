@@ -6,13 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
-
-	"go.uber.org/dig"
-
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
@@ -20,14 +13,17 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
+	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	db_pkg "github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 )
 
 const (
@@ -43,7 +39,7 @@ var (
 	storages                     map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana]
 	allowedPledgeNodes           map[mana.Type]AllowedPledge
 	onTransactionAcceptedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
-	onManaVectorToUpdateClosure  *event.Closure[*notarization.ManaVectorUpdateEvent]
+	onManaVectorToUpdateClosure  *event.Closure[*mana.ManaVectorUpdateEvent]
 )
 
 func init() {
@@ -60,13 +56,8 @@ func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
 	onTransactionAcceptedClosure = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { onTransactionAccepted(event.TransactionID) })
-	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
-		manaVectorEI := event.EI - epoch.Index(ManaParameters.EpochDelay)
-		if manaVectorEI < 1 {
-			return
-		}
-		spent, created := deps.NotarizationMgr.GetEpochDiff(manaVectorEI)
-		baseManaVectors[mana.ConsensusMana].BookEpoch(created, spent)
+	onManaVectorToUpdateClosure = event.NewClosure(func(event *mana.ManaVectorUpdateEvent) {
+		baseManaVectors[mana.ConsensusMana].BookEpoch(event.Created, event.Spent)
 	})
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
@@ -77,11 +68,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccess))
-	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensus))
+	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixAccessResearch))
-		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, database.PrefixMana, mana.PrefixConsensusResearch))
+		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 
 	err := verifyPledgeNodes()
