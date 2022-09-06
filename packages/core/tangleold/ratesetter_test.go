@@ -47,7 +47,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	defer rateSetter.Shutdown()
 
 	blockIssued := make(chan *Block, 1)
-	rateSetter.RateSetterEvents().BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
+	rateSetter.Events().BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
 
 	blk := newBlock(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(blk))
@@ -72,7 +72,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 	blockDiscarded := make(chan BlockID, MaxLocalQueueSize*2)
 	discardedCounter := event.NewClosure(func(event *BlockDiscardedEvent) { blockDiscarded <- event.BlockID })
-	rateSetter.RateSetterEvents().BlockDiscarded.Hook(discardedCounter)
+	rateSetter.Events().BlockDiscarded.Hook(discardedCounter)
 	for i := 0; i < MaxLocalQueueSize*2; i++ {
 		blk := NewBlock(
 			emptyLikeReferencesFromStrongParents(NewBlockIDs(EmptyBlockID)),
@@ -117,7 +117,7 @@ func TestRateSetterDef_Submit(t *testing.T) {
 	defer rateSetter.Shutdown()
 
 	blockIssued := make(chan *Block, 1)
-	rateSetter.RateSetterEvents().BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
+	rateSetter.Events().BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
 
 	blk := newBlock(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(blk))
@@ -142,7 +142,7 @@ func TestRateSetterDef_ErrorHandling(t *testing.T) {
 
 	blockDiscarded := make(chan BlockID, MaxLocalQueueSize*2)
 	discardedCounter := event.NewClosure(func(event *BlockDiscardedEvent) { blockDiscarded <- event.BlockID })
-	rateSetter.RateSetterEvents().BlockDiscarded.Hook(discardedCounter)
+	rateSetter.Events().BlockDiscarded.Hook(discardedCounter)
 
 	for i := 0; i < MaxLocalQueueSize*2; i++ {
 		blk := NewBlock(

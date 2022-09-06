@@ -2,6 +2,7 @@ package tangleold
 
 import (
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,7 +90,7 @@ type RateSetter interface {
 	Estimate() time.Duration
 	Size() int
 	// getter for events
-	RateSetterEvents() *RateSetterEvents
+	Events() *RateSetterEvents
 }
 
 // NewRateSetter returns a new RateSetter.
@@ -111,7 +112,7 @@ func NewRateSetter(tangle *Tangle) RateSetter {
 // and then multiplicatively decreasing when congestion is detected.
 type AIMDRateSetter struct {
 	tangle              *Tangle
-	Events              *RateSetterEvents
+	events              *RateSetterEvents
 	self                identity.ID
 	issuingQueue        *schedulerutils.NodeQueue
 	issueChan           chan *Block
@@ -127,7 +128,7 @@ type AIMDRateSetter struct {
 func NewAIMDRateSetter(tangle *Tangle) *AIMDRateSetter {
 	return &AIMDRateSetter{
 		tangle:              tangle,
-		Events:              newRateSetterEvents(),
+		events:              newRateSetterEvents(),
 		self:                tangle.Options.Identity.ID(),
 		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:           make(chan *Block),
@@ -140,15 +141,15 @@ func NewAIMDRateSetter(tangle *Tangle) *AIMDRateSetter {
 	}
 }
 
-func (r *AIMDRateSetter) RateSetterEvents() *RateSetterEvents {
-	return r.Events
+func (r *AIMDRateSetter) Events() *RateSetterEvents {
+	return r.events
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *AIMDRateSetter) Setup() {
 	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
 		if err := r.Issue(event.Block); err != nil {
-			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
+			r.events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
 	// update own AIMD rate setting each time a block is scheduled
@@ -199,7 +200,7 @@ func (r *AIMDRateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
-// Size returns the size (in blocks) of the issuing queue.
+// Work returns the sum of the work of all blocks in the issuing queue.
 func (r *AIMDRateSetter) Work() int {
 	return r.issuingQueue.Work()
 }
@@ -257,7 +258,7 @@ loop:
 			}
 
 			blk := r.issuingQueue.PopFront().(*Block)
-			r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
+			r.events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -268,7 +269,7 @@ loop:
 		// add a new block to the local issuer queue
 		case blk := <-r.issueChan:
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
-				r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
+				r.events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
 				continue
 			}
 			// add to queue
@@ -292,7 +293,7 @@ loop:
 
 	// discard all remaining blocks at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockIDFromElementID(id)})
+		r.events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blockIDFromElementID(id)})
 	}
 }
 
@@ -319,7 +320,7 @@ func (r *AIMDRateSetter) InitializeRate() {
 // to decide when it is a good time to issue something.
 type DeficitRateSetter struct {
 	tangle         *Tangle
-	Events         *RateSetterEvents
+	events         *RateSetterEvents
 	self           identity.ID
 	issuingQueue   *schedulerutils.NodeQueue
 	issueChan      chan *Block
@@ -335,7 +336,7 @@ type DeficitRateSetter struct {
 func NewDeficitRateSetter(tangle *Tangle) *DeficitRateSetter {
 	return &DeficitRateSetter{
 		tangle:         tangle,
-		Events:         newRateSetterEvents(),
+		events:         newRateSetterEvents(),
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:      make(chan *Block),
@@ -348,15 +349,15 @@ func NewDeficitRateSetter(tangle *Tangle) *DeficitRateSetter {
 	}
 }
 
-func (r *DeficitRateSetter) RateSetterEvents() *RateSetterEvents {
-	return r.Events
+func (r *DeficitRateSetter) Events() *RateSetterEvents {
+	return r.events
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *DeficitRateSetter) Setup() {
 	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
 		if err := r.Issue(event.Block); err != nil {
-			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
+			r.events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
 	// update deficit-based rate setting if own deficit is modified
@@ -401,7 +402,7 @@ func (r *DeficitRateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
-// Size returns the size (in blocks) of the issuing queue.
+// Work returns the sum of the work of all blocks in the issuing queue.
 func (r *DeficitRateSetter) Work() int {
 	return r.issuingQueue.Work()
 }
@@ -409,13 +410,13 @@ func (r *DeficitRateSetter) Work() int {
 // Estimate estimates the issuing time of new block.
 func (r *DeficitRateSetter) Estimate() time.Duration {
 	// everything is in units of work (bytes) rather than blocks for deficit-based rate setter
-	return time.Duration(lo.Max(0, (float64(r.Work())-r.excessDeficit.Load())/r.ownRate.Load()))
+	return time.Duration(lo.Max(0.0, (float64(r.Work())-r.excessDeficit.Load())/r.ownRate.Load()))
 }
 
 func (r *DeficitRateSetter) IssuerLoop() {
 	var (
-		nextBlockSize  = float64(0.0)
-		lastDeficit    = float64(0.0)
+		nextBlockSize  = 0.0
+		lastDeficit    = 0.0
 		lastUpdateTime = float64(time.Now().Nanosecond()) / 1000000000
 	)
 loop:
@@ -426,7 +427,7 @@ loop:
 			r.excessDeficit.Store(excessDeficit)
 			if nextBlockSize > 0 && (excessDeficit >= nextBlockSize || r.tangle.Scheduler.ReadyBlocksCount() == 0) {
 				blk := r.issuingQueue.PopFront().(*Block)
-				r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
+				r.events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
 				if next := r.issuingQueue.Front(); next != nil {
 					nextBlockSize = 0.0
 				} else {
@@ -446,16 +447,16 @@ loop:
 			// if issuing queue is empty and we have enough deficit, issue this immediately
 			if r.excessDeficit.Load() >= float64(blk.Size()) || r.tangle.Scheduler.ReadyBlocksCount() == 0 {
 				if r.Size() == 0 {
-					r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
+					r.events.BlockIssued.Trigger(&BlockConstructedEvent{Block: blk})
 					break
 				}
 				issueBlk := r.issuingQueue.PopFront().(*Block)
-				r.Events.BlockIssued.Trigger(&BlockConstructedEvent{Block: issueBlk})
+				r.events.BlockIssued.Trigger(&BlockConstructedEvent{Block: issueBlk})
 			}
 			// if issuing queue is full, discard this
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
 				// drop tail
-				r.Events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
+				r.events.BlockDiscarded.Trigger(&BlockDiscardedEvent{blk.ID()})
 				break
 			}
 			// add to queue
@@ -493,7 +494,7 @@ func (r *DeficitRateSetter) InitializeRate() {
 // Disable rate setter always allows to issue something when requested.
 type DisabledRateSetter struct {
 	tangle              *Tangle
-	Events              *RateSetterEvents
+	events              *RateSetterEvents
 	self                identity.ID
 	issuingQueue        *schedulerutils.NodeQueue
 	issueChan           chan *Block
@@ -511,7 +512,7 @@ type DisabledRateSetter struct {
 func NewDisabledRateSetter(tangle *Tangle) *DisabledRateSetter {
 	return &DisabledRateSetter{
 		tangle:              tangle,
-		Events:              newRateSetterEvents(),
+		events:              newRateSetterEvents(),
 		self:                tangle.Options.Identity.ID(),
 		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:           make(chan *Block),
@@ -526,14 +527,14 @@ func NewDisabledRateSetter(tangle *Tangle) *DisabledRateSetter {
 	}
 }
 
-func (r *DisabledRateSetter) RateSetterEvents() *RateSetterEvents {
-	return r.Events
+func (r *DisabledRateSetter) Events() *RateSetterEvents {
+	return r.events
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *DisabledRateSetter) Setup() {
 	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(event *BlockConstructedEvent) {
-		r.Events.BlockIssued.Trigger(event) // blocks immediately issued rather than added to issuing queue
+		r.events.BlockIssued.Trigger(event) // blocks immediately issued rather than added to issuing queue
 	}))
 }
 
@@ -559,7 +560,7 @@ func (r *DisabledRateSetter) Estimate() time.Duration {
 	return time.Duration(0) // return no wait if rate setter is disabled
 }
 
-// Size returns the size (in blocks) of the issuing queue.
+// Work returns the sum of the work of all blocks in the issuing queue.
 func (r *DisabledRateSetter) Work() int {
 	return r.issuingQueue.Work()
 }

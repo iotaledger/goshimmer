@@ -139,7 +139,7 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 
-	t.RateSetter.RateSetterEvents().Error.Attach(event.NewClosure(func(err error) {
+	t.RateSetter.Events().Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
 	}))
 }
