@@ -1,3 +1,9 @@
+# v0.9.8 - 2022-09-06
+
+> This release disables the Warpsync plugin, which is still experimental.
+
+- Disable Warpsync by default (#2421)
+
 # v0.9.7 - 2022-09-05
 
 > This release introduces major bugfixes to the networking and the faucet.
