@@ -44,7 +44,7 @@ type TestFramework struct {
 	optsEvictionManager     *eviction.Manager[models.BlockID]
 	optsRate                time.Duration
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Event[*acceptance.Block]
+	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	*TangleTestFramework
 }
 
@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		issuersMana:    make(map[identity.ID]float64),
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: &MockAcceptanceGadget{
-			blockAcceptedEvent: event.New[*acceptance.Block](),
+			blockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
 			acceptedBlocks:     make(map[models.BlockID]bool),
 		},
 	}, opts, func(t *TestFramework) {
@@ -241,7 +241,7 @@ func WithRate(rate time.Duration) options.Option[TestFramework] {
 		tf.optsRate = rate
 	}
 }
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Event[*acceptance.Block]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
@@ -268,7 +268,7 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 
 // MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
-	blockAcceptedEvent *event.Event[*acceptance.Block]
+	blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	acceptedBlocks     map[models.BlockID]bool
 }
 

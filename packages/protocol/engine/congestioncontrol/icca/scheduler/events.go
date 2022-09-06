@@ -15,15 +15,17 @@ type Events struct {
 	// BlockSkipped is triggered when a block is confirmed before it's scheduled, and is skipped by the scheduler.
 	BlockSkipped *event.Event[*Block]
 	Error        *event.Event[error]
+
+	event.LinkableCollection[Events, *Events]
 }
 
-func newEvents() (new *Events) {
+var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockScheduled: event.New[*Block](),
 		BlockDropped:   event.New[*Block](),
 		BlockSkipped:   event.New[*Block](),
 		Error:          event.New[error](),
 	}
-}
+})
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -55,7 +55,7 @@ type Scheduler struct {
 	totalAccessManaRetrieveFunc func() float64
 	accessManaMapRetrieverFunc  func() map[identity.ID]float64
 	isBlockAcceptedFunc         func(models.BlockID) bool
-	blockAcceptedEvent          *event.Event[*acceptance.Block]
+	blockAcceptedEvent          *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 
 	rate                               *atomic.Duration
 	optsMaxBufferSize                  int
@@ -68,9 +68,9 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Event[*acceptance.Block], tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, rate time.Duration, opts ...options.Option[Scheduler]) *Scheduler {
+func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events], tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, rate time.Duration, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
-		Events:          newEvents(),
+		Events:          NewEvents(),
 		Tangle:          tangle,
 		EvictionManager: tangle.EvictionManager.Lockable(),
 
