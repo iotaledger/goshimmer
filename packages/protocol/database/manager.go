@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
@@ -31,26 +32,22 @@ type dbInstance struct {
 }
 
 type Manager struct {
-	baseDir string
-	opts    *Options
-
-	dbs *shrinkingmap.ShrinkingMap[epoch.Index, *dbInstance]
-
+	dbs   *shrinkingmap.ShrinkingMap[epoch.Index, *dbInstance]
 	mutex sync.Mutex
+
+	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
+	optsGranularity int64
+	optsBaseDir     string
+	optsDBProvider  DBProvider
 }
 
-func NewManager(baseDirectory string, opts ...Option) *Manager {
-	managerOpts := &Options{}
-	managerOpts.apply(defaultOptions...)
-	managerOpts.apply(opts...)
-
-	m := &Manager{
-		baseDir: baseDirectory,
-		opts:    managerOpts,
-		dbs:     shrinkingmap.New[epoch.Index, *dbInstance](),
-	}
-
-	return m
+func NewManager(opts ...options.Option[Manager]) *Manager {
+	return options.Apply(&Manager{
+		dbs:             shrinkingmap.New[epoch.Index, *dbInstance](),
+		optsGranularity: 10,
+		optsBaseDir:     "db",
+		optsDBProvider:  NewMemDB,
+	}, opts)
 }
 
 func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
@@ -98,7 +95,7 @@ func (m *Manager) Shutdown() {
 //   index 1 -> db 0
 //   index 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
-	startingIndex := index / epoch.Index(m.opts.granularity) * epoch.Index(m.opts.granularity)
+	startingIndex := index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
 	db, exists := m.dbs.Get(startingIndex)
 	if !exists {
 		db = m.createDBInstance(startingIndex)
@@ -130,7 +127,7 @@ func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
 // createDBInstance creates a new DB instance for the given index.
 // If a folder/DB for the given index already exists, it is opened.
 func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
-	db, err := m.opts.dbProvider(filepath.Join(m.baseDir, strconv.FormatInt(int64(index), 10)))
+	db, err := m.optsDBProvider(filepath.Join(m.optsBaseDir, strconv.FormatInt(int64(index), 10)))
 	if err != nil {
 		panic(err)
 	}
@@ -156,43 +153,27 @@ func (m *Manager) createBucket(db *dbInstance, index epoch.Index) (bucket kvstor
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// the default options applied to Manager.
-var defaultOptions = []Option{
-	WithGranularity(10),
-	WithDBProvider(NewDB),
-}
-
-// Options define options for Manager.
-type Options struct {
-	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
-	granularity int64
-	dbProvider  DBProvider
-}
-
-// applies the given Option.
-func (o *Options) apply(opts ...Option) {
-	for _, opt := range opts {
-		opt(o)
-	}
-}
-
 // WithGranularity sets the granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
 // It thus also has an impact on how fine-grained buckets/epochs can be pruned.
-func WithGranularity(granularity int64) Option {
-	return func(opts *Options) {
-		opts.granularity = granularity
+func WithGranularity(granularity int64) options.Option[Manager] {
+	return func(m *Manager) {
+		m.optsGranularity = granularity
 	}
 }
 
 // WithDBProvider sets the DB provider that is used to create new DB instances.
-func WithDBProvider(provider DBProvider) Option {
-	return func(opts *Options) {
-		opts.dbProvider = provider
+func WithDBProvider(provider DBProvider) options.Option[Manager] {
+	return func(m *Manager) {
+		m.optsDBProvider = provider
 	}
 }
 
-// Option is a function setting an Options option.
-type Option func(opts *Options)
+// WithBaseDir sets the base directory to store the DB to disk.
+func WithBaseDir(baseDir string) options.Option[Manager] {
+	return func(m *Manager) {
+		m.optsBaseDir = baseDir
+	}
+}
 
 // DBProvider is a function that creates a new DB instance.
 type DBProvider func(dirname string) (DB, error)

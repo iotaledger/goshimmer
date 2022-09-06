@@ -40,7 +40,7 @@ func New(network network.Network, opts ...options.Option[Protocol]) (protocol *P
 		var genesisTime time.Time
 
 		p.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
-		p.DatabaseManager = database.NewManager("goshimmer" /* p.optsDBManagerOptions... */)
+		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
 		p.SybilProtection = sybilprotection.New()
 
 		p.Solidification = solidification.New(p.EvictionManager, p.optsSolidificationOptions...)

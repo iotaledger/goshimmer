@@ -19,7 +19,7 @@ func TestManager_Get(t *testing.T) {
 	const granularity = 3
 	baseDir := t.TempDir()
 
-	m := NewManager(baseDir, WithGranularity(granularity), WithDBProvider(NewDB))
+	m := NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 
 	// Create and write data to buckets.
 	{
@@ -77,7 +77,7 @@ func TestManager_Get(t *testing.T) {
 	m.Shutdown()
 	m = nil
 
-	m = NewManager(baseDir, WithGranularity(granularity), WithDBProvider(NewDB))
+	m = NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
 		for i := 0; i < bucketsCount; i++ {
