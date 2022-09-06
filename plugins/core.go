@@ -26,6 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/spammer"
+	"github.com/iotaledger/goshimmer/plugins/warpsync"
 )
 
 // Core contains the core plugins of a GoShimmer node.
@@ -46,6 +47,7 @@ var Core = node.Plugins(
 	blocklayer.Plugin,
 	p2p.Plugin,
 	gossip.Plugin,
+	warpsync.Plugin,
 	firewall.Plugin,
 	blocklayer.ManaPlugin,
 	blocklayer.NotarizationPlugin,
