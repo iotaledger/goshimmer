@@ -14,6 +14,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/clock"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -39,10 +40,10 @@ var ErrNotRunning = errors.New("scheduler stopped")
 
 // Scheduler is a Tangle component that takes care of scheduling the blocks that shall be booked.
 type Scheduler struct {
-	Events           *Events
-	Tangle           *tangle.Tangle
-	AcceptanceGadget *acceptance.Gadget
-	EvictionManager  *eviction.LockableManager[models.BlockID]
+	Events *Events
+	Tangle *tangle.Tangle
+
+	EvictionManager *eviction.LockableManager[models.BlockID]
 
 	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
@@ -53,10 +54,12 @@ type Scheduler struct {
 
 	totalAccessManaRetrieveFunc func() float64
 	accessManaMapRetrieverFunc  func() map[identity.ID]float64
+	isBlockAcceptedFunc         func(models.BlockID) bool
+	blockAcceptedEvent          *event.Event[*acceptance.Block]
 
-	rate                                *atomic.Duration
-	optsMaxBufferSize                   int
-	optsConfirmedBlockScheduleThreshold time.Duration
+	rate                               *atomic.Duration
+	optsMaxBufferSize                  int
+	optsAcceptedBlockScheduleThreshold time.Duration
 
 	started        typeutils.AtomicBool
 	stopped        typeutils.AtomicBool
@@ -65,21 +68,22 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(acceptanceGadget *acceptance.Gadget, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, rate time.Duration, opts ...options.Option[Scheduler]) *Scheduler {
+func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Event[*acceptance.Block], tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, rate time.Duration, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
-		Events:           newEvents(),
-		Tangle:           tangle,
-		AcceptanceGadget: acceptanceGadget,
-		EvictionManager:  tangle.EvictionManager.Lockable(),
+		Events:          newEvents(),
+		Tangle:          tangle,
+		EvictionManager: tangle.EvictionManager.Lockable(),
 
+		isBlockAcceptedFunc:         isBlockAccepted,
+		blockAcceptedEvent:          blockAcceptedEvent,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
 		rate:                        atomic.NewDuration(rate),
 
-		deficits: make(map[identity.ID]*big.Rat),
-
-		optsMaxBufferSize:                   300,
-		optsConfirmedBlockScheduleThreshold: 5 * time.Minute,
+		deficits:                           make(map[identity.ID]*big.Rat),
+		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
+		optsMaxBufferSize:                  300,
+		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
 
 		shutdownSignal: make(chan struct{}),
 	}, opts, func(s *Scheduler) {
@@ -93,24 +97,14 @@ func New(acceptanceGadget *acceptance.Gadget, tangle *tangle.Tangle, accessManaM
 
 func (s *Scheduler) setupEvents() {
 	// pass booked blocks to the scheduler
-	s.Tangle.VirtualVoting.Events.BlockTracked.Attach(event.NewClosure(func(sourceBlock *virtualvoting.Block) {
-		block, _ := s.getOrRegisterBlock(sourceBlock)
+	s.Tangle.VirtualVoting.Events.BlockTracked.Attach(event.NewClosure(s.AddBlock))
 
-		if err := s.Submit(block); err != nil {
-			if !errors.Is(err, ErrInsufficientMana) {
-				s.Events.Error.Trigger(errors.Wrap(err, "failed to submit to scheduler"))
-			}
-		}
-		s.tryReady(block)
-	}))
+	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
-	s.Events.BlockScheduled.Hook(event.NewClosure(s.updateChildren))
+	s.blockAcceptedEvent.Attach(event.NewClosure(s.HandleAcceptedBlock))
 
-	s.AcceptanceGadget.Events.BlockAccepted.Attach(event.NewClosure(func(sourceBlock *acceptance.Block) {
-		block, _ := s.getOrRegisterBlock(sourceBlock.Block)
+	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
 
-		s.skipBlock(block)
-	}))
 }
 
 // Start starts the scheduler.
@@ -132,6 +126,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // IssuerQueueSize returns the size of the IssuerIDs queue.
 func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -144,6 +140,8 @@ func (s *Scheduler) IssuerQueueSize(issuerID identity.ID) int {
 
 // IssuerQueueSizes returns the size for each issuer queue.
 func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -157,6 +155,8 @@ func (s *Scheduler) IssuerQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -165,6 +165,8 @@ func (s *Scheduler) MaxBufferSize() int {
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -173,6 +175,8 @@ func (s *Scheduler) BufferSize() int {
 
 // ReadyBlocksCount returns the size buffer.
 func (s *Scheduler) ReadyBlocksCount() int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -181,6 +185,8 @@ func (s *Scheduler) ReadyBlocksCount() int {
 
 // TotalBlocksCount returns the size buffer.
 func (s *Scheduler) TotalBlocksCount() int {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.bufferMutex.RLock()
 	defer s.bufferMutex.RUnlock()
 
@@ -221,32 +227,45 @@ func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
 	return s.block(id)
 }
 
-// block retrieves the Block with given id from the mem-storage.
-func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
-	if s.EvictionManager.IsRootBlock(id) {
-		tangleBlock, _ := s.Tangle.Block(id)
+func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 
-		return NewBlock(tangleBlock), true
+	block, _ := s.getOrRegisterBlock(sourceBlock)
+
+	if err := s.Submit(block); err != nil {
+		if !errors.Is(err, ErrInsufficientMana) {
+			s.Events.Error.Trigger(errors.Wrap(err, "failed to submit to scheduler"))
+		}
 	}
-
-	storage := s.blocks.Get(id.Index(), false)
-	if storage == nil {
-		return nil, false
-	}
-
-	return storage.Get(id)
+	s.tryReady(block)
 }
 
-func (s *Scheduler) skipBlock(block *Block) {
+func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
+
+	block, _ := s.getOrRegisterBlock(acceptedBlock.Block)
+
 	scheduled := block.Scheduled()
 	if scheduled {
 		return
 	}
-	if clock.Since(block.IssuingTime()) > s.optsConfirmedBlockScheduleThreshold {
+
+	if clock.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 		s.Unsubmit(block)
 		block.SetSkipped()
 		s.Events.BlockSkipped.Trigger(block)
 	}
+
+	s.updateChildren(block)
+}
+
+// UpdateChildren iterates over the direct children of the given blockID and
+// tries to mark them as ready.
+func (s *Scheduler) UpdateChildren(block *Block) {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
 	s.updateChildren(block)
 }
 
@@ -294,7 +313,7 @@ func (s *Scheduler) SubmitAndReady(block *Block) (err error) {
 
 // isEligible returns true if the given blockID has either been scheduled or confirmed.
 func (s *Scheduler) isEligible(block *Block) (eligible bool) {
-	return block.Scheduled() || s.AcceptanceGadget.IsBlockAccepted(block.ID())
+	return block.Scheduled() || s.isBlockAcceptedFunc(block.ID())
 }
 
 // isReady returns true if the given blockID's parents are eligible.
@@ -358,6 +377,22 @@ func (s *Scheduler) ready(block *Block) {
 	s.buffer.Ready(block)
 }
 
+// block retrieves the Block with given id from the mem-storage.
+func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
+	if s.EvictionManager.IsRootBlock(id) {
+		tangleBlock, _ := s.Tangle.Block(id)
+
+		return NewBlock(tangleBlock, WithScheduled(true)), true
+	}
+
+	storage := s.blocks.Get(id.Index(), false)
+	if storage == nil {
+		return nil, false
+	}
+
+	return storage.Get(id)
+}
+
 // mainLoop periodically triggers the scheduling of ready blocks.
 func (s *Scheduler) mainLoop() {
 	defer s.ticker.Stop()
@@ -384,8 +419,9 @@ loop:
 func (s *Scheduler) schedule() *Block {
 	s.bufferMutex.Lock()
 	defer s.bufferMutex.Unlock()
-	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
-	// updated in the middle of the execution, as it could result in negative deficit values.
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
+
 	s.updateActiveIssuersList(s.accessManaMapRetrieverFunc())
 
 	start := s.buffer.Current()
@@ -394,14 +430,46 @@ func (s *Scheduler) schedule() *Block {
 		return nil
 	}
 
-	var schedulingIssuer *IssuerQueue
-	rounds := new(big.Rat).SetInt64(math.MaxInt64)
-	//TODO: extract to util method skipBlocksAndSelectIssuer
+	rounds, schedulingIssuer := s.selectIssuer(start)
+
+	// if there is no issuer with a ready block, we cannot schedule anything
+	if schedulingIssuer == nil {
+		return nil
+	}
+
+	if rounds.Sign() > 0 {
+		// increment every issuer's deficit for the required number of rounds
+		for q := start; ; {
+			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(s.Quanta(q.IssuerID()), rounds))
+
+			q = s.buffer.Next()
+			if q == start {
+				break
+			}
+		}
+	}
+
+	// increment the deficit for all issuers before schedulingIssuer one more time
+	for q := start; q != schedulingIssuer; q = s.buffer.Next() {
+		s.updateDeficit(q.IssuerID(), s.Quanta(q.IssuerID()))
+	}
+
+	// remove the block from the buffer and adjust issuer's deficit
+	block := s.buffer.PopFront()
+	issuerID := identity.NewID(block.IssuerPublicKey())
+	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
+
+	return block
+}
+
+func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
+	rounds = new(big.Rat).SetInt64(math.MaxInt64)
+
 	for q := start; ; {
 		block := q.Front()
 
 		for block != nil && !clock.SyncedTime().Before(block.IssuingTime()) {
-			if s.AcceptanceGadget.IsBlockAccepted(block.ID()) && clock.Since(block.IssuingTime()) > s.optsConfirmedBlockScheduleThreshold {
+			if s.isBlockAcceptedFunc(block.ID()) && clock.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 				block.SetSkipped()
 				s.Events.BlockSkipped.Trigger(block)
 				s.buffer.PopFront()
@@ -429,50 +497,21 @@ func (s *Scheduler) schedule() *Block {
 			break
 		}
 	}
-
-	// if there is no issuer with a ready block, we cannot schedule anything
-	if schedulingIssuer == nil {
-		return nil
-	}
-
-	if rounds.Cmp(big.NewRat(0, 1)) > 0 {
-		// increment every issuer's deficit for the required number of rounds
-		for q := start; ; {
-			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(s.Quanta(q.IssuerID()), rounds))
-
-			q = s.buffer.Next()
-			if q == start {
-				break
-			}
-		}
-	}
-
-	// increment the deficit for all issuers before schedulingIssuer one more time
-	for q := start; q != schedulingIssuer; q = s.buffer.Next() {
-		s.updateDeficit(q.IssuerID(), s.Quanta(q.IssuerID()))
-	}
-
-	// remove the block from the buffer and adjust issuer's deficit
-	block := s.buffer.PopFront()
-	issuerID := identity.NewID(block.IssuerPublicKey())
-	s.updateDeficit(issuerID, new(big.Rat).SetInt64(-int64(block.Size())))
-
-	return block
+	return rounds, schedulingIssuer
 }
 
 func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]float64) {
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
-
 	// remove issuers that don't have mana and have empty queue
 	// this allows issuers with zero mana to issue blocks, however those issuers will only accumulate their deficit
 	// when there are blocks in the issuer's queue
 	currentIssuer := s.buffer.Current()
-	for i := 0; i < s.buffer.NumActiveIssuers(); i++ {
+	numIssuers := s.buffer.NumActiveIssuers()
+	for i := 0; i < numIssuers; i++ {
 		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Size() == 0 {
 			s.buffer.RemoveIssuer(currentIssuer.IssuerID())
 			delete(s.deficits, currentIssuer.IssuerID())
-
 			currentIssuer = s.buffer.Current()
 		} else {
 			currentIssuer = s.buffer.Next()
@@ -529,6 +568,29 @@ func (s *Scheduler) getAccessMana(id identity.ID) float64 {
 		return mana
 	}
 	return 0.0
+}
+
+func (s *Scheduler) evictEpoch(index epoch.Index) {
+	s.EvictionManager.Lock()
+	defer s.EvictionManager.Unlock()
+
+	s.blocks.EvictEpoch(index)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithAcceptedBlockScheduleThreshold(acceptedBlockScheduleThreshold time.Duration) options.Option[Scheduler] {
+	return func(s *Scheduler) {
+		s.optsAcceptedBlockScheduleThreshold = acceptedBlockScheduleThreshold
+	}
+}
+
+func WithMaxBufferSize(maxBufferSize int) options.Option[Scheduler] {
+	return func(s *Scheduler) {
+		s.optsMaxBufferSize = maxBufferSize
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

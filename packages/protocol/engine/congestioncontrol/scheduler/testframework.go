@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
@@ -25,7 +26,10 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Scheduler *Scheduler
+	Scheduler      *Scheduler
+	mockAcceptance *MockAcceptanceGadget
+	issuersByAlias map[string]*identity.Identity
+	issuersMana    map[identity.ID]float64
 
 	test *testing.T
 
@@ -33,42 +37,50 @@ type TestFramework struct {
 	skippedBlocksCount   uint32
 	droppedBlocksCount   uint32
 
-	optsScheduler                   []options.Option[Scheduler]
-	optsTangle                      []options.Option[tangle.Tangle]
-	optsGadget                      []options.Option[acceptance.Gadget]
-	optsValidatorSet                *validator.Set
-	optsEvictionManager             *eviction.Manager[models.BlockID]
-	optsAccessManaMapRetrieverFunc  func() map[identity.ID]float64
-	optsTotalAccessManaRetrieveFunc func() float64
-	optsRate                        time.Duration
-
+	optsScheduler           []options.Option[Scheduler]
+	optsTangle              []options.Option[tangle.Tangle]
+	optsGadget              []options.Option[acceptance.Gadget]
+	optsValidatorSet        *validator.Set
+	optsEvictionManager     *eviction.Manager[models.BlockID]
+	optsRate                time.Duration
+	optsIsBlockAcceptedFunc func(models.BlockID) bool
+	optsBlockAcceptedEvent  *event.Event[*acceptance.Block]
 	*TangleTestFramework
-	*GadgetTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
-		test: test,
+		test:           test,
+		issuersMana:    make(map[identity.ID]float64),
+		issuersByAlias: make(map[string]*identity.Identity),
+		mockAcceptance: &MockAcceptanceGadget{
+			blockAcceptedEvent: event.New[*acceptance.Block](),
+			acceptedBlocks:     make(map[models.BlockID]bool),
+		},
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
 			t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
 		}
+		if t.optsValidatorSet == nil {
+			t.optsValidatorSet = validator.NewSet()
+		}
+
 		t.TangleTestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
 			tangle.WithValidatorSet(t.optsValidatorSet),
 			tangle.WithEvictionManager(t.optsEvictionManager),
 		)
-		t.GadgetTestFramework = acceptance.NewTestFramework(
-			test,
-			acceptance.WithGadgetOptions(t.optsGadget...),
-			acceptance.WithValidatorSet(t.optsValidatorSet),
-			acceptance.WithEvictionManager(t.optsEvictionManager),
-			acceptance.WithTangleTestFramework(t.TangleTestFramework),
-		)
+
+		if t.optsIsBlockAcceptedFunc == nil {
+			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
+		}
+		if t.optsBlockAcceptedEvent == nil {
+			t.optsBlockAcceptedEvent = t.mockAcceptance.blockAcceptedEvent
+		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.GadgetTestFramework.Gadget, t.TangleTestFramework.Tangle, t.optsAccessManaMapRetrieverFunc, t.optsTotalAccessManaRetrieveFunc, t.optsRate, t.optsScheduler...)
+			t.Scheduler = New(t.optsIsBlockAcceptedFunc, t.optsBlockAcceptedEvent, t.TangleTestFramework.Tangle, t.ManaMap, t.TotalMana, t.optsRate, t.optsScheduler...)
 		}
 
 	}, (*TestFramework).setupEvents)
@@ -104,20 +116,59 @@ func (t *TestFramework) setupEvents() {
 	return
 }
 
-func (t *TestFramework) CreteTangleBlock(opts ...options.Option[models.Block]) *virtualvoting.Block {
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
+func (t *TestFramework) CreateIssuer(alias string, issuerMana float64) {
+	t.issuersByAlias[alias] = identity.GenerateIdentity()
+	t.issuersMana[t.issuersByAlias[alias].ID()] = issuerMana
+}
+
+func (t *TestFramework) UpdateIssuers(newIssuers map[string]float64) {
+	for alias, mana := range newIssuers {
+		_, exists := t.issuersByAlias[alias]
+		if !exists {
+			t.issuersByAlias[alias] = identity.GenerateIdentity()
+		}
+		t.issuersMana[t.issuersByAlias[alias].ID()] = mana
+	}
+
+	for alias, identity := range t.issuersByAlias {
+		_, exists := newIssuers[alias]
+		if !exists {
+			delete(t.issuersMana, identity.ID())
+		}
+	}
+}
+
+func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity) {
+	issuerIdentity, exists := t.issuersByAlias[alias]
+	if !exists {
+		panic("identity aliast not registered")
+	}
+	return issuerIdentity
+}
+
+func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
+	blk := NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))))
 	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
 		parents := models.NewParentBlockIDs()
 		parents.AddStrong(models.EmptyBlockID)
 		opts = append(opts, models.WithParents(parents))
-		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...))))
-
+		blk = NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))))
 	}
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
 	return blk
+}
+
+func (t *TestFramework) TotalMana() (totalMana float64) {
+	for _, mana := range t.issuersMana {
+		totalMana += mana
+	}
+	return
+}
+func (t *TestFramework) ManaMap() map[identity.ID]float64 {
+	return t.issuersMana
 }
 
 func (t *TestFramework) AssertBlocksScheduled(blocksScheduled uint32) {
@@ -185,21 +236,19 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithAccessManaMapRetrieverFunc(accessManaMapRetrieverFunc func() map[identity.ID]float64) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsAccessManaMapRetrieverFunc = accessManaMapRetrieverFunc
-	}
-}
-
-func WithTotalAccessManaRetrieveFunc(totalAccessManaRetrieveFunc func() float64) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTotalAccessManaRetrieveFunc = totalAccessManaRetrieveFunc
-	}
-}
-
 func WithRate(rate time.Duration) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsRate = rate
+	}
+}
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Event[*acceptance.Block]) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsBlockAcceptedEvent = blockAcceptedEvent
+	}
+}
+func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
+		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
 	}
 }
 
@@ -216,3 +265,14 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all blocks as confirmed.
+type MockAcceptanceGadget struct {
+	blockAcceptedEvent *event.Event[*acceptance.Block]
+	acceptedBlocks     map[models.BlockID]bool
+}
+
+// IsBlockConfirmed mocks its interface function returning that all blocks are confirmed.
+func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
+	return m.acceptedBlocks[blockID]
+}
