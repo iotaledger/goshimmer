@@ -340,9 +340,9 @@ func TestSchedulerFlow(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	// testing desired scheduled order: A - B - D - C  (B - A - D - C is equivalent)
+	// testing desired scheduled order: A - B - D - E - C
 	tf.CreateBlock("A", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.CreateBlock("B", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.CreateBlock("B", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.BlockIDs("Genesis")))
 
 	// set C to have a timestamp in the future
 	tf.CreateBlock("C", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(5*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
@@ -369,7 +369,7 @@ func TestSchedulerFlow(t *testing.T) {
 		}
 	}, 10*time.Second, 100*time.Millisecond)
 
-	// TODO: order
+	assert.Equal(t, scheduledIDs, []models.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
 }
 
 func TestSchedulerParallelSubmit(t *testing.T) {
