@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 const minimumWindowSize = 10
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangleold.BlockID) (*tangleold.Block, error)
+type LoadBlockFunc func(blockId models.BlockID) (*models.Block, bool)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
 type ProcessBlockFunc func(blk *tangleold.Block, peer *peer.Peer)

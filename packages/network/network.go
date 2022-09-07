@@ -19,7 +19,7 @@ type Network struct {
 	GossipMgr   *gossip.Manager
 }
 
-func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) *models.Block, logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
+func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Block, bool), logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
 	network = options.Apply(&Network{
 		Events:     NewEvents(),
 		P2PManager: p2pManager,
@@ -32,9 +32,7 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) *models.Blo
 		})
 	}, logger)
 
-	network.GossipMgr = gossip.NewManager(network.P2PManager, func(blockId models.BlockID) ([]byte, error) {
-		return blockProvider(blockId).Bytes()
-	}, logger)
+	network.GossipMgr = gossip.NewManager(network.P2PManager, blockProvider, logger)
 
 	return network
 }
