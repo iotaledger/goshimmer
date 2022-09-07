@@ -18,12 +18,12 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	OrphanageManager *OrphanageManager
+	OrphanageManager *TSCManager
 	mockAcceptance   *MockAcceptanceGadget
 
 	test *testing.T
 
-	optsTSCManager          []options.Option[OrphanageManager]
+	optsTSCManager          []options.Option[TSCManager]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
@@ -73,7 +73,7 @@ func (t *TestFramework) AssertExplicitlyOrphaned(expectedState map[string]bool) 
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTSCManagerOptions(opts ...options.Option[OrphanageManager]) options.Option[TestFramework] {
+func WithTSCManagerOptions(opts ...options.Option[TSCManager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTSCManager = opts
 	}
