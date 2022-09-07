@@ -6,10 +6,12 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
@@ -57,6 +59,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 	})
+}
+
+func (t *TestFramework) AssertExplicitlyOrphaned(expectedState map[string]bool) {
+	for alias, expectedOrphanage := range expectedState {
+		t.AssertBlock(alias, func(block *booker.Block) {
+			assert.Equal(t.test, expectedOrphanage, block.IsExplicitlyOrphaned(), "block %s is incorrectly orphaned", block.ID())
+		})
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

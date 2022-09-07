@@ -2,7 +2,6 @@ package tsc
 
 import (
 	"container/heap"
-	"fmt"
 	"sync"
 	"time"
 
@@ -51,14 +50,13 @@ func (o *OrphanageManager) Setup() {
 	// orphan confirmed messages.
 	o.blockAcceptedEvent.Hook(event.NewClosure(o.HandleAcceptedBlock))
 
-	o.clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(o.HandleTimeUpdate))
+	o.clock.Events.AcceptanceTimeUpdated.Hook(event.NewClosure(o.HandleTimeUpdate))
 
 }
 
 func (o *OrphanageManager) HandleTimeUpdate(evt *clock.TimeUpdate) {
 	o.Lock()
 	defer o.Unlock()
-
 	o.orphanBeforeTSC(evt.NewTime.Add(-o.optsTimeSinceConfirmationThreshold))
 }
 
@@ -68,10 +66,8 @@ func (o *OrphanageManager) HandleAcceptedBlock(acceptedBlock *acceptance.Block) 
 
 	// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 	if acceptedBlock.IsExplicitlyOrphaned() {
-		fmt.Println("dupa")
 		o.tangle.SetOrphaned(acceptedBlock.Block.Block.Block, false)
 	} else {
-		fmt.Println("dupa21")
 		o.removeElementFromHeap(acceptedBlock.Block.Block.Block)
 	}
 }
@@ -85,10 +81,12 @@ func (o *OrphanageManager) AddUnconfirmedBlock(block *booker.Block) {
 
 // orphanBeforeTSC removes the elements with key time earlier than the given time.
 func (o *OrphanageManager) orphanBeforeTSC(minAllowedTime time.Time) {
-	for i := 0; i < o.unconfirmedBlocks.Len(); i++ {
+	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
+	for i := 0; i < unconfirmedBlocksCount; i++ {
 		if o.unconfirmedBlocks[0].Key.After(minAllowedTime) {
 			return
 		}
+
 		blockToOrphan := o.unconfirmedBlocks[0].Value
 		o.removeElementFromHeap(blockToOrphan)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
@@ -101,7 +99,6 @@ func (o *OrphanageManager) orphanBeforeTSC(minAllowedTime time.Time) {
 func (o *OrphanageManager) removeElementFromHeap(block *blockdag.Block) {
 	for i := 0; i < len(o.unconfirmedBlocks); i++ {
 		if o.unconfirmedBlocks[i].Value.ID() == block.ID() {
-			fmt.Println("removing block")
 			heap.Remove(&o.unconfirmedBlocks, o.unconfirmedBlocks[i].index)
 			break
 		}

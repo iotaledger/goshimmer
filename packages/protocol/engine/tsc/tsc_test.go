@@ -6,13 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -51,7 +49,6 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 }
 
 func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
-	debug.SetEnabled(true)
 	tf := NewTestFramework(t, WithTSCManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)))
 
 	createTestTangleOrphanage(tf)
@@ -78,12 +75,31 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			continue
 		}
 		virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
-		tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
+		//tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
+		tf.optsClock.SetAcceptedTime(virtualVotingBlock.IssuingTime())
 	}
+
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	tf.AssertOrphanedCount(15, "expected %d orphaned blocks", 15)
-	assert.Equal(t, 0, tf.OrphanageManager.unconfirmedBlocks.Len())
+	tf.AssertExplicitlyOrphaned(map[string]bool{
+		"0/1-preTSCSeq1_0":  true,
+		"0/1-preTSCSeq1_1":  true,
+		"0/1-preTSCSeq1_2":  true,
+		"0/1-preTSCSeq1_3":  true,
+		"0/1-preTSCSeq1_4":  true,
+		"0/1-preTSCSeq1_5":  true,
+		"0/1-preTSCSeq1_6":  true,
+		"0/1-preTSCSeq1_7":  true,
+		"0/1-preTSCSeq1_8":  true,
+		"0/1-preTSCSeq1_9":  true,
+		"0/1-postTSCSeq1_0": false,
+		"0/1-postTSCSeq1_1": false,
+		"0/1-postTSCSeq1_2": false,
+		"0/1-postTSCSeq1_3": false,
+		"0/1-postTSCSeq1_4": false,
+	})
+	assert.Equal(t, 6, tf.OrphanageManager.unconfirmedBlocks.Len())
 }
 
 //
@@ -125,7 +141,7 @@ func createTestTangleOrphanage(tf *TestFramework) {
 	// SEQUENCE 1
 	{ //nolint:dupl
 		lastMsgAlias = issueBlocks(tf, "0/1-preTSCSeq1", 10, []string{"Marker-0/1"}, time.Minute*6)
-		lastMsgAlias = issueBlocks(tf, "0/1-postTSCSeq1", 5, []string{lastMsgAlias}, time.Minute)
+		lastMsgAlias = issueBlocks(tf, "0/1-postTSCSeq1", 5, []string{lastMsgAlias}, time.Second*15)
 	}
 }
 
@@ -139,7 +155,6 @@ func issueBlocks(tf *TestFramework, blkPrefix string, blkCount int, parents []st
 		alias := fmt.Sprintf("%s_%d", blkPrefix, i)
 		tf.CreateBlock(alias, models.WithIssuer(identity.GenerateIdentity().PublicKey()), models.WithStrongParents(tf.BlockIDs(blkAlias)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
-		fmt.Println("issuing block", tf.Block(alias).ID())
 		blkAlias = alias
 	}
 	return blkAlias

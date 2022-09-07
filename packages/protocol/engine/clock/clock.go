@@ -41,8 +41,8 @@ func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
 
 	if updated = c.updateTime(acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated); updated {
 		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
-			NewTime:    c.lastConfirmedTime,
-			UpdateTime: c.lastConfirmedTimeUpdated,
+			NewTime:    c.lastAcceptedTime,
+			UpdateTime: c.lastAcceptedTimeUpdated,
 		})
 	}
 	return updated
