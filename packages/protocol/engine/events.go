@@ -3,11 +3,13 @@ package engine
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
 
 type Events struct {
 	Tangle *tangle.Events
+	Clock  *clock.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -16,5 +18,6 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Tangle: tangle.NewEvents(),
+		Clock:  clock.NewEvents(),
 	}
 })

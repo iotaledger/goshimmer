@@ -123,6 +123,10 @@ func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...inter
 	assert.EqualValues(t.test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
 }
 
+func (t *TestFramework) AssertOrphanedCount(storedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
+}
+
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 	block, exists := t.BlockDAG.Block(t.Block(alias).ID())
 	require.True(t.test, exists, "Block %s not found", alias)

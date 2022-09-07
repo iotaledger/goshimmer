@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
 
 // region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +54,7 @@ var _ heap.Interface = &TimedHeap{}
 
 type QueueElement struct {
 	// Value represents the value of the queued element.
-	Value models.BlockID
+	Value *blockdag.Block
 	// Key represents the time of the element to be used as a key.
 	Key   time.Time
 	index int
