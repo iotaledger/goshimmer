@@ -3,6 +3,8 @@ package eviction
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
@@ -11,16 +13,19 @@ import (
 type Manager[ID epoch.IndexedID] struct {
 	Events *Events
 
-	maxEvictedEpoch epoch.Index
-	isRootBlock     func(ID) bool
+	maxEvictedEpoch   epoch.Index
+	currentRootBlocks *set.AdvancedSet[ID]
+
+	rootBlockProvider func(index epoch.Index) *set.AdvancedSet[ID]
 
 	sync.RWMutex
 }
 
-func NewManager[ID epoch.IndexedID](isRootBlock func(ID) (isRootBlock bool)) (newManager *Manager[ID]) {
+func NewManager[ID epoch.IndexedID](snapshotEpochIndex epoch.Index, rootBlockProvider func(index epoch.Index) *set.AdvancedSet[ID]) (newManager *Manager[ID]) {
 	return &Manager[ID]{
-		Events:      NewEvents(),
-		isRootBlock: isRootBlock,
+		Events:            NewEvents(),
+		rootBlockProvider: rootBlockProvider,
+		currentRootBlocks: rootBlockProvider(snapshotEpochIndex),
 	}
 }
 
@@ -32,8 +37,8 @@ func (m *Manager[ID]) Lockable() (newLockableManager *LockableManager[ID]) {
 	}
 }
 
-func (m *Manager[ID]) EvictEpoch(epochIndex epoch.Index) {
-	for currentIndex := m.setMaxEvictedEpoch(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
+func (m *Manager[ID]) EvictUntilEpoch(epochIndex epoch.Index) {
+	for currentIndex := m.setEvictedEpochAndUpdateRootBlocks(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
 		m.Events.EpochEvicted.Trigger(currentIndex)
 	}
 }
@@ -43,10 +48,13 @@ func (m *Manager[ID]) IsTooOld(id ID) (isTooOld bool) {
 	m.RLock()
 	defer m.RUnlock()
 
-	return !m.isRootBlock(id) && id.Index() <= m.maxEvictedEpoch
+	return id.Index() <= m.maxEvictedEpoch && !m.isRootBlock(id)
 }
 
 func (m *Manager[ID]) IsRootBlock(id ID) (isRootBlock bool) {
+	m.RLock()
+	defer m.RUnlock()
+
 	return m.isRootBlock(id)
 }
 
@@ -57,7 +65,12 @@ func (m *Manager[ID]) MaxEvictedEpoch() epoch.Index {
 	return m.maxEvictedEpoch
 }
 
-func (m *Manager[ID]) setMaxEvictedEpoch(index epoch.Index) (old epoch.Index) {
+func (m *Manager[ID]) isRootBlock(id ID) (isRootBlock bool) {
+	return m.currentRootBlocks.Has(id)
+}
+
+// setEvictedEpochAndUpdateRootBlocks atomically increases maxEvictedEpoch and updates the root blocks for the epoch.
+func (m *Manager[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index) (old epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -66,6 +79,7 @@ func (m *Manager[ID]) setMaxEvictedEpoch(index epoch.Index) (old epoch.Index) {
 	}
 
 	m.maxEvictedEpoch = index
+	m.currentRootBlocks = m.rootBlockProvider(index)
 
 	return
 }

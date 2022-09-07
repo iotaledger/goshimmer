@@ -1,7 +1,6 @@
 package network
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -25,16 +24,18 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) *models.Blo
 		P2PManager: p2pManager,
 	}, opts)
 
-	network.WarpSyncMgr = warpsync.NewManager(network.P2PManager, blockProvider, func(block *models.Block, peer *peer.Peer) {
-		network.Events.BlockReceived.Trigger(&BlockReceivedEvent{
-			Block: block,
-			Peer:  peer,
-		})
-	}, logger)
+	// TODO: fix types
+	// network.WarpSyncMgr = warpsync.NewManager(network.P2PManager, blockProvider, func(block *models.Block, peer *peer.Peer) {
+	// 	network.Events.BlockReceived.Trigger(&BlockReceivedEvent{
+	// 		Block: block,
+	// 		Peer:  peer,
+	// 	})
+	// }, logger)
 
-	network.GossipMgr = gossip.NewManager(network.P2PManager, func(blockId models.BlockID) ([]byte, error) {
-		return blockProvider(blockId).Bytes()
-	}, logger)
+	// TODO: fix types
+	// network.GossipMgr = gossip.NewManager(network.P2PManager, func(blockId models.BlockID) ([]byte, error) {
+	// 	return blockProvider(blockId).Bytes()
+	// }, logger)
 
 	return network
 }
