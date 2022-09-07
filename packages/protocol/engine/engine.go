@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -19,7 +20,7 @@ import (
 type Engine struct {
 	Events *Events
 
-	Clock             *Clock
+	Clock             *clock.Clock
 	Ledger            *ledger.Ledger
 	Tangle            *tangle.Tangle
 	Consensus         *consensus.Consensus
@@ -36,7 +37,7 @@ func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *evictio
 	return options.Apply(&Engine{
 		optsBootstrappedThreshold: 10 * time.Second,
 	}, opts, func(e *Engine) {
-		e.Clock = NewClock(snapshotTime)
+		e.Clock = clock.NewClock(snapshotTime)
 		e.Ledger = ledger
 		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangle...)
 		e.Consensus = consensus.New(e.Tangle, e.optsConsensus...)
