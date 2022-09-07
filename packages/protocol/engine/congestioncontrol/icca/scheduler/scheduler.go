@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
@@ -93,7 +94,9 @@ func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, acces
 
 func (s *Scheduler) setupEvents() {
 	// pass booked blocks to the scheduler
-	s.Tangle.VirtualVoting.Events.BlockTracked.Attach(event.NewClosure(s.AddBlock))
+	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
+
+	s.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(s.HandleOrphanedBlock))
 
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
@@ -227,6 +230,12 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 
 	block, _ := s.getOrRegisterBlock(sourceBlock)
 
+	if block.IsOrphaned() && !block.IsDropped() {
+		block.SetDropped()
+		s.Events.BlockDropped.Trigger(block)
+		return
+	}
+
 	if err := s.Submit(block); err != nil {
 		if !errors.Is(err, ErrInsufficientMana) {
 			s.Events.Error.Trigger(errors.Wrap(err, "failed to submit to scheduler"))
@@ -235,14 +244,26 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 	s.tryReady(block)
 }
 
+func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
+	s.EvictionManager.RLock()
+	defer s.EvictionManager.RUnlock()
+	block, exists := s.block(orphanedBlock.ID())
+	if !exists || block.IsDropped() || block.IsSkipped() || block.IsScheduled() {
+		return
+	}
+
+	s.Unsubmit(block)
+	block.SetDropped()
+	s.Events.BlockDropped.Trigger(block)
+}
+
 func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *virtualvoting.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
 	block, _ := s.getOrRegisterBlock(acceptedBlock)
 
-	scheduled := block.Scheduled()
-	if scheduled {
+	if block.IsScheduled() {
 		return
 	}
 
@@ -305,9 +326,11 @@ func (s *Scheduler) SubmitAndReady(block *Block) (err error) {
 	return nil
 }
 
-// isEligible returns true if the given blockID has either been scheduled or confirmed.
+// isEligible returns true if the given blockID has either been (scheduled and not orphaned) or confirmed.
+// Check if parent is orphaned should not be necessary, because if block's parent is orphaned,
+// then block itself should be orphaned as well, but leaving it here for safety.
 func (s *Scheduler) isEligible(block *Block) (eligible bool) {
-	return block.Scheduled() || s.isBlockAcceptedFunc(block.ID())
+	return (block.IsScheduled() && !block.IsOrphaned()) || s.isBlockAcceptedFunc(block.ID())
 }
 
 // isReady returns true if the given blockID's parents are eligible.
@@ -358,7 +381,7 @@ func (s *Scheduler) submit(block *Block) error {
 
 func (s *Scheduler) markAsDropped(droppedBlocks []*Block) {
 	for _, droppedBlock := range droppedBlocks {
-		s.Tangle.SetOrphaned(droppedBlock.Block.Block.Block, true)
+		droppedBlock.SetDropped()
 		s.Events.BlockDropped.Trigger(droppedBlock)
 	}
 }
@@ -469,10 +492,14 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 				s.buffer.PopFront()
 
 				block = q.Front()
-
 				continue
 			}
 
+			if block.IsDropped() {
+				s.buffer.PopFront()
+				block = q.Front()
+				continue
+			}
 			// compute how often the deficit needs to be incremented until the block can be scheduled
 			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Size()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.

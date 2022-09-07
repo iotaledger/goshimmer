@@ -149,18 +149,20 @@ func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity)
 }
 
 func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
-	blk := NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))))
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
 		parents := models.NewParentBlockIDs()
 		parents.AddStrong(models.EmptyBlockID)
 		opts = append(opts, models.WithParents(parents))
-		blk = NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))))
+		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	}
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
-	return blk
+	schedulerBlock, _ := t.Scheduler.getOrRegisterBlock(blk)
+
+	return schedulerBlock
 }
 
 func (t *TestFramework) TotalMana() (totalMana float64) {
@@ -174,15 +176,15 @@ func (t *TestFramework) ManaMap() map[identity.ID]float64 {
 }
 
 func (t *TestFramework) AssertBlocksScheduled(blocksScheduled uint32) {
-	assert.Equal(t.test, blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount), "expected %d blocks to be accepted but got %d", blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount))
+	assert.Equal(t.test, blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount), "expected %d blocks to be scheduled but got %d", blocksScheduled, atomic.LoadUint32(&t.scheduledBlocksCount))
 }
 
 func (t *TestFramework) AssertBlocksSkipped(blocksSkipped uint32) {
-	assert.Equal(t.test, blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount), "expected %d conflicts to be accepted but got %d", blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount))
+	assert.Equal(t.test, blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount), "expected %d blocks to be skipped but got %d", blocksSkipped, atomic.LoadUint32(&t.skippedBlocksCount))
 }
 
 func (t *TestFramework) AssertBlocksDropped(blocksDropped uint32) {
-	assert.Equal(t.test, blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount), "expected %d conflicts to be rejected but got %d", blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount))
+	assert.Equal(t.test, blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount), "expected %d blocks to be dropped but got %d", blocksDropped, atomic.LoadUint32(&t.droppedBlocksCount))
 }
 
 func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
@@ -190,7 +192,7 @@ func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
 		assert.Truef(t.test, exists, "block %s not registered", blockID)
 
-		actual := block.Scheduled()
+		actual := block.IsScheduled()
 		assert.Equal(t.test, expected, actual, "Block %s should be scheduled=%t but is %t", blockID, expected, actual)
 	}
 }
@@ -200,7 +202,7 @@ func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
 		assert.Truef(t.test, exists, "block %s not registered", blockID)
 
-		actual := block.Skipped()
+		actual := block.IsSkipped()
 
 		assert.Equal(t.test, expected, actual, "Block %s should be skipped=%t but is %t", blockID, expected, actual)
 	}
@@ -211,7 +213,7 @@ func (t *TestFramework) ValidateDroppedBlocks(expectedState map[string]bool) {
 		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
 		assert.Truef(t.test, exists, "block %s not registered", blockID)
 
-		actual := block.Dropped()
+		actual := block.IsDropped()
 		assert.Equal(t.test, expected, actual, "Block %s should be dropped=%t but is %t", blockID, expected, actual)
 	}
 }

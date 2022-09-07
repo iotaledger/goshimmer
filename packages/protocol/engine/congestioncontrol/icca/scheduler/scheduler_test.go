@@ -96,7 +96,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
 }
 
-func TestScheduler_Discarded(t *testing.T) {
+func TestScheduler_Dropped(t *testing.T) {
 	t.Skip("Skip test. Zero mana nodes are allowed to issue blocks.")
 	tf := NewTestFramework(t)
 
@@ -110,7 +110,7 @@ func TestScheduler_Discarded(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	// this node has no mana so the block will be discarded
+	// this node has no mana so the block will be dropped
 	block := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("nomana").PublicKey()))
 	err := tf.Scheduler.Submit(block)
 	assert.Truef(t, errors.Is(err, schedulerutils.ErrInsufficientMana), "unexpected error: %v", err)
@@ -149,6 +149,91 @@ func TestScheduler_Schedule(t *testing.T) {
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
+}
+
+func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	blockDropped := make(chan models.BlockID, 1)
+	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
+		blockDropped <- block.ID()
+	}))
+
+	tf.CreateIssuer("peer", 10)
+	// create a new block from a different node
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
+	assert.NoError(t, tf.Scheduler.Submit(blk))
+	tf.Scheduler.Ready(blk)
+	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+
+	tf.Scheduler.Start()
+	defer tf.Scheduler.Shutdown()
+
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-blockDropped:
+			return assert.Equal(t, blk.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+	tf.AssertBlocksScheduled(0)
+}
+
+func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	blockScheduled := make(chan models.BlockID, 1)
+	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
+		blockScheduled <- block.ID()
+	}))
+
+	tf.Scheduler.Start()
+	defer tf.Scheduler.Shutdown()
+
+	tf.CreateIssuer("peer", 10)
+	// create a new block from a different node
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
+	assert.NoError(t, tf.Scheduler.Submit(blk))
+	tf.Scheduler.Ready(blk)
+
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-blockScheduled:
+			return assert.Equal(t, blk.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+
+	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+
+	tf.AssertBlocksDropped(0)
+}
+
+func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	blockDropped := make(chan models.BlockID, 1)
+	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
+		blockDropped <- block.ID()
+	}))
+
+	tf.CreateIssuer("peer", 10)
+	// create a new block from a different node
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
+	assert.NoError(t, tf.Scheduler.Submit(blk))
+	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
+
+	assert.Eventually(t, func() bool {
+		select {
+		case id := <-blockDropped:
+			return assert.Equal(t, blk.ID(), id)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+	tf.AssertBlocksScheduled(0)
 }
 
 func TestScheduler_SkipConfirmed(t *testing.T) {

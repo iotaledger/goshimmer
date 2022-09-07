@@ -11,7 +11,7 @@ import (
 type Block struct {
 	scheduled bool
 	skipped   bool
-	discarded bool
+	dropped   bool
 
 	*virtualvoting.Block
 }
@@ -23,7 +23,7 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 	}, opts)
 }
 
-func (b *Block) Scheduled() bool {
+func (b *Block) IsScheduled() bool {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -41,25 +41,25 @@ func (b *Block) SetScheduled() (wasUpdated bool) {
 	return
 }
 
-func (b *Block) Dropped() bool {
+func (b *Block) IsDropped() bool {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.discarded
+	return b.dropped
 }
 
-func (b *Block) SetDiscarded() (wasUpdated bool) {
+func (b *Block) SetDropped() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if wasUpdated = !b.discarded; wasUpdated {
-		b.discarded = true
+	if wasUpdated = !b.dropped; wasUpdated {
+		b.dropped = true
 	}
 
 	return
 }
 
-func (b *Block) Skipped() bool {
+func (b *Block) IsSkipped() bool {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -89,7 +89,7 @@ func WithScheduled(scheduled bool) options.Option[Block] {
 
 func WithDiscarded(discarded bool) options.Option[Block] {
 	return func(b *Block) {
-		b.discarded = discarded
+		b.dropped = discarded
 	}
 }
 
