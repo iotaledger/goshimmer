@@ -4,13 +4,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -28,6 +28,7 @@ type Protocol struct {
 	Network             *network.Network
 	DatabaseManager     *database.Manager
 	NotarizationManager *notarization.Manager
+	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	Solidification      *solidification.Solidification
@@ -45,7 +46,11 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 
 		var genesisTime time.Time
 
-		p.EvictionManager = eviction.NewManager(models.IsEmptyBlockID)
+		p.EvictionManager = eviction.NewManager(0, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
+			// TODO: implement me and set snapshot epoch!
+			// p.SnapshotManager.GetSolidEntryPoints(index)
+			return set.NewAdvancedSet[models.BlockID]()
+		})
 		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
 		p.SybilProtection = sybilprotection.New()
 
@@ -57,26 +62,33 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 	})
 }
 
+func (p *Protocol) setupNotarization() {
+	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
+	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+		p.EvictionManager.EvictUntilEpoch(event.EI)
+	}))
+}
+
 func (p *Protocol) Start() {
 	// configure flow of incoming blocks
-	p.Network.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-		p.Engine.Tangle.ProcessGossipBlock(event.Data, event.Peer)
-	}))
-
-	// configure flow of outgoing blocks (gossip upon dispatched blocks)
-	p.Events.Engine.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
-		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
-			deps.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
-		})
-	}))
-
-	// request missing blocks
-	deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangleold.RequestIssuedEvent) {
-		id := event.BlockID
-		Plugin.LogDebugf("requesting missing Block with %s", id)
-
-		deps.GossipMgr.RequestBlock(id.Bytes())
-	}))
+	// p.Network.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+	// 	p.Engine.Tangle.ProcessGossipBlock(event.Data, event.Peer)
+	// }))
+	//
+	// // configure flow of outgoing blocks (gossip upon dispatched blocks)
+	// p.Events.Engine.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
+	// 	deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
+	// 		deps.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
+	// 	})
+	// }))
+	//
+	// // request missing blocks
+	// deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangleold.RequestIssuedEvent) {
+	// 	id := event.BlockID
+	// 	Plugin.LogDebugf("requesting missing Block with %s", id)
+	//
+	// 	deps.GossipMgr.RequestBlock(id.Bytes())
+	// }))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
