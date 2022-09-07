@@ -1,10 +1,9 @@
 package inbox
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/network"
 )
 
 type Inbox struct {
@@ -17,11 +16,9 @@ func New(opts ...options.Option[Inbox]) (inbox *Inbox) {
 	}, opts)
 }
 
-func (i Inbox) PostBlock(blockData []byte, peer *peer.Peer) {
-	block := new(models.Block)
-	if _, err := block.FromBytes(blockData); err != nil {
-		// do sth (i.e. increase invalid blocks counter for peer)
-	}
+func (i Inbox) ProcessBlockReceivedEvent(event *network.BlockReceivedEvent) {
+	// fill heuristic + check if block is valid
+	// ...
 
-	i.Events.BlockReceived.Trigger(block)
+	i.Events.BlockReceived.Trigger(event.Block)
 }

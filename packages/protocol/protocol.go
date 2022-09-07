@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -11,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -102,9 +100,7 @@ func (p *Protocol) setupNotarization() {
 }
 
 func (p *Protocol) Start() {
-	p.Network.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-		p.Inbox.PostBlock(event.Data, event.Peer)
-	}))
+	p.Network.Events.BlockReceived.Attach(event.NewClosure(p.Inbox.ProcessBlockReceivedEvent))
 
 	// TODO: add CongestionControl events
 	// configure flow of outgoing blocks (gossip upon dispatched blocks)
@@ -113,9 +109,7 @@ func (p *Protocol) Start() {
 	// }))
 
 	// request missing blocks
-	p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(func(id models.BlockID) {
-		p.Network.GossipMgr.RequestBlock(lo.PanicOnErr(id.Bytes()))
-	}))
+	p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
 func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}

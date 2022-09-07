@@ -1,6 +1,8 @@
 package network
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -13,9 +15,9 @@ import (
 type Network struct {
 	Events *Events
 
-	P2PManager  *p2p.Manager
-	WarpSyncMgr *warpsync.Manager
-	GossipMgr   *gossip.Manager
+	P2PManager    *p2p.Manager
+	WarpSyncMgr   *warpsync.Manager
+	gossipManager *gossip.Manager
 }
 
 func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Block, bool), logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
@@ -37,9 +39,24 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Bl
 	// 	return blockProvider(blockId).Bytes()
 	// }, logger)
 
+	network.gossipManager.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+		eventToTrigger := &BlockReceivedEvent{
+			Block: new(models.Block),
+			Peer:  event.Peer,
+		}
+
+		switch _, err := eventToTrigger.Block.FromBytes(event.Data); {
+		case err != nil:
+			network.Events.InvalidBlockReceived.Trigger(event.Peer)
+
+		default:
+			network.Events.BlockReceived.Trigger(eventToTrigger)
+		}
+	}))
+
 	return network
 }
 
-func (n *Network) Start() {
-
+func (n *Network) RequestBlock(id models.BlockID) {
+	n.gossipManager.RequestBlock(lo.PanicOnErr(id.Bytes()))
 }
