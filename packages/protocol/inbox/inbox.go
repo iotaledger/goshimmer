@@ -8,18 +8,20 @@ import (
 )
 
 type Inbox struct {
+	Events *Events
 }
 
 func New(opts ...options.Option[Inbox]) (inbox *Inbox) {
-	return options.Apply(&Inbox{}, opts)
+	return options.Apply(&Inbox{
+		Events: NewEvents(),
+	}, opts)
 }
 
 func (i Inbox) PostBlock(blockData []byte, peer *peer.Peer) {
 	block := new(models.Block)
-	if err := block.FromBytes(blockData); err != nil {
-		// do sth
+	if _, err := block.FromBytes(blockData); err != nil {
+		// do sth (i.e. increase invalid blocks counter for peer)
 	}
 
-	p.Heuristic
-	p.Engine.Tangle.ProcessGossipBlock(event.Data, event.Peer)
+	i.Events.BlockReceived.Trigger(block)
 }

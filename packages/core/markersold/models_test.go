@@ -15,7 +15,8 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, Index(1), marker.Index())
 
 	var unmarshalledMarker Marker
-	require.NoError(t, unmarshalledMarker.FromBytes(marker.Bytes()))
+	_, err := unmarshalledMarker.FromBytes(marker.Bytes())
+	require.NoError(t, err)
 	assert.Equal(t, marker, unmarshalledMarker)
 }
 
@@ -28,7 +29,8 @@ func TestMarkers(t *testing.T) {
 
 	marshaledMarkers := markers.Bytes()
 	unmarshalledMarkers := new(Markers)
-	require.NoError(t, unmarshalledMarkers.FromBytes(marshaledMarkers))
+	_, err := unmarshalledMarkers.FromBytes(marshaledMarkers)
+	require.NoError(t, err)
 	assert.Equal(t, markers, unmarshalledMarkers)
 	assert.Equal(t, Index(3), markers.HighestIndex())
 	assert.Equal(t, Index(1), markers.LowestIndex())
@@ -88,7 +90,8 @@ func TestReferencedMarkers(t *testing.T) {
 
 	marshaledReferencedMarkers := lo.PanicOnErr(referencedMarkers.Bytes())
 	unmarshalledReferencedMarkers := new(ReferencedMarkers)
-	require.NoError(t, unmarshalledReferencedMarkers.FromBytes(marshaledReferencedMarkers))
+	_, err := unmarshalledReferencedMarkers.FromBytes(marshaledReferencedMarkers)
+	require.NoError(t, err)
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 3),
@@ -163,7 +166,8 @@ func TestReferencingMarkers(t *testing.T) {
 
 	marshaledReferencingMarkers := lo.PanicOnErr(referencingMarkers.Bytes())
 	unmarshalledReferencingMarkers := new(ReferencingMarkers)
-	require.NoError(t, unmarshalledReferencingMarkers.FromBytes(marshaledReferencingMarkers))
+	_, err := unmarshalledReferencingMarkers.FromBytes(marshaledReferencingMarkers)
+	require.NoError(t, err)
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 5),
@@ -203,6 +207,7 @@ func TestSequence(t *testing.T) {
 	assert.Equal(t, Index(7), sequence.HighestIndex())
 
 	unmarshalledSequence := new(Sequence)
-	require.NoError(t, unmarshalledSequence.FromBytes(lo.PanicOnErr(sequence.Bytes())))
+	_, err := unmarshalledSequence.FromBytes(lo.PanicOnErr(sequence.Bytes()))
+	require.NoError(t, err)
 	assert.Equal(t, sequence.HighestIndex(), unmarshalledSequence.HighestIndex())
 }

@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -74,7 +74,7 @@ func TestConflictWeightMarshalling(t *testing.T) {
 	conflictWeight := NewConflictWeight(randomConflictID())
 	conflictWeight.SetWeight(5.1234)
 	conflictWeightDecoded := new(ConflictWeight)
-	err := conflictWeightDecoded.FromBytes(lo.PanicOnErr(conflictWeight.Bytes()))
+	_, err := conflictWeightDecoded.FromBytes(lo.PanicOnErr(conflictWeight.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, lo.PanicOnErr(conflictWeight.Bytes()), lo.PanicOnErr(conflictWeightDecoded.Bytes()))
 	assert.Equal(t, conflictWeight.Weight(), conflictWeightDecoded.Weight())
@@ -87,7 +87,7 @@ func TestConflictVotersMarshalling(t *testing.T) {
 		conflictVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 	conflictVotersFromBytes := new(ConflictVoters)
-	err := conflictVotersFromBytes.FromBytes(lo.PanicOnErr(conflictVoters.Bytes()))
+	_, err := conflictVotersFromBytes.FromBytes(lo.PanicOnErr(conflictVoters.Bytes()))
 	require.NoError(t, err)
 
 	// verify that conflictVotersFromBytes has all voters from conflictVoters
