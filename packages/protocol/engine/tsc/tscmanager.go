@@ -16,10 +16,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
-// region OrphanageManager /////////////////////////////////////////////////////////////////////////////////////////////
+// region TSCManager /////////////////////////////////////////////////////////////////////////////////////////////
 
-// OrphanageManager is a manager that tracks orphaned blocks.
-type OrphanageManager struct {
+// TSCManager is a manager that tracks orphaned blocks.
+type TSCManager struct {
 	unconfirmedBlocks  TimedHeap
 	tangle             *tangle.Tangle
 	isBlockAccepted    func(models.BlockID) bool
@@ -31,18 +31,18 @@ type OrphanageManager struct {
 	sync.Mutex
 }
 
-// New returns a new instance of OrphanageManager.
-func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events], tangle *tangle.Tangle, clock *clock.Clock, opts ...options.Option[OrphanageManager]) *OrphanageManager {
-	return options.Apply(&OrphanageManager{
+// New returns a new instance of TSCManager.
+func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events], tangle *tangle.Tangle, clock *clock.Clock, opts ...options.Option[TSCManager]) *TSCManager {
+	return options.Apply(&TSCManager{
 		isBlockAccepted:                    isBlockAccepted,
 		blockAcceptedEvent:                 blockAcceptedEvent,
 		clock:                              clock,
 		tangle:                             tangle,
 		optsTimeSinceConfirmationThreshold: time.Minute,
-	}, opts, (*OrphanageManager).Setup)
+	}, opts, (*TSCManager).Setup)
 }
 
-func (o *OrphanageManager) Setup() {
+func (o *TSCManager) Setup() {
 	o.tangle.Events.Booker.BlockBooked.Attach(event.NewClosure(o.AddUnconfirmedBlock))
 
 	// Handle this event synchronously to guarantee that confirmed block is removed from orphanage manager before
@@ -54,13 +54,13 @@ func (o *OrphanageManager) Setup() {
 
 }
 
-func (o *OrphanageManager) HandleTimeUpdate(evt *clock.TimeUpdate) {
+func (o *TSCManager) HandleTimeUpdate(evt *clock.TimeUpdate) {
 	o.Lock()
 	defer o.Unlock()
 	o.orphanBeforeTSC(evt.NewTime.Add(-o.optsTimeSinceConfirmationThreshold))
 }
 
-func (o *OrphanageManager) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
+func (o *TSCManager) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -72,7 +72,7 @@ func (o *OrphanageManager) HandleAcceptedBlock(acceptedBlock *acceptance.Block) 
 	}
 }
 
-func (o *OrphanageManager) AddUnconfirmedBlock(block *booker.Block) {
+func (o *TSCManager) AddUnconfirmedBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -80,7 +80,7 @@ func (o *OrphanageManager) AddUnconfirmedBlock(block *booker.Block) {
 }
 
 // orphanBeforeTSC removes the elements with key time earlier than the given time.
-func (o *OrphanageManager) orphanBeforeTSC(minAllowedTime time.Time) {
+func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
 	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
 	for i := 0; i < unconfirmedBlocksCount; i++ {
 		if o.unconfirmedBlocks[0].Key.After(minAllowedTime) {
@@ -95,8 +95,8 @@ func (o *OrphanageManager) orphanBeforeTSC(minAllowedTime time.Time) {
 	}
 }
 
-// removeElement removes the block from OrphanageManager
-func (o *OrphanageManager) removeElementFromHeap(block *blockdag.Block) {
+// removeElement removes the block from TSCManager
+func (o *TSCManager) removeElementFromHeap(block *blockdag.Block) {
 	for i := 0; i < len(o.unconfirmedBlocks); i++ {
 		if o.unconfirmedBlocks[i].Value.ID() == block.ID() {
 			heap.Remove(&o.unconfirmedBlocks, o.unconfirmedBlocks[i].index)
@@ -109,8 +109,8 @@ func (o *OrphanageManager) removeElementFromHeap(block *blockdag.Block) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[OrphanageManager] {
-	return func(o *OrphanageManager) {
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TSCManager] {
+	return func(o *TSCManager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }

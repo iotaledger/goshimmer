@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -75,8 +76,8 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			continue
 		}
 		virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
-		//tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
 		tf.optsClock.SetAcceptedTime(virtualVotingBlock.IssuingTime())
+		tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
 	}
 
 	event.Loop.WaitUntilAllTasksProcessed()
@@ -99,33 +100,109 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		"0/1-postTSCSeq1_3": false,
 		"0/1-postTSCSeq1_4": false,
 	})
-	assert.Equal(t, 6, tf.OrphanageManager.unconfirmedBlocks.Len())
+	assert.Equal(t, 5, tf.OrphanageManager.unconfirmedBlocks.Len())
+
+	// Mark orphaned blocks as accepted and make sure that they get unorphaned.
+	{
+		newAcceptedBlocksInOrder := []models.BlockID{
+			tf.Block("0/1-preTSCSeq1_0").ID(),
+			tf.Block("0/1-preTSCSeq1_1").ID(),
+			tf.Block("0/1-preTSCSeq1_2").ID(),
+			tf.Block("0/1-preTSCSeq1_3").ID(),
+			tf.Block("0/1-preTSCSeq1_4").ID(),
+			tf.Block("0/1-preTSCSeq1_5").ID(),
+			tf.Block("0/1-preTSCSeq1_6").ID(),
+			tf.Block("0/1-preTSCSeq1_7").ID(),
+			tf.Block("0/1-preTSCSeq1_8").ID(),
+			tf.Block("0/1-preTSCSeq1_9").ID(),
+			tf.Block("0/1-postTSCSeq1_0").ID(),
+			tf.Block("0/1-postTSCSeq1_1").ID(),
+			tf.Block("0/1-postTSCSeq1_2").ID(),
+			tf.Block("0/1-postTSCSeq1_3").ID(),
+			tf.Block("0/1-postTSCSeq1_4").ID(),
+		}
+		newAcceptedBlocks := map[models.BlockID]bool{
+			tf.Block("0/1-preTSCSeq1_0").ID():  true,
+			tf.Block("0/1-preTSCSeq1_1").ID():  true,
+			tf.Block("0/1-preTSCSeq1_2").ID():  true,
+			tf.Block("0/1-preTSCSeq1_3").ID():  true,
+			tf.Block("0/1-preTSCSeq1_4").ID():  true,
+			tf.Block("0/1-preTSCSeq1_5").ID():  true,
+			tf.Block("0/1-preTSCSeq1_6").ID():  true,
+			tf.Block("0/1-preTSCSeq1_7").ID():  true,
+			tf.Block("0/1-preTSCSeq1_8").ID():  true,
+			tf.Block("0/1-preTSCSeq1_9").ID():  true,
+			tf.Block("0/1-postTSCSeq1_0").ID(): true,
+			tf.Block("0/1-postTSCSeq1_1").ID(): true,
+			tf.Block("0/1-postTSCSeq1_2").ID(): true,
+			tf.Block("0/1-postTSCSeq1_3").ID(): true,
+			tf.Block("0/1-postTSCSeq1_4").ID(): true,
+		}
+		lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, newAcceptedBlocks)
+
+		for _, blockID := range newAcceptedBlocksInOrder {
+			virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
+			tf.optsClock.SetAcceptedTime(virtualVotingBlock.IssuingTime())
+			tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
+		}
+
+		tf.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
+		tf.AssertExplicitlyOrphaned(map[string]bool{
+			"0/1-preTSCSeq1_0":  false,
+			"0/1-preTSCSeq1_1":  false,
+			"0/1-preTSCSeq1_2":  false,
+			"0/1-preTSCSeq1_3":  false,
+			"0/1-preTSCSeq1_4":  false,
+			"0/1-preTSCSeq1_5":  false,
+			"0/1-preTSCSeq1_6":  false,
+			"0/1-preTSCSeq1_7":  false,
+			"0/1-preTSCSeq1_8":  false,
+			"0/1-preTSCSeq1_9":  false,
+			"0/1-postTSCSeq1_0": false,
+			"0/1-postTSCSeq1_1": false,
+			"0/1-postTSCSeq1_2": false,
+			"0/1-postTSCSeq1_3": false,
+			"0/1-postTSCSeq1_4": false,
+		})
+		assert.Equal(t, 0, tf.OrphanageManager.unconfirmedBlocks.Len())
+	}
 }
 
-//
-//func TestOrphanageManager_HandleAcceptedBlock(t *testing.T) {
-//	tf := NewTestFramework(t, WithTSCManagerOptions(WithTimeSinceConfirmationThreshold(30*time.Second)))
-//
-//	createTestTangleOrphanage(tf)
-//	confirmedBlockIDsString := []string{"Marker-0/1", "0/1-preTSC_0", "0/1-preTSC_1", "0/1-preTSC_2", "0/1-preTSC_3", "0/1-preTSC_4", "0/1-preTSC_5", "0/1-preTSC_6", "0/1-preTSC_7", "0/1-preTSC_8", "0/1-preTSC_9", "0/1-postTSC_0"}
-//	confirmedBlockIDs := prepareConfirmedBlockIDs(testFramework, confirmedBlockIDsString)
-//
-//	confirmationOracle.Lock()
-//	confirmationOracle.confirmedBlockIDs = confirmedBlockIDs
-//	confirmationOracle.Unlock()
-//	assert.Equal(t, 27, orphanManager.unconfirmedBlocks.Len())
-//	assert.Equal(t, 25, len(orphanManager.strongChildCounters))
-//
-//	for _, blockID := range confirmedBlockIDsString {
-//		confirmationOracle.Events().BlockAccepted.Trigger(&BlockAcceptedEvent{Block: testFramework.Block(blockID)})
-//	}
-//	event.Loop.WaitUntilAllTasksProcessed()
-//
-//	// should it also remove the block from the heap?
-//	assert.Equal(t, int32(15), orphanedBlocks.Load())
-//	assert.Equal(t, 0, orphanManager.unconfirmedBlocks.Len())
-//	assert.Equal(t, 0, len(orphanManager.strongChildCounters))
-//}
+func TestOrphanageManager_HandleAcceptedBlock(t *testing.T) {
+	tf := NewTestFramework(t, WithTSCManagerOptions(WithTimeSinceConfirmationThreshold(10*time.Minute)))
+	createTestTangleOrphanage(tf)
+	tf.optsClock.SetAcceptedTime(time.Now())
+
+	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+		tf.Block("Marker-0/1").ID():    true,
+		tf.Block("0/1-preTSC_0").ID():  true,
+		tf.Block("0/1-preTSC_1").ID():  true,
+		tf.Block("0/1-preTSC_2").ID():  true,
+		tf.Block("0/1-preTSC_3").ID():  true,
+		tf.Block("0/1-preTSC_4").ID():  true,
+		tf.Block("0/1-preTSC_5").ID():  true,
+		tf.Block("0/1-preTSC_6").ID():  true,
+		tf.Block("0/1-preTSC_7").ID():  true,
+		tf.Block("0/1-preTSC_8").ID():  true,
+		tf.Block("0/1-preTSC_9").ID():  true,
+		tf.Block("0/1-postTSC_0").ID(): true,
+	})
+
+	assert.Equal(t, 27, tf.OrphanageManager.unconfirmedBlocks.Len())
+
+	for blockID, accepted := range tf.mockAcceptance.acceptedBlocks {
+		if !accepted {
+			continue
+		}
+		virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
+		tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(virtualVotingBlock, acceptance.WithAccepted(true)))
+	}
+
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	tf.AssertOrphanedCount(0, "expected %d orphaned blocks", 0)
+	assert.Equal(t, 15, tf.OrphanageManager.unconfirmedBlocks.Len())
+}
 
 func createTestTangleOrphanage(tf *TestFramework) {
 	var lastMsgAlias string

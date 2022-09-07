@@ -25,8 +25,8 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
-  "iteration": 1653635825404,
+  "id": 4,
+  "iteration": 1657028365706,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -5445,6 +5445,70 @@
           ],
           "title": "Rate-setter own rate",
           "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "blocks"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 3,
+            "w": 3,
+            "x": 18,
+            "y": 19
+          },
+          "id": 155,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "text": {},
+            "textMode": "auto"
+          },
+          "pluginVersion": "8.5.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "PBFA97CFB590B2093"
+              },
+              "exemplar": true,
+              "expr": "tangle_blocks_orphaned_size{instance=\"$instance\"}",
+              "interval": "",
+              "legendFormat": "",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Orphaned blocks count",
+          "type": "stat"
         }
       ],
       "title": "Scheduler metrics",
@@ -5460,8 +5524,8 @@
       {
         "current": {
           "selected": false,
-          "text": "peer_master2:9311",
-          "value": "peer_master2:9311"
+          "text": "peer_nomana:9311",
+          "value": "peer_nomana:9311"
         },
         "datasource": {
           "type": "prometheus",
