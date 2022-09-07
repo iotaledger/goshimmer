@@ -1,14 +1,15 @@
 package protocol
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
@@ -30,35 +31,53 @@ type Protocol struct {
 	DatabaseManager     *database.Manager
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.Block]
 	NotarizationManager *notarization.Manager
-	EvictionManager     *eviction.LockableManager[models.BlockID]
+	SnapshotManager     *snapshot.Manager
+	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	Solidification      *solidification.Solidification
 	SybilProtection     *sybilprotection.SybilProtection
 
 	logger *logger.Logger
 
+	optsSnapshotFile          string
 	optsEngineOptions         []options.Option[engine.Engine]
 	optsDBManagerOptions      []options.Option[database.Manager]
 	optsSolidificationOptions []options.Option[solidification.Solidification]
 }
 
 func New(network *network.Network, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
-	return options.Apply(new(Protocol), opts, func(p *Protocol) {
-		p.Events = NewEvents()
-		p.Network = network
+	return options.Apply(&Protocol{
+		Events:  NewEvents(),
+		Network: network,
 
+		optsSnapshotFile: "snapshot.bin",
+	}, opts, func(p *Protocol) {
+		err := snapshot.LoadSnapshot(
+			p.optsSnapshotFile,
+			p.NotarizationManager.LoadECandEIs,
+			p.SnapshotManager.LoadSolidEntryPoints,
+			p.NotarizationManager.LoadOutputsWithMetadata,
+			p.NotarizationManager.LoadEpochDiff,
+			emptyActivityConsumer,
+		)
+		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
+		if err != nil {
+			return
+		}
 		p.logger = logger
 
-		var genesisTime time.Time
-
-		p.EvictionManager = eviction.NewManager(models.IsEmptyBlockID).Lockable()
+		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
+			// TODO: implement me and set snapshot epoch!
+			// p.SnapshotManager.GetSolidEntryPoints(index)
+			return set.NewAdvancedSet[models.BlockID]()
+		})
 		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
 		p.SybilProtection = sybilprotection.New()
 
-		p.Solidification = solidification.New(p.EvictionManager.Manager, p.optsSolidificationOptions...)
+		p.Solidification = solidification.New(p.EvictionManager, p.optsSolidificationOptions...)
 
 		// TODO: when engine is ready
-		p.Engine = engine.New(genesisTime, ledger.New(), p.EvictionManager.Manager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
+		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
 	})
 }
@@ -73,6 +92,13 @@ func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
 	}
 
 	return p.BlockStorage.Get(id)
+}
+
+func (p *Protocol) setupNotarization() {
+	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
+	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+		p.EvictionManager.EvictUntilEpoch(event.EI)
+	}))
 }
 
 func (p *Protocol) Start() {
@@ -91,6 +117,8 @@ func (p *Protocol) Start() {
 		p.Network.GossipMgr.RequestBlock(lo.PanicOnErr(id.Bytes()))
 	}))
 }
+
+func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -111,6 +139,12 @@ func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Pro
 func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
 	return func(p *Protocol) {
 		p.optsSolidificationOptions = opts
+	}
+}
+
+func WithSnapshotFile(snapshotFile string) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsSnapshotFile = snapshotFile
 	}
 }
 
