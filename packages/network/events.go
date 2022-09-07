@@ -1,13 +1,13 @@
-package gossip
+package network
 
 import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
-// Events defines all the events related to the gossip protocol.
 type Events struct {
-	// Fired when a new block was received via the gossip protocol.
 	BlockReceived *event.Linkable[*BlockReceivedEvent, Events, *Events]
 
 	event.LinkableCollection[Events, *Events]
@@ -20,10 +20,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	}
 })
 
-// BlockReceivedEvent holds data about a block received event.
 type BlockReceivedEvent struct {
-	// The raw block.
-	Data []byte
-	// The sender of the block.
-	Peer *peer.Peer
+	Block *models.Block
+	Peer  *peer.Peer
 }
