@@ -76,7 +76,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine
 	}
 
 	new.engine.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		new.OnBlockStored(block)
+		new.OnBlockAttached(block)
 	}))
 
 	new.engine.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
@@ -306,8 +306,8 @@ func (m *Manager) OnBlockAccepted(block *acceptance.Block) {
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
 }
 
-// OnBlockStored is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
-func (m *Manager) OnBlockStored(block *blockdag.Block) {
+// OnBlockAttached is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
+func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
