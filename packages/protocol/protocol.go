@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -34,19 +32,33 @@ type Protocol struct {
 	Solidification      *solidification.Solidification
 	SybilProtection     *sybilprotection.SybilProtection
 
+	optsSnapshotFile          string
 	optsEngineOptions         []options.Option[engine.Engine]
 	optsDBManagerOptions      []options.Option[database.Manager]
 	optsSolidificationOptions []options.Option[solidification.Solidification]
 }
 
 func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *Protocol) {
-	return options.Apply(new(Protocol), opts, func(p *Protocol) {
+	return options.Apply(&Protocol{
+		optsSnapshotFile: "snapshot.bin",
+	}, opts, func(p *Protocol) {
 		p.Events = NewEvents()
 		p.Network = network
 
-		var genesisTime time.Time
+		err := snapshot.LoadSnapshot(
+			p.optsSnapshotFile,
+			p.NotarizationManager.LoadECandEIs,
+			p.SnapshotManager.LoadSolidEntryPoints,
+			p.NotarizationManager.LoadOutputsWithMetadata,
+			p.NotarizationManager.LoadEpochDiff,
+			emptyActivityConsumer,
+		)
+		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
+		if err != nil {
+			return
+		}
 
-		p.EvictionManager = eviction.NewManager(0, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
+		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
 			// TODO: implement me and set snapshot epoch!
 			// p.SnapshotManager.GetSolidEntryPoints(index)
 			return set.NewAdvancedSet[models.BlockID]()
@@ -57,7 +69,7 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 		p.Solidification = solidification.New(p.EvictionManager, p.optsSolidificationOptions...)
 
 		// TODO: when engine is ready
-		p.Engine = engine.New(genesisTime, ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
+		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
 	})
 }
@@ -110,6 +122,12 @@ func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Pro
 func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
 	return func(p *Protocol) {
 		p.optsSolidificationOptions = opts
+	}
+}
+
+func WithSnapshotFile(snapshotFile string) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsSnapshotFile = snapshotFile
 	}
 }
 

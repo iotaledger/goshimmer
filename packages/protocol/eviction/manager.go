@@ -24,8 +24,9 @@ type Manager[ID epoch.IndexedID] struct {
 func NewManager[ID epoch.IndexedID](snapshotEpochIndex epoch.Index, rootBlockProvider func(index epoch.Index) *set.AdvancedSet[ID]) (newManager *Manager[ID]) {
 	return &Manager[ID]{
 		Events:            NewEvents(),
-		rootBlockProvider: rootBlockProvider,
 		currentRootBlocks: rootBlockProvider(snapshotEpochIndex),
+		maxEvictedEpoch:   snapshotEpochIndex,
+		rootBlockProvider: rootBlockProvider,
 	}
 }
 
@@ -38,7 +39,8 @@ func (m *Manager[ID]) Lockable() (newLockableManager *LockableManager[ID]) {
 }
 
 func (m *Manager[ID]) EvictUntilEpoch(epochIndex epoch.Index) {
-	for currentIndex := m.setEvictedEpochAndUpdateRootBlocks(epochIndex) + 1; currentIndex <= epochIndex; currentIndex++ {
+	previousEvicted := m.setEvictedEpochAndUpdateRootBlocks(epochIndex)
+	for currentIndex := previousEvicted + 1; currentIndex <= epochIndex; currentIndex++ {
 		m.Events.EpochEvicted.Trigger(currentIndex)
 	}
 }
