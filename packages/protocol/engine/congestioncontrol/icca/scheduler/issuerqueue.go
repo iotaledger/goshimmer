@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
@@ -15,7 +16,7 @@ import (
 // IssuerQueue keeps the submitted blocks of a issuer.
 type IssuerQueue struct {
 	issuerID  identity.ID
-	submitted map[models.BlockID]*Block
+	submitted *shrinkingmap.ShrinkingMap[models.BlockID, *Block]
 	inbox     *ElementHeap
 	size      atomic.Int64
 }
@@ -24,7 +25,7 @@ type IssuerQueue struct {
 func NewIssuerQueue(issuerID identity.ID) *IssuerQueue {
 	return &IssuerQueue{
 		issuerID:  issuerID,
-		submitted: make(map[models.BlockID]*Block),
+		submitted: shrinkingmap.New[models.BlockID, *Block](),
 		inbox:     new(ElementHeap),
 	}
 }
@@ -50,42 +51,45 @@ func (q *IssuerQueue) Submit(element *Block) bool {
 		panic(fmt.Sprintf("issuerqueue: queue issuer ID(%x) and issuer ID(%x) does not match.", q.issuerID, blkIssuerID))
 	}
 
-	if _, submitted := q.submitted[element.ID()]; submitted {
+	if _, submitted := q.submitted.Get(element.ID()); submitted {
 		return false
 	}
 
-	q.submitted[element.ID()] = element
+	q.submitted.Set(element.ID(), element)
 	q.size.Inc()
 	return true
 }
 
 // Unsubmit removes a previously submitted block from the queue.
 func (q *IssuerQueue) Unsubmit(block *Block) bool {
-	if _, submitted := q.submitted[block.ID()]; !submitted {
+	if _, submitted := q.submitted.Get(block.ID()); !submitted {
 		return false
 	}
 
-	delete(q.submitted, block.ID())
+	q.submitted.Delete(block.ID())
 	q.size.Dec()
 	return true
 }
 
 // Ready marks a previously submitted block as ready to be scheduled.
 func (q *IssuerQueue) Ready(element *Block) bool {
-	if _, submitted := q.submitted[element.ID()]; !submitted {
+	if _, submitted := q.submitted.Get(element.ID()); !submitted {
 		return false
 	}
 
-	delete(q.submitted, element.ID())
+	q.submitted.Delete(element.ID())
 	heap.Push(q.inbox, element)
 	return true
 }
 
 // IDs returns the IDs of all submitted blocks (ready or not).
 func (q *IssuerQueue) IDs() (ids []models.BlockID) {
-	for id := range q.submitted {
+
+	q.submitted.ForEachKey(func(id models.BlockID) bool {
 		ids = append(ids, id)
-	}
+		return true
+	})
+
 	for _, block := range *q.inbox {
 		ids = append(ids, block.ID())
 	}

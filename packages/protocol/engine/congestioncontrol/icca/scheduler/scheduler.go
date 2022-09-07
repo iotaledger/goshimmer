@@ -9,14 +9,13 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/typeutils"
-	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -50,14 +49,13 @@ type Scheduler struct {
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
 	deficitsMutex sync.RWMutex
-	deficits      map[identity.ID]*big.Rat
+	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
 
 	totalAccessManaRetrieveFunc func() float64
 	accessManaMapRetrieverFunc  func() map[identity.ID]float64
 	isBlockAcceptedFunc         func(models.BlockID) bool
-	blockAcceptedEvent          *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 
-	rate                               *atomic.Duration
+	optsRate                           time.Duration
 	optsMaxBufferSize                  int
 	optsAcceptedBlockScheduleThreshold time.Duration
 
@@ -68,27 +66,25 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(isBlockAccepted func(models.BlockID) bool, blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events], tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, rate time.Duration, opts ...options.Option[Scheduler]) *Scheduler {
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
 		Tangle:          tangle,
 		EvictionManager: tangle.EvictionManager.Lockable(),
 
 		isBlockAcceptedFunc:         isBlockAccepted,
-		blockAcceptedEvent:          blockAcceptedEvent,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
-		rate:                        atomic.NewDuration(rate),
 
-		deficits:                           make(map[identity.ID]*big.Rat),
+		deficits:                           shrinkingmap.New[identity.ID, *big.Rat](),
 		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
+		optsRate:                           5 * time.Millisecond,
 
 		shutdownSignal: make(chan struct{}),
 	}, opts, func(s *Scheduler) {
-		// maximum access mana-scaled inbox length
-		s.ticker = time.NewTicker(s.rate.Load())
+		s.ticker = time.NewTicker(s.optsRate)
 		s.buffer = NewBufferQueue(s.optsMaxBufferSize)
 
 	}, (*Scheduler).setupEvents)
@@ -100,8 +96,6 @@ func (s *Scheduler) setupEvents() {
 	s.Tangle.VirtualVoting.Events.BlockTracked.Attach(event.NewClosure(s.AddBlock))
 
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
-
-	s.blockAcceptedEvent.Attach(event.NewClosure(s.HandleAcceptedBlock))
 
 	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
 
@@ -121,7 +115,7 @@ func (s *Scheduler) Running() bool {
 
 // Rate gets the rate of the scheduler.
 func (s *Scheduler) Rate() time.Duration {
-	return s.rate.Load()
+	return s.optsRate
 }
 
 // IssuerQueueSize returns the size of the IssuerIDs queue.
@@ -201,7 +195,7 @@ func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
 	s.deficitsMutex.RLock()
 	defer s.deficitsMutex.RUnlock()
 
-	deficit, exists := s.deficits[issuerID]
+	deficit, exists := s.deficits.Get(issuerID)
 	if !exists {
 		return new(big.Rat).SetInt64(0)
 	}
@@ -241,11 +235,11 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 	s.tryReady(block)
 }
 
-func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
+func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *virtualvoting.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
-	block, _ := s.getOrRegisterBlock(acceptedBlock.Block)
+	block, _ := s.getOrRegisterBlock(acceptedBlock)
 
 	scheduled := block.Scheduled()
 	if scheduled {
@@ -511,7 +505,8 @@ func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]float64) {
 	for i := 0; i < numIssuers; i++ {
 		if issuerMana, exists := manaMap[currentIssuer.IssuerID()]; (!exists || issuerMana < MinMana) && currentIssuer.Size() == 0 {
 			s.buffer.RemoveIssuer(currentIssuer.IssuerID())
-			delete(s.deficits, currentIssuer.IssuerID())
+			s.deficits.Delete(currentIssuer.IssuerID())
+
 			currentIssuer = s.buffer.Current()
 		} else {
 			currentIssuer = s.buffer.Next()
@@ -524,8 +519,8 @@ func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]float64) {
 			continue
 		}
 
-		if _, exists := s.deficits[issuerID]; !exists {
-			s.deficits[issuerID] = new(big.Rat).SetInt64(0)
+		if _, exists := s.deficits.Get(issuerID); !exists {
+			s.deficits.Set(issuerID, new(big.Rat).SetInt64(0))
 			s.buffer.InsertIssuer(issuerID)
 		}
 	}
@@ -541,7 +536,7 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
-	s.deficits[issuerID] = minRat(deficit, MaxDeficit)
+	s.deficits.Set(issuerID, minRat(deficit, MaxDeficit))
 }
 
 func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
@@ -590,6 +585,12 @@ func WithAcceptedBlockScheduleThreshold(acceptedBlockScheduleThreshold time.Dura
 func WithMaxBufferSize(maxBufferSize int) options.Option[Scheduler] {
 	return func(s *Scheduler) {
 		s.optsMaxBufferSize = maxBufferSize
+	}
+}
+
+func WithRate(rate time.Duration) options.Option[Scheduler] {
+	return func(s *Scheduler) {
+		s.optsRate = rate
 	}
 }
 

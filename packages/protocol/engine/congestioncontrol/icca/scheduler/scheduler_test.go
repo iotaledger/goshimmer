@@ -23,7 +23,7 @@ func TestScheduler_StartStop(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 	tf.Scheduler.Start()
 
 	time.Sleep(100 * time.Millisecond)
@@ -31,7 +31,7 @@ func TestScheduler_StartStop(t *testing.T) {
 }
 
 func TestScheduler_Submit(t *testing.T) {
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
@@ -44,7 +44,7 @@ func TestScheduler_Submit(t *testing.T) {
 }
 
 func TestScheduler_updateActiveNodeList(t *testing.T) {
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 
 	tf.Scheduler.updateActiveIssuersList(map[identity.ID]float64{})
 	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
@@ -97,7 +97,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 
 func TestScheduler_Discarded(t *testing.T) {
 	t.Skip("Skip test. Zero mana nodes are allowed to issue blocks.")
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 
 	tf.CreateIssuer("nomana", 0)
 
@@ -125,7 +125,7 @@ func TestScheduler_Discarded(t *testing.T) {
 }
 
 func TestScheduler_Schedule(t *testing.T) {
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 
 	blockScheduled := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
@@ -151,10 +151,7 @@ func TestScheduler_Schedule(t *testing.T) {
 }
 
 func TestScheduler_SkipConfirmed(t *testing.T) {
-	tf := NewTestFramework(t,
-		WithRate(5*time.Millisecond),
-		WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute*2)),
-	)
+	tf := NewTestFramework(t, WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute*2)))
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan models.BlockID, 1)
@@ -252,7 +249,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 }
 
 func TestScheduler_Time(t *testing.T) {
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan *Block, 1)
@@ -294,7 +291,7 @@ func TestScheduler_Time(t *testing.T) {
 
 func TestScheduler_Issue(t *testing.T) {
 	debug.SetEnabled(true)
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
@@ -331,7 +328,7 @@ func TestScheduler_Issue(t *testing.T) {
 }
 
 func TestSchedulerFlow(t *testing.T) {
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 	tf.CreateIssuer("peer", 10)
 	tf.CreateIssuer("self", 10)
 
@@ -376,7 +373,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	debug.SetEnabled(true)
 	const totalBlkCount = 200
 
-	tf := NewTestFramework(t, WithRate(5*time.Millisecond))
+	tf := NewTestFramework(t)
 
 	tf.Scheduler.Events.Error.Hook(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 

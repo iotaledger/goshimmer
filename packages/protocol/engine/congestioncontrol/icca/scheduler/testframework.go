@@ -3,7 +3,6 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -42,7 +41,6 @@ type TestFramework struct {
 	optsGadget              []options.Option[acceptance.Gadget]
 	optsValidatorSet        *validator.Set
 	optsEvictionManager     *eviction.Manager[models.BlockID]
-	optsRate                time.Duration
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	*TangleTestFramework
@@ -80,7 +78,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.optsIsBlockAcceptedFunc, t.optsBlockAcceptedEvent, t.TangleTestFramework.Tangle, t.ManaMap, t.TotalMana, t.optsRate, t.optsScheduler...)
+			t.Scheduler = New(t.optsIsBlockAcceptedFunc, t.TangleTestFramework.Tangle, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
 
 	}, (*TestFramework).setupEvents)
@@ -91,6 +89,10 @@ type TangleTestFramework = tangle.TestFramework
 type GadgetTestFramework = acceptance.TestFramework
 
 func (t *TestFramework) setupEvents() {
+	t.mockAcceptance.blockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
+		t.Scheduler.HandleAcceptedBlock(acceptedBlock.Block)
+	}))
+
 	t.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SCHEDULED: %s", block.ID())
@@ -141,7 +143,7 @@ func (t *TestFramework) UpdateIssuers(newIssuers map[string]float64) {
 func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity) {
 	issuerIdentity, exists := t.issuersByAlias[alias]
 	if !exists {
-		panic("identity aliast not registered")
+		panic("identity alias not registered")
 	}
 	return issuerIdentity
 }
@@ -236,11 +238,6 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithRate(rate time.Duration) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsRate = rate
-	}
-}
 func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
