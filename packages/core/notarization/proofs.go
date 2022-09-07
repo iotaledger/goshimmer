@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -22,12 +22,14 @@ type CommitmentProof struct {
 }
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
-func (m *Manager) GetBlockInclusionProof(blockID tangleold.BlockID) (*CommitmentProof, error) {
+func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	m.tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-		t := block.IssuingTime()
-		ei = epoch.IndexFromTime(t)
-	})
+	block, exists := m.engine.Tangle.BlockDAG.Block(blockID)
+	if !exists {
+		return nil, errors.Errorf("cannot retrieve block with id %s", blockID)
+	}
+	t := block.IssuingTime()
+	ei = epoch.IndexFromTime(t)
 	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
 	if err != nil {
 		return nil, err
@@ -38,7 +40,7 @@ func (m *Manager) GetBlockInclusionProof(blockID tangleold.BlockID) (*Commitment
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	m.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
+	m.engine.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		ei = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
@@ -84,7 +86,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 }
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangleold.BlockID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -100,7 +102,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangleo
 }
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
-func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangleold.BlockID) bool {
+func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
 	key := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }

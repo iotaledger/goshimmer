@@ -11,10 +11,12 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -29,7 +31,7 @@ const (
 
 // Manager is the notarization manager.
 type Manager struct {
-	tangle                      *tangleold.Tangle
+	engine                      *engine.Engine
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	bootstrapMutex              sync.RWMutex
@@ -41,7 +43,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tangle, opts ...ManagerOption) (new *Manager) {
+func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
@@ -52,7 +54,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 	}
 
 	new = &Manager{
-		tangle:                   t,
+		engine:                   e,
 		epochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
 		log:                      options.Log,
@@ -73,52 +75,48 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 		},
 	}
 
-	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
-		new.OnBlockStored(event.Block)
+	new.engine.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		new.OnBlockStored(block)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.BlockAcceptedEvent) {
-		new.OnBlockAccepted(event.Block)
+	new.engine.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
+		new.OnBlockAccepted(block)
 	}))
 
-	new.tangle.ConfirmationOracle.Events().BlockOrphaned.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.BlockAcceptedEvent) {
-		new.OnBlockOrphaned(event.Block)
+	new.engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
+		new.OnBlockOrphaned(block)
 	}))
 
-	new.tangle.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionAcceptedEvent) {
+	new.engine.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionAcceptedEvent) {
 		new.OnTransactionAccepted(event)
 	}))
 
-	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *ledger.TransactionInclusionUpdatedEvent) {
+	new.engine.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionInclusionUpdatedEvent) {
 		new.OnTransactionInclusionUpdated(event)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	new.engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		new.OnConflictAccepted(event.ID)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	new.engine.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		new.OnConflictCreated(event.ID)
 	}))
 
-	new.tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(t.TimeManager, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+	new.engine.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
 		new.OnConflictRejected(event.ID)
 	}))
 
-	new.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(t.TimeManager, func(event *tangleold.TimeUpdate) {
-		new.OnAcceptanceTimeUpdated(event.ATT)
-	}))
-
-	new.tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
-		new.OnBlockStored(event.Block)
+	new.engine.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
+		new.OnAcceptanceTimeUpdated(event.NewTime)
 	}))
 
 	return new
 }
 
-func onlyIfBootstrapped[E any](timeManager *tangleold.TimeManager, handler func(event E)) *event.Closure[E] {
+func onlyIfBootstrapped[E any](engine *engine.Engine, handler func(event E)) *event.Closure[E] {
 	return event.NewClosure(func(event E) {
-		if !timeManager.Bootstrapped() {
+		if !engine.IsBootstrapped() {
 			return
 		}
 		handler(event)
@@ -288,7 +286,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 }
 
 // OnBlockAccepted is the handler for block confirmed event.
-func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
+func (m *Manager) OnBlockAccepted(block *acceptance.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -309,7 +307,7 @@ func (m *Manager) OnBlockAccepted(block *tangleold.Block) {
 }
 
 // OnBlockStored is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
-func (m *Manager) OnBlockStored(block *tangleold.Block) {
+func (m *Manager) OnBlockStored(block *blockdag.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -323,7 +321,7 @@ func (m *Manager) OnBlockStored(block *tangleold.Block) {
 	}
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 
-	blockEI := block.ECRecordEI()
+	blockEI := block.EI()
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
 	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
 
@@ -339,7 +337,7 @@ func (m *Manager) OnBlockStored(block *tangleold.Block) {
 }
 
 // OnBlockOrphaned is the handler for block orphaned event.
-func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
+func (m *Manager) OnBlockOrphaned(block *blockdag.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -360,12 +358,27 @@ func (m *Manager) OnBlockOrphaned(block *tangleold.Block) {
 
 	updatedCount := uint64(1)
 	// if block has been accepted, counter was increased two times, on booking and on acceptance
-	if m.tangle.ConfirmationOracle.IsBlockConfirmed(block.ID()) {
+	if m.engine.Consensus.Gadget.IsBlockAccepted(block.ID()) {
 		updatedCount++
 	}
 
-	noActivityLeft := m.tangle.WeightProvider.Remove(ei, nodeID, updatedCount)
-	if noActivityLeft {
+	// TODO: we assume that the validator set of the engine for this epoch has been adjusted already, by taking into
+	// account the orphaned block: i.e. removed the validator if it was the only issuer's block within the epoch.
+	// Currently, the validator.Set is not epoch-scoped, but it should be: we want to make sure there is no activity
+	// left from this nodeID in the epoch the block was orphaned from.
+	//
+	// OLD CODE:
+	// noActivityLeft := m.tangle.WeightProvider.Remove(ei, nodeID, updatedCount)
+	// if noActivityLeft {
+	// 	err = m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
+	// 	if err != nil && m.log != nil {
+	// 		m.log.Error(err)
+	// 		return
+	// 	}
+	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+	// }
+
+	if _, exists := m.engine.Tangle.ValidatorSet.Get(nodeID); !exists {
 		err = m.epochCommitmentFactory.removeActivityLeaf(ei, nodeID)
 		if err != nil && m.log != nil {
 			m.log.Error(err)
@@ -389,7 +402,7 @@ func (m *Manager) OnTransactionAccepted(event *ledger.TransactionAcceptedEvent) 
 	txID := event.TransactionID
 
 	var txInclusionTime time.Time
-	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+	m.engine.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		txInclusionTime = txMeta.InclusionTime()
 	})
 	txEpoch := epoch.IndexFromTime(txInclusionTime)
@@ -400,7 +413,7 @@ func (m *Manager) OnTransactionAccepted(event *ledger.TransactionAcceptedEvent) 
 	}
 
 	var spent, created []*ledger.OutputWithMetadata
-	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+	m.engine.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		spent, created = m.resolveOutputs(tx)
 	})
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
@@ -428,7 +441,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	txID := event.TransactionID
 
 	var spent, created []*ledger.OutputWithMetadata
-	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+	m.engine.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		spent, created = m.resolveOutputs(tx)
 	})
 
@@ -614,7 +627,7 @@ func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved
 
 func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnough bool) {
 	t := ei.EndTime()
-	currentATT := m.tangle.TimeManager.ATT()
+	currentATT := m.engine.Clock.AcceptedTime()
 	if len(issuingTime) > 0 && issuingTime[0].After(currentATT) {
 		currentATT = issuingTime[0]
 	}
@@ -626,10 +639,9 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 	return true
 }
 
-func (m *Manager) getConflictEI(conflictID utxo.TransactionID) (ei epoch.Index) {
-	earliestAttachment := m.tangle.BlockFactory.EarliestAttachment(utxo.NewTransactionIDs(conflictID), false)
-	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
-	return
+func (m *Manager) getConflictEI(conflictID utxo.TransactionID) epoch.Index {
+	earliestAttachment := m.engine.Tangle.GetEarliestAttachment(conflictID)
+	return epoch.IndexFromTime(earliestAttachment.IssuingTime())
 }
 
 func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
@@ -647,13 +659,13 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	var spentOutputIDs utxo.OutputIDs
 	var createdOutputs []utxo.Output
 
-	spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	spentOutputIDs = m.engine.Ledger.Utils.ResolveInputs(tx.Inputs())
 	createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
 
 	for it := spentOutputIDs.Iterator(); it.HasNext(); {
 		spentOutputID := it.Next()
-		m.tangle.Ledger.Storage.CachedOutput(spentOutputID).Consume(func(spentOutput utxo.Output) {
-			m.tangle.Ledger.Storage.CachedOutputMetadata(spentOutputID).Consume(func(spentOutputMetadata *ledger.OutputMetadata) {
+		m.engine.Ledger.Storage.CachedOutput(spentOutputID).Consume(func(spentOutput utxo.Output) {
+			m.engine.Ledger.Storage.CachedOutputMetadata(spentOutputID).Consume(func(spentOutputMetadata *ledger.OutputMetadata) {
 				spentOutputsWithMetadata = append(spentOutputsWithMetadata, ledger.NewOutputWithMetadata(spentOutputID, spentOutput, spentOutputMetadata.CreationTime(), spentOutputMetadata.ConsensusManaPledgeID(), spentOutputMetadata.AccessManaPledgeID()))
 			})
 		})
@@ -661,7 +673,7 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 
 	for _, createdOutput := range createdOutputs {
 		createdOutputID := createdOutput.ID()
-		m.tangle.Ledger.Storage.CachedOutputMetadata(createdOutputID).Consume(func(createdOutputMetadata *ledger.OutputMetadata) {
+		m.engine.Ledger.Storage.CachedOutputMetadata(createdOutputID).Consume(func(createdOutputMetadata *ledger.OutputMetadata) {
 			createdOutputsWithMetadata = append(createdOutputsWithMetadata, ledger.NewOutputWithMetadata(createdOutputID, createdOutput, createdOutputMetadata.CreationTime(), createdOutputMetadata.ConsensusManaPledgeID(), createdOutputMetadata.AccessManaPledgeID()))
 		})
 	}
@@ -736,7 +748,9 @@ func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableE
 }
 
 func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
-	if !m.Bootstrapped() && (ei > epoch.IndexFromTime(clock.SyncedTime().Add(-m.options.BootstrapWindow)) || m.options.BootstrapWindow == 0) {
+	if !m.Bootstrapped() &&
+		(ei > epoch.IndexFromTime(m.engine.Clock.RelativeAcceptedTime().Add(-m.options.BootstrapWindow)) ||
+			m.options.BootstrapWindow == 0) {
 		m.bootstrapMutex.Lock()
 		m.bootstrapped = true
 		m.bootstrapMutex.Unlock()
@@ -746,7 +760,8 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 
 // SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
 func (m *Manager) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity, err error) {
-	epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
+	// TODO: obtain activity for epoch from the sybilprotection component embedded in the Engine
+	//epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
 	return
 }
 

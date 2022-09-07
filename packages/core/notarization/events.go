@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -50,7 +50,7 @@ type TangleTreeUpdatedEvent struct {
 	// EI is the index of the block.
 	EI epoch.Index
 	// BlockID is the blockID that inserted/removed to/from the tangle smt.
-	BlockID tangleold.BlockID
+	BlockID models.BlockID
 }
 
 // BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
@@ -94,7 +94,7 @@ type EpochConfirmedEvent struct {
 // CompetingCommitmentDetectedEvent is a container that acts as a dictionary for the CompetingCommitmentDetectedEvent event related parameters.
 type CompetingCommitmentDetectedEvent struct {
 	// Block is the block that contains the competing commitment.
-	Block *tangleold.Block
+	Block *models.Block
 }
 
 // SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -20,8 +21,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Commitment types ////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +52,6 @@ type EpochCommitmentFactory struct {
 	commitmentTrees *shrinkingmap.ShrinkingMap[epoch.Index, *CommitmentTrees]
 
 	storage *EpochCommitmentStorage
-	tangle  *tangleold.Tangle
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
@@ -65,7 +63,7 @@ type EpochCommitmentFactory struct {
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangleold.Tangle, snapshotDepth int) *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
 	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
@@ -77,7 +75,6 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangleold.Tangle, 
 	return &EpochCommitmentFactory{
 		commitmentTrees: shrinkingmap.New[epoch.Index, *CommitmentTrees](),
 		storage:         epochCommitmentStorage,
-		tangle:          tangle,
 		snapshotDepth:   snapshotDepth,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
@@ -171,7 +168,7 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 }
 
 // insertTangleLeaf inserts blk to the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
+func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID models.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
@@ -180,7 +177,7 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangleol
 }
 
 // removeTangleLeaf removes the block ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
+func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID models.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
