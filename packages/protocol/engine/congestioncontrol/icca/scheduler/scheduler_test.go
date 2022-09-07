@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -406,10 +407,10 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	}
 
 	// issue tips to start solidification
-	tf.IssueBlocks(blockAliases...)
+	tf.IssueBlocks(blockAliases...).WaitUntilAllTasksProcessed()
 
 	// wait for all blocks to have a formed opinion
-	assert.Eventually(t, func() bool { return tf.scheduledBlocksCount == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)
+	assert.Eventually(t, func() bool { return atomic.LoadUint32(&(tf.scheduledBlocksCount)) == totalBlkCount }, 5*time.Minute, 100*time.Millisecond)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
