@@ -6,24 +6,40 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 type cachedMetadata struct {
-	BlockDAG blockWithTime[*blockdag.Block]
-	Booker   blockWithTime[*booker.Block]
-	OTV      blockWithTime[*virtualvoting.Block]
+	BlockDAG      *blockWithTime[*blockdag.Block]
+	Booker        *blockWithTime[*booker.Block]
+	VirtualVoting *blockWithTime[*virtualvoting.Block]
+	// TODO: add scheduler block
+	Acceptance *blockWithTime[*acceptance.Block]
 
 	m sync.RWMutex
+}
+
+func newCachedMetadata() *cachedMetadata {
+	return &cachedMetadata{}
 }
 
 type blockWithTime[BlockType any] struct {
 	Block BlockType
 	Time  time.Time
 }
+
+func newBlockWithTime[BlockType any](block BlockType) *blockWithTime[BlockType] {
+	return &blockWithTime[BlockType]{
+		Block: block,
+		Time:  time.Now(),
+	}
+}
+
+// TODO: make storable
 
 type BlockMetadata struct {
 	BlockID models.BlockID

@@ -2,40 +2,47 @@ package retainer
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	generickv "github.com/iotaledger/hive.go/core/generics/kvstore"
-	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
 )
-
-var retainerRealm = kvstore.Realm("retainer")
 
 type Retainer struct {
 	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
+	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata]
 
-	dbManager       *database.Manager
+	protocol        *protocol.Protocol
 	evictionManager *eviction.LockableManager[models.BlockID]
 }
 
-func NewRetainer(dbManager *database.Manager, evictionManager *eviction.Manager[models.BlockID]) (r *Retainer) {
+func NewRetainer(protocol *protocol.Protocol) (r *Retainer) {
 	r = &Retainer{
-		dbManager:       dbManager,
-		cachedMetadata:  memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
-		evictionManager: evictionManager.Lockable(),
+		cachedMetadata: memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
+		// TODO: blockStorage: database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata](),
+		protocol:        protocol,
+		evictionManager: protocol.EvictionManager.Lockable(),
 	}
 
 	r.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
 
 	// TODO: attach to events and store in memstorage
-	//  solid
 	//  booked
 	//  tracked
 	//  scheduled
 	//  accepted
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+		r.evictionManager.RLock()
+		defer r.evictionManager.RUnlock()
+
+		storage := r.cachedMetadata.Get(block.ID().Index(), true)
+		cm, _ := storage.RetrieveOrCreate(block.ID(), newCachedMetadata)
+		cm.BlockDAG = newBlockWithTime(block)
+	}))
 
 	return
 }
@@ -45,7 +52,7 @@ func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
 	metas := r.createStorableBlockMetadata(epochIndex)
 
 	// Now we store it to disk (slow).
-	r.storeBlockMetadata(epochIndex, metas)
+	r.storeBlockMetadata(metas)
 
 	// Once everything is stored to disk, we evict it from cache.
 	// Therefore, we make sure that we can always first try to read BlockMetadata from cache and if it's not in cache
@@ -62,23 +69,17 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	storage := r.cachedMetadata.Get(epochIndex)
 
 	metas = make([]*BlockMetadata, 0, storage.Size())
-
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		metas = append(metas, newBlockMetadata(cm))
 		return true
 	})
+
 	return metas
 }
 
-func (r *Retainer) storeBlockMetadata(epochIndex epoch.Index, metas []*BlockMetadata) {
-	kv := r.dbManager.Get(epochIndex, retainerRealm)
-	store := generickv.NewTypedStore[models.BlockID, *BlockMetadata](kv)
-
+func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		err := store.Set(meta.BlockID, meta)
-		if err != nil {
-			// TODO: log errors?
-		}
+		r.blockStorage.Set(meta.BlockID, meta)
 	}
 }
 
@@ -87,7 +88,7 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 		return blockMetadata, blockExists
 	}
 
-	return r.blockMetadataFromStore(blockID)
+	return r.blockStorage.Get(blockID)
 }
 
 func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists bool, metadata *BlockMetadata, exists bool) {
@@ -101,17 +102,4 @@ func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists
 
 	cm, exists := storage.Get(blockID)
 	return true, newBlockMetadata(cm), exists
-}
-
-func (r *Retainer) blockMetadataFromStore(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
-	kv := r.dbManager.Get(blockID.Index(), retainerRealm)
-	store := generickv.NewTypedStore[models.BlockID, *BlockMetadata](kv)
-
-	metadata, err := store.Get(blockID)
-	if err != nil {
-		// TODO: log error?
-		return nil, false
-	}
-
-	return metadata, true
 }

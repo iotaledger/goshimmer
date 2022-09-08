@@ -8,7 +8,7 @@ import (
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Block represents a Block annotated with OTV related metadata.
+// Block represents a Block annotated with VirtualVoting related metadata.
 type Block struct {
 	subjectivelyInvalid bool
 
