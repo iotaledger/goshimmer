@@ -230,9 +230,11 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 
 	block, _ := s.getOrRegisterBlock(sourceBlock)
 
-	if block.IsOrphaned() && !block.IsDropped() {
-		block.SetDropped()
-		s.Events.BlockDropped.Trigger(block)
+	if block.IsOrphaned() {
+		if !block.IsDropped() {
+			block.SetDropped()
+			s.Events.BlockDropped.Trigger(block)
+		}
 		return
 	}
 
@@ -263,7 +265,7 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *virtualvoting.Block) {
 
 	block, _ := s.getOrRegisterBlock(acceptedBlock)
 
-	if block.IsScheduled() {
+	if block.IsScheduled() || block.IsDropped() || block.IsSkipped() {
 		return
 	}
 

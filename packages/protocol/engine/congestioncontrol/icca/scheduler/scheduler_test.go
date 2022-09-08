@@ -6,16 +6,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/schedulerutils"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +31,26 @@ func TestScheduler_StartStop(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	tf.Scheduler.Shutdown()
+}
+
+func TestScheduler_AddBlock(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	tf.Scheduler.Start()
+	defer tf.Scheduler.Shutdown()
+
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	assert.NoError(t, blk.DetermineID())
+
+	tf.Scheduler.AddBlock(blk)
+
+	schedulerBlock, exists := tf.Scheduler.Block(blk.ID())
+
+	assert.True(t, exists, "scheduler block should exist")
+	assert.True(t, schedulerBlock.IsDropped(), "block should be dropped")
+	tf.AssertBlocksDropped(1)
+	tf.AssertBlocksSkipped(0)
+
 }
 
 func TestScheduler_Submit(t *testing.T) {
@@ -97,32 +119,32 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 }
 
 func TestScheduler_Dropped(t *testing.T) {
-	t.Skip("Skip test. Zero mana nodes are allowed to issue blocks.")
-	tf := NewTestFramework(t)
+	tf := NewTestFramework(t, WithSchedulerOptions(WithMaxBufferSize(numBlocks/2)))
 
 	tf.CreateIssuer("nomana", 0)
 
-	droppedBlockIDChan := make(chan models.BlockID, 1)
+	droppedBlockIDChan := make(chan models.BlockID, numBlocks)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
 		droppedBlockIDChan <- block.ID()
 	}))
 
-	tf.Scheduler.Start()
-	defer tf.Scheduler.Shutdown()
-
-	// this node has no mana so the block will be dropped
-	block := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("nomana").PublicKey()))
-	err := tf.Scheduler.Submit(block)
-	assert.Truef(t, errors.Is(err, schedulerutils.ErrInsufficientMana), "unexpected error: %v", err)
-
+	for i := 0; i < numBlocks; i++ {
+		alias := fmt.Sprintf("blk-%d", i)
+		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
+		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
+	}
+	droppedCounter := 0
 	assert.Eventually(t, func() bool {
 		select {
 		case droppedBlockID := <-droppedBlockIDChan:
-			return assert.Equal(t, block.ID(), droppedBlockID)
+			expectedBlock := tf.Block(fmt.Sprintf("blk-%d", droppedCounter))
+			droppedCounter++
+			return assert.Equal(t, expectedBlock.ID(), droppedBlockID)
 		default:
 			return false
 		}
 	}, 1*time.Second, 10*time.Millisecond)
+	tf.AssertBlocksDropped(numBlocks / 2)
 }
 
 func TestScheduler_Schedule(t *testing.T) {
@@ -178,6 +200,8 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 	tf.AssertBlocksScheduled(0)
+	tf.AssertBlocksDropped(1)
+
 }
 
 func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
@@ -237,7 +261,7 @@ func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 }
 
 func TestScheduler_SkipConfirmed(t *testing.T) {
-	tf := NewTestFramework(t, WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute*2)))
+	tf := NewTestFramework(t, WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute)))
 	tf.CreateIssuer("peer", 10)
 
 	blockScheduled := make(chan models.BlockID, 1)
@@ -411,6 +435,17 @@ func TestScheduler_Issue(t *testing.T) {
 		}
 	}, 10*time.Second, 10*time.Millisecond)
 	assert.Equal(t, ids, scheduledIDs)
+
+	for i := 0; i < numBlocks; i++ {
+		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
+		lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+			block.ID(): true,
+		})
+		tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
+	}
+
+	tf.AssertBlocksSkipped(0)
+	tf.AssertBlocksScheduled(numBlocks)
 }
 
 func TestSchedulerFlow(t *testing.T) {
