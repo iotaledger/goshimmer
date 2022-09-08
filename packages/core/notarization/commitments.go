@@ -173,7 +173,7 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID models.B
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
 	}
-	return insertLeaf(commitment.tangleTree, blkID.Bytes(), blkID.Bytes())
+	return insertLeaf(commitment.tangleTree, lo.PanicOnErr(blkID.Bytes()), lo.PanicOnErr(blkID.Bytes()))
 }
 
 // removeTangleLeaf removes the block ID from the Tangle sparse merkle tree.
@@ -182,7 +182,7 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID models.B
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
 	}
-	return removeLeaf(commitment.tangleTree, blkID.Bytes())
+	return removeLeaf(commitment.tangleTree, lo.PanicOnErr(blkID.Bytes()))
 }
 
 // insertActivityLeaf inserts nodeID to the Activity sparse merkle tree.

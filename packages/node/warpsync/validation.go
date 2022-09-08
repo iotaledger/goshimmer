@@ -156,7 +156,7 @@ func (m *Manager) endValidation() {
 	close(m.commitmentsChan)
 }
 
-func (m *Manager) onEpochCommittmentReceived(event *warpsync.EpochCommittmentReceivedEvent) {
+func (m *Manager) onEpochCommittmentReceived(event *warpsync.EpochCommitmentReceivedEvent) {
 	m.validationLock.RLock()
 	defer m.validationLock.RUnlock()
 

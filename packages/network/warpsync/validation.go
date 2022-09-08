@@ -42,7 +42,7 @@ func (p *Protocol) processEpochCommittmentPacket(packetEpochCommittment *wp.Pack
 
 	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
 
-	p.Events.EpochCommittmentReceived.Trigger(&EpochCommittmentReceivedEvent{
+	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
 		Neighbor: nbr,
 		ECRecord: ecRecord,
 	})
