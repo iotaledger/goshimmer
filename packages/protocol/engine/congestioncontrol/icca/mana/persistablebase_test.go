@@ -45,7 +45,7 @@ func TestPersistableBaseMana_ObjectStorageValue(t *testing.T) {
 func TestPersistableBaseMana_FromBytes(t *testing.T) {
 	p1 := newPersistableMana()
 	p2 := new(PersistableBaseMana)
-	err := p2.FromBytes(lo.PanicOnErr(p1.Bytes()))
+	_, err := p2.FromBytes(lo.PanicOnErr(p1.Bytes()))
 	assert.Nil(t, err, "should not have returned error")
 	assert.Equal(t, lo.PanicOnErr(p1.Bytes()), lo.PanicOnErr(p2.Bytes()), "should be equal")
 }

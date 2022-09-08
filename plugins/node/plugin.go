@@ -1,8 +1,6 @@
 package node
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
@@ -30,7 +28,6 @@ type dependencies struct {
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
-
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -39,13 +36,15 @@ func init() {
 }
 
 func provide() (result providerResult) {
-	result.Network = network.New(deps.P2PManager, func(id models.BlockID) *models.Block {
-		fmt.Println(result.Protocol)
+	result.Network = network.New(
+		deps.P2PManager,
+		func(id models.BlockID) (*models.Block, bool) {
+			return result.Protocol.Block(id)
+		},
+		Plugin.Logger(),
+	)
 
-		return nil
-	}, Plugin.Logger())
-
-	result.Protocol = protocol.New(result.Network)
+	result.Protocol = protocol.New(result.Network, Plugin.Logger())
 
 	return
 }

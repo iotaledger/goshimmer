@@ -443,7 +443,7 @@ func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, is
 
 // FromBytes unmarshals a Block from a sequence of bytes.
 func (m *Block) FromBytes(bytes []byte) (err error) {
-	if err = m.Storable.FromBytes(bytes); err != nil {
+	if _, err = m.Storable.FromBytes(bytes); err != nil {
 		return
 	}
 	return m.DetermineID()
