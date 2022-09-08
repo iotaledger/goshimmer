@@ -92,7 +92,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
 	}
 
-	key := blockID.Bytes()
+	key, _ := blockID.Bytes()
 	root := committmentTrees.tangleTree.Root()
 	proof, err := committmentTrees.tangleTree.ProveForRoot(key, root)
 	if err != nil {
@@ -103,7 +103,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
 func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
-	key := blockID.Bytes()
+	key, _ := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
 

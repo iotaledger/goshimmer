@@ -32,13 +32,17 @@ func New(p2pManager *p2p.Manager, parser *parser.Parser, log *logger.Logger) (ne
 	}
 
 	new.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
-		PacketFactory:      warpsyncPacketFactory,
+		PacketFactory:      warpSyncPacketFactory,
 		NegotiationSend:    sendNegotiationMessage,
 		NegotiationReceive: receiveNegotiationMessage,
 		PacketHandler:      new.handlePacket,
 	})
 
 	return
+}
+
+func (p *Protocol) Stop() {
+	p.p2pManager.UnregisterProtocol(protocolID)
 }
 
 func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
@@ -63,7 +67,7 @@ func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	return nil
 }
 
-func warpsyncPacketFactory() proto.Message {
+func warpSyncPacketFactory() proto.Message {
 	return &wp.Packet{}
 }
 

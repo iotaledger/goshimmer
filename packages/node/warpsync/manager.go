@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
@@ -69,6 +70,8 @@ func NewManager(blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFu
 	}
 
 	options.Apply(m, opts)
+
+	m.protocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(m.onEpochCommittmentReceived))
 
 	return m
 }
@@ -135,5 +138,5 @@ func (m *Manager) IsStopped() bool {
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
 	m.stopped.Set()
-	m.p2pManager.UnregisterProtocol(protocolID)
+	m.protocol.Stop()
 }
