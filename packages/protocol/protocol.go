@@ -101,7 +101,7 @@ func (p *Protocol) setupNotarization() {
 
 func (p *Protocol) Start() {
 	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
-	p.Network.Events.BlockReceived.Attach(network.BlockReceivedClosure(p.Inbox.ProcessReceivedBlock))
+	p.Network.Events.BlockReceived.Attach(network.BlockReceivedHandler(p.Inbox.ProcessReceivedBlock))
 	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 

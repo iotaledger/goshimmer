@@ -35,7 +35,7 @@ type BlockReceivedEvent struct {
 	Peer  *peer.Peer
 }
 
-func BlockReceivedClosure(handler func(block *models.Block, peer *peer.Peer)) *event.Closure[*BlockReceivedEvent] {
+func BlockReceivedHandler(handler func(block *models.Block, peer *peer.Peer)) *event.Closure[*BlockReceivedEvent] {
 	return event.NewClosure(func(event *BlockReceivedEvent) {
 		handler(event.Block, event.Peer)
 	})
