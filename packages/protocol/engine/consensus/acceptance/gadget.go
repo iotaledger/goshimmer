@@ -179,6 +179,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 	if block.SetAccepted() {
+
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)

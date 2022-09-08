@@ -71,6 +71,8 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 		// TODO: when engine is ready
 		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
+
+		// TODO: attach engine events to sybilprotection
 	})
 }
 
