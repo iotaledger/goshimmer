@@ -2,6 +2,7 @@ package engine
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
@@ -43,14 +44,14 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			}
 
 			if t.optsEvictionManager == nil {
-				t.optsEvictionManager = eviction.NewManager(models.IsEmptyBlockID)
+				t.optsEvictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
 			}
 
 			if t.optsValidatorSet == nil {
 				t.optsValidatorSet = validator.NewSet()
 			}
 
-			t.Engine = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsEngineOptions...)
+			t.Engine = New(time.Now(), t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsEngineOptions...)
 		}
 
 		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))

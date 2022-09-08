@@ -51,7 +51,7 @@ type ManagerOption func(m *Manager)
 func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
 		p2pManager:    p2pManager,
-		Events:        newEvents(),
+		Events:        NewEvents(),
 		loadBlockFunc: f,
 		log:           log,
 	}
