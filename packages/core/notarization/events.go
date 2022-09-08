@@ -1,12 +1,14 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +22,7 @@ type Events struct {
 	// CompetingCommitmentDetected is an event that gets triggered whenever a competing epoch commitment is detected.
 	CompetingCommitmentDetected *event.Event[*CompetingCommitmentDetectedEvent]
 	// ManaVectorUpdate is an event that gets triggered whenever the consensus mana vector needs to be updated.
-	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
+	ManaVectorUpdate *event.Event[*mana.ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
 	// TangleTreeRemoved is an event that gets triggered when a Block is removed from Tangle smt.
@@ -38,10 +40,9 @@ type Events struct {
 	// SyncRange is an event that gets triggered when an entire range of epochs needs to be requested, validated and solidified
 	SyncRange *event.Event[*SyncRangeEvent]
 	// ActivityTreeInserted is an event that gets triggered when nodeID is added to the activity tree.
-        ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
-        // ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
-        ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
-
+	ActivityTreeInserted *event.Event[*ActivityTreeUpdatedEvent]
+	// ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
+	ActivityTreeRemoved *event.Event[*ActivityTreeUpdatedEvent]
 }
 
 // TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
@@ -70,10 +71,10 @@ type StateMutationTreeUpdatedEvent struct {
 type UTXOUpdatedEvent struct {
 	// EI is the index of updated UTXO.
 	EI epoch.Index
-	// Created are the outputs created in a transaction.
-	Created []*ledger.OutputWithMetadata
 	// Spent are outputs that is spent in a transaction.
 	Spent []*ledger.OutputWithMetadata
+	// Created are the outputs created in a transaction.
+	Created []*ledger.OutputWithMetadata
 }
 
 // EpochCommittableEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
@@ -96,16 +97,6 @@ type CompetingCommitmentDetectedEvent struct {
 	Block *tangleold.Block
 }
 
-// ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
-type ManaVectorUpdateEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.Index
-	// EpochDiffCreated is the list of outputs created in the epoch.
-	EpochDiffCreated []*ledger.OutputWithMetadata
-	// EpochDiffSpent is the list of outputs spent in the epoch.
-	EpochDiffSpent []*ledger.OutputWithMetadata
-}
-
 // SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.
 type SyncRangeEvent struct {
 	StartEI   epoch.Index
@@ -116,10 +107,10 @@ type SyncRangeEvent struct {
 
 // ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
 type ActivityTreeUpdatedEvent struct {
-        // EI is the index of the epoch.
-        EI epoch.Index
-        // NodeID is the issuer nodeID.
-        NodeID identity.ID
+	// EI is the index of the epoch.
+	EI epoch.Index
+	// NodeID is the issuer nodeID.
+	NodeID identity.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -15,7 +16,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
@@ -219,10 +220,13 @@ func (n *Network) Shutdown(ctx context.Context) error {
 
 	// stop all peers in parallel
 	var eg errgroup.Group
+	var exitStatusMutex sync.Mutex
 	for _, peer := range n.peers {
 		peer := peer // capture range variable
 		eg.Go(func() error {
 			status, err := peer.Shutdown(ctx)
+			exitStatusMutex.Lock()
+			defer exitStatusMutex.Unlock()
 			exitStatus[peer.Name()] = status
 			return err
 		})

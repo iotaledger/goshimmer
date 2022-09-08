@@ -7,9 +7,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region proofs helpers ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,12 +55,16 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
 func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
-	root := f.commitmentTrees[ei].tangleTree.Root()
-	proof, err := f.stateRootTree.ProveForRoot(key, root)
+	root, exists := f.commitmentTrees.Get(ei)
+	if !exists {
+		return nil, errors.Errorf("could not obtain commitment trees for epoch %d", ei)
+	}
+	tangleRoot := root.tangleTree.Root()
+	proof, err := f.stateRootTree.ProveForRoot(key, tangleRoot)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate the state root proof")
 	}
-	return &CommitmentProof{ei, proof, root}, nil
+	return &CommitmentProof{ei, proof, tangleRoot}, nil
 }
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.

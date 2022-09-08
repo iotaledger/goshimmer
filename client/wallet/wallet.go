@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"context"
 	"reflect"
 	"time"
 	"unsafe"
@@ -24,9 +25,9 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,7 +116,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 	// how much funds will we need to fund this transfer?
 	requiredFunds := sendOptions.RequiredFunds()
 	// collect that many outputs for funding
-	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs)
+	consumedOutputs, err := wallet.collectOutputsForFunding(requiredFunds, sendOptions.UsePendingOutputs, sendOptions.SourceAddresses...)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -169,7 +170,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 		return nil, err
 	}
 	if sendOptions.WaitForConfirmation {
-		err = wallet.WaitForTxAcceptance(tx.ID())
+		err = wallet.WaitForTxAcceptance(tx.ID(), sendOptions.Context)
 	}
 
 	return tx, err
@@ -1815,20 +1816,30 @@ func (wallet *Wallet) ExportState() []byte {
 // region WaitForTxAcceptance //////////////////////////////////////////////////////////////////////////////////////////
 
 // WaitForTxAcceptance waits for the given tx to be accepted.
-func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID) (err error) {
+func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx ...context.Context) (err error) {
+	ctx := context.Background()
+	if len(optionalCtx) == 1 && optionalCtx[0] != nil {
+		ctx = optionalCtx[0]
+	}
+
+	ticker := time.NewTicker(wallet.ConfirmationPollInterval)
 	timeoutCounter := time.Duration(0)
 	for {
-		time.Sleep(wallet.ConfirmationPollInterval)
-		timeoutCounter += wallet.ConfirmationPollInterval
-		confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
-		if fetchErr != nil {
-			return fetchErr
-		}
-		if confirmationState.IsAccepted() {
-			return
-		}
-		if timeoutCounter > wallet.ConfirmationTimeout {
-			return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
+		select {
+		case <-ctx.Done():
+			return errors.Errorf("context cancelled")
+		case <-ticker.C:
+			timeoutCounter += wallet.ConfirmationPollInterval
+			confirmationState, fetchErr := wallet.connector.GetTransactionConfirmationState(txID)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			if confirmationState.IsAccepted() {
+				return
+			}
+			if timeoutCounter > wallet.ConfirmationTimeout {
+				return errors.Errorf("transaction %s did not confirm within %d seconds", txID.Base58(), wallet.ConfirmationTimeout/time.Second)
+			}
 		}
 	}
 }
@@ -1968,13 +1979,15 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm.Alias
 
 // collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
 // It may collect pending outputs according to flag.
-func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool) (OutputsByAddressAndOutputID, error) {
+func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool, addresses ...address.Address) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
 
 	_ = wallet.outputManager.Refresh()
-	addresses := wallet.addressManager.Addresses()
+	if len(addresses) == 0 {
+		addresses = wallet.addressManager.Addresses()
+	}
 	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
 
 	collected := make(map[devnetvm.Color]uint64)

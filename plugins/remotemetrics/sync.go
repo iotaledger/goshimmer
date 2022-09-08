@@ -3,7 +3,7 @@ package remotemetrics
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )

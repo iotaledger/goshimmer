@@ -14,10 +14,10 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 
-	"github.com/iotaledger/goshimmer/packages/node/gossip"
-	"github.com/iotaledger/goshimmer/packages/node/manualpeering"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/gossip"
+	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 // PluginName is the name of the manual peering plugin.

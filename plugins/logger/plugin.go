@@ -35,6 +35,6 @@ func init() {
 		}
 
 		// enable logging for the daemon
-		daemon.DebugEnabled(true)
+		daemon.DebugLogger(Plugin.Logger())
 	}))
 }

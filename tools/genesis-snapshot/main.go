@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	flag "github.com/spf13/pflag"

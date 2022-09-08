@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -47,8 +47,6 @@ func TestFaucetRequest(t *testing.T) {
 		}
 		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
-
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// each non-faucet peer issues numRequests requests
 	for _, peer := range nonFaucetPeers {

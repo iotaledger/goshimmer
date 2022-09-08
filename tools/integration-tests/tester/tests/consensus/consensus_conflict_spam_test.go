@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -55,8 +55,6 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 
 	t.Logf("Sending %d data blocks to confirm Faucet Outputs", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
-
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	fundingAddress := peer1.Address(0)
 	tests.SendFaucetRequest(t, peer1, fundingAddress)

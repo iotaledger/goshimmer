@@ -3,9 +3,10 @@ package tangleold
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/debug"
@@ -16,9 +17,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
@@ -36,7 +37,8 @@ func BenchmarkApprovalWeightManager_ProcessBlock_Conflicts(b *testing.B) {
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -72,7 +74,7 @@ func TestConflictWeightMarshalling(t *testing.T) {
 	conflictWeight := NewConflictWeight(randomConflictID())
 	conflictWeight.SetWeight(5.1234)
 	conflictWeightDecoded := new(ConflictWeight)
-	err := conflictWeightDecoded.FromBytes(lo.PanicOnErr(conflictWeight.Bytes()))
+	_, err := conflictWeightDecoded.FromBytes(lo.PanicOnErr(conflictWeight.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, lo.PanicOnErr(conflictWeight.Bytes()), lo.PanicOnErr(conflictWeightDecoded.Bytes()))
 	assert.Equal(t, conflictWeight.Weight(), conflictWeightDecoded.Weight())
@@ -85,7 +87,7 @@ func TestConflictVotersMarshalling(t *testing.T) {
 		conflictVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 	conflictVotersFromBytes := new(ConflictVoters)
-	err := conflictVotersFromBytes.FromBytes(lo.PanicOnErr(conflictVoters.Bytes()))
+	_, err := conflictVotersFromBytes.FromBytes(lo.PanicOnErr(conflictVoters.Bytes()))
 	require.NoError(t, err)
 
 	// verify that conflictVotersFromBytes has all voters from conflictVoters
@@ -110,7 +112,8 @@ func TestApprovalWeightManager_updateConflictVoters(t *testing.T) {
 			nodeID: 100,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -261,7 +264,8 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 		}
 		return m
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -419,7 +423,8 @@ func TestAggregatedConflictApproval(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider))
 	defer tangle.Shutdown()
@@ -512,7 +517,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+	confirmedRetrieverFunc := func() epoch.Index { return 0 }
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now, confirmedRetrieverFunc)
 
 	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3

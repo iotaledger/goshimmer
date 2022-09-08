@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -92,8 +91,8 @@ func (v *Votes[ConflictIDType, VotePowerType]) Delete(vote *Vote[ConflictIDType,
 	return v.o.Delete(vote.Voter.ID())
 }
 
-func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *set.AdvancedSet[*validator.Validator]) {
-	voters = set.NewAdvancedSet[*validator.Validator]()
+func (v *Votes[ConflictIDType, VotePowerType]) Voters() (voters *validator.Set) {
+	voters = validator.NewSet()
 
 	v.m.RLock()
 	defer v.m.RUnlock()

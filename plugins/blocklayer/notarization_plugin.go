@@ -9,11 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
@@ -86,7 +85,7 @@ func newNotarizationManager(deps notarizationManagerDependencies) *notarization.
 		deps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-		notarization.ManaDelay(ManaParameters.EpochDelay),
+		notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 		notarization.Log(Plugin.Logger()))
 }
 

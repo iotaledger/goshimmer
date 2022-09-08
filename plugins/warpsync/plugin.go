@@ -5,14 +5,15 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
@@ -52,7 +53,13 @@ func init() {
 				}
 				return block, nil
 			}
-			return warpsync.NewManager(p2pManager, loadBlockFunc, t.ProcessGossipBlock, Plugin.Logger(), warpsync.WithConcurrency(Parameters.Concurrency), warpsync.WithBlockBatchSize(Parameters.BlockBatchSize))
+			processBlockFunc := func(blk *tangleold.Block, peer *peer.Peer) {
+				t.Parser.Events.BlockParsed.Trigger(&tangleold.BlockParsedEvent{
+					Block: blk,
+					Peer:  peer,
+				})
+			}
+			return warpsync.NewManager(p2pManager, loadBlockFunc, processBlockFunc, Plugin.Logger(), warpsync.WithConcurrency(Parameters.Concurrency), warpsync.WithBlockBatchSize(Parameters.BlockBatchSize))
 		}); err != nil {
 			Plugin.Panic(err)
 		}

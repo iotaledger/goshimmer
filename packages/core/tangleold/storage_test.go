@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 func TestMarkerIndexConflictIDMapping_Serialization(t *testing.T) {
@@ -17,7 +17,7 @@ func TestMarkerIndexConflictIDMapping_Serialization(t *testing.T) {
 	m.SetConflictIDs(10, utxo.NewTransactionIDs(txID))
 
 	restored := new(MarkerIndexConflictIDMapping)
-	err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
+	_, err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
 	assert.NoError(t, err)
 	assert.Equal(t, m.ConflictIDs(11), restored.ConflictIDs(11))
 }

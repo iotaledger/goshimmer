@@ -12,8 +12,8 @@ import (
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 

@@ -24,11 +24,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
+	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
-	"github.com/iotaledger/goshimmer/packages/node/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 func init() {
@@ -443,7 +443,7 @@ func NewBlockWithValidation(references ParentBlockIDs, issuingTime time.Time, is
 
 // FromBytes unmarshals a Block from a sequence of bytes.
 func (m *Block) FromBytes(bytes []byte) (err error) {
-	if err = m.Storable.FromBytes(bytes); err != nil {
+	if _, err = m.Storable.FromBytes(bytes); err != nil {
 		return
 	}
 	return m.DetermineID()

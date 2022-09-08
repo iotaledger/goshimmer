@@ -13,14 +13,14 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 const (
@@ -356,7 +356,7 @@ type WeightProvider interface {
 	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// SnapshotEpochActivity returns the activity log for snapshotting.
-	SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity)
+	SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity)
 
 	// LoadActiveNodes loads active nodes from the snapshot activity log.
 	LoadActiveNodes(loadedActiveNodes epoch.SnapshotEpochActivity)

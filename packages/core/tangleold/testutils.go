@@ -17,16 +17,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/markersold"
-	"github.com/iotaledger/goshimmer/packages/node/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // region BlockTestFramework /////////////////////////////////////////////////////////////////////////////////////////
@@ -939,7 +939,7 @@ func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
 // MockWeightProvider is a mock of a WeightProvider.
 type MockWeightProvider struct{}
 
-func (m *MockWeightProvider) SnapshotEpochActivity() (epochActivity epoch.SnapshotEpochActivity) {
+func (m *MockWeightProvider) SnapshotEpochActivity(ei epoch.Index) (epochActivity epoch.SnapshotEpochActivity) {
 	return nil
 }
 
