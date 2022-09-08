@@ -7,9 +7,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type Events struct {
 	BlockReceived        *event.Linkable[*BlockReceivedEvent, Events, *Events]
 	InvalidBlockReceived *event.Linkable[*peer.Peer, Events, *Events]
+	PeerDropped          *event.Linkable[*peer.Peer, Events, *Events]
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -19,10 +22,23 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockReceived:        event.NewLinkable[*BlockReceivedEvent, Events, *Events](),
 		InvalidBlockReceived: event.NewLinkable[*peer.Peer, Events, *Events](),
+		PeerDropped:          event.NewLinkable[*peer.Peer, Events, *Events](),
 	}
 })
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BlockReceivedEvent ///////////////////////////////////////////////////////////////////////////////////////////
 
 type BlockReceivedEvent struct {
 	Block *models.Block
 	Peer  *peer.Peer
 }
+
+func BlockReceivedClosure(handler func(block *models.Block, peer *peer.Peer)) *event.Closure[*BlockReceivedEvent] {
+	return event.NewClosure(func(event *BlockReceivedEvent) {
+		handler(event.Block, event.Peer)
+	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

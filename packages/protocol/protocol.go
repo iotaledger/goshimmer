@@ -100,16 +100,9 @@ func (p *Protocol) setupNotarization() {
 }
 
 func (p *Protocol) Start() {
-	p.Network.Events.BlockReceived.Attach(event.NewClosure(p.Inbox.ProcessBlockReceivedEvent))
-
-	// TODO: add CongestionControl events
-	// configure flow of outgoing blocks (gossip upon dispatched blocks)
-	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(func(block *models.Block) {
-	// 	p.Network.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
-	// }))
-
-	// request missing blocks
-	p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
+	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
+	p.Network.Events.BlockReceived.Attach(network.BlockReceivedClosure(p.Inbox.ProcessReceivedBlock))
+	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
 func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}

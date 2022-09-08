@@ -1,11 +1,13 @@
 package network
 
 import (
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
@@ -54,9 +56,30 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Bl
 		}
 	}))
 
+	network.P2PManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+		network.Events.PeerDropped.Trigger(event.Neighbor.Peer)
+	}))
+	network.P2PManager.NeighborGroupEvents(p2p.NeighborsGroupManual).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
+		network.Events.PeerDropped.Trigger(event.Neighbor.Peer)
+	}))
+
 	return network
 }
 
-func (n *Network) RequestBlock(id models.BlockID) {
-	n.gossipManager.RequestBlock(lo.PanicOnErr(id.Bytes()))
+func (n *Network) SendBlock(block *models.Block, peers ...*peer.Peer) {
+	n.gossipManager.SendBlock(lo.PanicOnErr(block.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
+}
+
+func (n *Network) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
+	n.gossipManager.RequestBlock(lo.PanicOnErr(id.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
+}
+
+func (n *Network) RequestEpochRange(start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+	// TODO WarpRange ... context.Background()
+	return nil
+}
+
+func (n *Network) DropPeer(peer *peer.Peer) {
+	_ = n.P2PManager.DropNeighbor(peer.ID(), p2p.NeighborsGroupAuto)
+	_ = n.P2PManager.DropNeighbor(peer.ID(), p2p.NeighborsGroupManual)
 }
