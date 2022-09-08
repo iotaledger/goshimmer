@@ -15,10 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	wp "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto"
+	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
@@ -31,7 +31,7 @@ type epochSyncStart struct {
 type epochSyncBlock struct {
 	ei    epoch.Index
 	ec    epoch.EC
-	block *tangleold.Block
+	block *models.Block
 	peer  *peer.Peer
 }
 
@@ -44,7 +44,7 @@ type epochSyncEnd struct {
 }
 
 type blockReceived struct {
-	block *tangleold.Block
+	block *models.Block
 	peer  *peer.Peer
 }
 
@@ -87,7 +87,7 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 				epochChannels := m.startEpochSyncing(targetEpoch)
 				epochChannels.RLock()
 
-				m.requestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
+				m.protocol.RequestEpochBlocks(targetEpoch, ecChain[targetEpoch], peerID)
 
 				dataflow.New(
 					m.epochStartCommand,
@@ -117,7 +117,7 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 					epochChannels: epochChannels,
 					peerID:        peerID,
 					tangleTree:    tangleTree,
-					epochBlocks:   make(map[tangleold.BlockID]*tangleold.Block),
+					epochBlocks:   make(map[models.BlockID]*models.Block),
 				})
 			}
 
@@ -226,16 +226,17 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 		m.log.Debugw("epoch blocks request rejected: unknown epoch or mismatching EC", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
 		return
 	}
+	// TODO: obtain model.Block from bucketed storage
 	blockIDs := epochstorage.GetEpochBlockIDs(ei)
 	blocksCount := len(blockIDs)
 
 	// Send epoch starter.
-	m.sendEpochStarter(ei, ec, blocksCount, nbr.ID())
+	m.protocol.SendEpochStarter(ei, ec, blocksCount, nbr.ID())
 	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", blocksCount)
 
 	// Send epoch's blocks in batches.
 	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
-		blocks := make([]*tangleold.Block, 0)
+		blocks := make([]*models.Block, 0)
 		for i := batchNum * m.blockBatchSize; i < len(blockIDs) && i < (batchNum+1)*m.blockBatchSize; i++ {
 			block, err := m.blockLoaderFunc(blockIDs[i])
 			if err != nil {
@@ -245,12 +246,12 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 			blocks = append(blocks, block)
 		}
 
-		m.sendBlocksBatch(ei, ec, blocks, nbr.ID())
+		m.protocol.SendBlocksBatch(ei, ec, blocks, nbr.ID())
 		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "EI", ei, "blocksLen", len(blocks))
 	}
 
 	// Send epoch terminator.
-	m.sendEpochEnd(ei, ec, ecRecord.Roots(), nbr.ID())
+	m.protocol.SendEpochEnd(ei, ec, ecRecord.Roots(), nbr.ID())
 	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "EI", ei, "EC", ec.Base58())
 }
 
@@ -299,8 +300,8 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "EI", ei, "blocksLen", len(blocksBytes))
 
 	for _, blockBytes := range blocksBytes {
-		block := new(tangleold.Block)
-		if err := block.FromBytes(blockBytes); err != nil {
+		block := new(models.Block)
+		if _, err := block.FromBytes(blockBytes); err != nil {
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return
 		}

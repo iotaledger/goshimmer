@@ -307,6 +307,10 @@ func (m *Manager) OnBlockAccepted(block *acceptance.Block) {
 }
 
 // OnBlockAttached is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
+// TODO: notarization should not track activity of attached blocks, only of accepted blocks.
+// TODO: the local perception of activity should be based on attachments instead.
+// TODO: at the end of an epoch the local perception of the node will collpse to the same one of the notarization's, due
+// TODO: to the orphanage. So attachements - orphanage = acceptance.
 func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()

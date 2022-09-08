@@ -6,7 +6,7 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/identity"
 )
@@ -21,7 +21,7 @@ type syncingFlowParams struct {
 	peerID            identity.ID
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
-	epochBlocks       map[tangleold.BlockID]*tangleold.Block
+	epochBlocks       map[models.BlockID]*models.Block
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
@@ -122,11 +122,7 @@ func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Ne
 
 func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
 	for _, blk := range params.epochBlocks {
-		neighbors := m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})
-		if len(neighbors) != 1 {
-			return errors.Errorf("neighbor %s not peered anymore after receiving warpsynced block")
-		}
-		m.blockProcessorFunc(blk, neighbors[0].Peer)
+		m.blockProcessorFunc(blk)
 	}
 
 	return next(params)
