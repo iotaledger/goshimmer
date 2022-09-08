@@ -119,8 +119,8 @@ func (b BlockID) Length() int {
 }
 
 // Bytes returns a serialized version of the BlockID.
-func (b BlockID) Bytes() (serialized []byte) {
-	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation()))
+func (b BlockID) Bytes() (serialized []byte, err error) {
+	return serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
 }
 
 // String returns a human-readable version of the BlockID.
@@ -132,7 +132,7 @@ func (b BlockID) String() (humanReadable string) {
 // Returns 0 if equal, -1 if smaller, or 1 if larger than other.
 // Passing nil as other will result in a panic.
 func (b BlockID) CompareTo(other BlockID) int {
-	return bytes.Compare(b.Bytes(), other.Bytes())
+	return bytes.Compare(lo.PanicOnErr(b.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // BlockIDFromContext returns the BlockID from the given context.

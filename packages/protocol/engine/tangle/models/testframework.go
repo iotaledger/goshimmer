@@ -5,6 +5,9 @@ import (
 	"sync/atomic"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,3 +81,7 @@ func WithBlock(alias string, block *Block) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func GenesisRootBlockProvider(index epoch.Index) *set.AdvancedSet[BlockID] {
+	return set.NewAdvancedSet[BlockID](EmptyBlockID)
+}

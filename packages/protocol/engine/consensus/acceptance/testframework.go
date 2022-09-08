@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
 				}
 
 				if t.optsValidatorSet == nil {
