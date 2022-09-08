@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/warpsync"
+	"github.com/iotaledger/goshimmer/packages/node/solidification/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 

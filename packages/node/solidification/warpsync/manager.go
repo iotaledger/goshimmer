@@ -18,7 +18,7 @@ import (
 const minimumWindowSize = 10
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(models.BlockID) (*models.Block, error)
+type LoadBlockFunc func(models.BlockID) (*models.Block, bool)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
 type ProcessBlockFunc func(*models.Block)

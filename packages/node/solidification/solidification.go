@@ -1,24 +1,32 @@
 package solidification
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/solidification/requester"
+	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/node/solidification/requester"
+	"github.com/iotaledger/goshimmer/packages/node/solidification/warpsync"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // region Solidification ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type Solidification struct {
-	*requester.Requester
+	Requester *requester.Requester
+	WarpSync  *warpsync.Manager
 
 	optsRequester []options.Option[requester.Requester]
 }
 
-func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Solidification]) (solidification *Solidification) {
+func New(protocol *protocol.Protocol, network *network.Network, opts ...options.Option[Solidification]) (solidification *Solidification) {
 	return options.Apply(new(Solidification), opts, func(s *Solidification) {
-		s.Requester = requester.New(evictionManager, s.optsRequester...)
+		s.WarpSync = warpsync.NewManager(protocol.Block, nil, nil)
+		network.WarpSyncMgr.WarpRange()
+
+		s.Requester = requester.New(protocol.EvictionManager, s.optsRequester...)
+		protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(s.Requester.StartRequest))
+		protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(s.Requester.StopRequest))
 	})
 }
 

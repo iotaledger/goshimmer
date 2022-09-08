@@ -5,10 +5,11 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
