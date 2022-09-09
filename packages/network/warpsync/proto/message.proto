@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/iotaledger/goshimmer/packages/node/warpsync/warpsyncproto";
+option go_package = "github.com/iotaledger/goshimmer/packages/network/warpsync/proto";
 
 package warpsyncproto;
 

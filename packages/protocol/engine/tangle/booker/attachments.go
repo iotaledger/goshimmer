@@ -1,6 +1,8 @@
 package booker
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,7 +37,6 @@ func (a *attachments) Get(txID utxo.TransactionID) (attachments []*Block) {
 
 	return
 }
-
 func (a *attachments) EvictEpoch(epochIndex epoch.Index) {
 	if txIDs, exists := a.evictionMap.Get(epochIndex); exists {
 		a.evictionMap.Delete(epochIndex)
@@ -53,6 +54,40 @@ func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) {
 		return NewLockableSlice[*Block]()
 	})
 	attachmentsOfEpoch.Append(block)
+}
+
+func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	lowestTime := time.Now()
+	if txStorage := a.storage(txID, false); txStorage != nil {
+		txStorage.ForEach(func(_ epoch.Index, blocks *LockableSlice[*Block]) bool {
+			for _, block := range blocks.Slice() {
+				if lowestTime.After(block.IssuingTime()) {
+					lowestTime = block.IssuingTime()
+					attachment = block
+				}
+			}
+			return true
+		})
+	}
+
+	return
+}
+
+func (a *attachments) getLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	highestTime := time.Time{}
+	if txStorage := a.storage(txID, false); txStorage != nil {
+		txStorage.ForEach(func(_ epoch.Index, blocks *LockableSlice[*Block]) bool {
+			for _, block := range blocks.Slice() {
+				if highestTime.Before(block.IssuingTime()) {
+					highestTime = block.IssuingTime()
+					attachment = block
+				}
+			}
+			return true
+		})
+	}
+
+	return
 }
 
 func (a *attachments) storage(txID utxo.TransactionID, createIfMissing bool) (storage *memstorage.Storage[epoch.Index, *LockableSlice[*Block]]) {

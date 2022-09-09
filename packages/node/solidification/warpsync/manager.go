@@ -5,32 +5,28 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-)
-
-const (
-	protocolID = "warpsync/0.0.1"
+	"github.com/iotaledger/goshimmer/packages/network/warpsync"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 const minimumWindowSize = 10
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangleold.BlockID) (*tangleold.Block, error)
+type LoadBlockFunc func(models.BlockID) (*models.Block, bool)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
-type ProcessBlockFunc func(blk *tangleold.Block, peer *peer.Peer)
+type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	p2pManager *p2p.Manager
+	protocol *warpsync.Protocol
 
 	log *logger.Logger
 
@@ -67,22 +63,16 @@ type epochChannels struct {
 }
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
+func NewManager(blockLoaderFunc LoadBlockFunc, blockProcessorFunc ProcessBlockFunc, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
 	m := &Manager{
-		p2pManager:         p2pManager,
 		log:                log,
 		blockLoaderFunc:    blockLoaderFunc,
 		blockProcessorFunc: blockProcessorFunc,
 	}
 
-	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
-		PacketFactory:      warpsyncPacketFactory,
-		NegotiationSend:    sendNegotiationMessage,
-		NegotiationReceive: receiveNegotiationMessage,
-		PacketHandler:      m.handlePacket,
-	})
-
 	options.Apply(m, opts)
+
+	m.protocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(m.onEpochCommittmentReceived))
 
 	return m
 }
@@ -149,12 +139,5 @@ func (m *Manager) IsStopped() bool {
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
 	m.stopped.Set()
-	m.p2pManager.UnregisterProtocol(protocolID)
-}
-
-func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) error {
-	if added := event.Loop.TrySubmit(func() { packetProcessor(packet, nbr) }); !added {
-		return errors.Errorf("WorkerPool full: packet block discarded")
-	}
-	return nil
+	m.protocol.Stop()
 }

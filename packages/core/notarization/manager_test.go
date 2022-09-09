@@ -22,7 +22,7 @@ import (
 
 func TestNewManager(t *testing.T) {
 	testTangle := tangleold.NewTestTangle()
-	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
+	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, 1), testTangle)
 	assert.NotNil(t, m)
 }
 
