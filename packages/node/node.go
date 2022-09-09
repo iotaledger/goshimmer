@@ -27,7 +27,7 @@ func New(p2pManager *p2p.Manager, log *logger.Logger, opts ...options.Option[Nod
 	}, opts, func(n *Node) {
 		n.network = network.New(p2pManager, n.protocol.Block, log)
 		n.protocol = protocol.New(log)
-		n.solidification = solidification.New(n.protocol, n.optsSolidificationOptions...)
+		n.solidification = solidification.New(n.protocol, n.network, n.optsSolidificationOptions...)
 
 		n.network.Events.BlockReceived.Attach(network.BlockReceivedHandler(n.protocol.ProcessBlockFromPeer))
 	})
