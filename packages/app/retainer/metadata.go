@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -13,19 +14,32 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
+// region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
 type cachedMetadata struct {
 	BlockDAG      *blockWithTime[*blockdag.Block]
 	Booker        *blockWithTime[*booker.Block]
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
-	// TODO: add scheduler block
-	Acceptance *blockWithTime[*acceptance.Block]
+	Scheduler     *blockWithTime[*scheduler.Block]
+	Acceptance    *blockWithTime[*acceptance.Block]
 
-	m sync.RWMutex
+	sync.RWMutex
 }
 
 func newCachedMetadata() *cachedMetadata {
 	return &cachedMetadata{}
 }
+
+func (c *cachedMetadata) setBlock(block any, property any) {
+	c.Lock()
+	defer c.Unlock()
+
+	property = newBlockWithTime(block)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region blockWithTime ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type blockWithTime[BlockType any] struct {
 	Block BlockType
@@ -39,8 +53,11 @@ func newBlockWithTime[BlockType any](block BlockType) *blockWithTime[BlockType] 
 	}
 }
 
-// TODO: make storable
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO: make storable
 type BlockMetadata struct {
 	BlockID models.BlockID
 
@@ -69,6 +86,9 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		return nil
 	}
 
+	cm.RLock()
+	defer cm.RUnlock()
+
 	b = &BlockMetadata{
 		BlockID:  cm.BlockDAG.Block.ID(),
 		Missing:  cm.BlockDAG.Block.IsMissing(),
@@ -84,6 +104,8 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 
 	return b
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func blocksToBlockIDs(blocks []*blockdag.Block) []string {
 	return lo.Map(blocks, func(block *blockdag.Block) string { return block.ID().Base58() })

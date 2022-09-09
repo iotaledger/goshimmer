@@ -2,13 +2,17 @@ package retainer
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
 )
 
@@ -20,31 +24,60 @@ type Retainer struct {
 	evictionManager *eviction.LockableManager[models.BlockID]
 }
 
-func NewRetainer(protocol *protocol.Protocol) (r *Retainer) {
-	r = &Retainer{
+func NewRetainer(protocol *protocol.Protocol, opts ...options.Option[Retainer]) (r *Retainer) {
+	return options.Apply(&Retainer{
 		cachedMetadata: memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
 		// TODO: blockStorage: database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata](),
 		protocol:        protocol,
 		evictionManager: protocol.EvictionManager.Lockable(),
-	}
+	}, opts, (*Retainer).setupEvents)
+}
 
-	r.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
-
+func (r *Retainer) setupEvents() {
 	// TODO: attach to events and store in memstorage
-	//  booked
-	//  tracked
-	//  scheduled
 	//  accepted
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		r.evictionManager.RLock()
-		defer r.evictionManager.RUnlock()
-
-		storage := r.cachedMetadata.Get(block.ID().Index(), true)
-		cm, _ := storage.RetrieveOrCreate(block.ID(), newCachedMetadata)
-		cm.BlockDAG = newBlockWithTime(block)
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlock(block, cm.BlockDAG)
 	}))
 
-	return
+	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlock(block, cm.Booker)
+	}))
+
+	r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlock(block, cm.VirtualVoting)
+	}))
+
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlock(block, cm.Scheduler)
+	}))
+
+	// r.protocol.Events.Engine.Con.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// 	cm := r.createOrGetCachedMetadata(block.ID())
+	// 	cm.setBlock(block, cm.VirtualVoting)
+	// }))
+
+}
+
+func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
+	r.evictionManager.RLock()
+	defer r.evictionManager.RUnlock()
+
+	storage := r.cachedMetadata.Get(id.Index(), true)
+	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
+	return cm
+}
+
+func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
+	if storageExists, blockMetadata, blockExists := r.blockMetadataFromCache(blockID); storageExists {
+		return blockMetadata, blockExists
+	}
+
+	return r.blockStorage.Get(blockID)
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
@@ -81,14 +114,6 @@ func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
 		r.blockStorage.Set(meta.BlockID, meta)
 	}
-}
-
-func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
-	if storageExists, blockMetadata, blockExists := r.blockMetadataFromCache(blockID); storageExists {
-		return blockMetadata, blockExists
-	}
-
-	return r.blockStorage.Get(blockID)
 }
 
 func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists bool, metadata *BlockMetadata, exists bool) {
