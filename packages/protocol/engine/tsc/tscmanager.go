@@ -58,7 +58,7 @@ func (o *TSCManager) AddBlock(block *booker.Block) {
 	heap.Push(&o.unconfirmedBlocks, &QueueElement{Value: block.Block, Key: block.IssuingTime()})
 }
 
-// orphanBeforeTSC removes the elements with key time earlier than the given time.
+// orphanBeforeTSC removes all elements with key time earlier than the given time. If a block is not accepted by this time, it becomes orphaned.
 func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
 	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
 	for i := 0; i < unconfirmedBlocksCount; i++ {
