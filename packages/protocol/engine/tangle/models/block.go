@@ -291,7 +291,7 @@ func sortParents(parents BlockIDs) (sorted []BlockID) {
 
 	// sort parents
 	sort.Slice(sorted, func(i, j int) bool {
-		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
+		return bytes.Compare(lo.PanicOnErr(sorted[i].Bytes()), lo.PanicOnErr(sorted[j].Bytes())) < 0
 	})
 
 	return

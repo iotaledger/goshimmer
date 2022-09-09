@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
@@ -13,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
 	"github.com/iotaledger/goshimmer/packages/protocol/sybilprotection"
@@ -21,10 +23,11 @@ import (
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Protocol struct {
-	Events *Events
-
+	Events              *Events
 	Network             *network.Network
+	Inbox               *inbox.Inbox
 	DatabaseManager     *database.Manager
+	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.Block]
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
@@ -32,19 +35,21 @@ type Protocol struct {
 	Solidification      *solidification.Solidification
 	SybilProtection     *sybilprotection.SybilProtection
 
+	logger *logger.Logger
+
 	optsSnapshotFile          string
 	optsEngineOptions         []options.Option[engine.Engine]
 	optsDBManagerOptions      []options.Option[database.Manager]
 	optsSolidificationOptions []options.Option[solidification.Solidification]
 }
 
-func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(network *network.Network, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
+		Events:  NewEvents(),
+		Network: network,
+
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Protocol) {
-		p.Events = NewEvents()
-		p.Network = network
-
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
 			p.NotarizationManager.LoadECandEIs,
@@ -57,6 +62,7 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 		if err != nil {
 			return
 		}
+		p.logger = logger
 
 		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
 			// TODO: implement me and set snapshot epoch!
@@ -74,6 +80,18 @@ func New(network *network.Network, opts ...options.Option[Protocol]) (protocol *
 	})
 }
 
+func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
+	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
+		return cachedBlock.Block, true
+	}
+
+	if id.Index() > p.EvictionManager.MaxEvictedEpoch() {
+		return nil, false
+	}
+
+	return p.BlockStorage.Get(id)
+}
+
 func (p *Protocol) setupNotarization() {
 	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
 	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
@@ -82,26 +100,12 @@ func (p *Protocol) setupNotarization() {
 }
 
 func (p *Protocol) Start() {
-	// configure flow of incoming blocks
-	// p.Network.GossipMgr.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-	// 	p.Engine.Tangle.ProcessGossipBlock(event.Data, event.Peer)
-	// }))
-	//
-	// // configure flow of outgoing blocks (gossip upon dispatched blocks)
-	// p.Events.Engine.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
-	// 	deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
-	// 		deps.GossipMgr.SendBlock(lo.PanicOnErr(block.Bytes()))
-	// 	})
-	// }))
-	//
-	// // request missing blocks
-	// deps.Tangle.Requester.Events.RequestIssued.Attach(event.NewClosure(func(event *tangleold.RequestIssuedEvent) {
-	// 	id := event.BlockID
-	// 	Plugin.LogDebugf("requesting missing Block with %s", id)
-	//
-	// 	deps.GossipMgr.RequestBlock(id.Bytes())
-	// }))
+	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
+	p.Network.Events.BlockReceived.Attach(network.BlockReceivedHandler(p.Inbox.ProcessReceivedBlock))
+	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
+
+func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -17,7 +17,7 @@ func TestMarkerIndexConflictIDMapping_Serialization(t *testing.T) {
 	m.SetConflictIDs(10, utxo.NewTransactionIDs(txID))
 
 	restored := new(MarkerIndexConflictIDMapping)
-	err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
+	_, err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
 	assert.NoError(t, err)
 	assert.Equal(t, m.ConflictIDs(11), restored.ConflictIDs(11))
 }
