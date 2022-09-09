@@ -13,13 +13,13 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestOrphanageTSC tests whether consensus is able to resolve a simple double spend.
-// We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
-// let them both issue conflicting transactions, and assert that the transaction
-// issued by the 40% node gains a high GoF while the other one gets "none" GoF over time as the 20% consensus mana
-// node puts its weight to the 40% issued tx making it reach 60% AW and hence high GoF.
-// The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
+// TestOrphanageTSC tests whether orphanage due to Time-Since-Acceptance works properly.
+// This tests creates a network, spams some blocks so that all nodes see each other as active,
+// and then splits the network into two partitions - one with majority weight. Blocks are issued on each partition and after that network is merged.
+// After the network is merged, blocks issued in minority partition should be orphaned on nodes from that partition.
+// Blocks from majority partition should become available on all nodes.
 func TestOrphanageTSC(t *testing.T) {
+	const tscThreshold = 10 * time.Second
 
 	snapshotInfo := tests.OrphanageSnapshotDetails
 
@@ -35,7 +35,7 @@ func TestOrphanageTSC(t *testing.T) {
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
-			conf.TimeSinceConfirmationThreshold = 10 * time.Second
+			conf.TimeSinceConfirmationThreshold = tscThreshold
 			return conf
 		}))
 
@@ -85,7 +85,7 @@ func TestOrphanageTSC(t *testing.T) {
 	require.NoError(t, err)
 
 	// sleep 10 seconds to make sure that TSC threshold is exceeded
-	time.Sleep(10 * time.Second)
+	time.Sleep(tscThreshold)
 
 	t.Logf("Sending %d data messages to make sure that all nodes share the same view", 150)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), 150, delayBetweenDataMessages)

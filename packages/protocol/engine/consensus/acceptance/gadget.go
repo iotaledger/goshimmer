@@ -179,6 +179,11 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 	if block.SetAccepted() {
+		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
+		if block.IsExplicitlyOrphaned() {
+			a.tangle.SetOrphaned(block.Block.Block.Block, false)
+		}
+
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)

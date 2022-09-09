@@ -10,6 +10,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
@@ -368,18 +369,19 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
 // Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
-	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
+	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(blockIDs))
+		missing[node.ID()] = set.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
-			missing[node.ID()][blockID] = struct{}{}
+			missing[node.ID()].Add(blockID)
 		}
 	}
 
 	condition := func() bool {
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
-			for blockID := range nodeMissing {
+			for it := nodeMissing.Iterator(); it.HasNext(); {
+				blockID := it.Next()
 				blk, err := node.GetBlockMetadata(blockID)
 				// retry, when the block could not be found
 				if errors.Is(err, client.ErrNotFound) {
@@ -396,8 +398,8 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
 				require.Equal(t, blockID, blk.ID)
-				delete(nodeMissing, blockID)
-				if len(nodeMissing) == 0 {
+				nodeMissing.Delete(blockID)
+				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
 				}
 			}
@@ -413,18 +415,19 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 // RequireBlocksOrphaned asserts that all nodes have received BlockIDs and marked them as orphaned in waitFor time, periodically checking each tick.
 func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
-	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
+	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(blockIDs))
+		missing[node.ID()] = set.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
-			missing[node.ID()][blockID] = struct{}{}
+			missing[node.ID()].Add(blockID)
 		}
 	}
 
 	condition := func() bool {
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
-			for blockID := range nodeMissing {
+			for it := nodeMissing.Iterator(); it.HasNext(); {
+				blockID := it.Next()
 				block, err := node.GetBlockMetadata(blockID)
 				// retry, when the block could not be found
 				if errors.Is(err, client.ErrNotFound) {
@@ -435,8 +438,8 @@ func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[s
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
 				require.Equal(t, blockID, block.ID)
 				require.True(t, block.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
-				delete(nodeMissing, blockID)
-				if len(nodeMissing) == 0 {
+				nodeMissing.Delete(blockID)
+				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
 				}
 			}

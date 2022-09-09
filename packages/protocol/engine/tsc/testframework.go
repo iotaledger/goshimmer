@@ -55,7 +55,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.OrphanageManager == nil {
-			t.OrphanageManager = New(t.optsIsBlockAcceptedFunc, t.optsBlockAcceptedEvent, t.TestFramework.Tangle, t.optsClock, t.optsTSCManager...)
+			t.OrphanageManager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsClock, t.optsTSCManager...)
 		}
 
 	})
