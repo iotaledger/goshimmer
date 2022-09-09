@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -34,6 +35,7 @@ type Protocol struct {
 	Engine              *engine.Engine
 	Solidification      *solidification.Solidification
 	SybilProtection     *sybilprotection.SybilProtection
+	ValidatorSet        *validator.Set
 
 	logger *logger.Logger
 
@@ -45,8 +47,9 @@ type Protocol struct {
 
 func New(network *network.Network, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
-		Events:  NewEvents(),
-		Network: network,
+		Events:       NewEvents(),
+		Network:      network,
+		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Protocol) {
@@ -70,15 +73,14 @@ func New(network *network.Network, logger *logger.Logger, opts ...options.Option
 			return set.NewAdvancedSet[models.BlockID]()
 		})
 		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
-		p.SybilProtection = sybilprotection.New()
 
 		p.Solidification = solidification.New(p.EvictionManager, p.optsSolidificationOptions...)
 
 		// TODO: when engine is ready
-		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
+		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
 
-		// TODO: attach engine events to sybilprotection
+		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 	})
 }
 
