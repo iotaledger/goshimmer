@@ -1,17 +1,17 @@
 package blockcreation
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
@@ -21,6 +21,8 @@ import (
 type TipManager struct {
 	tangle              *tangle.Tangle
 	acceptanceGadget    *acceptance.Gadget
+	congestionControl   *congestioncontrol.CongestionControl
+	engine              *engine.Engine
 	tips                *randommap.RandomMap[*virtualvoting.Block, *virtualvoting.Block]
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
@@ -112,7 +114,12 @@ func (t *TipManager) checkChildren(block *virtualvoting.Block) (anyScheduledOrAc
 				return true
 			}
 		}
-		// TODO: check if scheduled
+
+		if childBlock, exists := t.congestionControl.Block(child.ID()); exists {
+			if childBlock.IsScheduled() {
+				return true
+			}
+		}
 	}
 
 	return false
@@ -188,73 +195,77 @@ func (t *TipManager) TipCount() int {
 //
 // This function is optimized through the use of markers and the following assumption:
 //   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(blockID BlockID) (timestampValid bool) {
-	minSupportedTimestamp := t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
+func (t *TipManager) isPastConeTimestampCorrect(block *virtualvoting.Block) (timestampValid bool) {
+	minSupportedTimestamp := t.engine.Clock.AcceptedTime().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
 	timestampValid = true
 
-	// skip TSC check if no block has been confirmed to allow attaching to genesis
-	if t.tangle.TimeManager.LastAcceptedBlock().BlockID == EmptyBlockID {
-		// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
-		// return true so that the network can start issuing blocks when the tangle starts
-		return true
-	}
+	// TODO: skip TSC check if no block has been confirmed to allow attaching to genesis
+	// if t.engine.Clock.AcceptedTime().BlockID == EmptyBlockID {
+	// 	// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
+	// 	// return true so that the network can start issuing blocks when the tangle starts
+	// 	return true
+	// }
 
-	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		timestampValid = block.IssuingTime().After(minSupportedTimestamp)
-	})
-
-	if !timestampValid {
+	if timestampValid = block.IssuingTime().After(minSupportedTimestamp); !timestampValid {
 		return false
 	}
-	if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
-		// return true if block is confirmed and has valid timestamp
+	if acceptanceBlock, exists := t.acceptanceGadget.Block(block.ID()); exists && acceptanceBlock.Accepted() {
+		// return true if block is accepted and has valid timestamp
 		return true
 	}
 
-	markerWalker := walker.New[markersold.Marker](false)
-	blockWalker := walker.New[BlockID](false)
+	markerWalker := walker.New[markers.Marker](false)
+	blockWalker := walker.New[models.BlockID](false)
 
-	t.processBlock(blockID, blockWalker, markerWalker)
+	t.processBlock(block, blockWalker, markerWalker)
 	previousBlockID := blockID
-	for markerWalker.HasNext() && timestampValid {
+	for markerWalker.HasNext() {
 		marker := markerWalker.Next()
 		previousBlockID, timestampValid = t.checkMarker(marker, previousBlockID, blockWalker, markerWalker, minSupportedTimestamp)
+		if !timestampValid {
+			return false
+		}
 	}
 
-	for blockWalker.HasNext() && timestampValid {
+	for blockWalker.HasNext() {
 		timestampValid = t.checkBlock(blockWalker.Next(), blockWalker, minSupportedTimestamp)
+		if !timestampValid {
+			return false
+		}
 	}
-	return timestampValid
+	return true
 }
 
-func (t *TipManager) processBlock(blockID BlockID, blockWalker *walker.Walker[BlockID], markerWalker *walker.Walker[markersold.Marker]) {
-	t.tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *BlockMetadata) {
-		if blockMetadata.StructureDetails() == nil || blockMetadata.StructureDetails().PastMarkers().Size() == 0 {
+func (t *TipManager) processBlock(block *virtualvoting.Block, blockWalker *walker.Walker[models.BlockID], markerWalker *walker.Walker[markers.Marker]) {
+	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
+		// need to walk blocks
+		blockWalker.Push(blockID) // TODO: take blocks or IDs here?
+		return
+	}
+
+	block.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		if sequenceID == 0 && index == 0 {
 			// need to walk blocks
 			blockWalker.Push(blockID)
-			return
+			return false
 		}
-		blockMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markersold.SequenceID, index markersold.Index) bool {
-			if sequenceID == 0 && index == 0 {
-				// need to walk blocks
-				blockWalker.Push(blockID)
-				return false
-			}
-			pastMarker := markersold.NewMarker(sequenceID, index)
-			markerWalker.Push(pastMarker)
-			return true
-		})
+
+		markerWalker.Push(markers.NewMarker(sequenceID, index))
+		return true
 	})
 }
 
-func (t *TipManager) checkMarker(marker markersold.Marker, previousBlockID BlockID, blockWalker *walker.Walker[BlockID], markerWalker *walker.Walker[markersold.Marker], minSupportedTimestamp time.Time) (blockID BlockID, timestampValid bool) {
-	blockID, blockIssuingTime := t.getMarkerBlock(marker)
+func (t *TipManager) checkMarker(marker markers.Marker, previousBlockID models.BlockID, blockWalker *walker.Walker[models.BlockID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (blockID models.BlockID, timestampValid bool) {
+	block, exists := t.tangle.Booker.BlockFromMarker(marker)
+	if !exists {
+		// TODO: what to do if it doesn't exist?
+	}
 
 	// marker before minSupportedTimestamp
-	if blockIssuingTime.Before(minSupportedTimestamp) {
+	if block.IssuingTime().Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
-		if !t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
-			// if unconfirmed, then incorrect
+		if !t.acceptanceGadget.IsMarkerAccepted(marker) {
+			// if not accepted, then incorrect
 			markerWalker.StopWalk()
 			return blockID, false
 		}
@@ -262,117 +273,113 @@ func (t *TipManager) checkMarker(marker markersold.Marker, previousBlockID Block
 		blockWalker.Push(previousBlockID)
 		return blockID, true
 	}
-	// confirmed after minSupportedTimestamp
-	if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
+	// accepted after minSupportedTimestamp
+	if t.acceptanceGadget.IsMarkerAccepted(marker) {
 		return blockID, true
 	}
 
 	// unconfirmed after minSupportedTimestamp
 
 	// check oldest unconfirmed marker time without walking marker DAG
-	oldestUnconfirmedMarker := t.getOldestUnconfirmedMarker(marker)
+	oldestUnconfirmedMarker := markers.NewMarker(marker.SequenceID(), t.acceptanceGadget.FirstUnacceptedIndex(marker.SequenceID()))
 
 	if timestampValid = t.processMarker(marker, minSupportedTimestamp, oldestUnconfirmedMarker); !timestampValid {
 		return
 	}
 
-	t.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markersold.Sequence) {
-		// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk block past cone of oldestUnconfirmedMarker.
-		if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
-			confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index())
-			if t.isMarkerOldAndConfirmed(markersold.NewMarker(sequence.ID(), confirmedMarkerIdx), minSupportedTimestamp) {
-				blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
-			}
+	sequence, exists := t.tangle.Booker.Sequence(marker.SequenceID())
+	if !exists {
+		// TODO: what to do if it doesn't exist?
+	}
+
+	// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk block past cone of oldestUnconfirmedMarker.
+	if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
+		confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index())
+		if t.isMarkerOldAndConfirmed(markers.NewMarker(sequence.ID(), confirmedMarkerIdx), minSupportedTimestamp) {
+			blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
+		}
+	}
+
+	// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
+	sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
+		if sequenceID == 0 && index == 0 {
+			return true
 		}
 
-		// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
-		referencedMarkers := sequence.ReferencedMarkers(marker.Index())
-		referencedMarkers.ForEach(func(sequenceID markersold.SequenceID, index markersold.Index) bool {
-			// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
-			if sequenceID == 0 && index == 0 {
-				return true
-			}
-
-			referencedMarker := markersold.NewMarker(sequenceID, index)
-			// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed block past cone of oldestUnconfirmedMarker
-			if t.isMarkerOldAndConfirmed(referencedMarker, minSupportedTimestamp) {
-				blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
-				return false
-			}
-			// otherwise, process the referenced marker
-			markerWalker.Push(referencedMarker)
-			return true
-		})
+		referencedMarker := markers.NewMarker(sequenceID, index)
+		// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed block past cone of oldestUnconfirmedMarker
+		if t.isMarkerOldAndConfirmed(referencedMarker, minSupportedTimestamp) {
+			blockWalker.Push(t.tangle.Booker.MarkersManager.BlockID(oldestUnconfirmedMarker))
+			return false
+		}
+		// otherwise, process the referenced marker
+		markerWalker.Push(referencedMarker)
+		return true
 	})
 	return blockID, true
 }
 
 // isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
-func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markersold.Marker, minSupportedTimestamp time.Time) bool {
-	referencedMarkerBlkID, referenceMarkerBlkIssuingTime := t.getMarkerBlock(previousMarker)
-	if t.tangle.ConfirmationOracle.IsBlockConfirmed(referencedMarkerBlkID) && referenceMarkerBlkIssuingTime.Before(minSupportedTimestamp) {
+func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+	block, exists := t.tangle.Booker.BlockFromMarker(previousMarker)
+	if !exists {
+		// TODO: what to do if it doesn't exist?
+	}
+	if t.acceptanceGadget.IsMarkerAccepted(previousMarker) && block.IssuingTime().Before(minSupportedTimestamp) {
 		return true
 	}
+
 	return false
 }
 
-func (t *TipManager) processMarker(pastMarker markersold.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markersold.Marker) (tscValid bool) {
+func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
 	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
 		return true
 	}
-	_, oldestUnconfirmedMarkerBlkIssuingTime := t.getMarkerBlock(oldestUnconfirmedMarker)
-	return oldestUnconfirmedMarkerBlkIssuingTime.After(minSupportedTimestamp)
+
+	block, exists := t.tangle.Booker.BlockFromMarker(oldestUnconfirmedMarker)
+	if !exists {
+		// TODO: what to do if it doesn't exist?
+	}
+
+	return block.IssuingTime().After(minSupportedTimestamp)
 }
 
-func (t *TipManager) checkBlock(blockID BlockID, blockWalker *walker.Walker[BlockID], minSupportedTimestamp time.Time) (timestampValid bool) {
-	timestampValid = true
-
-	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		// if block is older than TSC then it's incorrect no matter the confirmation status
-		if block.IssuingTime().Before(minSupportedTimestamp) {
-			timestampValid = false
-			blockWalker.StopWalk()
-			return
-		}
-
-		// if block is younger than TSC and confirmed, then return timestampValid=true
-		if t.tangle.ConfirmationOracle.IsBlockConfirmed(blockID) {
-			return
-		}
-
-		// if block is younger than TSC and not confirmed, walk through strong parents' past cones
-		for parentID := range block.ParentsByType(StrongParentType) {
-			blockWalker.Push(parentID)
-		}
-	})
-	return timestampValid
-}
-
-func (t *TipManager) getMarkerBlock(marker markersold.Marker) (markerBlockID BlockID, markerBlockIssuingTime time.Time) {
-	if marker.SequenceID() == 0 && marker.Index() == 0 {
-		return EmptyBlockID, time.Unix(epoch.GenesisTime, 0)
+func (t *TipManager) checkBlock(blockID models.BlockID, blockWalker *walker.Walker[models.BlockID], minSupportedTimestamp time.Time) (timestampValid bool) {
+	block, exists := t.tangle.VirtualVoting.Block(blockID)
+	if !exists {
+		// TODO: what to do if it doesn't exist?
 	}
-	blockID := t.tangle.Booker.MarkersManager.BlockID(marker)
-	if blockID == EmptyBlockID {
-		panic(fmt.Errorf("failed to retrieve marker block for %s", marker.String()))
-	}
-	t.tangle.Storage.Block(blockID).Consume(func(block *Block) {
-		markerBlockID = block.ID()
-		markerBlockIssuingTime = block.IssuingTime()
-	})
 
-	return
+	// if block is older than TSC then it's incorrect no matter the confirmation status
+	if block.IssuingTime().Before(minSupportedTimestamp) {
+		blockWalker.StopWalk()
+		return false
+	}
+
+	// if block is younger than TSC and accepted, then return timestampValid=true
+	if acceptanceBlock, exists := t.acceptanceGadget.Block(block.ID()); exists && acceptanceBlock.Accepted() {
+		return true
+	}
+
+	// if block is younger than TSC and not confirmed, walk through strong parents' past cones
+	for parentID := range block.ParentsByType(models.StrongParentType) {
+		blockWalker.Push(parentID)
+	}
+
+	return true
 }
 
 // getOldestUnconfirmedMarker is similar to FirstUnconfirmedMarkerIndex, except it skips any marker gaps an existing marker.
-func (t *TipManager) getOldestUnconfirmedMarker(pastMarker markersold.Marker) markersold.Marker {
+func (t *TipManager) getOldestUnconfirmedMarker(pastMarker markers.Marker) markers.Marker {
 	unconfirmedMarkerIdx := t.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(pastMarker.SequenceID())
 
 	// skip any gaps in marker indices
 	for ; unconfirmedMarkerIdx <= pastMarker.Index(); unconfirmedMarkerIdx++ {
-		currentMarker := markersold.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
+		currentMarker := markers.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if t.tangle.Booker.MarkersManager.BlockID(currentMarker) == EmptyBlockID {
@@ -381,14 +388,14 @@ func (t *TipManager) getOldestUnconfirmedMarker(pastMarker markersold.Marker) ma
 		break
 	}
 
-	oldestUnconfirmedMarker := markersold.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
+	oldestUnconfirmedMarker := markers.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
 	return oldestUnconfirmedMarker
 }
 
-func (t *TipManager) getPreviousConfirmedIndex(sequence *markersold.Sequence, markerIndex markersold.Index) markersold.Index {
+func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, markerIndex markers.Index) markers.Index {
 	// skip any gaps in marker indices
 	for ; sequence.LowestIndex() < markerIndex; markerIndex-- {
-		currentMarker := markersold.NewMarker(sequence.ID(), markerIndex)
+		currentMarker := markers.NewMarker(sequence.ID(), markerIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).
 		if blkID := t.tangle.Booker.MarkersManager.BlockID(currentMarker); blkID == EmptyBlockID || !t.tangle.ConfirmationOracle.IsBlockConfirmed(blkID) {
