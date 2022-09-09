@@ -231,8 +231,7 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 	block, _ := s.getOrRegisterBlock(sourceBlock)
 
 	if block.IsOrphaned() {
-		if !block.IsDropped() {
-			block.SetDropped()
+		if block.SetDropped() {
 			s.Events.BlockDropped.Trigger(block)
 		}
 		return
