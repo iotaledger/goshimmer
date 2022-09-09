@@ -68,6 +68,14 @@ func (b *Block) IsOrphaned() (isOrphaned bool) {
 	return b.orphaned || !b.orphanedBlocksInPastCone.Empty()
 }
 
+// IsExplicitlyOrphaned returns true if the Block is orphaned due to being marked as orphaned itself.
+func (b *Block) IsExplicitlyOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphaned
+}
+
 // OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
 func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
 	b.RLock()

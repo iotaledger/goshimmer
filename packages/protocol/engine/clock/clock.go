@@ -1,4 +1,4 @@
-package engine
+package clock
 
 import (
 	"sync"
@@ -7,6 +7,8 @@ import (
 
 // Clock is a clock that is used to derive some time parameters from the Tangle.
 type Clock struct {
+	Events *Events
+
 	lastAcceptedTime         time.Time
 	lastAcceptedTimeUpdated  time.Time
 	lastConfirmedTime        time.Time
@@ -17,7 +19,7 @@ type Clock struct {
 
 // NewClock creates a new Clock with the given genesisTime.
 func NewClock(genesisTime time.Time) (clock *Clock) {
-	clock = new(Clock)
+	clock = &Clock{Events: NewEvents()}
 	clock.SetAcceptedTime(genesisTime)
 	clock.SetConfirmedTime(genesisTime)
 
@@ -34,7 +36,13 @@ func (c *Clock) AcceptedTime() (acceptedTime time.Time) {
 
 // SetAcceptedTime sets the time of the last accepted Block.
 func (c *Clock) SetAcceptedTime(acceptedTime time.Time) (updated bool) {
-	return c.updateTime(acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated)
+	if updated = c.updateTime(acceptedTime, &c.lastAcceptedTime, &c.lastAcceptedTimeUpdated); updated {
+		c.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
+			NewTime:    c.lastAcceptedTime,
+			UpdateTime: c.lastAcceptedTimeUpdated,
+		})
+	}
+	return updated
 }
 
 // RelativeAcceptedTime returns the real-time adjusted version of the time of the last accepted Block.
@@ -55,7 +63,13 @@ func (c *Clock) ConfirmedTime() (confirmedTime time.Time) {
 
 // SetConfirmedTime sets the time of the last confirmed Block.
 func (c *Clock) SetConfirmedTime(confirmedTime time.Time) (updated bool) {
-	return c.updateTime(confirmedTime, &c.lastConfirmedTime, &c.lastConfirmedTimeUpdated)
+	if updated = c.updateTime(confirmedTime, &c.lastConfirmedTime, &c.lastConfirmedTimeUpdated); updated {
+		c.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
+			NewTime:    c.lastConfirmedTime,
+			UpdateTime: c.lastConfirmedTimeUpdated,
+		})
+	}
+	return updated
 }
 
 // RelativeConfirmedTime returns the real-time adjusted version of the time of the last confirmed Block.
