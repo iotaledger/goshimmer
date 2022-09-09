@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -24,7 +25,6 @@ import (
 type Protocol struct {
 	Events              *Events
 	Inbox               *inbox.Inbox
-	DatabaseManager     *database.Manager
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.Block]
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
@@ -39,12 +39,14 @@ type Protocol struct {
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Protocol) {
+		p.BlockStorage = database.New[models.BlockID, models.Block, *models.Block](databaseManager, kvstore.Realm{0x09})
+
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
 			p.NotarizationManager.LoadECandEIs,
@@ -64,7 +66,6 @@ func New(logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Pro
 			// p.SnapshotManager.GetSolidEntryPoints(index)
 			return set.NewAdvancedSet[models.BlockID]()
 		})
-		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
 		p.SybilProtection = sybilprotection.New()
 
 		// TODO: when engine is ready
@@ -110,12 +111,6 @@ func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsDBManagerOptions = opts
-	}
-}
 
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(p *Protocol) {

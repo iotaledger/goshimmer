@@ -4,10 +4,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/node/solidification/requester"
+
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/node/solidification/parser"
-	"github.com/iotaledger/goshimmer/packages/node/solidification/requester"
+	"github.com/iotaledger/goshimmer/packages/node/dispatcher"
 	"github.com/iotaledger/goshimmer/packages/node/solidification/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 )
@@ -16,7 +17,7 @@ import (
 
 type Solidification struct {
 	network  *network.Network
-	parser   *parser.Parser
+	parser   *dispatcher.Dispatcher
 	protocol *protocol.Protocol
 
 	requester *requester.Requester
@@ -28,7 +29,7 @@ type Solidification struct {
 	optsRequester []options.Option[requester.Requester]
 }
 
-func New(network *network.Network, parser *parser.Parser, protocol *protocol.Protocol, opts ...options.Option[Solidification]) (solidification *Solidification) {
+func New(network *network.Network, parser *dispatcher.Dispatcher, protocol *protocol.Protocol, opts ...options.Option[Solidification]) (solidification *Solidification) {
 	return options.Apply(new(Solidification), opts, func(s *Solidification) {
 		s.network = network
 		s.parser = parser
@@ -37,7 +38,7 @@ func New(network *network.Network, parser *parser.Parser, protocol *protocol.Pro
 		s.requester = requester.New(protocol.EvictionManager, s.optsRequester...)
 		s.warpSync = warpsync.NewManager(protocol.Block, nil, nil)
 
-		//network.WarpSyncMgr.WarpRange()
+		// network.WarpSyncMgr.WarpRange()
 
 		protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(s.requester.StartRequest))
 		protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(s.requester.StopRequest))
