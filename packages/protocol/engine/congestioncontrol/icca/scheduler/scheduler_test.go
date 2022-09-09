@@ -154,10 +154,10 @@ func TestScheduler_Schedule(t *testing.T) {
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
+	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
-	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
@@ -211,11 +211,11 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
+	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
