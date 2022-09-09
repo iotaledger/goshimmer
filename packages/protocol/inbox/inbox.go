@@ -1,7 +1,6 @@
 package inbox
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
