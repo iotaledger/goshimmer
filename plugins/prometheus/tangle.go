@@ -21,6 +21,7 @@ var (
 	initialMissingBlocksCountDB             prometheus.Gauge
 	blockMissingCountDB                     prometheus.Gauge
 	blockRequestCount                       prometheus.Gauge
+	orphanedBlocksCount                     prometheus.Gauge
 	confirmedConflictCount                  prometheus.Gauge
 	conflictConfirmationTotalTime           prometheus.Gauge
 	totalConflictCountDB                    prometheus.Gauge
@@ -121,6 +122,11 @@ func registerTangleMetrics() {
 		Help: "current number requested blocks by the block tangle",
 	})
 
+	orphanedBlocksCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_blocks_orphaned_size",
+		Help: "current number of orphaned blocks",
+	})
+
 	blockFinalizationTotalTimeSinceReceived = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "tangle_block_finalization_time_since_received",
@@ -177,6 +183,7 @@ func registerTangleMetrics() {
 	registry.MustRegister(initialMissingBlocksCountDB)
 	registry.MustRegister(blockMissingCountDB)
 	registry.MustRegister(blockRequestCount)
+	registry.MustRegister(orphanedBlocksCount)
 	registry.MustRegister(blockFinalizationTotalTimeSinceReceived)
 	registry.MustRegister(blockFinalizationTotalTimeSinceIssued)
 	registry.MustRegister(finalizedBlockCount)
@@ -225,6 +232,7 @@ func collectTangleMetrics() {
 	initialMissingBlocksCountDB.Set(float64(metrics.InitialBlockMissingCountDB()))
 	blockMissingCountDB.Set(float64(metrics.BlockMissingCountDB()))
 	blockRequestCount.Set(float64(metrics.BlockRequestQueueSize()))
+	orphanedBlocksCount.Set(float64(metrics.OrphanedBlocks()))
 	confirmedConflictCount.Set(float64(metrics.ConfirmedConflictCount()))
 	conflictConfirmationTotalTime.Set(float64(metrics.ConflictConfirmationTotalTime()))
 	totalConflictCountDB.Set(float64(metrics.TotalConflictCountDB()))

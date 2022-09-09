@@ -263,6 +263,12 @@ func registerLocalMetrics() {
 		}
 	}))
 
+	// TODO: add metrics for BlockUnorphaned count as well
+	// fired when a message gets added to missing message storage
+	deps.Tangle.OrphanageManager.Events.BlockOrphaned.Attach(event.NewClosure(func(evt *tangleold.BlockOrphanedEvent) {
+		orphanedBlocks.Inc()
+	}))
+
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()

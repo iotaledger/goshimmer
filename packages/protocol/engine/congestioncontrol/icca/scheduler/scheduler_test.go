@@ -154,10 +154,10 @@ func TestScheduler_Schedule(t *testing.T) {
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
+	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
-	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
@@ -211,11 +211,11 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
+	tf.CreateIssuer("peer", 10)
 
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
 	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
@@ -280,7 +280,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as ready and confirmed, but younger than 1 minute
 	blkReadyConfirmedNew := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 
-	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkReadyConfirmedNew.ID(): true,
 	})
 
@@ -301,11 +301,11 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedNew))
 
-	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkUnreadyConfirmedNew.ID(): true,
 	})
 
-	tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedNew.Block, acceptance.WithAccepted(true)))
+	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedNew.Block, acceptance.WithAccepted(true)))
 
 	// make sure that the block was not unsubmitted
 	assert.Equal(t, tf.Scheduler.buffer.IssuerQueue(tf.Issuer("peer").ID()).IDs()[0], blkUnreadyConfirmedNew.ID())
@@ -323,7 +323,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as ready and confirmed, but older than 1 minute
 	blkReadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 
-	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkReadyConfirmedOld.ID(): true,
 	})
 
@@ -342,11 +342,11 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as unready and confirmed, but older than 1 minute
 	blkUnreadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedOld))
-	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkUnreadyConfirmedOld.ID(): true,
 	})
 
-	tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedOld.Block, acceptance.WithAccepted(true)))
+	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedOld.Block, acceptance.WithAccepted(true)))
 
 	assert.Eventually(t, func() bool {
 		select {
@@ -438,10 +438,10 @@ func TestScheduler_Issue(t *testing.T) {
 
 	for i := 0; i < numBlocks; i++ {
 		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
-		lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 			block.ID(): true,
 		})
-		tf.mockAcceptance.blockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
+		tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
 	}
 
 	tf.AssertBlocksSkipped(0)
