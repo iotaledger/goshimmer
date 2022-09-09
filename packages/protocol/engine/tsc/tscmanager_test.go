@@ -23,7 +23,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 		alias := fmt.Sprintf("blk-%d", i)
 		block := blockdag.NewBlock(tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
 		blocks = append(blocks, block)
-		heap.Push(&tf.OrphanageManager.unconfirmedBlocks, &QueueElement{Key: block.IssuingTime(), Value: block})
+		heap.Push(&tf.OrphanageManager.unconfirmedBlocks, &Element[*blockdag.Block]{Key: block.IssuingTime(), Value: block})
 	}
 
 	tf.OrphanageManager.orphanBeforeTSC(now.Add(time.Duration(10) * time.Second))

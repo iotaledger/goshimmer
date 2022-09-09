@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -60,7 +60,7 @@ const (
 // Block represents the core block for the base layer Tangle.
 type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
-	payload                                       payload.Payload
+	payload                                       payload2.Payload
 	issuerID                                      *identity.ID
 }
 
@@ -82,7 +82,7 @@ type block struct {
 
 // NewBlock creates a new block with the details provided by the issuer.
 func NewBlock(opts ...options.Option[Block]) *Block {
-	defaultPayload := payload.NewGenericDataPayload([]byte(""))
+	defaultPayload := payload2.NewGenericDataPayload([]byte(""))
 	defaultECRecord := epoch.NewECRecord(0)
 
 	blk := model.NewStorable[BlockID, Block](&block{
@@ -104,7 +104,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 func NewEmptyBlock(id BlockID) (newBlock *Block) {
 	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
-	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+	newBlock.M.PayloadBytes = lo.PanicOnErr(payload2.NewGenericDataPayload([]byte("")).Bytes())
 
 	return newBlock
 }
@@ -197,7 +197,7 @@ func (b *Block) SequenceNumber() uint64 {
 }
 
 // Payload returns the Payload of the block.
-func (b *Block) Payload() payload.Payload {
+func (b *Block) Payload() payload2.Payload {
 	b.Lock()
 	defer b.Unlock()
 	if b.payload == nil {
@@ -361,7 +361,7 @@ func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
 	}
 }
 
-func WithPayload(payload payload.Payload) options.Option[Block] {
+func WithPayload(payload payload2.Payload) options.Option[Block] {
 	return func(m *Block) {
 		m.payload = payload
 		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())

@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -18,7 +19,7 @@ import (
 
 // TSCManager is a manager that tracks orphaned blocks.
 type TSCManager struct {
-	unconfirmedBlocks TimedHeap
+	unconfirmedBlocks TimedHeap[*blockdag.Block]
 	tangle            *tangle.Tangle
 	isBlockAccepted   func(models.BlockID) bool
 	clock             *clock.Clock
@@ -55,7 +56,7 @@ func (o *TSCManager) AddBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
-	heap.Push(&o.unconfirmedBlocks, &QueueElement{Value: block.Block, Key: block.IssuingTime()})
+	heap.Push(&o.unconfirmedBlocks, &Element[*blockdag.Block]{Value: block.Block, Key: block.IssuingTime()})
 }
 
 // orphanBeforeTSC removes all elements with key time earlier than the given time. If a block is not accepted by this time, it becomes orphaned.

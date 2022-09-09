@@ -8,7 +8,7 @@ import (
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // UvarintWriter writes protobuf blocks.
@@ -55,7 +55,7 @@ func (ur *UvarintReader) ReadBlk(blk proto.Message) error {
 	if err != nil {
 		return err
 	}
-	if length64 > tangleold.MaxBlockSize {
+	if length64 > models.MaxBlockSize {
 		return fmt.Errorf("max block size exceeded: %d", length64)
 	}
 	buf := make([]byte, length64)

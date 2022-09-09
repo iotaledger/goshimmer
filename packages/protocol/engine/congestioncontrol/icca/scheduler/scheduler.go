@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -268,7 +267,7 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *virtualvoting.Block) {
 		return
 	}
 
-	if clock.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
+	if time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 		s.Unsubmit(block)
 		block.SetSkipped()
 		s.Events.BlockSkipped.Trigger(block)
@@ -486,8 +485,8 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 	for q := start; ; {
 		block := q.Front()
 
-		for block != nil && !clock.SyncedTime().Before(block.IssuingTime()) {
-			if s.isBlockAcceptedFunc(block.ID()) && clock.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
+		for block != nil && !time.Now().Before(block.IssuingTime()) {
+			if s.isBlockAcceptedFunc(block.ID()) && time.Since(block.IssuingTime()) > s.optsAcceptedBlockScheduleThreshold {
 				block.SetSkipped()
 				s.Events.BlockSkipped.Trigger(block)
 				s.buffer.PopFront()
