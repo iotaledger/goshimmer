@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
@@ -48,7 +49,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (completedEpoch epoch.Index, err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor]) (completedEpoch epoch.Index, err error) {
 	startRange := start + 1
 	endRange := end - 1
 
@@ -70,15 +71,13 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	return completedEpoch, nil
 }
 
-func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *set.AdvancedSet[identity.ID], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]epoch.EC, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
+func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]epoch.EC, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
 	return func(targetEpoch epoch.Index) {
-		eg.Go(func() error {
-			success := false
-			for it := validPeers.Iterator(); it.HasNext() && !success; {
-				peerID := it.Next()
+		eg.Go(func() (err error) {
+			if !validPeers.ForEach(func(peerID identity.ID, neighbor *p2p.Neighbor) (success bool) {
 				if discardedPeers.Has(peerID) {
 					m.log.Debugw("skipping discarded peer", "peer", peerID)
-					continue
+					return true
 				}
 
 				db, _ := database.NewMemDB("")
@@ -105,27 +104,27 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 						return
 					case epochProcessedChan <- params.targetEpoch:
 					}
-					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
+					m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.neighbor)
 				}).WithErrorCallback(func(flowErr error, params *syncingFlowParams) {
-					discardedPeers.Add(params.peerID)
-					m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.peerID, flowErr)
+					discardedPeers.Add(params.neighbor.ID())
+					m.log.Warnf("error while syncing epoch %d from peer %s: %s", params.targetEpoch, params.neighbor, flowErr)
 				}).Run(&syncingFlowParams{
 					ctx:           errCtx,
 					targetEpoch:   targetEpoch,
 					targetEC:      ecChain[targetEpoch],
 					targetPrevEC:  ecChain[targetEpoch-1],
 					epochChannels: epochChannels,
-					peerID:        peerID,
+					neighbor:      neighbor,
 					tangleTree:    tangleTree,
 					epochBlocks:   make(map[models.BlockID]*models.Block),
 				})
+
+				return !success
+			}) {
+				err = errors.Errorf("unable to sync epoch %d", targetEpoch)
 			}
 
-			if !success {
-				return errors.Errorf("unable to sync epoch %d", targetEpoch)
-			}
-
-			return nil
+			return
 		})
 	}
 }

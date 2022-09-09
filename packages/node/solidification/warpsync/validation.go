@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/orderedmap"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -17,13 +18,13 @@ type neighborCommitment struct {
 	ecRecord *epoch.ECRecord
 }
 
-func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, activePeers *set.AdvancedSet[identity.ID], err error) {
+func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, activePeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], err error) {
 	m.startValidation()
 	defer m.endValidation()
 
 	ecChain = make(map[epoch.Index]epoch.EC)
 	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
-	activePeers = set.NewAdvancedSet[identity.ID]()
+	activePeers = orderedmap.New[identity.ID, *p2p.Neighbor]()
 	discardedPeers := set.NewAdvancedSet[identity.ID]()
 	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
 
@@ -50,7 +51,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			commitmentEI := ecRecord.EI()
 			m.log.Debugw("read committment", "EI", commitmentEI, "EC", ecRecord.ComputeEC().Base58())
 
-			activePeers.Add(peerID)
+			activePeers.Set(peerID, commitment.neighbor)
 			// Ignore invalid neighbor.
 			if discardedPeers.Has(peerID) {
 				m.log.Debugw("ignoring invalid neighbor", "ID", peerID, "validPeers", activePeers, "discardedPeers", discardedPeers)
@@ -130,7 +131,10 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC.Base58(), syncedStartPrevEC.Base58())
 				}
 				m.log.Infof("range %d-%d validated", start, end)
-				activePeers.DeleteAll(discardedPeers)
+				discardedPeers.ForEach(func(peer identity.ID) error {
+					activePeers.Delete(peer)
+					return nil
+				})
 				return ecChain, activePeers, nil
 			}
 

@@ -18,11 +18,13 @@ type Network struct {
 	Events *Events
 
 	P2PManager    *p2p.Manager
-	WarpSyncMgr   *warpsync.Manager
-	gossipManager *gossip.Manager
+
+	warpSyncProtocol *warpsync.Protocol
+	gossipProtocol *gossip.Protocol
+
 }
 
-func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Block, bool), logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
+func New(p2pManager *p2p.Manager, logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
 	network = options.Apply(&Network{
 		Events:     NewEvents(),
 		P2PManager: p2pManager,
@@ -41,21 +43,6 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Bl
 	// 	return blockProvider(blockId).Bytes()
 	// }, logger)
 
-	network.gossipManager.Events.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-		eventToTrigger := &BlockReceivedEvent{
-			Block: new(models.Block),
-			Peer:  event.Peer,
-		}
-
-		switch _, err := eventToTrigger.Block.FromBytes(event.Data); {
-		case err != nil:
-			network.Events.InvalidBlockReceived.Trigger(event.Peer)
-
-		default:
-			network.Events.BlockReceived.Trigger(eventToTrigger)
-		}
-	}))
-
 	network.P2PManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(func(event *p2p.NeighborRemovedEvent) {
 		network.Events.PeerDropped.Trigger(event.Neighbor.Peer)
 	}))
@@ -67,11 +54,11 @@ func New(p2pManager *p2p.Manager, blockProvider func(models.BlockID) (*models.Bl
 }
 
 func (n *Network) SendBlock(block *models.Block, peers ...*peer.Peer) {
-	n.gossipManager.SendBlock(lo.PanicOnErr(block.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
+	n.gossipProtocol.SendBlock(lo.PanicOnErr(block.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
 }
 
 func (n *Network) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
-	n.gossipManager.RequestBlock(lo.PanicOnErr(id.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
+	n.gossipProtocol.RequestBlock(lo.PanicOnErr(id.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
 }
 
 func (n *Network) RequestEpochRange(start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {

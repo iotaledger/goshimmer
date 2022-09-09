@@ -1,7 +1,6 @@
 package protocol
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
@@ -10,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/node/solidification"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -74,8 +73,8 @@ func New(logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Pro
 	})
 }
 
-func (p *Protocol) ProcessBlockFromPeer(block *models.Block, peer *peer.Peer) {
-	p.Inbox.ProcessReceivedBlock(block, peer)
+func (p *Protocol) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
+	p.Inbox.ProcessReceivedBlock(block, neighbor)
 }
 
 func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
@@ -88,6 +87,10 @@ func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
 	}
 
 	return p.BlockStorage.Get(id)
+}
+
+func (p *Protocol) ReportInvalidBlock(neighbor *p2p.Neighbor) {
+	// TODO: increase euristic counter / trigger event for metrics
 }
 
 func (p *Protocol) setupNotarization() {
@@ -117,12 +120,6 @@ func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Opti
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(p *Protocol) {
 		p.optsEngineOptions = opts
-	}
-}
-
-func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsSolidificationOptions = opts
 	}
 }
 

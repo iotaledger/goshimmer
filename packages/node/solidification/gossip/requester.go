@@ -1,4 +1,4 @@
-package requester
+package gossip
 
 import (
 	"time"

@@ -4,6 +4,9 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/network/gossip"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
@@ -13,6 +16,9 @@ type Events struct {
 	BlockReceived        *event.Linkable[*BlockReceivedEvent, Events, *Events]
 	InvalidBlockReceived *event.Linkable[*peer.Peer, Events, *Events]
 	PeerDropped          *event.Linkable[*peer.Peer, Events, *Events]
+
+	Gossip   *gossip.Events
+	WarpSync *warpsync.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -31,13 +37,13 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 // region BlockReceivedEvent ///////////////////////////////////////////////////////////////////////////////////////////
 
 type BlockReceivedEvent struct {
-	Block *models.Block
-	Peer  *peer.Peer
+	Block    *models.Block
+	Neighbor *p2p.Neighbor
 }
 
-func BlockReceivedHandler(handler func(block *models.Block, peer *peer.Peer)) *event.Closure[*BlockReceivedEvent] {
+func BlockReceivedHandler(handler func(block *models.Block, neighbor *p2p.Neighbor)) *event.Closure[*BlockReceivedEvent] {
 	return event.NewClosure(func(event *BlockReceivedEvent) {
-		handler(event.Block, event.Peer)
+		handler(event.Block, event.Neighbor)
 	})
 }
 

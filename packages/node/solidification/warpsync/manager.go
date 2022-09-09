@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -21,7 +22,7 @@ const minimumWindowSize = 10
 type LoadBlockFunc func(models.BlockID) (*models.Block, bool)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
-type ProcessBlockFunc func(*models.Block)
+type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
