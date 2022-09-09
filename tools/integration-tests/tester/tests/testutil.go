@@ -10,6 +10,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/mr-tron/base58"
@@ -18,8 +19,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -34,6 +35,20 @@ const (
 
 	shutdownGraceTime = time.Minute
 )
+
+// OrphanageSnapshotDetails defines info for orphanage test scenario.
+var OrphanageSnapshotDetails = framework.SnapshotInfo{
+	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
+	GenesisTokenAmount: 0,
+	PeersSeedBase58: []string{
+		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+	},
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000, 10},
+}
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
@@ -354,18 +369,19 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
 // Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
-	missing := make(map[identity.ID]map[string]struct{}, len(nodes))
+	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
-		missing[node.ID()] = make(map[string]struct{}, len(blockIDs))
+		missing[node.ID()] = set.NewAdvancedSet[string]()
 		for blockID := range blockIDs {
-			missing[node.ID()][blockID] = struct{}{}
+			missing[node.ID()].Add(blockID)
 		}
 	}
 
 	condition := func() bool {
 		for _, node := range nodes {
 			nodeMissing := missing[node.ID()]
-			for blockID := range nodeMissing {
+			for it := nodeMissing.Iterator(); it.HasNext(); {
+				blockID := it.Next()
 				blk, err := node.GetBlockMetadata(blockID)
 				// retry, when the block could not be found
 				if errors.Is(err, client.ErrNotFound) {
@@ -382,8 +398,8 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
 				require.Equal(t, blockID, blk.ID)
-				delete(nodeMissing, blockID)
-				if len(nodeMissing) == 0 {
+				nodeMissing.Delete(blockID)
+				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
 				}
 			}
@@ -394,6 +410,46 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 	log.Printf("Waiting for %d blocks to become available...", len(blockIDs))
 	require.Eventuallyf(t, condition, waitFor, tick,
 		"%d out of %d nodes did not receive all blocks", len(missing), len(nodes))
+	log.Println("Waiting for blocks... done")
+}
+
+// RequireBlocksOrphaned asserts that all nodes have received BlockIDs and marked them as orphaned in waitFor time, periodically checking each tick.
+func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration) {
+	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
+	for _, node := range nodes {
+		missing[node.ID()] = set.NewAdvancedSet[string]()
+		for blockID := range blockIDs {
+			missing[node.ID()].Add(blockID)
+		}
+	}
+
+	condition := func() bool {
+		for _, node := range nodes {
+			nodeMissing := missing[node.ID()]
+			for it := nodeMissing.Iterator(); it.HasNext(); {
+				blockID := it.Next()
+				block, err := node.GetBlockMetadata(blockID)
+				// retry, when the block could not be found
+				if errors.Is(err, client.ErrNotFound) {
+					log.Printf("node=%s, blockID=%s; block not found", node, blockID)
+					continue
+				}
+
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+				require.Equal(t, blockID, block.ID)
+				require.True(t, block.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
+				nodeMissing.Delete(blockID)
+				if nodeMissing.IsEmpty() {
+					delete(missing, node.ID())
+				}
+			}
+		}
+		return len(missing) == 0
+	}
+
+	log.Printf("Waiting for %d blocks to become orphaned...", len(blockIDs))
+	require.Eventuallyf(t, condition, waitFor, tick,
+		"%d out of %d nodes did not orphan all blocks", len(missing), len(nodes))
 	log.Println("Waiting for blocks... done")
 }
 
