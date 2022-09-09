@@ -19,7 +19,7 @@ import (
 
 type TestFramework struct {
 	OrphanageManager *TSCManager
-	mockAcceptance   *MockAcceptanceGadget
+	mockAcceptance   *acceptance.MockAcceptanceGadget
 
 	test *testing.T
 
@@ -34,9 +34,9 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test: test,
-		mockAcceptance: &MockAcceptanceGadget{
-			blockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
-			acceptedBlocks:     make(map[models.BlockID]bool),
+		mockAcceptance: &acceptance.MockAcceptanceGadget{
+			BlockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
+			AcceptedBlocks:     make(map[models.BlockID]bool),
 		},
 	}, opts, func(t *TestFramework) {
 		t.TestFramework = tangle.NewTestFramework(
@@ -48,7 +48,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
 		}
 		if t.optsBlockAcceptedEvent == nil {
-			t.optsBlockAcceptedEvent = t.mockAcceptance.blockAcceptedEvent
+			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
 		}
 		if t.optsClock == nil {
 			t.optsClock = clock.NewClock(time.Now().Add(-5 * time.Hour))
@@ -97,14 +97,3 @@ func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) o
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
-type MockAcceptanceGadget struct {
-	blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
-	acceptedBlocks     map[models.BlockID]bool
-}
-
-// IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
-func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
-	return m.acceptedBlocks[blockID]
-}

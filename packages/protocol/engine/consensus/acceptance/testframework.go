@@ -204,3 +204,18 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
+type MockAcceptanceGadget struct {
+	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
+	AcceptedBlocks     map[models.BlockID]bool
+}
+
+// IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
+func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
+	return m.AcceptedBlocks[blockID]
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

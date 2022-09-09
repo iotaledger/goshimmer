@@ -26,7 +26,7 @@ import (
 
 type TestFramework struct {
 	Scheduler      *Scheduler
-	mockAcceptance *MockAcceptanceGadget
+	mockAcceptance *acceptance.MockAcceptanceGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]float64
 
@@ -51,9 +51,9 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:           test,
 		issuersMana:    make(map[identity.ID]float64),
 		issuersByAlias: make(map[string]*identity.Identity),
-		mockAcceptance: &MockAcceptanceGadget{
-			blockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
-			acceptedBlocks:     make(map[models.BlockID]bool),
+		mockAcceptance: &acceptance.MockAcceptanceGadget{
+			BlockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
+			AcceptedBlocks:     make(map[models.BlockID]bool),
 		},
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
@@ -74,7 +74,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
 		}
 		if t.optsBlockAcceptedEvent == nil {
-			t.optsBlockAcceptedEvent = t.mockAcceptance.blockAcceptedEvent
+			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
 		}
 
 		if t.Scheduler == nil {
@@ -89,7 +89,7 @@ type TangleTestFramework = tangle.TestFramework
 type GadgetTestFramework = acceptance.TestFramework
 
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.blockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
+	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
 		t.Scheduler.HandleAcceptedBlock(acceptedBlock.Block)
 	}))
 
@@ -264,14 +264,3 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// MockConfirmationOracleConfirmed mocks ConfirmationOracle marking all blocks as confirmed.
-type MockAcceptanceGadget struct {
-	blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
-	acceptedBlocks     map[models.BlockID]bool
-}
-
-// IsBlockConfirmed mocks its interface function returning that all blocks are confirmed.
-func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
-	return m.acceptedBlocks[blockID]
-}
