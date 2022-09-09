@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -198,7 +198,7 @@ func (t *Transaction) FromObjectStorage(key, value []byte) error {
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (t *Transaction) FromBytes(data []byte) error {
-	err := t.Storable.FromBytes(data)
+	_, err := t.Storable.FromBytes(data)
 	SetOutputID(t.Essence(), t.ID())
 
 	return err

@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	markersPackage "github.com/iotaledger/goshimmer/packages/core/markersold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +15,7 @@ type StructureDetails struct {
 }
 
 // NewStructureDetails returns the StructureDetails from the given markersold.StructureDetails.
-func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *StructureDetails {
+func NewStructureDetails(structureDetails *markers.StructureDetails) *StructureDetails {
 	if structureDetails == nil {
 		return nil
 	}
@@ -34,17 +34,17 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 
 // Markers represents the JSON model of the markersold.Markers.
 type Markers struct {
-	Markers      map[markersPackage.SequenceID]markersPackage.Index `json:"markers"`
-	HighestIndex markersPackage.Index                               `json:"highestIndex"`
-	LowestIndex  markersPackage.Index                               `json:"lowestIndex"`
+	Markers      map[markers.SequenceID]markers.Index `json:"markers"`
+	HighestIndex markers.Index                        `json:"highestIndex"`
+	LowestIndex  markers.Index                        `json:"lowestIndex"`
 }
 
 // NewMarkers returns the Markers from the given markersold.Markers.
-func NewMarkers(markers *markersPackage.Markers) *Markers {
+func NewMarkers(m *markers.Markers) *Markers {
 	return &Markers{
-		Markers: func() (mappedMarkers map[markersPackage.SequenceID]markersPackage.Index) {
-			mappedMarkers = make(map[markersPackage.SequenceID]markersPackage.Index)
-			markers.ForEach(func(sequenceID markersPackage.SequenceID, index markersPackage.Index) bool {
+		Markers: func() (mappedMarkers map[markers.SequenceID]markers.Index) {
+			mappedMarkers = make(map[markers.SequenceID]markers.Index)
+			m.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				mappedMarkers[sequenceID] = index
 
 				return true
@@ -52,8 +52,8 @@ func NewMarkers(markers *markersPackage.Markers) *Markers {
 
 			return
 		}(),
-		HighestIndex: markers.HighestIndex(),
-		LowestIndex:  markers.LowestIndex(),
+		HighestIndex: m.HighestIndex(),
+		LowestIndex:  m.LowestIndex(),
 	}
 }
 

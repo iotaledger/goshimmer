@@ -2,6 +2,8 @@ package booker
 
 import (
 	"sync"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // region LockableSlice ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,10 +30,7 @@ func (l *LockableSlice[T]) Slice() (slice []T) {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
-	slice = make([]T, len(l.slice))
-	copy(slice, l.slice)
-
-	return
+	return lo.CopySlice(l.slice)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

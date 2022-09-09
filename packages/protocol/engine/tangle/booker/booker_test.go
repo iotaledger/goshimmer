@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -127,7 +128,7 @@ func TestScenario_3(t *testing.T) {
 // 1. It tests whether a new sequence is created after max past marker gap is reached.
 // 2. Propagation of conflicts through the markers, to individually mapped blocks, and across sequence boundaries.
 func TestScenario_4(t *testing.T) {
-	tf := NewTestFramework(t, WithBookerOptions(WithMarkerManagerOptions(WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3)))))
+	tf := NewTestFramework(t, WithBookerOptions(WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *Block](markers.WithMaxPastMarkerDistance(3)))))
 
 	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX0", 4, "Genesis")))
 	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
@@ -745,7 +746,7 @@ func Test_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 4)
+	tf.BlockDAG.EvictionManager.EvictUntilEpoch(epochCount / 4)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
@@ -753,12 +754,12 @@ func Test_Prune(t *testing.T) {
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(0, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 10)
+	tf.BlockDAG.EvictionManager.EvictUntilEpoch(epochCount / 10)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/4")
 
-	tf.BlockDAG.EvictionManager.EvictEpoch(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictUntilEpoch(epochCount / 2)
 	event.Loop.WaitUntilAllTasksProcessed()
 
 	require.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch of booker should be epochCount/2")

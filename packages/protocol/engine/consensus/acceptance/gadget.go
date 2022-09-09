@@ -12,7 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -43,7 +44,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsConflictAcceptanceThreshold: 0.67,
 	}, opts, func(a *Gadget) {
-		a.Events = newEvents()
+		a.Events = NewEvents()
 
 		a.tangle = tangle
 		a.evictionManager = tangle.EvictionManager.Lockable()
@@ -121,11 +122,11 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 }
 
 func (a *Gadget) setup() {
-	a.tangle.VirtualVoting.Events.SequenceVoterUpdated.Attach(event.NewClosure[*votes.SequenceVotersUpdatedEvent](func(evt *votes.SequenceVotersUpdatedEvent) {
+	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Attach(event.NewClosure[*sequencetracker.VoterUpdatedEvent](func(evt *sequencetracker.VoterUpdatedEvent) {
 		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
-	a.tangle.VirtualVoting.Events.ConflictVoterAdded.Attach(event.NewClosure[*votes.ConflictVoterEvent[utxo.TransactionID]](func(evt *votes.ConflictVoterEvent[utxo.TransactionID]) {
+	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoterEvent[utxo.TransactionID]](func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 
@@ -136,7 +137,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionManager.IsRootBlock(id) {
-		virtualVotingBlock, _ := a.tangle.Block(id)
+		virtualVotingBlock, _ := a.tangle.VirtualVoting.Block(id)
 
 		return NewBlock(virtualVotingBlock, WithAccepted(true)), true
 	}
@@ -178,6 +179,11 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 	if block.SetAccepted() {
+		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
+		if block.IsExplicitlyOrphaned() {
+			a.tangle.SetOrphaned(block.Block.Block.Block, false)
+		}
+
 		a.Events.BlockAccepted.Trigger(block)
 
 		// set ConfirmationState of payload (applicable only to transactions)
@@ -214,7 +220,7 @@ func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
 	block, exists = a.block(blockID)
 	if !exists {
-		virtualVotingBlock, virtualVotingBlockExists := a.tangle.Block(blockID)
+		virtualVotingBlock, virtualVotingBlockExists := a.tangle.VirtualVoting.Block(blockID)
 		if !virtualVotingBlockExists {
 			return nil, false
 		}

@@ -205,7 +205,7 @@ func (m *Manager) AllNeighborsIDs() (ids []identity.ID) {
 	ids = make([]identity.ID, 0)
 	neighbors := m.AllNeighbors()
 	for _, nbr := range neighbors {
-		ids = append(ids, nbr.Peer.ID())
+		ids = append(ids, nbr.ID())
 	}
 	return
 }

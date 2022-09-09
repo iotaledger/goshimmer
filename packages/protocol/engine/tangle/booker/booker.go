@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
@@ -33,29 +34,29 @@ type Booker struct {
 	bookingOrder    *causalorder.CausalOrder[models.BlockID, *Block]
 	attachments     *attachments
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	markerManager   *MarkerManager
+	markerManager   *markermanager.MarkerManager[models.BlockID, *Block]
 	bookingMutex    *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex   *syncutils.DAGMutex[markers.SequenceID]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	optsMarkerManager []options.Option[MarkerManager]
+	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *Block]]
 
 	*blockdag.BlockDAG
 }
 
 func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Option[Booker]) (booker *Booker) {
 	return options.Apply(&Booker{
-		Events:            newEvents(),
+		Events:            NewEvents(),
 		attachments:       newAttachments(),
 		blocks:            memstorage.NewEpochStorage[models.BlockID, *Block](),
 		bookingMutex:      syncutils.NewDAGMutex[models.BlockID](),
 		sequenceMutex:     syncutils.NewDAGMutex[markers.SequenceID](),
 		evictionManager:   blockDAG.EvictionManager.Lockable(),
-		optsMarkerManager: make([]options.Option[MarkerManager], 0),
+		optsMarkerManager: make([]options.Option[markermanager.MarkerManager[models.BlockID, *Block]], 0),
 		Ledger:            ledger,
 		BlockDAG:          blockDAG,
 	}, opts, func(b *Booker) {
-		b.markerManager = NewMarkerManager(b.optsMarkerManager...)
+		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
 			blockDAG.EvictionManager.Manager,
 			b.Block,
@@ -65,7 +66,7 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
-		b.Events.SequenceEvicted = b.markerManager.Events.SequenceEvicted
+		b.Events.MarkerManager = b.markerManager.Events
 	}, (*Booker).setupEvents)
 }
 
@@ -134,7 +135,7 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
 
-	return b.markerManager.sequenceManager.Sequence(id)
+	return b.markerManager.SequenceManager.Sequence(id)
 }
 
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
@@ -142,6 +143,16 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	defer b.evictionManager.RUnlock()
 
 	return b.markerManager.BlockFromMarker(marker)
+}
+
+// GetEarliestAttachment returns the earliest attachment for a given transaction ID.
+func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getEarliestAttachment(txID)
+}
+
+// GetLatestAttachment returns the latest attachment for a given transaction ID.
+func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getLatestAttachment(txID)
 }
 
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
@@ -543,7 +554,7 @@ func isReferenceValid(child *Block, parent *Block) (err error) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithMarkerManagerOptions(opts ...options.Option[MarkerManager]) options.Option[Booker] {
+func WithMarkerManagerOptions(opts ...options.Option[markermanager.MarkerManager[models.BlockID, *Block]]) options.Option[Booker] {
 	return func(b *Booker) {
 		b.optsMarkerManager = opts
 	}

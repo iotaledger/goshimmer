@@ -45,7 +45,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewManager(models.IsEmptyBlockID)
+				t.evictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
 			}
 
 			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
@@ -121,6 +121,10 @@ func (t *TestFramework) AssertMissingCount(missingCount int32, msgAndArgs ...int
 
 func (t *TestFramework) AssertStoredCount(storedCount int32, msgAndArgs ...interface{}) {
 	assert.EqualValues(t.test, storedCount, atomic.LoadInt32(&(t.attachedBlocks)), msgAndArgs...)
+}
+
+func (t *TestFramework) AssertOrphanedCount(storedCount int32, msgAndArgs ...interface{}) {
+	assert.EqualValues(t.test, storedCount, len(t.orphanedBlocks), msgAndArgs...)
 }
 
 func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {

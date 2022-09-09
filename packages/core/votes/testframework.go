@@ -4,67 +4,40 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type conflictDAGTestFramework = *conflictdag.TestFramework
-type markersTestFramework = *markers.TestFramework
+type TestFramework struct {
+	ValidatorSet *validator.Set
 
-type TestFramework[VotePowerType VotePower[VotePowerType]] struct {
-	conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
-	sequenceTracker *SequenceTracker[VotePowerType]
-	ValidatorSet    *validator.Set
-
+	test              *testing.T
 	validatorsByAlias map[string]*validator.Validator
-
-	conflictDAG     *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
-	sequenceManager *markers.SequenceManager
-
-	test *testing.T
-
-	conflictDAGTestFramework
-	markersTestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType VotePower[VotePowerType]](test *testing.T, opts ...options.Option[TestFramework[VotePowerType]]) (newTestFramework *TestFramework[VotePowerType]) {
-	return options.Apply(&TestFramework[VotePowerType]{
-		validatorsByAlias: make(map[string]*validator.Validator),
+func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+	return options.Apply(&TestFramework{
 		test:              test,
-	}, opts, func(t *TestFramework[VotePowerType]) {
+		validatorsByAlias: make(map[string]*validator.Validator),
+	}, opts, func(t *TestFramework) {
 		if t.ValidatorSet == nil {
 			t.ValidatorSet = validator.NewSet()
 		}
-
-		t.conflictDAGTestFramework = conflictdag.NewTestFramework(t.test, conflictdag.WithConflictDAG(t.conflictDAG))
-		t.markersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
-
-		t.SequenceTracker().Events.SequenceVotersUpdated.Hook(event.NewClosure(func(evt *SequenceVotersUpdatedEvent) {
-			if debug.GetEnabled() {
-				t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
-			}
-		}))
 	})
 }
 
-func (t *TestFramework[VotePowerType]) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
+func (t *TestFramework) CreateValidator(alias string, opts ...options.Option[validator.Validator]) *validator.Validator {
 	return t.CreateValidatorWithID(alias, lo.PanicOnErr(identity.RandomIDInsecure()), opts...)
 }
 
-func (t *TestFramework[VotePowerType]) CreateValidatorWithID(alias string, id identity.ID, opts ...options.Option[validator.Validator]) *validator.Validator {
+func (t *TestFramework) CreateValidatorWithID(alias string, id identity.ID, opts ...options.Option[validator.Validator]) *validator.Validator {
 	voter := validator.New(id, opts...)
 
 	t.validatorsByAlias[alias] = voter
@@ -73,7 +46,7 @@ func (t *TestFramework[VotePowerType]) CreateValidatorWithID(alias string, id id
 	return voter
 }
 
-func (t *TestFramework[VotePowerType]) Validator(alias string) (v *validator.Validator) {
+func (t *TestFramework) Validator(alias string) (v *validator.Validator) {
 	v, ok := t.validatorsByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Validator alias %s not registered", alias))
@@ -82,32 +55,13 @@ func (t *TestFramework[VotePowerType]) Validator(alias string) (v *validator.Val
 	return
 }
 
-func (t *TestFramework[VotePowerType]) Validators(aliases ...string) (validators *set.AdvancedSet[*validator.Validator]) {
+func (t *TestFramework) Validators(aliases ...string) (validators *set.AdvancedSet[*validator.Validator]) {
 	validators = set.NewAdvancedSet[*validator.Validator]()
 	for _, alias := range aliases {
 		validators.Add(t.Validator(alias))
 	}
 
 	return
-}
-
-func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults map[string]*set.AdvancedSet[*validator.Validator]) {
-	for conflictIDAlias, expectedVoters := range expectedResults {
-		actualVoters := t.ConflictTracker().Voters(t.ConflictID(conflictIDAlias))
-
-		assert.Truef(t.test, expectedVoters.Equal(ValidatorSetToAdvancedSet(actualVoters)), "%s expected to have %d voters but got %d", conflictIDAlias, expectedVoters.Size(), actualVoters.Size())
-	}
-}
-
-func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVoters map[string]*set.AdvancedSet[*validator.Validator]) {
-	for markerAlias, expectedVotersOfMarker := range expectedVoters {
-		// sanity check
-		assert.Equal(t.test, markerAlias, fmt.Sprintf("%d,%d", t.StructureDetails(markerAlias).PastMarkers().Marker().SequenceID(), t.StructureDetails(markerAlias).PastMarkers().Marker().Index()))
-
-		voters := t.SequenceTracker().Voters(t.StructureDetails(markerAlias).PastMarkers().Marker())
-
-		assert.True(t.test, expectedVotersOfMarker.Equal(ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", markerAlias, expectedVotersOfMarker.Size(), voters.Size())
-	}
 }
 
 func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSet *set.AdvancedSet[*validator.Validator]) {
@@ -121,84 +75,33 @@ func ValidatorSetToAdvancedSet(validatorSet *validator.Set) (validatorAdvancedSe
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region mocks //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type mockVotePower struct {
-	votePower int
-}
-
-func (p mockVotePower) CompareTo(other mockVotePower) int {
-	if p.votePower-other.votePower < 0 {
-		return -1
-	} else if p.votePower-other.votePower > 0 {
-		return 1
-	} else {
-		return 0
-	}
-}
-
-func (t *TestFramework[VotePowerType]) SequenceTracker() (sequenceTracker *SequenceTracker[VotePowerType]) {
-	if t.sequenceTracker == nil {
-		t.sequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 0 })
-	}
-
-	return t.sequenceTracker
-}
-
-func (t *TestFramework[VotePowerType]) ConflictTracker() (conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) {
-	if t.conflictTracker == nil {
-		t.conflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.ValidatorSet)
-	}
-
-	return t.conflictTracker
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithValidatorSet[VotePowerType VotePower[VotePowerType]](validatorSet *validator.Set) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
+func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+	return func(tf *TestFramework) {
 		if tf.ValidatorSet != nil {
 			panic("validator set already set")
 		}
+
 		tf.ValidatorSet = validatorSet
 	}
 }
 
-func WithSequenceTracker[VotePowerType VotePower[VotePowerType]](sequenceTracker *SequenceTracker[VotePowerType]) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.sequenceTracker != nil {
-			panic("sequence tracker already set")
-		}
-		tf.sequenceTracker = sequenceTracker
-	}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MockedVotePower //////////////////////////////////////////////////////////////////////////////////////////////
+
+type MockedVotePower struct {
+	VotePower int
 }
 
-func WithConflictTracker[VotePowerType VotePower[VotePowerType]](conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.conflictTracker != nil {
-			panic("conflict tracker already set")
-		}
-		tf.conflictTracker = conflictTracker
-	}
-}
-
-func WithConflictDAG[VotePowerType VotePower[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.conflictDAG != nil {
-			panic("conflict DAG already set")
-		}
-		tf.conflictDAG = conflictDAG
-	}
-}
-
-func WithSequenceManager[VotePowerType VotePower[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
-	return func(tf *TestFramework[VotePowerType]) {
-		if tf.sequenceManager != nil {
-			panic("sequence manager already set")
-		}
-		tf.sequenceManager = sequenceManager
+func (p MockedVotePower) CompareTo(other MockedVotePower) int {
+	if p.VotePower-other.VotePower < 0 {
+		return -1
+	} else if p.VotePower-other.VotePower > 0 {
+		return 1
+	} else {
+		return 0
 	}
 }
 

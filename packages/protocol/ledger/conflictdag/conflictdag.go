@@ -31,7 +31,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 // New returns a new ConflictDAG with the given options.
 func New[ConflictIDType, ResourceIDType comparable](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	new = &ConflictDAG[ConflictIDType, ResourceIDType]{
-		Events:  newEvents[ConflictIDType, ResourceIDType](),
+		Events:  NewEvents[ConflictIDType, ResourceIDType](),
 		options: newOptions(options...),
 	}
 	new.Storage = newStorage[ConflictIDType, ResourceIDType](new.options)
@@ -249,11 +249,11 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) determineConflictsToRev
 	}
 
 	for subTractionWalker.HasNext() {
-		//currentVote := vote.WithConflictID(subTractionWalker.Next())
+		// currentVote := vote.WithConflictID(subTractionWalker.Next())
 		//
-		//if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
+		// if isInvalid = addedConflicts.Has(currentVote.ConflictID()) || votedConflicts.Has(currentVote.ConflictID()); isInvalid {
 		//	return
-		//}
+		// }
 		currentConflictID := subTractionWalker.Next()
 
 		revokedConflicts.Add(currentConflictID)

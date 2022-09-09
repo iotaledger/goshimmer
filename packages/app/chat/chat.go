@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 )
 
 func init() {

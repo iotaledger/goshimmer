@@ -4,12 +4,13 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/types"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 // Manager is the snapshot manager.
@@ -17,7 +18,7 @@ type Manager struct {
 	sync.RWMutex
 
 	notarizationMgr *notarization.Manager
-	seps            *shrinkingmap.ShrinkingMap[epoch.Index, map[tangleold.BlockID]types.Empty]
+	seps            *shrinkingmap.ShrinkingMap[epoch.Index, map[models.BlockID]types.Empty]
 	snapshotDepth   int
 }
 
@@ -25,7 +26,7 @@ type Manager struct {
 func NewManager(nmgr *notarization.Manager, depth int) (new *Manager) {
 	new = &Manager{
 		notarizationMgr: nmgr,
-		seps:            shrinkingmap.New[epoch.Index, map[tangleold.BlockID]types.Empty](),
+		seps:            shrinkingmap.New[epoch.Index, map[models.BlockID]types.Empty](),
 		snapshotDepth:   depth,
 	}
 
@@ -69,7 +70,7 @@ func (m *Manager) LoadSolidEntryPoints(seps *SolidEntryPoints) {
 	m.Lock()
 	defer m.Unlock()
 
-	sep := make(map[tangleold.BlockID]types.Empty)
+	sep := make(map[models.BlockID]types.Empty)
 	for _, b := range seps.Seps {
 		sep[b] = types.Void
 	}
@@ -86,13 +87,13 @@ func (m *Manager) AdvanceSolidEntryPoints(ei epoch.Index) {
 }
 
 // InsertSolidEntryPoint inserts a solid entry point to the seps map.
-func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) {
+func (m *Manager) InsertSolidEntryPoint(id models.BlockID) {
 	m.Lock()
 	defer m.Unlock()
 
 	sep, ok := m.seps.Get(id.EpochIndex)
 	if !ok {
-		sep = make(map[tangleold.BlockID]types.Empty)
+		sep = make(map[models.BlockID]types.Empty)
 	}
 
 	sep[id] = types.Void
@@ -100,7 +101,7 @@ func (m *Manager) InsertSolidEntryPoint(id tangleold.BlockID) {
 }
 
 // RemoveSolidEntryPoint removes a solid entry points from the map.
-func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
+func (m *Manager) RemoveSolidEntryPoint(b *models.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -118,7 +119,7 @@ func (m *Manager) RemoveSolidEntryPoint(b *tangleold.Block) (err error) {
 func (m *Manager) snapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints, stopChan chan struct{}) {
 	go func() {
 		for i := lastConfirmedEpoch; i <= latestCommitableEpoch; i++ {
-			seps := make([]tangleold.BlockID, 0)
+			seps := make([]models.BlockID, 0)
 
 			epochSeps, _ := m.seps.Get(i)
 			for blkID := range epochSeps {

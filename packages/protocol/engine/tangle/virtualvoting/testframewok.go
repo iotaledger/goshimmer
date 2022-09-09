@@ -15,6 +15,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -39,6 +41,8 @@ type TestFramework struct {
 
 	*BookerTestFramework
 	*VotesTestFramework
+	*ConflictTrackerTestFramework
+	*SequenceTrackerTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
@@ -57,13 +61,16 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			t.VirtualVoting = New(t.Booker, validator.NewSet(), t.optsVirtualVoting...)
 		}
 
-		t.VotesTestFramework = votes.NewTestFramework[BlockVotePower](
-			test,
-			votes.WithValidatorSet[BlockVotePower](t.VirtualVoting.ValidatorSet),
-			votes.WithConflictTracker(t.VirtualVoting.conflictTracker),
-			votes.WithSequenceTracker(t.VirtualVoting.sequenceTracker),
-			votes.WithConflictDAG[BlockVotePower](t.VirtualVoting.Booker.Ledger.ConflictDAG),
-			votes.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
+		t.VotesTestFramework = votes.NewTestFramework(test, votes.WithValidatorSet(t.VirtualVoting.ValidatorSet))
+		t.ConflictTrackerTestFramework = conflicttracker.NewTestFramework[BlockVotePower](test,
+			conflicttracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
+			conflicttracker.WithConflictTracker(t.VirtualVoting.conflictTracker),
+			conflicttracker.WithConflictDAG[BlockVotePower](t.VirtualVoting.Booker.Ledger.ConflictDAG),
+		)
+		t.SequenceTrackerTestFramework = sequencetracker.NewTestFramework[BlockVotePower](test,
+			sequencetracker.WithVotesTestFramework[BlockVotePower](t.VotesTestFramework),
+			sequencetracker.WithSequenceTracker[BlockVotePower](t.VirtualVoting.sequenceTracker),
+			sequencetracker.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
 		)
 	}, (*TestFramework).setupEvents)
 }
@@ -93,7 +100,7 @@ func (t *TestFramework) Identities(aliases ...string) (identities *set.AdvancedS
 
 func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*set.AdvancedSet[*validator.Validator]) {
 	for marker, expectedVotersOfMarker := range expectedVoters {
-		voters := t.SequenceTracker().Voters(marker)
+		voters := t.SequenceTracker.Voters(marker)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "marker %s expected %d voters but got %d", marker, expectedVotersOfMarker.Size(), voters.Size())
 	}
@@ -101,7 +108,7 @@ func (t *TestFramework) ValidateMarkerVoters(expectedVoters map[markers.Marker]*
 
 func (t *TestFramework) ValidateConflictVoters(expectedVoters map[utxo.TransactionID]*set.AdvancedSet[*validator.Validator]) {
 	for conflictID, expectedVotersOfMarker := range expectedVoters {
-		voters := t.ConflictTracker().Voters(conflictID)
+		voters := t.ConflictTracker.Voters(conflictID)
 
 		assert.True(t.test, expectedVotersOfMarker.Equal(votes.ValidatorSetToAdvancedSet(voters)), "conflict %s expected %d voters but got %d", conflictID, expectedVotersOfMarker.Size(), voters.Size())
 	}
@@ -123,7 +130,11 @@ func (t *TestFramework) setupEvents() {
 
 type BookerTestFramework = booker.TestFramework
 
-type VotesTestFramework = votes.TestFramework[BlockVotePower]
+type VotesTestFramework = votes.TestFramework
+
+type ConflictTrackerTestFramework = conflicttracker.TestFramework[BlockVotePower]
+
+type SequenceTrackerTestFramework = sequencetracker.TestFramework[BlockVotePower]
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

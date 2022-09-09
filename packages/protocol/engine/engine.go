@@ -1,11 +1,15 @@
 package engine
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/solidification"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
@@ -15,27 +19,47 @@ import (
 // region Engine ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Ledger         *ledger.Ledger
-	Tangle         *tangle.Tangle
-	Solidification *solidification.Solidification
-	Consensus      *consensus.Consensus
+	Events *Events
 
-	optsTangle         []options.Option[tangle.Tangle]
-	optsSolidification []options.Option[solidification.Solidification]
-	optsConsensus      []options.Option[consensus.Consensus]
+	Clock             *clock.Clock
+	Ledger            *ledger.Ledger
+	Tangle            *tangle.Tangle
+	Consensus         *consensus.Consensus
+	CongestionControl *congestioncontrol.CongestionControl
+	// TODO: FILL THIS IN
+	TipManager bool
+
+	optsBootstrappedThreshold time.Duration
+	optsTangle                []options.Option[tangle.Tangle]
+	optsConsensus             []options.Option[consensus.Consensus]
+	optsCongestionControl     []options.Option[congestioncontrol.CongestionControl]
 }
 
-func New(ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
-	return options.Apply(new(Engine), opts, func(e *Engine) {
+func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
+	return options.Apply(&Engine{
+		optsBootstrappedThreshold: 10 * time.Second,
+	}, opts, func(e *Engine) {
+		e.Clock = clock.NewClock(snapshotTime)
 		e.Ledger = ledger
 		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangle...)
-		e.Solidification = solidification.New(e.Tangle.BlockDAG, evictionManager, e.optsSolidification...)
 		e.Consensus = consensus.New(e.Tangle, e.optsConsensus...)
+		e.CongestionControl = congestioncontrol.New(e.Consensus.Gadget, e.Tangle, func() map[identity.ID]float64 {
+			panic("implement me")
+		}, func() float64 {
+			panic("implement me")
+		}, e.optsCongestionControl...)
+
+		e.Events = NewEvents()
+		e.Events.Tangle = e.Tangle.Events
+		e.Events.CongestionControl = e.CongestionControl.Events
 	})
 }
 
+func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
+	return time.Since(e.Clock.RelativeConfirmedTime()) < e.optsBootstrappedThreshold
+}
+
 func (e *Engine) Shutdown() {
-	e.Solidification.Shutdown()
 	e.Ledger.Shutdown()
 }
 
@@ -43,15 +67,15 @@ func (e *Engine) Shutdown() {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
+func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTangle = opts
+		e.optsBootstrappedThreshold = threshold
 	}
 }
 
-func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Engine] {
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsSolidification = opts
+		e.optsTangle = opts
 	}
 }
 

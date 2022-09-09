@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -19,7 +20,19 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithGadgetOptions(WithConflictAcceptanceThreshold(0.5), WithMarkerAcceptanceThreshold(0.5)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t,
+		WithGadgetOptions(
+			WithConflictAcceptanceThreshold(0.5),
+			WithMarkerAcceptanceThreshold(0.5),
+		),
+		WithTangleOptions(
+			tangle.WithBookerOptions(
+				booker.WithMarkerManagerOptions(
+					markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3)),
+				),
+			),
+		),
+	)
 	tf.CreateIdentity("A", validator.WithWeight(30))
 	tf.CreateIdentity("B", validator.WithWeight(15))
 	tf.CreateIdentity("C", validator.WithWeight(25))
@@ -306,7 +319,7 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(20))
 	tf.CreateIdentity("B", validator.WithWeight(30))
 
@@ -437,7 +450,7 @@ func TestGadget_update_reorg(t *testing.T) {
 	debug.SetEnabled(true)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(booker.WithSequenceManagerOptions(markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(20))
 	tf.CreateIdentity("B", validator.WithWeight(30))
 
@@ -519,5 +532,81 @@ func TestGadget_update_reorg(t *testing.T) {
 		tf.AssertConflictsAccepted(1)
 		tf.AssertConflictsRejected(1)
 		tf.AssertReorgs(1)
+	}
+}
+
+func TestGadget_unorphan(t *testing.T) {
+	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
+	tf.CreateIdentity("A", validator.WithWeight(20))
+	tf.CreateIdentity("B", validator.WithWeight(30))
+
+	initialAcceptedBlocks := make(map[string]bool)
+	initialAcceptedMarkers := make(map[markers.Marker]bool)
+
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithIssuer(tf.Identity("A").PublicKey()))
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
+
+	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4", "Block5").WaitUntilAllTasksProcessed()
+
+	{
+		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
+			"Block1": false,
+			"Block2": false,
+			"Block3": false,
+			"Block4": false,
+			"Block5": false,
+		}))
+		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
+			markers.NewMarker(0, 1): false,
+			markers.NewMarker(0, 2): false,
+			markers.NewMarker(0, 3): false,
+			markers.NewMarker(0, 4): false,
+			markers.NewMarker(0, 5): false,
+		}))
+
+		tf.AssertBlockAccepted(0)
+	}
+
+	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5"} {
+		block := tf.Block(alias)
+		tf.BlockDAG.SetOrphaned(block.Block, true)
+	}
+
+	{
+		tf.AssertOrphanedBlocks(tf.BlockIDs(
+			"Block1",
+			"Block2",
+			"Block3",
+			"Block4",
+			"Block5",
+		))
+		tf.AssertOrphanedCount(5)
+	}
+
+	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
+	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
+	{
+		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
+			"Block1": true,
+			"Block2": true,
+			"Block3": true,
+			"Block4": true,
+			"Block5": true,
+			"Block6": false,
+		}))
+		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
+			markers.NewMarker(0, 1): true,
+			markers.NewMarker(0, 2): true,
+			markers.NewMarker(0, 3): true,
+			markers.NewMarker(0, 4): true,
+			markers.NewMarker(0, 5): true,
+			markers.NewMarker(0, 6): false,
+		}))
+		tf.AssertBlockAccepted(5)
+		tf.AssertOrphanedBlocks(tf.BlockIDs())
+		tf.AssertOrphanedCount(0)
 	}
 }

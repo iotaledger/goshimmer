@@ -1,6 +1,7 @@
 package blockdag
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
 
@@ -67,6 +68,14 @@ func (b *Block) IsOrphaned() (isOrphaned bool) {
 	return b.orphaned || !b.orphanedBlocksInPastCone.Empty()
 }
 
+// IsExplicitlyOrphaned returns true if the Block is orphaned due to being marked as orphaned itself.
+func (b *Block) IsExplicitlyOrphaned() (isOrphaned bool) {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.orphaned
+}
+
 // OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
 func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
 	b.RLock()
@@ -100,19 +109,19 @@ func (b *Block) Children() (children []*Block) {
 func (b *Block) StrongChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.strongChildren
+	return lo.CopySlice(b.strongChildren)
 }
 
 func (b *Block) WeakChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.weakChildren
+	return lo.CopySlice(b.weakChildren)
 }
 
 func (b *Block) LikedInsteadChildren() []*Block {
 	b.RLock()
 	defer b.RUnlock()
-	return b.likedInsteadChildren
+	return lo.CopySlice(b.likedInsteadChildren)
 }
 
 // setSolid marks the Block as solid.

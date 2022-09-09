@@ -44,6 +44,7 @@ type BlockMetadata struct {
 	Scheduled             bool               `json:"scheduled"`
 	ScheduledTime         int64              `json:"scheduledTime"`
 	Booked                bool               `json:"booked"`
+	Orphaned              bool               `json:"orphaned"`
 	BookedTime            int64              `json:"bookedTime"`
 	ObjectivelyInvalid    bool               `json:"objectivelyInvalid"`
 	SubjectivelyInvalid   bool               `json:"subjectivelyInvalid"`

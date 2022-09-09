@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 )
 
 const (
@@ -24,14 +24,8 @@ const (
 type notarizationPluginDependencies struct {
 	dig.In
 
-	Tangle  *tangleold.Tangle
+	Engine  *engine.Engine
 	Manager *notarization.Manager
-}
-
-type notarizationManagerDependencies struct {
-	dig.In
-
-	Tangle  *tangleold.Tangle
 	Storage kvstore.KVStore
 }
 
@@ -79,10 +73,10 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager(deps notarizationManagerDependencies) *notarization.Manager {
+func newNotarizationManager(deps notarizationPluginDependencies) *notarization.Manager {
 	return notarization.NewManager(
-		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
-		deps.Tangle,
+		notarization.NewEpochCommitmentFactory(deps.Storage, NotarizationParameters.SnapshotDepth),
+		deps.Engine,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 		notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 		notarization.ManaEpochDelay(ManaParameters.EpochDelay),

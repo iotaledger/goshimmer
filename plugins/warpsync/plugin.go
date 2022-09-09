@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/warpsync"
+	"github.com/iotaledger/goshimmer/packages/node/solidification/warpsync"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 )

@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models.BlockID](models.IsEmptyBlockID)
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
 				}
 
 				if t.optsValidatorSet == nil {
@@ -201,6 +201,21 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 	return func(t *TestFramework) {
 		t.optsValidatorSet = validatorSet
 	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
+type MockAcceptanceGadget struct {
+	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
+	AcceptedBlocks     map[models.BlockID]bool
+}
+
+// IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
+func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
+	return m.AcceptedBlocks[blockID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
