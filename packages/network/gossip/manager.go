@@ -11,9 +11,9 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 )
@@ -23,7 +23,7 @@ const (
 )
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId tangleold.BlockID) ([]byte, error)
+type LoadBlockFunc func(blockId models.BlockID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
@@ -31,8 +31,7 @@ type Manager struct {
 
 	Events *Events
 
-	loadBlockFunc LoadBlockFunc
-	log           *logger.Logger
+	log *logger.Logger
 
 	stopMutex sync.RWMutex
 	isStopped bool
@@ -48,12 +47,11 @@ type Manager struct {
 type ManagerOption func(m *Manager)
 
 // NewManager creates a new Manager.
-func NewManager(p2pManager *p2p.Manager, f LoadBlockFunc, log *logger.Logger, opts ...ManagerOption) *Manager {
+func NewManager(p2pManager *p2p.Manager, log *logger.Logger, opts ...ManagerOption) *Manager {
 	m := &Manager{
-		p2pManager:    p2pManager,
-		Events:        NewEvents(),
-		loadBlockFunc: f,
-		log:           log,
+		p2pManager: p2pManager,
+		Events:     NewEvents(),
+		log:        log,
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
@@ -164,32 +162,27 @@ func (m *Manager) processBlockPacket(packetBlk *gp.Packet_Block, nbr *p2p.Neighb
 	if m.blocksRateLimiter != nil {
 		m.blocksRateLimiter.Count(nbr.Peer)
 	}
-	m.Events.BlockReceived.Trigger(&BlockReceivedEvent{Data: packetBlk.Block.GetData(), Peer: nbr.Peer})
+	m.Events.BlockReceived.Trigger(&BlockReceivedEvent{
+		Neighbor: nbr,
+		Data:     packetBlk.Block.GetData(),
+	})
 }
 
 func (m *Manager) processBlockRequestPacket(packetBlkReq *gp.Packet_BlockRequest, nbr *p2p.Neighbor) {
 	if m.blockRequestsRateLimiter != nil {
 		m.blockRequestsRateLimiter.Count(nbr.Peer)
 	}
-	var blkID tangleold.BlockID
+	var blkID models.BlockID
 	_, err := blkID.FromBytes(packetBlkReq.BlockRequest.GetId())
 	if err != nil {
 		m.log.Debugw("invalid block id:", "err", err)
 		return
 	}
 
-	blkBytes, err := m.loadBlockFunc(blkID)
-	if err != nil {
-		m.log.Debugw("error loading block", "blk-id", blkID, "err", err)
-		return
-	}
-
-	// send the loaded block directly to the neighbor
-	packet := &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: blkBytes}}}
-	if err := nbr.GetStream(protocolID).WritePacket(packet); err != nil {
-		nbr.Log.Warnw("Failed to send requested block back to the neighbor", "err", err)
-		nbr.Close()
-	}
+	m.Events.BlockRequestReceived.Trigger(&BlockRequestReceived{
+		Neighbor: nbr,
+		BlockID:  blkID,
+	})
 }
 
 func gossipPacketFactory() proto.Message {

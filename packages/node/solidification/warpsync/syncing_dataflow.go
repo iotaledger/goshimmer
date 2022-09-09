@@ -5,10 +5,11 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
-	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
@@ -18,10 +19,10 @@ type syncingFlowParams struct {
 	targetEC          epoch.EC
 	targetPrevEC      epoch.EC
 	epochChannels     *epochChannels
-	peerID            identity.ID
+	neighbor          *p2p.Neighbor
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
-	epochBlocks       map[tangleold.BlockID]*tangleold.Block
+	epochBlocks       map[models.BlockID]*models.Block
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
@@ -66,7 +67,7 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 				return errors.Errorf("received duplicate block %s for epoch %d", block.ID(), params.targetEpoch)
 			}
 
-			m.log.Debugw("read block", "peer", params.peerID, "EI", epochBlock.ei, "blockID", block.ID())
+			m.log.Debugw("read block", "peer", params.neighbor, "EI", epochBlock.ei, "blockID", block.ID())
 
 			params.tangleTree.Update(block.IDBytes(), block.IDBytes())
 			params.epochBlocks[block.ID()] = block
@@ -122,11 +123,7 @@ func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Ne
 
 func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
 	for _, blk := range params.epochBlocks {
-		neighbors := m.p2pManager.GetNeighborsByID([]identity.ID{params.peerID})
-		if len(neighbors) != 1 {
-			return errors.Errorf("neighbor %s not peered anymore after receiving warpsynced block")
-		}
-		m.blockProcessorFunc(blk, neighbors[0].Peer)
+		m.blockProcessorFunc(params.neighbor, blk)
 	}
 
 	return next(params)

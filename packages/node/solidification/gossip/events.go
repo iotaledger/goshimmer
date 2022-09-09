@@ -1,4 +1,4 @@
-package requester
+package gossip
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
