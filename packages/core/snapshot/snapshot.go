@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/hive.go/core/serix"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 // Snapshot contains the data to be put in a snapshot file.
@@ -17,8 +18,8 @@ type Snapshot struct {
 
 // SolidEntryPoints contains solid entry points of an epoch.
 type SolidEntryPoints struct {
-	EI   epoch.Index         `serix:"0"`
-	Seps []tangleold.BlockID `serix:"1,lengthPrefixType=uint32"`
+	EI   epoch.Index      `serix:"0"`
+	Seps []models.BlockID `serix:"1,lengthPrefixType=uint32"`
 }
 
 func init() {
@@ -30,7 +31,7 @@ func init() {
 		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
 
-	err = serix.DefaultAPI.RegisterTypeSettings([]tangleold.BlockID{}, ts)
+	err = serix.DefaultAPI.RegisterTypeSettings([]models.BlockID{}, ts)
 	if err != nil {
 		panic(fmt.Errorf("error registering block ID slice type settings: %w", err))
 	}

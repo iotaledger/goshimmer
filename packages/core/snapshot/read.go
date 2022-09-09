@@ -7,10 +7,11 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/hive.go/core/serix"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
@@ -102,7 +103,7 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 
 func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err error) {
 	seps = &SolidEntryPoints{}
-	blkIDs := make([]tangleold.BlockID, 0)
+	blkIDs := make([]models.BlockID, 0)
 
 	// read seps EI
 	var index int64
@@ -128,7 +129,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 			return nil, errors.Errorf("unable to read solid entry points: %w", err)
 		}
 
-		ids := make([]tangleold.BlockID, 0)
+		ids := make([]models.BlockID, 0)
 		_, err = serix.DefaultAPI.Decode(context.Background(), sepsBytes, &ids, serix.WithValidation())
 		if err != nil {
 			return nil, err
