@@ -35,7 +35,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 	createTestTangleOrphanage(tf)
 
-	lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, map[models.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		tf.Block("Marker-0/1").ID():    true,
 		tf.Block("0/1-preTSC_0").ID():  true,
 		tf.Block("0/1-preTSC_1").ID():  true,
@@ -52,7 +52,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 	assert.Equal(t, 27, tf.OrphanageManager.unconfirmedBlocks.Len())
 
-	for blockID, accepted := range tf.mockAcceptance.acceptedBlocks {
+	for blockID, accepted := range tf.mockAcceptance.AcceptedBlocks {
 		if !accepted {
 			continue
 		}
@@ -118,7 +118,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			tf.Block("0/1-postTSCSeq1_3").ID(): true,
 			tf.Block("0/1-postTSCSeq1_4").ID(): true,
 		}
-		lo.MergeMaps(tf.mockAcceptance.acceptedBlocks, newAcceptedBlocks)
+		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, newAcceptedBlocks)
 
 		for _, blockID := range newAcceptedBlocksInOrder {
 			virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
