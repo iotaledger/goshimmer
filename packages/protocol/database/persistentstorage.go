@@ -12,6 +12,13 @@ type PersistentEpochStorage[K IndexedKey, V any, VPtr kvstore.ValuePtrType[V]] s
 	realm     Realm
 }
 
+func NewPersistentEpochStorage[K IndexedKey, V any, VPtr kvstore.ValuePtrType[V]](dbManager *Manager, realm Realm) *PersistentEpochStorage[K, V, VPtr] {
+	return &PersistentEpochStorage[K, V, VPtr]{
+		dbManager: dbManager,
+		realm:     realm,
+	}
+}
+
 func (p *PersistentEpochStorage[K, V, VPtr]) Get(key K) (value VPtr, exists bool) {
 	value, err := kvstore.NewTypedStore[K, V, VPtr](p.dbManager.Get(key.Index(), p.realm)).Get(key)
 

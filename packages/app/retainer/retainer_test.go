@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
@@ -19,19 +18,15 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	_ = blockID1.FromRandomness()
 	_ = blockID2.FromRandomness()
 
-	metadata := &BlockMetadata{
-		Missing:  false,
-		Solid:    false,
-		Invalid:  false,
-		Orphaned: false,
-		// OrphanedBlocksInPastCone: models.NewBlockIDs(blockID1, blockID2),
-		// StrongChildren:           nil,
-		// WeakChildren:             nil,
-		// LikedInsteadChildren:     nil,
-		SolidTime: time.Now(),
-	}
+	meta := newBlockMetadata(nil)
+	meta.M.Missing = false
+	meta.M.Solid = true
+	meta.M.Invalid = false
+	meta.M.Orphaned = true
+	meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
+	meta.M.OrphanedBlocksInPastCone.Add(blockID1)
 
-	fmt.Println(serix.DefaultAPI.Encode(context.Background(), metadata))
+	fmt.Println(serix.DefaultAPI.Encode(context.Background(), meta))
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
@@ -39,21 +34,15 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 	_ = blockID1.FromRandomness()
 	_ = blockID2.FromRandomness()
 
-	metadata := &BlockMetadata{
-		Missing:                  false,
-		Solid:                    false,
-		Invalid:                  false,
-		Orphaned:                 false,
-		OrphanedBlocksInPastCone: []string{blockID1.Base58(), blockID2.Base58()},
-		// StrongChildren:           nil,
-		// WeakChildren:             nil,
-		// LikedInsteadChildren:     nil,
-		SolidTime: time.Now(),
-	}
+	meta := newBlockMetadata(nil)
+	meta.M.Missing = false
+	meta.M.Solid = true
+	meta.M.Invalid = false
+	meta.M.Orphaned = true
+	// meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
+	// meta.M.OrphanedBlocksInPastCone.Add(blockID1)
 
-	api := serix.NewAPI()
-
-	out, err := api.JSONEncode(context.Background(), metadata)
+	out, err := serix.DefaultAPI.JSONEncode(context.Background(), meta.M)
 	require.NoError(t, err)
 	printPrettyJSON(t, out)
 }

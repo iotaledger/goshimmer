@@ -3,12 +3,14 @@ package retainer
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -22,20 +24,30 @@ type Retainer struct {
 
 	protocol        *protocol.Protocol
 	evictionManager *eviction.LockableManager[models.BlockID]
+
+	optsRealm kvstore.Realm
 }
 
 func NewRetainer(protocol *protocol.Protocol, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
-		cachedMetadata: memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
-		// TODO: blockStorage: database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata](),
+		cachedMetadata:  memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
 		protocol:        protocol,
 		evictionManager: protocol.EvictionManager.Lockable(),
-	}, opts, (*Retainer).setupEvents)
+		optsRealm:       []byte("retainer"),
+	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
+		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata](protocol.DatabaseManager, r.optsRealm)
+	})
+}
+
+func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
+	if storageExists, blockMetadata, blockExists := r.blockMetadataFromCache(blockID); storageExists {
+		return blockMetadata, blockExists
+	}
+
+	return r.blockStorage.Get(blockID)
 }
 
 func (r *Retainer) setupEvents() {
-	// TODO: attach to events and store in memstorage
-	//  accepted
 	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlock(block, cm.BlockDAG)
@@ -51,16 +63,18 @@ func (r *Retainer) setupEvents() {
 		cm.setBlock(block, cm.VirtualVoting)
 	}))
 
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	congestionControlClosure := event.NewClosure(func(block *scheduler.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlock(block, cm.Scheduler)
+	})
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+
+	r.protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setBlock(block, cm.Acceptance)
 	}))
-
-	// r.protocol.Events.Engine.Con.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-	// 	cm := r.createOrGetCachedMetadata(block.ID())
-	// 	cm.setBlock(block, cm.VirtualVoting)
-	// }))
-
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -70,14 +84,6 @@ func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata 
 	storage := r.cachedMetadata.Get(id.Index(), true)
 	cm, _ := storage.RetrieveOrCreate(id, newCachedMetadata)
 	return cm
-}
-
-func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
-	if storageExists, blockMetadata, blockExists := r.blockMetadataFromCache(blockID); storageExists {
-		return blockMetadata, blockExists
-	}
-
-	return r.blockStorage.Get(blockID)
 }
 
 func (r *Retainer) storeAndEvictEpoch(epochIndex epoch.Index) {
@@ -112,7 +118,7 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 
 func (r *Retainer) storeBlockMetadata(metas []*BlockMetadata) {
 	for _, meta := range metas {
-		r.blockStorage.Set(meta.BlockID, meta)
+		r.blockStorage.Set(meta.ID(), meta)
 	}
 }
 
@@ -128,3 +134,13 @@ func (r *Retainer) blockMetadataFromCache(blockID models.BlockID) (storageExists
 	cm, exists := storage.Get(blockID)
 	return true, newBlockMetadata(cm), exists
 }
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithRealm(realm kvstore.Realm) options.Option[Retainer] {
+	return func(r *Retainer) {
+		r.optsRealm = realm
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

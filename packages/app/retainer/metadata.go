@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/model"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
@@ -57,16 +58,17 @@ func newBlockWithTime[BlockType any](block BlockType) *blockWithTime[BlockType] 
 
 // region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO: make storable
 type BlockMetadata struct {
-	BlockID models.BlockID
+	model.Storable[models.BlockID, BlockMetadata, *BlockMetadata, blockMetadataModel] `serix:"0"`
+}
 
+type blockMetadataModel struct {
 	// blockdag.Block
-	Missing                  bool     `serix:"0"`
-	Solid                    bool     `serix:"1"`
-	Invalid                  bool     `serix:"2"`
-	Orphaned                 bool     `serix:"3"`
-	OrphanedBlocksInPastCone []string `serix:"4"`
+	Missing                  bool            `serix:"0"`
+	Solid                    bool            `serix:"1"`
+	Invalid                  bool            `serix:"2"`
+	Orphaned                 bool            `serix:"3"`
+	OrphanedBlocksInPastCone models.BlockIDs `serix:"4"`
 	// StrongChildren           models.BlockIDs `serix:"5"`
 	// WeakChildren             models.BlockIDs `serix:"6"`
 	// LikedInsteadChildren     models.BlockIDs `serix:"7"`
@@ -83,14 +85,15 @@ type BlockMetadata struct {
 
 func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 	if cm == nil {
-		return nil
+		b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
+		b.SetID(models.EmptyBlockID)
+		return b
 	}
 
 	cm.RLock()
 	defer cm.RUnlock()
 
-	b = &BlockMetadata{
-		BlockID:  cm.BlockDAG.Block.ID(),
+	b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{
 		Missing:  cm.BlockDAG.Block.IsMissing(),
 		Solid:    cm.BlockDAG.Block.IsSolid(),
 		Invalid:  cm.BlockDAG.Block.IsInvalid(),
@@ -100,7 +103,8 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		// WeakChildren:             blocksToBlockIDs(cm.BlockDAG.Block.WeakChildren()),
 		// LikedInsteadChildren:     blocksToBlockIDs(cm.BlockDAG.Block.LikedInsteadChildren()),
 		SolidTime: cm.BlockDAG.Time,
-	}
+	})
+	b.SetID(cm.BlockDAG.Block.ID())
 
 	return b
 }
