@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
 
@@ -12,6 +13,7 @@ type Events struct {
 	Tangle            *tangle.Events
 	CongestionControl *congestioncontrol.Events
 	Clock             *clock.Events
+	Consensus         *consensus.Events
 
 	event.LinkableCollection[Events, *Events]
 }
