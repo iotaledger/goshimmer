@@ -76,6 +76,29 @@ func (t *TestFramework) AssertChain(chain *CommitmentChain, alias string) {
 	require.Equal(t.test, commitment.ID, chain.ForkingPoint.ID)
 }
 
+func (t *TestFramework) AssertChains(chains map[string]string) {
+	for commitmentAlias, chainAlias := range chains {
+		commitment, exists := t.commitmentsByAlias[commitmentAlias]
+		if !exists {
+			panic("the commitment with the given alias does not exist")
+		}
+
+		if chainAlias == "" {
+			require.Nil(t.test, t.Manager.Commitment(commitment.ID).Chain())
+			continue
+		}
+
+		chainCommitment, exists := t.commitmentsByAlias[chainAlias]
+		if !exists {
+			panic("the commitment with the given alias does not exist")
+		}
+
+		chain := t.Manager.Commitment(commitment.ID).Chain()
+		require.NotNil(t.test, chain)
+		require.Equal(t.test, chainCommitment.ID, chain.ForkingPoint.ID)
+	}
+}
+
 func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID epoch.EC, previousIndex epoch.Index) {
 	if alias == "" {
 		return
