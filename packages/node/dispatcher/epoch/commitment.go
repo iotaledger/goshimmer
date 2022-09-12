@@ -9,7 +9,6 @@ import (
 type Commitment struct {
 	ID CommitmentID
 
-	prev     *Commitment
 	children []*Commitment
 	chain    *CommitmentChain
 
@@ -52,11 +51,11 @@ func (c *Commitment) registerChild(child *Commitment) (chain *CommitmentChain) {
 	return c.chain
 }
 
-func (c *Commitment) setChain(chain *CommitmentChain) (updated bool) {
+func (c *Commitment) publishChain(chain *CommitmentChain) (wasPublished bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	if updated = c.chain != chain; updated {
+	if wasPublished = c.chain == nil; wasPublished {
 		c.chain = chain
 	}
 

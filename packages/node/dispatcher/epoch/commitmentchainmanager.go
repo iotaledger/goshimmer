@@ -19,7 +19,7 @@ type CommitmentChainManager struct {
 
 func NewCommitmentChainManager(genesisCommitmentID CommitmentID) (commitmentChainManager *CommitmentChainManager) {
 	genesisCommitment := NewCommitment(genesisCommitmentID)
-	genesisCommitment.setChain(NewCommitmentChain(genesisCommitment))
+	genesisCommitment.publishChain(NewCommitmentChain(genesisCommitment))
 
 	return &CommitmentChainManager{
 		commitmentsByID: map[CommitmentID]*Commitment{
@@ -35,11 +35,13 @@ func (c *CommitmentChainManager) ChainFromBlock(block *models.Block) (chain *Com
 		return commitment.Chain()
 	}
 
-	if chain = c.registerChild(block.PrevEC(), commitment); chain != nil {
-		if children := commitment.Children(); len(children) != 0 {
-			for childWalker := walker.New[*Commitment]().PushAll(commitment.Children()...); childWalker.HasNext(); {
-				childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
-			}
+	if chain = c.registerChild(block.PrevEC(), commitment); chain == nil {
+		return
+	}
+
+	if children := commitment.Children(); len(children) != 0 {
+		for childWalker := walker.New[*Commitment]().PushAll(commitment.Children()...); childWalker.HasNext(); {
+			childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
 		}
 	}
 
@@ -71,7 +73,7 @@ func (c *CommitmentChainManager) registerChild(parent CommitmentID, child *Commi
 
 	if chain = c.Commitment(parent).registerChild(child); chain != nil {
 		chain.addCommitment(child)
-		child.setChain(chain)
+		child.publishChain(chain)
 	}
 
 	return
@@ -81,9 +83,10 @@ func (c *CommitmentChainManager) propagateChainToFirstChild(child *Commitment, c
 	c.dagMutex.Lock(child.ID)
 	c.dagMutex.Unlock(child.ID)
 
-	if child.setChain(chain) {
+	if !child.publishChain(chain) {
 		return
 	}
+
 	chain.addCommitment(child)
 
 	children := child.Children()
