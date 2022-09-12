@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 )
@@ -18,7 +19,7 @@ type TimeRetrieverFunc func() time.Time
 
 // ActivityTracker is a component that keeps track of active nodes based on their time-based activity in relation to activeTimeThreshold.
 type ActivityTracker struct {
-	timedExecutor     *TimedTaskExecutor
+	timedExecutor     *timed.TaskExecutor[identity.ID]
 	lastActiveMap     *shrinkingmap.ShrinkingMap[identity.ID, time.Time]
 	timeRetrieverFunc TimeRetrieverFunc
 	validatorSet      *validator.Set
@@ -38,7 +39,7 @@ func New(validatorSet *validator.Set, timeRetrieverFunc TimeRetrieverFunc, opts 
 		optsWorkersCount:   1,
 		optsActivityWindow: time.Second * 30,
 	}, opts, func(a *ActivityTracker) {
-		a.timedExecutor = NewTimedTaskExecutor(int(a.optsWorkersCount))
+		a.timedExecutor = timed.NewTaskExecutor[identity.ID](int(a.optsWorkersCount))
 	})
 }
 
