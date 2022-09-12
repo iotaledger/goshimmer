@@ -1,7 +1,12 @@
 package tip
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 func TestTipManager_DataBlockTips(t *testing.T) {
@@ -15,75 +20,69 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 	// Block 1
 	{
-		tf.CreateBlock("1")
-		tf.IssueBlocks("1").WaitUntilAllTasksProcessed()
+		tf.CreateBlock("Block1")
+		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
-		tf.AssertTips(tipManager.Tips(2), "1")
+		tf.AssertTips(tipManager.Tips(2), "Block1")
+		tf.AssertTipsAdded(1)
+		tf.AssertTipsRemoved(0)
 	}
-	// fmt.Println("send blk2")
-	// // Block 2
-	// {
-	// 	blocks["2"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(EmptyBlockID), NewBlockIDs())
-	// 	tipManager.AddTip(blocks["2"])
-	//
-	// 	assert.Equal(t, 2, tipManager.TipCount())
-	// 	assert.Contains(t, tipManager.tips.Keys(), blocks["1"].ID(), blocks["2"].ID())
-	//
-	// 	parents := tipManager.Tips(nil, 3)
-	// 	assert.Len(t, parents, 2)
-	// 	assert.Contains(t, parents, blocks["1"].ID(), blocks["2"].ID())
-	// }
-	// fmt.Println("send blk3")
-	// // Block 3
-	// {
-	// 	blocks["3"] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID(), blocks["2"].ID()), NewBlockIDs())
-	// 	tipManager.AddTip(blocks["3"])
-	//
-	// 	assert.Equal(t, 1, tipManager.TipCount())
-	// 	assert.Contains(t, tipManager.tips.Keys(), blocks["3"].ID())
-	//
-	// 	parents := tipManager.Tips(nil, 2)
-	// 	assert.Len(t, parents, 1)
-	// 	assert.Contains(t, parents, blocks["3"].ID())
-	// }
-	// fmt.Println("send blk3")
-	// // Add Block 4-8
-	// {
-	// 	tips := NewBlockIDs()
-	// 	tips.Add(blocks["3"].ID())
-	// 	for count, n := range []int{4, 5, 6, 7, 8} {
-	// 		nString := strconv.Itoa(n)
-	// 		blocks[nString] = createAndStoreParentsDataBlockInMasterConflict(tangle, NewBlockIDs(blocks["1"].ID()), NewBlockIDs())
-	// 		tipManager.AddTip(blocks[nString])
-	// 		tips.Add(blocks[nString].ID())
-	//
-	// 		assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Block %d", n)
-	// 		assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Block %d", n)
-	// 		assert.Contains(t, tipManager.tips.Keys(), blocks["3"].ID())
-	// 		fmt.Println("send blk", n)
-	// 	}
-	// }
-	//
-	// // now we have 6 tips
-	// // Tips(4) -> 4
-	// {
-	// 	parents := tipManager.Tips(nil, 4)
-	// 	assert.Len(t, parents, 4)
-	// }
-	// fmt.Println("select tip1")
-	// // Tips(8) -> 6
-	// {
-	// 	parents := tipManager.Tips(nil, 8)
-	// 	assert.Len(t, parents, 6)
-	// }
-	// fmt.Println("select tip2")
-	// // Tips(0) -> 1
-	// {
-	// 	parents := tipManager.Tips(nil, 0)
-	// 	assert.Len(t, parents, 1)
-	// }
-	// fmt.Println("select tip3")
+
+	// Block 2
+	{
+		tf.CreateBlock("Block2")
+		tf.IssueBlocksAndSetAccepted("Block2").WaitUntilAllTasksProcessed()
+
+		tf.AssertTipCount(2)
+		tf.AssertTips(tipManager.Tips(2), "Block1", "Block2")
+		tf.AssertTipsAdded(2)
+		tf.AssertTipsRemoved(0)
+	}
+
+	// Block 3
+	{
+		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+		tf.IssueBlocksAndSetAccepted("Block3").WaitUntilAllTasksProcessed()
+
+		tf.AssertTipCount(1)
+		tf.AssertTips(tipManager.Tips(2), "Block3")
+		tf.AssertTipsAdded(3)
+		tf.AssertTipsRemoved(2)
+	}
+
+	// Add Block 4-8
+	{
+		for count, n := range []int{4, 5, 6, 7, 8} {
+			count++
+
+			alias := fmt.Sprintf("Block%d", n)
+			tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Block1")))
+			tf.IssueBlocksAndSetAccepted(alias).WaitUntilAllTasksProcessed()
+
+			tf.AssertTipCount(1 + count)
+			tf.AssertTipsAdded(uint32(3 + count))
+			tf.AssertTipsRemoved(2)
+		}
+	}
+
+	// now we have 6 tips
+	// Tips(4) -> 4
+	{
+		parents := tipManager.Tips(4)
+		assert.Equal(t, parents.Size(), 4)
+	}
+
+	// Tips(8) -> 6
+	{
+		tf.AssertTips(tipManager.Tips(8), "Block3", "Block4", "Block5", "Block6", "Block7", "Block8")
+	}
+
+	// Tips(0) -> 1
+	{
+		parents := tipManager.Tips(0)
+		assert.Equal(t, 1, parents.Size())
+	}
 }
 
 // Test based on packages/tangle/images/TSC_test_scenario.png except nothing is confirmed.
@@ -93,7 +92,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 // 	tangle.Booker.MarkersManager.Manager = markersold.NewManager(markersold.WithCacheTime(0), markersold.WithMaxPastMarkerDistance(10))
 // 	defer tangle.Shutdown()
 //
-// 	tipManager := tangle.TipManager
+// 	tipManager := tangle.Manager
 //
 // 	testFramework := NewBlockTestFramework(
 // 		tangle,
@@ -156,7 +155,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 //
 // 	defer tangle.Shutdown()
 //
-// 	tipManager := tangle.TipManager
+// 	tipManager := tangle.Manager
 // 	confirmationOracle := &MockConfirmationOracleTipManagerTest{
 // 		confirmedBlockIDs:      NewBlockIDs(),
 // 		confirmedMarkers:       markersold.NewMarkers(),

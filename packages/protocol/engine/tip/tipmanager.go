@@ -3,29 +3,36 @@ package tip
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
-// region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
+type acceptanceGadget interface {
+	IsBlockAccepted(blockID models.BlockID) (accepted bool)
+	IsMarkerAccepted(marker markers.Marker) (accepted bool)
+	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
+}
 
-type TipManager struct {
-	Events *TipManagerEvents
+// TimeRetrieverFunc is a function type to retrieve the time.
+type timeRetrieverFunc func() time.Time
 
-	tangle            *tangle.Tangle
-	acceptanceGadget  *acceptance.Gadget
-	congestionControl *congestioncontrol.CongestionControl
-	clock             *clock.Clock
+type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
+
+// region Manager ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Manager struct {
+	Events *Events
+
+	tangle             *tangle.Tangle
+	acceptanceGadget   acceptanceGadget
+	blockRetrieverFunc blockRetrieverFunc
+	timeRetrieverFunc  timeRetrieverFunc
 
 	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
 	// tipsConflictTracker *TipsConflictTracker
@@ -34,27 +41,33 @@ type TipManager struct {
 	optsWidth                          int
 }
 
-func NewTipManager(tangle *tangle.Tangle, opts ...options.Option[TipManager]) *TipManager {
-	return options.Apply(&TipManager{
-		Events: newTipManagerEvents(),
-		tangle: tangle,
-		tips:   randommap.New[*scheduler.Block, *scheduler.Block](),
+func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, opts ...options.Option[Manager]) *Manager {
+	return options.Apply(&Manager{
+		Events: newEvents(),
+
+		tangle:             tangle,
+		acceptanceGadget:   gadget,
+		blockRetrieverFunc: blockRetriever,
+		timeRetrieverFunc:  timeRetriever,
+
+		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
-		optsWidth:                          0,
+
 		optsTimeSinceConfirmationThreshold: time.Minute,
-	}, opts, (*TipManager).Setup)
+		optsWidth:                          0,
+	}, opts, (*Manager).Setup)
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (t *TipManager) Setup() {
+func (t *Manager) Setup() {
 	// TODO: wire up events
-	t.congestionControl.Events.Scheduler.BlockScheduled.Attach(event.NewClosure(t.AddTip))
+	// t.congestionControl.Events.Scheduler.BlockScheduled.Hook(event.NewClosure(t.AddTip))
 
 	// t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
 	// 	t.removeStrongParents(event.Block)
 	// }))
 	//
-	// t.tangle.TipManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
+	// t.tangle.Manager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
 	// 	t.deleteTip(event.Block.ID())
 	// }))
 	//
@@ -62,7 +75,7 @@ func (t *TipManager) Setup() {
 	// 	t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
 	// }))
 	//
-	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
+	// t.tangle.Manager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
 	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
 	// 		return
 	// 	}
@@ -71,7 +84,7 @@ func (t *TipManager) Setup() {
 	// }))
 }
 
-func (t *TipManager) AddTip(block *scheduler.Block) {
+func (t *Manager) AddTip(block *scheduler.Block) {
 	// Check if any children that are confirmed or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
@@ -91,7 +104,7 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 	t.removeStrongParents(block)
 }
 
-func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
+func (t *Manager) addTip(block *scheduler.Block) (added bool) {
 	if t.tips.Set(block, block) {
 		// t.tipsConflictTracker.AddTip(block)
 		t.Events.TipAdded.Trigger(block)
@@ -101,7 +114,7 @@ func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
 	return false
 }
 
-func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
+func (t *Manager) deleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
@@ -110,15 +123,13 @@ func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
 }
 
 // checkMonotonicity returns true if the block has any confirmed or scheduled child.
-func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
+func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
 	for _, child := range block.Children() {
-		if childBlock, exists := t.acceptanceGadget.Block(child.ID()); exists {
-			if childBlock.Accepted() {
-				return true
-			}
+		if t.acceptanceGadget.IsBlockAccepted(child.ID()) {
+			return true
 		}
 
-		if childBlock, exists := t.congestionControl.Block(child.ID()); exists {
+		if childBlock, exists := t.blockRetrieverFunc(child.ID()); exists {
 			if childBlock.IsScheduled() {
 				return true
 			}
@@ -128,21 +139,22 @@ func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAc
 	return false
 }
 
-func (t *TipManager) removeStrongParents(block *scheduler.Block) {
+func (t *Manager) removeStrongParents(block *scheduler.Block) {
+
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: what to do with this?
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
 		// }
-		if parentBlock, exists := t.congestionControl.Block(parent.ID); exists {
+		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
 			t.deleteTip(parentBlock)
 		}
 	})
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(countParents int) (parents scheduler.Blocks) {
+func (t *Manager) Tips(countParents int) (parents scheduler.Blocks) {
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
@@ -153,7 +165,7 @@ func (t *TipManager) Tips(countParents int) (parents scheduler.Blocks) {
 	return t.selectTips(countParents)
 }
 
-func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
+func (t *Manager) selectTips(count int) (parents scheduler.Blocks) {
 	parents = scheduler.NewBlocks()
 
 	tips := t.tips.RandomUniqueEntries(count)
@@ -162,7 +174,7 @@ func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
 	if len(tips) == 0 {
 		for i, it := 0, t.tangle.EvictionManager.RootBlocks().Iterator(); it.HasNext() && i < count; i++ {
 			blockID := it.Next()
-			if block, exists := t.congestionControl.Block(blockID); exists {
+			if block, exists := t.blockRetrieverFunc(blockID); exists {
 				parents.Add(block)
 			}
 		}
@@ -182,12 +194,12 @@ func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() []*scheduler.Block {
+func (t *Manager) AllTips() []*scheduler.Block {
 	return t.tips.Keys()
 }
 
 // TipCount the amount of tips.
-func (t *TipManager) TipCount() int {
+func (t *Manager) TipCount() int {
 	return t.tips.Size()
 }
 
@@ -202,8 +214,8 @@ func (t *TipManager) TipCount() int {
 //
 // This function is optimized through the use of markers and the following assumption:
 //   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
-func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
-	minSupportedTimestamp := t.clock.AcceptedTime().Add(-t.optsTimeSinceConfirmationThreshold)
+func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
+	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
 	timestampValid = true
 
 	// TODO: skip TSC check if no block has been confirmed to allow attaching to genesis
@@ -217,7 +229,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timesta
 	if timestampValid = block.IssuingTime().After(minSupportedTimestamp); !timestampValid {
 		return false
 	}
-	if acceptanceBlock, exists := t.acceptanceGadget.Block(block.ID()); exists && acceptanceBlock.Accepted() {
+	if t.acceptanceGadget.IsBlockAccepted(block.ID()) {
 		// return true if block is accepted and has valid timestamp
 		return true
 	}
@@ -244,7 +256,7 @@ func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timesta
 	return true
 }
 
-func (t *TipManager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker]) {
+func (t *Manager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		blockWalker.Push(block)
@@ -263,7 +275,7 @@ func (t *TipManager) processInitialBlock(block *scheduler.Block, blockWalker *wa
 	})
 }
 
-func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
+func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
 	block, exists := t.schedulerBlockFromMarker(marker)
 	if !exists {
 		return nil, false
@@ -334,12 +346,12 @@ func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *scheduler
 	return block, true
 }
 
-func (t *TipManager) schedulerBlockFromMarker(marker markers.Marker) (block *scheduler.Block, exists bool) {
+func (t *Manager) schedulerBlockFromMarker(marker markers.Marker) (block *scheduler.Block, exists bool) {
 	bookerBlock, exists := t.tangle.Booker.BlockFromMarker(marker)
 	if !exists {
 		return nil, false
 	}
-	block, exists = t.congestionControl.Block(bookerBlock.ID())
+	block, exists = t.blockRetrieverFunc(bookerBlock.ID())
 	if !exists {
 		return nil, false
 	}
@@ -347,7 +359,7 @@ func (t *TipManager) schedulerBlockFromMarker(marker markers.Marker) (block *sch
 }
 
 // isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
-func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+func (t *Manager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
 	block, exists := t.tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -359,7 +371,7 @@ func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minS
 	return false
 }
 
-func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
+func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
 	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
@@ -374,7 +386,7 @@ func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimest
 	return block.IssuingTime().After(minSupportedTimestamp)
 }
 
-func (t *TipManager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
 	// if block is older than TSC then it's incorrect no matter the confirmation status
 	if block.IssuingTime().Before(minSupportedTimestamp) {
 		blockWalker.StopWalk()
@@ -382,13 +394,13 @@ func (t *TipManager) checkBlock(block *scheduler.Block, blockWalker *walker.Walk
 	}
 
 	// if block is younger than TSC and accepted, then return timestampValid=true
-	if acceptanceBlock, exists := t.acceptanceGadget.Block(block.ID()); exists && acceptanceBlock.Accepted() {
+	if t.acceptanceGadget.IsBlockAccepted(block.ID()) {
 		return true
 	}
 
 	// if block is younger than TSC and not confirmed, walk through strong parents' past cones
 	for parentID := range block.ParentsByType(models.StrongParentType) {
-		parentBlock, exists := t.congestionControl.Block(parentID)
+		parentBlock, exists := t.blockRetrieverFunc(parentID)
 		if exists {
 			blockWalker.Push(parentBlock)
 		}
@@ -399,7 +411,7 @@ func (t *TipManager) checkBlock(block *scheduler.Block, blockWalker *walker.Walk
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (oldestUnconfirmedMarker markers.Marker) {
+func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (oldestUnconfirmedMarker markers.Marker) {
 	unconfirmedMarkerIdx := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
 	// skip any gaps in marker indices
 	for ; unconfirmedMarkerIdx <= pastMarker.Index(); unconfirmedMarkerIdx++ {
@@ -416,7 +428,7 @@ func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (oldestUnc
 	return oldestUnconfirmedMarker
 }
 
-func (t *TipManager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
+func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
 	// skip any gaps in marker indices
 	for ; sequence.LowestIndex() < markerIndex; markerIndex-- {
 		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
@@ -434,14 +446,14 @@ func (t *TipManager) previousMarkerWithBlock(sequence *markers.Sequence, markerI
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TipManager] {
-	return func(o *TipManager) {
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[Manager] {
+	return func(o *Manager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 
-func Width(maxWidth int) options.Option[TipManager] {
-	return func(t *TipManager) {
+func Width(maxWidth int) options.Option[Manager] {
+	return func(t *Manager) {
 		t.optsWidth = maxWidth
 	}
 }

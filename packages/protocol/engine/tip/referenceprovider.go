@@ -18,7 +18,7 @@ package tip
 //
 // // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 // type ReferenceProvider struct {
-// 	tipManager          *tangleold.TipManager
+// 	tipManager          *tangleold.Manager
 // 	ledger              *ledger.Ledger
 // 	booker              *tangleold.Booker
 // 	orphanageManager    *tangleold.OrphanageManager

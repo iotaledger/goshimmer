@@ -211,11 +211,40 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 type MockAcceptanceGadget struct {
 	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
 	AcceptedBlocks     map[models.BlockID]bool
+	AcceptedMarkers    map[markers.Marker]bool
+}
+
+func NewMockAcceptanceGadget() *MockAcceptanceGadget {
+	return &MockAcceptanceGadget{
+		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
+		AcceptedBlocks:     make(map[models.BlockID]bool),
+		AcceptedMarkers:    make(map[markers.Marker]bool),
+	}
 }
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
 func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
 	return m.AcceptedBlocks[blockID]
+}
+
+func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
+	return m.AcceptedMarkers[marker]
+}
+
+func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
+	lastAccepted := markers.Index(0)
+	for marker, accepted := range m.AcceptedMarkers {
+		if marker.SequenceID() == sequenceID {
+			if accepted && marker.Index() > lastAccepted {
+				lastAccepted = marker.Index() + 1
+			}
+		}
+	}
+	if lastAccepted == 0 {
+		return 0
+	}
+
+	return lastAccepted + 1
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
