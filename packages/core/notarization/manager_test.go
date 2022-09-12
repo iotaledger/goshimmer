@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
@@ -22,7 +21,7 @@ import (
 
 func TestNewManager(t *testing.T) {
 	testTangle := tangleold.NewTestTangle()
-	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
+	m := NewManager(NewEpochCommitmentFactory(testTangle.Options.Store, 1), testTangle)
 	assert.NotNil(t, m)
 }
 

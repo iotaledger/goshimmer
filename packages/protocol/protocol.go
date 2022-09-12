@@ -4,20 +4,20 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
 	"github.com/iotaledger/goshimmer/packages/protocol/sybilprotection"
 )
 
@@ -25,34 +25,31 @@ import (
 
 type Protocol struct {
 	Events              *Events
-	Network             *network.Network
 	Inbox               *inbox.Inbox
-	DatabaseManager     *database.Manager
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.Block]
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
-	Solidification      *solidification.Solidification
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
 	logger *logger.Logger
 
-	optsSnapshotFile          string
-	optsEngineOptions         []options.Option[engine.Engine]
-	optsDBManagerOptions      []options.Option[database.Manager]
-	optsSolidificationOptions []options.Option[solidification.Solidification]
+	optsSnapshotFile     string
+	optsEngineOptions    []options.Option[engine.Engine]
+	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(network *network.Network, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events:       NewEvents(),
-		Network:      network,
 		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Protocol) {
+		p.BlockStorage = database.New[models.BlockID, models.Block, *models.Block](databaseManager, kvstore.Realm{0x09})
+
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
 			p.NotarizationManager.LoadECandEIs,
@@ -72,9 +69,6 @@ func New(network *network.Network, logger *logger.Logger, opts ...options.Option
 			// p.SnapshotManager.GetSolidEntryPoints(index)
 			return set.NewAdvancedSet[models.BlockID]()
 		})
-		p.DatabaseManager = database.NewManager(p.optsDBManagerOptions...)
-
-		p.Solidification = solidification.New(p.EvictionManager, p.optsSolidificationOptions...)
 
 		// TODO: when engine is ready
 		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
@@ -82,6 +76,10 @@ func New(network *network.Network, logger *logger.Logger, opts ...options.Option
 
 		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 	})
+}
+
+func (p *Protocol) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
+	p.Inbox.ProcessReceivedBlock(block, neighbor)
 }
 
 func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
@@ -96,6 +94,10 @@ func (p *Protocol) Block(id models.BlockID) (block *models.Block, exists bool) {
 	return p.BlockStorage.Get(id)
 }
 
+func (p *Protocol) ReportInvalidBlock(neighbor *p2p.Neighbor) {
+	// TODO: increase euristic counter / trigger event for metrics
+}
+
 func (p *Protocol) setupNotarization() {
 	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
 	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
@@ -105,7 +107,6 @@ func (p *Protocol) setupNotarization() {
 
 func (p *Protocol) Start() {
 	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
-	p.Network.Events.BlockReceived.Attach(network.BlockReceivedHandler(p.Inbox.ProcessReceivedBlock))
 	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
@@ -115,21 +116,9 @@ func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsDBManagerOptions = opts
-	}
-}
-
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(p *Protocol) {
 		p.optsEngineOptions = opts
-	}
-}
-
-func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
-	return func(p *Protocol) {
-		p.optsSolidificationOptions = opts
 	}
 }
 
