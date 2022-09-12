@@ -47,17 +47,16 @@ func (t *TestFramework) Commitment(alias string) (commitment *Commitment) {
 	t.RLock()
 	defer t.RUnlock()
 
-	return t.commitmentsByAlias[alias]
-}
-
-func (t *TestFramework) ProcessCommitment(alias string) (chain *CommitmentChain) {
-	t.Lock()
-	defer t.Unlock()
-
 	commitment, exists := t.commitmentsByAlias[alias]
 	if !exists {
 		panic("the commitment does not exist")
 	}
+
+	return commitment
+}
+
+func (t *TestFramework) Chain(alias string) (chain *CommitmentChain) {
+	commitment := t.Commitment(alias)
 
 	return t.Manager.Chain(commitment.EI(), commitment.ECR(), commitment.PrevEC())
 }
@@ -68,34 +67,20 @@ func (t *TestFramework) AssertChain(chain *CommitmentChain, alias string) {
 		return
 	}
 
-	commitment, exists := t.commitmentsByAlias[alias]
-	if !exists {
-		panic("the commitment with the given alias does not exist")
-	}
-
-	require.Equal(t.test, commitment.ID, chain.ForkingPoint.ID)
+	require.Equal(t.test, t.Commitment(alias).ID, chain.ForkingPoint.ID)
 }
 
 func (t *TestFramework) AssertChains(chains map[string]string) {
 	for commitmentAlias, chainAlias := range chains {
-		commitment, exists := t.commitmentsByAlias[commitmentAlias]
-		if !exists {
-			panic("the commitment with the given alias does not exist")
-		}
-
 		if chainAlias == "" {
-			require.Nil(t.test, t.Manager.Commitment(commitment.ID).Chain())
+			require.Nil(t.test, t.Manager.Commitment(t.Commitment(commitmentAlias).ID).Chain())
 			continue
 		}
 
-		chainCommitment, exists := t.commitmentsByAlias[chainAlias]
-		if !exists {
-			panic("the commitment with the given alias does not exist")
-		}
+		chain := t.Manager.Commitment(t.Commitment(commitmentAlias).ID).Chain()
 
-		chain := t.Manager.Commitment(commitment.ID).Chain()
 		require.NotNil(t.test, chain)
-		require.Equal(t.test, chainCommitment.ID, chain.ForkingPoint.ID)
+		require.Equal(t.test, t.Commitment(chainAlias).ID, chain.ForkingPoint.ID)
 	}
 }
 
