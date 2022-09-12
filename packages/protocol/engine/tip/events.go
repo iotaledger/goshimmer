@@ -1,10 +1,10 @@
-package blockcreation
+package tip
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
 
 // Events represents events happening on a block factory.
@@ -29,16 +29,16 @@ func newEvents() (new *Events) {
 // TipManagerEvents represents events happening on the TipManager.
 type TipManagerEvents struct {
 	// Fired when a tip is added.
-	TipAdded *event.Event[*virtualvoting.Block]
+	TipAdded *event.Event[*scheduler.Block]
 
 	// Fired when a tip is removed.
-	TipRemoved *event.Event[*virtualvoting.Block]
+	TipRemoved *event.Event[*scheduler.Block]
 }
 
 func newTipManagerEvents() (new *TipManagerEvents) {
 	return &TipManagerEvents{
-		TipAdded:   event.New[*virtualvoting.Block](),
-		TipRemoved: event.New[*virtualvoting.Block](),
+		TipAdded:   event.New[*scheduler.Block](),
+		TipRemoved: event.New[*scheduler.Block](),
 	}
 }
 
