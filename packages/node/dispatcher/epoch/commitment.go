@@ -3,6 +3,9 @@ package epoch
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
@@ -76,3 +79,7 @@ func (c *Commitment) publishECRecord(index epoch.Index, commitmentRoot epoch.ECR
 }
 
 type CommitmentID = epoch.EC
+
+func NewCommitmentID(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (ec CommitmentID) {
+	return blake2b.Sum256(byteutils.ConcatBytes(ei.Bytes(), ecr.Bytes(), prevEC.Bytes()))
+}

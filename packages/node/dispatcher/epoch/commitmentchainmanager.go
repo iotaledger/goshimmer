@@ -7,42 +7,49 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 type CommitmentChainManager struct {
+	GenesisCommitment *Commitment
+
 	commitmentsByID map[CommitmentID]*Commitment
 	dagMutex        *syncutils.DAGMutex[CommitmentID]
 
 	sync.Mutex
 }
 
-func NewCommitmentChainManager(genesisCommitmentID CommitmentID) (commitmentChainManager *CommitmentChainManager) {
-	genesisCommitment := NewCommitment(genesisCommitmentID)
-	genesisCommitment.publishChain(NewCommitmentChain(genesisCommitment))
-
-	return &CommitmentChainManager{
-		commitmentsByID: map[CommitmentID]*Commitment{
-			genesisCommitment.ID: genesisCommitment,
-		},
-		dagMutex: syncutils.NewDAGMutex[CommitmentID](),
+func NewCommitmentChainManager(genesisIndex epoch.Index, genesisECR epoch.ECR) (manager *CommitmentChainManager) {
+	manager = &CommitmentChainManager{
+		commitmentsByID: make(map[CommitmentID]*Commitment),
+		dagMutex:        syncutils.NewDAGMutex[CommitmentID](),
 	}
+
+	manager.GenesisCommitment = manager.Commitment(NewCommitmentID(genesisIndex, genesisECR, epoch.EC{}))
+	manager.GenesisCommitment.publishECRecord(genesisIndex, genesisECR, epoch.EC{})
+	manager.GenesisCommitment.publishChain(NewCommitmentChain(manager.GenesisCommitment))
+
+	manager.commitmentsByID[manager.GenesisCommitment.ID] = manager.GenesisCommitment
+
+	return
 }
 
-func (c *CommitmentChainManager) ChainFromBlock(block *models.Block) (chain *CommitmentChain) {
-	commitment, wasPublished := c.publishBlock(block)
-	if !wasPublished {
+func (c *CommitmentChainManager) Chain(index epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (chain *CommitmentChain) {
+	commitment := c.Commitment(NewCommitmentID(index, ecr, prevEC))
+	if !commitment.publishECRecord(index, ecr, prevEC) {
 		return commitment.Chain()
 	}
 
-	if chain = c.registerChild(block.PrevEC(), commitment); chain == nil {
+	if chain = c.registerChild(prevEC, commitment); chain == nil {
 		return
 	}
 
-	if children := commitment.Children(); len(children) != 0 {
-		for childWalker := walker.New[*Commitment]().PushAll(commitment.Children()...); childWalker.HasNext(); {
-			childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
-		}
+	children := commitment.Children()
+	if len(children) == 0 {
+		return
+	}
+
+	for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
+		childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
 	}
 
 	return
@@ -59,12 +66,6 @@ func (c *CommitmentChainManager) Commitment(commitmentID CommitmentID) (commitme
 	}
 
 	return
-}
-
-func (c *CommitmentChainManager) publishBlock(block *models.Block) (commitment *Commitment, wasPublished bool) {
-	commitment = c.Commitment(epoch.NewEpochCommitment(block.EI(), block.ECR(), block.PrevEC()))
-
-	return commitment, commitment.publishECRecord(block.EI(), block.ECR(), block.PrevEC())
 }
 
 func (c *CommitmentChainManager) registerChild(parent CommitmentID, child *Commitment) (chain *CommitmentChain) {

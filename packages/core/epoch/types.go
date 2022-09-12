@@ -238,12 +238,6 @@ func (e *ECRecord) ComputeEC() (ec EC) {
 	return NewMerkleRoot(ecHash[:])
 }
 
-func NewEpochCommitment(ei Index, ecr ECR, prevEC EC) (ec EC) {
-	ecHash := blake2b.Sum256(byteutils.ConcatBytes(ei.Bytes(), ecr.Bytes(), prevEC.Bytes()))
-
-	return NewMerkleRoot(ecHash[:])
-}
-
 // region hashing functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // ComputeECR calculates an ECR from the tree roots.
