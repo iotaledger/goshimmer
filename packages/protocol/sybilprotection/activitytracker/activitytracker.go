@@ -30,6 +30,7 @@ type ActivityTracker struct {
 	mutex sync.RWMutex
 }
 
+// New creates and returns a new instance of an ActivityTracker.
 func New(validatorSet *validator.Set, timeRetrieverFunc TimeRetrieverFunc, opts ...options.Option[ActivityTracker]) (activityTracker *ActivityTracker) {
 	return options.Apply(&ActivityTracker{
 		timeRetrieverFunc: timeRetrieverFunc,
@@ -44,24 +45,24 @@ func New(validatorSet *validator.Set, timeRetrieverFunc TimeRetrieverFunc, opts 
 }
 
 // Update updates the underlying data structure and keeps track of active nodes.
-func (a *ActivityTracker) Update(validator *validator.Validator, activityTime time.Time) {
+func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityTime time.Time) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	issuerLastActivity, exists := a.lastActiveMap.Get(validator.ID())
+	issuerLastActivity, exists := a.lastActiveMap.Get(activeValidator.ID())
 	if exists && issuerLastActivity.After(activityTime) {
 		return
 	}
 
-	a.lastActiveMap.Set(validator.ID(), activityTime)
-	a.validatorSet.Add(validator)
+	a.lastActiveMap.Set(activeValidator.ID(), activityTime)
+	a.validatorSet.Add(activeValidator)
 
-	a.timedExecutor.ExecuteAfter(validator.ID(), func() {
+	a.timedExecutor.ExecuteAfter(activeValidator.ID(), func() {
 		a.mutex.Lock()
 		defer a.mutex.Unlock()
 
-		a.lastActiveMap.Delete(validator.ID())
-		a.validatorSet.Delete(validator)
+		a.lastActiveMap.Delete(activeValidator.ID())
+		a.validatorSet.Delete(activeValidator)
 	}, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()))
 }
 
@@ -69,12 +70,14 @@ func (a *ActivityTracker) Update(validator *validator.Validator, activityTime ti
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// WithWorkersCount sets the amount of background workers of the task executor of ActivityTracker.
 func WithWorkersCount(workersCount uint) options.Option[ActivityTracker] {
 	return func(a *ActivityTracker) {
 		a.optsWorkersCount = workersCount
 	}
 }
 
+// WithActivityWindow sets the duration for which a validator is recognized as active after issuing a block.
 func WithActivityWindow(activityWindow time.Duration) options.Option[ActivityTracker] {
 	return func(a *ActivityTracker) {
 		a.optsActivityWindow = activityWindow

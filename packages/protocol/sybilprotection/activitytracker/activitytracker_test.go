@@ -27,6 +27,6 @@ func TestActivityTracker_Update(t *testing.T) {
 	assert.EqualValues(t, 3, validatorSet.Size())
 
 	assert.Eventually(t, func() bool {
-		return 0 == validatorSet.TotalWeight() && 0 == validatorSet.Size()
+		return validatorSet.TotalWeight() == 0 && validatorSet.Size() == 0
 	}, time.Second*3, time.Millisecond*10)
 }
