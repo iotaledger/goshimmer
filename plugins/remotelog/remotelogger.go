@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 

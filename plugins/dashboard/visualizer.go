@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 

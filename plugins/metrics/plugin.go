@@ -14,14 +14,12 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
@@ -219,9 +217,9 @@ func registerLocalMetrics() {
 
 		blockID := event.BlockID
 		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			sumTimesSinceReceived[SchedulerDropped] += clock.Since(blkMetaData.ReceivedTime())
+			sumTimesSinceReceived[SchedulerDropped] += time.Since(blkMetaData.ReceivedTime())
 			deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-				sumTimesSinceIssued[SchedulerDropped] += clock.Since(block.IssuingTime())
+				sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 			})
 		})
 	}))
@@ -233,9 +231,9 @@ func registerLocalMetrics() {
 
 		blockID := event.BlockID
 		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			sumTimesSinceReceived[SchedulerSkipped] += clock.Since(blkMetaData.ReceivedTime())
+			sumTimesSinceReceived[SchedulerSkipped] += time.Since(blkMetaData.ReceivedTime())
 			deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-				sumTimesSinceIssued[SchedulerSkipped] += clock.Since(block.IssuingTime())
+				sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
 			})
 		})
 	}))
@@ -255,9 +253,9 @@ func registerLocalMetrics() {
 		block.ForEachParent(func(parent tangleold.Parent) {
 			increasePerParentType(parent.Type)
 		})
-		blockFinalizationIssuedTotalTime[blockType] += uint64(clock.Since(block.IssuingTime()).Milliseconds())
+		blockFinalizationIssuedTotalTime[blockType] += uint64(time.Since(block.IssuingTime()).Milliseconds())
 		if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
-			blockFinalizationReceivedTotalTime[blockType] += uint64(clock.Since(blockMetadata.ReceivedTime()).Milliseconds())
+			blockFinalizationReceivedTotalTime[blockType] += uint64(time.Since(blockMetadata.ReceivedTime()).Milliseconds())
 		}) {
 			finalizedBlockCount[blockType]++
 		}
@@ -290,7 +288,7 @@ func registerLocalMetrics() {
 		})
 		finalizedConflictCountDB.Inc()
 		confirmedConflictCount.Inc()
-		conflictConfirmationTotalTime.Add(uint64(clock.Since(oldestAttachmentTime).Milliseconds()))
+		conflictConfirmationTotalTime.Add(uint64(time.Since(oldestAttachmentTime).Milliseconds()))
 
 		delete(activeConflicts, conflictID)
 	}))
