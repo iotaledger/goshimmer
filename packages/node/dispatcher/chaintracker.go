@@ -6,5 +6,4 @@ import (
 
 type ChainTracker struct {
 	solidChains map[epoch.EC]ChainID
-	map[ChainID]*CachedEC
 }

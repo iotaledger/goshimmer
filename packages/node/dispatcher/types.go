@@ -1,48 +1,42 @@
 package dispatcher
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-type Fork struct {
-	ForkingPoint *CachedEC
+// region ForkManager //////////////////////////////////////////////////////////////////////////////////////////////////
 
-	epochCommitmentByIndex []*CachedEC
+type ForkManager struct {
+	forksByEC map[epoch.EC]*EpochCommitmentChain
+
+	sync.RWMutex
 }
 
-func NewFork(cachedEC *CachedEC) (fork *Fork) {
-	return &Fork{
-		ForkingPoint:           cachedEC,
-		epochCommitmentByIndex: []*CachedEC{cachedEC},
+func NewForksManager() (forksManager *ForkManager) {
+	return &ForkManager{
+		forksByEC: make(map[epoch.EC]*EpochCommitmentChain),
 	}
 }
 
-func (f *Fork) Add(cachedEC *CachedEC) {
-	f.epochCommitmentByIndex[cachedEC.EI()-f.ForkingPoint.EI()] = cachedEC
+func (f *ForkManager) Fork(ec epoch.EC) (fork *EpochCommitmentChain) {
+	f.RLock()
+	defer f.RUnlock()
+
+	fork, exists := f.forksByEC[ec]
+	if !exists {
+		return nil
+	}
+
+	return fork
 }
 
-func (f *Fork) EpochCommitmentByIndex(index epoch.Index) *CachedEC {
-	return f.epochCommitmentByIndex[index-f.ForkingPoint.EI()]
+func (f *ForkManager) AddMapping(ec epoch.EC, fork *EpochCommitmentChain) {
+	f.Lock()
+	defer f.Unlock()
+
+	f.forksByEC[ec] = fork
 }
 
-type GlobalCache struct {
-	forksByEC map[epoch.EC]ChainID
-}
-
-type CachedEC struct {
-	Fork *Fork
-	Prev *CachedEC
-	Next *CachedEC
-
-	*epoch.ECRecord
-}
-
-type CachedECChain struct {
-	ID ChainID
-
-	firstElement *CachedEC
-	lastElement  *CachedEC
-}
-
-// ChainID uses the earliest forking point of a chain as its identifier.
-type ChainID = epoch.EC
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
