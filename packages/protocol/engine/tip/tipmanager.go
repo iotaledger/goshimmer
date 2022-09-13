@@ -87,7 +87,7 @@ func (t *Manager) Setup() {
 }
 
 func (t *Manager) AddTip(block *scheduler.Block) {
-	// Check if any children that are confirmed or scheduled and return if true, to guarantee that parents are not added
+	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
 		return
@@ -124,7 +124,7 @@ func (t *Manager) deleteTip(block *scheduler.Block) (deleted bool) {
 	return
 }
 
-// checkMonotonicity returns true if the block has any confirmed or scheduled child.
+// checkMonotonicity returns true if the block has any accepted or scheduled child.
 func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
 	for _, child := range block.Children() {
 		if t.acceptanceGadget.IsBlockAccepted(child.ID()) {
@@ -210,16 +210,16 @@ func (t *Manager) TipCount() int {
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
-//   1. Collect all confirmed blocks in the tip's past cone at the boundary of confirmed/unconfirmed.
-//   2. Order by timestamp (ascending), if the oldest confirmed block > TSC threshold then return false.
+//   1. Collect all accepted blocks in the tip's past cone at the boundary of accepted/unaccapted.
+//   2. Order by timestamp (ascending), if the oldest accepted block > TSC threshold then return false.
 //
 // This function is optimized through the use of markers and the following assumption:
-//   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
+//   If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
 func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if t.timeRetrieverFunc() == t.genesisTime {
-		// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
+		// if the genesis block is the last accepted block, then there is no point in performing tangle walk
 		// return true so that the network can start issuing blocks when the tangle starts
 		return true
 	}
@@ -288,7 +288,7 @@ func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Bl
 			markerWalker.StopWalk()
 			return nil, false
 		}
-		// if closest past marker is confirmed and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
+		// if closest past marker is accepted and before minSupportedTimestamp, then need to walk block past cone of the previously marker block
 		blockWalker.Push(previousBlock)
 		return block, true
 	}
@@ -297,11 +297,11 @@ func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Bl
 		return block, true
 	}
 
-	// unconfirmed after minSupportedTimestamp
+	// unaccepted after minSupportedTimestamp
 
 	// check oldest unaccepted marker time without walking sequence DAG
-	oldestUnconfirmedMarker := t.firstUnacceptedMarker(marker)
-	if timestampValid = t.processMarker(marker, minSupportedTimestamp, oldestUnconfirmedMarker); !timestampValid {
+	firstUnacceptedMarker := t.firstUnacceptedMarker(marker)
+	if timestampValid = t.processMarker(marker, minSupportedTimestamp, firstUnacceptedMarker); !timestampValid {
 		return nil, false
 	}
 
@@ -310,10 +310,10 @@ func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Bl
 		return nil, false
 	}
 
-	// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk block past cone of oldestUnconfirmedMarker.
-	if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
-		acceptedMarker, blockOfMarker := t.previousMarkerWithBlock(sequence, oldestUnconfirmedMarker.Index())
-		if t.isMarkerOldAndConfirmed(acceptedMarker, minSupportedTimestamp) {
+	// If there is a accepted marker before the oldest unaccepted marker, and it's older than minSupportedTimestamp, need to walk block past cone of firstUnacceptedMarker.
+	if sequence.LowestIndex() < firstUnacceptedMarker.Index() {
+		acceptedMarker, blockOfMarker := t.previousMarkerWithBlock(sequence, firstUnacceptedMarker.Index())
+		if t.isMarkerOldAndAccepted(acceptedMarker, minSupportedTimestamp) {
 			blockWalker.Push(blockOfMarker)
 		}
 	}
@@ -327,8 +327,8 @@ func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Bl
 
 		referencedMarker := markers.NewMarker(sequenceID, index)
 
-		// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed block past cone of oldestUnconfirmedMarker
-		if t.isMarkerOldAndConfirmed(referencedMarker, minSupportedTimestamp) {
+		// if referenced marker is accepted and older than minSupportedTimestamp, walk unaccepted block past cone of firstUnacceptedMarker
+		if t.isMarkerOldAndAccepted(referencedMarker, minSupportedTimestamp) {
 			referencedMarkerBlock, referencedMarkerBlockExists := t.schedulerBlockFromMarker(marker)
 			if !referencedMarkerBlockExists {
 				return false
@@ -357,8 +357,8 @@ func (t *Manager) schedulerBlockFromMarker(marker markers.Marker) (block *schedu
 	return block, true
 }
 
-// isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
-func (t *Manager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+// isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
+func (t *Manager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
 	block, exists := t.tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -370,14 +370,14 @@ func (t *Manager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minSupp
 	return false
 }
 
-func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
-	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
+func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, firstUnacceptedMarker markers.Marker) (tscValid bool) {
+	// oldest unaccepted marker is in the future cone of the past marker (same sequence), therefore past marker is accepted and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
-	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
+	if pastMarker.Index() < firstUnacceptedMarker.Index() {
 		return true
 	}
 
-	block, exists := t.tangle.Booker.BlockFromMarker(oldestUnconfirmedMarker)
+	block, exists := t.tangle.Booker.BlockFromMarker(firstUnacceptedMarker)
 	if !exists {
 		return false
 	}
@@ -397,7 +397,7 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 		return true
 	}
 
-	// if block is younger than TSC and not confirmed, walk through strong parents' past cones
+	// if block is younger than TSC and not accepted, walk through strong parents' past cones
 	for parentID := range block.ParentsByType(models.StrongParentType) {
 		parentBlock, exists := t.blockRetrieverFunc(parentID)
 		if exists {
@@ -410,21 +410,21 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (oldestUnconfirmedMarker markers.Marker) {
-	unconfirmedMarkerIdx := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
+func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
+	firstUnacceptedIndex := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
 	// skip any gaps in marker indices
-	for ; unconfirmedMarkerIdx <= pastMarker.Index(); unconfirmedMarkerIdx++ {
-		oldestUnconfirmedMarker = markers.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
+	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
+		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
-		if _, exists := t.tangle.Booker.BlockFromMarker(oldestUnconfirmedMarker); !exists {
+		if _, exists := t.tangle.Booker.BlockFromMarker(firstUnacceptedMarker); !exists {
 			continue
 		}
 
 		break
 	}
 
-	return oldestUnconfirmedMarker
+	return firstUnacceptedMarker
 }
 
 func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
@@ -432,7 +432,7 @@ func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerInde
 	for markerIndex--; sequence.LowestIndex() < markerIndex; markerIndex-- {
 		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
 
-		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).
+		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if block, exists := t.schedulerBlockFromMarker(previousMarker); exists {
 			return previousMarker, block
 		}
