@@ -2,6 +2,7 @@ package virtualvoting
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 )
@@ -20,6 +21,18 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	return options.Apply(&Block{
 		Block: bookerBlock,
 	}, opts)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Blocks represents a collection of Block.
+type Blocks = *set.AdvancedSet[*Block]
+
+// NewBlocks returns a new Block collection with the given elements.
+func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
+	return set.NewAdvancedSet(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

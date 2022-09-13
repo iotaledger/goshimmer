@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
@@ -73,6 +74,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			sequencetracker.WithSequenceManager[BlockVotePower](t.BookerTestFramework.SequenceManager()),
 		)
 	}, (*TestFramework).setupEvents)
+}
+
+func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
+	block, exists := t.VirtualVoting.Block(t.Block(alias).ID())
+	require.True(t.test, exists, "Block %s not found", alias)
+	callback(block)
 }
 
 func (t *TestFramework) CreateIdentity(alias string, opts ...options.Option[validator.Validator]) {

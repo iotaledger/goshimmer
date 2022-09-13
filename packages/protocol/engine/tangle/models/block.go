@@ -101,12 +101,12 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 	return options.Apply(blk, opts)
 }
 
-func NewEmptyBlock(id BlockID) (newBlock *Block) {
+func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
 	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
 	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
 
-	return newBlock
+	return options.Apply(newBlock, opts)
 }
 
 // VerifySignature verifies the Signature of the block.
