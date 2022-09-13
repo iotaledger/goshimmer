@@ -11,31 +11,31 @@ import (
 
 func TestCommitmentManager(t *testing.T) {
 	tf := NewTestFramework(t)
-	tf.CreateCommitment("1", "genesis")
+	tf.CreateCommitment("1", "Genesis")
 	tf.CreateCommitment("2", "1")
 	tf.CreateCommitment("3", "2")
 	tf.CreateCommitment("4", "3")
 	tf.CreateCommitment("4*", "3")
-	tf.CreateCommitment("1*", "genesis")
+	tf.CreateCommitment("1*", "Genesis")
 	tf.CreateCommitment("2*", "1*")
 
 	expectedChainMappings := map[string]string{
-		"genesis": "genesis",
+		"Genesis": "Genesis",
 	}
 
 	{
 		chain, wasForked := tf.ProcessCommitment("1")
 		require.False(t, wasForked)
-		tf.AssertChainIsAlias(chain, "genesis")
+		tf.AssertChainIsAlias(chain, "Genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
-			"1": "genesis",
+			"1": "Genesis",
 		}))
 	}
 
 	{
 		chain, wasForked := tf.ProcessCommitment("1")
 		require.False(t, wasForked)
-		tf.AssertChainIsAlias(chain, "genesis")
+		tf.AssertChainIsAlias(chain, "Genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{}))
 	}
 
@@ -78,11 +78,11 @@ func TestCommitmentManager(t *testing.T) {
 	{
 		chain, wasForked := tf.ProcessCommitment("2")
 		require.False(t, wasForked)
-		tf.AssertChainIsAlias(chain, "genesis")
+		tf.AssertChainIsAlias(chain, "Genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
-			"2": "genesis",
-			"3": "genesis",
-			"4": "genesis",
+			"2": "Genesis",
+			"3": "Genesis",
+			"4": "Genesis",
 		}))
 	}
 
@@ -94,7 +94,7 @@ func TestCommitmentManager(t *testing.T) {
 			tf.ChainManager.Commitment(tf.EC("3")),
 			tf.ChainManager.Commitment(tf.EC("2")),
 			tf.ChainManager.Commitment(tf.EC("1")),
-			tf.ChainManager.Commitment(tf.EC("genesis")),
+			tf.ChainManager.Commitment(tf.EC("Genesis")),
 		}, commitments)
 	}
 

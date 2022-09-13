@@ -27,7 +27,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:               test,
 		commitmentsByAlias: make(map[string]*Commitment),
 	}, opts, func(t *TestFramework) {
-		t.commitmentsByAlias["genesis"] = t.ChainManager.SnapshotCommitment
+		t.commitmentsByAlias["Genesis"] = t.ChainManager.SnapshotCommitment
 	})
 }
 
