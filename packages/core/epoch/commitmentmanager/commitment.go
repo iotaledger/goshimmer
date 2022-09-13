@@ -79,11 +79,11 @@ func (c *Commitment) Chain() (chain *Chain) {
 	return c.chain
 }
 
-func (c *Commitment) LockDAGEntity() {
+func (c *Commitment) lockEntity() {
 	c.entityMutex.Lock()
 }
 
-func (c *Commitment) UnlockDAGEntity() {
+func (c *Commitment) unlockEntity() {
 	c.entityMutex.Unlock()
 }
 
