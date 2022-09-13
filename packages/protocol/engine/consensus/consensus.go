@@ -10,6 +10,8 @@ import (
 // region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Consensus struct {
+	Events *Events
+
 	*acceptance.Gadget
 
 	optsAcceptanceGadget []options.Option[acceptance.Gadget]
@@ -18,6 +20,9 @@ type Consensus struct {
 func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
 		c.Gadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+
+		c.Events = NewEvents()
+		c.Events.Acceptance = c.Gadget.Events
 	})
 }
 

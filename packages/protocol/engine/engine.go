@@ -3,6 +3,7 @@ package engine
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
@@ -10,8 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tip"
 	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
@@ -26,8 +30,7 @@ type Engine struct {
 	Tangle            *tangle.Tangle
 	Consensus         *consensus.Consensus
 	CongestionControl *congestioncontrol.CongestionControl
-	// TODO: FILL THIS IN
-	TipManager bool
+	TipManager        *tip.Manager
 
 	optsBootstrappedThreshold time.Duration
 	optsTangle                []options.Option[tangle.Tangle]
@@ -48,10 +51,16 @@ func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *evictio
 		}, func() float64 {
 			panic("implement me")
 		}, e.optsCongestionControl...)
+		e.TipManager = tip.NewManager(e.Tangle, e.Consensus.Gadget, e.CongestionControl.Scheduler.Block, e.Clock.AcceptedTime, snapshotTime)
 
 		e.Events = NewEvents()
+		e.Events.Clock = e.Clock.Events
 		e.Events.Tangle = e.Tangle.Events
+		e.Events.Consensus = e.Consensus.Events
 		e.Events.CongestionControl = e.CongestionControl.Events
+		e.Events.TipManager = e.TipManager.Events
+
+		e.setupTipManagerEvents()
 	})
 }
 
@@ -61,6 +70,29 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
+}
+
+func (e *Engine) setupTipManagerEvents() {
+	e.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(e.TipManager.AddTip))
+
+	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		e.TipManager.RemoveStrongParents(block.Block.Block.Block.Block)
+	}))
+
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := e.CongestionControl.Scheduler.Block(block.ID()); exists {
+			e.TipManager.DeleteTip(schedulerBlock)
+		}
+	}))
+
+	// TODO: enable once this event is implemented
+	// t.tangle.Manager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
+	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+	// 		return
+	// 	}
+	//
+	// 	t.addTip(block)
+	// }))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

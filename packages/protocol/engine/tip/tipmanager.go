@@ -43,9 +43,9 @@ type Manager struct {
 	optsWidth                          int
 }
 
-func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[Manager]) *Manager {
+func NewManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
-		Events: newEvents(),
+		Events: NewEvents(),
 
 		tangle:             tangle,
 		acceptanceGadget:   gadget,
@@ -59,33 +59,7 @@ func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetrieve
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
-	}, opts, (*Manager).Setup)
-}
-
-// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (t *Manager) Setup() {
-	// TODO: wire up events
-	// t.congestionControl.Events.Scheduler.BlockScheduled.Hook(event.NewClosure(t.AddTip))
-
-	// t.tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *BlockAcceptedEvent) {
-	// 	t.removeStrongParents(event.Block)
-	// }))
-	//
-	// t.tangle.Manager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
-	// 	t.deleteTip(event.Block.ID())
-	// }))
-	//
-	// t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
-	// 	t.tipsCleaner.RemoveBefore(event.UpdateTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
-	// }))
-	//
-	// t.tangle.Manager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-	// 		return
-	// 	}
-	//
-	// 	t.addTip(block)
-	// }))
+	}, opts)
 }
 
 func (t *Manager) AddTip(block *scheduler.Block) {
@@ -105,7 +79,7 @@ func (t *Manager) AddTip(block *scheduler.Block) {
 	}
 
 	// a tip loses its tip status if it is referenced by another block
-	t.removeStrongParents(block)
+	t.RemoveStrongParents(block.Block.Block.Block.Block)
 }
 
 func (t *Manager) addTip(block *scheduler.Block) (added bool) {
@@ -118,7 +92,7 @@ func (t *Manager) addTip(block *scheduler.Block) (added bool) {
 	return false
 }
 
-func (t *Manager) deleteTip(block *scheduler.Block) (deleted bool) {
+func (t *Manager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
@@ -143,7 +117,7 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 	return false
 }
 
-func (t *Manager) removeStrongParents(block *scheduler.Block) {
+func (t *Manager) RemoveStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
@@ -151,7 +125,7 @@ func (t *Manager) removeStrongParents(block *scheduler.Block) {
 		// 	return true
 		// }
 		if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
-			t.deleteTip(parentBlock)
+			t.DeleteTip(parentBlock)
 		}
 	})
 }

@@ -59,7 +59,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.TipManager == nil {
-			t.TipManager = NewTipManager(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsGenesisTime, t.optsTipManagerOptions...)
+			t.TipManager = NewManager(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsGenesisTime, t.optsTipManagerOptions...)
 		}
 
 	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
