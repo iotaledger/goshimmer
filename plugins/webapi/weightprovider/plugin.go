@@ -6,8 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 var (

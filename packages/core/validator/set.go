@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -16,13 +17,15 @@ type Set struct {
 	validators     *memstorage.Storage[identity.ID, *Validator]
 	totalWeight    int64
 	optTrackEvents bool
+	eventClosures  *shrinkingmap.ShrinkingMap[identity.ID, *event.Closure[*WeightUpdatedEvent]]
 
 	mutex sync.RWMutex
 }
 
 func NewSet(opts ...options.Option[Set]) *Set {
 	return options.Apply(&Set{
-		validators: memstorage.New[identity.ID, *Validator](),
+		validators:    memstorage.New[identity.ID, *Validator](),
+		eventClosures: shrinkingmap.New[identity.ID, *event.Closure[*WeightUpdatedEvent]](),
 	}, opts)
 }
 
@@ -32,7 +35,10 @@ func (s *Set) AddAll(validators ...*Validator) *Set {
 		s.totalWeight += int64(validator.Weight())
 
 		if s.optTrackEvents {
-			validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
+			eventClosure := event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent)
+			s.eventClosures.Set(validator.ID(), eventClosure)
+
+			validator.Events.WeightUpdated.Hook(eventClosure)
 		}
 	}
 
@@ -62,6 +68,23 @@ func (s *Set) Add(validator *Validator) {
 		validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
 	}
 }
+
+func (s *Set) Delete(validator *Validator) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.validators.Delete(validator.ID())
+
+	s.totalWeight -= int64(validator.Weight())
+
+	if s.optTrackEvents {
+		closure, exists := s.eventClosures.Get(validator.ID())
+		if exists {
+			validator.Events.WeightUpdated.Detach(closure)
+		}
+	}
+}
+
 func (s *Set) handleWeightUpdatedEvent(updatedEvent *WeightUpdatedEvent) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

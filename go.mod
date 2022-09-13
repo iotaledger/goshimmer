@@ -5,14 +5,14 @@ go 1.18
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
-	github.com/beevik/ntp v0.3.0
+	github.com/benbjohnson/clock v1.1.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.9.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.4.0.20220908121356-97366dacdde2
+	github.com/iotaledger/hive.go/core v1.0.0-beta.5.0.20220912105918-74a72836e0af
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -23,7 +23,6 @@ require (
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/multiformats/go-varint v0.0.6
-	github.com/panjf2000/ants/v2 v2.5.0
 	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.1
@@ -35,11 +34,13 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.14
 	go.uber.org/atomic v1.10.0
 	go.uber.org/dig v1.15.0
-	golang.org/x/crypto v0.0.0-20220826181053-bd7e27e6170d
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	golang.org/x/sync v0.0.0-20220907140024-f12130a52804
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
+
+require github.com/panjf2000/ants/v2 v2.5.0 // indirect
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -63,7 +64,7 @@ require (
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
+	github.com/go-stack/stack v1.8.0 // indirect; indirectf
 	github.com/gobuffalo/here v0.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -184,11 +185,11 @@ require (
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
-	golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64 // indirect
+	golang.org/x/net v0.0.0-20220907135653-1e95f45603a7 // indirect
+	golang.org/x/sys v0.0.0-20220908150016-7ac13a9a928d // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect

@@ -3,8 +3,6 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 )
 

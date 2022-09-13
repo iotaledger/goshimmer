@@ -9,7 +9,6 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 )
 

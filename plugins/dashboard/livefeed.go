@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 var (

@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/plugins/database"

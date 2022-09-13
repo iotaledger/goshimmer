@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+
 	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )

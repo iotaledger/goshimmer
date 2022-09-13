@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
