@@ -19,12 +19,15 @@ import (
 type Factory struct {
 	Events *Events
 
+	// referenceProvider *ReferenceProvider
 	identity *identity.LocalIdentity
 
-	selector       TipSelector
+	tipSelector    TipSelector
 	referencesFunc ReferencesFunc
 	commitmentFunc CommitmentFunc
-	// referenceProvider *ReferenceProvider
+
+	optsTipSelectionTimeout       time.Duration
+	optsTipSelectionRetryInterval time.Duration
 }
 
 // NewBlockFactory creates a new block factory.
@@ -34,46 +37,41 @@ func NewBlockFactory(localIdentity *identity.LocalIdentity, tipSelector TipSelec
 	return options.Apply(&Factory{
 		Events:         NewEvents(),
 		identity:       localIdentity,
-		selector:       tipSelector,
+		tipSelector:    tipSelector,
 		commitmentFunc: commitmentFunc,
 		// referencesFunc:    referenceProvider.References,
 		// referenceProvider: referenceProvider,
+		optsTipSelectionTimeout:       10 * time.Second,
+		optsTipSelectionRetryInterval: 200 * time.Millisecond,
 	}, opts)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
 func (f *Factory) IssuePayload(p payload.Payload, parentsCount ...int) (*models.Block, error) {
-	blk, err := f.issuePayload(p, nil, parentsCount...)
-	if err != nil {
-		f.Events.Error.Trigger(errors.Errorf("block could not be issued: %w", err))
-		return nil, err
-	}
-
-	f.Events.BlockConstructed.Trigger(blk)
-	return blk, nil
+	return f.IssuePayloadWithReferences(p, nil, parentsCount...)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
-func (f *Factory) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, parentsCount ...int) (*models.Block, error) {
-	blk, err := f.issuePayload(p, references, parentsCount...)
+func (f *Factory) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (*models.Block, error) {
+	strongParentsCount := 2
+	if len(strongParentsCountOpt) > 0 {
+		strongParentsCount = strongParentsCountOpt[0]
+	}
+
+	block, err := f.issuePayload(p, references, strongParentsCount)
 	if err != nil {
 		f.Events.Error.Trigger(errors.Errorf("block could not be issued: %w", err))
 		return nil, err
 	}
 
-	f.Events.BlockConstructed.Trigger(blk)
-	return blk, nil
+	f.Events.BlockConstructed.Trigger(block)
+	return block, nil
 }
 
 // issuePayload create a new block. If there are any supplied references, it uses them. Otherwise, uses tip selection.
 // It also triggers the BlockConstructed event once it's done, which is for example used by the plugins to listen for
 // blocks that shall be attached to the tangle.
-func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockIDs, parentsCountOpt ...int) (*models.Block, error) {
-	parentsCount := 2
-	if len(parentsCountOpt) > 0 {
-		parentsCount = parentsCountOpt[0]
-	}
-
+func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockIDs, strongParentsCount int) (*models.Block, error) {
 	payloadBytes, err := p.Bytes()
 	if err != nil {
 		return nil, errors.Errorf("could not serialize payload: %w", err)
@@ -83,99 +81,93 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}
 
-	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.commitmentFunc()
-	if epochCommitmentErr != nil {
-		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
-		f.Events.Error.Trigger(err)
-		return nil, err
+	epochCommitment, lastConfirmedEpochIndex, err := f.commitmentFunc()
+	if err != nil {
+		return nil, errors.Errorf("cannot retrieve epoch commitment: %w", err)
 	}
 
-	// select tips, perform PoW and prepare references
-	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, f.identity.PublicKey(), lastConfirmedEpochIndex, epochCommitment)
-	if err != nil {
-		return nil, errors.Errorf("could not select tips and perform PoW: %w", err)
-	}
-
-	// create the signature
-	signature, err := f.sign(references, issuingTime, f.identity.PublicKey(), p, nonce, lastConfirmedEpochIndex, epochCommitment)
-	if err != nil {
-		return nil, errors.Errorf("signing failed: %w", err)
+	var issuingTime time.Time
+	if references.IsEmpty() {
+		references, issuingTime, err = f.tryGetReferences(p, strongParentsCount)
+		if err != nil {
+			return nil, errors.Errorf("error while trying to get references: %w", err)
+		}
 	}
 
 	block := models.NewBlock(
 		models.WithParents(references),
 		models.WithIssuer(f.identity.PublicKey()),
 		models.WithIssuingTime(issuingTime),
-		models.WithSequenceNumber(1337),
 		models.WithPayload(p),
+		models.WithLatestConfirmedEpoch(lastConfirmedEpochIndex),
+		models.WithECRecord(epochCommitment),
+		models.WithSignature(ed25519.EmptySignature), // placeholder will be set after signing
+
+		// jUsT4fUn
+		models.WithSequenceNumber(1337),
+		models.WithNonce(42),
 	)
 
-	blk, err := models.NewBlockWithValidation(
-		references,
-		issuingTime,
-		issuerPublicKey,
-		sequenceNumber,
-		p,
-		nonce,
-		signature,
-		lastConfirmedEpochIndex,
-		epochCommitment,
-	)
+	// create the signature
+	signature, err := f.sign(block)
 	if err != nil {
+		return nil, errors.Errorf("signing failed: %w", err)
+	}
+	block.SetSignature(signature)
+
+	if err = block.DetermineID(); err != nil {
 		return nil, errors.Errorf("there is a problem with the block syntax: %w", err)
 	}
-	_ = blk.DetermineID()
 
-	return blk, nil
+	return block, nil
 }
 
-func (f *Factory) selectTipsAndPerformPoW(p payload.Payload, providedReferences models.ParentBlockIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, lastConfirmedEpoch epoch.Index, epochCommittment *epoch.ECRecord) (references models.ParentBlockIDs, nonce uint64, issuingTime time.Time, err error) {
-	// Perform PoW with given information if there are references provided.
-	if !providedReferences.IsEmpty() {
-		issuingTime = f.getIssuingTime(providedReferences[models.StrongParentType])
-		nonce, err = f.doPOW(providedReferences, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
-		if err != nil {
-			return providedReferences, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
+func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
+	timeout := time.NewTimer(f.optsTipSelectionTimeout)
+	interval := time.NewTicker(f.optsTipSelectionRetryInterval)
+	for {
+		select {
+		case <-timeout.C:
+			return nil, time.Time{}, errors.Errorf("timeout while trying to select tips and determine references")
+		case <-interval.C:
+			references, issuingTime, err = f.getReferences(p, parentsCount)
+			if err != nil {
+				f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
+				continue
+			}
+
+			return references, issuingTime, nil
 		}
-		return providedReferences, nonce, issuingTime, nil
 	}
+}
 
-	// TODO: once we get rid of PoW we need to set another timeout here that allows to specify for how long we try to select tips if there are no valid references.
-	//   This in turn should remove the invalid references from the tips bit by bit until there are valid strong parents again.
-	startTime := time.Now()
-	for run := true; run; run = err != nil && time.Since(startTime) < f.powTimeout {
-		strongParents := f.tips(p, parentsCount)
-		issuingTime = f.getIssuingTime(strongParents)
-		references, err = f.referencesFunc(p, strongParents, issuingTime)
-		// If none of the strong parents are possible references, we have to try again.
-		if err != nil {
-			f.Events.Error.Trigger(errors.Errorf("references could not be created: %w", err))
-			continue
-		}
+func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
+	strongParents := f.tips(p, parentsCount)
+	// TODO: what to do if no parents are returned?
+	issuingTime = f.getIssuingTime(strongParents)
 
-		// Make sure that there's no duplicate between strong and weak parents.
-		for strongParent := range references[models.StrongParentType] {
-			delete(references[models.WeakParentType], strongParent)
-		}
-
-		// fill up weak references with weak references to liked missing conflicts
-		if _, exists := references[models.WeakParentType]; !exists {
-			references[models.WeakParentType] = models.NewBlockIDs()
-		}
-		references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
-
-		if len(references[models.WeakParentType]) == 0 {
-			delete(references, models.WeakParentType)
-		}
-
-		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpoch, epochCommittment)
-	}
-
+	references, err = f.referencesFunc(p, strongParents, issuingTime)
+	// If none of the strong parents are possible references, we have to try again.
 	if err != nil {
-		return nil, 0, time.Time{}, errors.Errorf("pow failed: %w", err)
+		return nil, time.Time{}, errors.Errorf("references could not be created: %w", err)
 	}
 
-	return references, nonce, issuingTime, nil
+	// Make sure that there's no duplicate between strong and weak parents.
+	for strongParent := range references[models.StrongParentType] {
+		delete(references[models.WeakParentType], strongParent)
+	}
+
+	// fill up weak references with weak references to liked missing conflicts
+	if _, exists := references[models.WeakParentType]; !exists {
+		references[models.WeakParentType] = models.NewBlockIDs()
+	}
+	// references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
+
+	if len(references[models.WeakParentType]) == 0 {
+		delete(references, models.WeakParentType)
+	}
+
+	return references, issuingTime, nil
 }
 
 func (f *Factory) getIssuingTime(parents models.BlockIDs) time.Time {
@@ -195,13 +187,13 @@ func (f *Factory) getIssuingTime(parents models.BlockIDs) time.Time {
 	return issuingTime
 }
 
-func (f *Factory) tips(parentsCount int) (parents models.BlockIDs) {
-	parents = f.selector.Tips(parentsCount)
+func (f *Factory) tips(p payload.Payload, parentsCount int) (parents models.BlockIDs) {
+	parents = f.tipSelector.Tips(parentsCount)
 
 	// TODO: when Ledger is refactored, we need to rework the stuff below
 	// tx, ok := p.(utxo.Transaction)
 	// if !ok {
-	//	return parents
+	// 	return parents
 	// }
 
 	// If the block is issuing a transaction and is a double spend, we add it in parallel to the earliest attachment
@@ -215,15 +207,14 @@ func (f *Factory) tips(parentsCount int) (parents models.BlockIDs) {
 	return parents
 }
 
-func (f *Factory) sign(references models.ParentBlockIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, blockPayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
+func (f *Factory) sign(dummyBlock *models.Block) (ed25519.Signature, error) {
 	// create a dummy block to simplify marshaling
-	dummy := models.NewBlock(references, issuingTime, key, seq, blockPayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
-	dummyBytes, err := dummy.Bytes()
+	dummyBytes, err := dummyBlock.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
 
-	contentLength := len(dummyBytes) - len(dummy.Signature())
+	contentLength := len(dummyBytes) - len(dummyBlock.Signature())
 	return f.identity.Sign(dummyBytes[:contentLength]), nil
 }
 
@@ -253,5 +244,21 @@ type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs,
 
 // CommitmentFunc is a function type that returns the commitment of the latest committable epoch.
 type CommitmentFunc func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithTipSelectionTimeout(timeout time.Duration) options.Option[Factory] {
+	return func(factory *Factory) {
+		factory.optsTipSelectionTimeout = timeout
+	}
+}
+
+func WithTipSelectionRetryInterval(interval time.Duration) options.Option[Factory] {
+	return func(factory *Factory) {
+		factory.optsTipSelectionRetryInterval = interval
+	}
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

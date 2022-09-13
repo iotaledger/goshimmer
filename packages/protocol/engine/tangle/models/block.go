@@ -247,6 +247,10 @@ func (b *Block) Signature() ed25519.Signature {
 	return b.M.Signature
 }
 
+func (b *Block) SetSignature(signature ed25519.Signature) {
+	b.M.Signature = signature
+}
+
 // DetermineID calculates and sets the block's BlockID.
 func (b *Block) DetermineID() (err error) {
 	buf, err := b.Bytes()
