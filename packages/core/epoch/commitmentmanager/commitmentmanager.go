@@ -25,7 +25,7 @@ func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch
 		commitmentsByEC: make(map[epoch.EC]*Commitment),
 	}
 
-	manager.SnapshotCommitment = manager.Commitment(NewEC(snapshotIndex, snapshotECR, snapshotPrevECR), true)
+	manager.SnapshotCommitment = manager.Commitment(epoch.NewEC(snapshotIndex, snapshotECR, snapshotPrevECR), true)
 	manager.SnapshotCommitment.publishECRecord(snapshotIndex, snapshotECR, snapshotPrevECR)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
@@ -35,7 +35,7 @@ func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch
 }
 
 func (c *CommitmentManager) ProcessCommitment(index epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (chain *Chain, wasForked bool) {
-	commitment := c.Commitment(NewEC(index, ecr, prevEC), true)
+	commitment := c.Commitment(epoch.NewEC(index, ecr, prevEC), true)
 	if !commitment.publishECRecord(index, ecr, prevEC) {
 		return commitment.Chain(), false
 	}

@@ -19,15 +19,16 @@ func TestCommitmentManager(t *testing.T) {
 	tf.CreateCommitment("1*", "genesis")
 	tf.CreateCommitment("2*", "1*")
 
-	expectedChainMappings := make(map[string]string)
+	expectedChainMappings := map[string]string{
+		"genesis": "genesis",
+	}
 
 	{
 		chain, wasForked := tf.ProcessCommitment("1")
 		require.False(t, wasForked)
 		tf.AssertChainIsAlias(chain, "genesis")
 		tf.AssertChainState(lo.MergeMaps(expectedChainMappings, map[string]string{
-			"genesis": "genesis",
-			"1":       "genesis",
+			"1": "genesis",
 		}))
 	}
 

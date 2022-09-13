@@ -3,9 +3,7 @@ package commitmentmanager
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/syncutils"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -122,8 +120,4 @@ func (c *Commitment) publishECRecord(index epoch.Index, ecr epoch.ECR, previousE
 	}
 
 	return
-}
-
-func NewEC(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (ec epoch.EC) {
-	return blake2b.Sum256(byteutils.ConcatBytes(ei.Bytes(), ecr.Bytes(), prevEC.Bytes()))
 }
