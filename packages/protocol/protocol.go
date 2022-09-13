@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -31,6 +32,7 @@ type Protocol struct {
 	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	SybilProtection     *sybilprotection.SybilProtection
+	ValidatorSet        *validator.Set
 
 	logger *logger.Logger
 
@@ -41,7 +43,8 @@ type Protocol struct {
 
 func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
-		Events: NewEvents(),
+		Events:       NewEvents(),
+		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Protocol) {
@@ -66,11 +69,12 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 			// p.SnapshotManager.GetSolidEntryPoints(index)
 			return set.NewAdvancedSet[models.BlockID]()
 		})
-		p.SybilProtection = sybilprotection.New()
 
 		// TODO: when engine is ready
-		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.SybilProtection.ValidatorSet, p.optsEngineOptions...)
+		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
+
+		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 	})
 }
 

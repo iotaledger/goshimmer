@@ -26,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////

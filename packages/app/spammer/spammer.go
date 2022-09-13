@@ -10,8 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 )
 
 const (

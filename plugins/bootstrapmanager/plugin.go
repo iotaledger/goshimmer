@@ -6,9 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 
-	"github.com/iotaledger/goshimmer/packages/core/bootstrapmanager"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////

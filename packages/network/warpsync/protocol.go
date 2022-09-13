@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/iotaledger/goshimmer/packages/core/parser"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/network/parser"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 )
 

@@ -4,8 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // PluginName is the name of the PoW plugin.

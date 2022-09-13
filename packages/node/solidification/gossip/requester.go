@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/timedexecutor"
+	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
@@ -22,8 +22,8 @@ type Requester struct {
 	Events *Events
 
 	evictionManager        *eviction.LockableManager[models.BlockID]
-	timedExecutor          *timedexecutor.TimedExecutor
-	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timedexecutor.ScheduledTask]
+	timedExecutor          *timed.Executor
+	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timed.ScheduledTask]
 	scheduledRequestsCount int
 
 	optsRetryInterval       time.Duration
@@ -37,8 +37,8 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 		Events: NewEvents(),
 
 		evictionManager:   evictionManager.Lockable(),
-		timedExecutor:     timedexecutor.New(1),
-		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timedexecutor.ScheduledTask](),
+		timedExecutor:     timed.NewExecutor(1),
+		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         10 * time.Second,
@@ -71,7 +71,7 @@ func (r *Requester) QueueSize() int {
 
 // Shutdown shuts down the Requester.
 func (r *Requester) Shutdown() {
-	r.timedExecutor.Shutdown(timedexecutor.CancelPendingTasks)
+	r.timedExecutor.Shutdown(timed.CancelPendingElements)
 }
 
 // setup sets up the behavior of the component by making it attach to the relevant events of other components.

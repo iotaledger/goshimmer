@@ -13,10 +13,8 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 )
 
 // PluginName is the name of the dags visualizer plugin.
