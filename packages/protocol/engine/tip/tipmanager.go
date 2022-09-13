@@ -36,6 +36,7 @@ type Manager struct {
 	genesisTime        time.Time
 
 	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
+	// TODO: reintroduce TipsConflictTracker
 	// tipsConflictTracker *TipsConflictTracker
 
 	optsTimeSinceConfirmationThreshold time.Duration
@@ -53,6 +54,7 @@ func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetrieve
 		genesisTime:        genesisTime,
 
 		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
+		// TODO: reintroduce TipsConflictTracker
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
@@ -143,7 +145,7 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 
 func (t *Manager) removeStrongParents(block *scheduler.Block) {
 	block.ForEachParent(func(parent models.Parent) {
-		// TODO: what to do with this?
+		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
 		// 	return true
