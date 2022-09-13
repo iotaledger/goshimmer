@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -210,41 +211,69 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
 	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
-	AcceptedBlocks     map[models.BlockID]bool
-	AcceptedMarkers    map[markers.Marker]bool
+	AcceptedBlocks     models.BlockIDs
+	AcceptedMarkers    *markers.Markers
+
+	mutex sync.RWMutex
 }
 
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
 		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
-		AcceptedBlocks:     make(map[models.BlockID]bool),
-		AcceptedMarkers:    make(map[markers.Marker]bool),
+		AcceptedBlocks:     models.NewBlockIDs(),
+		AcceptedMarkers:    markers.NewMarkers(),
+	}
+}
+
+func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for block := range blocks {
+		m.AcceptedBlocks.Add(block)
+	}
+}
+
+func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for _, marker := range markers {
+		m.AcceptedMarkers.Set(marker.SequenceID(), marker.Index())
 	}
 }
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
 func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
-	return m.AcceptedBlocks[blockID]
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	return m.AcceptedBlocks.Contains(blockID)
 }
 
 func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	return m.AcceptedMarkers[marker]
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	if m.AcceptedMarkers == nil || m.AcceptedMarkers.Size() == 0 {
+		return false
+	}
+	acceptedIndex, exists := m.AcceptedMarkers.Get(marker.SequenceID())
+	if !exists {
+		return false
+	}
+	return marker.Index() <= acceptedIndex
 }
 
 func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
-	lastAccepted := markers.Index(0)
-	for marker, accepted := range m.AcceptedMarkers {
-		if marker.SequenceID() == sequenceID {
-			if accepted && marker.Index() > lastAccepted {
-				lastAccepted = marker.Index() + 1
-			}
-		}
-	}
-	if lastAccepted == 0 {
-		return 0
-	}
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
-	return lastAccepted + 1
+	acceptedIndex, exists := m.AcceptedMarkers.Get(sequenceID)
+	if exists {
+		return acceptedIndex + 1
+	}
+	return 0
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

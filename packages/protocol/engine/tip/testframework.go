@@ -1,6 +1,7 @@
 package tip
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 )
@@ -33,6 +36,7 @@ type TestFramework struct {
 	tipAdded   uint32
 	tipRemoved uint32
 
+	optsGenesisTime       time.Time
 	optsClock             *clock.Clock
 	optsTipManagerOptions []options.Option[Manager]
 	optsTangleOptions     []options.Option[tangle.Tangle]
@@ -44,26 +48,21 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:            test,
 		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsClock:       clock.NewClock(time.Now().Add(-5 * time.Hour)),
+		optsGenesisTime: time.Now().Add(-5 * time.Hour),
 	}, opts, func(t *TestFramework) {
 		t.TestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangleOptions...),
 		)
 		if t.optsClock == nil {
-			t.optsClock = clock.NewClock(time.Now().Add(-5 * time.Hour))
+			t.optsClock = clock.NewClock(t.optsGenesisTime)
 		}
 
 		if t.TipManager == nil {
-			t.TipManager = NewTipManager(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsTipManagerOptions...)
+			t.TipManager = NewTipManager(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsGenesisTime, t.optsTipManagerOptions...)
 		}
 
-		block, exists := t.Tangle.VirtualVoting.Block(models.EmptyBlockID)
-		if !exists {
-			panic("could not create empty block")
-		}
-		t.scheduledBlocks.Set(block.ID(), scheduler.NewBlock(block, scheduler.WithScheduled(true)))
-	}, (*TestFramework).setupEvents)
+	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
 }
 
 func (t *TestFramework) setupEvents() {
@@ -71,8 +70,8 @@ func (t *TestFramework) setupEvents() {
 		if debug.GetEnabled() {
 			t.test.Logf("SIMULATING SCHEDULED: %s", block.ID())
 		}
-		t.scheduledBlocksMutex.Lock()
 
+		t.scheduledBlocksMutex.Lock()
 		scheduledBlock := scheduler.NewBlock(block, scheduler.WithScheduled(true))
 		t.scheduledBlocks.Set(block.ID(), scheduledBlock)
 		t.scheduledBlocksMutex.Unlock()
@@ -95,6 +94,33 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
+func (t *TestFramework) createGenesis() {
+	genesisMarker := markers.NewMarker(0, 0)
+	structureDetails := markers.NewStructureDetails()
+	structureDetails.SetPastMarkers(markers.NewMarkers(genesisMarker))
+	structureDetails.SetIsPastMarker(true)
+	structureDetails.SetPastMarkerGap(0)
+
+	block := scheduler.NewBlock(
+		virtualvoting.NewBlock(
+			booker.NewBlock(
+				blockdag.NewBlock(
+					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)),
+					blockdag.WithSolid(true),
+				),
+				booker.WithBooked(true),
+				booker.WithStructureDetails(structureDetails),
+			),
+		),
+		scheduler.WithScheduled(true),
+	)
+
+	t.scheduledBlocks.Set(block.ID(), block)
+
+	t.SetBlocksAccepted("Genesis")
+	t.SetMarkersAccepted(genesisMarker)
+}
+
 func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.Block, exists bool) {
 	t.scheduledBlocksMutex.RLock()
 	defer t.scheduledBlocksMutex.RUnlock()
@@ -103,15 +129,30 @@ func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.
 }
 
 func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag.TestFramework {
-	for _, alias := range aliases {
-		t.SetBlockAccepted(alias)
-	}
+	t.SetBlocksAccepted(aliases...)
 
 	return t.IssueBlocks(aliases...)
 }
 
-func (t *TestFramework) SetBlockAccepted(alias string) {
-	t.mockAcceptance.AcceptedBlocks[t.ModelsTestFramework.Block(alias).ID()] = true
+func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
+	t.mockAcceptance.SetBlocksAccepted(t.BlockIDs(aliases...))
+}
+
+func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
+	t.mockAcceptance.SetMarkersAccepted(m...)
+}
+
+func (t *TestFramework) SetAcceptedTime(acceptedTime time.Time) {
+	t.optsClock.SetAcceptedTime(acceptedTime)
+}
+
+func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expected bool) {
+	block, exists := t.mockSchedulerBlock(t.Block(blockAlias).ID())
+	if !exists {
+		panic(fmt.Sprintf("block with %s not found", blockAlias))
+	}
+	actual := t.TipManager.isPastConeTimestampCorrect(block)
+	assert.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 
 func (t *TestFramework) AssertTipsAdded(count uint32) {

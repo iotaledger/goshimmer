@@ -33,6 +33,7 @@ type Manager struct {
 	acceptanceGadget   acceptanceGadget
 	blockRetrieverFunc blockRetrieverFunc
 	timeRetrieverFunc  timeRetrieverFunc
+	genesisTime        time.Time
 
 	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
 	// tipsConflictTracker *TipsConflictTracker
@@ -41,7 +42,7 @@ type Manager struct {
 	optsWidth                          int
 }
 
-func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, opts ...options.Option[Manager]) *Manager {
+func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		Events: newEvents(),
 
@@ -49,6 +50,7 @@ func NewTipManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetrieve
 		acceptanceGadget:   gadget,
 		blockRetrieverFunc: blockRetriever,
 		timeRetrieverFunc:  timeRetriever,
+		genesisTime:        genesisTime,
 
 		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
 		// tipsConflictTracker: NewTipsConflictTracker(tangle),
@@ -140,7 +142,6 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 }
 
 func (t *Manager) removeStrongParents(block *scheduler.Block) {
-
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: what to do with this?
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
@@ -216,19 +217,17 @@ func (t *Manager) TipCount() int {
 //   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
 func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
-	timestampValid = true
 
-	// TODO: skip TSC check if no block has been confirmed to allow attaching to genesis
-	// ATT == genesisTime/snapshot time
-	// if t.engine.Clock.AcceptedTime().BlockID == EmptyBlockID {
-	// 	// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
-	// 	// return true so that the network can start issuing blocks when the tangle starts
-	// 	return true
-	// }
+	if t.timeRetrieverFunc() == t.genesisTime {
+		// if the genesis block is the last confirmed block, then there is no point in performing tangle walk
+		// return true so that the network can start issuing blocks when the tangle starts
+		return true
+	}
 
-	if timestampValid = block.IssuingTime().After(minSupportedTimestamp); !timestampValid {
+	if block.IssuingTime().Before(minSupportedTimestamp) {
 		return false
 	}
+
 	if t.acceptanceGadget.IsBlockAccepted(block.ID()) {
 		// return true if block is accepted and has valid timestamp
 		return true
@@ -429,8 +428,8 @@ func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (oldestUnconf
 }
 
 func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
-	// skip any gaps in marker indices
-	for ; sequence.LowestIndex() < markerIndex; markerIndex-- {
+	// skip any gaps in marker indices and start from marker below current one.
+	for markerIndex--; sequence.LowestIndex() < markerIndex; markerIndex-- {
 		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).

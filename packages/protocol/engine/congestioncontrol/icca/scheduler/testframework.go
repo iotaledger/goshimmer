@@ -51,10 +51,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:           test,
 		issuersMana:    make(map[identity.ID]float64),
 		issuersByAlias: make(map[string]*identity.Identity),
-		mockAcceptance: &acceptance.MockAcceptanceGadget{
-			BlockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
-			AcceptedBlocks:     make(map[models.BlockID]bool),
-		},
+		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
 			t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
