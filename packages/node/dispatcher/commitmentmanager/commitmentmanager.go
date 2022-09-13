@@ -5,7 +5,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -15,7 +14,6 @@ type CommitmentManager struct {
 	SnapshotCommitment *Commitment
 
 	commitmentsByEC map[epoch.EC]*Commitment
-	dagMutex        *syncutils.DAGMutex[epoch.EC]
 
 	sync.Mutex
 }
@@ -25,7 +23,6 @@ func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch
 		Events: NewEvents(),
 
 		commitmentsByEC: make(map[epoch.EC]*Commitment),
-		dagMutex:        syncutils.NewDAGMutex[epoch.EC](),
 	}
 
 	manager.SnapshotCommitment = manager.Commitment(NewEC(snapshotIndex, snapshotECR, snapshotPrevECR), true)
@@ -102,8 +99,8 @@ func (c *CommitmentManager) Commitments(ec epoch.EC, amount int) (commitments []
 }
 
 func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (chain *Chain, wasForked bool) {
-	c.dagMutex.Lock(child.EC)
-	defer c.dagMutex.Unlock(child.EC)
+	child.LockEntity()
+	defer child.UnlockEntity()
 
 	if chain, wasForked = c.Commitment(parent, true).registerChild(child); chain != nil {
 		chain.addCommitment(child)
@@ -114,8 +111,8 @@ func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (c
 }
 
 func (c *CommitmentManager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
-	c.dagMutex.Lock(child.EC)
-	c.dagMutex.Unlock(child.EC)
+	child.LockEntity()
+	defer child.UnlockEntity()
 
 	if !child.publishChain(chain) {
 		return
