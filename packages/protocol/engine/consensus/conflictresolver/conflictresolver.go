@@ -1,4 +1,4 @@
-package otv
+package conflictresolver
 
 import (
 	"bytes"
@@ -10,28 +10,28 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
-// OnTangleVoting is a pluggable implementation of tangle.ConsensusMechanism2. On tangle voting is a generalized form of
-// Nakamoto consensus for the parallel-reality-based ledger state where the heaviest conflict according to approval weight
-// is liked by any given node.
-type OnTangleVoting struct {
+type WeightFunc func(conflictID utxo.TransactionID) (weight int64)
+
+// ConflictResolver is a generalized form of Nakamoto consensus for the parallel-reality-based ledger state where the
+// heaviest conflict according to approval weight is liked by any given node.
+type ConflictResolver struct {
 	conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
-	weightFunc  consensus.WeightFunc
+	weightFunc  WeightFunc
 }
 
-// NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting(conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc consensus.WeightFunc) *OnTangleVoting {
-	return &OnTangleVoting{
+// New is the constructor for ConflictResolver.
+func New(conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc WeightFunc) *ConflictResolver {
+	return &ConflictResolver{
 		conflictDAG: conflictDAG,
 		weightFunc:  weightFunc,
 	}
 }
 
 // LikedConflictMember returns the liked ConflictID across the members of its conflict sets.
-func (o *OnTangleVoting) LikedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
+func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
 	dislikedConflicts = utxo.NewTransactionIDs()
 
 	if o.ConflictLiked(conflictID) {
@@ -54,7 +54,7 @@ func (o *OnTangleVoting) LikedConflictMember(conflictID utxo.TransactionID) (lik
 }
 
 // ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
-func (o *OnTangleVoting) ConflictLiked(conflictID utxo.TransactionID) (conflictLiked bool) {
+func (o *ConflictResolver) ConflictLiked(conflictID utxo.TransactionID) (conflictLiked bool) {
 	conflictLiked = true
 	if conflictID == utxo.EmptyTransactionID {
 		return
@@ -69,7 +69,7 @@ func (o *OnTangleVoting) ConflictLiked(conflictID utxo.TransactionID) (conflictL
 }
 
 // conflictPreferred returns whether the conflict is the winner across its conflict sets.
-func (o *OnTangleVoting) conflictPreferred(conflictID utxo.TransactionID, likeWalker *walker.Walker[utxo.TransactionID]) (preferred bool) {
+func (o *ConflictResolver) conflictPreferred(conflictID utxo.TransactionID, likeWalker *walker.Walker[utxo.TransactionID]) (preferred bool) {
 	preferred = true
 	if conflictID == utxo.EmptyTransactionID {
 		return
@@ -95,9 +95,9 @@ func (o *OnTangleVoting) conflictPreferred(conflictID utxo.TransactionID, likeWa
 	return
 }
 
-func (o *OnTangleVoting) dislikedConnectedConflictingConflicts(currentConflictID utxo.TransactionID) (dislikedConflicts set.Set[utxo.TransactionID]) {
+func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflictID utxo.TransactionID) (dislikedConflicts set.Set[utxo.TransactionID]) {
 	dislikedConflicts = set.New[utxo.TransactionID]()
-	o.forEachConnectedConflictingConflictInDescendingOrder(currentConflictID, func(conflictID utxo.TransactionID, weight float64) {
+	o.forEachConnectedConflictingConflictInDescendingOrder(currentConflictID, func(conflictID utxo.TransactionID) {
 		if dislikedConflicts.Has(conflictID) {
 			return
 		}
@@ -124,8 +124,8 @@ func (o *OnTangleVoting) dislikedConnectedConflictingConflicts(currentConflictID
 
 // forEachConnectedConflictingConflictInDescendingOrder iterates over all conflicts connected via conflict sets
 // and sorts them by weight. It calls the callback for each of them in that order.
-func (o *OnTangleVoting) forEachConnectedConflictingConflictInDescendingOrder(conflictID utxo.TransactionID, callback func(conflictID utxo.TransactionID, weight float64)) {
-	conflictWeights := make(map[utxo.TransactionID]float64)
+func (o *ConflictResolver) forEachConnectedConflictingConflictInDescendingOrder(conflictID utxo.TransactionID, callback func(conflictID utxo.TransactionID)) {
+	conflictWeights := make(map[utxo.TransactionID]int64)
 	conflictsOrderedByWeight := make([]utxo.TransactionID, 0)
 	o.conflictDAG.Utils.ForEachConnectedConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) {
 		conflictWeights[conflictingConflictID] = o.weightFunc(conflictingConflictID)
@@ -140,6 +140,6 @@ func (o *OnTangleVoting) forEachConnectedConflictingConflictInDescendingOrder(co
 	})
 
 	for _, orderedConflictID := range conflictsOrderedByWeight {
-		callback(orderedConflictID, conflictWeights[orderedConflictID])
+		callback(orderedConflictID)
 	}
 }
