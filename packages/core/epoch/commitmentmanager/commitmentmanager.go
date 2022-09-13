@@ -125,5 +125,5 @@ func (c *CommitmentManager) propagateChainToFirstChild(child *Commitment, chain 
 		return
 	}
 
-	return []*Commitment{children[0]}
+	return children[:1]
 }

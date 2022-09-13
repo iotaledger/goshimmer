@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch/commitmentmanager"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -10,13 +11,15 @@ import (
 type Dispatcher struct {
 	Events *Events
 
-	protocols map[epoch.EC]*protocol.Protocol
+	activeProtocol    *protocol.Protocol
+	protocolsByChain  map[epoch.EC]*protocol.Protocol
+	commitmentManager commitmentmanager.CommitmentManager
 }
 
 func New() (dispatcher *Dispatcher) {
 	return &Dispatcher{
-		Events:    NewEvents(),
-		protocols: make(map[epoch.EC]*protocol.Protocol),
+		Events:           NewEvents(),
+		protocolsByChain: make(map[epoch.EC]*protocol.Protocol),
 	}
 }
 
