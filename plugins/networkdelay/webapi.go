@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo"
-
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 )
 
 func configureWebAPI() {

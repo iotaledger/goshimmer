@@ -4,12 +4,13 @@ import (
 	"container/heap"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generalheap"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/timed"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 )
 
 // region IssuerQueue /////////////////////////////////////////////////////////////////////////////////////////////
@@ -18,7 +19,7 @@ import (
 type IssuerQueue struct {
 	issuerID  identity.ID
 	submitted *shrinkingmap.ShrinkingMap[models.BlockID, *Block]
-	inbox     tsc.TimedHeap[*Block]
+	inbox     generalheap.Heap[timed.HeapKey, *Block]
 	size      atomic.Int64
 }
 
@@ -78,7 +79,7 @@ func (q *IssuerQueue) Ready(block *Block) bool {
 	}
 
 	q.submitted.Delete(block.ID())
-	heap.Push(&q.inbox, &tsc.Element[*Block]{Value: block, Key: block.IssuingTime()})
+	heap.Push(&q.inbox, &generalheap.HeapElement[timed.HeapKey, *Block]{Value: block, Key: timed.HeapKey(block.IssuingTime())})
 	return true
 }
 
@@ -106,7 +107,7 @@ func (q *IssuerQueue) Front() *Block {
 
 // PopFront removes the first ready block from the queue.
 func (q *IssuerQueue) PopFront() *Block {
-	blk := heap.Pop(&q.inbox).(*tsc.Element[*Block]).Value
+	blk := heap.Pop(&q.inbox).(*generalheap.HeapElement[timed.HeapKey, *Block]).Value
 	q.size.Dec()
 	return blk
 }

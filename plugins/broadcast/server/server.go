@@ -11,8 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/core/netutil/buffconn"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/atomic"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 type connection struct {
