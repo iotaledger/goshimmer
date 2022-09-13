@@ -46,8 +46,8 @@ func New(validatorSet *validator.Set, timeRetrieverFunc TimeRetrieverFunc, opts 
 
 // Update updates the underlying data structure and keeps track of active nodes.
 func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityTime time.Time) {
-	a.mutex.RLock()
-	defer a.mutex.RUnlock()
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 
 	issuerLastActivity, exists := a.lastActiveMap.Get(activeValidator.ID())
 	if exists && issuerLastActivity.After(activityTime) {
