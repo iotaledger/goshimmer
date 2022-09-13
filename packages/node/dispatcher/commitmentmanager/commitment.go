@@ -1,4 +1,4 @@
-package epoch
+package commitmentmanager
 
 import (
 	"sync"
@@ -10,18 +10,18 @@ import (
 )
 
 type Commitment struct {
-	ID CommitmentID
+	EC epoch.EC
 
 	children []*Commitment
-	chain    *CommitmentChain
+	chain    *Chain
 
 	*epoch.ECRecord
 	sync.RWMutex
 }
 
-func NewCommitment(id CommitmentID) (commitment *Commitment) {
+func NewCommitment(ec epoch.EC) (commitment *Commitment) {
 	return &Commitment{
-		ID:       id,
+		EC:       ec,
 		children: make([]*Commitment, 0),
 	}
 }
@@ -36,25 +36,25 @@ func (c *Commitment) Children() (children []*Commitment) {
 	return
 }
 
-func (c *Commitment) Chain() (chain *CommitmentChain) {
+func (c *Commitment) Chain() (chain *Chain) {
 	c.RLock()
 	defer c.RUnlock()
 
 	return c.chain
 }
 
-func (c *Commitment) registerChild(child *Commitment) (chain *CommitmentChain) {
+func (c *Commitment) registerChild(child *Commitment) (chain *Chain, wasForked bool) {
 	c.Lock()
 	defer c.Unlock()
 
 	if c.children = append(c.children, child); len(c.children) > 1 {
-		return NewCommitmentChain(child)
+		return NewChain(child), true
 	}
 
-	return c.chain
+	return c.chain, false
 }
 
-func (c *Commitment) publishChain(chain *CommitmentChain) (wasPublished bool) {
+func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -78,8 +78,6 @@ func (c *Commitment) publishECRecord(index epoch.Index, commitmentRoot epoch.ECR
 	return
 }
 
-type CommitmentID = epoch.EC
-
-func NewCommitmentID(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (ec CommitmentID) {
+func NewEC(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (ec epoch.EC) {
 	return blake2b.Sum256(byteutils.ConcatBytes(ei.Bytes(), ecr.Bytes(), prevEC.Bytes()))
 }
