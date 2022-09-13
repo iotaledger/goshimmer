@@ -33,11 +33,8 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
-		test: test,
-		mockAcceptance: &acceptance.MockAcceptanceGadget{
-			BlockAcceptedEvent: event.NewLinkable[*acceptance.Block, acceptance.Events, *acceptance.Events](),
-			AcceptedBlocks:     make(map[models.BlockID]bool),
-		},
+		test:           test,
+		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -63,7 +60,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 
 func (t *TestFramework) AssertExplicitlyOrphaned(expectedState map[string]bool) {
 	for alias, expectedOrphanage := range expectedState {
-		t.AssertBlock(alias, func(block *booker.Block) {
+		t.BookerTestFramework.AssertBlock(alias, func(block *booker.Block) {
 			assert.Equal(t.test, expectedOrphanage, block.IsExplicitlyOrphaned(), "block %s is incorrectly orphaned", block.ID())
 		})
 	}
@@ -90,6 +87,7 @@ func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
 }
+
 func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc

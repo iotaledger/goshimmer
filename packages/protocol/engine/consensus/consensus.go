@@ -12,6 +12,8 @@ import (
 // region Consensus ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Consensus struct {
+	Events *Events
+
 	*acceptance.Gadget
 	*conflictresolver.ConflictResolver
 
@@ -24,6 +26,9 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})
+
+		c.Events = NewEvents()
+		c.Events.Acceptance = c.Gadget.Events
 	})
 }
 
