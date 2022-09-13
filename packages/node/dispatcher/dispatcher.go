@@ -10,8 +10,7 @@ import (
 type Dispatcher struct {
 	Events *Events
 
-	forkManager *ForkManager
-	protocols   map[epoch.EC]*protocol.Protocol
+	protocols map[epoch.EC]*protocol.Protocol
 }
 
 func New() (dispatcher *Dispatcher) {
@@ -28,29 +27,5 @@ func (p *Dispatcher) DispatchBlockData(bytes []byte, neighbor *p2p.Neighbor) {
 		return
 	}
 
-	protocol := p.protocol(block)
-
 	return
-}
-
-func (p *Dispatcher) protocol(block *models.Block) (protocol *protocol.Protocol) {
-	if fork := p.forkManager.Fork(epoch.NewEpochCommitment(block.EI(), block.ECR(), block.PrevEC())); fork != nil {
-		return p.protocols[fork.ID()]
-	}
-
-	protocol = p.protocols[fork.ID()]
-
-	block.EI()
-	block.PrevEC()
-	block.ECR()
-
-	if protocol == nil {
-		protocol = protocol.New()
-		p.protocols[block.Protocol] = protocol
-	}
-	return
-}
-
-func (p *Dispatcher) ChainID(ecr epoch.ECR) string {
-
 }
