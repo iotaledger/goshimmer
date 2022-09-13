@@ -32,7 +32,7 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 	m = options.Apply(&SequenceManager{
 		optsMaxPastMarkerDistance: 30,
 		sequences:                 memstorage.New[SequenceID, *Sequence](),
-		optsIncreaseIndexCallback: func(_ SequenceID, _ Index) bool {
+		optsIncreaseIndexCallback: func(SequenceID, Index) bool {
 			return true
 		},
 	}, opts)

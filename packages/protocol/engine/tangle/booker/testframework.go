@@ -57,7 +57,7 @@ func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceMana
 }
 
 func (t *TestFramework) PreventNewMarkers(prevent bool) {
-	callback := func(_ markers.SequenceID, _ markers.Index) bool {
+	callback := func(markers.SequenceID, markers.Index) bool {
 		return !prevent
 	}
 	t.Booker.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
