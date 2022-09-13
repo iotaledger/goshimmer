@@ -39,7 +39,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
 	commitment := NewCommitment(epoch.NewEC(previousIndex+1, randomECR, prevCommitmentID))
-	commitment.publishECRecord(previousIndex+1, randomECR, prevCommitmentID)
+	commitment.publishData(previousIndex+1, randomECR, prevCommitmentID)
 
 	t.commitmentsByAlias[alias] = commitment
 }

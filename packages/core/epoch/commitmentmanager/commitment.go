@@ -109,7 +109,7 @@ func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 	return
 }
 
-func (c *Commitment) publishECRecord(index epoch.Index, ecr epoch.ECR, previousEC epoch.EC) (published bool) {
+func (c *Commitment) publishData(index epoch.Index, ecr epoch.ECR, previousEC epoch.EC) (published bool) {
 	c.Lock()
 	defer c.Unlock()
 
