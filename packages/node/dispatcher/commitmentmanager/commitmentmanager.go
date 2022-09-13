@@ -99,8 +99,8 @@ func (c *CommitmentManager) Commitments(ec epoch.EC, amount int) (commitments []
 }
 
 func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (chain *Chain, wasForked bool) {
-	child.LockEntity()
-	defer child.UnlockEntity()
+	child.LockDAGEntity()
+	defer child.UnlockDAGEntity()
 
 	if chain, wasForked = c.Commitment(parent, true).registerChild(child); chain != nil {
 		chain.addCommitment(child)
@@ -111,8 +111,8 @@ func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (c
 }
 
 func (c *CommitmentManager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
-	child.LockEntity()
-	defer child.UnlockEntity()
+	child.LockDAGEntity()
+	defer child.UnlockDAGEntity()
 
 	if !child.publishChain(chain) {
 		return
