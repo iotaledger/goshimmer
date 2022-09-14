@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -60,7 +61,7 @@ type latestVote struct {
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangleold.Tangle
+	Tangle          *tangle.Tangle
 	NotarizationMgr *notarization.Manager
 	Storage         kvstore.KVStore
 }

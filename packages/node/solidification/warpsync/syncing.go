@@ -20,7 +20,6 @@ import (
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/plugins/epochstorage"
 )
 
 type epochSyncStart struct {
@@ -220,37 +219,34 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
 
-	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
-	if !exists || ec != ecRecord.ComputeEC() {
-		m.log.Debugw("epoch blocks request rejected: unknown epoch or mismatching EC", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
+	commitment := m.commitmentManager.Commitment(ec)
+	if commitment == nil {
+		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
 		return
 	}
-	// TODO: obtain model.Block from bucketed storage
-	blockIDs := epochstorage.GetEpochBlockIDs(ei)
-	blocksCount := len(blockIDs)
+
+	chain := commitment.Chain()
+	if chain == nil {
+		m.log.Debugw("epoch blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
+		return
+	}
+
+	blocksCount := chain.BlocksCount(ei)
 
 	// Send epoch starter.
 	m.protocol.SendEpochStarter(ei, ec, blocksCount, nbr.ID())
 	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", blocksCount)
 
-	// Send epoch's blocks in batches.
-	for batchNum := 0; batchNum <= len(blockIDs)/m.blockBatchSize; batchNum++ {
-		blocks := make([]*models.Block, 0)
-		for i := batchNum * m.blockBatchSize; i < len(blockIDs) && i < (batchNum+1)*m.blockBatchSize; i++ {
-			block, err := m.blockLoaderFunc(blockIDs[i])
-			if err != nil {
-				m.log.Errorf("failed to load block %s: %s", blockIDs[i], err)
-				return
-			}
-			blocks = append(blocks, block)
-		}
-
+	if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
 		m.protocol.SendBlocksBatch(ei, ec, blocks, nbr.ID())
 		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "EI", ei, "blocksLen", len(blocks))
+	}, m.blockBatchSize); err != nil {
+		m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec, "err", err)
+		return
 	}
 
 	// Send epoch terminator.
-	m.protocol.SendEpochEnd(ei, ec, ecRecord.Roots(), nbr.ID())
+	m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())
 	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "EI", ei, "EC", ec.Base58())
 }
 

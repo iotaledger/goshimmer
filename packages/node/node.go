@@ -5,9 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/node/dispatcher"
-	"github.com/iotaledger/goshimmer/packages/node/solidification"
-	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
@@ -15,12 +12,14 @@ import (
 
 type Node struct {
 	network         *network.Network
+	settings        *Settings
 	databaseManager *database.Manager
-	dispatcher      *dispatcher.Dispatcher
-	solidification  *solidification.Solidification
+	// dispatcher      *dispatcher.Dispatcher
+	// solidification  *solidification.Solidification
 
-	optsDBManagerOptions      []options.Option[database.Manager]
-	optsSolidificationOptions []options.Option[solidification.Solidification]
+	optsSettingsFile     string
+	optsDBManagerOptions []options.Option[database.Manager]
+	// optsSolidificationOptions []options.Option[solidification.Solidification]
 
 	*logger.Logger
 }
@@ -28,16 +27,21 @@ type Node struct {
 func New(networkInstance *network.Network, log *logger.Logger, opts ...options.Option[Node]) (node *Node) {
 	return options.Apply(&Node{
 		Logger: log,
+
+		optsSettingsFile: "settings.bin",
 	}, opts, func(n *Node) {
 		n.network = networkInstance
+		n.settings = NewSettings(n.optsSettingsFile)
 		n.databaseManager = database.NewManager(n.optsDBManagerOptions...)
 
-		n.protocol = protocol.New(n.databaseManager, log)
-		n.protocol = protocol.New(log)
-		n.parser = &dispatcher.Dispatcher{}
-		n.solidification = solidification.New(n.protocol, n.network, n.optsSolidificationOptions...)
+		/*
+			n.protocol = protocol.New(n.databaseManager, log)
+			n.protocol = protocol.New(log)
+			n.parser = &dispatcher.Dispatcher{}
+			n.solidification = solidification.New(n.protocol, n.network, n.optsSolidificationOptions...)
 
-		n.network.Events.BlockReceived.Attach(network.BlockReceivedHandler(n.protocol.ProcessBlockFromPeer))
+			n.network.Events.BlockReceived.Attach(network.BlockReceivedHandler(n.protocol.ProcessBlockFromPeer))
+		*/
 	})
 }
 
@@ -51,10 +55,10 @@ func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Opti
 	}
 }
 
-func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Node] {
-	return func(n *Node) {
-		n.optsSolidificationOptions = opts
-	}
-}
+// func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Node] {
+// 	return func(n *Node) {
+// 		n.optsSolidificationOptions = opts
+// 	}
+// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

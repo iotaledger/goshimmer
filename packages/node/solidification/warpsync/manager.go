@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/epoch/commitmentmanager"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -26,7 +27,8 @@ type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
-	protocol *warpsync.Protocol
+	protocol          *warpsync.Protocol
+	commitmentManager *commitmentmanager.CommitmentManager
 
 	log *logger.Logger
 

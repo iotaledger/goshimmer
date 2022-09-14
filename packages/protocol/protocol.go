@@ -26,7 +26,6 @@ import (
 type Protocol struct {
 	Events              *Events
 	Inbox               *inbox.Inbox
-	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.Block]
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
