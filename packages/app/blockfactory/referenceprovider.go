@@ -16,12 +16,12 @@ import (
 
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
-	engine                   engine.Engine
+	engine                   *engine.Engine
 	latestEpochIndexCallback func() epoch.Index
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(engine engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
 		engine:                   engine,
 		latestEpochIndexCallback: latestEpochIndexCallback,

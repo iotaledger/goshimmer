@@ -1,57 +1,43 @@
 package blockfactory
 
-// func TestBlockFactory_PrepareLikedReferences_1(t *testing.T) {
-// 	tangle := NewTestTangle()
-// 	defer tangle.Shutdown()
-//
-// 	testFramework := NewBlockTestFramework(
-// 		tangle,
-// 		WithGenesisOutput("O1", 500),
-// 		WithGenesisOutput("O2", 500),
-// 	)
-//
-// 	tangle.Setup()
-//
-// 	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
-// 		t.Logf("Error fired: %v", err)
-// 	}))
-//
-// 	// Block 1
-// 	testFramework.CreateBlock("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
-//
-// 	// Block 2
-// 	testFramework.CreateBlock("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
-//
-// 	// Block 3
-// 	testFramework.CreateBlock("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-// 	testFramework.IssueBlocks("1", "2", "3").WaitUntilAllTasksProcessed()
-//
-// 	testFramework.RegisterConflictID("1", "1")
-// 	testFramework.RegisterConflictID("2", "2")
-// 	testFramework.RegisterConflictID("3", "3")
-//
-// 	mockOTV := &SimpleMockOnTangleVoting{
-// 		likedConflictMember: map[utxo.TransactionID]LikedConflictMembers{
-// 			testFramework.ConflictID("3"): {
-// 				likedConflict:   testFramework.ConflictID("2"),
-// 				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("1"), testFramework.ConflictID("2")),
-// 			},
-// 			testFramework.ConflictID("2"): {
-// 				likedConflict:   testFramework.ConflictID("2"),
-// 				conflictMembers: set.NewAdvancedSet(testFramework.ConflictID("1"), testFramework.ConflictID("3")),
-// 			},
-// 		},
-// 	}
-//
-// 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
-//
-// 	references, err := tangle.Factory.ReferenceProvider.References(nil, NewBlockIDs(testFramework.Block("3").ID(), testFramework.Block("2").ID()), time.Now())
-//
-// 	require.NoError(t, err)
-//
-// 	assert.Equal(t, references[ShallowLikeParentType], BlockIDs{testFramework.Block("2").ID(): types.Void})
-// }
-//
+import (
+	"testing"
+	"time"
+
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/set"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+)
+
+func TestReferenceProvider_References1(t *testing.T) {
+	tf := engine.NewTestFramework(t)
+
+	tf.CreateIdentity("V1", validator.WithWeight(10))
+	tf.CreateIdentity("V2", validator.WithWeight(20))
+
+	tf.CreateBlock("Block1", models.WithPayload(tf.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tf.Identity("V1").PublicKey()))
+	tf.CreateBlock("Block2", models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tf.Identity("V1").PublicKey()))
+	tf.CreateBlock("Block3", models.WithPayload(tf.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tf.Identity("V1").PublicKey()))
+	tf.CreateBlock("Block4", models.WithPayload(tf.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Identity("V2").PublicKey()))
+	tf.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+
+	rp := NewReferenceProvider(tf.Engine, func() epoch.Index {
+		return 0
+	})
+	references, err := rp.References(nil, tf.BlockIDs("Block3", "Block4"))
+	require.NoError(t, err)
+
+	assert.Equal(t, references[models.ShallowLikeParentType], tf.BlockIDs("Block4"))
+	assert.Equal(t, references[models.StrongParentType], tf.BlockIDs("Block3", "Block4"))
+}
+
 // func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 // 	tangle := NewTestTangle()
 // 	defer tangle.Shutdown()
@@ -157,7 +143,10 @@ package blockfactory
 // 		StrongParentType: NewBlockIDs(),
 // 	}, time.Now().Add(maxParentsTimeDifference), true)
 // }
-//
+
+
+
+
 // // Tests if error is returned when non-existing transaction is tried to be liked.
 // func TestBlockFactory_PrepareLikedReferences_3(t *testing.T) {
 // 	tangle := NewTestTangle()
