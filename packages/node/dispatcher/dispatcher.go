@@ -13,13 +13,14 @@ type Dispatcher struct {
 
 	activeProtocol    *protocol.Protocol
 	protocolsByChain  map[epoch.EC]*protocol.Protocol
-	commitmentManager commitmentmanager.CommitmentManager
+	commitmentManager *commitmentmanager.CommitmentManager
 }
 
-func New() (dispatcher *Dispatcher) {
+func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch.EC) (dispatcher *Dispatcher) {
 	return &Dispatcher{
-		Events:           NewEvents(),
-		protocolsByChain: make(map[epoch.EC]*protocol.Protocol),
+		Events:            NewEvents(),
+		protocolsByChain:  make(map[epoch.EC]*protocol.Protocol),
+		commitmentManager: commitmentmanager.New(snapshotIndex, snapshotECR, snapshotPrevECR),
 	}
 }
 
@@ -29,6 +30,8 @@ func (p *Dispatcher) DispatchBlockData(bytes []byte, neighbor *p2p.Neighbor) {
 		p.Events.InvalidBlockReceived.Trigger(neighbor)
 		return
 	}
+
+	p.commitmentManager.ProcessCommitment(block.EI(), block.ECR(), block.PrevEC())
 
 	return
 }
