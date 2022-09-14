@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/stretchr/testify/assert"
 
@@ -302,6 +303,48 @@ func TestBlockDAG_AttachBlockTwice_2(t *testing.T) {
 	tf.WaitUntilAllTasksProcessed()
 
 	assert.NoError(t, err, "should not return an error")
+}
+
+func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
+	tf := NewTestFramework(t)
+
+	now := time.Now()
+	tf.CreateBlock("block1", models.WithIssuingTime(now.Add(-5*time.Second)))
+	tf.CreateBlock("block2", models.WithIssuingTime(now.Add(5*time.Second)))
+	tf.CreateBlock("block3", models.WithStrongParents(tf.BlockIDs("block1", "block2")), models.WithIssuingTime(now))
+
+	_, wasAttached, err := tf.BlockDAG.Attach(tf.Block("block1"))
+	assert.NoError(t, err, "should not return an error")
+	assert.True(t, wasAttached, "should have been attached")
+
+	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block2"))
+	assert.NoError(t, err, "should not return an error")
+	assert.True(t, wasAttached, "should have been attached")
+
+	tf.WaitUntilAllTasksProcessed()
+	expectedSolidState := map[string]bool{}
+	expectedInvalidState := map[string]bool{}
+
+	tf.AssertSolid(lo.MergeMaps(expectedSolidState, map[string]bool{
+		"block1": true,
+		"block2": true,
+	}))
+
+	tf.AssertInvalid(lo.MergeMaps(expectedInvalidState, map[string]bool{
+		"block1": false,
+		"block2": false,
+	}))
+	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block3"))
+	assert.NoError(t, err, "should not return an error")
+	assert.True(t, wasAttached, "should have been attached")
+
+	tf.AssertSolid(lo.MergeMaps(expectedSolidState, map[string]bool{
+		"block3": false,
+	}))
+
+	tf.AssertInvalid(lo.MergeMaps(expectedInvalidState, map[string]bool{
+		"block3": true,
+	}))
 }
 
 // This test prepares blocks across different epochs and tries to attach them in reverse order to a pruned BlockDAG.
