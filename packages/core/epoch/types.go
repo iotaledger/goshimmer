@@ -90,6 +90,10 @@ type (
 	EC  = MerkleRoot
 )
 
+func NewEC(ei Index, ecr ECR, prevEC EC) (ec EC) {
+	return blake2b.Sum256(byteutils.ConcatBytes(ei.Bytes(), ecr.Bytes(), prevEC.Bytes()))
+}
+
 func NewMerkleRoot(bytes []byte) MerkleRoot {
 	b := [blake2b.Size256]byte{}
 	copy(b[:], bytes[:])

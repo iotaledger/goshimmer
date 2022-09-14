@@ -6,37 +6,14 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 const (
 	testingAcceptanceThreshold = 0.4
-)
-
-var (
-	// TestConflictAcceptanceStateTranslation translates a conflict's AW into a confirmation state.
-	TestConflictAcceptanceStateTranslation acceptance.ConflictThresholdTranslation = func(_ utxo.TransactionID, aw float64) confirmation.State {
-		if aw >= testingAcceptanceThreshold {
-			return confirmation.Accepted
-		}
-
-		return confirmation.Pending
-	}
-
-	// TestBlockAcceptanceStateTranslation translates a block's AW into a confirmation state.
-	TestBlockAcceptanceStateTranslation acceptance.BlockThresholdTranslation = func(aw float64) confirmation.State {
-		if aw >= testingAcceptanceThreshold {
-			return confirmation.Accepted
-		}
-
-		return confirmation.Pending
-	}
 )
 
 // EventMock acts as a container for event mocks.

@@ -5,9 +5,6 @@ import (
 
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"go.uber.org/atomic"
-
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
 )
 
 // BlockType defines the component for the different BPS metrics.

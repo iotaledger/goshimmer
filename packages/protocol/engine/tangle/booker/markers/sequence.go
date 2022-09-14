@@ -127,7 +127,7 @@ func (s *Sequence) HighestIndex() Index {
 // TryExtend tries to extend the Sequence with a new Index by checking if the referenced PastMarkers contain the last
 // assigned Index of the Sequence. It returns the new Index, the remaining Markers pointing to other Sequences and a
 // boolean flag that indicating if a new Index was assigned.
-func (s *Sequence) TryExtend(referencedPastMarkers *Markers) (index Index, remainingReferencedPastMarkers *Markers, extended bool) {
+func (s *Sequence) TryExtend(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, remainingReferencedPastMarkers *Markers, extended bool) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -138,7 +138,7 @@ func (s *Sequence) TryExtend(referencedPastMarkers *Markers) (index Index, remai
 
 	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
 	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
-	if extended = referencedSequenceIndex == s.highestIndex; extended {
+	if extended = referencedSequenceIndex == s.highestIndex && increaseIndexCallback(s.ID(), referencedSequenceIndex); extended {
 		s.highestIndex = referencedPastMarkers.HighestIndex() + 1
 
 		if referencedPastMarkers.Size() > 1 {
@@ -183,5 +183,13 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 func (s *Sequence) AddReferencingMarker(index Index, referencingMarker Marker) {
 	s.referencingMarkers.Add(index, referencingMarker)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region IncreaseIndexCallback ////////////////////////////////////////////////////////////////////////////////////////
+
+// IncreaseIndexCallback is the type of the callback function that is used to determine if a new Index is supposed to be
+// assigned in a given Sequence.
+type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index) bool
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

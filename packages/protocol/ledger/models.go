@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -179,7 +178,7 @@ func (t *TransactionMetadata) SetConfirmationState(confirmationState confirmatio
 	}
 
 	t.M.ConfirmationState = confirmationState
-	t.M.ConfirmationStateTime = clock.SyncedTime()
+	t.M.ConfirmationStateTime = time.Now()
 	t.SetModified()
 
 	return true
@@ -382,7 +381,7 @@ func (o *OutputMetadata) SetConfirmationState(confirmationState confirmation.Sta
 	}
 
 	o.M.ConfirmationState = confirmationState
-	o.M.ConfirmationStateTime = clock.SyncedTime()
+	o.M.ConfirmationStateTime = time.Now()
 	o.SetModified()
 
 	return true

@@ -4,8 +4,10 @@ import (
 	"container/heap"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generalheap"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/timed"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -13,11 +15,11 @@ import (
 
 // region IssuerQueue /////////////////////////////////////////////////////////////////////////////////////////////
 
-// IssuerQueue keeps the submitted blocks of a issuer.
+// IssuerQueue keeps the submitted blocks of an issuer.
 type IssuerQueue struct {
 	issuerID  identity.ID
 	submitted *shrinkingmap.ShrinkingMap[models.BlockID, *Block]
-	inbox     *ElementHeap
+	inbox     generalheap.Heap[timed.HeapKey, *Block]
 	size      atomic.Int64
 }
 
@@ -26,7 +28,6 @@ func NewIssuerQueue(issuerID identity.ID) *IssuerQueue {
 	return &IssuerQueue{
 		issuerID:  issuerID,
 		submitted: shrinkingmap.New[models.BlockID, *Block](),
-		inbox:     new(ElementHeap),
 	}
 }
 
@@ -72,13 +73,13 @@ func (q *IssuerQueue) Unsubmit(block *Block) bool {
 }
 
 // Ready marks a previously submitted block as ready to be scheduled.
-func (q *IssuerQueue) Ready(element *Block) bool {
-	if _, submitted := q.submitted.Get(element.ID()); !submitted {
+func (q *IssuerQueue) Ready(block *Block) bool {
+	if _, submitted := q.submitted.Get(block.ID()); !submitted {
 		return false
 	}
 
-	q.submitted.Delete(element.ID())
-	heap.Push(q.inbox, element)
+	q.submitted.Delete(block.ID())
+	heap.Push(&q.inbox, &generalheap.HeapElement[timed.HeapKey, *Block]{Value: block, Key: timed.HeapKey(block.IssuingTime())})
 	return true
 }
 
@@ -90,8 +91,8 @@ func (q *IssuerQueue) IDs() (ids []models.BlockID) {
 		return true
 	})
 
-	for _, block := range *q.inbox {
-		ids = append(ids, block.ID())
+	for _, block := range q.inbox {
+		ids = append(ids, block.Value.ID())
 	}
 	return ids
 }
@@ -101,52 +102,14 @@ func (q *IssuerQueue) Front() *Block {
 	if q == nil || q.inbox.Len() == 0 {
 		return nil
 	}
-	return (*q.inbox)[0]
+	return q.inbox[0].Value
 }
 
 // PopFront removes the first ready block from the queue.
 func (q *IssuerQueue) PopFront() *Block {
-	blk := heap.Pop(q.inbox).(*Block)
+	blk := heap.Pop(&q.inbox).(*generalheap.HeapElement[timed.HeapKey, *Block]).Value
 	q.size.Dec()
 	return blk
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ElementHeap /////////////////////////////////////////////////////////////////////////////////////////////
-
-// ElementHeap holds a heap of blocks with respect to their IssuingTime.
-type ElementHeap []*Block
-
-// Len is the number of elements in the collection.
-func (h ElementHeap) Len() int {
-	return len(h)
-}
-
-// Less reports whether the element with index i must sort before the element with index j.
-func (h ElementHeap) Less(i, j int) bool {
-	return h[i].IssuingTime().Before(h[j].IssuingTime())
-}
-
-// Swap swaps the elements with indexes i and j.
-func (h ElementHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-// Push adds x as element with index Len().
-// It panics if x is not Element.
-func (h *ElementHeap) Push(x any) {
-	*h = append(*h, x.(*Block))
-}
-
-// Pop removes and returns element with index Len() - 1.
-func (h *ElementHeap) Pop() interface{} {
-	tmp := *h
-	n := len(tmp)
-	x := tmp[n-1]
-	tmp[n-1] = nil
-	*h = tmp[:n-1]
-	return x
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

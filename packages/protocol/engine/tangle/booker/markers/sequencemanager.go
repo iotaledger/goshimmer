@@ -21,16 +21,20 @@ type SequenceManager struct {
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 
-	// MaxPastMarkerDistance is a parameter for the SequenceManager that allows to specify how many consecutive blocks are
+	// optsMaxPastMarkerDistance is a parameter for the SequenceManager that allows to specify how many consecutive blocks are
 	// allowed to not receive a new PastMaster before we create a new Sequence.
-	maxPastMarkerDistance uint64
+	optsMaxPastMarkerDistance uint64
+	optsIncreaseIndexCallback IncreaseIndexCallback
 }
 
 // NewSequenceManager is the constructor of the SequenceManager that takes a KVStore to persist its state.
 func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceManager) {
 	m = options.Apply(&SequenceManager{
-		maxPastMarkerDistance: 30,
-		sequences:             memstorage.New[SequenceID, *Sequence](),
+		optsMaxPastMarkerDistance: 30,
+		sequences:                 memstorage.New[SequenceID, *Sequence](),
+		optsIncreaseIndexCallback: func(SequenceID, Index) bool {
+			return true
+		},
 	}, opts)
 
 	m.sequences.Set(0, NewSequence(0, NewMarkers()))
@@ -42,18 +46,18 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 // block that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
 // additional flag that indicates if a new Sequence was created.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
-func (m *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
-	inheritedStructureDetails = m.mergeParentStructureDetails(referencedStructureDetails)
+func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
+	inheritedStructureDetails = s.mergeParentStructureDetails(referencedStructureDetails)
 
-	inheritedStructureDetails.SetPastMarkers(m.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
+	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
 		inheritedStructureDetails.SetPastMarkers(NewMarkers(NewMarker(0, 0)))
 	}
 
-	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
+	assignedMarker, sequenceExtended := s.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
 	if !sequenceExtended {
-		newSequenceCreated, assignedMarker = m.createSequenceIfNecessary(inheritedStructureDetails)
+		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails)
 	}
 
 	if !sequenceExtended && !newSequenceCreated {
@@ -68,28 +72,32 @@ func (m *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 }
 
 // Sequence retrieves a Sequence by its ID.
-func (m *SequenceManager) Sequence(sequenceID SequenceID) (sequence *Sequence, exists bool) {
-	return m.sequences.Get(sequenceID)
+func (s *SequenceManager) Sequence(sequenceID SequenceID) (sequence *Sequence, exists bool) {
+	return s.sequences.Get(sequenceID)
 }
 
-func (m *SequenceManager) Delete(id SequenceID) {
-	sequence, sequenceExists := m.Sequence(id)
+func (s *SequenceManager) Delete(id SequenceID) {
+	sequence, sequenceExists := s.Sequence(id)
 	if !sequenceExists {
 		return
 	}
 
 	// iterate through all the sequences referencing this sequence and remove the reference
 	for it := sequence.ReferencingSequences().Iterator(); it.HasNext(); {
-		if referencingSequence, referencingSequenceExists := m.Sequence(it.Next()); referencingSequenceExists {
+		if referencingSequence, referencingSequenceExists := s.Sequence(it.Next()); referencingSequenceExists {
 			referencingSequence.referencedMarkers.Delete(id)
 		}
 	}
-	m.sequences.Delete(id)
+	s.sequences.Delete(id)
+}
+
+func (s *SequenceManager) SetIncreaseIndexCallback(callback IncreaseIndexCallback) {
+	s.optsIncreaseIndexCallback = callback
 }
 
 // mergeParentStructureDetails merges the information of a set of parent StructureDetails into a single StructureDetails
 // object.
-func (m *SequenceManager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
+func (s *SequenceManager) mergeParentStructureDetails(referencedStructureDetails []*StructureDetails) (mergedStructureDetails *StructureDetails) {
 	mergedStructureDetails = NewStructureDetails()
 	mergedStructureDetails.SetPastMarkerGap(math.MaxUint64)
 
@@ -115,7 +123,7 @@ func (m *SequenceManager) mergeParentStructureDetails(referencedStructureDetails
 // same set (the remaining Markers are the "most special" Markers that reference all Markers in the set grouped by the
 // rank of their corresponding Sequence). In addition, the method returns all SequenceIDs of the Markers that were not
 // referenced by any of the Markers (the tips of the Sequence DAG).
-func (m *SequenceManager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
+func (s *SequenceManager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
 	normalizedMarkers = markers.Clone()
 
 	normalizeWalker := walker.New[Marker]()
@@ -144,7 +152,7 @@ func (m *SequenceManager) normalizeMarkers(markers *Markers) (normalizedMarkers 
 			}
 		}
 
-		sequence, exists := m.Sequence(currentMarker.SequenceID())
+		sequence, exists := s.Sequence(currentMarker.SequenceID())
 		if !exists {
 			panic(fmt.Sprintf("failed to load Sequence with %s", currentMarker.SequenceID()))
 		}
@@ -161,18 +169,18 @@ func (m *SequenceManager) normalizeMarkers(markers *Markers) (normalizedMarkers 
 // extendHighestAvailableSequence is an internal utility function that tries to extend the referenced Sequences in
 // descending order. It returns the newly assigned Marker and a boolean value that indicates if one of the referenced
 // Sequences could be extended.
-func (m *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *Markers) (marker Marker, extended bool) {
+func (s *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *Markers) (marker Marker, extended bool) {
 	referencedPastMarkers.ForEachSorted(func(sequenceID SequenceID, index Index) bool {
-		sequence, exists := m.Sequence(sequenceID)
+		sequence, exists := s.Sequence(sequenceID)
 		if !exists {
 			panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
 		}
 
-		if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers); sequenceExtended {
+		if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers, s.optsIncreaseIndexCallback); sequenceExtended {
 			extended = sequenceExtended
 			marker = NewMarker(sequenceID, newIndex)
 
-			m.registerReferencingMarker(remainingReferencedPastMarkers, marker)
+			s.registerReferencingMarker(remainingReferencedPastMarkers, marker)
 		}
 
 		return !extended
@@ -183,21 +191,21 @@ func (m *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *
 
 // createSequenceIfNecessary is an internal utility function that creates a new Sequence if the distance to the last
 // past Marker is higher or equal than the configured threshold and returns the first Marker in that Sequence.
-func (m *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails) (created bool, firstMarker Marker) {
-	if structureDetails.PastMarkerGap() < m.maxPastMarkerDistance {
+func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureDetails) (created bool, firstMarker Marker) {
+	if structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
 		return
 	}
 
-	m.sequenceIDCounterMutex.Lock()
-	m.sequenceIDCounter++
-	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers())
-	m.sequenceIDCounterMutex.Unlock()
+	s.sequenceIDCounterMutex.Lock()
+	s.sequenceIDCounter++
+	newSequence := NewSequence(s.sequenceIDCounter, structureDetails.PastMarkers())
+	s.sequenceIDCounterMutex.Unlock()
 
-	m.sequences.Set(newSequence.ID(), newSequence)
+	s.sequences.Set(newSequence.ID(), newSequence)
 
 	firstMarker = NewMarker(newSequence.ID(), newSequence.LowestIndex())
 
-	m.registerReferencingMarker(structureDetails.PastMarkers(), firstMarker)
+	s.registerReferencingMarker(structureDetails.PastMarkers(), firstMarker)
 
 	return true, firstMarker
 }
@@ -205,7 +213,7 @@ func (m *SequenceManager) createSequenceIfNecessary(structureDetails *StructureD
 // laterMarkersReferenceEarlierMarkers is an internal utility function that returns true if the later Markers reference
 // the earlier Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid
 // reference.
-func (m *SequenceManager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
+func (s *SequenceManager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
 	referenceWalker := walker.New[Marker]()
 	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referenceWalker.Push(NewMarker(sequenceID, index))
@@ -220,11 +228,11 @@ func (m *SequenceManager) laterMarkersReferenceEarlierMarkers(laterMarkers, earl
 		}
 
 		isInitialLaterMarker := i < laterMarkers.Size()
-		if m.laterMarkerDirectlyReferencesEarlierMarkers(laterMarker, earlierMarkers, isInitialLaterMarker && requireBiggerMarkers) {
+		if s.laterMarkerDirectlyReferencesEarlierMarkers(laterMarker, earlierMarkers, isInitialLaterMarker && requireBiggerMarkers) {
 			return true
 		}
 
-		sequence, exists := m.Sequence(laterMarker.SequenceID())
+		sequence, exists := s.Sequence(laterMarker.SequenceID())
 		if !exists {
 			panic(fmt.Sprintf("failed to load Sequence with %s", laterMarker.SequenceID()))
 		}
@@ -239,7 +247,7 @@ func (m *SequenceManager) laterMarkersReferenceEarlierMarkers(laterMarkers, earl
 }
 
 // laterMarkerDirectlyReferencesEarlierMarkers returns true if the later Marker directly references the earlier Markers.
-func (m *SequenceManager) laterMarkerDirectlyReferencesEarlierMarkers(laterMarker Marker, earlierMarkers *Markers, requireBiggerMarkers bool) bool {
+func (s *SequenceManager) laterMarkerDirectlyReferencesEarlierMarkers(laterMarker Marker, earlierMarkers *Markers, requireBiggerMarkers bool) bool {
 	earlierMarkersLowestIndex := earlierMarkers.LowestIndex()
 	if requireBiggerMarkers {
 		earlierMarkersLowestIndex++
@@ -263,9 +271,9 @@ func (m *SequenceManager) laterMarkerDirectlyReferencesEarlierMarkers(laterMarke
 
 // registerReferencingMarker is an internal utility function that adds a referencing Marker to the internal data
 // structure.
-func (m *SequenceManager) registerReferencingMarker(referencedPastMarkers *Markers, marker Marker) {
+func (s *SequenceManager) registerReferencingMarker(referencedPastMarkers *Markers, marker Marker) {
 	referencedPastMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		sequence, exists := m.Sequence(sequenceID)
+		sequence, exists := s.Sequence(sequenceID)
 		if !exists {
 			panic(fmt.Sprintf("failed to load Sequence with %s", sequenceID))
 		}
@@ -283,7 +291,15 @@ func (m *SequenceManager) registerReferencingMarker(referencedPastMarkers *Marke
 // allowed to not receive a new PastMaster before we create a new Sequence.
 func WithMaxPastMarkerDistance(distance uint64) options.Option[SequenceManager] {
 	return func(options *SequenceManager) {
-		options.maxPastMarkerDistance = distance
+		options.optsMaxPastMarkerDistance = distance
+	}
+}
+
+// WithIncreaseIndexCallback is an Option for the SequenceManager that allows to specify whether a new marker index
+// should be created. This is especially useful for testing.
+func WithIncreaseIndexCallback(callback IncreaseIndexCallback) options.Option[SequenceManager] {
+	return func(options *SequenceManager) {
+		options.optsIncreaseIndexCallback = callback
 	}
 }
 

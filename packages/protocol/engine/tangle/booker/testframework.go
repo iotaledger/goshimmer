@@ -56,6 +56,13 @@ func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceMana
 	return t.Booker.markerManager.SequenceManager
 }
 
+func (t *TestFramework) PreventNewMarkers(prevent bool) {
+	callback := func(markers.SequenceID, markers.Index) bool {
+		return !prevent
+	}
+	t.Booker.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
+}
+
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
 	block, ok := t.Booker.block(t.BlockDAGTestFramework.Block(alias).ID())
@@ -129,7 +136,7 @@ func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.Tra
 	}
 }
 
-func (t *TestFramework) checkMarkers(expectedMarkers map[string]*markers.Markers) {
+func (t *TestFramework) CheckMarkers(expectedMarkers map[string]*markers.Markers) {
 	for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
 		block := t.Block(blockAlias)
 		assert.True(t.test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+

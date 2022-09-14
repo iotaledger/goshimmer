@@ -142,7 +142,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "TX0.0")))
 		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block0": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block1": markers.NewMarkers(markers.NewMarker(0, 2)),
 		}))
@@ -161,7 +161,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")))
 		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -177,7 +177,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX0.1")))
 		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -194,7 +194,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block3")), models.WithPayload(tf.CreateTransaction("TX4", 1, "TX0.0")))
 		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -212,7 +212,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")))
 		tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -228,7 +228,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.CreateTransaction("TX5", 1, "TX0.2")))
 		tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6": markers.NewMarkers(markers.NewMarker(1, 2)),
 		}))
 
@@ -246,7 +246,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block6.3", models.WithStrongParents(tf.BlockIDs("Block6")))
 		tf.IssueBlocks("Block6.3").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 
@@ -264,7 +264,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block6.6", models.WithStrongParents(tf.BlockIDs("Block6")))
 		tf.IssueBlocks("Block6.6").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 2)),
 		}))
 
@@ -282,7 +282,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block7", models.WithStrongParents(tf.BlockIDs("Block5", "Block0")), models.WithPayload(tf.CreateTransaction("TX6", 1, "TX0.2")))
 		tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
 		}))
 
@@ -303,7 +303,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block7.3", models.WithStrongParents(tf.BlockIDs("Block7")))
 		tf.IssueBlocks("Block7.3").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
 		}))
 
@@ -321,7 +321,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block7.6", models.WithStrongParents(tf.BlockIDs("Block7.3")))
 		tf.IssueBlocks("Block7.6").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 2)),
 		}))
 
@@ -339,7 +339,7 @@ func TestScenario_4(t *testing.T) {
 		tf.CreateBlock("Block8", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX0.1")))
 		tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block8": markers.NewMarkers(markers.NewMarker(0, 4)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -393,7 +393,7 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.IssueBlocks("Block5", "Block6").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block1":  markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Block1*": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Block2":  markers.NewMarkers(markers.NewMarker(0, 2)),
@@ -432,7 +432,7 @@ func TestFutureConePropagation(t *testing.T) {
 	{
 		tf.IssueBlocks("Block2*").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block2*": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -456,7 +456,7 @@ func TestFutureConePropagation(t *testing.T) {
 	{
 		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
-		tf.checkMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
 			"Block4": markers.NewMarkers(markers.NewMarker(0, 2)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{

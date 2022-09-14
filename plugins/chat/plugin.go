@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 const (

@@ -5,11 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generalheap"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
@@ -18,7 +21,7 @@ import (
 
 // TSCManager is a manager that tracks orphaned blocks.
 type TSCManager struct {
-	unconfirmedBlocks TimedHeap
+	unconfirmedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
 	tangle            *tangle.Tangle
 	isBlockAccepted   func(models.BlockID) bool
 	clock             *clock.Clock
@@ -55,14 +58,14 @@ func (o *TSCManager) AddBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
-	heap.Push(&o.unconfirmedBlocks, &QueueElement{Value: block.Block, Key: block.IssuingTime()})
+	heap.Push(&o.unconfirmedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Value: block.Block, Key: timed.HeapKey(block.IssuingTime())})
 }
 
 // orphanBeforeTSC removes all elements with key time earlier than the given time. If a block is not accepted by this time, it becomes orphaned.
 func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
 	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
 	for i := 0; i < unconfirmedBlocksCount; i++ {
-		if minAllowedTime.Before(o.unconfirmedBlocks[0].Key) {
+		if minAllowedTime.Before(time.Time(o.unconfirmedBlocks[0].Key)) {
 			return
 		}
 

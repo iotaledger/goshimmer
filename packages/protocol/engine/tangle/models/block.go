@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -101,12 +101,12 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 	return options.Apply(blk, opts)
 }
 
-func NewEmptyBlock(id BlockID) (newBlock *Block) {
+func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
 	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
 	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
 
-	return newBlock
+	return options.Apply(newBlock, opts)
 }
 
 // VerifySignature verifies the Signature of the block.

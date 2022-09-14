@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/core/daemon"
@@ -20,11 +21,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -285,25 +286,25 @@ func GetEpochVotersWeight(ei epoch.Index) (weights map[epoch.ECR]map[identity.ID
 	return weights
 }
 
-func insertBlockIntoEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
+func insertBlockIntoEpoch(ei epoch.Index, blkID models.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
-	if err := blockStore.Set(blkID.Bytes(), blkID.Bytes()); err != nil {
+	if err := blockStore.Set(lo.PanicOnErr(blkID.Bytes()), lo.PanicOnErr(blkID.Bytes())); err != nil {
 		return errors.New("fail to insert block to epoch store")
 	}
 	return nil
 }
 
-func removeBlockFromEpoch(ei epoch.Index, blkID tangleold.BlockID) error {
+func removeBlockFromEpoch(ei epoch.Index, blkID models.BlockID) error {
 	blockStore, err := baseStore.WithRealm(append([]byte{database.PrefixEpochsStorage, prefixBlockIDs}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
 
-	if err := blockStore.Delete(blkID.Bytes()); err != nil {
+	if err := blockStore.Delete(lo.PanicOnErr(blkID.Bytes())); err != nil {
 		return errors.New("fail to remove block from epoch store")
 	}
 	return nil

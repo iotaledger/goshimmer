@@ -145,6 +145,16 @@ func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bo
 	return b.markerManager.BlockFromMarker(marker)
 }
 
+// GetEarliestAttachment returns the earliest attachment for a given transaction ID.
+func (b *Booker) GetEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getEarliestAttachment(txID)
+}
+
+// GetLatestAttachment returns the latest attachment for a given transaction ID.
+func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block) {
+	return b.attachments.getLatestAttachment(txID)
+}
+
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
 	b.bookingOrder.EvictEpoch(epochIndex)
 
