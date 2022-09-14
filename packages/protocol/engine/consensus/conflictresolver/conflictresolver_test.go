@@ -1,5 +1,5 @@
 //nolint:dupl
-package otv
+package conflictresolver
 
 import (
 	"sort"
@@ -10,10 +10,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 
-	"github.com/iotaledger/goshimmer/packages/core/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -48,7 +47,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	type test struct {
 		Scenario   Scenario
-		WeightFunc consensus.WeightFunc
+		WeightFunc WeightFunc
 		executions []execution
 	}
 
@@ -827,7 +826,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			defer ls.Shutdown()
 
 			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
-			o := NewOnTangleVoting(ls.ConflictDAG, tt.test.WeightFunc)
+			o := New(ls.ConflictDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.ConflictID(e.conflictAlias))
@@ -845,7 +844,7 @@ type ConflictMeta struct {
 	ConflictID      utxo.TransactionID
 	ParentConflicts *set.AdvancedSet[utxo.TransactionID]
 	Conflicting     *set.AdvancedSet[utxo.OutputID]
-	ApprovalWeight  float64
+	ApprovalWeight  int64
 }
 
 // Scenario is a testing utility representing a conflictDAG with additional information such as approval weight for each
@@ -927,9 +926,9 @@ func createTestConflict(t *testing.T, conflictDAG *conflictdag.ConflictDAG[utxo.
 
 // WeightFuncFromScenario creates a WeightFunc from the given scenario so that the approval weight can be mocked
 // according to the conflict weight's specified in the scenario.
-func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFunc {
+func WeightFuncFromScenario(t *testing.T, scenario Scenario) WeightFunc {
 	conflictIDsToName := scenario.IDsToNames()
-	return func(conflictID utxo.TransactionID) (weight float64) {
+	return func(conflictID utxo.TransactionID) (weight int64) {
 		name, nameOk := conflictIDsToName[conflictID]
 		require.True(t, nameOk)
 		meta, metaOk := scenario[name]
@@ -968,13 +967,13 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.6,
+			ApprovalWeight:  6,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 	}
 
@@ -983,19 +982,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  2,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.6,
+			ApprovalWeight:  6,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.8,
+			ApprovalWeight:  8,
 		},
 	}
 
@@ -1004,19 +1003,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.5,
+			ApprovalWeight:  5,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.4,
+			ApprovalWeight:  4,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  2,
 		},
 	}
 
@@ -1025,19 +1024,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 	}
 
@@ -1046,19 +1045,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{200}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 	}
 
@@ -1067,19 +1066,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  2,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  1,
 		},
 	}
 
@@ -1088,25 +1087,25 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID5),
-			ApprovalWeight:  0.4,
+			ApprovalWeight:  4,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  2,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID5),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  1,
 		},
 	}
 
@@ -1115,25 +1114,25 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 	}
 
@@ -1142,31 +1141,31 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0),
-			ApprovalWeight:  0.5,
+			ApprovalWeight:  50,
 		},
 	}
 
@@ -1175,31 +1174,31 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  1,
 		},
 	}
 
@@ -1208,19 +1207,19 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  2,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID1),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  1,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID0, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  3,
 		},
 	}
 
@@ -1229,31 +1228,31 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.25,
+			ApprovalWeight:  25,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.35,
+			ApprovalWeight:  35,
 		},
 	}
 
@@ -1262,31 +1261,31 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.4,
+			ApprovalWeight:  40,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.35,
+			ApprovalWeight:  35,
 		},
 	}
 
@@ -1295,73 +1294,73 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.4,
+			ApprovalWeight:  40,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.35,
+			ApprovalWeight:  35,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  02,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.17,
+			ApprovalWeight:  17,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
 			Conflicting:     set.NewAdvancedSet(conflictID6),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"I": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
 			Conflicting:     set.NewAdvancedSet(conflictID6),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"J": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID9),
-			ApprovalWeight:  0.04,
+			ApprovalWeight:  4,
 		},
 		"K": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID9),
-			ApprovalWeight:  0.06,
+			ApprovalWeight:  6,
 		},
 	}
 
@@ -1370,73 +1369,73 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"D": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{5}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"E": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{6}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID3),
-			ApprovalWeight:  0.35,
+			ApprovalWeight:  35,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.17,
+			ApprovalWeight:  17,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
 			Conflicting:     set.NewAdvancedSet(conflictID6),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"I": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
 			Conflicting:     set.NewAdvancedSet(conflictID6),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"J": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID9),
-			ApprovalWeight:  0.04,
+			ApprovalWeight:  4,
 		},
 		"K": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID9),
-			ApprovalWeight:  0.06,
+			ApprovalWeight:  6,
 		},
 	}
 
@@ -1445,40 +1444,40 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.03,
+			ApprovalWeight:  3,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 	}
 
@@ -1487,40 +1486,40 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.03,
+			ApprovalWeight:  3,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 	}
 
@@ -1529,87 +1528,87 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.03,
+			ApprovalWeight:  3,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"K": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID11),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"L": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID11),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"M": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID12),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"N": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{13}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID12),
-			ApprovalWeight:  0.06,
+			ApprovalWeight:  6,
 		},
 		"I": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{14}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8),
-			ApprovalWeight:  0.07,
+			ApprovalWeight:  7,
 		},
 		"J": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{15}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8),
-			ApprovalWeight:  0.08,
+			ApprovalWeight:  8,
 		},
 		"O": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{16}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8, conflictID12),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 	}
 
@@ -1618,87 +1617,87 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  30,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  2,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.03,
+			ApprovalWeight:  3,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  15,
 		},
 		"K": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID11),
-			ApprovalWeight:  0.1,
+			ApprovalWeight:  10,
 		},
 		"L": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID11),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  20,
 		},
 		"M": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{12}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID12),
-			ApprovalWeight:  0.05,
+			ApprovalWeight:  5,
 		},
 		"N": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{13}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID12),
-			ApprovalWeight:  0.06,
+			ApprovalWeight:  6,
 		},
 		"I": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{14}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8),
-			ApprovalWeight:  0.07,
+			ApprovalWeight:  7,
 		},
 		"J": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{15}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8),
-			ApprovalWeight:  0.08,
+			ApprovalWeight:  8,
 		},
 		"O": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{16}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
 			Conflicting:     set.NewAdvancedSet(conflictID8, conflictID12),
-			ApprovalWeight:  0.09,
+			ApprovalWeight:  9,
 		},
 	}
 
@@ -1707,54 +1706,54 @@ var (
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{2}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  200,
 		},
 		"B": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{3}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID1, conflictID2),
-			ApprovalWeight:  0.3,
+			ApprovalWeight:  300,
 		},
 		"C": {
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{4}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID),
 			Conflicting:     set.NewAdvancedSet(conflictID2),
-			ApprovalWeight:  0.2,
+			ApprovalWeight:  200,
 		},
 		"F": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{7}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.02,
+			ApprovalWeight:  20,
 		},
 		"G": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{8}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID4),
-			ApprovalWeight:  0.03,
+			ApprovalWeight:  30,
 		},
 		"H": {
 			Order:           1,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{9}},
 			ParentConflicts: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
 			Conflicting:     set.NewAdvancedSet(conflictID2, conflictID4),
-			ApprovalWeight:  0.15,
+			ApprovalWeight:  150,
 		},
 		"I": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{10}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
 			Conflicting:     set.NewAdvancedSet(conflictID7),
-			ApprovalWeight:  0.005,
+			ApprovalWeight:  5,
 		},
 		"J": {
 			Order:           2,
 			ConflictID:      utxo.TransactionID{Identifier: types.Identifier{11}},
 			ParentConflicts: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
 			Conflicting:     set.NewAdvancedSet(conflictID7),
-			ApprovalWeight:  0.015,
+			ApprovalWeight:  15,
 		},
 	}
 )

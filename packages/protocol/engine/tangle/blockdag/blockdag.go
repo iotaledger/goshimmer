@@ -130,12 +130,26 @@ func (b *BlockDAG) evictEpoch(epochIndex epoch.Index) {
 }
 
 func (b *BlockDAG) markSolid(block *Block) (err error) {
+	if err = b.checkTimestampMonotonicity(block); err != nil {
+		return err
+	}
+
 	block.setSolid()
 
 	b.inheritOrphanage(block)
 
 	b.Events.BlockSolid.Trigger(block)
 
+	return nil
+}
+
+func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
+	for _, parentID := range block.Parents() {
+		parent, parentExists := b.Block(parentID)
+		if parentExists && !parent.IssuingTime().Before(block.IssuingTime()) {
+			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
+		}
+	}
 	return nil
 }
 

@@ -60,6 +60,13 @@ func (m *Manager[ID]) IsRootBlock(id ID) (isRootBlock bool) {
 	return m.isRootBlock(id)
 }
 
+func (m *Manager[ID]) RootBlocks() (rootBlocks *set.AdvancedSet[ID]) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.currentRootBlocks.Clone()
+}
+
 func (m *Manager[ID]) MaxEvictedEpoch() epoch.Index {
 	m.RLock()
 	defer m.RUnlock()
