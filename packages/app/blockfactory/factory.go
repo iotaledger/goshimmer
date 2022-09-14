@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 )
@@ -22,6 +23,7 @@ type Factory struct {
 	// referenceProvider *ReferenceProvider
 	identity *identity.LocalIdentity
 
+	blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool)
 	tipSelector    TipSelector
 	referencesFunc ReferencesFunc
 	commitmentFunc CommitmentFunc
@@ -31,16 +33,15 @@ type Factory struct {
 }
 
 // NewBlockFactory creates a new block factory.
-func NewBlockFactory(localIdentity *identity.LocalIdentity, tipSelector TipSelectorFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
-	// referenceProvider := NewReferenceProvider()
-
+func NewBlockFactory(localIdentity *identity.LocalIdentity, blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool), tipSelector TipSelectorFunc, referencesFunc ReferencesFunc, commitmentFunc CommitmentFunc, opts ...options.Option[Factory]) *Factory {
 	return options.Apply(&Factory{
 		Events:         NewEvents(),
 		identity:       localIdentity,
+		blockRetriever: blockRetriever,
 		tipSelector:    tipSelector,
+		referencesFunc: referencesFunc,
 		commitmentFunc: commitmentFunc,
-		// referencesFunc:    referenceProvider.References,
-		// referenceProvider: referenceProvider,
+
 		optsTipSelectionTimeout:       10 * time.Second,
 		optsTipSelectionRetryInterval: 200 * time.Millisecond,
 	}, opts)
@@ -86,9 +87,8 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 		return nil, errors.Errorf("cannot retrieve epoch commitment: %w", err)
 	}
 
-	var issuingTime time.Time
 	if references.IsEmpty() {
-		references, issuingTime, err = f.tryGetReferences(p, strongParentsCount)
+		references, err = f.tryGetReferences(p, strongParentsCount)
 		if err != nil {
 			return nil, errors.Errorf("error while trying to get references: %w", err)
 		}
@@ -97,7 +97,7 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 	block := models.NewBlock(
 		models.WithParents(references),
 		models.WithIssuer(f.identity.PublicKey()),
-		models.WithIssuingTime(issuingTime),
+		models.WithIssuingTime(f.issuingTime(references)),
 		models.WithPayload(p),
 		models.WithLatestConfirmedEpoch(lastConfirmedEpochIndex),
 		models.WithECRecord(epochCommitment),
@@ -122,10 +122,10 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 	return block, nil
 }
 
-func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
-	references, issuingTime, err = f.getReferences(p, parentsCount)
+func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
+	references, err = f.getReferences(p, parentsCount)
 	if err == nil {
-		return references, issuingTime, nil
+		return references, nil
 	}
 	f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
 
@@ -134,32 +134,29 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	for {
 		select {
 		case <-interval.C:
-			references, issuingTime, err = f.getReferences(p, parentsCount)
+			references, err = f.getReferences(p, parentsCount)
 			if err != nil {
 				f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
 				continue
 			}
 
-			return references, issuingTime, nil
+			return references, nil
 		case <-timeout.C:
-			return nil, time.Time{}, errors.Errorf("timeout while trying to select tips and determine references")
+			return nil, errors.Errorf("timeout while trying to select tips and determine references")
 		}
 	}
 }
 
-func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
+func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, err error) {
 	strongParents := f.tips(p, parentsCount)
 	if len(strongParents) == 0 {
-		return nil, time.Time{}, errors.Errorf("no strong parents were selected in tip selection")
+		return nil, errors.Errorf("no strong parents were selected in tip selection")
 	}
-	issuingTime = f.getIssuingTime(strongParents)
 
-	// TODO: remove
-	return models.NewParentBlockIDs().AddAll(models.StrongParentType, strongParents), issuingTime, nil
-	references, err = f.referencesFunc(p, strongParents, issuingTime)
+	references, err = f.referencesFunc(p, strongParents)
 	// If none of the strong parents are possible references, we have to try again.
 	if err != nil {
-		return nil, time.Time{}, errors.Errorf("references could not be created: %w", err)
+		return nil, errors.Errorf("references could not be created: %w", err)
 	}
 
 	// Make sure that there's no duplicate between strong and weak parents.
@@ -178,22 +175,20 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 		delete(references, models.WeakParentType)
 	}
 
-	return references, issuingTime, nil
+	return references, nil
 }
 
-func (f *Factory) getIssuingTime(parents models.BlockIDs) time.Time {
+// issuingTime gets the new block's issuing time based on its parents. Due to the monotonicity time checks we must
+// ensure that we set the right issuing time (time(block) > time(block's parents).
+func (f *Factory) issuingTime(parents models.ParentBlockIDs) time.Time {
 	issuingTime := time.Now()
 
-	// due to the ParentAge check we must ensure that we set the right issuing time.
-
-	// TODO: when TipManager is ready, we need to check the issuing time of the parents.
-	// for parent := range parents {
-	//	f.tangle.Storage.Block(parent).Consume(func(blk *tangle.Block) {
-	//		if blk.ID() != tangle.EmptyBlockID && !blk.IssuingTime().Before(issuingTime) {
-	//			issuingTime = blk.IssuingTime()
-	//		}
-	//	})
-	// }
+	parents.ForEach(func(parent models.Parent) {
+		if parentBlock, exists := f.blockRetriever(parent.ID); exists && !parentBlock.IssuingTime().Before(issuingTime) {
+			// TODO: this depends on the time resolution that we serialize to. If nanoseconds we could add a nanosecond.
+			issuingTime = parentBlock.IssuingTime().Add(time.Second)
+		}
+	})
 
 	return issuingTime
 }
@@ -250,7 +245,7 @@ func (f TipSelectorFunc) Tips(countParents int) (parents models.BlockIDs) {
 // region ReferencesFunc ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Block.
-type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs, issuingTime time.Time) (references models.ParentBlockIDs, err error)
+type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error)
 
 // CommitmentFunc is a function type that returns the commitment of the latest committable epoch.
 type CommitmentFunc func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)

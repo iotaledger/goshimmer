@@ -81,4 +81,13 @@ func (p ParentBlockIDs) Clone() ParentBlockIDs {
 	return pCloned
 }
 
+// ForEach executes a consumer func for each parent.
+func (p ParentBlockIDs) ForEach(callback func(parent Parent)) {
+	for parentType, parents := range p {
+		for parentID := range parents {
+			callback(Parent{Type: parentType, ID: parentID})
+		}
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
