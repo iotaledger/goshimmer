@@ -146,7 +146,7 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
 	for _, parentID := range block.Parents() {
 		parent, parentExists := b.Block(parentID)
-		if parentExists && parent.IssuingTime().After(block.IssuingTime()) {
+		if parentExists && !parent.IssuingTime().Before(block.IssuingTime()) {
 			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
 		}
 	}

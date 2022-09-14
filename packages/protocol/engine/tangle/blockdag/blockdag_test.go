@@ -337,6 +337,7 @@ func TestBlockDAG_Attach_InvalidTimestamp(t *testing.T) {
 	_, wasAttached, err = tf.BlockDAG.Attach(tf.Block("block3"))
 	assert.NoError(t, err, "should not return an error")
 	assert.True(t, wasAttached, "should have been attached")
+	tf.WaitUntilAllTasksProcessed()
 
 	tf.AssertSolid(lo.MergeMaps(expectedSolidState, map[string]bool{
 		"block3": false,
