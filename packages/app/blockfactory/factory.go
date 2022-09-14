@@ -123,12 +123,16 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 }
 
 func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
+	references, issuingTime, err = f.getReferences(p, parentsCount)
+	if err == nil {
+		return references, issuingTime, nil
+	}
+	f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
+
 	timeout := time.NewTimer(f.optsTipSelectionTimeout)
 	interval := time.NewTicker(f.optsTipSelectionRetryInterval)
 	for {
 		select {
-		case <-timeout.C:
-			return nil, time.Time{}, errors.Errorf("timeout while trying to select tips and determine references")
 		case <-interval.C:
 			references, issuingTime, err = f.getReferences(p, parentsCount)
 			if err != nil {
@@ -137,15 +141,21 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 			}
 
 			return references, issuingTime, nil
+		case <-timeout.C:
+			return nil, time.Time{}, errors.Errorf("timeout while trying to select tips and determine references")
 		}
 	}
 }
 
 func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references models.ParentBlockIDs, issuingTime time.Time, err error) {
 	strongParents := f.tips(p, parentsCount)
-	// TODO: what to do if no parents are returned?
+	if len(strongParents) == 0 {
+		return nil, time.Time{}, errors.Errorf("no strong parents were selected in tip selection")
+	}
 	issuingTime = f.getIssuingTime(strongParents)
 
+	// TODO: remove
+	return models.NewParentBlockIDs().AddAll(models.StrongParentType, strongParents), issuingTime, nil
 	references, err = f.referencesFunc(p, strongParents, issuingTime)
 	// If none of the strong parents are possible references, we have to try again.
 	if err != nil {
@@ -161,6 +171,7 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 	if _, exists := references[models.WeakParentType]; !exists {
 		references[models.WeakParentType] = models.NewBlockIDs()
 	}
+	// TODO:
 	// references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
 
 	if len(references[models.WeakParentType]) == 0 {
@@ -207,15 +218,14 @@ func (f *Factory) tips(p payload.Payload, parentsCount int) (parents models.Bloc
 	return parents
 }
 
-func (f *Factory) sign(dummyBlock *models.Block) (ed25519.Signature, error) {
-	// create a dummy block to simplify marshaling
-	dummyBytes, err := dummyBlock.Bytes()
+func (f *Factory) sign(block *models.Block) (ed25519.Signature, error) {
+	bytes, err := block.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
 
-	contentLength := len(dummyBytes) - len(dummyBlock.Signature())
-	return f.identity.Sign(dummyBytes[:contentLength]), nil
+	contentLength := len(bytes) - len(block.Signature())
+	return f.identity.Sign(bytes[:contentLength]), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

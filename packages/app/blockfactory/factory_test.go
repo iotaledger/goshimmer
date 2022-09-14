@@ -1,5 +1,60 @@
 package blockfactory
 
+import (
+	"testing"
+	"time"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+)
+
+func TestFactory_IssuePayload(t *testing.T) {
+	localIdentity := identity.GenerateLocalIdentity()
+
+	ecRecord := epoch.NewECRecord(10)
+	ecRecord.SetECR([32]byte{123, 255})
+	ecRecord.SetPrevEC([32]byte{90, 111})
+	confirmedEpochIndex := epoch.Index(25)
+	commitmentFunc := func() (*epoch.ECRecord, epoch.Index, error) {
+		return ecRecord, confirmedEpochIndex, nil
+	}
+
+	var randomBlockID1, randomBlockID2 models.BlockID
+	_ = randomBlockID1.FromRandomness()
+	_ = randomBlockID2.FromRandomness()
+	tipSelectorFunc := func(countParents int) models.BlockIDs {
+		return models.NewBlockIDs(randomBlockID1, randomBlockID2)
+	}
+
+	pay := payload.NewGenericDataPayload([]byte("test"))
+
+	factory := NewBlockFactory(localIdentity, tipSelectorFunc, commitmentFunc)
+	createdBlock, err := factory.IssuePayload(pay, 2)
+	require.NoError(t, err)
+
+	assert.Contains(t, createdBlock.ParentsByType(models.StrongParentType), randomBlockID1, randomBlockID2)
+	assert.Equal(t, localIdentity.PublicKey(), createdBlock.IssuerPublicKey())
+	// issuingTime
+	assert.WithinRange(t, createdBlock.IssuingTime(), time.Now().Add(-1*time.Minute), time.Now().Add(1*time.Minute))
+	assert.EqualValues(t, 1337, createdBlock.SequenceNumber())
+	assert.Equal(t, lo.PanicOnErr(pay.Bytes()), lo.PanicOnErr(createdBlock.Payload().Bytes()))
+	assert.Equal(t, ecRecord.EI(), createdBlock.EI())
+	assert.Equal(t, ecRecord.ECR(), createdBlock.ECR())
+	assert.Equal(t, ecRecord.PrevEC(), createdBlock.PrevEC())
+	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
+	assert.EqualValues(t, 42, createdBlock.Nonce())
+
+	signatureValid, err := createdBlock.VerifySignature()
+	require.NoError(t, err)
+	assert.True(t, signatureValid)
+}
+
 // import (
 // 	"context"
 // 	"crypto/ed25519"
