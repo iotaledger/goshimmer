@@ -159,11 +159,6 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 		return nil, errors.Errorf("references could not be created: %w", err)
 	}
 
-	// Make sure that there's no duplicate between strong and weak parents.
-	for strongParent := range references[models.StrongParentType] {
-		delete(references[models.WeakParentType], strongParent)
-	}
-
 	// fill up weak references with weak references to liked missing conflicts
 	if _, exists := references[models.WeakParentType]; !exists {
 		references[models.WeakParentType] = models.NewBlockIDs()
@@ -171,9 +166,8 @@ func (f *Factory) getReferences(p payload.Payload, parentsCount int) (references
 	// TODO: get from tips conflict tracker
 	// references[models.WeakParentType].AddAll(f.referenceProvider.ReferencesToMissingConflicts(issuingTime, models.MaxParentsCount-len(references[models.WeakParentType])))
 
-	if len(references[models.WeakParentType]) == 0 {
-		delete(references, models.WeakParentType)
-	}
+	// Make sure that there's no duplicate between strong and weak parents.
+	references.RemoveDuplicatesFromWeak()
 
 	return references, nil
 }

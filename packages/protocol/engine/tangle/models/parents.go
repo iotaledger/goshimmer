@@ -90,4 +90,14 @@ func (p ParentBlockIDs) ForEach(callback func(parent Parent)) {
 	}
 }
 
+func (p ParentBlockIDs) RemoveDuplicatesFromWeak() {
+	for strongParent := range p[StrongParentType] {
+		delete(p[WeakParentType], strongParent)
+	}
+
+	if len(p[WeakParentType]) == 0 {
+		delete(p, WeakParentType)
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

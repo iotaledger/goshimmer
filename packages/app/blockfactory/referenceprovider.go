@@ -84,6 +84,9 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 		return nil, errors.Errorf("none of the provided strong parents can be referenced. Strong parents provided: %+v.", strongParents)
 	}
 
+	// Make sure that there's no duplicate between strong and weak parents.
+	references.RemoveDuplicatesFromWeak()
+
 	return references, nil
 }
 
