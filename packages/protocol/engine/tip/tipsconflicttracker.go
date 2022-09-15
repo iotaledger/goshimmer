@@ -107,3 +107,21 @@ package tip
 // 	c.missingConflicts.Delete(id)
 // 	delete(c.tipsConflictCount, id)
 // }
+//
+// func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs models.BlockIDs) {
+// 	blockIDs = models.NewBlockIDs()
+// 	if amount == 0 {
+// 		return blockIDs
+// 	}
+//
+// 	for it := r.tipManager.tipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
+// 		blockID, blockIDErr := r.firstValidAttachment(it.Next(), issuingTime)
+// 		if blockIDErr != nil {
+// 			continue
+// 		}
+//
+// 		blockIDs.Add(blockID)
+// 	}
+//
+// 	return blockIDs
+// }

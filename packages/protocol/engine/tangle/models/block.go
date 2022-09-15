@@ -138,14 +138,7 @@ func (b *Block) ParentsByType(parentType ParentsType) BlockIDs {
 
 // ForEachParent executes a consumer func for each parent.
 func (b *Block) ForEachParent(consumer func(parent Parent)) {
-	for parentType, parents := range b.M.Parents {
-		for parentID := range parents {
-			consumer(Parent{
-				Type: parentType,
-				ID:   parentID,
-			})
-		}
-	}
+	b.M.Parents.ForEach(consumer)
 }
 
 // Parents returns a copy of the parents of the block.
@@ -245,6 +238,10 @@ func (b *Block) LatestConfirmedEpoch() epoch.Index {
 // Signature returns the Signature of the block.
 func (b *Block) Signature() ed25519.Signature {
 	return b.M.Signature
+}
+
+func (b *Block) SetSignature(signature ed25519.Signature) {
+	b.M.Signature = signature
 }
 
 // DetermineID calculates and sets the block's BlockID.
