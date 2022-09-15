@@ -32,32 +32,7 @@ func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func()
 func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
 	references = models.NewParentBlockIDs()
 
-	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
-	if tx, isTx := payload.(utxo.Transaction); isTx {
-		referencedTransactions := r.engine.Ledger.Utils.ReferencedTransactions(tx)
-		for it := referencedTransactions.Iterator(); it.HasNext(); {
-			referencedTransactionID := it.Next()
-
-			if len(references[models.WeakParentType]) == models.MaxParentsCount {
-				break
-			}
-
-			if !r.engine.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
-
-				latestAttachment := r.engine.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
-				if latestAttachment == nil {
-					continue
-				}
-
-				committableEpoch := r.latestEpochIndexCallback()
-				if latestAttachment.ID().Index() <= committableEpoch {
-					continue
-				}
-
-				references.Add(models.WeakParentType, latestAttachment.ID())
-			}
-		}
-	}
+	references[models.WeakParentType] = r.weakParentsFromUnacceptedInputs(payload)
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
@@ -88,6 +63,41 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	references.RemoveDuplicatesFromWeak()
 
 	return references, nil
+}
+
+func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs) {
+	weakParents = models.NewBlockIDs()
+
+	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
+	tx, isTx := payload.(utxo.Transaction)
+	if !isTx {
+		return weakParents
+	}
+
+	referencedTransactions := r.engine.Ledger.Utils.ReferencedTransactions(tx)
+	for it := referencedTransactions.Iterator(); it.HasNext(); {
+		referencedTransactionID := it.Next()
+
+		if len(weakParents) == models.MaxParentsCount {
+			return weakParents
+		}
+
+		if !r.engine.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
+			latestAttachment := r.engine.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
+			if latestAttachment == nil {
+				continue
+			}
+
+			committableEpoch := r.latestEpochIndexCallback()
+			if latestAttachment.ID().Index() <= committableEpoch {
+				continue
+			}
+
+			weakParents.Add(latestAttachment.ID())
+		}
+	}
+
+	return weakParents
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
