@@ -7,21 +7,21 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/solidification/warpsync"
+	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 )
 
 type Network struct {
 	Events *Events
 
-	P2PManager    *p2p.Manager
+	P2PManager *p2p.Manager
 
 	warpSyncProtocol *warpsync.Protocol
-	gossipProtocol *gossip.Protocol
-
+	gossipProtocol   *gossip.Manager
 }
 
 func New(p2pManager *p2p.Manager, logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
@@ -61,7 +61,7 @@ func (n *Network) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
 	n.gossipProtocol.RequestBlock(lo.PanicOnErr(id.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
 }
 
-func (n *Network) RequestEpochRange(start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+func (n *Network) RequestEpochRange(start, end epoch.Index, startEC commitment.ID, endPrevEC commitment.ID) (err error) {
 	// TODO WarpRange ... context.Background()
 	return nil
 }
