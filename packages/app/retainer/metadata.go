@@ -68,7 +68,7 @@ type blockMetadataModel struct {
 	Solid                    bool            `serix:"1"`
 	Invalid                  bool            `serix:"2"`
 	Orphaned                 bool            `serix:"3"`
-	OrphanedBlocksInPastCone models.BlockIDs `serix:"4,minLen=0,maxLen=256"`
+	OrphanedBlocksInPastCone models.BlockIDs `serix:"4"`
 	// StrongChildren           models.BlockIDs `serix:"5"`
 	// WeakChildren             models.BlockIDs `serix:"6"`
 	// LikedInsteadChildren     models.BlockIDs `serix:"7"`

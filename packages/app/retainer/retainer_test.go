@@ -27,7 +27,7 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	//meta.M.OrphanedBlocksInPastCone.Add(blockID1)
 	//meta.M.OrphanedBlocksInPastCone.Add(blockID2)
 
-	fmt.Println(meta.Encode())
+	fmt.Println(serix.DefaultAPI.Encode(context.Background(), meta.M))
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
