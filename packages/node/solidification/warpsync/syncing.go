@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
@@ -24,23 +25,23 @@ import (
 
 type epochSyncStart struct {
 	ei          epoch.Index
-	ec          epoch.EC
+	ec          commitment.ID
 	blocksCount int64
 }
 
 type epochSyncBlock struct {
 	ei    epoch.Index
-	ec    epoch.EC
+	ec    commitment.ID
 	block *models.Block
 	peer  *peer.Peer
 }
 
 type epochSyncEnd struct {
 	ei                epoch.Index
-	ec                epoch.EC
-	stateMutationRoot epoch.MerkleRoot
-	stateRoot         epoch.MerkleRoot
-	manaRoot          epoch.MerkleRoot
+	ec                commitment.ID
+	stateMutationRoot commitment.MerkleRoot
+	stateRoot         commitment.MerkleRoot
+	manaRoot          commitment.MerkleRoot
 }
 
 type blockReceived struct {
@@ -48,7 +49,7 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor]) (completedEpoch epoch.Index, err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC commitment.ID, ecChain map[epoch.Index]commitment.ID, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor]) (completedEpoch epoch.Index, err error) {
 	startRange := start + 1
 	endRange := end - 1
 
@@ -70,7 +71,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 	return completedEpoch, nil
 }
 
-func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]epoch.EC, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
+func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, validPeers *orderedmap.OrderedMap[identity.ID, *p2p.Neighbor], discardedPeers *set.AdvancedSet[identity.ID], ecChain map[epoch.Index]commitment.ID, epochProcessedChan chan epoch.Index) func(targetEpoch epoch.Index) {
 	return func(targetEpoch epoch.Index) {
 		eg.Go(func() (err error) {
 			if !validPeers.ForEach(func(peerID identity.ID, neighbor *p2p.Neighbor) (success bool) {
@@ -215,19 +216,19 @@ func (m *Manager) endEpochSyncing(ei epoch.Index) {
 
 func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_EpochBlocksRequest, nbr *p2p.Neighbor) {
 	ei := epoch.Index(packetEpochRequest.EpochBlocksRequest.GetEI())
-	ec := epoch.NewMerkleRoot(packetEpochRequest.EpochBlocksRequest.GetEC())
+	ec := commitment.NewMerkleRoot(packetEpochRequest.EpochBlocksRequest.GetEC())
 
-	m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
+	m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
 	commitment := m.commitmentManager.Commitment(ec)
 	if commitment == nil {
-		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
+		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 		return
 	}
 
 	chain := commitment.Chain()
 	if chain == nil {
-		m.log.Debugw("epoch blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec)
+		m.log.Debugw("epoch blocks request rejected: unknown chain", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 		return
 	}
 
@@ -235,19 +236,19 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	// Send epoch starter.
 	m.protocol.SendEpochStarter(ei, ec, blocksCount, nbr.ID())
-	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", blocksCount)
+	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
 
 	if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
 		m.protocol.SendBlocksBatch(ei, ec, blocks, nbr.ID())
-		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "EI", ei, "blocksLen", len(blocks))
+		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
 	}, m.blockBatchSize); err != nil {
-		m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "EI", ei, "EC", ec, "err", err)
+		m.log.Errorw("epoch blocks request rejected: unable to stream blocks", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec, "err", err)
 		return
 	}
 
 	// Send epoch terminator.
 	m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())
-	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "EI", ei, "EC", ec.Base58())
+	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "Index", ei, "ID", ec.Base58())
 }
 
 func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packet_EpochBlocksStart, nbr *p2p.Neighbor) {
@@ -266,11 +267,11 @@ func (m *Manager) processEpochBlocksStartPacket(packetEpochBlocksStart *wp.Packe
 		return
 	}
 
-	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "EI", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
+	m.log.Debugw("received epoch blocks start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", epochBlocksStart.GetBlocksCount())
 
 	epochChannels.startChan <- &epochSyncStart{
 		ei:          ei,
-		ec:          epoch.NewMerkleRoot(epochBlocksStart.GetEC()),
+		ec:          commitment.NewMerkleRoot(epochBlocksStart.GetEC()),
 		blocksCount: epochBlocksStart.GetBlocksCount(),
 	}
 }
@@ -292,7 +293,7 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	}
 
 	blocksBytes := epochBlocksBatch.GetBlocks()
-	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "EI", ei, "blocksLen", len(blocksBytes))
+	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "Index", ei, "blocksLen", len(blocksBytes))
 
 	for _, blockBytes := range blocksBytes {
 		block := new(models.Block)
@@ -306,7 +307,7 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 			return
 		case epochChannels.blockChan <- &epochSyncBlock{
 			ei:    ei,
-			ec:    epoch.NewMerkleRoot(epochBlocksBatch.GetEC()),
+			ec:    commitment.NewMerkleRoot(epochBlocksBatch.GetEC()),
 			peer:  nbr.Peer,
 			block: block,
 		}:
@@ -330,14 +331,14 @@ func (m *Manager) processEpochBlocksEndPacket(packetEpochBlocksEnd *wp.Packet_Ep
 		return
 	}
 
-	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "EI", ei)
+	m.log.Debugw("received epoch blocks end", "peer", nbr.Peer.ID(), "Index", ei)
 
 	epochChannels.endChan <- &epochSyncEnd{
 		ei:                ei,
-		ec:                epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
-		stateMutationRoot: epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
-		stateRoot:         epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
-		manaRoot:          epoch.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
+		ec:                commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetEC()),
+		stateMutationRoot: commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateMutationRoot()),
+		stateRoot:         commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetStateRoot()),
+		manaRoot:          commitment.NewMerkleRoot(packetEpochBlocksEnd.EpochBlocksEnd.GetManaRoot()),
 	}
 }
 

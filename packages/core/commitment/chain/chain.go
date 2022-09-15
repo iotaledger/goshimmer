@@ -1,4 +1,4 @@
-package commitmentmanager
+package chain
 
 import (
 	"sync"
@@ -25,7 +25,7 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 		ForkingPoint: forkingPoint,
 
 		commitmentsByIndex: map[epoch.Index]*Commitment{
-			forkingPoint.EI(): forkingPoint,
+			forkingPoint.Index(): forkingPoint,
 		},
 	}
 }
@@ -83,5 +83,5 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.commitmentsByIndex[commitment.EI()] = commitment
+	c.commitmentsByIndex[commitment.Index()] = commitment
 }

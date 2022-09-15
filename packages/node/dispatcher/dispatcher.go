@@ -1,8 +1,9 @@
 package dispatcher
 
 import (
+	commitment2 "github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/commitment/chain"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/epoch/commitmentmanager"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -13,14 +14,14 @@ type Dispatcher struct {
 
 	activeProtocol    *protocol.Protocol
 	protocolsByChain  map[epoch.EC]*protocol.Protocol
-	commitmentManager *commitmentmanager.CommitmentManager
+	commitmentManager *chain.Manager
 }
 
-func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch.EC) (dispatcher *Dispatcher) {
+func New(snapshotIndex epoch.Index, snapshotECR commitment2.RootsID, snapshotPrevECR epoch.EC) (dispatcher *Dispatcher) {
 	return &Dispatcher{
 		Events:            NewEvents(),
 		protocolsByChain:  make(map[epoch.EC]*protocol.Protocol),
-		commitmentManager: commitmentmanager.New(snapshotIndex, snapshotECR, snapshotPrevECR),
+		commitmentManager: chain.NewManager(snapshotIndex, snapshotECR, snapshotPrevECR),
 	}
 }
 

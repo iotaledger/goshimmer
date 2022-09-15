@@ -3,6 +3,7 @@ package warpsync
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -30,14 +31,14 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 // BlockReceivedEvent holds data about a block received event.
 type EpochCommitmentReceivedEvent struct {
 	Neighbor *p2p.Neighbor
-	ECRecord *epoch.ECRecord
+	ECRecord *commitment.Commitment
 }
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlocksRequestReceivedEvent struct {
 	Neighbor *p2p.Neighbor
 	EI       epoch.Index
-	EC       epoch.EC
+	EC       commitment.ID
 }
 
 // BlockReceivedEvent holds data about a block received event.
@@ -57,8 +58,8 @@ type EpochBlockEvent struct {
 type EpochBlocksEndEvent struct {
 	Neighbor          *p2p.Neighbor
 	EI                epoch.Index
-	EC                epoch.EC
-	StateMutationRoot epoch.MerkleRoot
-	StateRoot         epoch.MerkleRoot
-	ManaRoot          epoch.MerkleRoot
+	EC                commitment.ID
+	StateMutationRoot commitment.MerkleRoot
+	StateRoot         commitment.MerkleRoot
+	ManaRoot          commitment.MerkleRoot
 }

@@ -1,4 +1,4 @@
-package commitmentmanager
+package chain
 
 import (
 	"testing"
@@ -6,10 +6,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
-func TestCommitmentManager(t *testing.T) {
+func TestManager(t *testing.T) {
 	tf := NewTestFramework(t)
 	tf.CreateCommitment("1", "Genesis")
 	tf.CreateCommitment("2", "1")
@@ -87,24 +87,24 @@ func TestCommitmentManager(t *testing.T) {
 	}
 
 	{
-		commitments, err := tf.ChainManager.Commitments(tf.EC("4*"), 5)
+		commitments, err := tf.Manager.Commitments(tf.EC("4*"), 5)
 		require.NoError(t, err)
 		require.EqualValues(t, []*Commitment{
-			tf.ChainManager.Commitment(tf.EC("4*")),
-			tf.ChainManager.Commitment(tf.EC("3")),
-			tf.ChainManager.Commitment(tf.EC("2")),
-			tf.ChainManager.Commitment(tf.EC("1")),
-			tf.ChainManager.Commitment(tf.EC("Genesis")),
+			tf.Manager.Commitment(tf.EC("4*")),
+			tf.Manager.Commitment(tf.EC("3")),
+			tf.Manager.Commitment(tf.EC("2")),
+			tf.Manager.Commitment(tf.EC("1")),
+			tf.Manager.Commitment(tf.EC("Genesis")),
 		}, commitments)
 	}
 
 	{
-		commitments, err := tf.ChainManager.Commitments(tf.EC("4*"), 6)
+		commitments, err := tf.Manager.Commitments(tf.EC("4*"), 6)
 		require.Error(t, err)
 		require.EqualValues(t, ([]*Commitment)(nil), commitments)
 	}
 
 	{
-		require.Nil(t, tf.ChainManager.Chain(epoch.EC{255, 255}))
+		require.Nil(t, tf.Manager.Chain(commitment.ID{255, 255}))
 	}
 }

@@ -6,7 +6,9 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -16,16 +18,16 @@ import (
 type syncingFlowParams struct {
 	ctx               context.Context
 	targetEpoch       epoch.Index
-	targetEC          epoch.EC
-	targetPrevEC      epoch.EC
+	targetEC          commitment.ID
+	targetPrevEC      commitment.ID
 	epochChannels     *epochChannels
 	neighbor          *p2p.Neighbor
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
 	epochBlocks       map[models.BlockID]*models.Block
-	stateMutationRoot epoch.MerkleRoot
-	stateRoot         epoch.MerkleRoot
-	manaRoot          epoch.MerkleRoot
+	stateMutationRoot commitment.MerkleRoot
+	stateRoot         commitment.MerkleRoot
+	manaRoot          commitment.MerkleRoot
 }
 
 func (m *Manager) epochStartCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
@@ -39,7 +41,7 @@ func (m *Manager) epochStartCommand(params *syncingFlowParams, next dataflow.Nex
 		}
 
 		params.epochBlocksLeft = epochStart.blocksCount
-		m.log.Debugw("read epoch block count", "EI", epochStart.ei, "blocksCount", params.epochBlocksLeft)
+		m.log.Debugw("read epoch block count", "Index", epochStart.ei, "blocksCount", params.epochBlocksLeft)
 	case <-params.ctx.Done():
 		return errors.Errorf("cancelled while receiving epoch %d start: %s", params.targetEpoch, params.ctx.Err())
 	}
@@ -67,9 +69,9 @@ func (m *Manager) epochBlockCommand(params *syncingFlowParams, next dataflow.Nex
 				return errors.Errorf("received duplicate block %s for epoch %d", block.ID(), params.targetEpoch)
 			}
 
-			m.log.Debugw("read block", "peer", params.neighbor, "EI", epochBlock.ei, "blockID", block.ID())
+			m.log.Debugw("read block", "peer", params.neighbor, "Index", epochBlock.ei, "blockID", block.ID())
 
-			params.tangleTree.Update(block.IDBytes(), block.IDBytes())
+			params.tangleTree.Update(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.ID().Bytes()))
 			params.epochBlocks[block.ID()] = block
 			params.epochBlocksLeft--
 
@@ -96,7 +98,7 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 		params.stateRoot = epochEnd.stateRoot
 		params.manaRoot = epochEnd.manaRoot
 
-		m.log.Debugw("read epoch end", "EI", params.targetEpoch)
+		m.log.Debugw("read epoch end", "Index", params.targetEpoch)
 	case <-params.ctx.Done():
 		return errors.Errorf("cancelled while ending epoch %d: %s", params.targetEpoch, params.ctx.Err())
 	}
@@ -105,16 +107,12 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 }
 
 func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
-	syncedECRecord := epoch.NewECRecord(params.targetEpoch)
-	syncedECRecord.SetECR(epoch.ComputeECR(
-		epoch.NewMerkleRoot(params.tangleTree.Root()),
-		params.stateMutationRoot,
-		params.stateRoot,
-		params.manaRoot,
-	))
-	syncedECRecord.SetPrevEC(params.targetPrevEC)
+	rootID := commitment.NewRootsID(commitment.NewMerkleRoot(params.tangleTree.Root()), params.stateMutationRoot, params.stateRoot, params.manaRoot)
 
-	if syncedECRecord.ComputeEC() != params.targetEC {
+	syncedECRecord := commitment.New(commitment.NewID(params.targetEpoch, rootID, params.targetPrevEC))
+	syncedECRecord.PublishData(params.targetEpoch, rootID, params.targetPrevEC)
+
+	if syncedECRecord.ID != params.targetEC {
 		return errors.Errorf("epoch %d EC record is not correct", params.targetEpoch)
 	}
 
@@ -129,7 +127,7 @@ func (m *Manager) epochProcessBlocksCommand(params *syncingFlowParams, next data
 	return next(params)
 }
 
-func isOnTargetChain(ei epoch.Index, ec epoch.EC, params *syncingFlowParams) (valid bool, err error) {
+func isOnTargetChain(ei epoch.Index, ec commitment.ID, params *syncingFlowParams) (valid bool, err error) {
 	if ei != params.targetEpoch {
 		return false, errors.Errorf("received epoch %d while we expected epoch %d", ei, params.targetEpoch)
 	}

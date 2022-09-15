@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -28,11 +29,11 @@ import (
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	EI                epoch.Index
-	tangleRoot        epoch.MerkleRoot
-	stateMutationRoot epoch.MerkleRoot
-	stateRoot         epoch.MerkleRoot
-	manaRoot          epoch.MerkleRoot
-	activityRoot      epoch.MerkleRoot
+	tangleRoot        commitment.MerkleRoot
+	stateMutationRoot commitment.MerkleRoot
+	stateRoot         commitment.MerkleRoot
+	manaRoot          commitment.MerkleRoot
+	activityRoot      commitment.MerkleRoot
 }
 
 // CommitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
@@ -92,13 +93,13 @@ func (f *EpochCommitmentFactory) ManaRoot() []byte {
 }
 
 // ECRandRoots retrieves the epoch commitment root.
-func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr epoch.ECR, roots *epoch.CommitmentRoots, err error) {
+func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr commitment.RootsID, roots *commitment.Roots, err error) {
 	roots, err = f.newEpochRoots(ei)
 	if err != nil {
-		return epoch.MerkleRoot{}, nil, errors.Wrap(err, "ECR could not be created")
+		return commitment.MerkleRoot{}, nil, errors.Wrap(err, "RootsID could not be created")
 	}
 
-	return epoch.ComputeECR(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot), roots, nil
+	return commitment.NewRootsID(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot), roots, nil
 }
 
 // removeStateLeaf removes the output ID from the ledger sparse merkle tree.
@@ -204,7 +205,7 @@ func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID ident
 }
 
 // ecRecord retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *commitment.Commitment, err error) {
 	ecRecord = f.loadECRecord(ei)
 	if ecRecord != nil {
 		return ecRecord, nil
@@ -220,22 +221,22 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	}
 
 	// Store and return.
-	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
-		e.SetECR(ecr)
-		e.SetRoots(roots)
-		e.SetPrevEC(prevECRecord.ComputeEC())
+	f.storage.CachedECRecord(ei, func(ei epoch.Index) *commitment.Commitment {
+		return commitment.New(commitment.NewID(ei, ecr, prevECRecord.ID))
+	}).Consume(func(e *commitment.Commitment) {
+		e.PublishData(ei, ecr, prevECRecord.ID)
+		e.PublishRoots(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot)
 		ecRecord = e
 	})
 
 	return ecRecord, nil
 }
 
-func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *epoch.ECRecord) {
-	f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
-		ecRecord = epoch.NewECRecord(ei)
-		ecRecord.SetECR(record.ECR())
-		ecRecord.SetRoots(record.Roots())
-		ecRecord.SetPrevEC(record.PrevEC())
+func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *commitment.Commitment) {
+	f.storage.CachedECRecord(ei).Consume(func(record *commitment.Commitment) {
+		ecRecord = commitment.New(commitment.NewID(ei, record.RootsID(), record.PrevID()))
+		ecRecord.PublishData(ei, record.RootsID(), record.PrevID())
+		ecRecord.PublishRoots(record.Roots().TangleRoot, record.Roots().StateMutationRoot, record.Roots().StateRoot, record.Roots().ManaRoot)
 	})
 	return
 }
@@ -328,7 +329,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 }
 
 // newEpochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
-func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots *epoch.CommitmentRoots, commitmentTreesErr error) {
+func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots *commitment.Roots, commitmentTreesErr error) {
 	// TODO: what if a node restarts and we have incomplete trees?
 	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
 	if commitmentTreesErr != nil {
@@ -347,11 +348,11 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 		f.commitLedgerState(epochToCommit)
 	}
 
-	commitmentRoots = &epoch.CommitmentRoots{
-		StateRoot:         epoch.NewMerkleRoot(stateRoot),
-		ManaRoot:          epoch.NewMerkleRoot(manaRoot),
-		TangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
-		StateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
+	commitmentRoots = &commitment.Roots{
+		StateRoot:         commitment.NewMerkleRoot(stateRoot),
+		ManaRoot:          commitment.NewMerkleRoot(manaRoot),
+		TangleRoot:        commitment.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
+		StateMutationRoot: commitment.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
 	}
 
 	// We are never going to use this epoch's commitment trees again.

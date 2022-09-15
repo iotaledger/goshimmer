@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -66,24 +67,23 @@ type Block struct {
 
 type block struct {
 	// core properties (get sent over the wire)
-	Version              uint8             `serix:"0"`
-	Parents              ParentBlockIDs    `serix:"1"`
-	IssuerPublicKey      ed25519.PublicKey `serix:"2"`
-	IssuingTime          time.Time         `serix:"3"`
-	SequenceNumber       uint64            `serix:"4"`
-	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
-	EI                   epoch.Index       `serix:"6"`
-	ECR                  epoch.ECR         `serix:"7"`
-	PrevEC               epoch.EC          `serix:"8"`
-	LatestConfirmedEpoch epoch.Index       `serix:"9"`
-	Nonce                uint64            `serix:"10"`
-	Signature            ed25519.Signature `serix:"11"`
+	Version              uint8              `serix:"0"`
+	Parents              ParentBlockIDs     `serix:"1"`
+	IssuerPublicKey      ed25519.PublicKey  `serix:"2"`
+	IssuingTime          time.Time          `serix:"3"`
+	SequenceNumber       uint64             `serix:"4"`
+	PayloadBytes         []byte             `serix:"5,lengthPrefixType=uint32"`
+	EI                   epoch.Index        `serix:"6"`
+	ECR                  commitment.RootsID `serix:"7"`
+	PrevEC               commitment.ID      `serix:"8"`
+	LatestConfirmedEpoch epoch.Index        `serix:"9"`
+	Nonce                uint64             `serix:"10"`
+	Signature            ed25519.Signature  `serix:"11"`
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
 func NewBlock(opts ...options.Option[Block]) *Block {
 	defaultPayload := payload.NewGenericDataPayload([]byte(""))
-	defaultECRecord := epoch.NewECRecord(0)
 
 	blk := model.NewStorable[BlockID, Block](&block{
 		Version:         BlockVersion,
@@ -92,9 +92,9 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 		IssuingTime:     time.Now(),
 		SequenceNumber:  0,
 		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
-		EI:              defaultECRecord.EI(),
-		ECR:             defaultECRecord.ECR(),
-		PrevEC:          defaultECRecord.PrevEC(),
+		EI:              epoch.Index(0),
+		ECR:             commitment.RootsID{},
+		PrevEC:          commitment.ID{},
 	})
 	blk.payload = defaultPayload
 
@@ -228,12 +228,12 @@ func (b *Block) EI() epoch.Index {
 }
 
 // ECR returns the ECR of the block.
-func (b *Block) ECR() epoch.ECR {
+func (b *Block) ECR() commitment.RootsID {
 	return b.M.ECR
 }
 
 // PrevEC returns the PrevEC of the block.
-func (b *Block) PrevEC() epoch.EC {
+func (b *Block) PrevEC() commitment.ID {
 	return b.M.PrevEC
 }
 
@@ -386,11 +386,11 @@ func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
 	}
 }
 
-func WithECRecord(ecRecord *epoch.ECRecord) options.Option[Block] {
+func WithCommitmentRecord(ecRecord *commitment.Commitment) options.Option[Block] {
 	return func(b *Block) {
-		b.M.EI = ecRecord.EI()
-		b.M.ECR = ecRecord.ECR()
-		b.M.PrevEC = ecRecord.PrevEC()
+		b.M.EI = ecRecord.Index()
+		b.M.ECR = ecRecord.RootsID()
+		b.M.PrevEC = ecRecord.PrevID()
 	}
 }
 

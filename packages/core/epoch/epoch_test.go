@@ -7,7 +7,7 @@ import (
 	"github.com/magiconair/properties/assert"
 )
 
-func TestEpochManager(t *testing.T) {
+func TestEpoch(t *testing.T) {
 	genesisTime := time.Now()
 	GenesisTime = genesisTime.Unix()
 	Duration = 10

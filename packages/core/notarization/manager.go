@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -124,7 +126,7 @@ func onlyIfBootstrapped[E any](engine *engine.Engine, handler func(event E)) *ev
 }
 
 // StartSnapshot locks the commitment factory and returns the latest ecRecord and last confirmed epoch index.
-func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *epoch.ECRecord, err error) {
+func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *commitment.Commitment, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 
 	latestConfirmedEpoch, err := m.LatestConfirmedEpochIndex()
@@ -199,7 +201,7 @@ func (m *Manager) LoadEpochDiff(epochDiff *ledger.EpochDiff) {
 	return
 }
 
-// LoadECandEIs initiates the ECRecord, latest committable EI, last confirmed EI and acceptance EI from a given snapshot.
+// LoadECandEIs initiates the ECRecord, latest committable Index, last confirmed Index and acceptance Index from a given snapshot.
 func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -223,7 +225,7 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 }
 
 // LoadActivityLogs loads activity logs from the snapshot and updates the activity tree.
-func (m *Manager) LoadActivityLogs(epochActivity epoch.SnapshotEpochActivity) {
+func (m *Manager) LoadActivityLogs(epochActivity activitylog.SnapshotEpochActivity) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -265,7 +267,7 @@ func (m *Manager) SnapshotLedgerState(prodChan chan *ledger.OutputWithMetadata, 
 }
 
 // GetLatestEC returns the latest commitment that a new block should commit to.
-func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
+func (m *Manager) GetLatestEC() (ecRecord *commitment.Commitment, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
@@ -334,7 +336,7 @@ func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 		m.Events.SyncRange.Trigger(&SyncRangeEvent{
 			StartEI:   latestCommittableEI,
 			EndEI:     blockEI,
-			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ComputeEC(),
+			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ID,
 			EndPrevEC: block.PrevEC(),
 		})
 	}
@@ -379,7 +381,7 @@ func (m *Manager) OnBlockOrphaned(block *blockdag.Block) {
 	// 		m.log.Error(err)
 	// 		return
 	// 	}
-	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
+	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{Index: ei, NodeID: nodeID})
 	// }
 
 	if _, exists := m.engine.Tangle.ValidatorSet.Get(nodeID); !exists {
@@ -438,7 +440,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	}
 
 	if m.isEpochAlreadyCommitted(oldEpoch) || m.isEpochAlreadyCommitted(newEpoch) {
-		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
+		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
 		return
 	}
 
@@ -763,9 +765,9 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 }
 
 // SnapshotEpochActivity snapshots accepted block counts from activity tree and updates provided SnapshotEpochActivity.
-func (m *Manager) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity epoch.SnapshotEpochActivity, err error) {
+func (m *Manager) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivity activitylog.SnapshotEpochActivity, err error) {
 	// TODO: obtain activity for epoch from the sybilprotection component embedded in the Engine
-	//epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
+	// epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
 	return
 }
 

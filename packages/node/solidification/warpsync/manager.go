@@ -10,8 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/commitment/chain"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/epoch/commitmentmanager"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -28,7 +29,7 @@ type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
 // The Manager handles the connected neighbors.
 type Manager struct {
 	protocol          *warpsync.Protocol
-	commitmentManager *commitmentmanager.CommitmentManager
+	commitmentManager *chain.Manager
 
 	log *logger.Logger
 
@@ -93,7 +94,7 @@ func WithBlockBatchSize(blockBatchSize int) options.Option[Manager] {
 	}
 }
 
-func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, endPrevEC epoch.EC) (err error) {
+func (m *Manager) WarpRange(ctx context.Context, start, end epoch.Index, startEC commitment.ID, endPrevEC commitment.ID) (err error) {
 	if m.IsStopped() {
 		return errors.Errorf("warpsync manager is stopped")
 	}

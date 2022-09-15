@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
@@ -82,7 +83,7 @@ type EpochCommittableEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
 	// ECRecord is the ec root of committable epoch.
-	ECRecord *epoch.ECRecord
+	ECRecord *commitment.Commitment
 }
 
 // EpochConfirmedEvent is a container that acts as a dictionary for the EpochConfirmed event related parameters.
@@ -101,8 +102,8 @@ type CompetingCommitmentDetectedEvent struct {
 type SyncRangeEvent struct {
 	StartEI   epoch.Index
 	EndEI     epoch.Index
-	StartEC   epoch.EC
-	EndPrevEC epoch.EC
+	StartEC   commitment.ID
+	EndPrevEC commitment.ID
 }
 
 // ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.

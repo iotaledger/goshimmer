@@ -1,65 +1,26 @@
-package commitmentmanager
+package chain
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/core/syncutils"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
 type Commitment struct {
-	EC     epoch.EC
-	ei     *epoch.Index
-	ecr    *epoch.ECR
-	prevEC *epoch.EC
-
 	children    []*Commitment
 	chain       *Chain
 	entityMutex *syncutils.StarvingMutex
 
-	sync.RWMutex
+	*commitment.Commitment
 }
 
-func NewCommitment(ec epoch.EC) (commitment *Commitment) {
+func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
 	return &Commitment{
-		EC:          ec,
 		children:    make([]*Commitment, 0),
 		entityMutex: syncutils.NewStarvingMutex(),
+
+		Commitment: commitment.New(id),
 	}
-}
-
-func (c *Commitment) EI() (ei epoch.Index) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.ei == nil {
-		return
-	}
-
-	return *c.ei
-}
-
-func (c *Commitment) ECR() (ecr epoch.ECR) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.ecr == nil {
-		return
-	}
-
-	return *c.ecr
-}
-
-func (c *Commitment) PrevEC() (prevEC epoch.EC) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.prevEC == nil {
-		return
-	}
-
-	return *c.prevEC
 }
 
 func (c *Commitment) Children() (children []*Commitment) {
@@ -104,19 +65,6 @@ func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 
 	if wasPublished = c.chain == nil; wasPublished {
 		c.chain = chain
-	}
-
-	return
-}
-
-func (c *Commitment) publishData(index epoch.Index, ecr epoch.ECR, previousEC epoch.EC) (published bool) {
-	c.Lock()
-	defer c.Unlock()
-
-	if published = c.ei == nil; published {
-		c.ei = &index
-		c.ecr = &ecr
-		c.prevEC = &previousEC
 	}
 
 	return

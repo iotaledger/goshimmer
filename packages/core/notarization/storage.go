@@ -10,9 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,7 +25,7 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStorage *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 
-	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
+	ecRecordStorage *objectstorage.ObjectStorage[*commitment.Commitment]
 
 	// Delta storages
 	epochDiffStoragesMutex sync.Mutex
@@ -57,7 +58,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.ecRecordStorage = objectstorage.NewStructStorage[epoch.ECRecord](
+	new.ecRecordStorage = objectstorage.NewStructStorage[commitment.Commitment](
 		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixECRecord),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -69,10 +70,10 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	return new
 }
 
-// CachedECRecord retrieves cached ECRecord of the given EI. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentCallback ...func(ei epoch.Index) *epoch.ECRecord) (cachedEpochDiff *objectstorage.CachedObject[*epoch.ECRecord]) {
+// CachedECRecord retrieves cached ECRecord of the given Index. (Make sure to Release or Consume the return object.)
+func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentCallback ...func(ei epoch.Index) *commitment.Commitment) (cachedEpochDiff *objectstorage.CachedObject[*commitment.Commitment]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *epoch.ECRecord {
+		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *commitment.Commitment {
 			return computeIfAbsentCallback[0](ei)
 		})
 	}
@@ -126,7 +127,7 @@ func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err 
 	}
 
 	if ei, _, err = epoch.IndexFromBytes(value); err != nil {
-		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+		return ei, errors.Wrap(err, "failed to deserialize Index from bytes")
 	}
 
 	return

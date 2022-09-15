@@ -1,4 +1,4 @@
-package commitmentmanager
+package chain
 
 import (
 	"sync"
@@ -8,11 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type TestFramework struct {
-	ChainManager *CommitmentManager
+	Manager *Manager
 
 	test               *testing.T
 	commitmentsByAlias map[string]*Commitment
@@ -22,12 +23,12 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
 	return options.Apply(&TestFramework{
-		ChainManager: New(0, epoch.ECR{0}, epoch.EC{0}),
+		Manager: NewManager(0, commitment.RootsID{0}, commitment.ID{0}),
 
 		test:               test,
 		commitmentsByAlias: make(map[string]*Commitment),
 	}, opts, func(t *TestFramework) {
-		t.commitmentsByAlias["Genesis"] = t.ChainManager.SnapshotCommitment
+		t.commitmentsByAlias["Genesis"] = t.Manager.SnapshotCommitment
 	})
 }
 
@@ -38,8 +39,8 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	prevCommitmentID, previousIndex := t.previousCommitmentID(prevAlias)
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
-	commitment := NewCommitment(epoch.NewEC(previousIndex+1, randomECR, prevCommitmentID))
-	commitment.publishData(previousIndex+1, randomECR, prevCommitmentID)
+	commitment := NewCommitment(commitment.NewID(previousIndex+1, randomECR, prevCommitmentID))
+	commitment.PublishData(previousIndex+1, randomECR, prevCommitmentID)
 
 	t.commitmentsByAlias[alias] = commitment
 }
@@ -47,11 +48,11 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 func (t *TestFramework) ProcessCommitment(alias string) (chain *Chain, wasForked bool) {
 	commitment := t.commitment(alias)
 
-	return t.ChainManager.ProcessCommitment(commitment.EI(), commitment.ECR(), commitment.PrevEC())
+	return t.Manager.ProcessCommitment(commitment.Index(), commitment.RootsID(), commitment.PrevID())
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
-	return t.ChainManager.Chain(t.EC(alias))
+	return t.Manager.Chain(t.EC(alias))
 }
 
 func (t *TestFramework) commitment(alias string) (commitment *Commitment) {
@@ -66,20 +67,20 @@ func (t *TestFramework) commitment(alias string) (commitment *Commitment) {
 	return
 }
 
-func (t *TestFramework) EC(alias string) (epochCommitment epoch.EC) {
-	return t.commitment(alias).EC
+func (t *TestFramework) EC(alias string) (epochCommitment commitment.ID) {
+	return t.commitment(alias).ID
 }
 
 func (t *TestFramework) EI(alias string) (index epoch.Index) {
-	return t.commitment(alias).EI()
+	return t.commitment(alias).Index()
 }
 
-func (t *TestFramework) ECR(alias string) (ecr epoch.ECR) {
-	return t.commitment(alias).ECR()
+func (t *TestFramework) ECR(alias string) (ecr commitment.RootsID) {
+	return t.commitment(alias).RootsID()
 }
 
-func (t *TestFramework) PrevEC(alias string) (prevEC epoch.EC) {
-	return t.commitment(alias).PrevEC()
+func (t *TestFramework) PrevEC(alias string) (prevEC commitment.ID) {
+	return t.commitment(alias).PrevID()
 }
 
 func (t *TestFramework) AssertChainIsAlias(chain *Chain, alias string) {
@@ -88,7 +89,7 @@ func (t *TestFramework) AssertChainIsAlias(chain *Chain, alias string) {
 		return
 	}
 
-	require.Equal(t.test, t.commitment(alias).EC, chain.ForkingPoint.EC)
+	require.Equal(t.test, t.commitment(alias).ID, chain.ForkingPoint.ID)
 }
 
 func (t *TestFramework) AssertChainState(chains map[string]string) {
@@ -104,7 +105,7 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 		chain := t.Chain(commitmentAlias)
 
 		require.NotNil(t.test, chain)
-		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.EC)
+		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.ID)
 
 	}
 
@@ -116,15 +117,15 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 			chainCommitment := chain.Commitment(t.EI(commitmentAlias))
 
 			require.NotNil(t.test, chainCommitment)
-			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.EC)
-			require.EqualValues(t.test, t.EI(commitmentAlias), chainCommitment.EI())
-			require.EqualValues(t.test, t.ECR(commitmentAlias), chainCommitment.ECR())
-			require.EqualValues(t.test, t.PrevEC(commitmentAlias), chainCommitment.PrevEC())
+			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.ID)
+			require.EqualValues(t.test, t.EI(commitmentAlias), chainCommitment.Index())
+			require.EqualValues(t.test, t.ECR(commitmentAlias), chainCommitment.RootsID())
+			require.EqualValues(t.test, t.PrevEC(commitmentAlias), chainCommitment.PrevID())
 		}
 	}
 }
 
-func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID epoch.EC, previousIndex epoch.Index) {
+func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID commitment.ID, previousIndex epoch.Index) {
 	if alias == "" {
 		return
 	}
@@ -134,5 +135,5 @@ func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID
 		panic("the previous commitment does not exist")
 	}
 
-	return previousCommitment.EC, previousCommitment.EI()
+	return previousCommitment.ID, previousCommitment.Index()
 }

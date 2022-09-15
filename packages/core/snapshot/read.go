@@ -105,7 +105,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 	seps = &SolidEntryPoints{}
 	blkIDs := make([]models.BlockID, 0)
 
-	// read seps EI
+	// read seps Index
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
 		return nil, errors.Errorf("unable to read epoch index: %w", err)

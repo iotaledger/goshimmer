@@ -234,7 +234,7 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	// write EI
+	// write Index
 	if err := writeFuncWrap("solid entry points epoch", seps.EI); err != nil {
 		return err
 	}

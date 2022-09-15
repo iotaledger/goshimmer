@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -31,8 +31,8 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(0)
-		ecRecord.SetECR(epoch.MerkleRoot{})
-		ecRecord.SetPrevEC(epoch.MerkleRoot{})
+		ecRecord.SetECR(commitment.MerkleRoot{})
+		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
@@ -135,8 +135,8 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(0)
-		ecRecord.SetECR(epoch.MerkleRoot{})
-		ecRecord.SetPrevEC(epoch.MerkleRoot{})
+		ecRecord.SetECR(commitment.MerkleRoot{})
+		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,

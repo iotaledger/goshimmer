@@ -1,4 +1,4 @@
-package commitmentmanager
+package chain
 
 import (
 	"sync"
@@ -6,37 +6,38 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-type CommitmentManager struct {
+type Manager struct {
 	Events             *Events
 	SnapshotCommitment *Commitment
 
-	commitmentsByEC map[epoch.EC]*Commitment
+	commitmentsByID map[commitment.ID]*Commitment
 
 	sync.Mutex
 }
 
-func New(snapshotIndex epoch.Index, snapshotECR epoch.ECR, snapshotPrevECR epoch.EC) (manager *CommitmentManager) {
-	manager = &CommitmentManager{
+func NewManager(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, snapshotPrevID commitment.ID) (manager *Manager) {
+	manager = &Manager{
 		Events: NewEvents(),
 
-		commitmentsByEC: make(map[epoch.EC]*Commitment),
+		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
 
-	manager.SnapshotCommitment = manager.Commitment(epoch.NewEC(snapshotIndex, snapshotECR, snapshotPrevECR), true)
-	manager.SnapshotCommitment.publishData(snapshotIndex, snapshotECR, snapshotPrevECR)
+	manager.SnapshotCommitment = manager.Commitment(commitment.NewID(snapshotIndex, snapshotRootsID, snapshotPrevID), true)
+	manager.SnapshotCommitment.PublishData(snapshotIndex, snapshotRootsID, snapshotPrevID)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
-	manager.commitmentsByEC[manager.SnapshotCommitment.EC] = manager.SnapshotCommitment
+	manager.commitmentsByID[manager.SnapshotCommitment.ID] = manager.SnapshotCommitment
 
 	return
 }
 
-func (c *CommitmentManager) ProcessCommitment(index epoch.Index, ecr epoch.ECR, prevEC epoch.EC) (chain *Chain, wasForked bool) {
-	commitment := c.Commitment(epoch.NewEC(index, ecr, prevEC), true)
-	if !commitment.publishData(index, ecr, prevEC) {
+func (c *Manager) ProcessCommitment(index epoch.Index, ecr commitment.RootsID, prevEC commitment.ID) (chain *Chain, wasForked bool) {
+	commitment := c.Commitment(commitment.NewID(index, ecr, prevEC), true)
+	if !commitment.PublishData(index, ecr, prevEC) {
 		return commitment.Chain(), false
 	}
 
@@ -57,7 +58,7 @@ func (c *CommitmentManager) ProcessCommitment(index epoch.Index, ecr epoch.ECR, 
 	return
 }
 
-func (c *CommitmentManager) Chain(ec epoch.EC) (chain *Chain) {
+func (c *Manager) Chain(ec commitment.ID) (chain *Chain) {
 	if commitment := c.Commitment(ec, false); commitment != nil {
 		return commitment.Chain()
 	}
@@ -65,40 +66,40 @@ func (c *CommitmentManager) Chain(ec epoch.EC) (chain *Chain) {
 	return
 }
 
-func (c *CommitmentManager) Commitment(ec epoch.EC, createIfAbsent ...bool) (commitment *Commitment) {
+func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment) {
 	c.Lock()
 	defer c.Unlock()
 
-	commitment, exists := c.commitmentsByEC[ec]
+	commitment, exists := c.commitmentsByID[id]
 	if !exists && len(createIfAbsent) >= 1 && createIfAbsent[0] {
-		commitment = NewCommitment(ec)
-		c.commitmentsByEC[ec] = commitment
+		commitment = NewCommitment(id)
+		c.commitmentsByID[id] = commitment
 	}
 
 	return
 }
 
-func (c *CommitmentManager) Commitments(ec epoch.EC, amount int) (commitments []*Commitment, err error) {
+func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Commitment, err error) {
 	c.Lock()
 	defer c.Unlock()
 
 	commitments = make([]*Commitment, amount)
 
 	for i := 0; i < amount; i++ {
-		commitment, exists := c.commitmentsByEC[ec]
+		commitment, exists := c.commitmentsByID[id]
 		if !exists {
 			return nil, errors.Errorf("not all commitments in the given range are known")
 		}
 
 		commitments[i] = commitment
 
-		ec = commitment.PrevEC()
+		id = commitment.PrevID()
 	}
 
 	return
 }
 
-func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (chain *Chain, wasForked bool) {
+func (c *Manager) registerChild(parent commitment.ID, child *Commitment) (chain *Chain, wasForked bool) {
 	child.lockEntity()
 	defer child.unlockEntity()
 
@@ -110,7 +111,7 @@ func (c *CommitmentManager) registerChild(parent epoch.EC, child *Commitment) (c
 	return
 }
 
-func (c *CommitmentManager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
+func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (childrenToUpdate []*Commitment) {
 	child.lockEntity()
 	defer child.unlockEntity()
 
