@@ -28,14 +28,14 @@ type Retainer struct {
 	optsRealm kvstore.Realm
 }
 
-func NewRetainer(protocol *protocol.Protocol, opts ...options.Option[Retainer]) (r *Retainer) {
+func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
 		cachedMetadata:  memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
 		protocol:        protocol,
 		evictionManager: protocol.EvictionManager.Lockable(),
 		optsRealm:       []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata](protocol.DatabaseManager, r.optsRealm)
+		r.blockStorage = database.New[models.BlockID, BlockMetadata, *BlockMetadata](dbManager, r.optsRealm)
 	})
 }
 

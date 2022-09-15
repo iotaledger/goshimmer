@@ -24,9 +24,10 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	meta.M.Invalid = false
 	meta.M.Orphaned = true
 	meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
-	meta.M.OrphanedBlocksInPastCone.Add(blockID1)
+	//meta.M.OrphanedBlocksInPastCone.Add(blockID1)
+	//meta.M.OrphanedBlocksInPastCone.Add(blockID2)
 
-	fmt.Println(serix.DefaultAPI.Encode(context.Background(), meta))
+	fmt.Println(meta.Encode())
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
@@ -39,8 +40,8 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 	meta.M.Solid = true
 	meta.M.Invalid = false
 	meta.M.Orphaned = true
-	// meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
-	// meta.M.OrphanedBlocksInPastCone.Add(blockID1)
+	meta.M.OrphanedBlocksInPastCone = make(models.BlockIDs)
+	meta.M.OrphanedBlocksInPastCone.Add(blockID1)
 
 	out, err := serix.DefaultAPI.JSONEncode(context.Background(), meta.M)
 	require.NoError(t, err)
