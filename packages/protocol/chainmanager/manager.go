@@ -19,15 +19,15 @@ type Manager struct {
 	sync.Mutex
 }
 
-func NewManager(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, snapshotPrevID commitment.ID) (manager *Manager) {
+func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events: NewEvents(),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
 
-	manager.SnapshotCommitment = manager.Commitment(commitment.NewID(snapshotIndex, snapshotRootsID, snapshotPrevID), true)
-	manager.SnapshotCommitment.PublishData(snapshotPrevID, snapshotIndex, snapshotRootsID)
+	manager.SnapshotCommitment = manager.Commitment(commitment.NewID(snapshot.Index(), snapshot.RootsID(), snapshot.PrevID()), true)
+	manager.SnapshotCommitment.PublishData(snapshot.PrevID(), snapshot.Index(), snapshot.RootsID())
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
