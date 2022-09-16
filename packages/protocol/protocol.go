@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
 )
 
-// region Node /////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Node struct {
+type Protocol struct {
 	network  *network.Network
 	settings *Settings
 	// dispatcher      *dispatcher.Dispatcher
@@ -26,13 +26,13 @@ type Node struct {
 	*logger.Logger
 }
 
-func New(networkInstance *network.Network, log *logger.Logger, opts ...options.Option[Node]) (node *Node) {
-	return options.Apply(&Node{
+func New(networkInstance *network.Network, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+	return options.Apply(&Protocol{
 		Logger: log,
 
 		optsNodeID:       "iota",
 		optsSettingsFile: "settings.bin",
-	}, opts, func(n *Node) {
+	}, opts, func(n *Protocol) {
 		n.network = networkInstance
 		n.settings = NewSettings(filepath.Join(n.optsNodeID, n.optsSettingsFile))
 
@@ -55,14 +55,14 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Node] {
-	return func(n *Node) {
+func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
+	return func(n *Protocol) {
 		n.optsDBManagerOptions = opts
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Node] {
-// 	return func(n *Node) {
+// func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
+// 	return func(n *Protocol) {
 // 		n.optsSolidificationOptions = opts
 // 	}
 // }
