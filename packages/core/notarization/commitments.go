@@ -10,11 +10,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	database2 "github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
@@ -66,11 +66,11 @@ type EpochCommitmentFactory struct {
 func NewEpochCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
-	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixStateTreeNodes)
-	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixStateTreeValues)
+	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
+	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeValues)
 
-	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixManaTreeNodes)
-	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixManaTreeValues)
+	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeNodes)
+	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: shrinkingmap.New[epoch.Index, *CommitmentTrees](),
@@ -115,7 +115,7 @@ func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) error {
 
 // updateManaLeaf updates the mana balance in the mana sparse merkle tree.
 func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.OutputWithMetadata, isCreated bool) (err error) {
-	outputBalance, exists := outputWithMetadata.Output().(devnetvm2.Output).Balances().Get(devnetvm2.ColorIOTA)
+	outputBalance, exists := outputWithMetadata.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 	if !exists {
 		return nil
 	}
@@ -309,7 +309,7 @@ func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWit
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
 	// Volatile storage for small trees
-	db, _ := database2.NewMemDB("")
+	db, _ := database.NewMemDB("")
 	blockIDStore := db.NewStore()
 	blockValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()

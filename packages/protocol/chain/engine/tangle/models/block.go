@@ -20,8 +20,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	payload2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
@@ -61,7 +61,7 @@ const (
 // Block represents the core block for the base layer Tangle.
 type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
-	payload                                       payload2.Payload
+	payload                                       payload.Payload
 	issuerID                                      *identity.ID
 }
 
@@ -83,7 +83,7 @@ type block struct {
 
 // NewBlock creates a new block with the details provided by the issuer.
 func NewBlock(opts ...options.Option[Block]) *Block {
-	defaultPayload := payload2.NewGenericDataPayload([]byte(""))
+	defaultPayload := payload.NewGenericDataPayload([]byte(""))
 
 	blk := model.NewStorable[BlockID, Block](&block{
 		Version:         BlockVersion,
@@ -104,7 +104,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
 	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
-	newBlock.M.PayloadBytes = lo.PanicOnErr(payload2.NewGenericDataPayload([]byte("")).Bytes())
+	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
 
 	return options.Apply(newBlock, opts)
 }
@@ -197,7 +197,7 @@ func (b *Block) SequenceNumber() uint64 {
 }
 
 // Payload returns the Payload of the block.
-func (b *Block) Payload() payload2.Payload {
+func (b *Block) Payload() payload.Payload {
 	b.Lock()
 	defer b.Unlock()
 	if b.payload == nil {
@@ -206,8 +206,8 @@ func (b *Block) Payload() payload2.Payload {
 			panic(err)
 		}
 
-		if tx, isTransaction := b.payload.(utxo2.Transaction); isTransaction {
-			tx.SetID(utxo2.NewTransactionID(b.M.PayloadBytes))
+		if tx, isTransaction := b.payload.(utxo.Transaction); isTransaction {
+			tx.SetID(utxo.NewTransactionID(b.M.PayloadBytes))
 			if devnetTx, isDevnetTx := b.payload.(*devnetvm.Transaction); isDevnetTx {
 				devnetvm.SetOutputID(devnetTx.Essence(), tx.ID())
 			}
@@ -361,7 +361,7 @@ func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
 	}
 }
 
-func WithPayload(payload payload2.Payload) options.Option[Block] {
+func WithPayload(payload payload.Payload) options.Option[Block] {
 	return func(m *Block) {
 		m.payload = payload
 		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())

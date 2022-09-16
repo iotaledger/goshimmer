@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // ManaBaseVector represents a base mana vector.
@@ -173,7 +173,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 		// first, revoke mana from previous owners
 		for _, output := range spent {
 			idToRevoke := m.getIDBasedOnManaType(output)
-			outputIOTAs, exists := output.Output().(devnetvm2.Output).Balances().Get(devnetvm2.ColorIOTA)
+			outputIOTAs, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 			if !exists {
 				continue
 			}
@@ -199,7 +199,7 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 		for _, output := range created {
 			idToPledge := m.getIDBasedOnManaType(output)
 
-			outputIOTAs, exists := output.Output().(devnetvm2.Output).Balances().Get(devnetvm2.ColorIOTA)
+			outputIOTAs, exists := output.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 			if !exists {
 				continue
 			}

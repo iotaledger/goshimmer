@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	booker2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
@@ -27,10 +27,10 @@ type VirtualVoting struct {
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	*booker2.Booker
+	*booker.Booker
 }
 
-func New(booker *booker2.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
+func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Option[VirtualVoting]) (newVirtualVoting *VirtualVoting) {
 	return options.Apply(&VirtualVoting{
 		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
@@ -38,7 +38,7 @@ func New(booker *booker2.Booker, validatorSet *validator.Set, opts ...options.Op
 		Booker:          booker,
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers2.SequenceID) markers2.Index {
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
 			return 0
 		})
 
@@ -63,7 +63,7 @@ func (o *VirtualVoting) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // MarkerVoters retrieves Validators supporting a given marker.
-func (o *VirtualVoting) MarkerVoters(marker markers2.Marker) (voters *validator.Set) {
+func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.Set) {
 	o.evictionManager.RLock()
 	defer o.evictionManager.RUnlock()
 
@@ -79,14 +79,14 @@ func (o *VirtualVoting) ConflictVoters(conflictID utxo.TransactionID) (voters *v
 }
 
 func (o *VirtualVoting) setupEvents() {
-	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker2.Block) {
+	o.Booker.Events.BlockBooked.Hook(event.NewClosure(func(block *booker.Block) {
 		o.Track(NewBlock(block))
 	}))
 
-	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker2.BlockConflictAddedEvent) {
+	o.Booker.Events.BlockConflictAdded.Hook(event.NewClosure(func(event *booker.BlockConflictAddedEvent) {
 		o.processForkedBlock(event.Block, event.ConflictID, event.ParentConflictIDs)
 	}))
-	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker2.MarkerConflictAddedEvent) {
+	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
 
@@ -141,13 +141,13 @@ func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 // region Forking logic ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // processForkedBlock updates the Conflict weight after an individually mapped Block was forked into a new Conflict.
-func (o *VirtualVoting) processForkedBlock(block *booker2.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	votePower := NewBlockVotePower(block.ID(), block.IssuingTime())
 	o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, block.IssuerID(), votePower)
 }
 
 // take everything in future cone because it was not conflicting before and move to new conflict.
-func (o *VirtualVoting) processForkedMarker(marker markers2.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
 	}

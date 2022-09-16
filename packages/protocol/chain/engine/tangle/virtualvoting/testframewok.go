@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
-	booker2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
@@ -36,8 +36,8 @@ type TestFramework struct {
 	optsBlockDAGOptions []options.Option[blockdag.BlockDAG]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsBooker          *booker2.Booker
-	optsBookerOptions   []options.Option[booker2.Booker]
+	optsBooker          *booker.Booker
+	optsBookerOptions   []options.Option[booker.Booker]
 	optsVirtualVoting   []options.Option[VirtualVoting]
 
 	*BookerTestFramework
@@ -51,11 +51,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		test:              test,
 		identitiesByAlias: make(map[string]*identity.Identity),
 	}, opts, func(t *TestFramework) {
-		t.BookerTestFramework = booker2.NewTestFramework(
+		t.BookerTestFramework = booker.NewTestFramework(
 			test,
-			lo.Cond(t.optsBlockDAG != nil, booker2.WithBlockDAG(t.optsBlockDAG), booker2.WithBlockDAGOptions(t.optsBlockDAGOptions...)),
-			lo.Cond(t.optsLedger != nil, booker2.WithLedger(t.optsLedger), booker2.WithLedgerOptions(t.optsLedgerOptions...)),
-			lo.Cond(t.optsBooker != nil, booker2.WithBooker(t.optsBooker), booker2.WithBookerOptions(t.optsBookerOptions...)),
+			lo.Cond(t.optsBlockDAG != nil, booker.WithBlockDAG(t.optsBlockDAG), booker.WithBlockDAGOptions(t.optsBlockDAGOptions...)),
+			lo.Cond(t.optsLedger != nil, booker.WithLedger(t.optsLedger), booker.WithLedgerOptions(t.optsLedgerOptions...)),
+			lo.Cond(t.optsBooker != nil, booker.WithBooker(t.optsBooker), booker.WithBookerOptions(t.optsBookerOptions...)),
 		)
 
 		if t.VirtualVoting == nil {
@@ -135,7 +135,7 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
-type BookerTestFramework = booker2.TestFramework
+type BookerTestFramework = booker.TestFramework
 
 type VotesTestFramework = votes.TestFramework
 
@@ -171,13 +171,13 @@ func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	}
 }
 
-func WithBookerOptions(opts ...options.Option[booker2.Booker]) options.Option[TestFramework] {
+func WithBookerOptions(opts ...options.Option[booker.Booker]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBookerOptions = opts
 	}
 }
 
-func WithBooker(booker *booker2.Booker) options.Option[TestFramework] {
+func WithBooker(booker *booker.Booker) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBooker = booker
 	}

@@ -16,11 +16,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
-	tangle2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
-	blockdag2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/virtualvoting"
 )
 
@@ -29,7 +29,7 @@ import (
 type TestFramework struct {
 	TipManager           *Manager
 	mockAcceptance       *acceptance.MockAcceptanceGadget
-	scheduledBlocks      *shrinkingmap.ShrinkingMap[models2.BlockID, *scheduler.Block]
+	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
 
 	test       *testing.T
@@ -39,20 +39,20 @@ type TestFramework struct {
 	optsGenesisTime       time.Time
 	optsClock             *clock.Clock
 	optsTipManagerOptions []options.Option[Manager]
-	optsTangleOptions     []options.Option[tangle2.Tangle]
-	*tangle2.TestFramework
+	optsTangleOptions     []options.Option[tangle.Tangle]
+	*tangle.TestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:            test,
 		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
-		scheduledBlocks: shrinkingmap.New[models2.BlockID, *scheduler.Block](),
+		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 		optsGenesisTime: time.Now().Add(-5 * time.Hour),
 	}, opts, func(t *TestFramework) {
-		t.TestFramework = tangle2.NewTestFramework(
+		t.TestFramework = tangle.NewTestFramework(
 			test,
-			tangle2.WithTangleOptions(t.optsTangleOptions...),
+			tangle.WithTangleOptions(t.optsTangleOptions...),
 		)
 		if t.optsClock == nil {
 			t.optsClock = clock.NewClock(t.optsGenesisTime)
@@ -95,18 +95,18 @@ func (t *TestFramework) setupEvents() {
 }
 
 func (t *TestFramework) createGenesis() {
-	genesisMarker := markers2.NewMarker(0, 0)
-	structureDetails := markers2.NewStructureDetails()
-	structureDetails.SetPastMarkers(markers2.NewMarkers(genesisMarker))
+	genesisMarker := markers.NewMarker(0, 0)
+	structureDetails := markers.NewStructureDetails()
+	structureDetails.SetPastMarkers(markers.NewMarkers(genesisMarker))
 	structureDetails.SetIsPastMarker(true)
 	structureDetails.SetPastMarkerGap(0)
 
 	block := scheduler.NewBlock(
 		virtualvoting.NewBlock(
 			booker.NewBlock(
-				blockdag2.NewBlock(
-					models2.NewEmptyBlock(models2.EmptyBlockID, models2.WithIssuingTime(t.optsGenesisTime)),
-					blockdag2.WithSolid(true),
+				blockdag.NewBlock(
+					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)),
+					blockdag.WithSolid(true),
 				),
 				booker.WithBooked(true),
 				booker.WithStructureDetails(structureDetails),
@@ -121,14 +121,14 @@ func (t *TestFramework) createGenesis() {
 	t.SetMarkersAccepted(genesisMarker)
 }
 
-func (t *TestFramework) mockSchedulerBlock(id models2.BlockID) (block *scheduler.Block, exists bool) {
+func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.Block, exists bool) {
 	t.scheduledBlocksMutex.RLock()
 	defer t.scheduledBlocksMutex.RUnlock()
 
 	return t.scheduledBlocks.Get(id)
 }
 
-func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag2.TestFramework {
+func (t *TestFramework) IssueBlocksAndSetAccepted(aliases ...string) *blockdag.TestFramework {
 	t.SetBlocksAccepted(aliases...)
 
 	return t.IssueBlocks(aliases...)
@@ -138,7 +138,7 @@ func (t *TestFramework) SetBlocksAccepted(aliases ...string) {
 	t.mockAcceptance.SetBlocksAccepted(t.BlockIDs(aliases...))
 }
 
-func (t *TestFramework) SetMarkersAccepted(m ...markers2.Marker) {
+func (t *TestFramework) SetMarkersAccepted(m ...markers.Marker) {
 	t.mockAcceptance.SetMarkersAccepted(m...)
 }
 
@@ -164,7 +164,7 @@ func (t *TestFramework) AssertTipsRemoved(count uint32) {
 }
 
 func (t *TestFramework) AssertTips(actualTips scheduler.Blocks, expectedStateAliases ...string) {
-	actualTipsIDs := models2.NewBlockIDs()
+	actualTipsIDs := models.NewBlockIDs()
 
 	for it := actualTips.Iterator(); it.HasNext(); {
 		actualTipsIDs.Add(it.Next().ID())
@@ -192,7 +192,7 @@ func WithTipManagerOptions(opts ...options.Option[Manager]) options.Option[TestF
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle2.Tangle]) options.Option[TestFramework] {
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTangleOptions = opts
 	}

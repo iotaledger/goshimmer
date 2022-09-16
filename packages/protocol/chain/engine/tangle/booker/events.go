@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markermanager"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
@@ -12,7 +12,7 @@ type Events struct {
 	BlockBooked         *event.Linkable[*Block, Events, *Events]
 	BlockConflictAdded  *event.Linkable[*BlockConflictAddedEvent, Events, *Events]
 	MarkerConflictAdded *event.Linkable[*MarkerConflictAddedEvent, Events, *Events]
-	SequenceEvicted     *event.Linkable[markers2.SequenceID, Events, *Events]
+	SequenceEvicted     *event.Linkable[markers.SequenceID, Events, *Events]
 	Error               *event.Linkable[error, Events, *Events]
 
 	MarkerManager *markermanager.Events
@@ -26,7 +26,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockBooked:         event.NewLinkable[*Block, Events, *Events](),
 		BlockConflictAdded:  event.NewLinkable[*BlockConflictAddedEvent, Events, *Events](),
 		MarkerConflictAdded: event.NewLinkable[*MarkerConflictAddedEvent, Events, *Events](),
-		SequenceEvicted:     event.NewLinkable[markers2.SequenceID, Events, *Events](),
+		SequenceEvicted:     event.NewLinkable[markers.SequenceID, Events, *Events](),
 		Error:               event.NewLinkable[error, Events, *Events](),
 
 		MarkerManager: markermanager.NewEvents(),
@@ -40,7 +40,7 @@ type BlockConflictAddedEvent struct {
 }
 
 type MarkerConflictAddedEvent struct {
-	Marker            markers2.Marker
+	Marker            markers.Marker
 	ConflictID        utxo.TransactionID
 	ParentConflictIDs utxo.TransactionIDs
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/eviction"
@@ -31,7 +31,7 @@ type Gadget struct {
 	tangle                  *tangle.Tangle
 	evictionManager         *eviction.LockableManager[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
-	lastAcceptedMarker      *memstorage.Storage[markers2.SequenceID, markers2.Index]
+	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
 	acceptanceOrder         *causalorder.CausalOrder[models.BlockID, *Block]
 
@@ -48,14 +48,14 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 
 		a.tangle = tangle
 		a.evictionManager = tangle.EvictionManager.Lockable()
-		a.lastAcceptedMarker = memstorage.New[markers2.SequenceID, markers2.Index]()
+		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 		a.acceptanceOrder = causalorder.New(a.evictionManager.Manager, a.GetOrRegisterBlock, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
 // IsMarkerAccepted returns whether the given marker is accepted.
-func (a *Gadget) IsMarkerAccepted(marker markers2.Marker) (accepted bool) {
+func (a *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
 	a.evictionManager.RLock()
 	defer a.evictionManager.RUnlock()
 
@@ -75,12 +75,12 @@ func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 	return exists && block.Accepted()
 }
 
-func (a *Gadget) isMarkerAccepted(marker markers2.Marker) bool {
+func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(marker.SequenceID())
 	return exists && lastAcceptedIndex >= marker.Index()
 }
 
-func (a *Gadget) FirstUnacceptedIndex(sequenceID markers2.SequenceID) (firstUnacceptedIndex markers2.Index) {
+func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
 		return 0
@@ -104,7 +104,7 @@ func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 	return a.getOrRegisterBlock(blockID)
 }
 
-func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers2.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers2.Index) {
+func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.evictionManager.RLock()
 	defer a.evictionManager.RUnlock()
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
@@ -112,7 +112,7 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers2.SequenceID, newMa
 			continue
 		}
 
-		marker := markers2.NewMarker(sequenceID, markerIndex)
+		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 		if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
@@ -150,7 +150,7 @@ func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (a *Gadget) propagateAcceptance(marker markers2.Marker) {
+func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 	bookerBlock, blockExists := a.tangle.BlockFromMarker(marker)
 	if !blockExists {
 		return
@@ -208,7 +208,7 @@ func (a *Gadget) evictEpoch(index epoch.Index) {
 	a.blocks.EvictEpoch(index)
 }
 
-func (a *Gadget) evictSequence(sequenceID markers2.SequenceID) {
+func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
 	a.evictionManager.Lock()
 	defer a.evictionManager.Unlock()
 
@@ -292,7 +292,7 @@ func (a *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
 	}
 }
 
-func (a *Gadget) setMarkerAccepted(marker markers2.Marker) (wasUpdated bool) {
+func (a *Gadget) setMarkerAccepted(marker markers.Marker) (wasUpdated bool) {
 	a.lastAcceptedMarkerMutex.Lock()
 	defer a.lastAcceptedMarkerMutex.Unlock()
 

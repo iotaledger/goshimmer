@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	blockdag2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
@@ -29,10 +29,10 @@ type TestFramework struct {
 	blockConflictsUpdated int32
 	markerConflictsAdded  int32
 
-	optsBlockDAG        *blockdag2.BlockDAG
-	optsBlockDAGOptions []options.Option[blockdag2.BlockDAG]
-	optsLedger          *ledger2.Ledger
-	optsLedgerOptions   []options.Option[ledger2.Ledger]
+	optsBlockDAG        *blockdag.BlockDAG
+	optsBlockDAGOptions []options.Option[blockdag.BlockDAG]
+	optsLedger          *ledger.Ledger
+	optsLedgerOptions   []options.Option[ledger.Ledger]
 	optsBookerOptions   []options.Option[Booker]
 
 	*LedgerTestFramework
@@ -43,8 +43,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
-		t.BlockDAGTestFramework = blockdag2.NewTestFramework(test, lo.Cond(t.optsBlockDAG != nil, blockdag2.WithBlockDAG(t.optsBlockDAG), blockdag2.WithBlockDAGOptions(t.optsBlockDAGOptions...)))
-		t.LedgerTestFramework = ledger2.NewTestFramework(test, lo.Cond(t.optsLedger != nil, ledger2.WithLedger(t.optsLedger), ledger2.WithLedgerOptions(t.optsLedgerOptions...)))
+		t.BlockDAGTestFramework = blockdag.NewTestFramework(test, lo.Cond(t.optsBlockDAG != nil, blockdag.WithBlockDAG(t.optsBlockDAG), blockdag.WithBlockDAGOptions(t.optsBlockDAGOptions...)))
+		t.LedgerTestFramework = ledger.NewTestFramework(test, lo.Cond(t.optsLedger != nil, ledger.WithLedger(t.optsLedger), ledger.WithLedgerOptions(t.optsLedgerOptions...)))
 
 		if t.Booker == nil {
 			t.Booker = New(t.BlockDAG, t.Ledger, t.optsBookerOptions...)
@@ -52,12 +52,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, (*TestFramework).setupEvents)
 }
 
-func (t *TestFramework) SequenceManager() (sequenceManager *markers2.SequenceManager) {
+func (t *TestFramework) SequenceManager() (sequenceManager *markers.SequenceManager) {
 	return t.Booker.markerManager.SequenceManager
 }
 
 func (t *TestFramework) PreventNewMarkers(prevent bool) {
-	callback := func(markers2.SequenceID, markers2.Index) bool {
+	callback := func(markers.SequenceID, markers.Index) bool {
 		return !prevent
 	}
 	t.Booker.markerManager.SequenceManager.SetIncreaseIndexCallback(callback)
@@ -136,7 +136,7 @@ func (t *TestFramework) checkConflictIDs(expectedConflictIDs map[string]utxo.Tra
 	}
 }
 
-func (t *TestFramework) CheckMarkers(expectedMarkers map[string]*markers2.Markers) {
+func (t *TestFramework) CheckMarkers(expectedMarkers map[string]*markers.Markers) {
 	for blockAlias, expectedMarkersOfBlock := range expectedMarkers {
 		block := t.Block(blockAlias)
 		assert.True(t.test, expectedMarkersOfBlock.Equals(block.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
@@ -195,33 +195,33 @@ func (t *TestFramework) checkBlockMetadataDiffConflictIDs(expectedDiffConflictID
 	}
 }
 
-type BlockDAGTestFramework = blockdag2.TestFramework
+type BlockDAGTestFramework = blockdag.TestFramework
 
-type LedgerTestFramework = ledger2.TestFramework
+type LedgerTestFramework = ledger.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithBlockDAGOptions(opts ...options.Option[blockdag2.BlockDAG]) options.Option[TestFramework] {
+func WithBlockDAGOptions(opts ...options.Option[blockdag.BlockDAG]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAGOptions = opts
 	}
 }
 
-func WithBlockDAG(blockDAG *blockdag2.BlockDAG) options.Option[TestFramework] {
+func WithBlockDAG(blockDAG *blockdag.BlockDAG) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsBlockDAG = blockDAG
 	}
 }
 
-func WithLedgerOptions(opts ...options.Option[ledger2.Ledger]) options.Option[TestFramework] {
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsLedgerOptions = opts
 	}
 }
 
-func WithLedger(ledger *ledger2.Ledger) options.Option[TestFramework] {
+func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsLedger = ledger
 	}

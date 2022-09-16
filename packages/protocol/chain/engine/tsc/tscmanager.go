@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/timed"
 
-	clock2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
@@ -24,7 +24,7 @@ type TSCManager struct {
 	unconfirmedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
 	tangle            *tangle.Tangle
 	isBlockAccepted   func(models.BlockID) bool
-	clock             *clock2.Clock
+	clock             *clock.Clock
 
 	optsTimeSinceConfirmationThreshold time.Duration
 
@@ -32,7 +32,7 @@ type TSCManager struct {
 }
 
 // New returns a new instance of TSCManager.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, clock *clock2.Clock, opts ...options.Option[TSCManager]) *TSCManager {
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, clock *clock.Clock, opts ...options.Option[TSCManager]) *TSCManager {
 	return options.Apply(&TSCManager{
 		isBlockAccepted:                    isBlockAccepted,
 		clock:                              clock,
@@ -48,7 +48,7 @@ func (o *TSCManager) Setup() {
 
 }
 
-func (o *TSCManager) HandleTimeUpdate(evt *clock2.TimeUpdate) {
+func (o *TSCManager) HandleTimeUpdate(evt *clock.TimeUpdate) {
 	o.Lock()
 	defer o.Unlock()
 	o.orphanBeforeTSC(evt.NewTime.Add(-o.optsTimeSinceConfirmationThreshold))

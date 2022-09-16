@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
@@ -23,7 +23,7 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 	blocks := make([]*blockdag.Block, 0, 20)
 	for i := 0; i < 20; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		block := blockdag.NewBlock(tf.CreateBlock(alias, models2.WithStrongParents(tf.BlockIDs("Genesis")), models2.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
+		block := blockdag.NewBlock(tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
 		blocks = append(blocks, block)
 		heap.Push(&tf.OrphanageManager.unconfirmedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Key: timed.HeapKey(block.IssuingTime()), Value: block})
 	}
@@ -37,7 +37,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 	createTestTangleOrphanage(tf)
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		tf.Block("Marker-0/1").ID():    true,
 		tf.Block("0/1-preTSC_0").ID():  true,
 		tf.Block("0/1-preTSC_1").ID():  true,
@@ -86,7 +86,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 	// Mark orphaned blocks as accepted and make sure that they get unorphaned.
 	{
-		newAcceptedBlocksInOrder := []models2.BlockID{
+		newAcceptedBlocksInOrder := []models.BlockID{
 			tf.Block("0/1-preTSCSeq1_0").ID(),
 			tf.Block("0/1-preTSCSeq1_1").ID(),
 			tf.Block("0/1-preTSCSeq1_2").ID(),
@@ -103,7 +103,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			tf.Block("0/1-postTSCSeq1_3").ID(),
 			tf.Block("0/1-postTSCSeq1_4").ID(),
 		}
-		newAcceptedBlocks := map[models2.BlockID]bool{
+		newAcceptedBlocks := map[models.BlockID]bool{
 			tf.Block("0/1-preTSCSeq1_0").ID():  true,
 			tf.Block("0/1-preTSCSeq1_1").ID():  true,
 			tf.Block("0/1-preTSCSeq1_2").ID():  true,
@@ -156,7 +156,7 @@ func createTestTangleOrphanage(tf *TestFramework) {
 	var lastMsgAlias string
 	// SEQUENCE 0
 	{
-		tf.CreateBlock("Marker-0/1", models2.WithStrongParents(tf.BlockIDs("Genesis")), models2.WithIssuingTime(time.Now().Add(-6*time.Minute)))
+		tf.CreateBlock("Marker-0/1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-6*time.Minute)))
 		tf.IssueBlocks("Marker-0/1").WaitUntilAllTasksProcessed()
 		lastMsgAlias = issueBlocks(tf, "0/1-preTSC", 10, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueBlocks(tf, "0/1-postTSC", 1, []string{lastMsgAlias}, 0)
@@ -173,12 +173,12 @@ func createTestTangleOrphanage(tf *TestFramework) {
 func issueBlocks(tf *TestFramework, blkPrefix string, blkCount int, parents []string, timestampOffset time.Duration) string {
 	blkAlias := fmt.Sprintf("%s_%d", blkPrefix, 0)
 
-	tf.CreateBlock(blkAlias, models2.WithStrongParents(tf.BlockIDs(parents...)), models2.WithIssuingTime(time.Now().Add(-timestampOffset)))
+	tf.CreateBlock(blkAlias, models.WithStrongParents(tf.BlockIDs(parents...)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
 	tf.IssueBlocks(blkAlias).WaitUntilAllTasksProcessed()
 
 	for i := 1; i < blkCount; i++ {
 		alias := fmt.Sprintf("%s_%d", blkPrefix, i)
-		tf.CreateBlock(alias, models2.WithIssuer(identity.GenerateIdentity().PublicKey()), models2.WithStrongParents(tf.BlockIDs(blkAlias)), models2.WithIssuingTime(time.Now().Add(-timestampOffset)))
+		tf.CreateBlock(alias, models.WithIssuer(identity.GenerateIdentity().PublicKey()), models.WithStrongParents(tf.BlockIDs(blkAlias)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
 		blkAlias = alias
 	}

@@ -50,7 +50,7 @@ func provide() (result providerResult) {
 }
 
 type providerResult struct {
-	Protocol *chain.Protocol
+	Protocol *chain.Chain
 	Network  *network.Network
 
 	dig.Out

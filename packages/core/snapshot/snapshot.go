@@ -8,12 +8,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 )
 
 // Snapshot contains the data to be put in a snapshot file.
 type Snapshot struct {
-	LedgerSnapshot *ledger2.Snapshot
+	LedgerSnapshot *ledger.Snapshot
 }
 
 // SolidEntryPoints contains solid entry points of an epoch.
@@ -26,7 +26,7 @@ func init() {
 	typeSet := new(serix.TypeSettings)
 	ts := typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)
 
-	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger2.OutputWithMetadata{}, ts)
+	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger.OutputWithMetadata{}, ts)
 	if err != nil {
 		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
@@ -49,7 +49,7 @@ func CreateSnapshot(
 	sepsProd SolidEntryPointsProducerFunc,
 	utxoStatesProd UTXOStatesProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc,
-	activityLogProd ActivityLogProducerFunc) (*ledger2.SnapshotHeader, error) {
+	activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
@@ -86,16 +86,16 @@ func LoadSnapshot(filePath string,
 }
 
 // UTXOStatesProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
-type UTXOStatesProducerFunc func() (outputWithMetadata *ledger2.OutputWithMetadata)
+type UTXOStatesProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
 
 // UTXOStatesConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
-type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger2.OutputWithMetadata)
+type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
 // EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
-type EpochDiffProducerFunc func() (epochDiffs *ledger2.EpochDiff)
+type EpochDiffProducerFunc func() (epochDiffs *ledger.EpochDiff)
 
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
-type EpochDiffsConsumerFunc func(epochDiffs *ledger2.EpochDiff)
+type EpochDiffsConsumerFunc func(epochDiffs *ledger.EpochDiff)
 
 // ActivityLogProducerFunc is the type of function that produces ActivityLog when taking a snapshot.
 type ActivityLogProducerFunc func() (activityLogs epoch.SnapshotEpochActivity)
@@ -104,10 +104,10 @@ type ActivityLogProducerFunc func() (activityLogs epoch.SnapshotEpochActivity)
 type ActivityLogConsumerFunc func(activityLogs epoch.SnapshotEpochActivity)
 
 // HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
-type HeaderProducerFunc func() (header *ledger2.SnapshotHeader, err error)
+type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)
 
 // HeaderConsumerFunc is the type of function that consumes snapshot header when loading a snapshot.
-type HeaderConsumerFunc func(header *ledger2.SnapshotHeader)
+type HeaderConsumerFunc func(header *ledger.SnapshotHeader)
 
 // SolidEntryPointsProducerFunc is the type of function that produces solid entry points when taking a snapshot.
 type SolidEntryPointsProducerFunc func() (seps *SolidEntryPoints)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	conflictdag2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
@@ -19,7 +19,7 @@ type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
 	ConflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
 
 	test                         *testing.T
-	optsConflictDAGTestFramework []options.Option[conflictdag2.TestFramework]
+	optsConflictDAGTestFramework []options.Option[conflictdag.TestFramework]
 
 	*VotesTestFramework
 	*ConflictDAGTestFramework
@@ -34,7 +34,7 @@ func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testin
 			t.VotesTestFramework = votes.NewTestFramework(test)
 		}
 
-		t.ConflictDAGTestFramework = conflictdag2.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
+		t.ConflictDAGTestFramework = conflictdag.NewTestFramework(t.test, t.optsConflictDAGTestFramework...)
 
 		if t.ConflictTracker == nil {
 			t.ConflictTracker = NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](t.ConflictDAG(), t.ValidatorSet)
@@ -52,7 +52,7 @@ func (t *TestFramework[VotePowerType]) ValidateStatementResults(expectedResults 
 
 type VotesTestFramework = votes.TestFramework
 
-type ConflictDAGTestFramework = conflictdag2.TestFramework
+type ConflictDAGTestFramework = conflictdag.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -78,13 +78,13 @@ func WithConflictTracker[VotePowerType votes.VotePower[VotePowerType]](conflictT
 	}
 }
 
-func WithConflictDAG[VotePowerType votes.VotePower[VotePowerType]](conflictDAG *conflictdag2.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
+func WithConflictDAG[VotePowerType votes.VotePower[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) options.Option[TestFramework[VotePowerType]] {
 	return func(t *TestFramework[VotePowerType]) {
 		if t.optsConflictDAGTestFramework == nil {
-			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag2.TestFramework], 0)
+			t.optsConflictDAGTestFramework = make([]options.Option[conflictdag.TestFramework], 0)
 		}
 
-		t.optsConflictDAGTestFramework = append(t.optsConflictDAGTestFramework, conflictdag2.WithConflictDAG(conflictDAG))
+		t.optsConflictDAGTestFramework = append(t.optsConflictDAGTestFramework, conflictdag.WithConflictDAG(conflictDAG))
 	}
 }
 

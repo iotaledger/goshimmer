@@ -12,14 +12,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework[VotePowerType votes.VotePower[VotePowerType]] struct {
 	SequenceTracker *SequenceTracker[VotePowerType]
-	sequenceManager *markers2.SequenceManager
+	sequenceManager *markers.SequenceManager
 
 	test *testing.T
 
@@ -36,15 +36,15 @@ func NewTestFramework[VotePowerType votes.VotePower[VotePowerType]](test *testin
 			t.VotesTestFramework = votes.NewTestFramework(test)
 		}
 
-		t.MarkersTestFramework = markers2.NewTestFramework(t.test, markers2.WithSequenceManager(t.sequenceManager))
+		t.MarkersTestFramework = markers.NewTestFramework(t.test, markers.WithSequenceManager(t.sequenceManager))
 
 		if t.SequenceTracker == nil {
-			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers2.SequenceID) markers2.Index { return 0 })
+			t.SequenceTracker = NewSequenceTracker[VotePowerType](t.ValidatorSet, t.SequenceManager().Sequence, func(sequenceID markers.SequenceID) markers.Index { return 0 })
 		}
 
 		t.SequenceTracker.Events.VotersUpdated.Hook(event.NewClosure(func(evt *VoterUpdatedEvent) {
 			if debug.GetEnabled() {
-				t.test.Logf("VOTER ADDED: %v", markers2.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
+				t.test.Logf("VOTER ADDED: %v", markers.NewMarker(evt.SequenceID, evt.NewMaxSupportedIndex))
 			}
 		}))
 	})
@@ -63,7 +63,7 @@ func (t *TestFramework[VotePowerType]) ValidateStructureDetailsVoters(expectedVo
 
 type VotesTestFramework = votes.TestFramework
 
-type MarkersTestFramework = markers2.TestFramework
+type MarkersTestFramework = markers.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -97,7 +97,7 @@ func WithSequenceTracker[VotePowerType votes.VotePower[VotePowerType]](sequenceT
 	}
 }
 
-func WithSequenceManager[VotePowerType votes.VotePower[VotePowerType]](sequenceManager *markers2.SequenceManager) options.Option[TestFramework[VotePowerType]] {
+func WithSequenceManager[VotePowerType votes.VotePower[VotePowerType]](sequenceManager *markers.SequenceManager) options.Option[TestFramework[VotePowerType]] {
 	return func(tf *TestFramework[VotePowerType]) {
 		if tf.sequenceManager != nil {
 			panic("sequence manager already set")

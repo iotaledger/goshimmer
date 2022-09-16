@@ -16,23 +16,23 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
 
-	payload2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionType represents the payload Type of Transaction.
-var TransactionType payload2.Type
+var TransactionType payload.Type
 
 func init() {
-	TransactionType = payload2.NewType(1337, "TransactionType")
+	TransactionType = payload.NewType(1337, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(Transaction))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}
@@ -111,7 +111,7 @@ func validateTransactionBytes(_ context.Context, _ []byte) (err error) {
 // region TransactionIDs ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionIDs represents a collection of TransactionIDs.
-type TransactionIDs map[utxo2.TransactionID]types.Empty
+type TransactionIDs map[utxo.TransactionID]types.Empty
 
 // Clone returns a copy of the collection of TransactionIDs.
 func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
@@ -144,7 +144,7 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	model.Storable[utxo2.TransactionID, Transaction, *Transaction, transactionModel] `serix:"0"`
+	model.Storable[utxo.TransactionID, Transaction, *Transaction, transactionModel] `serix:"0"`
 }
 
 type transactionModel struct {
@@ -154,16 +154,16 @@ type transactionModel struct {
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
 // we calculate this value lazy and use double-checked locking.
-func (t *Transaction) ID() utxo2.TransactionID {
-	if t.Storable.ID() == utxo2.EmptyTransactionID {
-		t.Storable.SetID(utxo2.NewTransactionID(lo.PanicOnErr(t.Bytes())))
+func (t *Transaction) ID() utxo.TransactionID {
+	if t.Storable.ID() == utxo.EmptyTransactionID {
+		t.Storable.SetID(utxo.NewTransactionID(lo.PanicOnErr(t.Bytes())))
 	}
 
 	return t.Storable.ID()
 }
 
-func (t *Transaction) Inputs() (inputs []utxo2.Input) {
-	inputs = make([]utxo2.Input, 0)
+func (t *Transaction) Inputs() (inputs []utxo.Input) {
+	inputs = make([]utxo.Input, 0)
 	for _, input := range t.Essence().Inputs() {
 		inputs = append(inputs, input)
 	}
@@ -177,7 +177,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.Inputs())))
 	}
 
-	transaction = model.NewStorable[utxo2.TransactionID, Transaction](&transactionModel{
+	transaction = model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
 		Essence:      essence,
 		UnlockBlocks: unlockBlocks,
 	})
@@ -205,7 +205,7 @@ func (t *Transaction) FromBytes(data []byte) error {
 }
 
 // Type returns the Type of the Payload.
-func (t *Transaction) Type() payload2.Type {
+func (t *Transaction) Type() payload.Type {
 	return TransactionType
 }
 
@@ -220,10 +220,10 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 }
 
 // SetOutputID assigns TransactionID to all outputs in TransactionEssence
-func SetOutputID(essence *TransactionEssence, transactionID utxo2.TransactionID) {
+func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(utxo2.NewOutputID(transactionID, uint16(i)))
+		output.SetID(utxo.NewOutputID(transactionID, uint16(i)))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
@@ -242,9 +242,9 @@ func SetOutputID(essence *TransactionEssence, transactionID utxo2.TransactionID)
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ payload2.Payload = new(Transaction)
+var _ payload.Payload = new(Transaction)
 
-var _ utxo2.Transaction = new(Transaction)
+var _ utxo.Transaction = new(Transaction)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -262,10 +262,10 @@ type transactionEssenceModel struct {
 	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
 	AccessPledgeID identity.ID `serix:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
-	ConsensusPledgeID identity.ID      `serix:"3"`
-	Inputs            Inputs           `serix:"4,lengthPrefixType=uint16"`
-	Outputs           Outputs          `serix:"5,lengthPrefixType=uint16"`
-	Payload           payload2.Payload `serix:"6,optional"`
+	ConsensusPledgeID identity.ID     `serix:"3"`
+	Inputs            Inputs          `serix:"4,lengthPrefixType=uint16"`
+	Outputs           Outputs         `serix:"5,lengthPrefixType=uint16"`
+	Payload           payload.Payload `serix:"6,optional"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
@@ -300,7 +300,7 @@ func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEs
 }
 
 // SetPayload set the optional Payload of the TransactionEssence.
-func (t *TransactionEssence) SetPayload(p payload2.Payload) {
+func (t *TransactionEssence) SetPayload(p payload.Payload) {
 	t.M.Payload = p
 }
 
@@ -335,7 +335,7 @@ func (t *TransactionEssence) Outputs() Outputs {
 }
 
 // Payload returns the optional Payload of the TransactionEssence.
-func (t *TransactionEssence) Payload() payload2.Payload {
+func (t *TransactionEssence) Payload() payload.Payload {
 	return t.M.Payload
 }
 

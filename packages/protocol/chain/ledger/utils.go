@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 // Utils is a Ledger component that bundles utility related API to simplify common interactions with the Ledger.
@@ -25,8 +25,8 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
-func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo2.TransactionIDs) (conflictIDsInFutureCone utxo2.TransactionIDs) {
-	conflictIDsInFutureCone = utxo2.NewTransactionIDs()
+func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (conflictIDsInFutureCone utxo.TransactionIDs) {
+	conflictIDsInFutureCone = utxo.NewTransactionIDs()
 
 	for conflictIDWalker := conflictIDs.Iterator(); conflictIDWalker.HasNext(); {
 		conflictID := conflictIDWalker.Next()
@@ -35,7 +35,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo2.TransactionIDs) (confl
 
 		if u.ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsAccepted() {
 			u.ledger.Storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *TransactionMetadata) {
-				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
+				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					conflictIDsInFutureCone.AddAll(txMetadata.ConflictIDs())
 
 					walker.PushAll(txMetadata.OutputIDs().Slice()...)
@@ -44,7 +44,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo2.TransactionIDs) (confl
 			continue
 		}
 
-		u.ledger.ConflictDAG.Utils.ForEachChildConflictID(conflictID, func(childConflictID utxo2.TransactionID) {
+		u.ledger.ConflictDAG.Utils.ForEachChildConflictID(conflictID, func(childConflictID utxo.TransactionID) {
 			conflictIDWalker.Push(childConflictID)
 		})
 	}
@@ -53,13 +53,13 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo2.TransactionIDs) (confl
 }
 
 // ResolveInputs returns the OutputIDs that were referenced by the given Inputs.
-func (u *Utils) ResolveInputs(inputs []utxo2.Input) (outputIDs utxo2.OutputIDs) {
-	return utxo2.NewOutputIDs(lo.Map(inputs, u.ledger.optsVM.ResolveInput)...)
+func (u *Utils) ResolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
+	return utxo.NewOutputIDs(lo.Map(inputs, u.ledger.optsVM.ResolveInput)...)
 }
 
 // UnprocessedConsumingTransactions returns the unprocessed consuming transactions of the named OutputIDs.
-func (u *Utils) UnprocessedConsumingTransactions(outputIDs utxo2.OutputIDs) (consumingTransactions utxo2.TransactionIDs) {
-	consumingTransactions = utxo2.NewTransactionIDs()
+func (u *Utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (consumingTransactions utxo.TransactionIDs) {
+	consumingTransactions = utxo.NewTransactionIDs()
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		u.ledger.Storage.CachedConsumers(it.Next()).Consume(func(consumer *Consumer) {
 			if consumer.IsBooked() {
@@ -74,13 +74,13 @@ func (u *Utils) UnprocessedConsumingTransactions(outputIDs utxo2.OutputIDs) (con
 }
 
 // WalkConsumingTransactionID walks over the TransactionIDs that consume the named OutputIDs.
-func (u *Utils) WalkConsumingTransactionID(entryPoints utxo2.OutputIDs, callback func(consumingTxID utxo2.TransactionID, walker *walker.Walker[utxo2.OutputID])) {
+func (u *Utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
 	if entryPoints.Size() == 0 {
 		return
 	}
 
-	seenTransactions := set.New[utxo2.TransactionID](false)
-	futureConeWalker := walker.New[utxo2.OutputID](false).PushAll(entryPoints.Slice()...)
+	seenTransactions := set.New[utxo.TransactionID](false)
+	futureConeWalker := walker.New[utxo.OutputID](false).PushAll(entryPoints.Slice()...)
 	for futureConeWalker.HasNext() {
 		u.ledger.Storage.CachedConsumers(futureConeWalker.Next()).Consume(func(consumer *Consumer) {
 			if futureConeWalker.WalkStopped() || !seenTransactions.Add(consumer.TransactionID()) {
@@ -94,8 +94,8 @@ func (u *Utils) WalkConsumingTransactionID(entryPoints utxo2.OutputIDs, callback
 
 // WalkConsumingTransactionMetadata walks over the transactions that consume the named OutputIDs and calls the callback
 // with their corresponding TransactionMetadata.
-func (u *Utils) WalkConsumingTransactionMetadata(entryPoints utxo2.OutputIDs, callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID])) {
-	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo2.TransactionID, walker *walker.Walker[utxo2.OutputID]) {
+func (u *Utils) WalkConsumingTransactionMetadata(entryPoints utxo.OutputIDs, callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
+	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 		u.ledger.Storage.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(txMetadata, walker)
 		})
@@ -104,8 +104,8 @@ func (u *Utils) WalkConsumingTransactionMetadata(entryPoints utxo2.OutputIDs, ca
 
 // WithTransactionAndMetadata walks over the transactions that consume the named OutputIDs and calls the callback
 // with their corresponding Transaction and TransactionMetadata.
-func (u *Utils) WithTransactionAndMetadata(txID utxo2.TransactionID, callback func(tx utxo2.Transaction, txMetadata *TransactionMetadata)) {
-	u.ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo2.Transaction) {
+func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx utxo.Transaction, txMetadata *TransactionMetadata)) {
+	u.ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(tx, txMetadata)
 		})
@@ -113,8 +113,8 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo2.TransactionID, callback fu
 }
 
 // TransactionConflictIDs returns the ConflictIDs of the given TransactionID.
-func (u *Utils) TransactionConflictIDs(txID utxo2.TransactionID) (conflictIDs *set.AdvancedSet[utxo2.TransactionID], err error) {
-	conflictIDs = set.NewAdvancedSet[utxo2.TransactionID]()
+func (u *Utils) TransactionConflictIDs(txID utxo.TransactionID) (conflictIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
 		conflictIDs = metadata.ConflictIDs()
 	}) {
@@ -124,26 +124,26 @@ func (u *Utils) TransactionConflictIDs(txID utxo2.TransactionID) (conflictIDs *s
 	return conflictIDs, nil
 }
 
-func (u *Utils) ReferencedTransactions(tx utxo2.Transaction) (transactionIDs utxo2.TransactionIDs) {
-	transactionIDs = utxo2.NewTransactionIDs()
-	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output utxo2.Output) {
+func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
+	transactionIDs = utxo.NewTransactionIDs()
+	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output utxo.Output) {
 		transactionIDs.Add(output.ID().TransactionID)
 	})
 	return transactionIDs
 }
 
 // ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
-func (u *Utils) ConflictingTransactions(transactionID utxo2.TransactionID) (conflictingTransactions utxo2.TransactionIDs) {
-	conflictingTransactions = utxo2.NewTransactionIDs()
+func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
+	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(conflict *conflictdag.Conflict[utxo2.TransactionID, utxo2.OutputID]) {
+	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
-			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo2.OutputID, utxo2.TransactionID]) {
+			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 				if conflictMember.ConflictID() == transactionID {
 					return
 				}
 
-				conflictingTransactions.Add(utxo2.TransactionID{Identifier: conflictMember.ConflictID().Identifier})
+				conflictingTransactions.Add(utxo.TransactionID{Identifier: conflictMember.ConflictID().Identifier})
 			})
 		}
 	})
@@ -152,7 +152,7 @@ func (u *Utils) ConflictingTransactions(transactionID utxo2.TransactionID) (conf
 }
 
 // TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
-func (u *Utils) TransactionConfirmationState(txID utxo2.TransactionID) (confirmationState confirmation.State) {
+func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
 	u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState()
 	})
@@ -160,7 +160,7 @@ func (u *Utils) TransactionConfirmationState(txID utxo2.TransactionID) (confirma
 }
 
 // OutputConfirmationState returns the ConfirmationState of the Output.
-func (u *Utils) OutputConfirmationState(outputID utxo2.OutputID) (confirmationState confirmation.State) {
+func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
 	u.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
 		confirmationState = outputMetadata.ConfirmationState()
 	})

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	tangle2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
@@ -36,10 +36,10 @@ type TestFramework struct {
 	optsGadgetOptions   []options.Option[Gadget]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.Manager[models2.BlockID]
+	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
-	optsTangle          *tangle2.Tangle
-	optsTangleOptions   []options.Option[tangle2.Tangle]
+	optsTangle          *tangle.Tangle
+	optsTangleOptions   []options.Option[tangle.Tangle]
 
 	*TangleTestFramework
 }
@@ -55,21 +55,21 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models2.BlockID](0, models2.GenesisRootBlockProvider)
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
 				}
 
 				if t.optsValidatorSet == nil {
 					t.optsValidatorSet = validator.NewSet()
 				}
 
-				t.optsTangle = tangle2.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
 			}
 
 			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
-			t.TangleTestFramework = tangle2.NewTestFramework(test, tangle2.WithTangle(t.optsTangle))
+			t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.optsTangle))
 		}
 	}, (*TestFramework).setupEvents)
 }
@@ -130,7 +130,7 @@ func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bo
 	}
 }
 
-func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers2.Marker]bool) {
+func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.Marker]bool) {
 	for marker, markerExpectedAccepted := range expectedConflictIDs {
 		actualMarkerAccepted := t.Gadget.IsMarkerAccepted(marker)
 		assert.Equal(t.test, markerExpectedAccepted, actualMarkerAccepted, "%s should be accepted=%t but is %t", marker, markerExpectedAccepted, actualMarkerAccepted)
@@ -144,7 +144,7 @@ func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[strin
 	}
 }
 
-type TangleTestFramework = tangle2.TestFramework
+type TangleTestFramework = tangle.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -162,19 +162,19 @@ func WithGadgetOptions(opts ...options.Option[Gadget]) options.Option[TestFramew
 	}
 }
 
-func WithTangle(tangle *tangle2.Tangle) options.Option[TestFramework] {
+func WithTangle(tangle *tangle.Tangle) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTangle = tangle
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle2.Tangle]) options.Option[TestFramework] {
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTangleOptions = opts
 	}
 }
 
-func WithTangleTestFramework(testFramework *tangle2.TestFramework) options.Option[TestFramework] {
+func WithTangleTestFramework(testFramework *tangle.TestFramework) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.TangleTestFramework = testFramework
 	}
@@ -192,7 +192,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models2.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}
@@ -211,8 +211,8 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
 	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
-	AcceptedBlocks     models2.BlockIDs
-	AcceptedMarkers    *markers2.Markers
+	AcceptedBlocks     models.BlockIDs
+	AcceptedMarkers    *markers.Markers
 
 	mutex sync.RWMutex
 }
@@ -220,12 +220,12 @@ type MockAcceptanceGadget struct {
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
 		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
-		AcceptedBlocks:     models2.NewBlockIDs(),
-		AcceptedMarkers:    markers2.NewMarkers(),
+		AcceptedBlocks:     models.NewBlockIDs(),
+		AcceptedMarkers:    markers.NewMarkers(),
 	}
 }
 
-func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models2.BlockIDs) {
+func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -234,7 +234,7 @@ func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models2.BlockIDs) {
 	}
 }
 
-func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers2.Marker) {
+func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -244,14 +244,14 @@ func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers2.Marker) {
 }
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
-func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models2.BlockID) bool {
+func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	return m.AcceptedBlocks.Contains(blockID)
 }
 
-func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers2.Marker) (accepted bool) {
+func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -265,7 +265,7 @@ func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers2.Marker) (accepte
 	return marker.Index() <= acceptedIndex
 }
 
-func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers2.SequenceID) (firstUnacceptedIndex markers2.Index) {
+func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

@@ -6,12 +6,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	acceptance2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-
-	"github.com/iotaledger/goshimmer/packages/chain/engine/consensus/acceptance"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
@@ -1147,7 +1145,7 @@ func assertExistenceOfTransaction(t *testing.T, testFramework *tangleold.BlockTe
 
 		txID := testFramework.Transaction(alias).ID()
 
-		m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger2.TransactionMetadata) {
+		m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
 			if txMeta.InclusionTime().IsZero() {
 				notConfirmed = true
 				return
@@ -1199,17 +1197,17 @@ func assertEpochDiff(t *testing.T, testFramework *tangleold.BlockTestFramework, 
 
 func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	snapshot := testFramework.Snapshot()
-	header := &ledger2.SnapshotHeader{}
+	header := &ledger.SnapshotHeader{}
 	header.DiffEpochIndex = epoch.Index(0)
 	header.FullEpochIndex = epoch.Index(0)
 
-	var createMetadata []*ledger2.OutputWithMetadata
+	var createMetadata []*ledger.OutputWithMetadata
 	for _, metadata := range snapshot.OutputsWithMetadata {
 		createMetadata = append(createMetadata, metadata)
 	}
 	header.OutputWithMetadataCount = uint64(len(snapshot.OutputsWithMetadata))
-	snapshot.EpochDiffs = make(map[epoch.Index]*ledger2.EpochDiff)
-	snapshot.EpochDiffs[epoch.Index(0)] = ledger2.NewEpochDiff([]*ledger2.OutputWithMetadata{}, createMetadata)
+	snapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
 
 	ecRecord := epoch.NewECRecord(header.FullEpochIndex)
 	ecRecord.SetECR(commitment.MerkleRoot{})
@@ -1222,7 +1220,7 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	m.LoadActivityLogs(snapshot.EpochActiveNodes)
 }
 
-func registerToTangleEvents(sfg *acceptance2.Gadget, testTangle *tangleold.Tangle) {
+func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {
 	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangleold.MarkerWeightChangedEvent) {
 		sfg.HandleMarker(e.Marker, e.Weight)
 	}))

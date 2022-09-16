@@ -5,24 +5,24 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 type Block struct {
 	booked                bool
 	structureDetails      *markers.StructureDetails
-	addedConflictIDs      utxo2.TransactionIDs
-	subtractedConflictIDs utxo2.TransactionIDs
+	addedConflictIDs      utxo.TransactionIDs
+	subtractedConflictIDs utxo.TransactionIDs
 
 	*blockdag.Block
 }
 
-func (b *Block) Transaction() (tx utxo2.Transaction, isTransaction bool) {
-	tx, isTransaction = b.Payload().(utxo2.Transaction)
+func (b *Block) Transaction() (tx utxo.Transaction, isTransaction bool) {
+	tx, isTransaction = b.Payload().(utxo.Transaction)
 	return tx, isTransaction
 }
 
-func (b *Block) AddAllAddedConflictIDs(addedConflictIDs utxo2.TransactionIDs) {
+func (b *Block) AddAllAddedConflictIDs(addedConflictIDs utxo.TransactionIDs) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -34,7 +34,7 @@ func (b *Block) AddAllAddedConflictIDs(addedConflictIDs utxo2.TransactionIDs) {
 }
 
 // AddConflictID sets the ConflictIDs of the added Conflicts.
-func (b *Block) AddConflictID(conflictID utxo2.TransactionID) (modified bool) {
+func (b *Block) AddConflictID(conflictID utxo.TransactionID) (modified bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -42,14 +42,14 @@ func (b *Block) AddConflictID(conflictID utxo2.TransactionID) (modified bool) {
 }
 
 // AddedConflictIDs returns the ConflictIDs of the added Conflicts of the Block.
-func (b *Block) AddedConflictIDs() utxo2.TransactionIDs {
+func (b *Block) AddedConflictIDs() utxo.TransactionIDs {
 	b.RLock()
 	defer b.RUnlock()
 
 	return b.addedConflictIDs.Clone()
 }
 
-func (b *Block) AddAllSubtractedConflictIDs(subtractedConflictIDs utxo2.TransactionIDs) {
+func (b *Block) AddAllSubtractedConflictIDs(subtractedConflictIDs utxo.TransactionIDs) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -61,7 +61,7 @@ func (b *Block) AddAllSubtractedConflictIDs(subtractedConflictIDs utxo2.Transact
 }
 
 // SubtractedConflictIDs returns the ConflictIDs of the subtracted Conflicts of the Block.
-func (b *Block) SubtractedConflictIDs() utxo2.TransactionIDs {
+func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -71,8 +71,8 @@ func (b *Block) SubtractedConflictIDs() utxo2.TransactionIDs {
 func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block:                 block,
-		addedConflictIDs:      utxo2.NewTransactionIDs(),
-		subtractedConflictIDs: utxo2.NewTransactionIDs(),
+		addedConflictIDs:      utxo.NewTransactionIDs(),
+		subtractedConflictIDs: utxo.NewTransactionIDs(),
 	}, opts)
 }
 

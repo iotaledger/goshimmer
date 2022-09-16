@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
 )
 
 // GetManaRequest is the request for get mana.
@@ -22,17 +22,17 @@ type GetManaResponse struct {
 
 // GetAllManaResponse is the request to a getAllManaHandler request.
 type GetAllManaResponse struct {
-	Access             []mana2.NodeStr `json:"access"`
-	AccessTimestamp    int64           `json:"accessTimestamp"`
-	Consensus          []mana2.NodeStr `json:"consensus"`
-	ConsensusTimestamp int64           `json:"consensusTimestamp"`
-	Error              string          `json:"error,omitempty"`
+	Access             []mana.NodeStr `json:"access"`
+	AccessTimestamp    int64          `json:"accessTimestamp"`
+	Consensus          []mana.NodeStr `json:"consensus"`
+	ConsensusTimestamp int64          `json:"consensusTimestamp"`
+	Error              string         `json:"error,omitempty"`
 }
 
 // EventLogsJSON is a events log in JSON.
 type EventLogsJSON struct {
-	Pledge []*mana2.PledgedEventJSON `json:"pledge"`
-	Revoke []*mana2.RevokedEventJSON `json:"revoke"`
+	Pledge []*mana.PledgedEventJSON `json:"pledge"`
+	Revoke []*mana.RevokedEventJSON `json:"revoke"`
 }
 
 // GetEventLogsRequest is the request.
@@ -52,9 +52,9 @@ type GetEventLogsResponse struct {
 
 // GetNHighestResponse holds info about nodes and their mana values.
 type GetNHighestResponse struct {
-	Error     string          `json:"error,omitempty"`
-	Nodes     []mana2.NodeStr `json:"nodes,omitempty"`
-	Timestamp int64           `json:"timestamp"`
+	Error     string         `json:"error,omitempty"`
+	Nodes     []mana.NodeStr `json:"nodes,omitempty"`
+	Timestamp int64          `json:"timestamp"`
 }
 
 // GetOnlineResponse is the response to an online mana request.
@@ -74,9 +74,9 @@ type OnlineNodeStr struct {
 
 // PastConsensusManaVectorResponse is the response.
 type PastConsensusManaVectorResponse struct {
-	Consensus []mana2.NodeStr `json:"consensus"`
-	Error     string          `json:"error,omitempty"`
-	TimeStamp int64           `json:"timestamp"`
+	Consensus []mana.NodeStr `json:"consensus"`
+	Error     string         `json:"error,omitempty"`
+	TimeStamp int64          `json:"timestamp"`
 }
 
 // GetPercentileRequest is the request object of mana/percentile.

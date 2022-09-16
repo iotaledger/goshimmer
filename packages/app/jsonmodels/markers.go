@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +15,7 @@ type StructureDetails struct {
 }
 
 // NewStructureDetails returns the StructureDetails from the given markersold.StructureDetails.
-func NewStructureDetails(structureDetails *markers2.StructureDetails) *StructureDetails {
+func NewStructureDetails(structureDetails *markers.StructureDetails) *StructureDetails {
 	if structureDetails == nil {
 		return nil
 	}
@@ -34,17 +34,17 @@ func NewStructureDetails(structureDetails *markers2.StructureDetails) *Structure
 
 // Markers represents the JSON model of the markersold.Markers.
 type Markers struct {
-	Markers      map[markers2.SequenceID]markers2.Index `json:"markers"`
-	HighestIndex markers2.Index                         `json:"highestIndex"`
-	LowestIndex  markers2.Index                         `json:"lowestIndex"`
+	Markers      map[markers.SequenceID]markers.Index `json:"markers"`
+	HighestIndex markers.Index                        `json:"highestIndex"`
+	LowestIndex  markers.Index                        `json:"lowestIndex"`
 }
 
 // NewMarkers returns the Markers from the given markersold.Markers.
-func NewMarkers(m *markers2.Markers) *Markers {
+func NewMarkers(m *markers.Markers) *Markers {
 	return &Markers{
-		Markers: func() (mappedMarkers map[markers2.SequenceID]markers2.Index) {
-			mappedMarkers = make(map[markers2.SequenceID]markers2.Index)
-			m.ForEach(func(sequenceID markers2.SequenceID, index markers2.Index) bool {
+		Markers: func() (mappedMarkers map[markers.SequenceID]markers.Index) {
+			mappedMarkers = make(map[markers.SequenceID]markers.Index)
+			m.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				mappedMarkers[sequenceID] = index
 
 				return true

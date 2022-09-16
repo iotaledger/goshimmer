@@ -12,23 +12,23 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	database2 "github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/sybilprotection"
 )
 
-// region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Chain ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Protocol struct {
+type Chain struct {
 	Events              *Events
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
-	EvictionManager     *eviction.Manager[models2.BlockID]
+	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -37,17 +37,17 @@ type Protocol struct {
 
 	optsSnapshotFile     string
 	optsEngineOptions    []options.Option[engine.Engine]
-	optsDBManagerOptions []options.Option[database2.Manager]
+	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(databaseManager *database2.Manager, logger *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
-	return options.Apply(&Protocol{
+func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Chain]) (protocol *Chain) {
+	return options.Apply(&Chain{
 		Events:       NewEvents(),
 		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
-	}, opts, func(p *Protocol) {
-		p.BlockStorage = database2.New[models2.BlockID, models2.Block, *models2.Block](databaseManager, kvstore.Realm{0x09})
+	}, opts, func(p *Chain) {
+		p.BlockStorage = database.New[models.BlockID, models.Block, *models.Block](databaseManager, kvstore.Realm{0x09})
 
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
@@ -63,10 +63,10 @@ func New(databaseManager *database2.Manager, logger *logger.Logger, opts ...opti
 		}
 		p.logger = logger
 
-		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models2.BlockID] {
+		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
 			// TODO: implement me and set snapshot epoch!
 			// p.SnapshotManager.GetSolidEntryPoints(index)
-			return set.NewAdvancedSet[models2.BlockID]()
+			return set.NewAdvancedSet[models.BlockID]()
 		})
 
 		// TODO: when engine is ready
@@ -77,11 +77,11 @@ func New(databaseManager *database2.Manager, logger *logger.Logger, opts ...opti
 	})
 }
 
-func (p *Protocol) ProcessBlockFromPeer(block *models2.Block, neighbor *p2p.Neighbor) {
+func (p *Chain) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
 	p.Inbox.ProcessReceivedBlock(block, neighbor)
 }
 
-func (p *Protocol) Block(id models2.BlockID) (block *models2.Block, exists bool) {
+func (p *Chain) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.Block, true
 	}
@@ -93,18 +93,18 @@ func (p *Protocol) Block(id models2.BlockID) (block *models2.Block, exists bool)
 	return p.BlockStorage.Get(id)
 }
 
-func (p *Protocol) ReportInvalidBlock(neighbor *p2p.Neighbor) {
+func (p *Chain) ReportInvalidBlock(neighbor *p2p.Neighbor) {
 	// TODO: increase euristic counter / trigger event for metrics
 }
 
-func (p *Protocol) setupNotarization() {
+func (p *Chain) setupNotarization() {
 	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
 	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		p.EvictionManager.EvictUntilEpoch(event.EI)
 	}))
 }
 
-func (p *Protocol) Start() {
+func (p *Chain) Start() {
 	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
 	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
@@ -115,14 +115,14 @@ func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
-	return func(p *Protocol) {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Chain] {
+	return func(p *Chain) {
 		p.optsEngineOptions = opts
 	}
 }
 
-func WithSnapshotFile(snapshotFile string) options.Option[Protocol] {
-	return func(p *Protocol) {
+func WithSnapshotFile(snapshotFile string) options.Option[Chain] {
+	return func(p *Chain) {
 		p.optsSnapshotFile = snapshotFile
 	}
 }

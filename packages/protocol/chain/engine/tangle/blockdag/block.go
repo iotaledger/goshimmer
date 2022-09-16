@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
 
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,18 +16,18 @@ type Block struct {
 	solid                    bool
 	invalid                  bool
 	orphaned                 bool
-	orphanedBlocksInPastCone models2.BlockIDs
+	orphanedBlocksInPastCone models.BlockIDs
 	strongChildren           []*Block
 	weakChildren             []*Block
 	likedInsteadChildren     []*Block
 
-	*models2.Block
+	*models.Block
 }
 
 // NewBlock creates a new Block with the given options.
-func NewBlock(data *models2.Block, opts ...options.Option[Block]) (newBlock *Block) {
+func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
-		orphanedBlocksInPastCone: models2.NewBlockIDs(),
+		orphanedBlocksInPastCone: models.NewBlockIDs(),
 		strongChildren:           make([]*Block, 0),
 		weakChildren:             make([]*Block, 0),
 		likedInsteadChildren:     make([]*Block, 0),
@@ -77,7 +77,7 @@ func (b *Block) IsExplicitlyOrphaned() (isOrphaned bool) {
 }
 
 // OrphanedBlocksInPastCone returns the list of orphaned Blocks in the Blocks past cone.
-func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models2.BlockIDs) {
+func (b *Block) OrphanedBlocksInPastCone() (orphanedBlocks models.BlockIDs) {
 	b.RLock()
 	defer b.RUnlock()
 
@@ -89,7 +89,7 @@ func (b *Block) Children() (children []*Block) {
 	b.RLock()
 	defer b.RUnlock()
 
-	seenBlockIDs := make(map[models2.BlockID]types.Empty)
+	seenBlockIDs := make(map[models.BlockID]types.Empty)
 	for _, parentsByType := range [][]*Block{
 		b.strongChildren,
 		b.weakChildren,
@@ -171,7 +171,7 @@ func (b *Block) setOrphaned(orphaned bool) (wasFlagUpdated bool, wasOrphanedUpda
 }
 
 // addOrphanedBlocksInPastCone adds the given BlockIDs to the list of orphaned Blocks in the past cone.
-func (b *Block) addOrphanedBlocksInPastCone(ids models2.BlockIDs) (wasAdded bool, becameOrphaned bool) {
+func (b *Block) addOrphanedBlocksInPastCone(ids models.BlockIDs) (wasAdded bool, becameOrphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -183,7 +183,7 @@ func (b *Block) addOrphanedBlocksInPastCone(ids models2.BlockIDs) (wasAdded bool
 }
 
 // removeOrphanedBlocksInPastCone removes the given BlockIDs from the list of orphaned Blocks in the past cone.
-func (b *Block) removeOrphanedBlocksInPastCone(ids models2.BlockIDs) (wasRemoved bool, becameUnorphaned bool) {
+func (b *Block) removeOrphanedBlocksInPastCone(ids models.BlockIDs) (wasRemoved bool, becameUnorphaned bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -195,22 +195,22 @@ func (b *Block) removeOrphanedBlocksInPastCone(ids models2.BlockIDs) (wasRemoved
 }
 
 // appendChild adds a child of the corresponding type to the Block.
-func (b *Block) appendChild(child *Block, childType models2.ParentsType) {
+func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 	b.Lock()
 	defer b.Unlock()
 
 	switch childType {
-	case models2.StrongParentType:
+	case models.StrongParentType:
 		b.strongChildren = append(b.strongChildren, child)
-	case models2.WeakParentType:
+	case models.WeakParentType:
 		b.weakChildren = append(b.weakChildren, child)
-	case models2.ShallowLikeParentType:
+	case models.ShallowLikeParentType:
 		b.likedInsteadChildren = append(b.likedInsteadChildren, child)
 	}
 }
 
 // update publishes the given Block data to the underlying Block and marks it as no longer missing.
-func (b *Block) update(data *models2.Block) (wasPublished bool) {
+func (b *Block) update(data *models.Block) (wasPublished bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -228,7 +228,7 @@ func (b *Block) update(data *models2.Block) (wasPublished bool) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithModelOptions(opts ...options.Option[models2.Block]) options.Option[Block] {
+func WithModelOptions(opts ...options.Option[models.Block]) options.Option[Block] {
 	return func(block *Block) {
 		options.Apply(block.Block, opts)
 	}
@@ -257,7 +257,7 @@ func WithOrphaned(markedOrphaned bool) options.Option[Block] {
 
 // WithOrphanedBlocksInPastCone is a constructor Option for Blocks that initializes the given Block with a list of
 // orphaned Blocks in its past cone.
-func WithOrphanedBlocksInPastCone(orphanedBlocks models2.BlockIDs) options.Option[Block] {
+func WithOrphanedBlocksInPastCone(orphanedBlocks models.BlockIDs) options.Option[Block] {
 	return func(block *Block) {
 		block.orphanedBlocksInPastCone = orphanedBlocks
 	}

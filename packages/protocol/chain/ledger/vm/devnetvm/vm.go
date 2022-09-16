@@ -3,19 +3,19 @@ package devnetvm
 import (
 	"github.com/cockroachdb/errors"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm"
 )
 
 type VM struct{}
 
-func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo2.Transaction, err error) {
+func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
 	tx := new(Transaction)
 	err = tx.FromBytes(transactionBytes)
 	return tx, err
 }
 
-func (d *VM) ParseOutput(outputBytes []byte) (output utxo2.Output, err error) {
+func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
 	if output, err = OutputFromBytes(outputBytes); err != nil {
 		err = errors.Errorf("failed to parse Output: %w", err)
 	}
@@ -23,11 +23,11 @@ func (d *VM) ParseOutput(outputBytes []byte) (output utxo2.Output, err error) {
 	return output, err
 }
 
-func (d *VM) ResolveInput(input utxo2.Input) (outputID utxo2.OutputID) {
+func (d *VM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 	return input.(*UTXOInput).ReferencedOutputID()
 }
 
-func (d *VM) ExecuteTransaction(transaction utxo2.Transaction, inputs *utxo2.Outputs, _ ...uint64) (outputs []utxo2.Output, err error) {
+func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	typedOutputs, err := d.executeTransaction(transaction.(*Transaction), OutputsFromUTXOOutputs(inputs))
 	if err != nil {
 		return nil, errors.Errorf("failed to execute transaction: %w", err)
@@ -49,7 +49,7 @@ func (d *VM) executeTransaction(transaction *Transaction, inputs Outputs) (outpu
 
 	outputs = make(Outputs, 0, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
-		output.SetID(utxo2.NewOutputID(transaction.ID(), uint16(i)))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
 		updatedOutput := output.UpdateMintingColor()
 		outputs = append(outputs, updatedOutput)
 	}

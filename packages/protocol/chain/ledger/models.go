@@ -10,19 +10,19 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionMetadata represents a container for additional information about a Transaction.
 type TransactionMetadata struct {
-	model.Storable[utxo2.TransactionID, TransactionMetadata, *TransactionMetadata, transactionMetadata] `serix:"0"`
+	model.Storable[utxo.TransactionID, TransactionMetadata, *TransactionMetadata, transactionMetadata] `serix:"0"`
 }
 
 type transactionMetadata struct {
 	// ConflictIDs contains the conflicting ConflictIDs that this Transaction depends on.
-	ConflictIDs utxo2.TransactionIDs `serix:"0"`
+	ConflictIDs utxo.TransactionIDs `serix:"0"`
 
 	// Booked contains a boolean flag that indicates if the Transaction was Booked already.
 	Booked bool `serix:"1"`
@@ -34,7 +34,7 @@ type transactionMetadata struct {
 	InclusionTime time.Time `serix:"3"`
 
 	// OutputIDs contains the identifiers of the Outputs that the Transaction created.
-	OutputIDs utxo2.OutputIDs `serix:"4"`
+	OutputIDs utxo.OutputIDs `serix:"4"`
 
 	// ConfirmationState contains the confirmation state of the Transaction.
 	ConfirmationState confirmation.State `serix:"5"`
@@ -44,10 +44,10 @@ type transactionMetadata struct {
 }
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
-func NewTransactionMetadata(txID utxo2.TransactionID) (new *TransactionMetadata) {
-	new = model.NewStorable[utxo2.TransactionID, TransactionMetadata](&transactionMetadata{
-		ConflictIDs:       utxo2.NewTransactionIDs(),
-		OutputIDs:         utxo2.NewOutputIDs(),
+func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
+	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
+		ConflictIDs:       utxo.NewTransactionIDs(),
+		OutputIDs:         utxo.NewOutputIDs(),
 		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(txID)
@@ -56,7 +56,7 @@ func NewTransactionMetadata(txID utxo2.TransactionID) (new *TransactionMetadata)
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Transaction depends on.
-func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.TransactionID]) {
+func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -64,7 +64,7 @@ func (t *TransactionMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo2.TransactionID]) (modified bool) {
+func (t *TransactionMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.Lock()
 	defer t.Unlock()
 
@@ -138,7 +138,7 @@ func (t *TransactionMetadata) InclusionTime() (inclusionTime time.Time) {
 }
 
 // OutputIDs returns the identifiers of the Outputs that the Transaction created.
-func (t *TransactionMetadata) OutputIDs() (outputIDs utxo2.OutputIDs) {
+func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -146,7 +146,7 @@ func (t *TransactionMetadata) OutputIDs() (outputIDs utxo2.OutputIDs) {
 }
 
 // SetOutputIDs sets the identifiers of the Outputs that the Transaction created.
-func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo2.OutputIDs) (modified bool) {
+func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified bool) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -203,7 +203,7 @@ func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
 
 // OutputMetadata represents a container for additional information about an Output.
 type OutputMetadata struct {
-	model.Storable[utxo2.OutputID, OutputMetadata, *OutputMetadata, outputMetadata] `serix:"0"`
+	model.Storable[utxo.OutputID, OutputMetadata, *OutputMetadata, outputMetadata] `serix:"0"`
 }
 
 type outputMetadata struct {
@@ -217,10 +217,10 @@ type outputMetadata struct {
 	CreationTime time.Time `serix:"2"`
 
 	// ConflictIDs contains the conflicting ConflictIDs that this Output depends on.
-	ConflictIDs *set.AdvancedSet[utxo2.TransactionID] `serix:"3"`
+	ConflictIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
-	FirstConsumer utxo2.TransactionID `serix:"4"`
+	FirstConsumer utxo.TransactionID `serix:"4"`
 
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
 	FirstConsumerForked bool `serix:"5"`
@@ -233,9 +233,9 @@ type outputMetadata struct {
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
-func NewOutputMetadata(outputID utxo2.OutputID) (new *OutputMetadata) {
-	new = model.NewStorable[utxo2.OutputID, OutputMetadata](&outputMetadata{
-		ConflictIDs:       utxo2.NewTransactionIDs(),
+func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
+	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
+		ConflictIDs:       utxo.NewTransactionIDs(),
 		ConfirmationState: confirmation.Pending,
 	})
 	new.SetID(outputID)
@@ -313,7 +313,7 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 }
 
 // ConflictIDs returns the conflicting ConflictIDs that the Output depends on.
-func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.TransactionID]) {
+func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -321,7 +321,7 @@ func (o *OutputMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.Trans
 }
 
 // SetConflictIDs sets the conflicting ConflictIDs that this Transaction depends on.
-func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo2.TransactionID]) (modified bool) {
+func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -336,7 +336,7 @@ func (o *OutputMetadata) SetConflictIDs(conflictIDs *set.AdvancedSet[utxo2.Trans
 }
 
 // FirstConsumer returns the first Transaction that ever spent the Output.
-func (o *OutputMetadata) FirstConsumer() (firstConsumer utxo2.TransactionID) {
+func (o *OutputMetadata) FirstConsumer() (firstConsumer utxo.TransactionID) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -345,19 +345,19 @@ func (o *OutputMetadata) FirstConsumer() (firstConsumer utxo2.TransactionID) {
 
 // RegisterBookedConsumer registers a booked consumer and checks if it is conflicting with another consumer that wasn't
 // forked, yet.
-func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo2.TransactionID) (isConflicting bool, consumerToFork utxo2.TransactionID) {
+func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.FirstConsumer == utxo2.EmptyTransactionID {
+	if o.M.FirstConsumer == utxo.EmptyTransactionID {
 		o.M.FirstConsumer = consumer
 		o.SetModified()
 
-		return false, utxo2.EmptyTransactionID
+		return false, utxo.EmptyTransactionID
 	}
 
 	if o.M.FirstConsumerForked {
-		return true, utxo2.EmptyTransactionID
+		return true, utxo.EmptyTransactionID
 	}
 
 	return true, o.M.FirstConsumer
@@ -400,7 +400,7 @@ func (o *OutputMetadata) IsSpent() (isSpent bool) {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.M.FirstConsumer != utxo2.EmptyTransactionID
+	return o.M.FirstConsumer != utxo.EmptyTransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -410,12 +410,12 @@ func (o *OutputMetadata) IsSpent() (isSpent bool) {
 // OutputsMetadata represents a collection of OutputMetadata objects indexed by their OutputID.
 type OutputsMetadata struct {
 	// OrderedMap is the underlying data structure that holds the OutputMetadata objects.
-	orderedmap.OrderedMap[utxo2.OutputID, *OutputMetadata] `serix:"0"`
+	orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata] `serix:"0"`
 }
 
 // NewOutputsMetadata returns a new OutputMetadata collection with the given elements.
 func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new *OutputsMetadata) {
-	new = &OutputsMetadata{*orderedmap.New[utxo2.OutputID, *OutputMetadata]()}
+	new = &OutputsMetadata{*orderedmap.New[utxo.OutputID, *OutputMetadata]()}
 	for _, outputMeta := range outputsMetadata {
 		new.Set(outputMeta.ID(), outputMeta)
 	}
@@ -424,7 +424,7 @@ func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new *OutputsMetadat
 }
 
 // Get returns the OutputMetadata object for the given OutputID.
-func (o *OutputsMetadata) Get(id utxo2.OutputID) (outputMetadata *OutputMetadata, exists bool) {
+func (o *OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata, exists bool) {
 	return o.OrderedMap.Get(id)
 }
 
@@ -447,8 +447,8 @@ func (o *OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) 
 }
 
 // IDs returns the identifiers of the stored OutputMetadata objects.
-func (o *OutputsMetadata) IDs() (ids utxo2.OutputIDs) {
-	ids = utxo2.NewOutputIDs()
+func (o *OutputsMetadata) IDs() (ids utxo.OutputIDs) {
+	ids = utxo.NewOutputIDs()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		ids.Add(outputMetadata.ID())
 		return nil
@@ -458,8 +458,8 @@ func (o *OutputsMetadata) IDs() (ids utxo2.OutputIDs) {
 }
 
 // ConflictIDs returns a union of all ConflictIDs of the contained OutputMetadata objects.
-func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.TransactionID]) {
-	conflictIDs = set.NewAdvancedSet[utxo2.TransactionID]()
+func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo.TransactionID]) {
+	conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		conflictIDs.AddAll(outputMetadata.ConflictIDs())
 		return nil
@@ -470,7 +470,7 @@ func (o *OutputsMetadata) ConflictIDs() (conflictIDs *set.AdvancedSet[utxo2.Tran
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
 func (o *OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) error) (err error) {
-	o.OrderedMap.ForEach(func(_ utxo2.OutputID, outputMetadata *OutputMetadata) bool {
+	o.OrderedMap.ForEach(func(_ utxo.OutputID, outputMetadata *OutputMetadata) bool {
 		if err = callback(outputMetadata); err != nil {
 			return false
 		}
@@ -498,7 +498,7 @@ func (o *OutputsMetadata) String() (humanReadable string) {
 
 // Consumer represents the reference between an Output and its spending Transaction.
 type Consumer struct {
-	model.StorableReferenceWithMetadata[Consumer, *Consumer, utxo2.OutputID, utxo2.TransactionID, consumer] `serix:"0"`
+	model.StorableReferenceWithMetadata[Consumer, *Consumer, utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
 }
 
 type consumer struct {
@@ -507,17 +507,17 @@ type consumer struct {
 }
 
 // NewConsumer return a new Consumer reference from the named Output to the named Transaction.
-func NewConsumer(consumedInput utxo2.OutputID, transactionID utxo2.TransactionID) (new *Consumer) {
+func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
 	return model.NewStorableReferenceWithMetadata[Consumer](consumedInput, transactionID, &consumer{})
 }
 
 // ConsumedInput returns the identifier of the Output that was spent.
-func (c *Consumer) ConsumedInput() (outputID utxo2.OutputID) {
+func (c *Consumer) ConsumedInput() (outputID utxo.OutputID) {
 	return c.SourceID()
 }
 
 // TransactionID returns the identifier of the spending Transaction.
-func (c *Consumer) TransactionID() (spendingTransaction utxo2.TransactionID) {
+func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
 	return c.TargetID()
 }
 
@@ -583,15 +583,15 @@ func (e *EpochDiff) Created() []*OutputWithMetadata {
 
 // OutputWithMetadata represents an Output with its associated metadata fields that are needed for epoch management.
 type OutputWithMetadata struct {
-	model.Storable[utxo2.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
+	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
 }
 
 type outputWithMetadataModel struct {
-	OutputID              utxo2.OutputID `serix:"0"`
-	Output                utxo2.Output   `serix:"1"`
-	CreationTime          time.Time      `serix:"2"`
-	ConsensusManaPledgeID identity.ID    `serix:"3"`
-	AccessManaPledgeID    identity.ID    `serix:"4"`
+	OutputID              utxo.OutputID `serix:"0"`
+	Output                utxo.Output   `serix:"1"`
+	CreationTime          time.Time     `serix:"2"`
+	ConsensusManaPledgeID identity.ID   `serix:"3"`
+	AccessManaPledgeID    identity.ID   `serix:"4"`
 }
 
 // String returns a human-readable version of the OutputWithMetadata.
@@ -607,8 +607,8 @@ func (o *OutputWithMetadata) String() string {
 }
 
 // NewOutputWithMetadata returns a new OutputWithMetadata object.
-func NewOutputWithMetadata(outputID utxo2.OutputID, output utxo2.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
-	new = model.NewStorable[utxo2.OutputID, OutputWithMetadata](&outputWithMetadataModel{
+func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, creationTime time.Time, consensusManaPledgeID, accessManaPledgeID identity.ID) (new *OutputWithMetadata) {
+	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
 		OutputID:              outputID,
 		Output:                output,
 		CreationTime:          creationTime,
@@ -636,7 +636,7 @@ func (o *OutputWithMetadata) FromBytes(data []byte) error {
 }
 
 // Output returns the Output field.
-func (o *OutputWithMetadata) Output() (output utxo2.Output) {
+func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	o.RLock()
 	defer o.RUnlock()
 
@@ -644,7 +644,7 @@ func (o *OutputWithMetadata) Output() (output utxo2.Output) {
 }
 
 // SetOutput sets the Output field.
-func (o *OutputWithMetadata) SetOutput(output utxo2.Output) {
+func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 	o.Lock()
 	defer o.Unlock()
 

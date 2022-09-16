@@ -12,12 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	acceptance2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
-	tangle2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/eviction"
 )
@@ -26,7 +26,7 @@ import (
 
 type TestFramework struct {
 	Scheduler      *Scheduler
-	mockAcceptance *acceptance2.MockAcceptanceGadget
+	mockAcceptance *acceptance.MockAcceptanceGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]float64
 
@@ -37,12 +37,12 @@ type TestFramework struct {
 	droppedBlocksCount   uint32
 
 	optsScheduler           []options.Option[Scheduler]
-	optsTangle              []options.Option[tangle2.Tangle]
-	optsGadget              []options.Option[acceptance2.Gadget]
+	optsTangle              []options.Option[tangle.Tangle]
+	optsGadget              []options.Option[acceptance.Gadget]
 	optsValidatorSet        *validator.Set
-	optsEvictionManager     *eviction.Manager[models2.BlockID]
-	optsIsBlockAcceptedFunc func(models2.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance2.Block, acceptance2.Events, *acceptance2.Events]
+	optsEvictionManager     *eviction.Manager[models.BlockID]
+	optsIsBlockAcceptedFunc func(models.BlockID) bool
+	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	*TangleTestFramework
 }
 
@@ -51,20 +51,20 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:           test,
 		issuersMana:    make(map[identity.ID]float64),
 		issuersByAlias: make(map[string]*identity.Identity),
-		mockAcceptance: acceptance2.NewMockAcceptanceGadget(),
+		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models2.BlockID](0, models2.GenesisRootBlockProvider)
+			t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
 		}
 
-		t.TangleTestFramework = tangle2.NewTestFramework(
+		t.TangleTestFramework = tangle.NewTestFramework(
 			test,
-			tangle2.WithTangleOptions(t.optsTangle...),
-			tangle2.WithValidatorSet(t.optsValidatorSet),
-			tangle2.WithEvictionManager(t.optsEvictionManager),
+			tangle.WithTangleOptions(t.optsTangle...),
+			tangle.WithValidatorSet(t.optsValidatorSet),
+			tangle.WithEvictionManager(t.optsEvictionManager),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -81,12 +81,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	}, (*TestFramework).setupEvents)
 }
 
-type TangleTestFramework = tangle2.TestFramework
+type TangleTestFramework = tangle.TestFramework
 
-type GadgetTestFramework = acceptance2.TestFramework
+type GadgetTestFramework = acceptance.TestFramework
 
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance2.Block) {
+	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
 		t.Scheduler.HandleAcceptedBlock(acceptedBlock.Block)
 	}))
 
@@ -145,13 +145,13 @@ func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity)
 	return issuerIdentity
 }
 
-func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models2.Block]) *Block {
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
-	if len(blk.ParentsByType(models2.StrongParentType)) == 0 {
-		parents := models2.NewParentBlockIDs()
-		parents.AddStrong(models2.EmptyBlockID)
-		opts = append(opts, models2.WithParents(parents))
-		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
+		parents := models.NewParentBlockIDs()
+		parents.AddStrong(models.EmptyBlockID)
+		opts = append(opts, models.WithParents(parents))
+		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	}
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
@@ -225,30 +225,30 @@ func WithSchedulerOptions(opts ...options.Option[Scheduler]) options.Option[Test
 	}
 }
 
-func WithGadgetOptions(opts ...options.Option[acceptance2.Gadget]) options.Option[TestFramework] {
+func WithGadgetOptions(opts ...options.Option[acceptance.Gadget]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsGadget = opts
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle2.Tangle]) options.Option[TestFramework] {
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTangle = opts
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance2.Block, acceptance2.Events, *acceptance2.Events]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
 }
-func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models2.BlockID) bool) options.Option[TestFramework] {
+func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models2.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}

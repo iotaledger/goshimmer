@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 func init() {
@@ -46,7 +46,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*utxo2.Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
 	if err != nil {
 		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
 	}
@@ -89,13 +89,13 @@ const (
 // Output is a generic interface for the different types of Outputs (with different unlock behaviors).
 type Output interface {
 	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-	ID() utxo2.OutputID
+	ID() utxo.OutputID
 
 	// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the Output is supposed to be persisted.
-	SetID(outputID utxo2.OutputID)
+	SetID(outputID utxo.OutputID)
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
@@ -187,9 +187,9 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	return
 }
 
-func OutputsFromUTXOOutputs(utxoOutputs *utxo2.Outputs) (outputs Outputs) {
+func OutputsFromUTXOOutputs(utxoOutputs *utxo.Outputs) (outputs Outputs) {
 	outputs = make(Outputs, 0)
-	_ = utxoOutputs.ForEach(func(output utxo2.Output) error {
+	_ = utxoOutputs.ForEach(func(output utxo.Output) error {
 		outputs = append(outputs, output.(Output))
 		return nil
 	})
@@ -197,8 +197,8 @@ func OutputsFromUTXOOutputs(utxoOutputs *utxo2.Outputs) (outputs Outputs) {
 	return outputs
 }
 
-func (o Outputs) UTXOOutputs() (utxoOutputs []utxo2.Output) {
-	utxoOutputs = make([]utxo2.Output, len(o))
+func (o Outputs) UTXOOutputs() (utxoOutputs []utxo.Output) {
+	utxoOutputs = make([]utxo.Output, len(o))
 	for i, output := range o {
 		utxoOutputs[i] = output
 	}
@@ -272,7 +272,7 @@ func (o Outputs) Strings() (result []string) {
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
-type OutputsByID map[utxo2.OutputID]Output
+type OutputsByID map[utxo.OutputID]Output
 
 // NewOutputsByID returns a map of Outputs where every Output is stored with its corresponding OutputID as the key.
 func NewOutputsByID(optionalOutputs ...Output) (outputsByID OutputsByID) {
@@ -331,7 +331,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Storable[utxo2.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -341,7 +341,7 @@ type sigLockedSingleOutput struct {
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return model.NewStorable[utxo2.OutputID, SigLockedSingleOutput](
+	return model.NewStorable[utxo.OutputID, SigLockedSingleOutput](
 		&sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
@@ -403,7 +403,7 @@ func (s *SigLockedSingleOutput) Address() Address {
 
 // Input returns an Input that references the Output.
 func (s *SigLockedSingleOutput) Input() Input {
-	if s.ID() == (utxo2.OutputID{}) {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
@@ -435,7 +435,7 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Storable[utxo2.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -444,7 +444,7 @@ type sigLockedColoredOutput struct {
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return model.NewStorable[utxo2.OutputID, SigLockedColoredOutput](
+	return model.NewStorable[utxo.OutputID, SigLockedColoredOutput](
 		&sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,
@@ -597,7 +597,7 @@ const (
 // It can only be used in a chained manner.
 type AliasOutput struct {
 	// common for all outputs
-	outputID      utxo2.OutputID
+	outputID      utxo.OutputID
 	outputIDMutex sync.RWMutex
 	balances      *ColoredBalances
 
@@ -729,7 +729,7 @@ func (a *AliasOutput) FromObjectStorage(key, data []byte) (err error) {
 		return errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
 	}
 
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
 		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
@@ -1094,7 +1094,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 }
 
 // ID is the ID of the output.
-func (a *AliasOutput) ID() utxo2.OutputID {
+func (a *AliasOutput) ID() utxo.OutputID {
 	a.outputIDMutex.RLock()
 	defer a.outputIDMutex.RUnlock()
 
@@ -1102,7 +1102,7 @@ func (a *AliasOutput) ID() utxo2.OutputID {
 }
 
 // SetID set the output ID after unmarshalling.
-func (a *AliasOutput) SetID(outputID utxo2.OutputID) {
+func (a *AliasOutput) SetID(outputID utxo.OutputID) {
 	a.outputIDMutex.Lock()
 	defer a.outputIDMutex.Unlock()
 
@@ -1128,7 +1128,7 @@ func (a *AliasOutput) Address() Address {
 
 // Input makes input from the output.
 func (a *AliasOutput) Input() Input {
-	if a.ID() == (utxo2.OutputID{}) {
+	if a.ID() == (utxo.OutputID{}) {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -1561,7 +1561,7 @@ var _ Output = new(AliasOutput)
 // - can be time locked until deadline
 // - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
-	id       utxo2.OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
@@ -1656,7 +1656,7 @@ func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (err error) 
 		return errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
 	}
 
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
 		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
@@ -1775,7 +1775,7 @@ func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (o *ExtendedLockedOutput) ID() utxo2.OutputID {
+func (o *ExtendedLockedOutput) ID() utxo.OutputID {
 	o.idMutex.RLock()
 	defer o.idMutex.RUnlock()
 
@@ -1786,7 +1786,7 @@ func (o *ExtendedLockedOutput) ID() utxo2.OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (o *ExtendedLockedOutput) SetID(outputID utxo2.OutputID) {
+func (o *ExtendedLockedOutput) SetID(outputID utxo.OutputID) {
 	o.idMutex.Lock()
 	defer o.idMutex.Unlock()
 
@@ -1856,7 +1856,7 @@ func (o *ExtendedLockedOutput) FallbackAddress() (addy Address) {
 
 // Input returns an Input that references the Output.
 func (o *ExtendedLockedOutput) Input() Input {
-	if o.ID() == (utxo2.OutputID{}) {
+	if o.ID() == (utxo.OutputID{}) {
 		panic("ExtendedLockedOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 

@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.
@@ -67,8 +67,8 @@ func streamSnapshotDataFrom(
 	return nil
 }
 
-func readSnapshotHeader(reader io.ReadSeeker) (*ledger2.SnapshotHeader, error) {
-	header := &ledger2.SnapshotHeader{}
+func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
+	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {
 		return nil, errors.Wrap(err, "unable to read outputWithMetadata length")
@@ -145,7 +145,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 }
 
 // readOutputsWithMetadatas consumes less or equal chunkSize of OutputWithMetadatas from the given reader.
-func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger2.OutputWithMetadata, err error) {
+func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
 	var outputsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &outputsLen); err != nil {
 		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
@@ -156,7 +156,7 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger2.
 		return nil, errors.Errorf("unable to read outputsWithMetadata: %w", err)
 	}
 
-	outputMetadatas = make([]*ledger2.OutputWithMetadata, 0)
+	outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
 	_, err = serix.DefaultAPI.Decode(context.Background(), outputsBytes, &outputMetadatas, serix.WithValidation())
 	if err != nil {
 		return nil, err
@@ -171,9 +171,9 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger2.
 }
 
 // readEpochDiffs consumes an EpochDiff of an epoch from the given reader.
-func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger2.EpochDiff, err error) {
-	spent := make([]*ledger2.OutputWithMetadata, 0)
-	created := make([]*ledger2.OutputWithMetadata, 0)
+func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
+	spent := make([]*ledger.OutputWithMetadata, 0)
+	created := make([]*ledger.OutputWithMetadata, 0)
 
 	// read spent
 	var spentLen int64
@@ -205,7 +205,7 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger2.EpochDiff, err er
 		i += len(c)
 	}
 
-	epochDiffs = ledger2.NewEpochDiff(spent, created)
+	epochDiffs = ledger.NewEpochDiff(spent, created)
 
 	return
 }

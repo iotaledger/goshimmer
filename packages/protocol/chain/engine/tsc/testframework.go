@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/clock"
-	acceptance2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
-	tangle2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
@@ -19,26 +19,26 @@ import (
 
 type TestFramework struct {
 	OrphanageManager *TSCManager
-	mockAcceptance   *acceptance2.MockAcceptanceGadget
+	mockAcceptance   *acceptance.MockAcceptanceGadget
 
 	test *testing.T
 
 	optsTSCManager          []options.Option[TSCManager]
-	optsTangle              []options.Option[tangle2.Tangle]
+	optsTangle              []options.Option[tangle.Tangle]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance2.Block, acceptance2.Events, *acceptance2.Events]
+	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	optsClock               *clock.Clock
-	*tangle2.TestFramework
+	*tangle.TestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
-		mockAcceptance: acceptance2.NewMockAcceptanceGadget(),
+		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
-		t.TestFramework = tangle2.NewTestFramework(
+		t.TestFramework = tangle.NewTestFramework(
 			test,
-			tangle2.WithTangleOptions(t.optsTangle...),
+			tangle.WithTangleOptions(t.optsTangle...),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -76,13 +76,13 @@ func WithTSCManagerOptions(opts ...options.Option[TSCManager]) options.Option[Te
 	}
 }
 
-func WithTangleOptions(opts ...options.Option[tangle2.Tangle]) options.Option[TestFramework] {
+func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTangle = opts
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance2.Block, acceptance2.Events, *acceptance2.Events]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}

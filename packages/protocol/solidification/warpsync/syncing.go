@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 type epochSyncStart struct {
@@ -32,7 +32,7 @@ type epochSyncStart struct {
 type epochSyncBlock struct {
 	ei    epoch.Index
 	ec    commitment.ID
-	block *models2.Block
+	block *models.Block
 	peer  *peer.Peer
 }
 
@@ -45,7 +45,7 @@ type epochSyncEnd struct {
 }
 
 type blockReceived struct {
-	block *models2.Block
+	block *models.Block
 	peer  *peer.Peer
 }
 
@@ -116,7 +116,7 @@ func (m *Manager) syncEpochFunc(errCtx context.Context, eg *errgroup.Group, vali
 					epochChannels: epochChannels,
 					neighbor:      neighbor,
 					tangleTree:    tangleTree,
-					epochBlocks:   make(map[models2.BlockID]*models2.Block),
+					epochBlocks:   make(map[models.BlockID]*models.Block),
 				})
 
 				return !success
@@ -238,7 +238,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 	m.protocol.SendEpochStarter(ei, ec, blocksCount, nbr.ID())
 	m.log.Debugw("sent epoch start", "peer", nbr.Peer.ID(), "Index", ei, "blocksCount", blocksCount)
 
-	if err := chain.StreamEpochBlocks(ei, func(blocks []*models2.Block) {
+	if err := chain.StreamEpochBlocks(ei, func(blocks []*models.Block) {
 		m.protocol.SendBlocksBatch(ei, ec, blocks, nbr.ID())
 		m.log.Debugw("sent epoch blocks batch", "peer", nbr.ID(), "Index", ei, "blocksLen", len(blocks))
 	}, m.blockBatchSize); err != nil {
@@ -296,7 +296,7 @@ func (m *Manager) processEpochBlocksBatchPacket(packetEpochBlocksBatch *wp.Packe
 	m.log.Debugw("received epoch blocks", "peer", nbr.Peer.ID(), "Index", ei, "blocksLen", len(blocksBytes))
 
 	for _, blockBytes := range blocksBytes {
-		block := new(models2.Block)
+		block := new(models.Block)
 		if _, err := block.FromBytes(blockBytes); err != nil {
 			m.log.Errorw("failed to deserialize block", "peer", nbr.Peer.ID(), "err", err)
 			return

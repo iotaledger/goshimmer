@@ -9,20 +9,20 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
-	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 type acceptanceGadget interface {
-	IsBlockAccepted(blockID models2.BlockID) (accepted bool)
-	IsMarkerAccepted(marker markers2.Marker) (accepted bool)
-	FirstUnacceptedIndex(sequenceID markers2.SequenceID) (firstUnacceptedIndex markers2.Index)
+	IsBlockAccepted(blockID models.BlockID) (accepted bool)
+	IsMarkerAccepted(marker markers.Marker) (accepted bool)
+	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
 }
 
 // TimeRetrieverFunc is a function type to retrieve the time.
 type timeRetrieverFunc func() time.Time
 
-type blockRetrieverFunc func(id models2.BlockID) (block *scheduler.Block, exists bool)
+type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
 // region Manager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,8 +117,8 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 	return false
 }
 
-func (t *Manager) RemoveStrongParents(block *models2.Block) {
-	block.ForEachParent(func(parent models2.Parent) {
+func (t *Manager) RemoveStrongParents(block *models.Block) {
+	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
@@ -132,11 +132,11 @@ func (t *Manager) RemoveStrongParents(block *models2.Block) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *Manager) Tips(countParents int) (parents scheduler.Blocks) {
-	if countParents > models2.MaxParentsCount {
-		countParents = models2.MaxParentsCount
+	if countParents > models.MaxParentsCount {
+		countParents = models.MaxParentsCount
 	}
-	if countParents < models2.MinParentsCount {
-		countParents = models2.MinParentsCount
+	if countParents < models.MinParentsCount {
+		countParents = models.MinParentsCount
 	}
 
 	return t.selectTips(countParents)
@@ -209,7 +209,7 @@ func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampV
 		return true
 	}
 
-	markerWalker := walker.New[markers2.Marker](false)
+	markerWalker := walker.New[markers.Marker](false)
 	blockWalker := walker.New[*scheduler.Block](false)
 
 	t.processInitialBlock(block, blockWalker, markerWalker)
@@ -231,26 +231,26 @@ func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampV
 	return true
 }
 
-func (t *Manager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers2.Marker]) {
+func (t *Manager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		blockWalker.Push(block)
 		return
 	}
 
-	block.StructureDetails().PastMarkers().ForEach(func(sequenceID markers2.SequenceID, index markers2.Index) bool {
+	block.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		if sequenceID == 0 && index == 0 {
 			// need to walk blocks
 			blockWalker.Push(block)
 			return false
 		}
 
-		markerWalker.Push(markers2.NewMarker(sequenceID, index))
+		markerWalker.Push(markers.NewMarker(sequenceID, index))
 		return true
 	})
 }
 
-func (t *Manager) checkMarker(marker markers2.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers2.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
+func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
 	block, exists := t.schedulerBlockFromMarker(marker)
 	if !exists {
 		return nil, false
@@ -295,13 +295,13 @@ func (t *Manager) checkMarker(marker markers2.Marker, previousBlock *scheduler.B
 	}
 
 	// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
-	sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers2.SequenceID, index markers2.Index) bool {
+	sequence.ReferencedMarkers(marker.Index()).ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		// Ignore Marker(0, 0) as it sometimes occurs in the past marker cone. Marker mysteries.
 		if sequenceID == 0 && index == 0 {
 			return true
 		}
 
-		referencedMarker := markers2.NewMarker(sequenceID, index)
+		referencedMarker := markers.NewMarker(sequenceID, index)
 
 		// if referenced marker is accepted and older than minSupportedTimestamp, walk unaccepted block past cone of firstUnacceptedMarker
 		if t.isMarkerOldAndAccepted(referencedMarker, minSupportedTimestamp) {
@@ -321,7 +321,7 @@ func (t *Manager) checkMarker(marker markers2.Marker, previousBlock *scheduler.B
 	return block, true
 }
 
-func (t *Manager) schedulerBlockFromMarker(marker markers2.Marker) (block *scheduler.Block, exists bool) {
+func (t *Manager) schedulerBlockFromMarker(marker markers.Marker) (block *scheduler.Block, exists bool) {
 	bookerBlock, exists := t.tangle.Booker.BlockFromMarker(marker)
 	if !exists {
 		return nil, false
@@ -334,7 +334,7 @@ func (t *Manager) schedulerBlockFromMarker(marker markers2.Marker) (block *sched
 }
 
 // isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
-func (t *Manager) isMarkerOldAndAccepted(previousMarker markers2.Marker, minSupportedTimestamp time.Time) bool {
+func (t *Manager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
 	block, exists := t.tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -346,7 +346,7 @@ func (t *Manager) isMarkerOldAndAccepted(previousMarker markers2.Marker, minSupp
 	return false
 }
 
-func (t *Manager) processMarker(pastMarker markers2.Marker, minSupportedTimestamp time.Time, firstUnacceptedMarker markers2.Marker) (tscValid bool) {
+func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, firstUnacceptedMarker markers.Marker) (tscValid bool) {
 	// oldest unaccepted marker is in the future cone of the past marker (same sequence), therefore past marker is accepted and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
 	if pastMarker.Index() < firstUnacceptedMarker.Index() {
@@ -374,7 +374,7 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 	}
 
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones
-	for parentID := range block.ParentsByType(models2.StrongParentType) {
+	for parentID := range block.ParentsByType(models.StrongParentType) {
 		parentBlock, exists := t.blockRetrieverFunc(parentID)
 		if exists {
 			blockWalker.Push(parentBlock)
@@ -386,11 +386,11 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func (t *Manager) firstUnacceptedMarker(pastMarker markers2.Marker) (firstUnacceptedMarker markers2.Marker) {
+func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
 	firstUnacceptedIndex := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
 	// skip any gaps in marker indices
 	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
-		firstUnacceptedMarker = markers2.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)
+		firstUnacceptedMarker = markers.NewMarker(pastMarker.SequenceID(), firstUnacceptedIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if _, exists := t.tangle.Booker.BlockFromMarker(firstUnacceptedMarker); !exists {
@@ -403,10 +403,10 @@ func (t *Manager) firstUnacceptedMarker(pastMarker markers2.Marker) (firstUnacce
 	return firstUnacceptedMarker
 }
 
-func (t *Manager) previousMarkerWithBlock(sequence *markers2.Sequence, markerIndex markers2.Index) (previousMarker markers2.Marker, block *scheduler.Block) {
+func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
 	// skip any gaps in marker indices and start from marker below current one.
 	for markerIndex--; sequence.LowestIndex() < markerIndex; markerIndex-- {
-		previousMarker = markers2.NewMarker(sequence.ID(), markerIndex)
+		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap.
 		if block, exists := t.schedulerBlockFromMarker(previousMarker); exists {

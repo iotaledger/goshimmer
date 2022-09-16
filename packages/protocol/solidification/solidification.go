@@ -16,7 +16,7 @@ import (
 type Solidification struct {
 	network  *network.Network
 	parser   *dispatcher.Dispatcher
-	protocol *chain.Protocol
+	protocol *chain.Chain
 
 	requester *requester.Requester
 	warpSync  *warpsync.Manager
@@ -27,7 +27,7 @@ type Solidification struct {
 	optsRequester []options.Option[requester.Requester]
 }
 
-func New(network *network.Network, parser *dispatcher.Dispatcher, protocol *chain.Protocol, opts ...options.Option[Solidification]) (solidification *Solidification) {
+func New(network *network.Network, parser *dispatcher.Dispatcher, protocol *chain.Chain, opts ...options.Option[Solidification]) (solidification *Solidification) {
 	return options.Apply(new(Solidification), opts, func(s *Solidification) {
 		s.network = network
 		s.parser = parser

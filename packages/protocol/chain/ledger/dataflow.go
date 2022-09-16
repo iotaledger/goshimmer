@@ -6,7 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 )
 
 // region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,16 +79,16 @@ type dataFlowParams struct {
 	Context context.Context
 
 	// Transaction contains the Transaction that is being processed.
-	Transaction utxo2.Transaction
+	Transaction utxo.Transaction
 
 	// TransactionMetadata contains the metadata of the Transaction that is being processed.
 	TransactionMetadata *TransactionMetadata
 
 	// InputIDs contains the list of OutputIDs that were referenced by the Inputs.
-	InputIDs utxo2.OutputIDs
+	InputIDs utxo.OutputIDs
 
 	// Inputs contains the Outputs that were referenced as Inputs in the Transaction.
-	Inputs *utxo2.Outputs
+	Inputs *utxo.Outputs
 
 	// InputsMetadata contains the metadata of the Outputs that were referenced as Inputs in the Transaction.
 	InputsMetadata *OutputsMetadata
@@ -97,15 +97,15 @@ type dataFlowParams struct {
 	Consumers []*Consumer
 
 	// Outputs contains the Outputs that were created by the Transaction.
-	Outputs *utxo2.Outputs
+	Outputs *utxo.Outputs
 }
 
 // newDataFlowParams returns a new dataFlowParams instance for the given Transaction.
-func newDataFlowParams(ctx context.Context, tx utxo2.Transaction) (new *dataFlowParams) {
+func newDataFlowParams(ctx context.Context, tx utxo.Transaction) (new *dataFlowParams) {
 	return &dataFlowParams{
 		Context:     ctx,
 		Transaction: tx,
-		InputIDs:    utxo2.NewOutputIDs(),
+		InputIDs:    utxo.NewOutputIDs(),
 	}
 }
 

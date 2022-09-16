@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // region Indexer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,14 +21,14 @@ type Indexer struct {
 	addressOutputMappingStorage *objectstorage.ObjectStorage[*AddressOutputMapping]
 
 	// ledger contains the indexed Ledger.
-	ledger *ledger2.Ledger
+	ledger *ledger.Ledger
 
 	// options is a dictionary for configuration parameters of the Indexer.
 	options *options
 }
 
 // New returns a new Indexer instance with the given options.
-func New(ledger *ledger2.Ledger, options ...Option) (new *Indexer) {
+func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 	new = &Indexer{
 		ledger:  ledger,
 		options: newOptions(options...),
@@ -39,7 +39,7 @@ func New(ledger *ledger2.Ledger, options ...Option) (new *Indexer) {
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
-		objectstorage.PartitionKey(devnetvm2.AddressLength, utxo2.OutputID{}.Length()),
+		objectstorage.PartitionKey(devnetvm.AddressLength, utxo.OutputID{}.Length()),
 	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
@@ -50,24 +50,24 @@ func New(ledger *ledger2.Ledger, options ...Option) (new *Indexer) {
 }
 
 // IndexOutput stores the AddressOutputMapping dependent on which type of output it is.
-func (i *Indexer) IndexOutput(output devnetvm2.Output) {
+func (i *Indexer) IndexOutput(output devnetvm.Output) {
 	i.updateOutput(output, i.StoreAddressOutputMapping)
 }
 
 // StoreAddressOutputMapping stores the address-output mapping.
-func (i *Indexer) StoreAddressOutputMapping(address devnetvm2.Address, outputID utxo2.OutputID) {
+func (i *Indexer) StoreAddressOutputMapping(address devnetvm.Address, outputID utxo.OutputID) {
 	if result, stored := i.addressOutputMappingStorage.StoreIfAbsent(NewAddressOutputMapping(address, outputID)); stored {
 		result.Release()
 	}
 }
 
 // RemoveAddressOutputMapping removes the address-output mapping.
-func (i *Indexer) RemoveAddressOutputMapping(address devnetvm2.Address, outputID utxo2.OutputID) {
+func (i *Indexer) RemoveAddressOutputMapping(address devnetvm.Address, outputID utxo.OutputID) {
 	i.addressOutputMappingStorage.Delete(NewAddressOutputMapping(address, outputID).ObjectStorageKey())
 }
 
 // CachedAddressOutputMappings retrieves all AddressOutputMappings for a particular address
-func (i *Indexer) CachedAddressOutputMappings(address devnetvm2.Address) (cachedAddressOutputMappings objectstorage.CachedObjects[*AddressOutputMapping]) {
+func (i *Indexer) CachedAddressOutputMappings(address devnetvm.Address) (cachedAddressOutputMappings objectstorage.CachedObjects[*AddressOutputMapping]) {
 	i.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*AddressOutputMapping]) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)
 		return true
@@ -95,32 +95,32 @@ func (i *Indexer) Shutdown() {
 }
 
 // onTransactionBooked adds Transaction outputs to the indexer upon booking.
-func (i *Indexer) onTransactionBooked(event *ledger2.TransactionBookedEvent) {
-	_ = event.Outputs.ForEach(func(output utxo2.Output) error {
-		i.IndexOutput(output.(devnetvm2.Output))
+func (i *Indexer) onTransactionBooked(event *ledger.TransactionBookedEvent) {
+	_ = event.Outputs.ForEach(func(output utxo.Output) error {
+		i.IndexOutput(output.(devnetvm.Output))
 		return nil
 	})
 }
 
 // onTransactionAccepted removes Transaction inputs from the indexer upon transaction acceptance.
-func (i *Indexer) onTransactionAccepted(event *ledger2.TransactionAcceptedEvent) {
-	i.ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo2.Transaction) {
+func (i *Indexer) onTransactionAccepted(event *ledger.TransactionAcceptedEvent) {
+	i.ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
 		i.removeOutputs(i.ledger.Utils.ResolveInputs(tx.Inputs()))
 	})
 }
 
 // onTransactionRejected removes Transaction outputs from the indexer upon transaction rejection.
-func (i *Indexer) onTransactionRejected(event *ledger2.TransactionRejectedEvent) {
-	i.ledger.Storage.CachedTransactionMetadata(event.TransactionID).Consume(func(tm *ledger2.TransactionMetadata) {
+func (i *Indexer) onTransactionRejected(event *ledger.TransactionRejectedEvent) {
+	i.ledger.Storage.CachedTransactionMetadata(event.TransactionID).Consume(func(tm *ledger.TransactionMetadata) {
 		i.removeOutputs(tm.OutputIDs())
 	})
 }
 
 // updateOutput applies the passed updateOperation to the provided output.
-func (i *Indexer) updateOutput(output devnetvm2.Output, updateOperation func(address devnetvm2.Address, outputID utxo2.OutputID)) {
+func (i *Indexer) updateOutput(output devnetvm.Output, updateOperation func(address devnetvm.Address, outputID utxo.OutputID)) {
 	switch output.Type() {
-	case devnetvm2.AliasOutputType:
-		castedOutput := output.(*devnetvm2.AliasOutput)
+	case devnetvm.AliasOutputType:
+		castedOutput := output.(*devnetvm.AliasOutput)
 		// if it is an origin alias output, we don't have the AliasAddress from the parsed bytes.
 		// that happens in ledger output booking, so we calculate the alias address here
 		updateOperation(castedOutput.GetAliasAddress(), output.ID())
@@ -128,8 +128,8 @@ func (i *Indexer) updateOutput(output devnetvm2.Output, updateOperation func(add
 		if !castedOutput.IsSelfGoverned() {
 			updateOperation(castedOutput.GetGoverningAddress(), output.ID())
 		}
-	case devnetvm2.ExtendedLockedOutputType:
-		castedOutput := output.(*devnetvm2.ExtendedLockedOutput)
+	case devnetvm.ExtendedLockedOutputType:
+		castedOutput := output.(*devnetvm.ExtendedLockedOutput)
 		if castedOutput.FallbackAddress() != nil {
 			updateOperation(castedOutput.FallbackAddress(), output.ID())
 		}
@@ -140,10 +140,10 @@ func (i *Indexer) updateOutput(output devnetvm2.Output, updateOperation func(add
 }
 
 // removeOutputs removes outputs from the Indexer storage.
-func (i *Indexer) removeOutputs(ids utxo2.OutputIDs) {
+func (i *Indexer) removeOutputs(ids utxo.OutputIDs) {
 	for it := ids.Iterator(); it.HasNext(); {
-		i.ledger.Storage.CachedOutput(it.Next()).Consume(func(o utxo2.Output) {
-			i.updateOutput(o.(devnetvm2.Output), i.RemoveAddressOutputMapping)
+		i.ledger.Storage.CachedOutput(it.Next()).Consume(func(o utxo.Output) {
+			i.updateOutput(o.(devnetvm.Output), i.RemoveAddressOutputMapping)
 		})
 	}
 }

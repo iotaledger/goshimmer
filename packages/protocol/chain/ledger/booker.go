@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
@@ -56,7 +56,7 @@ func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Ne
 }
 
 // bookTransaction books a Transaction in the Ledger and creates its Outputs.
-func (b *booker) bookTransaction(ctx context.Context, tx utxo2.Transaction, txMetadata *TransactionMetadata, inputsMetadata *OutputsMetadata, consumers []*Consumer, outputs *utxo2.Outputs) {
+func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMetadata *TransactionMetadata, inputsMetadata *OutputsMetadata, consumers []*Consumer, outputs *utxo.Outputs) {
 	conflictIDs := b.inheritConflictIDs(ctx, txMetadata.ID(), inputsMetadata)
 
 	txMetadata.SetConflictIDs(conflictIDs)
@@ -82,7 +82,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo2.Transaction, txMe
 }
 
 // inheritedConflictIDs determines the ConflictIDs that a Transaction should inherit when being booked.
-func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo2.TransactionID, inputsMetadata *OutputsMetadata) (inheritedConflictIDs *set.AdvancedSet[utxo2.TransactionID]) {
+func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (inheritedConflictIDs *set.AdvancedSet[utxo.TransactionID]) {
 	parentConflictIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(inputsMetadata.ConflictIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
@@ -100,8 +100,8 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo2.TransactionI
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs *utxo2.Outputs, conflictIDs *set.AdvancedSet[utxo2.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
-	_ = outputs.ForEach(func(output utxo2.Output) (err error) {
+func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSet[utxo.TransactionID], consensusPledgeID, accessPledgeID identity.ID) {
+	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetConflictIDs(conflictIDs)
 		outputMetadata.SetAccessManaPledgeID(accessPledgeID)
@@ -114,9 +114,9 @@ func (b *booker) storeOutputs(outputs *utxo2.Outputs, conflictIDs *set.AdvancedS
 }
 
 // determineConflictDetails determines whether a Transaction is conflicting and returns the conflict details.
-func (b *booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetadata *OutputsMetadata) (conflictingInputIDs utxo2.OutputIDs, consumersToFork utxo2.TransactionIDs) {
-	conflictingInputIDs = utxo2.NewOutputIDs()
-	consumersToFork = utxo2.NewTransactionIDs()
+func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (conflictingInputIDs utxo.OutputIDs, consumersToFork utxo.TransactionIDs) {
+	conflictingInputIDs = utxo.NewOutputIDs()
+	consumersToFork = utxo.NewTransactionIDs()
 
 	_ = inputsMetadata.ForEach(func(outputMetadata *OutputMetadata) error {
 		isConflicting, consumerToFork := outputMetadata.RegisterBookedConsumer(txID)
@@ -124,7 +124,7 @@ func (b *booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetada
 			conflictingInputIDs.Add(outputMetadata.ID())
 		}
 
-		if consumerToFork != utxo2.EmptyTransactionID {
+		if consumerToFork != utxo.EmptyTransactionID {
 			consumersToFork.Add(consumerToFork)
 		}
 
@@ -135,8 +135,8 @@ func (b *booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetada
 }
 
 // forkTransaction forks an existing Transaction.
-func (b *booker) forkTransaction(ctx context.Context, txID utxo2.TransactionID, outputsSpentByConflictingTx utxo2.OutputIDs) {
-	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx utxo2.Transaction, txMetadata *TransactionMetadata) {
+func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) {
+	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *TransactionMetadata) {
 		b.ledger.mutex.Lock(txID)
 
 		conflictingInputs := b.ledger.Utils.ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
@@ -161,8 +161,8 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo2.TransactionID, 
 }
 
 // propagateForkedConflictToFutureCone propagates a newly introduced Conflict to its future cone.
-func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, outputIDs utxo2.OutputIDs, forkedConflictID utxo2.TransactionID, previousParentConflicts *set.AdvancedSet[utxo2.TransactionID]) {
-	b.ledger.Utils.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
+func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, outputIDs utxo.OutputIDs, forkedConflictID utxo.TransactionID, previousParentConflicts *set.AdvancedSet[utxo.TransactionID]) {
+	b.ledger.Utils.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		b.ledger.mutex.Lock(consumingTxMetadata.ID())
 		defer b.ledger.mutex.Unlock(consumingTxMetadata.ID())
 
@@ -175,7 +175,7 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 }
 
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
-func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedConflictID utxo2.TransactionID, previousParents *set.AdvancedSet[utxo2.TransactionID]) (updated bool) {
+func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
 		b.ledger.ConflictDAG.UpdateConflictParents(txMetadata.ID(), previousParents, forkedConflictID)
 		return false
