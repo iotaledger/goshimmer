@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -174,8 +175,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		EC0 = ecRecord.ComputeEC()
-		// PrevEC of Epoch0 is the empty Merkle Root
-		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
+		// PrevID of Epoch0 is the empty Merkle Root
+		assert.Equal(t, commitment.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block1", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Genesis"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
@@ -192,8 +193,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		assert.Equal(t, EC0, ecRecord.ComputeEC())
-		// PrevEC of Epoch0 is the empty Merkle Root
-		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
+		// PrevID of Epoch0 is the empty Merkle Root
+		assert.Equal(t, commitment.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block2", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block1"), tangleold.WithIssuer(nodes["B"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
@@ -214,8 +215,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		assert.Equal(t, EC0, ecRecord.ComputeEC())
-		// PrevEC of Epoch0 is the empty Merkle Root
-		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
+		// PrevID of Epoch0 is the empty Merkle Root
+		assert.Equal(t, commitment.MerkleRoot{}, ecRecord.PrevEC())
 		testFramework.CreateBlock("Block3", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block2"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
@@ -236,8 +237,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		ecRecord, _, err := testFramework.LatestCommitment()
 		require.NoError(t, err)
 		assert.Equal(t, EC0, ecRecord.ComputeEC())
-		// PrevEC of Epoch0 is the empty Merkle Root
-		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
+		// PrevID of Epoch0 is the empty Merkle Root
+		assert.Equal(t, commitment.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
 		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
@@ -1209,8 +1210,8 @@ func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
 	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
 
 	ecRecord := epoch.NewECRecord(header.FullEpochIndex)
-	ecRecord.SetECR(epoch.MerkleRoot{})
-	ecRecord.SetPrevEC(epoch.MerkleRoot{})
+	ecRecord.SetECR(commitment.MerkleRoot{})
+	ecRecord.SetPrevEC(commitment.MerkleRoot{})
 	header.LatestECRecord = ecRecord
 	snapshot.Header = header
 

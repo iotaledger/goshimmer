@@ -63,3 +63,8 @@ func (s *Struct[A, B]) ToFile(fileName ...string) (err error) {
 
 	return atomic.WriteFile(s.filePath, bytes.NewReader(bytesToWrite))
 }
+
+// FilePath returns the path that this Struct is associated to.
+func (s *Struct[A, B]) FilePath() (filePath string) {
+	return s.filePath
+}

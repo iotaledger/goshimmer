@@ -9,8 +9,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/serix"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -93,8 +95,8 @@ func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	if err := binary.Read(reader, binary.LittleEndian, ecRecordBytes); err != nil {
 		return nil, errors.Errorf("unable to read latest ECRecord: %w", err)
 	}
-	header.LatestECRecord = &epoch.ECRecord{}
-	if err := header.LatestECRecord.FromBytes(ecRecordBytes); err != nil {
+	header.LatestECRecord = new(commitment.Commitment)
+	if _, err := header.LatestECRecord.FromBytes(ecRecordBytes); err != nil {
 		return nil, err
 	}
 
@@ -105,7 +107,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 	seps = &SolidEntryPoints{}
 	blkIDs := make([]models.BlockID, 0)
 
-	// read seps EI
+	// read seps Index
 	var index int64
 	if err := binary.Read(reader, binary.LittleEndian, &index); err != nil {
 		return nil, errors.Errorf("unable to read epoch index: %w", err)
@@ -210,11 +212,11 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err err
 }
 
 // readECRecord consumes the latest ECRecord from the given reader.
-func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) {
+func readECRecord(scanner *bufio.Scanner) (ecRecord *commitment.Commitment, err error) {
 	scanner.Scan()
 
-	ecRecord = &epoch.ECRecord{}
-	err = ecRecord.FromBytes(scanner.Bytes())
+	ecRecord = &commitment.Commitment{}
+	_, err = ecRecord.FromBytes(scanner.Bytes())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse epochDiffs from bytes")
 	}
@@ -223,13 +225,13 @@ func readECRecord(scanner *bufio.Scanner) (ecRecord *epoch.ECRecord, err error) 
 }
 
 // readActivityLog consumes the ActivityLog from the given reader.
-func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActivity, err error) {
+func readActivityLog(reader io.ReadSeeker) (activityLogs activitylog.SnapshotEpochActivity, err error) {
 	var activityLen int64
 	if lenErr := binary.Read(reader, binary.LittleEndian, &activityLen); lenErr != nil {
 		return nil, errors.Wrap(lenErr, "unable to read activity len")
 	}
 
-	activityLogs = epoch.NewSnapshotEpochActivity()
+	activityLogs = activitylog.NewSnapshotEpochActivity()
 
 	for i := 0; i < int(activityLen); i++ {
 		var epochIndex epoch.Index
@@ -244,7 +246,7 @@ func readActivityLog(reader io.ReadSeeker) (activityLogs epoch.SnapshotEpochActi
 		if alErr := binary.Read(reader, binary.LittleEndian, activityLogBytes); alErr != nil {
 			return nil, errors.Errorf("unable to read activity log: %w", alErr)
 		}
-		activityLog := new(epoch.SnapshotNodeActivity)
+		activityLog := new(activitylog.SnapshotNodeActivity)
 		activityLog.FromBytes(activityLogBytes)
 
 		activityLogs[epochIndex] = activityLog

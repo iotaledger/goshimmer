@@ -176,7 +176,7 @@ type EpochBlocksStart struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI          int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI          int64  `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 	EC          []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 	BlocksCount int64  `protobuf:"varint,3,opt,name=blocksCount,proto3" json:"blocksCount,omitempty"`
 }
@@ -239,7 +239,7 @@ type EpochBlocksBatch struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI     int64    `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI     int64    `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 	EC     []byte   `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 	Blocks [][]byte `protobuf:"bytes,3,rep,name=blocks,proto3" json:"blocks,omitempty"`
 }
@@ -302,7 +302,7 @@ type EpochBlocksEnd struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI                int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI                int64  `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 	EC                []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 	StateMutationRoot []byte `protobuf:"bytes,3,opt,name=stateMutationRoot,proto3" json:"stateMutationRoot,omitempty"`
 	StateRoot         []byte `protobuf:"bytes,4,opt,name=stateRoot,proto3" json:"stateRoot,omitempty"`
@@ -381,7 +381,7 @@ type EpochBlocksRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI int64  `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 	EC []byte `protobuf:"bytes,2,opt,name=EC,proto3" json:"EC,omitempty"`
 }
 
@@ -436,9 +436,9 @@ type EpochCommittment struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI     int64  `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI     int64  `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 	PrevEC []byte `protobuf:"bytes,2,opt,name=prevEC,proto3" json:"prevEC,omitempty"`
-	ECR    []byte `protobuf:"bytes,3,opt,name=ECR,proto3" json:"ECR,omitempty"`
+	ECR    []byte `protobuf:"bytes,3,opt,name=RootsID,proto3" json:"RootsID,omitempty"`
 }
 
 func (x *EpochCommittment) Reset() {
@@ -499,7 +499,7 @@ type EpochCommittmentRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	EI int64 `protobuf:"varint,1,opt,name=EI,proto3" json:"EI,omitempty"`
+	EI int64 `protobuf:"varint,1,opt,name=Index,proto3" json:"Index,omitempty"`
 }
 
 func (x *EpochCommittmentRequest) Reset() {

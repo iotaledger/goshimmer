@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -77,8 +78,8 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(diffEpochIndex)
-		ecRecord.SetECR(epoch.MerkleRoot{})
-		ecRecord.SetPrevEC(epoch.MerkleRoot{})
+		ecRecord.SetECR(commitment.MerkleRoot{})
+		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
@@ -121,8 +122,8 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(diffEpochIndex)
-		ecRecord.SetECR(epoch.MerkleRoot{})
-		ecRecord.SetPrevEC(epoch.MerkleRoot{})
+		ecRecord.SetECR(commitment.MerkleRoot{})
+		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
