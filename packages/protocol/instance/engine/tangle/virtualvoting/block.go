@@ -23,6 +23,24 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	}, opts)
 }
 
+func (b *Block) IsSubjectivelyInvalid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.subjectivelyInvalid
+}
+
+func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.subjectivelyInvalid; wasUpdated {
+		b.subjectivelyInvalid = true
+	}
+
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////

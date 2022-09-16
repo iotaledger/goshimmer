@@ -50,7 +50,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 		a.evictionManager = tangle.EvictionManager.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
-		a.acceptanceOrder = causalorder.New(a.evictionManager.Manager, a.GetOrRegisterBlock, (*Block).Accepted, a.markAsAccepted, a.acceptanceFailed)
+		a.acceptanceOrder = causalorder.New(a.evictionManager.Manager, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
@@ -72,7 +72,7 @@ func (a *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
 
 func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 	block, exists := a.block(blockID)
-	return exists && block.Accepted()
+	return exists && block.IsAccepted()
 }
 
 func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {

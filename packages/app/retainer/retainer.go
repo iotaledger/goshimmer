@@ -7,35 +7,35 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 )
 
 type Retainer struct {
 	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
-	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *BlockMetadata]
+	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
 
-	protocol        *protocol.Protocol
+	engine          *engine.Engine
 	evictionManager *eviction.LockableManager[models.BlockID]
 
 	optsRealm kvstore.Realm
 }
 
-func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
+func NewRetainer(engine *engine.Engine, dbManager *database.Manager, opts ...options.Option[Retainer]) (r *Retainer) {
 	return options.Apply(&Retainer{
 		cachedMetadata:  memstorage.NewEpochStorage[models.BlockID, *cachedMetadata](),
-		protocol:        protocol,
-		evictionManager: protocol.EvictionManager.Lockable(),
+		engine:          engine,
+		evictionManager: engine.Tangle.EvictionManager.Lockable(),
 		optsRealm:       []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.New[models.BlockID, BlockMetadata, *BlockMetadata](dbManager, r.optsRealm)
+		r.blockStorage = database.New[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata](dbManager, r.optsRealm)
 	})
 }
 
@@ -48,32 +48,32 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 }
 
 func (r *Retainer) setupEvents() {
-	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+	r.engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlock(block, cm.BlockDAG)
+		cm.setBlockDAGBlock(block)
 	}))
 
-	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	r.engine.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlock(block, cm.Booker)
+		cm.setBookerBlock(block)
 	}))
 
-	r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	r.engine.Events.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlock(block, cm.VirtualVoting)
+		cm.setVirtualVotingBlock(block)
 	}))
 
 	congestionControlClosure := event.NewClosure(func(block *scheduler.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlock(block, cm.Scheduler)
+		cm.setSchedulerBlock(block)
 	})
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+	r.engine.Events.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.engine.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.engine.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
-	r.protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	r.engine.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
-		cm.setBlock(block, cm.Acceptance)
+		cm.setAcceptanceBlock(block)
 	}))
 }
 
