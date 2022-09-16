@@ -57,11 +57,11 @@ func (a *attachments) storeAttachment(txID utxo.TransactionID, block *Block) {
 }
 
 func (a *attachments) getEarliestAttachment(txID utxo.TransactionID) (attachment *Block) {
-	lowestTime := time.Now()
+	var lowestTime time.Time
 	if txStorage := a.storage(txID, false); txStorage != nil {
 		txStorage.ForEach(func(_ epoch.Index, blocks *LockableSlice[*Block]) bool {
 			for _, block := range blocks.Slice() {
-				if lowestTime.After(block.IssuingTime()) {
+				if lowestTime.After(block.IssuingTime()) || lowestTime.IsZero() {
 					lowestTime = block.IssuingTime()
 					attachment = block
 				}
