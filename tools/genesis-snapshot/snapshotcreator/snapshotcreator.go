@@ -10,9 +10,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -29,12 +29,12 @@ import (
 func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) (err error) {
 	now := time.Now()
 
-	headerProd := func() (header *ledger2.SnapshotHeader, err error) {
+	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(0)
 		ecRecord.SetECR(commitment.MerkleRoot{})
 		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
-		header = &ledger2.SnapshotHeader{
+		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
 			LatestECRecord: ecRecord,
@@ -49,16 +49,16 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
 	}
 
-	epochDiffsProd := func() (diffs *ledger2.EpochDiff) {
-		outputs := make([]*ledger2.OutputWithMetadata, 0)
-		diffs = ledger2.NewEpochDiff(outputs, outputs)
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
 	// prepare outputsWithMetadata
-	outputsWithMetadata := make([]*ledger2.OutputWithMetadata, 0)
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
-	outputsWithMetadata = append(outputsWithMetadata, ledger2.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	// prepare activity log
 	epochActivity := epoch.NewSnapshotEpochActivity()
@@ -66,14 +66,14 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
-		output, outputMetadata = createOutput(devnetvm2.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, ledger2.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
+		outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 		epochActivity[epoch.Index(0)].SetNodeActivity(nodeID, 1)
 	}
 
 	i := 0
 
-	utxoStatesProd := func() *ledger2.OutputWithMetadata {
+	utxoStatesProd := func() *ledger.OutputWithMetadata {
 		if i == len(outputsWithMetadata) {
 			return nil
 		}
@@ -103,7 +103,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) (err error) {
 	now := time.Now()
-	outputsWithMetadata := make([]*ledger2.OutputWithMetadata, 0)
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	// prepare activity log
 	epochActivity := epoch.NewSnapshotEpochActivity()
@@ -112,17 +112,17 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 	// This is the same seed used to derive the faucet ID.
 	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
-	outputsWithMetadata = append(outputsWithMetadata, ledger2.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 	epochActivity[epoch.Index(0)].SetNodeActivity(genesisPledgeID, 1)
 
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, ledger2.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 		epochActivity[epoch.Index(0)].SetNodeActivity(nodeID, 1)
 	}
 	i := 0
-	utxoStatesProd := func() *ledger2.OutputWithMetadata {
+	utxoStatesProd := func() *ledger.OutputWithMetadata {
 		if i == len(outputsWithMetadata) {
 			return nil
 		}
@@ -133,12 +133,12 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return o
 	}
 
-	headerProd := func() (header *ledger2.SnapshotHeader, err error) {
+	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(0)
 		ecRecord.SetECR(commitment.MerkleRoot{})
 		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
-		header = &ledger2.SnapshotHeader{
+		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
 			LatestECRecord: ecRecord,
@@ -153,9 +153,9 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
 	}
 
-	epochDiffsProd := func() (diffs *ledger2.EpochDiff) {
-		outputs := make([]*ledger2.OutputWithMetadata, 0)
-		diffs = ledger2.NewEpochDiff(outputs, outputs)
+	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+		outputs := make([]*ledger.OutputWithMetadata, 0)
+		diffs = ledger.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -170,14 +170,14 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 var outputCounter uint16 = 1
 
-func createOutput(address devnetvm2.Address, tokenAmount uint64, pledgeID identity.ID, creationTime time.Time) (output devnetvm2.Output, outputMetadata *ledger2.OutputMetadata) {
-	output = devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
-		devnetvm2.ColorIOTA: tokenAmount,
+func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identity.ID, creationTime time.Time) (output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
+	output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: tokenAmount,
 	}), address)
 	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, outputCounter))
 	outputCounter++
 
-	outputMetadata = ledger2.NewOutputMetadata(output.ID())
+	outputMetadata = ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)

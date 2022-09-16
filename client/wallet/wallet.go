@@ -25,9 +25,9 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,7 +107,7 @@ func New(options ...Option) (wallet *Wallet) {
 // region SendFunds ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SendFunds sends funds from the wallet.
-func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *devnetvm.Transaction, err error) {
 	sendOptions, err := sendoptions.Build(options...)
 	if err != nil {
 		return
@@ -137,18 +137,18 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 	remainderAddress := wallet.chooseRemainderAddress(consumedOutputs, sendOptions.RemainderAddress)
 	outputs := wallet.buildOutputs(sendOptions, totalConsumedFunds, remainderAddress)
 
-	txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
 	outputsByID := consumedOutputs.OutputsByID()
 
 	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 
-	tx = devnetvm2.NewTransaction(txEssence, unlockBlocks)
+	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
 	// check syntactical validity by marshaling an unmarshalling
-	tx = new(devnetvm2.Transaction)
+	tx = new(devnetvm.Transaction)
 	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 // region ConsolidateFunds /////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsolidateFunds consolidates available wallet funds into one output.
-func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.ConsolidateFundsOption) (txs []*devnetvm2.Transaction, err error) {
+func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.ConsolidateFundsOption) (txs []*devnetvm.Transaction, err error) {
 	consolidateOptions, err := consolidateoptions.Build(options...)
 	if err != nil {
 		return
@@ -213,7 +213,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
 		toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
 
-		outputs := devnetvm2.NewOutputs(devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
+		outputs := devnetvm.NewOutputs(devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
 		// determine pledgeIDs
 		aPledgeID, cPledgeID, pErr := wallet.derivePledgeIDs(consolidateOptions.AccessManaPledgeID, consolidateOptions.ConsensusManaPledgeID)
@@ -222,19 +222,19 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 			return
 		}
 
-		txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+		txEssence := devnetvm.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
 		outputsByID := consumedOutputs.OutputsByID()
 
 		unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 
-		tx := devnetvm2.NewTransaction(txEssence, unlockBlocks)
+		tx := devnetvm.NewTransaction(txEssence, unlockBlocks)
 
 		txBytes, err := tx.Bytes()
 		if err != nil {
 			return nil, err
 		}
 		// check syntactical validity by marshaling an unmarshalling
-		tx = new(devnetvm2.Transaction)
+		tx = new(devnetvm.Transaction)
 		err = tx.FromBytes(txBytes)
 		if err != nil {
 			return nil, err
@@ -270,7 +270,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 // region ClaimConditionalFunds ////////////////////////////////////////////////////////////////////////////////////////
 
 // ClaimConditionalFunds gathers all currently conditionally owned outputs and consolidates them into the output.
-func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.ClaimConditionalFundsOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.ClaimConditionalFundsOption) (tx *devnetvm.Transaction, err error) {
 	claimOptions, err := claimconditionaloptions.Build(options...)
 	if err != nil {
 		return
@@ -295,7 +295,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
 	toAddress := wallet.chooseToAddress(consumedOutputs, address.AddressEmpty) // no optional toAddress from options
-	outputs := devnetvm2.NewOutputs(devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
+	outputs := devnetvm.NewOutputs(devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(totalConsumedFunds), toAddress.Address()))
 
 	// determine pledgeIDs
 	aPledgeID, cPledgeID, err := wallet.derivePledgeIDs(claimOptions.AccessManaPledgeID, claimOptions.ConsensusManaPledgeID)
@@ -303,19 +303,19 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 		return
 	}
 
-	txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), aPledgeID, cPledgeID, inputs, outputs)
 	outputsByID := consumedOutputs.OutputsByID()
 
 	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 
-	tx = devnetvm2.NewTransaction(txEssence, unlockBlocks)
+	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
 	// check syntactical validity by marshaling an unmarshalling
-	tx = new(devnetvm2.Transaction)
+	tx = new(devnetvm.Transaction)
 	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return nil, err
@@ -347,7 +347,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 // region CreateAsset //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateAsset creates a new colored token with the given details.
-func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (assetColor devnetvm2.Color, err error) {
+func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (assetColor devnetvm.Color, err error) {
 	if asset.Supply == 0 {
 		err = errors.New("required to provide the amount when trying to create an asset")
 
@@ -361,7 +361,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	// where will we spend from?
-	consumedOutputs, err := wallet.collectOutputsForFunding(map[devnetvm2.Color]uint64{devnetvm2.ColorIOTA: asset.Supply}, false)
+	consumedOutputs, err := wallet.collectOutputsForFunding(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: asset.Supply}, false)
 	if err != nil {
 		if errors.Is(err, ErrTooManyOutputs) {
 			err = errors.Errorf("consolidate funds and try again: %w", err)
@@ -376,7 +376,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	tx, err := wallet.SendFunds(
-		sendoptions.Destination(receiveAddress, asset.Supply, devnetvm2.ColorMint),
+		sendoptions.Destination(receiveAddress, asset.Supply, devnetvm.ColorMint),
 		sendoptions.WaitForConfirmation(wait),
 		sendoptions.UsePendingOutputs(false),
 	)
@@ -385,12 +385,12 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	}
 
 	// this only works if there is only one MINT output in the transaction
-	assetColor = devnetvm2.ColorIOTA
+	assetColor = devnetvm.ColorIOTA
 	for _, output := range tx.Essence().Outputs() {
-		output.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
-			if color == devnetvm2.ColorMint {
+		output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+			if color == devnetvm.ColorMint {
 				digest := blake2b.Sum256(output.ID().Bytes())
-				assetColor, _, err = devnetvm2.ColorFromBytes(digest[:])
+				assetColor, _, err = devnetvm.ColorFromBytes(digest[:])
 			}
 			return true
 		})
@@ -400,7 +400,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 		return
 	}
 
-	if assetColor != devnetvm2.ColorIOTA {
+	if assetColor != devnetvm.ColorIOTA {
 		asset.Color = assetColor
 		asset.TransactionID = tx.ID()
 		wallet.assetRegistry.RegisterAsset(assetColor, asset)
@@ -414,7 +414,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 // region CreateNFT ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // CreateNFT spends funds from the wallet to create an NFT.
-func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx *devnetvm2.Transaction, nftID *devnetvm2.AliasAddress, err error) { // build options from the parameters
+func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx *devnetvm.Transaction, nftID *devnetvm.AliasAddress, err error) { // build options from the parameters
 	// build options
 	createNFTOptions, err := createnftoptions.Build(options...)
 	if err != nil {
@@ -440,7 +440,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	// aggregate all the funds we consume from inputs
 	totalConsumedFunds := consumedOutputs.TotalFundsInOutputs()
 	// create an alias mint output
-	nft, err := devnetvm2.NewAliasOutputMint(
+	nft, err := devnetvm.NewAliasOutputMint(
 		createNFTOptions.InitialBalance,
 		nftWalletAddress.Address(),
 		createNFTOptions.ImmutableData,
@@ -448,37 +448,37 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	if err != nil {
 		return nil, nil, err
 	}
-	unsortedOutputs := devnetvm2.Outputs{nft}
+	unsortedOutputs := devnetvm.Outputs{nft}
 
 	// calculate remainder balances (consumed - nft balance)
-	nft.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+	nft.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 		totalConsumedFunds[color] -= balance
 		if totalConsumedFunds[color] <= 0 {
 			delete(totalConsumedFunds, color)
 		}
 		return true
 	})
-	remainderBalances := devnetvm2.NewColoredBalances(totalConsumedFunds)
+	remainderBalances := devnetvm.NewColoredBalances(totalConsumedFunds)
 	// only add remainder output if there is a remainder balance
 	if remainderBalances.Size() != 0 {
-		unsortedOutputs = append(unsortedOutputs, devnetvm2.NewSigLockedColoredOutput(
+		unsortedOutputs = append(unsortedOutputs, devnetvm.NewSigLockedColoredOutput(
 			remainderBalances, wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty).Address()))
 	}
 	// create tx essence
-	outputs := devnetvm2.NewOutputs(unsortedOutputs...)
-	txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
+	outputs := devnetvm.NewOutputs(unsortedOutputs...)
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
 
 	// build unlock blocks
 	unlockBlocks, inputsInOrder := wallet.buildUnlockBlocks(inputs, consumedOutputs.OutputsByID(), txEssence)
 
-	tx = devnetvm2.NewTransaction(txEssence, unlockBlocks)
+	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return
 	}
 	// check syntactical validity by marshaling an unmarshalling
-	tx = new(devnetvm2.Transaction)
+	tx = new(devnetvm.Transaction)
 	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return
@@ -495,9 +495,9 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 
 	// look for the id of the freshly created nft (alias) that is only available after the outputID is set.
 	for _, output := range tx.Essence().Outputs() {
-		if output.Type() == devnetvm2.AliasOutputType {
+		if output.Type() == devnetvm.AliasOutputType {
 			// Address() for an alias output returns the alias address, the unique ID of the alias
-			nftID = output.Address().(*devnetvm2.AliasAddress)
+			nftID = output.Address().(*devnetvm.AliasAddress)
 		}
 	}
 
@@ -519,7 +519,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 // region TransferNFT //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransferNFT transfers an NFT to a given address.
-func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOption) (tx *devnetvm.Transaction, err error) {
 	transferOptions, err := transfernftoptions.Build(options...)
 	if err != nil {
 		return
@@ -536,7 +536,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 	if alias.DelegationTimeLockedNow(time.Now()) {
 		err = errors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(),
 			alias.DelegationTimelock().String())
@@ -550,10 +550,10 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	//  - here we can check if the other alias is governed by us, hence preventing level 2 circular dependency
 	//  - but we can't prevent level 3 or greater circular dependency without walking the governing path, which can be
 	//    expensive.
-	if transferOptions.ToAddress.Type() == devnetvm2.AliasAddressType {
+	if transferOptions.ToAddress.Type() == devnetvm.AliasAddressType {
 		// we are giving the governor role to another alias. Is that other alias governed by this alias?
-		var otherAlias *devnetvm2.AliasOutput
-		otherAlias, err = wallet.connector.GetUnspentAliasOutput(transferOptions.ToAddress.(*devnetvm2.AliasAddress))
+		var otherAlias *devnetvm.AliasOutput
+		otherAlias, err = wallet.connector.GetUnspentAliasOutput(transferOptions.ToAddress.(*devnetvm.AliasAddress))
 		if err != nil {
 			err = errors.Errorf("failed to check that transfer wouldn't result in deadlocked outputs: %w", err)
 			return
@@ -589,14 +589,14 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 		nextAlias.SetIsDelegated(false)
 	}
 
-	essence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
-		devnetvm2.NewInputs(alias.Input()),
-		devnetvm2.NewOutputs(nextAlias),
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
+		devnetvm.NewInputs(alias.Input()),
+		devnetvm.NewOutputs(nextAlias),
 	)
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-	tx = devnetvm2.NewTransaction(essence, devnetvm2.UnlockBlocks{
-		devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
+	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -604,13 +604,13 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	if err != nil {
 		return nil, err
 	}
-	err = new(devnetvm2.Transaction).FromBytes(txBytes)
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// check tx validity (balances, unlock blocks)
-	ok, err := checkBalancesAndUnlocks(devnetvm2.Outputs{alias}, tx)
+	ok, err := checkBalancesAndUnlocks(devnetvm.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 // region DestroyNFT ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // DestroyNFT destroys the given nft (alias).
-func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) (tx *devnetvm.Transaction, err error) {
 	destroyOptions, err := destroynftoptions.Build(options...)
 	if err != nil {
 		return
@@ -654,7 +654,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 
 	if alias.DelegationTimeLockedNow(time.Now()) {
 		err = errors.Errorf("alias %s is delegation timelocked until %s", alias.GetAliasAddress().Base58(), alias.DelegationTimelock().String())
@@ -662,9 +662,9 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	}
 
 	// can only be destroyed when minimal funds are present (unless it is delegated)
-	if !alias.IsDelegated() && !devnetvm2.IsExactDustMinimum(alias.Balances()) {
+	if !alias.IsDelegated() && !devnetvm.IsExactDustMinimum(alias.Balances()) {
 		withdrawAmount := alias.Balances().Map()
-		withdrawAmount[devnetvm2.ColorIOTA] -= devnetvm2.DustThresholdAliasOutputIOTA
+		withdrawAmount[devnetvm.ColorIOTA] -= devnetvm.DustThresholdAliasOutputIOTA
 		_, err = wallet.WithdrawFundsFromNFT(
 			withdrawfromnftoptions.Alias(destroyOptions.Alias.Base58()),
 			withdrawfromnftoptions.Amount(withdrawAmount),
@@ -677,7 +677,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 		if err != nil {
 			return
 		}
-		alias = walletAlias.Object.(*devnetvm2.AliasOutput)
+		alias = walletAlias.Object.(*devnetvm.AliasOutput)
 	}
 
 	// determine where the remainder will go
@@ -686,17 +686,17 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 		walletAlias.Address: {walletAlias.Object.ID(): walletAlias},
 	}
 	remainderAddy := wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty)
-	remainderOutput := devnetvm2.NewSigLockedColoredOutput(alias.Balances(), remainderAddy.Address())
+	remainderOutput := devnetvm.NewSigLockedColoredOutput(alias.Balances(), remainderAddy.Address())
 
-	inputs := devnetvm2.Inputs{alias.Input()}
-	outputs := devnetvm2.Outputs{remainderOutput}
-	essence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
-		devnetvm2.NewInputs(inputs...), devnetvm2.NewOutputs(outputs...))
+	inputs := devnetvm.Inputs{alias.Input()}
+	outputs := devnetvm.Outputs{remainderOutput}
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
+		devnetvm.NewInputs(inputs...), devnetvm.NewOutputs(outputs...))
 
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-	tx = devnetvm2.NewTransaction(essence, devnetvm2.UnlockBlocks{
-		devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
+	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -704,13 +704,13 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	if err != nil {
 		return nil, err
 	}
-	err = new(devnetvm2.Transaction).FromBytes(txBytes)
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// check tx validity (balances, unlock blocks)
-	ok, err := checkBalancesAndUnlocks(devnetvm2.Outputs{alias}, tx)
+	ok, err := checkBalancesAndUnlocks(devnetvm.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +740,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 
 // WithdrawFundsFromNFT withdraws funds from the given alias. If the wallet is not the state controller, or too much funds
 // are withdrawn, an error is returned.
-func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.WithdrawFundsFromNFTOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.WithdrawFundsFromNFTOption) (tx *devnetvm.Transaction, err error) {
 	withdrawOptions, err := withdrawfromnftoptions.Build(options...)
 	if err != nil {
 		return
@@ -750,13 +750,13 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 	balancesOfAlias := alias.Balances()
 	withdrawBalances := withdrawOptions.Amount
-	newAliasBalance := map[devnetvm2.Color]uint64{}
+	newAliasBalance := map[devnetvm.Color]uint64{}
 
 	// check if withdrawBalance is valid for alias
-	balancesOfAlias.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+	balancesOfAlias.ForEach(func(color devnetvm.Color, balance uint64) bool {
 		if balance < withdrawBalances[color] {
 			err = errors.Errorf("trying to withdraw %d %s tokens from alias, but there are only %d tokens in it",
 				withdrawBalances[color], color.Base58(), balance)
@@ -766,9 +766,9 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 		if newAliasBalance[color] == 0 {
 			delete(newAliasBalance, color)
 		}
-		if color == devnetvm2.ColorIOTA && newAliasBalance[color] < devnetvm2.DustThresholdAliasOutputIOTA {
+		if color == devnetvm.ColorIOTA && newAliasBalance[color] < devnetvm.DustThresholdAliasOutputIOTA {
 			err = errors.Errorf("%d IOTA tokens would remain after withdrawal, which is less, then the minimum required %d",
-				newAliasBalance[color], devnetvm2.DustThresholdAliasOutputIOTA)
+				newAliasBalance[color], devnetvm.DustThresholdAliasOutputIOTA)
 			return false
 		}
 		return true
@@ -795,10 +795,10 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	}
 	remainderAddress := wallet.chooseRemainderAddress(consumedOutputs, optionsToAddress)
 
-	remainderOutput := devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(withdrawBalances), remainderAddress.Address())
+	remainderOutput := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(withdrawBalances), remainderAddress.Address())
 
-	inputs := devnetvm2.Inputs{alias.Input()}
-	outputs := devnetvm2.Outputs{remainderOutput, nextAlias}
+	inputs := devnetvm.Inputs{alias.Input()}
+	outputs := devnetvm.Outputs{remainderOutput, nextAlias}
 
 	// derive mana pledge IDs
 	accessPledgeNodeID, consensusPledgeNodeID, err := wallet.derivePledgeIDs(withdrawOptions.AccessManaPledgeID, withdrawOptions.ConsensusManaPledgeID)
@@ -806,13 +806,13 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 		return
 	}
 
-	essence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
-		devnetvm2.NewInputs(inputs...), devnetvm2.NewOutputs(outputs...))
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID,
+		devnetvm.NewInputs(inputs...), devnetvm.NewOutputs(outputs...))
 
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-	tx = devnetvm2.NewTransaction(essence, devnetvm2.UnlockBlocks{
-		devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
+	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -820,13 +820,13 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	if err != nil {
 		return nil, err
 	}
-	err = new(devnetvm2.Transaction).FromBytes(txBytes)
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// check tx validity (balances, unlock blocks)
-	ok, err := checkBalancesAndUnlocks(devnetvm2.Outputs{alias}, tx)
+	ok, err := checkBalancesAndUnlocks(devnetvm.Outputs{alias}, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -855,7 +855,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 // region DepositFundsToNFT ////////////////////////////////////////////////////////////////////////////////////////////
 
 // DepositFundsToNFT deposits funds to the given alias from the wallet funds. If the wallet is not the state controller, an error is returned.
-func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFundsToNFTOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFundsToNFTOption) (tx *devnetvm.Transaction, err error) {
 	depositOptions, err := deposittonftoptions.Build(options...)
 	if err != nil {
 		return
@@ -870,7 +870,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 	depositBalances := depositOptions.Amount
 	newAliasBalance := alias.Balances().Map() // we are going to top it up with depositbalances
 	// add deposit balances to alias balance
@@ -891,7 +891,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	// add the alias
 	unsortedInputs := append(inputsFromConsumedOutputs, alias.Input())
 	// sort all inputs
-	inputs := devnetvm2.NewInputs(unsortedInputs...)
+	inputs := devnetvm.NewInputs(unsortedInputs...)
 	// aggregate all the funds we consume from inputs used to fund the deposit (there is the alias input as well)
 	totalConsumed := consumedOutputs.TotalFundsInOutputs()
 	// create the alias state transition (only state transition can modify balance)
@@ -901,7 +901,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	if err != nil {
 		return nil, err
 	}
-	unsortedOutputs := devnetvm2.Outputs{nextAlias}
+	unsortedOutputs := devnetvm.Outputs{nextAlias}
 
 	// remainder balance = totalConsumed - deposit
 	for color, balance := range depositBalances {
@@ -913,16 +913,16 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 			delete(totalConsumed, color)
 		}
 	}
-	remainderBalances := devnetvm2.NewColoredBalances(totalConsumed)
+	remainderBalances := devnetvm.NewColoredBalances(totalConsumed)
 	// only add remainder output if there is a remainder balance
 	if remainderBalances.Size() != 0 {
-		unsortedOutputs = append(unsortedOutputs, devnetvm2.NewSigLockedColoredOutput(
+		unsortedOutputs = append(unsortedOutputs, devnetvm.NewSigLockedColoredOutput(
 			remainderBalances, wallet.chooseRemainderAddress(consumedOutputs, address.AddressEmpty).Address()))
 	}
 
 	// create tx essence
-	outputs := devnetvm2.NewOutputs(unsortedOutputs...)
-	txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
+	outputs := devnetvm.NewOutputs(unsortedOutputs...)
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, inputs, outputs)
 	// add the alias to the consumed outputs
 	if _, exists := consumedOutputs[walletAlias.Address]; !exists {
 		consumedOutputs[walletAlias.Address] = make(map[utxo.OutputID]*Output)
@@ -932,14 +932,14 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	// build unlock blocks
 	unlockBlocks, inputsInOrder := wallet.buildUnlockBlocks(inputs, consumedOutputs.OutputsByID(), txEssence)
 
-	tx = devnetvm2.NewTransaction(txEssence, unlockBlocks)
+	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
-	err = new(devnetvm2.Transaction).FromBytes(txBytes)
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -971,7 +971,7 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 // region SweepNFTOwnedFunds ///////////////////////////////////////////////////////////////////////////////////////////
 
 // SweepNFTOwnedFunds collects all funds from non-alias outputs that are owned by the nft into the wallet.
-func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFTOwnedFundsOption) (tx *devnetvm2.Transaction, err error) {
+func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFTOwnedFundsOption) (tx *devnetvm.Transaction, err error) {
 	sweepOptions, err := sweepnftownedoptions.Build(options...)
 	if err != nil {
 		return
@@ -994,7 +994,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 
 	owned, _, err := wallet.AvailableOutputsOnNFT(sweepOptions.Alias.Base58())
 	if err != nil {
@@ -1005,18 +1005,18 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 		return
 	}
 
-	toBeConsumed := devnetvm2.Outputs{}
-	totalConsumed := map[devnetvm2.Color]uint64{}
+	toBeConsumed := devnetvm.Outputs{}
+	totalConsumed := map[devnetvm.Color]uint64{}
 	// owned contains all outputs that are owned by nft. we want to filter out alias outputs, as they are not "funds"
 	for _, output := range owned {
-		if len(toBeConsumed) == devnetvm2.MaxOutputCount-1 {
+		if len(toBeConsumed) == devnetvm.MaxOutputCount-1 {
 			// we can spend at most 127 inputs in a tx, need one more for the alias
 			break
 		}
-		if output.Type() == devnetvm2.AliasOutputType {
+		if output.Type() == devnetvm.AliasOutputType {
 			continue
 		}
-		output.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+		output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			totalConsumed[color] += balance
 			return true
 		})
@@ -1043,21 +1043,21 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	toAddress := wallet.chooseToAddress(consumedOutputs, optionsToAddress)
 
 	unsortedInputs := toBeConsumed.Inputs()
-	unsortedOutputs := devnetvm2.Outputs{nextAlias, devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(totalConsumed), toAddress.Address())}
+	unsortedOutputs := devnetvm.Outputs{nextAlias, devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(totalConsumed), toAddress.Address())}
 
-	essence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, devnetvm2.NewInputs(unsortedInputs...), devnetvm2.NewOutputs(unsortedOutputs...))
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, devnetvm.NewInputs(unsortedInputs...), devnetvm.NewOutputs(unsortedOutputs...))
 
 	toBeConsumeByID := toBeConsumed.ByID()
-	inputsInOrder := devnetvm2.Outputs{}
-	unlockBlocks := make(devnetvm2.UnlockBlocks, len(essence.Inputs()))
+	inputsInOrder := devnetvm.Outputs{}
+	unlockBlocks := make(devnetvm.UnlockBlocks, len(essence.Inputs()))
 	aliasInputIndex := -1
 	// find the input of alias
 	for index, input := range essence.Inputs() {
-		if input.Type() == devnetvm2.UTXOInputType {
-			casted := input.(*devnetvm2.UTXOInput)
+		if input.Type() == devnetvm.UTXOInputType {
+			casted := input.(*devnetvm.UTXOInput)
 			if casted.ReferencedOutputID() == alias.ID() {
 				keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-				unlockBlock := devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
+				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 				unlockBlocks[index] = unlockBlock
 				aliasInputIndex = index
 			}
@@ -1071,18 +1071,18 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	// fill rest of the unlock blocks
 	for i := range essence.Inputs() {
 		if i != aliasInputIndex {
-			unlockBlocks[i] = devnetvm2.NewAliasUnlockBlock(uint16(aliasInputIndex))
+			unlockBlocks[i] = devnetvm.NewAliasUnlockBlock(uint16(aliasInputIndex))
 		}
 	}
 
-	tx = devnetvm2.NewTransaction(essence, unlockBlocks)
+	tx = devnetvm.NewTransaction(essence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return nil, err
 	}
-	err = new(devnetvm2.Transaction).FromBytes(txBytes)
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1116,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 
 // region SweepNFTOwnedNFTs ////////////////////////////////////////////////////////////////////////////////////////////
 
-func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.SweepNFTOwnedNFTsOption) (tx *devnetvm2.Transaction, sweptNFTs []*devnetvm2.AliasAddress, err error) {
+func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.SweepNFTOwnedNFTsOption) (tx *devnetvm.Transaction, sweptNFTs []*devnetvm.AliasAddress, err error) {
 	sweepOptions, err := sweepnftownednftsoptions.Build(options...)
 	if err != nil {
 		return
@@ -1140,7 +1140,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	if err != nil {
 		return
 	}
-	alias := walletAlias.Object.(*devnetvm2.AliasOutput)
+	alias := walletAlias.Object.(*devnetvm.AliasOutput)
 	owned, _, err := wallet.AvailableOutputsOnNFT(sweepOptions.Alias.Base58())
 	if err != nil {
 		return
@@ -1148,16 +1148,16 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	if len(owned) == 0 {
 		err = errors.Errorf("no owned outputs with funds are found on nft %s", sweepOptions.Alias.Base58())
 	}
-	toBeConsumed := devnetvm2.Outputs{}
+	toBeConsumed := devnetvm.Outputs{}
 	// owned contains all outputs that are owned by nft. we want to filter out non alias outputs
 	now := time.Now()
 	for _, output := range owned {
-		if len(toBeConsumed) == devnetvm2.MaxInputCount-1 {
+		if len(toBeConsumed) == devnetvm.MaxInputCount-1 {
 			// we can spend at most 127 inputs in a tx, need one more for the alias
 			break
 		}
-		if output.Type() == devnetvm2.AliasOutputType {
-			casted := output.(*devnetvm2.AliasOutput)
+		if output.Type() == devnetvm.AliasOutputType {
+			casted := output.(*devnetvm.AliasOutput)
 			if casted.DelegationTimeLockedNow(now) {
 				// the output is delegation timelocked at the moment, so the governor can't move it
 				continue
@@ -1180,12 +1180,12 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	// nextAlias is the nft we control
 	nextAlias := alias.NewAliasOutputNext(false)
 	// transition nft owned aliases
-	unsortedOutputs := devnetvm2.Outputs{nextAlias}
+	unsortedOutputs := devnetvm.Outputs{nextAlias}
 	for _, output := range toBeConsumed {
-		if output.Type() != devnetvm2.AliasOutputType {
+		if output.Type() != devnetvm.AliasOutputType {
 			continue
 		}
-		next := output.(*devnetvm2.AliasOutput).NewAliasOutputNext(true)
+		next := output.(*devnetvm.AliasOutput).NewAliasOutputNext(true)
 		// set to self-governed by toAddress
 		next.SetGoverningAddress(nil)
 		err = next.SetStateAddress(toAddress.Address())
@@ -1199,19 +1199,19 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	unsortedInputs := toBeConsumed.Inputs()
 
 	// create essence, contains sorted inputs and outputs
-	essence := devnetvm2.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, devnetvm2.NewInputs(unsortedInputs...), devnetvm2.NewOutputs(unsortedOutputs...))
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), accessPledgeNodeID, consensusPledgeNodeID, devnetvm.NewInputs(unsortedInputs...), devnetvm.NewOutputs(unsortedOutputs...))
 
 	toBeConsumeByID := toBeConsumed.ByID()
-	inputsInOrder := devnetvm2.Outputs{}
-	unlockBlocks := make(devnetvm2.UnlockBlocks, len(essence.Inputs()))
+	inputsInOrder := devnetvm.Outputs{}
+	unlockBlocks := make(devnetvm.UnlockBlocks, len(essence.Inputs()))
 	aliasInputIndex := -1
 	// find the input of alias
 	for index, input := range essence.Inputs() {
-		if input.Type() == devnetvm2.UTXOInputType {
-			casted := input.(*devnetvm2.UTXOInput)
+		if input.Type() == devnetvm.UTXOInputType {
+			casted := input.(*devnetvm.UTXOInput)
 			if casted.ReferencedOutputID() == alias.ID() {
 				keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-				unlockBlock := devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
+				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 				unlockBlocks[index] = unlockBlock
 				aliasInputIndex = index
 			}
@@ -1225,11 +1225,11 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	// fill rest of the unlock blocks
 	for i := range essence.Inputs() {
 		if i != aliasInputIndex {
-			unlockBlocks[i] = devnetvm2.NewAliasUnlockBlock(uint16(aliasInputIndex))
+			unlockBlocks[i] = devnetvm.NewAliasUnlockBlock(uint16(aliasInputIndex))
 		}
 	}
 
-	tx = devnetvm2.NewTransaction(essence, unlockBlocks)
+	tx = devnetvm.NewTransaction(essence, unlockBlocks)
 
 	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
@@ -1251,8 +1251,8 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 	}
 
 	for _, output := range tx.Essence().Outputs() {
-		if output.Type() == devnetvm2.AliasOutputType {
-			casted := output.(*devnetvm2.AliasOutput)
+		if output.Type() == devnetvm.AliasOutputType {
+			casted := output.(*devnetvm.AliasOutput)
 			if casted.GetAliasAddress().Equals(alias.GetAliasAddress()) {
 				// we skip the owned nft
 				continue
@@ -1281,7 +1281,7 @@ func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 // region AllowedPledgeNodeIDs /////////////////////////////////////////////////////////////////////////////////////////
 
 // AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
-func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana2.Type][]string, err error) {
+func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana.Type][]string, err error) {
 	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
 }
 
@@ -1392,7 +1392,7 @@ func (wallet *Wallet) Refresh(rescanSpentAddresses ...bool) (err error) {
 // region Balance //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Balance returns the confirmed and pending balance of the funds managed by this wallet.
-func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance map[devnetvm2.Color]uint64, err error) {
+func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance map[devnetvm.Color]uint64, err error) {
 	shouldRefresh := true
 	if len(refresh) > 0 {
 		shouldRefresh = refresh[0]
@@ -1404,14 +1404,14 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 		}
 	}
 
-	confirmedBalance = make(map[devnetvm2.Color]uint64)
-	pendingBalance = make(map[devnetvm2.Color]uint64)
+	confirmedBalance = make(map[devnetvm.Color]uint64)
+	pendingBalance = make(map[devnetvm.Color]uint64)
 
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// determine target map
-			var targetMap map[devnetvm2.Color]uint64
+			var targetMap map[devnetvm.Color]uint64
 			if output.ConfirmationStateReached {
 				targetMap = confirmedBalance
 			} else {
@@ -1419,31 +1419,31 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 			}
 
 			switch output.Object.Type() {
-			case devnetvm2.SigLockedSingleOutputType:
-			case devnetvm2.SigLockedColoredOutputType:
+			case devnetvm.SigLockedSingleOutputType:
+			case devnetvm.SigLockedColoredOutputType:
 				// extract balance
-				output.Object.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+				output.Object.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 					targetMap[color] += balance
 					return true
 				})
-			case devnetvm2.ExtendedLockedOutputType:
-				casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			case devnetvm.ExtendedLockedOutputType:
+				casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 				unlockAddyNow := casted.UnlockAddressNow(time.Now())
 				if addy.Address().Equals(unlockAddyNow) {
 					// we own this output now
-					casted.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+					casted.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 						targetMap[color] += balance
 						return true
 					})
 				}
-			case devnetvm2.AliasOutputType:
-				casted := output.Object.(*devnetvm2.AliasOutput)
+			case devnetvm.AliasOutputType:
+				casted := output.Object.(*devnetvm.AliasOutput)
 				if casted.IsDelegated() {
 					continue
 				}
 				if casted.IsSelfGoverned() {
 					// if it is self governed, addy is the state address, so we own everything
-					casted.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+					casted.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 						targetMap[color] += balance
 						return true
 					})
@@ -1451,10 +1451,10 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 				}
 				if casted.GetStateAddress().Equals(addy.Address()) {
 					// we are state controller
-					casted.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
-						if color == devnetvm2.ColorIOTA {
+					casted.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+						if color == devnetvm.ColorIOTA {
 							// the minimum amount can only be moved by the governor
-							surplusIOTA := balance - devnetvm2.DustThresholdAliasOutputIOTA
+							surplusIOTA := balance - devnetvm.DustThresholdAliasOutputIOTA
 							if surplusIOTA == 0 {
 								return true
 							}
@@ -1468,7 +1468,7 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 				}
 				if casted.GetGoverningAddress().Equals(addy.Address()) {
 					// we are the governor, so we only own the minimum dust amount that cannot be withdrawn by the state controller
-					targetMap[devnetvm2.ColorIOTA] += devnetvm2.DustThresholdAliasOutputIOTA
+					targetMap[devnetvm.ColorIOTA] += devnetvm.DustThresholdAliasOutputIOTA
 					continue
 				}
 			}
@@ -1483,7 +1483,7 @@ func (wallet *Wallet) Balance(refresh ...bool) (confirmedBalance, pendingBalance
 // region AvailableBalance /////////////////////////////////////////////////////////////////////////////////////////////
 
 // AvailableBalance returns the balance that is not held in aliases, and therefore can be used to fund transfers.
-func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendingBalance map[devnetvm2.Color]uint64, err error) {
+func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendingBalance map[devnetvm.Color]uint64, err error) {
 	shouldRefresh := true
 	if len(refresh) > 0 {
 		shouldRefresh = refresh[0]
@@ -1495,14 +1495,14 @@ func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendi
 		}
 	}
 
-	confirmedBalance = make(map[devnetvm2.Color]uint64)
-	pendingBalance = make(map[devnetvm2.Color]uint64)
+	confirmedBalance = make(map[devnetvm.Color]uint64)
+	pendingBalance = make(map[devnetvm.Color]uint64)
 	now := time.Now()
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
 			// determine target map
-			var targetMap map[devnetvm2.Color]uint64
+			var targetMap map[devnetvm.Color]uint64
 			if output.ConfirmationStateReached {
 				targetMap = confirmedBalance
 			} else {
@@ -1510,15 +1510,15 @@ func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendi
 			}
 
 			switch output.Object.Type() {
-			case devnetvm2.SigLockedSingleOutputType:
-			case devnetvm2.SigLockedColoredOutputType:
+			case devnetvm.SigLockedSingleOutputType:
+			case devnetvm.SigLockedColoredOutputType:
 				// extract balance
-				output.Object.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+				output.Object.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 					targetMap[color] += balance
 					return true
 				})
-			case devnetvm2.ExtendedLockedOutputType:
-				casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			case devnetvm.ExtendedLockedOutputType:
+				casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 				if casted.TimeLockedNow(now) {
 					// timelocked funds are not available
 					continue
@@ -1526,7 +1526,7 @@ func (wallet *Wallet) AvailableBalance(refresh ...bool) (confirmedBalance, pendi
 				unlockAddyNow := casted.UnlockAddressNow(now)
 				if addy.Address().Equals(unlockAddyNow) {
 					// we own this output now
-					casted.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+					casted.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 						targetMap[color] += balance
 						return true
 					})
@@ -1562,10 +1562,10 @@ func (wallet *Wallet) TimelockedBalances(refresh ...bool) (confirmed, pending Ti
 	// iterate through the unspent outputs
 	for _, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			if output.Object.Type() != devnetvm2.ExtendedLockedOutputType {
+			if output.Object.Type() != devnetvm.ExtendedLockedOutputType {
 				continue
 			}
-			casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 			if casted.TimeLockedNow(now) {
 				tBal := &TimedBalance{
 					Balance: casted.Balances().Map(),
@@ -1607,10 +1607,10 @@ func (wallet *Wallet) ConditionalBalances(refresh ...bool) (confirmed, pending T
 	// iterate through the unspent outputs
 	for addy, outputsOnAddress := range wallet.outputManager.UnspentOutputs(true) {
 		for _, output := range outputsOnAddress {
-			if output.Object.Type() != devnetvm2.ExtendedLockedOutputType {
+			if output.Object.Type() != devnetvm.ExtendedLockedOutputType {
 				continue
 			}
-			casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 			_, fallbackDeadline := casted.FallbackOptions()
 			if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
 				// fallback option is set and currently we are the unlock address
@@ -1639,13 +1639,13 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 	confirmedGovernedAliases,
 	confirmedStateControlledAliases,
 	pendingGovernedAliases,
-	pendingStateControlledAliases map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput,
+	pendingStateControlledAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput,
 	err error,
 ) {
-	confirmedGovernedAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
-	confirmedStateControlledAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
-	pendingGovernedAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
-	pendingStateControlledAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
+	confirmedGovernedAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
+	confirmedStateControlledAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
+	pendingGovernedAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
+	pendingStateControlledAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
 	shouldRefresh := true
 	if len(refresh) > 0 {
 		shouldRefresh = refresh[0]
@@ -1661,11 +1661,11 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
-			if output.Object.Type() != devnetvm2.AliasOutputType {
+			if output.Object.Type() != devnetvm.AliasOutputType {
 				continue
 			}
 			// target maps
-			var governedAliases, stateControlledAliases map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput
+			var governedAliases, stateControlledAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput
 			if output.ConfirmationStateReached {
 				governedAliases = confirmedGovernedAliases
 				stateControlledAliases = confirmedStateControlledAliases
@@ -1673,7 +1673,7 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 				governedAliases = pendingGovernedAliases
 				stateControlledAliases = pendingStateControlledAliases
 			}
-			alias := output.Object.(*devnetvm2.AliasOutput)
+			alias := output.Object.(*devnetvm.AliasOutput)
 			if alias.GetGoverningAddress().Equals(addr.Address()) {
 				// alias is governed by the wallet
 				governedAliases[*alias.GetAliasAddress()] = alias
@@ -1693,8 +1693,8 @@ func (wallet *Wallet) AliasBalance(refresh ...bool) (
 
 // AvailableOutputsOnNFT returns all outputs that are either owned (SigLocked***, Extended, stateControlled Alias) or governed
 // (governance controlled alias outputs) and are not currently locked.
-func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed devnetvm2.Outputs, err error) {
-	aliasAddress, err := devnetvm2.AliasAddressFromBase58EncodedString(nftID)
+func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed devnetvm.Outputs, err error) {
+	aliasAddress, err := devnetvm.AliasAddressFromBase58EncodedString(nftID)
 	if err != nil {
 		return
 	}
@@ -1706,15 +1706,15 @@ func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed devnet
 	now := time.Now()
 	for _, o := range outputs {
 		switch o.Type() {
-		case devnetvm2.SigLockedSingleOutputType, devnetvm2.SigLockedColoredOutputType:
+		case devnetvm.SigLockedSingleOutputType, devnetvm.SigLockedColoredOutputType:
 			owned = append(owned, o)
-		case devnetvm2.ExtendedLockedOutputType:
-			casted := o.(*devnetvm2.ExtendedLockedOutput)
+		case devnetvm.ExtendedLockedOutputType:
+			casted := o.(*devnetvm.ExtendedLockedOutput)
 			if casted.UnlockAddressNow(now).Equals(aliasAddress) && !casted.TimeLockedNow(now) {
 				owned = append(owned, o)
 			}
-		case devnetvm2.AliasOutputType:
-			casted := o.(*devnetvm2.AliasOutput)
+		case devnetvm.AliasOutputType:
+			casted := o.(*devnetvm.AliasOutput)
 			// the alias output of aliasAddress is filtered out
 			if casted.GetStateAddress().Equals(aliasAddress) && !casted.DelegationTimeLockedNow(now) {
 				owned = append(owned, o)
@@ -1732,12 +1732,12 @@ func (wallet Wallet) AvailableOutputsOnNFT(nftID string) (owned, governed devnet
 
 // DelegatedAliasBalance returns the pending and confirmed aliases that are delegated.
 func (wallet *Wallet) DelegatedAliasBalance(refresh ...bool) (
-	confirmedDelegatedAliases map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput,
-	pendingDelegatedAliases map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput,
+	confirmedDelegatedAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput,
+	pendingDelegatedAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput,
 	err error,
 ) {
-	confirmedDelegatedAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
-	pendingDelegatedAliases = map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput{}
+	confirmedDelegatedAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
+	pendingDelegatedAliases = map[devnetvm.AliasAddress]*devnetvm.AliasOutput{}
 
 	shouldRefresh := true
 	if len(refresh) > 0 {
@@ -1754,16 +1754,16 @@ func (wallet *Wallet) DelegatedAliasBalance(refresh ...bool) (
 
 	for addr, outputIDToOutputMap := range aliasOutputs {
 		for _, output := range outputIDToOutputMap {
-			if output.Object.Type() != devnetvm2.AliasOutputType {
+			if output.Object.Type() != devnetvm.AliasOutputType {
 				continue
 			}
-			alias := output.Object.(*devnetvm2.AliasOutput)
+			alias := output.Object.(*devnetvm.AliasOutput)
 			// skip if the output was delegated
 			if !alias.IsDelegated() {
 				continue
 			}
 			// target maps
-			var delegatedAliases map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput
+			var delegatedAliases map[devnetvm.AliasAddress]*devnetvm.AliasOutput
 			if output.ConfirmationStateReached {
 				delegatedAliases = confirmedDelegatedAliases
 			} else {
@@ -1850,7 +1850,7 @@ func (wallet *Wallet) WaitForTxAcceptance(txID utxo.TransactionID, optionalCtx .
 
 // waitForBalanceConfirmation waits until the balance of the wallet changes compared to the provided argument.
 // (a transaction modifying the wallet balance got confirmed).
-func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[devnetvm2.Color]uint64) (err error) {
+func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[devnetvm.Color]uint64) (err error) {
 	timeoutCounter := time.Duration(0)
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
@@ -1874,7 +1874,7 @@ func (wallet *Wallet) waitForBalanceConfirmation(prevConfirmedBalance map[devnet
 
 // waitForGovAliasBalanceConfirmation waits until the balance of the confirmed governed aliases changes in the wallet.
 // (a tx submitting an alias governance transition is confirmed).
-func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*devnetvm2.AliasAddress]*devnetvm2.AliasOutput) (err error) {
+func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[*devnetvm.AliasAddress]*devnetvm.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
 		if err = wallet.Refresh(); err != nil {
@@ -1893,7 +1893,7 @@ func (wallet *Wallet) waitForGovAliasBalanceConfirmation(preGovAliasBalance map[
 
 // waitForStateAliasBalanceConfirmation waits until the balance of the state controlled aliases changes in the wallet.
 // (a tx submitting an alias state transition is confirmed).
-func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*devnetvm2.AliasAddress]*devnetvm2.AliasOutput) (err error) {
+func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance map[*devnetvm.AliasAddress]*devnetvm.AliasOutput) (err error) {
 	for {
 		time.Sleep(wallet.ConfirmationPollInterval)
 
@@ -1921,24 +1921,24 @@ func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aI
 		return
 	}
 	if aIDFromOptions == "" {
-		aID, err = mana2.IDFromStr(allowedPledgeNodeIDs[mana2.AccessMana][0])
+		aID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
 	} else {
-		aID, err = mana2.IDFromStr(aIDFromOptions)
+		aID, err = mana.IDFromStr(aIDFromOptions)
 	}
 	if err != nil {
 		return
 	}
 
 	if cIDFromOptions == "" {
-		cID, err = mana2.IDFromStr(allowedPledgeNodeIDs[mana2.ConsensusMana][0])
+		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
 	} else {
-		cID, err = mana2.IDFromStr(cIDFromOptions)
+		cID, err = mana.IDFromStr(cIDFromOptions)
 	}
 	return
 }
 
 // findGovernedAliasOutputByAliasID tries to load the output with given alias address from output manager that is governed by this wallet.
-func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *devnetvm2.AliasAddress) (res *Output, err error) {
+func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *devnetvm.AliasAddress) (res *Output, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -1947,7 +1947,7 @@ func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *devnetvm2.AliasAddres
 	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs(false)
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
-			if output.Object.Address().Equals(id) && output.Object.(*devnetvm2.AliasOutput).GetGoverningAddress().Equals(output.Address.Address()) {
+			if output.Object.Address().Equals(id) && output.Object.(*devnetvm.AliasOutput).GetGoverningAddress().Equals(output.Address.Address()) {
 				res = output
 				return res, nil
 			}
@@ -1958,7 +1958,7 @@ func (wallet *Wallet) findGovernedAliasOutputByAliasID(id *devnetvm2.AliasAddres
 }
 
 // findStateControlledAliasOutputByAliasID tries to load the output with given alias address from output manager that is state controlled by this wallet.
-func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm2.AliasAddress) (res *Output, err error) {
+func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm.AliasAddress) (res *Output, err error) {
 	err = wallet.outputManager.Refresh()
 	if err != nil {
 		return
@@ -1967,7 +1967,7 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm2.Alia
 	unspentAliasOutputs := wallet.outputManager.UnspentAliasOutputs(false)
 	for _, outputIDMap := range unspentAliasOutputs {
 		for _, output := range outputIDMap {
-			if output.Object.Address().Equals(id) && output.Object.(*devnetvm2.AliasOutput).GetStateAddress().Equals(output.Address.Address()) {
+			if output.Object.Address().Equals(id) && output.Object.(*devnetvm.AliasOutput).GetStateAddress().Equals(output.Address.Address()) {
 				res = output
 				return res, nil
 			}
@@ -1979,7 +1979,7 @@ func (wallet *Wallet) findStateControlledAliasOutputByAliasID(id *devnetvm2.Alia
 
 // collectOutputsForFunding tries to collect unspent outputs to fund fundingBalance.
 // It may collect pending outputs according to flag.
-func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm2.Color]uint64, includePending bool, addresses ...address.Address) (OutputsByAddressAndOutputID, error) {
+func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm.Color]uint64, includePending bool, addresses ...address.Address) (OutputsByAddressAndOutputID, error) {
 	if fundingBalance == nil {
 		return nil, errors.Errorf("can't collect fund: empty fundingBalance provided")
 	}
@@ -1990,21 +1990,21 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm2.Colo
 	}
 	unspentOutputs := wallet.outputManager.UnspentValueOutputs(includePending, addresses...)
 
-	collected := make(map[devnetvm2.Color]uint64)
+	collected := make(map[devnetvm.Color]uint64)
 	outputsToConsume := NewAddressToOutputs()
 	numOfCollectedOutputs := 0
 	now := time.Now()
 	for _, addy := range addresses {
 		for outputID, output := range unspentOutputs[addy] {
-			if output.Object.Type() == devnetvm2.ExtendedLockedOutputType {
-				casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			if output.Object.Type() == devnetvm.ExtendedLockedOutputType {
+				casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 				if casted.TimeLockedNow(now) || !casted.UnlockAddressNow(now).Equals(addy.Address()) {
 					// skip the output because we wouldn't be able to unlock it
 					continue
 				}
 			}
 			contributingOutput := false
-			output.Object.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+			output.Object.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				_, has := fundingBalance[color]
 				if has {
 					collected[color] += balance
@@ -2019,25 +2019,25 @@ func (wallet *Wallet) collectOutputsForFunding(fundingBalance map[devnetvm2.Colo
 				}
 				outputsToConsume[addy][outputID] = output
 				numOfCollectedOutputs++
-				if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs <= devnetvm2.MaxInputCount {
+				if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs <= devnetvm.MaxInputCount {
 					return outputsToConsume, nil
 				}
 			}
 		}
 	}
 
-	if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs > devnetvm2.MaxOutputCount {
+	if enoughCollected(collected, fundingBalance) && numOfCollectedOutputs > devnetvm.MaxOutputCount {
 		return outputsToConsume, errors.Errorf("failed to collect outputs: %w", ErrTooManyOutputs)
 	}
 
 	return nil, errors.Errorf("failed to gather initial funds \n %s, there are only \n %s funds available",
-		devnetvm2.NewColoredBalances(fundingBalance).String(),
-		devnetvm2.NewColoredBalances(collected).String(),
+		devnetvm.NewColoredBalances(fundingBalance).String(),
+		devnetvm.NewColoredBalances(collected).String(),
 	)
 }
 
 // enoughCollected checks if collected has at least target funds.
-func enoughCollected(collected, target map[devnetvm2.Color]uint64) bool {
+func enoughCollected(collected, target map[devnetvm.Color]uint64) bool {
 	for color, balance := range target {
 		if collected[color] < balance {
 			return false
@@ -2047,36 +2047,36 @@ func enoughCollected(collected, target map[devnetvm2.Color]uint64) bool {
 }
 
 // buildInputs builds a list of deterministically sorted inputs from the provided OutputsByAddressAndOutputID mapping.
-func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputID) devnetvm2.Inputs {
-	unsortedInputs := devnetvm2.Inputs{}
+func (wallet *Wallet) buildInputs(addressToIDToOutput OutputsByAddressAndOutputID) devnetvm.Inputs {
+	unsortedInputs := devnetvm.Inputs{}
 	for _, outputIDToOutputMap := range addressToIDToOutput {
 		for _, output := range outputIDToOutputMap {
 			unsortedInputs = append(unsortedInputs, output.Object.Input())
 		}
 	}
-	return devnetvm2.NewInputs(unsortedInputs...)
+	return devnetvm.NewInputs(unsortedInputs...)
 }
 
 // buildOutputs builds outputs based on desired destination balances and consumedFunds. If consumedFunds is greater, than
 // the destination funds, remainderAddress specifies where the remaining amount is put.
 func (wallet *Wallet) buildOutputs(
 	sendOptions *sendoptions.SendFundsOptions,
-	consumedFunds map[devnetvm2.Color]uint64,
+	consumedFunds map[devnetvm.Color]uint64,
 	remainderAddress address.Address,
-) (outputs devnetvm2.Outputs) {
+) (outputs devnetvm.Outputs) {
 	// build outputs for destinations
-	outputsByColor := make(map[address.Address]map[devnetvm2.Color]uint64)
+	outputsByColor := make(map[address.Address]map[devnetvm.Color]uint64)
 	for walletAddress, coloredBalances := range sendOptions.Destinations {
 		if _, addressExists := outputsByColor[walletAddress]; !addressExists {
-			outputsByColor[walletAddress] = make(map[devnetvm2.Color]uint64)
+			outputsByColor[walletAddress] = make(map[devnetvm.Color]uint64)
 		}
 		for color, amount := range coloredBalances {
 			outputsByColor[walletAddress][color] += amount
-			if color == devnetvm2.ColorMint {
-				consumedFunds[devnetvm2.ColorIOTA] -= amount
+			if color == devnetvm.ColorMint {
+				consumedFunds[devnetvm.ColorIOTA] -= amount
 
-				if consumedFunds[devnetvm2.ColorIOTA] == 0 {
-					delete(consumedFunds, devnetvm2.ColorIOTA)
+				if consumedFunds[devnetvm.ColorIOTA] == 0 {
+					delete(consumedFunds, devnetvm.ColorIOTA)
 				}
 			} else {
 				consumedFunds[color] -= amount
@@ -2088,18 +2088,18 @@ func (wallet *Wallet) buildOutputs(
 		}
 	}
 	// construct result
-	var outputsSlice []devnetvm2.Output
+	var outputsSlice []devnetvm.Output
 
 	// add output for remainder
 	if len(consumedFunds) != 0 {
-		outputsSlice = append(outputsSlice, devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(consumedFunds), remainderAddress.Address()))
+		outputsSlice = append(outputsSlice, devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(consumedFunds), remainderAddress.Address()))
 	}
 
 	for addr, outputBalanceMap := range outputsByColor {
-		coloredBalances := devnetvm2.NewColoredBalances(outputBalanceMap)
-		var output devnetvm2.Output
+		coloredBalances := devnetvm.NewColoredBalances(outputBalanceMap)
+		var output devnetvm.Output
 		if !sendOptions.LockUntil.IsZero() || !sendOptions.FallbackDeadline.IsZero() || sendOptions.FallbackAddress != nil {
-			extended := devnetvm2.NewExtendedLockedOutput(outputBalanceMap, addr.Address())
+			extended := devnetvm.NewExtendedLockedOutput(outputBalanceMap, addr.Address())
 			if !sendOptions.LockUntil.IsZero() {
 				extended = extended.WithTimeLock(sendOptions.LockUntil)
 			}
@@ -2108,30 +2108,30 @@ func (wallet *Wallet) buildOutputs(
 			}
 			output = extended
 		} else {
-			output = devnetvm2.NewSigLockedColoredOutput(coloredBalances, addr.Address())
+			output = devnetvm.NewSigLockedColoredOutput(coloredBalances, addr.Address())
 		}
 
 		outputsSlice = append(outputsSlice, output)
 	}
-	outputs = devnetvm2.NewOutputs(outputsSlice...)
+	outputs = devnetvm.NewOutputs(outputsSlice...)
 
 	return
 }
 
 // buildUnlockBlocks constructs the unlock blocks for a transaction.
-func (wallet *Wallet) buildUnlockBlocks(inputs devnetvm2.Inputs, consumedOutputsByID OutputsByID, essence *devnetvm2.TransactionEssence) (unlocks devnetvm2.UnlockBlocks, inputsInOrder devnetvm2.Outputs) {
-	unlocks = make([]devnetvm2.UnlockBlock, len(inputs))
+func (wallet *Wallet) buildUnlockBlocks(inputs devnetvm.Inputs, consumedOutputsByID OutputsByID, essence *devnetvm.TransactionEssence) (unlocks devnetvm.UnlockBlocks, inputsInOrder devnetvm.Outputs) {
+	unlocks = make([]devnetvm.UnlockBlock, len(inputs))
 	existingUnlockBlocks := make(map[address.Address]uint16)
 	for outputIndex, input := range inputs {
-		output := consumedOutputsByID[input.(*devnetvm2.UTXOInput).ReferencedOutputID()]
+		output := consumedOutputsByID[input.(*devnetvm.UTXOInput).ReferencedOutputID()]
 		inputsInOrder = append(inputsInOrder, output.Object)
 		if unlockBlockIndex, unlockBlockExists := existingUnlockBlocks[output.Address]; unlockBlockExists {
-			unlocks[outputIndex] = devnetvm2.NewReferenceUnlockBlock(unlockBlockIndex)
+			unlocks[outputIndex] = devnetvm.NewReferenceUnlockBlock(unlockBlockIndex)
 			continue
 		}
 
 		keyPair := wallet.Seed().KeyPair(output.Address.Index)
-		unlockBlock := devnetvm2.NewSignatureUnlockBlock(devnetvm2.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
+		unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 		unlocks[outputIndex] = unlockBlock
 		existingUnlockBlocks[output.Address] = uint16(outputIndex)
 	}
@@ -2200,9 +2200,9 @@ func (wallet *Wallet) chooseToAddress(consumedOutputs OutputsByAddressAndOutputI
 }
 
 // checkBalancesAndUnlocks checks if tx balances are okay and unlock blocks are valid.
-func checkBalancesAndUnlocks(inputs devnetvm2.Outputs, tx *devnetvm2.Transaction) (bool, error) {
-	balancesValid := devnetvm2.TransactionBalancesValid(inputs, tx.Essence().Outputs())
-	unlocksValid, err := devnetvm2.UnlockBlocksValidWithError(inputs, tx)
+func checkBalancesAndUnlocks(inputs devnetvm.Outputs, tx *devnetvm.Transaction) (bool, error) {
+	balancesValid := devnetvm.TransactionBalancesValid(inputs, tx.Essence().Outputs())
+	unlocksValid, err := devnetvm.UnlockBlocksValidWithError(inputs, tx)
 	if err != nil {
 		return false, err
 	}

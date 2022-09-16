@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -104,7 +104,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 }
 
 // SendTransaction sends a new transaction to the network.
-func (webConnector WebConnector) SendTransaction(tx *devnetvm2.Transaction) (err error) {
+func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	err = webConnector.client.SleepRateSetterEstimate()
 	if err != nil {
 		return err
@@ -142,21 +142,21 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 }
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
-func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm2.AliasAddress) (output *devnetvm2.AliasOutput, err error) {
+func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
 	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
 	if err != nil {
 		return
 	}
 	for _, o := range res.Outputs {
-		if o.Type != devnetvm2.AliasOutputType.String() {
+		if o.Type != devnetvm.AliasOutputType.String() {
 			continue
 		}
-		var uncastedOutput devnetvm2.Output
+		var uncastedOutput devnetvm.Output
 		uncastedOutput, err = o.ToLedgerstateOutput()
 		if err != nil {
 			return
 		}
-		alias, ok := uncastedOutput.(*devnetvm2.AliasOutput)
+		alias, ok := uncastedOutput.(*devnetvm.AliasOutput)
 		if !ok {
 			err = errors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
 			return
@@ -171,13 +171,13 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm2.AliasAddr
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
-func colorFromString(colorStr string) (color devnetvm2.Color) {
+func colorFromString(colorStr string) (color devnetvm.Color) {
 	if colorStr == "IOTA" {
-		color = devnetvm2.ColorIOTA
+		color = devnetvm.ColorIOTA
 	} else {
 		var t utxo.TransactionID
 		_ = t.FromBase58(colorStr)
-		color, _, _ = devnetvm2.ColorFromBytes(t.Bytes())
+		color, _, _ = devnetvm.ColorFromBytes(t.Bytes())
 	}
 	return
 }

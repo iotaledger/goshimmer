@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -54,9 +54,9 @@ func init() {
 
 func configureSnapshotPlugin(plugin *node.Plugin) {
 	if Parameters.Snapshot.File != "" {
-		emptyHeaderConsumer := func(*ledger2.SnapshotHeader) {}
-		emptyOutputsConsumer := func([]*ledger2.OutputWithMetadata) {}
-		emptyEpochDiffsConsumer := func(*ledger2.EpochDiff) {}
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
+		emptyOutputsConsumer := func([]*ledger.OutputWithMetadata) {}
+		emptyEpochDiffsConsumer := func(*ledger.EpochDiff) {}
 		emptyActivityLogConsumer := func(activity epoch.SnapshotEpochActivity) {}
 
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File,

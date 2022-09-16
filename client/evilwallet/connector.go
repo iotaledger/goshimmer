@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -172,23 +172,23 @@ type Client interface {
 	// SleepRateSetterEstimate sleeps for rate setter estimate.
 	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
-	PostTransaction(tx *devnetvm2.Transaction) (utxo.TransactionID, error)
+	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-	GetUnspentOutputForAddress(addr devnetvm2.Address) *jsonmodels.WalletOutput
+	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
 	GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error)
 	// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
 	GetTransactionConfirmationState(txID string) confirmation.State
 	// GetOutput gets the output of a given outputID.
-	GetOutput(outputID utxo.OutputID) devnetvm2.Output
+	GetOutput(outputID utxo.OutputID) devnetvm.Output
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
 	GetOutputConfirmationState(outputID utxo.OutputID) confirmation.State
 	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request block ID.
 	BroadcastFaucetRequest(address string) error
 	// GetTransactionOutputs returns the outputs the transaction created.
-	GetTransactionOutputs(txID string) (outputs devnetvm2.Outputs, err error)
+	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
 	// GetTransaction gets the transaction.
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 	// GetOutputSolidity checks if the transaction is solid.
@@ -239,7 +239,7 @@ func (c *WebClient) BroadcastFaucetRequest(address string) (err error) {
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *WebClient) PostTransaction(tx *devnetvm2.Transaction) (txID utxo.TransactionID, err error) {
+func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.TransactionID, err error) {
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return
@@ -276,7 +276,7 @@ func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []utxo.O
 }
 
 // GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm2.Address) *jsonmodels.WalletOutput {
+func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput {
 	resp, err := c.api.PostAddressUnspentOutputs([]string{addr.Base58()})
 	if err != nil {
 		return nil
@@ -299,7 +299,7 @@ func (c *WebClient) GetOutputConfirmationState(outputID utxo.OutputID) confirmat
 }
 
 // GetOutput gets the output of a given outputID.
-func (c *WebClient) GetOutput(outputID utxo.OutputID) devnetvm2.Output {
+func (c *WebClient) GetOutput(outputID utxo.OutputID) devnetvm.Output {
 	res, err := c.api.GetOutput(outputID.Base58())
 	if err != nil {
 		return nil
@@ -318,7 +318,7 @@ func (c *WebClient) GetTransactionConfirmationState(txID string) confirmation.St
 }
 
 // GetTransactionOutputs returns the outputs the transaction created.
-func (c *WebClient) GetTransactionOutputs(txID string) (outputs devnetvm2.Outputs, err error) {
+func (c *WebClient) GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error) {
 	resp, err := c.api.GetTransaction(txID)
 	if err != nil {
 		return

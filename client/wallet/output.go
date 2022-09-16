@@ -5,13 +5,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
 	Address                  address.Address
-	Object                   devnetvm2.Output
+	Object                   devnetvm.Output
 	Metadata                 OutputMetadata
 	ConfirmationStateReached bool
 	// Spent is a local wallet-only property that gets set once an output is spent from within the same wallet.
@@ -74,7 +74,7 @@ func (o OutputsByAddressAndOutputID) ValueOutputsOnly() OutputsByAddressAndOutpu
 	for addy, IDToOutputMap := range o {
 		for outputID, output := range IDToOutputMap {
 			switch output.Object.Type() {
-			case devnetvm2.SigLockedSingleOutputType, devnetvm2.SigLockedColoredOutputType, devnetvm2.ExtendedLockedOutputType:
+			case devnetvm.SigLockedSingleOutputType, devnetvm.SigLockedColoredOutputType, devnetvm.ExtendedLockedOutputType:
 				if _, addressExists := result[addy]; !addressExists {
 					result[addy] = make(map[utxo.OutputID]*Output)
 				}
@@ -91,8 +91,8 @@ func (o OutputsByAddressAndOutputID) ConditionalOutputsOnly() OutputsByAddressAn
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
 		for outputID, output := range IDToOutputMap {
-			if output.Object.Type() == devnetvm2.ExtendedLockedOutputType {
-				casted := output.Object.(*devnetvm2.ExtendedLockedOutput)
+			if output.Object.Type() == devnetvm.ExtendedLockedOutputType {
+				casted := output.Object.(*devnetvm.ExtendedLockedOutput)
 				_, fallbackDeadline := casted.FallbackOptions()
 				if !fallbackDeadline.IsZero() && addy.Address().Equals(casted.UnlockAddressNow(now)) {
 					if _, addressExists := result[addy]; !addressExists {
@@ -111,7 +111,7 @@ func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutpu
 	result := NewAddressToOutputs()
 	for addy, IDToOutputMap := range o {
 		for outputID, output := range IDToOutputMap {
-			if output.Object.Type() == devnetvm2.AliasOutputType {
+			if output.Object.Type() == devnetvm.AliasOutputType {
 				if _, addressExists := result[addy]; !addressExists {
 					result[addy] = make(map[utxo.OutputID]*Output)
 				}
@@ -123,11 +123,11 @@ func (o OutputsByAddressAndOutputID) AliasOutputsOnly() OutputsByAddressAndOutpu
 }
 
 // TotalFundsInOutputs returns the total funds present in the outputs.
-func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[devnetvm2.Color]uint64 {
-	result := make(map[devnetvm2.Color]uint64)
+func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[devnetvm.Color]uint64 {
+	result := make(map[devnetvm.Color]uint64)
 	for _, IDToOutputMap := range o {
 		for _, output := range IDToOutputMap {
-			output.Object.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+			output.Object.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				result[color] += balance
 				return true
 			})
@@ -137,8 +137,8 @@ func (o OutputsByAddressAndOutputID) TotalFundsInOutputs() map[devnetvm2.Color]u
 }
 
 // ToLedgerStateOutputs transforms all outputs in the mapping into a slice of ledgerstate outputs.
-func (o OutputsByAddressAndOutputID) ToLedgerStateOutputs() devnetvm2.Outputs {
-	outputs := devnetvm2.Outputs{}
+func (o OutputsByAddressAndOutputID) ToLedgerStateOutputs() devnetvm.Outputs {
+	outputs := devnetvm.Outputs{}
 	for _, outputIDMapping := range o {
 		for _, output := range outputIDMapping {
 			outputs = append(outputs, output.Object)
@@ -161,11 +161,11 @@ func (o OutputsByAddressAndOutputID) OutputCount() int {
 // SplitIntoChunksOfMaxInputCount splits the mapping into chunks that contain at most ledgerstate.MaxInputCount outputs.
 func (o OutputsByAddressAndOutputID) SplitIntoChunksOfMaxInputCount() []OutputsByAddressAndOutputID {
 	outputCount := o.OutputCount()
-	if outputCount <= devnetvm2.MaxInputCount {
+	if outputCount <= devnetvm.MaxInputCount {
 		// there is no need to split
 		return []OutputsByAddressAndOutputID{o}
 	}
-	result := make([]OutputsByAddressAndOutputID, outputCount/devnetvm2.MaxInputCount+1)
+	result := make([]OutputsByAddressAndOutputID, outputCount/devnetvm.MaxInputCount+1)
 	for i := range result {
 		// init all chunks
 		result[i] = NewAddressToOutputs()
@@ -174,7 +174,7 @@ func (o OutputsByAddressAndOutputID) SplitIntoChunksOfMaxInputCount() []OutputsB
 	chunkCount := -1
 	for addy, outputIDMapping := range o {
 		for outputID, output := range outputIDMapping {
-			if processedCount%devnetvm2.MaxInputCount == 0 {
+			if processedCount%devnetvm.MaxInputCount == 0 {
 				chunkCount++
 			}
 			if _, has := result[chunkCount][addy]; !has {

@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 	}
 
 	// issue transactions which spend the same output
-	conflictingTxs := make([]*devnetvm2.Transaction, 2)
+	conflictingTxs := make([]*devnetvm.Transaction, 2)
 	conflictingBlkIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
@@ -92,14 +92,14 @@ func main() {
 			receiverSeeds[i] = walletseed.NewSeed()
 			destAddr := receiverSeeds[i].Address(0)
 
-			output := devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
-				devnetvm2.ColorIOTA: uint64(1000000),
+			output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: uint64(1000000),
 			}), destAddr.Address())
-			txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, devnetvm2.NewInputs(devnetvm2.NewUTXOInput(out)), devnetvm2.NewOutputs(output))
+			txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, devnetvm.NewInputs(devnetvm.NewUTXOInput(out)), devnetvm.NewOutputs(output))
 			kp := *mySeed.KeyPair(0)
-			sig := devnetvm2.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
-			unlockBlock := devnetvm2.NewSignatureUnlockBlock(sig)
-			tx := devnetvm2.NewTransaction(txEssence, devnetvm2.UnlockBlocks{unlockBlock})
+			sig := devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
+			unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
+			tx := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
 
 			// issue the tx

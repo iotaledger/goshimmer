@@ -6,9 +6,9 @@ import (
 	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	payload2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
@@ -83,15 +83,15 @@ type Balance struct {
 
 // ProcessPayload returns different structs regarding to the
 // payload type.
-func ProcessPayload(p payload2.Payload) interface{} {
+func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
-	case payload2.GenericDataPayloadType:
+	case payload.GenericDataPayloadType:
 		// data payload
 		return BasicPayload{
 			ContentTitle: "GenericDataPayload",
-			Content:      p.(*payload2.GenericDataPayload).Blob(),
+			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case devnetvm2.TransactionType:
+	case devnetvm.TransactionType:
 		return processTransactionPayload(p)
 	case faucet.RequestType:
 		// faucet payload
@@ -116,15 +116,15 @@ func ProcessPayload(p payload2.Payload) interface{} {
 }
 
 // processTransactionPayload handles Value payload
-func processTransactionPayload(p payload2.Payload) (tp TransactionPayload) {
-	tx := p.(*devnetvm2.Transaction)
+func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
+	tx := p.(*devnetvm.Transaction)
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
-		refOutputID := input.(*devnetvm2.UTXOInput).ReferencedOutputID()
+		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
 		deps.Tangle.Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
-			if typedOutput, ok := output.(devnetvm2.Output); ok {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
 				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
 			}
 		})

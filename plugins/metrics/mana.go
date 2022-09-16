@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -55,12 +55,12 @@ type NodePledgeMap map[identity.ID]*PledgeLog
 
 var (
 	// internal metrics for access mana
-	accessMap        mana2.NodeMap
+	accessMap        mana.NodeMap
 	accessPercentile atomic.Float64
 	accessLock       sync.RWMutex
 
 	// internal metrics for consensus mana
-	consensusMap        mana2.NodeMap
+	consensusMap        mana.NodeMap
 	consensusPercentile atomic.Float64
 	consensusLock       sync.RWMutex
 
@@ -79,10 +79,10 @@ func AccessPercentile() float64 {
 }
 
 // AccessManaMap returns the access mana of the whole network.
-func AccessManaMap() mana2.NodeMap {
+func AccessManaMap() mana.NodeMap {
 	accessLock.RLock()
 	defer accessLock.RUnlock()
-	result := mana2.NodeMap{}
+	result := mana.NodeMap{}
 	for k, v := range accessMap {
 		result[k] = v
 	}
@@ -102,10 +102,10 @@ func OwnConsensusMana() float64 {
 }
 
 // ConsensusManaMap returns the consensus mana of the whole network.
-func ConsensusManaMap() mana2.NodeMap {
+func ConsensusManaMap() mana.NodeMap {
 	consensusLock.RLock()
 	defer consensusLock.RUnlock()
-	result := mana2.NodeMap{}
+	result := mana.NodeMap{}
 	for k, v := range consensusMap {
 		result[k] = v
 	}
@@ -123,10 +123,10 @@ func AverageNeighborsConsensus() float64 {
 }
 
 // AveragePledgeConsensus returns the average pledged consensus base mana of all nodes.
-func AveragePledgeConsensus() mana2.NodeMap {
+func AveragePledgeConsensus() mana.NodeMap {
 	pledgesLock.RLock()
 	defer pledgesLock.RUnlock()
-	result := mana2.NodeMap{}
+	result := mana.NodeMap{}
 	for nodeID, pledgeLog := range pledges {
 		result[nodeID] = pledgeLog.GetConsensusAverage()
 	}
@@ -134,10 +134,10 @@ func AveragePledgeConsensus() mana2.NodeMap {
 }
 
 // AveragePledgeAccess returns the average pledged access base mana of all nodes.
-func AveragePledgeAccess() mana2.NodeMap {
+func AveragePledgeAccess() mana.NodeMap {
 	pledgesLock.RLock()
 	defer pledgesLock.RUnlock()
-	result := mana2.NodeMap{}
+	result := mana.NodeMap{}
 	for nodeID, pledgeLog := range pledges {
 		result[nodeID] = pledgeLog.GetAccessAverage()
 	}
@@ -145,7 +145,7 @@ func AveragePledgeAccess() mana2.NodeMap {
 }
 
 // addPledge populates the pledge logs for the node.
-func addPledge(event *mana2.PledgedEvent) {
+func addPledge(event *mana.PledgedEvent) {
 	pledgesLock.Lock()
 	defer pledgesLock.Unlock()
 	pledgeLog := pledges[event.NodeID]
@@ -153,9 +153,9 @@ func addPledge(event *mana2.PledgedEvent) {
 		pledgeLog = &PledgeLog{}
 	}
 	switch event.ManaType {
-	case mana2.AccessMana:
+	case mana.AccessMana:
 		pledgeLog.AddAccess(event.Amount)
-	case mana2.ConsensusMana:
+	case mana.ConsensusMana:
 		pledgeLog.AddConsensus(event.Amount)
 	}
 	pledges[event.NodeID] = pledgeLog
@@ -165,16 +165,16 @@ func measureMana() {
 	tmp, _ := manaPlugin.GetAllManaMaps()
 	accessLock.Lock()
 	defer accessLock.Unlock()
-	accessMap = tmp[mana2.AccessMana]
+	accessMap = tmp[mana.AccessMana]
 	aPer, _ := accessMap.GetPercentile(deps.Local.ID())
 	accessPercentile.Store(aPer)
 	consensusLock.Lock()
 	defer consensusLock.Unlock()
-	consensusMap = tmp[mana2.ConsensusMana]
+	consensusMap = tmp[mana.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
 	consensusPercentile.Store(cPer)
 	neighbors := deps.P2Pmgr.AllNeighbors()
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana2.AccessMana, neighbors)
+	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(mana.AccessMana, neighbors)
 	accessSum, accessAvg := 0.0, 0.0
 	for _, v := range neighborAccessMap {
 		accessSum += v
@@ -184,7 +184,7 @@ func measureMana() {
 	}
 	averageNeighborsAccess.Store(accessAvg)
 
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana2.ConsensusMana, neighbors)
+	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(mana.ConsensusMana, neighbors)
 	consensusSum, consensusAvg := 0.0, 0.0
 	for _, v := range neighborConsensusMap {
 		consensusSum += v

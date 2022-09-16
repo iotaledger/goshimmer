@@ -3,7 +3,7 @@ package createnftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // CreateNFTOption is a function that provides options.
@@ -18,10 +18,10 @@ func WaitForConfirmation(wait bool) CreateNFTOption {
 }
 
 // InitialBalance sets the initial balance of the newly created NFT.
-func InitialBalance(balance map[devnetvm2.Color]uint64) CreateNFTOption {
+func InitialBalance(balance map[devnetvm.Color]uint64) CreateNFTOption {
 	return func(options *CreateNFTOptions) error {
-		if balance[devnetvm2.ColorIOTA] < devnetvm2.DustThresholdAliasOutputIOTA {
-			return errors.Errorf("NFT must have at least %d IOTA balance", devnetvm2.DustThresholdAliasOutputIOTA)
+		if balance[devnetvm.ColorIOTA] < devnetvm.DustThresholdAliasOutputIOTA {
+			return errors.Errorf("NFT must have at least %d IOTA balance", devnetvm.DustThresholdAliasOutputIOTA)
 		}
 		options.InitialBalance = balance
 		return nil
@@ -34,8 +34,8 @@ func ImmutableData(data []byte) CreateNFTOption {
 		if data == nil {
 			return errors.Errorf("empty data supplied for immutable data")
 		}
-		if len(data) > devnetvm2.MaxOutputPayloadSize {
-			return errors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), devnetvm2.MaxOutputPayloadSize)
+		if len(data) > devnetvm.MaxOutputPayloadSize {
+			return errors.Errorf("provided immutable data size %d is greater than maximum allowed %d", len(data), devnetvm.MaxOutputPayloadSize)
 		}
 		options.ImmutableData = data
 		return nil
@@ -60,7 +60,7 @@ func ConsensusManaPledgeID(nodeID string) CreateNFTOption {
 
 // CreateNFTOptions is a struct that is used to aggregate the optional parameters in the CreateNFT call.
 type CreateNFTOptions struct {
-	InitialBalance        map[devnetvm2.Color]uint64
+	InitialBalance        map[devnetvm.Color]uint64
 	ImmutableData         []byte
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
@@ -79,7 +79,7 @@ func Build(options ...CreateNFTOption) (result *CreateNFTOptions, err error) {
 		}
 	}
 	if result.InitialBalance == nil {
-		result.InitialBalance = map[devnetvm2.Color]uint64{devnetvm2.ColorIOTA: devnetvm2.DustThresholdAliasOutputIOTA}
+		result.InitialBalance = map[devnetvm.Color]uint64{devnetvm.ColorIOTA: devnetvm.DustThresholdAliasOutputIOTA}
 	}
 
 	return

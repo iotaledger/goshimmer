@@ -19,11 +19,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	mana2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
-	indexer2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 
@@ -54,7 +54,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle           *tangleold.Tangle
-	Indexer          *indexer2.Indexer
+	Indexer          *indexer.Indexer
 	Local            *peer.Local
 	Discover         *discover.Protocol `optional:"true"`
 	Storage          kvstore.KVStore
@@ -144,24 +144,24 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		utxoStatesConsumer := func(outputsWithMetadatas []*ledger2.OutputWithMetadata) {
+		utxoStatesConsumer := func(outputsWithMetadatas []*ledger.OutputWithMetadata) {
 			deps.Tangle.Ledger.LoadOutputWithMetadatas(outputsWithMetadatas)
 			for _, outputWithMetadata := range outputsWithMetadatas {
-				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm2.Output))
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
 
-		epochDiffsConsumer := func(epochDiff *ledger2.EpochDiff) {
+		epochDiffsConsumer := func(epochDiff *ledger.EpochDiff) {
 			err := deps.Tangle.Ledger.LoadEpochDiff(epochDiff)
 			if err != nil {
 				panic(err)
 			}
 			for _, outputWithMetadata := range epochDiff.Created() {
-				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm2.Output))
+				deps.Indexer.IndexOutput(outputWithMetadata.Output().(devnetvm.Output))
 			}
 		}
 
-		emptyHeaderConsumer := func(*ledger2.SnapshotHeader) {}
+		emptyHeaderConsumer := func(*ledger.SnapshotHeader) {}
 		emptySepsConsumer := func(*snapshot.SolidEntryPoints) {}
 		emptyActivityConsumer := func(activity epoch.SnapshotEpochActivity) {}
 		err := snapshot.LoadSnapshot(Parameters.Snapshot.File, emptyHeaderConsumer, emptySepsConsumer, utxoStatesConsumer, epochDiffsConsumer, emptyActivityConsumer)
@@ -241,8 +241,8 @@ func newTangle(tangleDeps tangledeps) *tangleold.Tangle {
 	return tangleInstance
 }
 
-func newIndexer(indexerDeps indexerdeps) *indexer2.Indexer {
-	return indexer2.New(indexerDeps.Tangle.Ledger, indexer2.WithStore(indexerDeps.Tangle.Options.Store), indexer2.WithCacheTimeProvider(database.CacheTimeProvider()))
+func newIndexer(indexerDeps indexerdeps) *indexer.Indexer {
+	return indexer.New(indexerDeps.Tangle.Ledger, indexer.WithStore(indexerDeps.Tangle.Options.Store), indexer.WithCacheTimeProvider(database.CacheTimeProvider()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -259,15 +259,15 @@ func parseDuration(durationString string) time.Duration {
 }
 
 func accessManaMapRetriever() map[identity.ID]float64 {
-	nodeMap, _, err := GetManaMap(mana2.AccessMana)
+	nodeMap, _, err := GetManaMap(mana.AccessMana)
 	if err != nil {
-		return mana2.NodeMap{}
+		return mana.NodeMap{}
 	}
 	return nodeMap
 }
 
 func totalAccessManaRetriever() float64 {
-	totalMana, _, err := GetTotalMana(mana2.AccessMana)
+	totalMana, _, err := GetTotalMana(mana.AccessMana)
 	if err != nil {
 		return 0
 	}
@@ -288,8 +288,8 @@ func AwaitBlockToBeBooked(f func() (*tangleold.Block, error), txID utxo.Transact
 	closure := event.NewClosure(func(event *tangleold.BlockBookedEvent) {
 		match := false
 		deps.Tangle.Storage.Block(event.BlockID).Consume(func(block *tangleold.Block) {
-			if block.Payload().Type() == devnetvm2.TransactionType {
-				tx := block.Payload().(*devnetvm2.Transaction)
+			if block.Payload().Type() == devnetvm.TransactionType {
+				tx := block.Payload().(*devnetvm.Transaction)
 				if tx.ID() == txID {
 					match = true
 					return

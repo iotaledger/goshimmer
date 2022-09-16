@@ -17,11 +17,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
-	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
-	indexer2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
@@ -41,7 +41,7 @@ type dependencies struct {
 
 	Server  *echo.Echo
 	Tangle  *tangleold.Tangle
-	Indexer *indexer2.Indexer
+	Indexer *indexer.Indexer
 }
 
 var (
@@ -60,7 +60,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionAccepted *event.Closure[*ledger2.TransactionAcceptedEvent]
+	onTransactionAccepted *event.Closure[*ledger.TransactionAcceptedEvent]
 
 	log *logger.Logger
 )
@@ -78,23 +78,23 @@ func Filter() *DoubleSpendFilter {
 }
 
 // FilterHasConflict checks if the outputs are conflicting if doubleSpendFilter is enabled.
-func FilterHasConflict(outputs devnetvm2.Inputs) (bool, utxo2.TransactionID) {
+func FilterHasConflict(outputs devnetvm.Inputs) (bool, utxo.TransactionID) {
 	if filterEnabled {
 		has, conflictingID := doubleSpendFilter.HasConflict(outputs)
 		return has, conflictingID
 	}
-	return false, utxo2.TransactionID{}
+	return false, utxo.TransactionID{}
 }
 
 // FilterAdd Adds transaction to the doubleSpendFilter if it is enabled.
-func FilterAdd(tx *devnetvm2.Transaction) {
+func FilterAdd(tx *devnetvm.Transaction) {
 	if filterEnabled {
 		doubleSpendFilter.Add(tx)
 	}
 }
 
 // FilterRemove Removes transaction id from the doubleSpendFilter if it is enabled.
-func FilterRemove(txID utxo2.TransactionID) {
+func FilterRemove(txID utxo.TransactionID) {
 	if filterEnabled {
 		doubleSpendFilter.Remove(txID)
 	}
@@ -104,7 +104,7 @@ func configure(_ *node.Plugin) {
 	filterEnabled = webapi.Parameters.EnableDSFilter
 	if filterEnabled {
 		doubleSpendFilter = Filter()
-		onTransactionAccepted = event.NewClosure(func(event *ledger2.TransactionAcceptedEvent) {
+		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
@@ -155,10 +155,10 @@ func worker(ctx context.Context) {
 	deps.Tangle.Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
 }
 
-func outputsOnAddress(address devnetvm2.Address) (outputs devnetvm2.Outputs) {
-	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer2.AddressOutputMapping) {
-		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo2.Output) {
-			if typedOutput, ok := output.(devnetvm2.Output); ok {
+func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
+	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
 		})
@@ -172,7 +172,7 @@ func outputsOnAddress(address devnetvm2.Address) (outputs devnetvm2.Outputs) {
 
 // GetAddress is the handler for the /ledgerstate/addresses/:address endpoint.
 func GetAddress(c echo.Context) error {
-	address, err := devnetvm2.AddressFromBase58EncodedString(c.Param("address"))
+	address, err := devnetvm.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -188,15 +188,15 @@ func GetAddress(c echo.Context) error {
 
 // GetAddressUnspentOutputs is the handler for the /ledgerstate/addresses/:address/unspentOutputs endpoint.
 func GetAddressUnspentOutputs(c echo.Context) error {
-	address, err := devnetvm2.AddressFromBase58EncodedString(c.Param("address"))
+	address, err := devnetvm.AddressFromBase58EncodedString(c.Param("address"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
 	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm2.Output) (isUnspent bool) {
-		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger2.OutputMetadata) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
+		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			isUnspent = !outputMetadata.IsSpent()
 		})
 
@@ -214,10 +214,10 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-	addresses := make([]devnetvm2.Address, len(req.Addresses))
+	addresses := make([]devnetvm.Address, len(req.Addresses))
 	for i, addressString := range req.Addresses {
 		var err error
-		addresses[i], err = devnetvm2.AddressFromBase58EncodedString(addressString)
+		addresses[i], err = devnetvm.AddressFromBase58EncodedString(addressString)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 		}
@@ -235,18 +235,18 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range outputs.Filter(func(output devnetvm2.Output) (isUnspent bool) {
-			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger2.OutputMetadata) {
+		for _, output := range outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				isUnspent = !outputMetadata.IsSpent()
 			})
 			return
 		}) {
-			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger2.OutputMetadata) {
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if !outputMetadata.IsSpent() {
-					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo2.Output) {
+					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
 						var timestamp time.Time
-						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo2.Transaction) {
-							timestamp = tx.(*devnetvm2.Transaction).Essence().Timestamp()
+						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo.Transaction) {
+							timestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 						})
 						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
 							Output:            *jsonmodels.NewOutput(output),
@@ -273,7 +273,7 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo2.TransactionID, utxo2.OutputID]) {
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Tangle.ApprovalWeightManager.WeightOfConflict(conflictID)))
 	}) {
 		return
@@ -310,12 +310,12 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo2.TransactionID, utxo2.OutputID]) {
-		conflictIDsPerConflictID := make(map[utxo2.OutputID][]utxo2.TransactionID)
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
 		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
-			conflictIDsPerConflictID[conflictID] = make([]utxo2.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo2.OutputID, utxo2.TransactionID]) {
+			conflictIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 				conflictIDsPerConflictID[conflictID] = append(conflictIDsPerConflictID[conflictID], conflictMember.ConflictID())
 			})
 		}
@@ -373,13 +373,13 @@ func GetConflictSequenceIDs(c echo.Context) (err error) {
 
 // GetOutput is the handler for the /ledgerstate/outputs/:outputID endpoint.
 func GetOutput(c echo.Context) (err error) {
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo2.Output) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.(devnetvm2.Output)))
+	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.(devnetvm.Output)))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
 	}
@@ -393,7 +393,7 @@ func GetOutput(c echo.Context) (err error) {
 
 // GetOutputConsumers is the handler for the /ledgerstate/outputs/:outputID/consumers endpoint.
 func GetOutputConsumers(c echo.Context) (err error) {
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -410,12 +410,12 @@ func GetOutputConsumers(c echo.Context) (err error) {
 
 // GetOutputMetadata is the handler for the /ledgerstate/outputs/:outputID/metadata endpoint.
 func GetOutputMetadata(c echo.Context) (err error) {
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if err = outputID.FromBase58(c.Param("outputID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger2.OutputMetadata) {
+	if !deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 		confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(outputID)
 
 		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
@@ -433,15 +433,15 @@ func GetOutputMetadata(c echo.Context) (err error) {
 
 // GetTransaction is the handler for the /ledgerstate/transactions/:transactionID endpoint.
 func GetTransaction(c echo.Context) (err error) {
-	var transactionID utxo2.TransactionID
+	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	var tx *devnetvm2.Transaction
+	var tx *devnetvm.Transaction
 	// retrieve transaction
-	if !deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo2.Transaction) {
-		tx = transaction.(*devnetvm2.Transaction)
+	if !deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		tx = transaction.(*devnetvm.Transaction)
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
 		return
@@ -455,12 +455,12 @@ func GetTransaction(c echo.Context) (err error) {
 
 // GetTransactionMetadata is the handler for the ledgerstate/transactions/:transactionID/metadata endpoint.
 func GetTransactionMetadata(c echo.Context) (err error) {
-	var transactionID utxo2.TransactionID
+	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger2.TransactionMetadata) {
+	if !deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewTransactionMetadata(transactionMetadata))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
@@ -475,7 +475,7 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 
 // GetTransactionAttachments is the handler for the ledgerstate/transactions/:transactionID/attachments endpoint.
 func GetTransactionAttachments(c echo.Context) (err error) {
-	var transactionID utxo2.TransactionID
+	var transactionID utxo.TransactionID
 	if err = transactionID.FromBase58(c.Param("transactionID")); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -497,10 +497,10 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 // conflictIDFromContext determines the ConflictID from the conflictID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterConflictID, LazyBookedConflictsConflictID or
 // InvalidConflictID)
-func conflictIDFromContext(c echo.Context) (conflictID utxo2.TransactionID, err error) {
+func conflictIDFromContext(c echo.Context) (conflictID utxo.TransactionID, err error) {
 	switch conflictIDString := c.Param("conflictID"); conflictIDString {
 	case "MasterConflictID":
-		conflictID = utxo2.EmptyTransactionID
+		conflictID = utxo.EmptyTransactionID
 	default:
 		err = conflictID.FromBase58(conflictIDString)
 	}
@@ -525,7 +525,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx := new(devnetvm2.Transaction)
+	tx := new(devnetvm.Transaction)
 	err := tx.FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})

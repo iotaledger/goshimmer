@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 const (
@@ -32,8 +32,8 @@ const (
 
 var (
 	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
-	faucetBalance      = devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
-		devnetvm2.ColorIOTA: uint64(faucetTokensPerRequest),
+	faucetBalance      = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: uint64(faucetTokensPerRequest),
 	})
 )
 
@@ -116,7 +116,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 	}
 
 	if buildOptions.outputAliasName != "" {
-		input := devnetvm2.NewUTXOInput(outputID)
+		input := devnetvm.NewUTXOInput(outputID)
 		e.aliasManager.AddInputAlias(input, buildOptions.outputAliasName)
 	}
 
@@ -281,7 +281,7 @@ func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputW
 	input = evilInput.OutputID
 
 	inputBalance := uint64(0)
-	evilInput.Balance.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+	evilInput.Balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 		inputBalance += balance
 		return true
 	})
@@ -307,9 +307,9 @@ func (e *EvilWallet) ClearAllAliases() {
 	e.aliasManager.ClearAllAliases()
 }
 
-func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice) (conflictBatch [][]*devnetvm2.Transaction, err error) {
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice) (conflictBatch [][]*devnetvm.Transaction, err error) {
 	for _, conflictMap := range conflictsMaps {
-		var txs []*devnetvm2.Transaction
+		var txs []*devnetvm.Transaction
 		for _, options := range conflictMap {
 			tx, err2 := e.CreateTransaction(options...)
 			if err2 != nil {
@@ -338,7 +338,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 		wg := sync.WaitGroup{}
 		for i, tx := range txs {
 			wg.Add(1)
-			go func(clt Client, tx *devnetvm2.Transaction) {
+			go func(clt Client, tx *devnetvm.Transaction) {
 				defer wg.Done()
 				if err = RateSetterSleep(clt, true); err != nil {
 					return
@@ -358,7 +358,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 // Inputs of the transaction are determined in three ways:
 // 1 - inputs are provided directly without associated alias, 2- alias is provided, and input is already stored in an alias manager,
 // 3 - alias is provided, and there are no inputs assigned in Alias manager, so aliases are assigned to next ready inputs from input wallet.
-func (e *EvilWallet) CreateTransaction(options ...Option) (tx *devnetvm2.Transaction, err error) {
+func (e *EvilWallet) CreateTransaction(options ...Option) (tx *devnetvm.Transaction, err error) {
 	buildOptions, err := NewOptions(options...)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *devnetvm2.Transac
 		}
 	}
 
-	tx, err = e.makeTransaction(devnetvm2.NewInputs(inputs...), devnetvm2.NewOutputs(outputs...), buildOptions.inputWallet)
+	tx, err = e.makeTransaction(devnetvm.NewInputs(inputs...), devnetvm.NewOutputs(outputs...), buildOptions.inputWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *devnetvm2.Transac
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if
-func (e *EvilWallet) addOutputsToOutputManager(tx *devnetvm2.Transaction, outWallet, tmpWallet *Wallet, tempAddresses map[devnetvm2.Address]types.Empty) {
+func (e *EvilWallet) addOutputsToOutputManager(tx *devnetvm.Transaction, outWallet, tmpWallet *Wallet, tempAddresses map[devnetvm.Address]types.Empty) {
 	for _, o := range tx.Essence().Outputs() {
 		if _, ok := tempAddresses[o.Address()]; ok {
 			e.outputManager.AddOutput(tmpWallet, o)
@@ -430,7 +430,7 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 	return nil
 }
 
-func (e *EvilWallet) registerOutputAliases(outputs devnetvm2.Outputs, addrAliasMap map[devnetvm2.Address]string) {
+func (e *EvilWallet) registerOutputAliases(outputs devnetvm.Outputs, addrAliasMap map[devnetvm.Address]string) {
 	if len(addrAliasMap) == 0 {
 		return
 	}
@@ -440,16 +440,16 @@ func (e *EvilWallet) registerOutputAliases(outputs devnetvm2.Outputs, addrAliasM
 		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
 
 		// register output as unspent output(input)
-		input := devnetvm2.NewUTXOInput(output.ID())
+		input := devnetvm.NewUTXOInput(output.ID())
 		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
 	}
 	return
 }
 
-func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []devnetvm2.Input, err error) {
+func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []devnetvm.Input, err error) {
 	if buildOptions.areInputsProvidedWithoutAliases() {
 		for _, out := range buildOptions.inputs {
-			inputs = append(inputs, devnetvm2.NewUTXOInput(out))
+			inputs = append(inputs, devnetvm.NewUTXOInput(out))
 		}
 		return
 	}
@@ -464,12 +464,12 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []devnetvm2.In
 }
 
 // prepareOutputs creates outputs for different scenarios, if no aliases were provided, new empty outputs are created from buildOptions.outputs balances.
-func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm2.Output,
-	addrAliasMap map[devnetvm2.Address]string, tempAddresses map[devnetvm2.Address]types.Empty, err error,
+func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm.Output,
+	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error,
 ) {
 	if buildOptions.areOutputsProvidedWithoutAliases() {
 		for _, balance := range buildOptions.outputs {
-			output := devnetvm2.NewSigLockedColoredOutput(balance, buildOptions.outputWallet.Address().Address())
+			output := devnetvm.NewSigLockedColoredOutput(balance, buildOptions.outputWallet.Address().Address())
 			outputs = append(outputs, output)
 		}
 	} else {
@@ -481,7 +481,7 @@ func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (
 
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
 // it assigns a new Fresh faucet output.
-func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []devnetvm2.Input, err error) {
+func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []devnetvm.Input, err error) {
 	// get inputs by alias
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
@@ -496,7 +496,7 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []dev
 			if out == nil {
 				return nil, errors.New("could not get unspent output")
 			}
-			in = devnetvm2.NewUTXOInput(out.OutputID)
+			in = devnetvm.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
 		inputs = append(inputs, in)
@@ -528,18 +528,18 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // Thus, they are tracker in address to alias map. If the scenario is used, the outputBatchAliases map is provided
 // that indicates which outputs should be saved to the outputWallet.All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
-func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm2.Output,
-	addrAliasMap map[devnetvm2.Address]string, tempAddresses map[devnetvm2.Address]types.Empty, err error,
+func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []devnetvm.Output,
+	addrAliasMap map[devnetvm.Address]string, tempAddresses map[devnetvm.Address]types.Empty, err error,
 ) {
 	err = e.updateOutputBalances(buildOptions)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	tempAddresses = make(map[devnetvm2.Address]types.Empty)
-	addrAliasMap = make(map[devnetvm2.Address]string)
+	tempAddresses = make(map[devnetvm.Address]types.Empty)
+	addrAliasMap = make(map[devnetvm.Address]string)
 	for alias, balance := range buildOptions.aliasOutputs {
-		var addr devnetvm2.Address
+		var addr devnetvm.Address
 		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
 			addr = buildOptions.outputWallet.Address().Address()
 		} else {
@@ -547,17 +547,17 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *
 			tempAddresses[addr] = types.Void
 		}
 
-		outputs = append(outputs, devnetvm2.NewSigLockedColoredOutput(balance, addr))
+		outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(balance, addr))
 		addrAliasMap[addr] = alias
 	}
 
 	return
 }
 
-func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []devnetvm2.Output) (alias string, remainderOutput devnetvm2.Output, added bool) {
+func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []devnetvm.Output) (alias string, remainderOutput devnetvm.Output, added bool) {
 	inputBalance := uint64(0)
 
-	var remainderAddress devnetvm2.Address
+	var remainderAddress devnetvm.Address
 	for inputAlias := range buildOptions.aliasInputs {
 		in, _ := e.aliasManager.GetInput(inputAlias)
 		// get balance from output manager
@@ -567,7 +567,7 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []dev
 		}
 		output := e.outputManager.GetOutput(out)
 
-		output.Balance.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+		output.Balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 			inputBalance += balance
 			return true
 		})
@@ -580,7 +580,7 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []dev
 	for _, input := range buildOptions.inputs {
 		// get balance from output manager
 		inputDetails := e.outputManager.GetOutput(input)
-		inputDetails.Balance.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+		inputDetails.Balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 			inputBalance += balance
 			return true
 		})
@@ -591,7 +591,7 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []dev
 
 	outputBalance := uint64(0)
 	for _, o := range outputs {
-		o.Balances().ForEach(func(color devnetvm2.Color, balance uint64) bool {
+		o.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			outputBalance += balance
 			return true
 		})
@@ -599,8 +599,8 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []dev
 
 	// remainder balances is sent to one of the address in inputs
 	if outputBalance < inputBalance {
-		remainderOutput = devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
-			devnetvm2.ColorIOTA: inputBalance - outputBalance,
+		remainderOutput = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+			devnetvm.ColorIOTA: inputBalance - outputBalance,
 		}), remainderAddress)
 		added = true
 	}
@@ -620,7 +620,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
 				inputDetails := e.outputManager.GetOutput(input)
-				inputDetails.Balance.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+				inputDetails.Balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 					totalBalance += balance
 					return true
 				})
@@ -638,7 +638,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 					panic(err)
 				}
 				output := e.outputManager.GetOutput(out)
-				output.Balance.ForEach(func(color devnetvm2.Color, balance uint64) bool {
+				output.Balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 					totalBalance += balance
 					return true
 				})
@@ -647,8 +647,8 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 		balances := SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
 		i := 0
 		for out := range buildOptions.aliasOutputs {
-			buildOptions.aliasOutputs[out] = devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
-				devnetvm2.ColorIOTA: balances[i],
+			buildOptions.aliasOutputs[out] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: balances[i],
 			})
 			i++
 		}
@@ -656,9 +656,9 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs devnetvm2.Inputs, outputs devnetvm2.Outputs, w *Wallet) (tx *devnetvm2.Transaction, err error) {
-	txEssence := devnetvm2.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
-	unlockBlocks := make([]devnetvm2.UnlockBlock, len(txEssence.Inputs()))
+func (e *EvilWallet) makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, w *Wallet) (tx *devnetvm.Transaction, err error) {
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
 		addr, err2 := e.getAddressFromInput(input)
 		if err2 != nil {
@@ -670,13 +670,13 @@ func (e *EvilWallet) makeTransaction(inputs devnetvm2.Inputs, outputs devnetvm2.
 		} else {
 			wallet = w
 		}
-		unlockBlocks[i] = devnetvm2.NewSignatureUnlockBlock(wallet.Sign(addr, txEssence))
+		unlockBlocks[i] = devnetvm.NewSignatureUnlockBlock(wallet.Sign(addr, txEssence))
 	}
-	return devnetvm2.NewTransaction(txEssence, unlockBlocks), nil
+	return devnetvm.NewTransaction(txEssence, unlockBlocks), nil
 }
 
-func (e *EvilWallet) getAddressFromInput(input devnetvm2.Input) (addr devnetvm2.Address, err error) {
-	typeCastedInput, ok := input.(*devnetvm2.UTXOInput)
+func (e *EvilWallet) getAddressFromInput(input devnetvm.Input) (addr devnetvm.Address, err error) {
+	typeCastedInput, ok := input.(*devnetvm.UTXOInput)
 	if !ok {
 		err = errors.New("wrong type of input")
 		return
@@ -693,7 +693,7 @@ func (e *EvilWallet) getAddressFromInput(input devnetvm2.Input) (addr devnetvm2.
 	return
 }
 
-func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*devnetvm2.Transaction, allAliases ScenarioAlias, err error) {
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*devnetvm.Transaction, allAliases ScenarioAlias, err error) {
 	conflicts, allAliases, err := e.prepareConflictSliceForScenario(scenario)
 	if err != nil {
 		return
@@ -738,7 +738,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 }
 
 // AwaitInputsSolidity waits for all inputs to be solid for client clt.
-func (e *EvilWallet) AwaitInputsSolidity(inputs devnetvm2.Inputs, clt Client) (allSolid bool) {
+func (e *EvilWallet) AwaitInputsSolidity(inputs devnetvm.Inputs, clt Client) (allSolid bool) {
 	awaitSolid := make([]string, 0)
 	for _, in := range inputs {
 		awaitSolid = append(awaitSolid, in.Base58())
@@ -748,14 +748,14 @@ func (e *EvilWallet) AwaitInputsSolidity(inputs devnetvm2.Inputs, clt Client) (a
 }
 
 // SetTxOutputsSolid marks all outputs as solid in OutputManager for clientID.
-func (e *EvilWallet) SetTxOutputsSolid(outputs devnetvm2.Outputs, clientID string) {
+func (e *EvilWallet) SetTxOutputsSolid(outputs devnetvm.Outputs, clientID string) {
 	for _, out := range outputs {
 		e.outputManager.SetOutputIDSolidForIssuer(out.ID().Base58(), clientID)
 	}
 }
 
 // AddReuseOutputsToThePool adds all addresses corresponding to provided outputs to the reuse pool.
-func (e *EvilWallet) AddReuseOutputsToThePool(outputs devnetvm2.Outputs) {
+func (e *EvilWallet) AddReuseOutputsToThePool(outputs devnetvm.Outputs) {
 	for _, out := range outputs {
 		evilOutput := e.outputManager.GetOutput(out.ID())
 		if evilOutput != nil {

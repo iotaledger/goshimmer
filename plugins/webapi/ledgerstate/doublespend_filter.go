@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // DoubleSpendFilter keeps a log of recently submitted transactions and their consumed outputs.
@@ -25,15 +25,15 @@ func NewDoubleSpendFilter() *DoubleSpendFilter {
 }
 
 // Add adds a transaction and it's consumed inputs to the doubleSpendFilter.
-func (d *DoubleSpendFilter) Add(tx *devnetvm2.Transaction) {
+func (d *DoubleSpendFilter) Add(tx *devnetvm.Transaction) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	now := clock.SyncedTime()
 	for _, input := range tx.Essence().Inputs() {
-		if input.Type() != devnetvm2.UTXOInputType {
+		if input.Type() != devnetvm.UTXOInputType {
 			continue
 		}
-		casted := input.(*devnetvm2.UTXOInput)
+		casted := input.(*devnetvm.UTXOInput)
 		if casted == nil {
 			continue
 		}
@@ -57,15 +57,15 @@ func (d *DoubleSpendFilter) Remove(txID utxo.TransactionID) {
 }
 
 // HasConflict returns if there is a conflicting output in the internal map wrt to the provided inputs (outputIDs).
-func (d *DoubleSpendFilter) HasConflict(outputs devnetvm2.Inputs) (bool, utxo.TransactionID) {
+func (d *DoubleSpendFilter) HasConflict(outputs devnetvm.Inputs) (bool, utxo.TransactionID) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	for _, input := range outputs {
-		if input.Type() != devnetvm2.UTXOInputType {
+		if input.Type() != devnetvm.UTXOInputType {
 			continue
 		}
-		casted := input.(*devnetvm2.UTXOInput)
+		casted := input.(*devnetvm.UTXOInput)
 		if casted == nil {
 			continue
 		}

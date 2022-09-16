@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
@@ -137,13 +137,13 @@ func init() {
 }
 
 func readSnapshotFromFile(filePath string) (err error) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger2.OutputWithMetadata) {
+	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
-	epochDiffConsumer := func(epochDiffs *ledger2.EpochDiff) {
+	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
 		fmt.Println(epochDiffs)
 	}
-	headerConsumer := func(h *ledger2.SnapshotHeader) {
+	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
 	}
 	activityLogConsumer := func(activity epoch.SnapshotEpochActivity) {
