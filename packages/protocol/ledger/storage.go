@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////

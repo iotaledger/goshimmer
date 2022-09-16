@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////

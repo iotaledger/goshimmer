@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 // TestApprovalWeightManager_updateConflictVoters tests the ApprovalWeightManager's functionality regarding conflictes.

@@ -1,28 +1,28 @@
 package dispatcher
 
 import (
+	"github.com/iotaledger/goshimmer/packages/core/commitment/chainmanager"
+
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/commitment/chain"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
-
-	"github.com/iotaledger/goshimmer/packages/chain"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	chainmanager2 "github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 )
 
 type Dispatcher struct {
 	Events *Events
 
-	activeProtocol   *chain.Protocol
-	protocolsByChain map[commitment.ID]*chain.Protocol
-	chainManager     *chain.Manager
+	activeProtocol   *chainmanager.Protocol
+	protocolsByChain map[commitment.ID]*chainmanager.Protocol
+	chainManager     *chainmanager2.Manager
 }
 
 func New(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, snapshotPrevID commitment.ID) (dispatcher *Dispatcher) {
 	return &Dispatcher{
 		Events:           NewEvents(),
-		protocolsByChain: make(map[commitment.ID]*chain.Protocol),
-		chainManager:     chain.NewManager(snapshotIndex, snapshotRootsID, snapshotPrevID),
+		protocolsByChain: make(map[commitment.ID]*chainmanager.Protocol),
+		chainManager:     chainmanager2.NewManager(snapshotIndex, snapshotRootsID, snapshotPrevID),
 	}
 }
 

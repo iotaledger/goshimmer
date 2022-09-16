@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
 )
 
 // PluginName is the name of the database plugin.

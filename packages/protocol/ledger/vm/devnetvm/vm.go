@@ -3,8 +3,8 @@ package devnetvm
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 )
 
 type VM struct{}

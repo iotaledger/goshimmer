@@ -12,10 +12,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"

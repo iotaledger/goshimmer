@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 )
 
 type Events struct {

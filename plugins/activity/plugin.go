@@ -11,8 +11,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 )
 
 var (

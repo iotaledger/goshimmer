@@ -3,7 +3,7 @@ package gossip
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 )
 
 // Events represents events happening on a block requester.

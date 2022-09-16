@@ -5,10 +5,11 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 )
 
 // PluginName is the name of the gossip plugin.

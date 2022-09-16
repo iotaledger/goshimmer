@@ -23,7 +23,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	database2 "github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	database2 "github.com/iotaledger/goshimmer/packages/protocol/instance/database"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 

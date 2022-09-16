@@ -16,9 +16,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"

@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 )
 
 // GetManaRequest is the request for get mana.

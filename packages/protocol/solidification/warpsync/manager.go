@@ -11,11 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/commitment/chain"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 )
 
 const minimumWindowSize = 10
@@ -29,7 +29,7 @@ type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
 // The Manager handles the connected neighbors.
 type Manager struct {
 	protocol          *warpsync.Protocol
-	commitmentManager *chain.Manager
+	commitmentManager *chainmanager.Manager
 
 	log *logger.Logger
 

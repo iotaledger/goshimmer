@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 )
 
 const (

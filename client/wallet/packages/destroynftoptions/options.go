@@ -3,7 +3,7 @@ package destroynftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // DestroyNFTOption is a function that provides options.

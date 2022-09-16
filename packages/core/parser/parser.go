@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 )
 
 const recentlySeenBytesFilterSize = 100000

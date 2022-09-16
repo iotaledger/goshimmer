@@ -10,8 +10,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 var (

@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 )
 
 func init() {

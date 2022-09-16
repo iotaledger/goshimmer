@@ -6,8 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain"
 	"github.com/iotaledger/goshimmer/packages/protocol/dispatcher"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/solidification/warpsync"
 )
 

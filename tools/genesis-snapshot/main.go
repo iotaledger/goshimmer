@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"

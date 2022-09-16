@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 
