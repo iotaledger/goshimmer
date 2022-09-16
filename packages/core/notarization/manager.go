@@ -336,7 +336,7 @@ func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 		m.Events.SyncRange.Trigger(&SyncRangeEvent{
 			StartEI:   latestCommittableEI,
 			EndEI:     blockEI,
-			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ID,
+			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ID(),
 			EndPrevEC: block.PrevEC(),
 		})
 	}

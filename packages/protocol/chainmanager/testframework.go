@@ -68,7 +68,7 @@ func (t *TestFramework) commitment(alias string) (commitment *Commitment) {
 }
 
 func (t *TestFramework) EC(alias string) (epochCommitment commitment.ID) {
-	return t.commitment(alias).ID
+	return t.commitment(alias).ID()
 }
 
 func (t *TestFramework) EI(alias string) (index epoch.Index) {
@@ -89,7 +89,7 @@ func (t *TestFramework) AssertChainIsAlias(chain *Chain, alias string) {
 		return
 	}
 
-	require.Equal(t.test, t.commitment(alias).ID, chain.ForkingPoint.ID)
+	require.Equal(t.test, t.commitment(alias).ID(), chain.ForkingPoint.ID())
 }
 
 func (t *TestFramework) AssertChainState(chains map[string]string) {
@@ -105,7 +105,7 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 		chain := t.Chain(commitmentAlias)
 
 		require.NotNil(t.test, chain)
-		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.ID)
+		require.Equal(t.test, t.EC(chainAlias), chain.ForkingPoint.ID())
 
 	}
 
@@ -117,7 +117,7 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 			chainCommitment := chain.Commitment(t.EI(commitmentAlias))
 
 			require.NotNil(t.test, chainCommitment)
-			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.ID)
+			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.ID())
 			require.EqualValues(t.test, t.EI(commitmentAlias), chainCommitment.Index())
 			require.EqualValues(t.test, t.ECR(commitmentAlias), chainCommitment.RootsID())
 			require.EqualValues(t.test, t.PrevEC(commitmentAlias), chainCommitment.PrevID())
@@ -135,5 +135,5 @@ func (t *TestFramework) previousCommitmentID(alias string) (previousCommitmentID
 		panic("the previous commitment does not exist")
 	}
 
-	return previousCommitment.ID, previousCommitment.Index()
+	return previousCommitment.ID(), previousCommitment.Index()
 }

@@ -6,15 +6,15 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 )
 
 type Chain struct {
 	ForkingPoint *Commitment
 	// Metadatastorage
-	BlockStorage *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 
+	protocolInstance       *instance.Instance
 	latestCommittableEpoch epoch.Index
 	commitmentsByIndex     map[epoch.Index]*Commitment
 
@@ -44,7 +44,7 @@ func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*mod
 	}
 
 	blocks := make([]*models.Block, 0)
-	if err = c.BlockStorage.Iterate(index, func(key models.BlockID, value *models.Block) bool {
+	if err = c.protocolInstance.BlockStorage.Iterate(index, func(key models.BlockID, value *models.Block) bool {
 		value.SetID(key)
 
 		blocks = append(blocks, value)

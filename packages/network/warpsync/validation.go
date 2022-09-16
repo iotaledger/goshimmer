@@ -40,7 +40,7 @@ func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet
 	ecRecord := commitment.New(commitment.NewID(ei, ecr, prevEC))
 	ecRecord.PublishData(ei, ecr, prevEC)
 
-	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ID.Base58())
+	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ID().Base58())
 
 	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
 		Neighbor: nbr,

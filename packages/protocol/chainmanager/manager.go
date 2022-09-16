@@ -30,7 +30,7 @@ func NewManager(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, s
 	manager.SnapshotCommitment.PublishData(snapshotIndex, snapshotRootsID, snapshotPrevID)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
-	manager.commitmentsByID[manager.SnapshotCommitment.ID] = manager.SnapshotCommitment
+	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 
 	return
 }

@@ -221,9 +221,9 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *commitment.
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *commitment.Commitment {
-		return commitment.New(commitment.NewID(ei, ecr, prevECRecord.ID))
+		return commitment.New(commitment.NewID(ei, ecr, prevECRecord.ID()))
 	}).Consume(func(e *commitment.Commitment) {
-		e.PublishData(ei, ecr, prevECRecord.ID)
+		e.PublishData(ei, ecr, prevECRecord.ID())
 		e.PublishRoots(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot)
 		ecRecord = e
 	})

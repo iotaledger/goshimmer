@@ -1,4 +1,4 @@
-package chain
+package instance
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -21,10 +22,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
-// region Chain ////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Instance /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Chain struct {
+type Instance struct {
 	Events              *Events
+	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
@@ -40,14 +42,14 @@ type Chain struct {
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Chain]) (protocol *Chain) {
-	return options.Apply(&Chain{
+func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+	return options.Apply(&Instance{
 		Events:       NewEvents(),
 		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
-	}, opts, func(p *Chain) {
-		p.BlockStorage = database.New[models.BlockID, models.Block, *models.Block](databaseManager, kvstore.Realm{0x09})
+	}, opts, func(p *Instance) {
+		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
 
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
@@ -77,11 +79,11 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 	})
 }
 
-func (p *Chain) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
+func (p *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
 	p.Inbox.ProcessReceivedBlock(block, neighbor)
 }
 
-func (p *Chain) Block(id models.BlockID) (block *models.Block, exists bool) {
+func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.Block, true
 	}
@@ -93,36 +95,36 @@ func (p *Chain) Block(id models.BlockID) (block *models.Block, exists bool) {
 	return p.BlockStorage.Get(id)
 }
 
-func (p *Chain) ReportInvalidBlock(neighbor *p2p.Neighbor) {
+func (p *Instance) ReportInvalidBlock(neighbor *p2p.Neighbor) {
 	// TODO: increase euristic counter / trigger event for metrics
 }
 
-func (p *Chain) setupNotarization() {
+func (p *Instance) setupNotarization() {
 	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
 	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		p.EvictionManager.EvictUntilEpoch(event.EI)
 	}))
 }
 
-func (p *Chain) Start() {
+func (p *Instance) Start() {
 	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
 	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
-func emptyActivityConsumer(logs epoch.SnapshotEpochActivity) {}
+func emptyActivityConsumer(logs activitylog.SnapshotEpochActivity) {}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Chain] {
-	return func(p *Chain) {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Instance] {
+	return func(p *Instance) {
 		p.optsEngineOptions = opts
 	}
 }
 
-func WithSnapshotFile(snapshotFile string) options.Option[Chain] {
-	return func(p *Chain) {
+func WithSnapshotFile(snapshotFile string) options.Option[Instance] {
+	return func(p *Instance) {
 		p.optsSnapshotFile = snapshotFile
 	}
 }

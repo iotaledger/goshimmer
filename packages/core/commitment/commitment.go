@@ -1,78 +1,68 @@
 package commitment
 
 import (
-	"sync"
-
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/generics/model"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type Commitment struct {
-	ID ID
-
-	index  *epoch.Index
-	prevID *ID
-	roots  *Roots
-
-	sync.RWMutex
-	objectstorage.StorableObject
+	model.Storable[ID, Commitment, *Commitment, commitment] `serix:"0"`
 }
 
-func New(id ID) (commitment *Commitment) {
-	return &Commitment{
-		ID: id,
-	}
+type commitment struct {
+	Prev  ID          `serix:"0"`
+	Index epoch.Index `serix:"1"`
+	Roots *Roots      `serix:"2"`
+}
+
+func New(id ID) (newCommitment *Commitment) {
+	newCommitment = model.NewStorable[ID, Commitment](&commitment{})
+	newCommitment.SetID(id)
+
+	return newCommitment
 }
 
 func (c *Commitment) Index() (ei epoch.Index) {
 	c.RLock()
 	defer c.RUnlock()
 
-	if c.index == nil {
-		return
-	}
-
-	return *c.index
+	return c.M.Index
 }
 
 func (c *Commitment) RootsID() (ecr RootsID) {
 	c.RLock()
 	defer c.RUnlock()
 
-	if c.roots == nil {
+	if model.NewStorable[ID, Commitment](&commitment{}) == nil {
 		return
 	}
 
-	return c.roots.ID
+	return c.M.Roots.ID
 }
 
 func (c *Commitment) Roots() (roots *Roots) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.roots
+	return c.M.Roots
 }
 
 func (c *Commitment) PrevID() (prevEC ID) {
 	c.RLock()
 	defer c.RUnlock()
 
-	if c.prevID == nil {
-		return
-	}
-
-	return *c.prevID
+	return c.M.Prev
 }
 
 func (c *Commitment) PublishData(index epoch.Index, ecr RootsID, previousEC ID) (published bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	if published = c.index == nil; published {
-		c.index = &index
-		c.roots = NewRoots(ecr)
-		c.prevID = &previousEC
+	if published = c.M.Roots == nil; published {
+		c.M.Prev = previousEC
+		c.M.Index = index
+		c.M.Roots = NewRoots(ecr)
 	}
 
 	return
@@ -82,18 +72,18 @@ func (c *Commitment) PublishRoots(tangleRoot MerkleRoot, stateMutationRoot Merkl
 	c.Lock()
 	defer c.Unlock()
 
-	if c.roots != nil && c.roots.TangleRoot == tangleRoot && c.roots.StateMutationRoot == stateMutationRoot && c.roots.StateRoot == stateRoot && c.roots.ManaRoot == manaRoot {
+	if c.M.Roots != nil && c.M.Roots.TangleRoot == tangleRoot && c.M.Roots.StateMutationRoot == stateMutationRoot && c.M.Roots.StateRoot == stateRoot && c.M.Roots.ManaRoot == manaRoot {
 		return false
 	}
 
-	if c.roots == nil {
-		c.roots = NewRoots(NewRootsID(tangleRoot, stateMutationRoot, stateRoot, manaRoot))
+	if c.M.Roots == nil {
+		c.M.Roots = NewRoots(NewRootsID(tangleRoot, stateMutationRoot, stateRoot, manaRoot))
 	}
 
-	c.roots.TangleRoot = tangleRoot
-	c.roots.StateMutationRoot = stateMutationRoot
-	c.roots.StateRoot = stateRoot
-	c.roots.ManaRoot = manaRoot
+	c.M.Roots.TangleRoot = tangleRoot
+	c.M.Roots.StateMutationRoot = stateMutationRoot
+	c.M.Roots.StateRoot = stateRoot
+	c.M.Roots.ManaRoot = manaRoot
 
 	return true
 }
