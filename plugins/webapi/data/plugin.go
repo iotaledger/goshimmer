@@ -11,7 +11,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
 
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )

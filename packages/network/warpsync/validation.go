@@ -27,7 +27,7 @@ func (p *Protocol) processEpochCommittmentRequestPacket(packetEpochRequest *wp.P
 	//
 	// }
 	//
-	// p.sendEpochCommittmentMessage(ei, ecRecord.ECR(), ecRecord.PrevEC(), nbr.ID())
+	// p.sendEpochCommitmentMessage(ei, ecRecord.ECR(), ecRecord.PrevEC(), nbr.ID())
 	//
 	// p.log.Debugw("sent epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ComputeEC().Base58())
 }
@@ -48,7 +48,7 @@ func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet
 	})
 }
 
-func (p *Protocol) sendEpochCommittmentMessage(ei epoch.Index, ecr commitment.RootsID, prevEC commitment.ID, to ...identity.ID) {
+func (p *Protocol) sendEpochCommitmentMessage(ei epoch.Index, ecr commitment.RootsID, prevEC commitment.ID, to ...identity.ID) {
 	committmentRes := &wp.EpochCommittment{
 		EI:     int64(ei),
 		ECR:    ecr.Bytes(),

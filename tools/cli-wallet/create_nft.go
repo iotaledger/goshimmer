@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -54,22 +54,22 @@ func execCreateNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		}
 	}
 
-	initialBalance := map[devnetvm.Color]uint64{devnetvm.ColorIOTA: devnetvm.DustThresholdAliasOutputIOTA}
+	initialBalance := map[devnetvm2.Color]uint64{devnetvm2.ColorIOTA: devnetvm2.DustThresholdAliasOutputIOTA}
 	if *initialAmountPtr > 0 {
-		var initColor devnetvm.Color
+		var initColor devnetvm2.Color
 		// get color
 		switch *colorPtr {
 		case "IOTA":
-			initColor = devnetvm.ColorIOTA
+			initColor = devnetvm2.ColorIOTA
 		case "NEW":
-			initColor = devnetvm.ColorMint
+			initColor = devnetvm2.ColorMint
 		default:
 			colorBytes, parseErr := base58.Decode(*colorPtr)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}
 
-			initColor, _, parseErr = devnetvm.ColorFromBytes(colorBytes)
+			initColor, _, parseErr = devnetvm2.ColorFromBytes(colorBytes)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}

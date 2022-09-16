@@ -11,8 +11,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 type walletID int
@@ -322,7 +322,7 @@ func (w *Wallet) AddrIndexMap(outIndex string) uint64 {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(addr devnetvm.Address, addrIdx uint64, outputID utxo.OutputID, balance *devnetvm.ColoredBalances) *Output {
+func (w *Wallet) AddUnspentOutput(addr devnetvm2.Address, addrIdx uint64, outputID utxo.OutputID, balance *devnetvm2.ColoredBalances) *Output {
 	w.Lock()
 	defer w.Unlock()
 
@@ -337,14 +337,14 @@ func (w *Wallet) AddUnspentOutput(addr devnetvm.Address, addrIdx uint64, outputI
 }
 
 // UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
-func (w *Wallet) UnspentOutputBalance(addr string) *devnetvm.ColoredBalances {
+func (w *Wallet) UnspentOutputBalance(addr string) *devnetvm2.ColoredBalances {
 	w.RLock()
 	defer w.RUnlock()
 
 	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
-	return &devnetvm.ColoredBalances{}
+	return &devnetvm2.ColoredBalances{}
 }
 
 // IsEmpty returns true if the wallet is empty.
@@ -413,12 +413,12 @@ func (w *Wallet) GetUnspentOutput() *Output {
 }
 
 // Sign signs the tx essence.
-func (w *Wallet) Sign(addr devnetvm.Address, txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+func (w *Wallet) Sign(addr devnetvm2.Address, txEssence *devnetvm2.TransactionEssence) *devnetvm2.ED25519Signature {
 	w.RLock()
 	defer w.RUnlock()
 	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
-	return devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
+	return devnetvm2.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 // UpdateUnspentOutputID updates the unspent output on the address specified.

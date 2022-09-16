@@ -1,10 +1,10 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +16,7 @@ type GetAddressResponse struct {
 }
 
 // NewGetAddressResponse returns a GetAddressResponse from the given details.
-func NewGetAddressResponse(address devnetvm.Address, outputs devnetvm.Outputs) *GetAddressResponse {
+func NewGetAddressResponse(address devnetvm2.Address, outputs devnetvm2.Outputs) *GetAddressResponse {
 	return &GetAddressResponse{
 		Address: NewAddress(address),
 		Outputs: func() (mappedOutputs []*Output) {

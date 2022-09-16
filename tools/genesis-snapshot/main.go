@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"log"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
 
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	flag "github.com/spf13/pflag"
@@ -136,13 +137,13 @@ func init() {
 }
 
 func readSnapshotFromFile(filePath string) (err error) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger2.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
-	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
+	epochDiffConsumer := func(epochDiffs *ledger2.EpochDiff) {
 		fmt.Println(epochDiffs)
 	}
-	headerConsumer := func(h *ledger.SnapshotHeader) {
+	headerConsumer := func(h *ledger2.SnapshotHeader) {
 		fmt.Println(h)
 	}
 	activityLogConsumer := func(activity epoch.SnapshotEpochActivity) {

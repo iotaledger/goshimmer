@@ -86,14 +86,14 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	commitments = make([]*Commitment, amount)
 
 	for i := 0; i < amount; i++ {
-		commitment, exists := c.commitmentsByID[id]
+		currentCommitment, exists := c.commitmentsByID[id]
 		if !exists {
 			return nil, errors.Errorf("not all commitments in the given range are known")
 		}
 
-		commitments[i] = commitment
+		commitments[i] = currentCommitment
 
-		id = commitment.PrevID()
+		id = currentCommitment.PrevID()
 	}
 
 	return

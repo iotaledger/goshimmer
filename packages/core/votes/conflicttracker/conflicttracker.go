@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
 )
 
 type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType votes.VotePower[VotePowerType]] struct {

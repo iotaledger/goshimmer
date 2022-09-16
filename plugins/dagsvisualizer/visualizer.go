@@ -18,11 +18,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	conflictdag2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 var (
@@ -104,7 +103,7 @@ func registerTangleEvents() {
 		})
 	})
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+	txAcceptedClosure := event.NewClosure(func(event *ledger2.TransactionAcceptedEvent) {
 		var blkID tangleold.BlockID
 		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangleold.Attachment) {
 			blkID = a.BlockID()
@@ -145,7 +144,7 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
 			if block.Payload().Type() == devnetvm.TransactionType {
 				tx := block.Payload().(*devnetvm.Transaction)
-				deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
+				deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger2.TransactionMetadata) {
 					wsBlk := &wsBlock{
 						Type: BlkTypeUTXOBooked,
 						Data: &utxoBooked{
@@ -160,9 +159,9 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+	txAcceptedClosure := event.NewClosure(func(event *ledger2.TransactionAcceptedEvent) {
 		txID := event.TransactionID
-		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger2.TransactionMetadata) {
 			wsBlk := &wsBlock{
 				Type: BlkTypeUTXOConfirmationStateChanged,
 				Data: &utxoConfirmationStateChanged{
@@ -183,7 +182,7 @@ func registerUTXOEvents() {
 }
 
 func registerConflictEvents() {
-	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	createdClosure := event.NewClosure(func(event *conflictdag2.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictVertex,
 			Data: newConflictVertex(event.ID),
@@ -192,7 +191,7 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	parentUpdateClosure := event.NewClosure(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	parentUpdateClosure := event.NewClosure(func(event *conflictdag2.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictParentsUpdate,
@@ -205,7 +204,7 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	conflictConfirmedClosure := event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	conflictConfirmedClosure := event.NewClosure(func(event *conflictdag2.ConflictAcceptedEvent[utxo.TransactionID]) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictConfirmationStateChanged,
 			Data: &conflictConfirmationStateChanged{
@@ -378,7 +377,7 @@ func newUTXOVertex(blkID tangleold.BlockID, tx *devnetvm.Transaction) (ret *utxo
 	var confirmationState string
 	var confirmedTime int64
 	var conflictIDs []string
-	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
+	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger2.TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState().String()
 		confirmedTime = txMetadata.ConfirmationStateTime().UnixNano()
 		conflictIDs = lo.Map(txMetadata.ConflictIDs().Slice(), utxo.TransactionID.Base58)
@@ -399,13 +398,13 @@ func newUTXOVertex(blkID tangleold.BlockID, tx *devnetvm.Transaction) (ret *utxo
 }
 
 func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag2.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a conflict
 		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag2.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.ConflictID())
 			})
 		}

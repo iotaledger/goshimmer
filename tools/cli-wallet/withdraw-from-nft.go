@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -45,27 +45,27 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 		printUsage(command, "color must be set")
 	}
 
-	aliasID, err := devnetvm.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	aliasID, err := devnetvm2.AliasAddressFromBase58EncodedString(*nftIDPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}
 
-	withdrawBalance := map[devnetvm.Color]uint64{}
+	withdrawBalance := map[devnetvm2.Color]uint64{}
 	if *amountPtr > 0 {
-		var initColor devnetvm.Color
+		var initColor devnetvm2.Color
 		// get color
 		switch *colorPtr {
 		case "IOTA":
-			initColor = devnetvm.ColorIOTA
+			initColor = devnetvm2.ColorIOTA
 		case "NEW":
-			initColor = devnetvm.ColorMint
+			initColor = devnetvm2.ColorMint
 		default:
 			colorBytes, parseErr := base58.Decode(*colorPtr)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}
 
-			initColor, _, parseErr = devnetvm.ColorFromBytes(colorBytes)
+			initColor, _, parseErr = devnetvm2.ColorFromBytes(colorBytes)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}
@@ -81,7 +81,7 @@ func execWithdrawFromFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) 
 	}
 
 	if *addressPtr != "" {
-		address, aErr := devnetvm.AddressFromBase58EncodedString(*addressPtr)
+		address, aErr := devnetvm2.AddressFromBase58EncodedString(*addressPtr)
 		if aErr != nil {
 			printUsage(command, aErr.Error())
 		}

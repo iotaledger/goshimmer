@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +25,7 @@ type Address struct {
 }
 
 // NewAddress returns an Address from the given ledgerstate.Address.
-func NewAddress(address devnetvm.Address) *Address {
+func NewAddress(address devnetvm2.Address) *Address {
 	return &Address{
 		Type:   address.Type().String(),
 		Base58: address.Base58(),
@@ -44,7 +44,7 @@ type Output struct {
 }
 
 // NewOutput returns an Output from the given ledgerstate.Output.
-func NewOutput(output devnetvm.Output) (result *Output) {
+func NewOutput(output devnetvm2.Output) (result *Output) {
 	return &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
@@ -53,8 +53,8 @@ func NewOutput(output devnetvm.Output) (result *Output) {
 }
 
 // ToLedgerstateOutput converts the json output object into a goshimmer representation.
-func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
-	outputType, err := devnetvm.OutputTypeFromString(o.Type)
+func (o *Output) ToLedgerstateOutput() (devnetvm2.Output, error) {
+	outputType, err := devnetvm2.OutputTypeFromString(o.Type)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse output type: %w", err)
 	}
@@ -64,7 +64,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 	}
 
 	switch outputType {
-	case devnetvm.SigLockedSingleOutputType:
+	case devnetvm2.SigLockedSingleOutputType:
 		s, uErr := UnmarshalSigLockedSingleOutputFromBytes(o.Output)
 		if uErr != nil {
 			return nil, uErr
@@ -74,7 +74,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 			return nil, tErr
 		}
 		return res, nil
-	case devnetvm.SigLockedColoredOutputType:
+	case devnetvm2.SigLockedColoredOutputType:
 		s, uErr := UnmarshalSigLockedColoredOutputFromBytes(o.Output)
 		if uErr != nil {
 			return nil, uErr
@@ -84,7 +84,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 			return nil, tErr
 		}
 		return res, nil
-	case devnetvm.AliasOutputType:
+	case devnetvm2.AliasOutputType:
 		s, uErr := UnmarshalAliasOutputFromBytes(o.Output)
 		if uErr != nil {
 			return nil, uErr
@@ -95,7 +95,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 		}
 		return res, nil
 
-	case devnetvm.ExtendedLockedOutputType:
+	case devnetvm2.ExtendedLockedOutputType:
 		s, uErr := UnmarshalExtendedLockedOutputFromBytes(o.Output)
 		if uErr != nil {
 			return nil, uErr
@@ -111,28 +111,28 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 }
 
 // MarshalOutput uses the json marshaller to marshal a ledgerstate.Output into bytes.
-func MarshalOutput(output devnetvm.Output) []byte {
+func MarshalOutput(output devnetvm2.Output) []byte {
 	var res interface{}
 	switch output.Type() {
-	case devnetvm.SigLockedSingleOutputType:
+	case devnetvm2.SigLockedSingleOutputType:
 		var err error
 		res, err = SigLockedSingleOutputFromLedgerstate(output)
 		if err != nil {
 			return nil
 		}
-	case devnetvm.SigLockedColoredOutputType:
+	case devnetvm2.SigLockedColoredOutputType:
 		var err error
 		res, err = SigLockedColoredOutputFromLedgerstate(output)
 		if err != nil {
 			return nil
 		}
-	case devnetvm.AliasOutputType:
+	case devnetvm2.AliasOutputType:
 		var err error
 		res, err = AliasOutputFromLedgerstate(output)
 		if err != nil {
 			return nil
 		}
-	case devnetvm.ExtendedLockedOutputType:
+	case devnetvm2.ExtendedLockedOutputType:
 		var err error
 		res, err = ExtendedLockedOutputFromLedgerstate(output)
 		if err != nil {
@@ -160,22 +160,22 @@ type SigLockedSingleOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
-	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
+func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm2.Output, error) {
+	addy, err := devnetvm2.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
 	}
-	res := devnetvm.NewSigLockedSingleOutput(s.Balance, addy)
+	res := devnetvm2.NewSigLockedSingleOutput(s.Balance, addy)
 	res.SetID(id)
 	return res, nil
 }
 
 // SigLockedSingleOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func SigLockedSingleOutputFromLedgerstate(output devnetvm.Output) (*SigLockedSingleOutput, error) {
-	if output.Type() != devnetvm.SigLockedSingleOutputType {
+func SigLockedSingleOutputFromLedgerstate(output devnetvm2.Output) (*SigLockedSingleOutput, error) {
+	if output.Type() != devnetvm2.SigLockedSingleOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
-	balance, _ := output.Balances().Get(devnetvm.ColorIOTA)
+	balance, _ := output.Balances().Get(devnetvm2.ColorIOTA)
 	res := &SigLockedSingleOutput{
 		Address: output.Address().Base58(),
 		Balance: balance,
@@ -204,8 +204,8 @@ type SigLockedColoredOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
-	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
+func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm2.Output, error) {
+	addy, err := devnetvm2.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
 	}
@@ -214,14 +214,14 @@ func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm
 		return nil, errors.Errorf("failed to parse colored balances: %w", bErr)
 	}
 
-	res := devnetvm.NewSigLockedColoredOutput(balances, addy)
+	res := devnetvm2.NewSigLockedColoredOutput(balances, addy)
 	res.SetID(id)
 	return res, nil
 }
 
 // SigLockedColoredOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func SigLockedColoredOutputFromLedgerstate(output devnetvm.Output) (*SigLockedColoredOutput, error) {
-	if output.Type() != devnetvm.SigLockedColoredOutputType {
+func SigLockedColoredOutputFromLedgerstate(output devnetvm2.Output) (*SigLockedColoredOutput, error) {
+	if output.Type() != devnetvm2.SigLockedColoredOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
 	res := &SigLockedColoredOutput{
@@ -265,18 +265,18 @@ type AliasOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
+func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm2.Output, error) {
 	balances, err := getColoredBalances(a.Balances)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse colored balances: %w", err)
 	}
 	// alias address
-	aliasAddy, aErr := devnetvm.AliasAddressFromBase58EncodedString(a.AliasAddress)
+	aliasAddy, aErr := devnetvm2.AliasAddressFromBase58EncodedString(a.AliasAddress)
 	if aErr != nil {
 		return nil, errors.Errorf("wrong alias address in AliasOutput: %w", err)
 	}
 	// state address
-	stateAddy, aErr := devnetvm.AddressFromBase58EncodedString(a.StateAddress)
+	stateAddy, aErr := devnetvm2.AddressFromBase58EncodedString(a.StateAddress)
 	if aErr != nil {
 		return nil, errors.Errorf("wrong state address in AliasOutput: %w", err)
 	}
@@ -290,7 +290,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, er
 	isDelegated := a.IsDelegated
 
 	// no suitable constructor, doing it the manual way
-	res := &devnetvm.AliasOutput{}
+	res := &devnetvm2.AliasOutput{}
 	res.SetID(id)
 	res.SetAliasAddress(aliasAddy)
 	err = res.SetBalances(balances.Map())
@@ -326,7 +326,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, er
 		}
 	}
 	if a.GoverningAddress != "" {
-		addy, gErr := devnetvm.AddressFromBase58EncodedString(a.GoverningAddress)
+		addy, gErr := devnetvm2.AddressFromBase58EncodedString(a.GoverningAddress)
 		if gErr != nil {
 			return nil, gErr
 		}
@@ -342,11 +342,11 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, er
 }
 
 // AliasOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func AliasOutputFromLedgerstate(output devnetvm.Output) (*AliasOutput, error) {
-	if output.Type() != devnetvm.AliasOutputType {
+func AliasOutputFromLedgerstate(output devnetvm2.Output) (*AliasOutput, error) {
+	if output.Type() != devnetvm2.AliasOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
-	castedOutput := output.(*devnetvm.AliasOutput)
+	castedOutput := output.(*devnetvm2.AliasOutput)
 	res := &AliasOutput{
 		Balances:           getStringBalances(output),
 		AliasAddress:       castedOutput.GetAliasAddress().Base58(),
@@ -394,8 +394,8 @@ type ExtendedLockedOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from ExtendedLockedOutput with the given outputID.
-func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
-	addy, err := devnetvm.AddressFromBase58EncodedString(e.Address)
+func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm2.Output, error) {
+	addy, err := devnetvm2.AddressFromBase58EncodedString(e.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in ExtendedLockedOutput: %w", err)
 	}
@@ -404,10 +404,10 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.O
 		return nil, errors.Errorf("failed to parse colored balances: %w", bErr)
 	}
 
-	res := devnetvm.NewExtendedLockedOutput(balances.Map(), addy)
+	res := devnetvm2.NewExtendedLockedOutput(balances.Map(), addy)
 
 	if e.FallbackAddress != "" && e.FallbackDeadline != 0 {
-		fallbackAddy, fErr := devnetvm.AddressFromBase58EncodedString(e.FallbackAddress)
+		fallbackAddy, fErr := devnetvm2.AddressFromBase58EncodedString(e.FallbackAddress)
 		if fErr != nil {
 			return nil, errors.Errorf("wrong fallback address in ExtendedLockedOutput: %w", err)
 		}
@@ -427,15 +427,15 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.O
 }
 
 // ExtendedLockedOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func ExtendedLockedOutputFromLedgerstate(output devnetvm.Output) (*ExtendedLockedOutput, error) {
-	if output.Type() != devnetvm.ExtendedLockedOutputType {
+func ExtendedLockedOutputFromLedgerstate(output devnetvm2.Output) (*ExtendedLockedOutput, error) {
+	if output.Type() != devnetvm2.ExtendedLockedOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
 	res := &ExtendedLockedOutput{
 		Address:  output.Address().Base58(),
 		Balances: getStringBalances(output),
 	}
-	castedOutput := output.(*devnetvm.ExtendedLockedOutput)
+	castedOutput := output.(*devnetvm2.ExtendedLockedOutput)
 	fallbackAddy, fallbackDeadline := castedOutput.FallbackOptions()
 	if !typeutils.IsInterfaceNil(fallbackAddy) {
 		res.FallbackAddress = fallbackAddy.Base58()
@@ -598,18 +598,18 @@ func NewConflict(conflictID utxo.OutputID, conflictIDs []utxo.TransactionID) *Co
 
 // Transaction represents the JSON model of a ledgerstate.Transaction.
 type Transaction struct {
-	Version           devnetvm.TransactionEssenceVersion `json:"version"`
-	Timestamp         int64                              `json:"timestamp"`
-	AccessPledgeID    string                             `json:"accessPledgeID"`
-	ConsensusPledgeID string                             `json:"consensusPledgeID"`
-	Inputs            []*Input                           `json:"inputs"`
-	Outputs           []*Output                          `json:"outputs"`
-	UnlockBlocks      []*UnlockBlock                     `json:"unlockBlocks"`
-	DataPayload       []byte                             `json:"dataPayload"`
+	Version           devnetvm2.TransactionEssenceVersion `json:"version"`
+	Timestamp         int64                               `json:"timestamp"`
+	AccessPledgeID    string                              `json:"accessPledgeID"`
+	ConsensusPledgeID string                              `json:"consensusPledgeID"`
+	Inputs            []*Input                            `json:"inputs"`
+	Outputs           []*Output                           `json:"outputs"`
+	UnlockBlocks      []*UnlockBlock                      `json:"unlockBlocks"`
+	DataPayload       []byte                              `json:"dataPayload"`
 }
 
 // NewTransaction returns a Transaction from the given ledgerstate.Transaction.
-func NewTransaction(transaction *devnetvm.Transaction) *Transaction {
+func NewTransaction(transaction *devnetvm2.Transaction) *Transaction {
 	inputs := make([]*Input, len(transaction.Essence().Inputs()))
 	for i, input := range transaction.Essence().Inputs() {
 		inputs[i] = NewInput(input)
@@ -655,17 +655,17 @@ type Input struct {
 }
 
 // NewInput returns an Input from the given ledgerstate.Input.
-func NewInput(input devnetvm.Input, referencedOutput ...*Output) *Input {
-	if input.Type() == devnetvm.UTXOInputType {
+func NewInput(input devnetvm2.Input, referencedOutput ...*Output) *Input {
+	if input.Type() == devnetvm2.UTXOInputType {
 		if len(referencedOutput) < 1 {
 			return &Input{
 				Type:               input.Type().String(),
-				ReferencedOutputID: NewOutputID(input.(*devnetvm.UTXOInput).ReferencedOutputID()),
+				ReferencedOutputID: NewOutputID(input.(*devnetvm2.UTXOInput).ReferencedOutputID()),
 			}
 		}
 		return &Input{
 			Type:               input.Type().String(),
-			ReferencedOutputID: NewOutputID(input.(*devnetvm.UTXOInput).ReferencedOutputID()),
+			ReferencedOutputID: NewOutputID(input.(*devnetvm2.UTXOInput).ReferencedOutputID()),
 			Output:             referencedOutput[0],
 		}
 	}
@@ -682,35 +682,35 @@ func NewInput(input devnetvm.Input, referencedOutput ...*Output) *Input {
 
 // UnlockBlock represents the JSON model of a ledgerstate.UnlockBlock.
 type UnlockBlock struct {
-	Type            string                 `json:"type"`
-	ReferencedIndex uint16                 `json:"referencedIndex,omitempty"`
-	SignatureType   devnetvm.SignatureType `json:"signatureType,omitempty"`
-	PublicKey       string                 `json:"publicKey,omitempty"`
-	Signature       string                 `json:"signature,omitempty"`
+	Type            string                  `json:"type"`
+	ReferencedIndex uint16                  `json:"referencedIndex,omitempty"`
+	SignatureType   devnetvm2.SignatureType `json:"signatureType,omitempty"`
+	PublicKey       string                  `json:"publicKey,omitempty"`
+	Signature       string                  `json:"signature,omitempty"`
 }
 
 // NewUnlockBlock returns an UnlockBlock from the given ledgerstate.UnlockBlock.
-func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
+func NewUnlockBlock(unlockBlock devnetvm2.UnlockBlock) *UnlockBlock {
 	result := &UnlockBlock{
 		Type: unlockBlock.Type().String(),
 	}
 
 	switch unlockBlock.Type() {
-	case devnetvm.SignatureUnlockBlockType:
-		signature, _, _ := devnetvm.SignatureFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
+	case devnetvm2.SignatureUnlockBlockType:
+		signature, _, _ := devnetvm2.SignatureFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
 		result.SignatureType = signature.Type()
 		switch signature.Type() {
-		case devnetvm.ED25519SignatureType:
-			signature, _, _ := devnetvm.ED25519SignatureFromBytes(signature.Bytes())
+		case devnetvm2.ED25519SignatureType:
+			signature, _, _ := devnetvm2.ED25519SignatureFromBytes(signature.Bytes())
 			result.PublicKey = signature.PublicKey.String()
 			result.Signature = signature.Signature.String()
 
-		case devnetvm.BLSSignatureType:
-			signature, _, _ := devnetvm.BLSSignatureFromBytes(signature.Bytes())
+		case devnetvm2.BLSSignatureType:
+			signature, _, _ := devnetvm2.BLSSignatureFromBytes(signature.Bytes())
 			result.Signature = signature.Signature.String()
 		}
-	case devnetvm.ReferenceUnlockBlockType:
-		referenceUnlockBlock, _, _ := devnetvm.ReferenceUnlockBlockFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
+	case devnetvm2.ReferenceUnlockBlockType:
+		referenceUnlockBlock, _, _ := devnetvm2.ReferenceUnlockBlockFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
 		result.ReferencedIndex = referenceUnlockBlock.ReferencedIndex()
 	}
 
@@ -748,7 +748,7 @@ func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *Tr
 // region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // getStringBalances translates colored balances to map[string]uint64.
-func getStringBalances(output devnetvm.Output) map[string]uint64 {
+func getStringBalances(output devnetvm2.Output) map[string]uint64 {
 	balances := output.Balances().Map()
 	stringBalances := make(map[string]uint64, len(balances))
 	for color, balance := range balances {
@@ -758,16 +758,16 @@ func getStringBalances(output devnetvm.Output) map[string]uint64 {
 }
 
 // getColoredBalances translates a map[string]uint64 to ledgerstate.ColoredBalances.
-func getColoredBalances(stringBalances map[string]uint64) (*devnetvm.ColoredBalances, error) {
-	cBalances := make(map[devnetvm.Color]uint64, len(stringBalances))
+func getColoredBalances(stringBalances map[string]uint64) (*devnetvm2.ColoredBalances, error) {
+	cBalances := make(map[devnetvm2.Color]uint64, len(stringBalances))
 	for stringColor, balance := range stringBalances {
-		color, cErr := devnetvm.ColorFromBase58EncodedString(stringColor)
+		color, cErr := devnetvm2.ColorFromBase58EncodedString(stringColor)
 		if cErr != nil {
 			return nil, errors.Errorf("failed to decode color: %w", cErr)
 		}
 		cBalances[color] = balance
 	}
-	return devnetvm.NewColoredBalances(cBalances), nil
+	return devnetvm2.NewColoredBalances(cBalances), nil
 }
 
 // endregion

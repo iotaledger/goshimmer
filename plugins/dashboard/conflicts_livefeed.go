@@ -15,9 +15,9 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	conflictdag2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 var (
@@ -29,11 +29,11 @@ var (
 )
 
 type conflictSet struct {
-	ConflictSetID utxo.OutputID `json:"conflictSetID"`
-	ArrivalTime   time.Time     `json:"arrivalTime"`
-	Resolved      bool          `json:"resolved"`
-	TimeToResolve time.Duration `json:"timeToResolve"`
-	UpdatedTime   time.Time     `json:"updatedTime"`
+	ConflictSetID utxo2.OutputID `json:"conflictSetID"`
+	ArrivalTime   time.Time      `json:"arrivalTime"`
+	Resolved      bool           `json:"resolved"`
+	TimeToResolve time.Duration  `json:"timeToResolve"`
+	UpdatedTime   time.Time      `json:"updatedTime"`
 }
 
 type conflictSetJSON struct {
@@ -53,12 +53,12 @@ func (c *conflictSet) ToJSON() *conflictSetJSON {
 }
 
 type conflict struct {
-	ConflictID        utxo.TransactionID              `json:"conflictID"`
-	ConflictSetIDs    *set.AdvancedSet[utxo.OutputID] `json:"conflictSetIDs"`
-	ConfirmationState confirmation.State              `json:"confirmationState"`
-	IssuingTime       time.Time                       `json:"issuingTime"`
-	IssuerNodeID      identity.ID                     `json:"issuerNodeID"`
-	UpdatedTime       time.Time                       `json:"updatedTime"`
+	ConflictID        utxo2.TransactionID              `json:"conflictID"`
+	ConflictSetIDs    *set.AdvancedSet[utxo2.OutputID] `json:"conflictSetIDs"`
+	ConfirmationState confirmation.State               `json:"confirmationState"`
+	IssuingTime       time.Time                        `json:"issuingTime"`
+	IssuerNodeID      identity.ID                      `json:"issuerNodeID"`
+	UpdatedTime       time.Time                        `json:"updatedTime"`
 }
 
 type conflictJSON struct {
@@ -105,8 +105,8 @@ func runConflictLiveFeed() {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
 		conflicts = &boundedConflictMap{
-			conflictSets: make(map[utxo.OutputID]*conflictSet),
-			conflicts:    make(map[utxo.TransactionID]*conflict),
+			conflictSets: make(map[utxo2.OutputID]*conflictSet),
+			conflicts:    make(map[utxo2.TransactionID]*conflict),
 			conflictHeap: &timeHeap{},
 		}
 
@@ -129,14 +129,14 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+func onConflictCreated(event *conflictdag2.ConflictCreatedEvent[utxo2.TransactionID, utxo2.OutputID]) {
 	conflictID := event.ID
 	b := &conflict{
 		ConflictID:  conflictID,
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo2.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -149,7 +149,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag2.Conflict[utxo2.TransactionID, utxo2.OutputID]) {
 		b.ConflictSetIDs = conflict.ConflictSetIDs()
 	})
 
@@ -167,7 +167,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag2.ConflictMember[utxo2.OutputID, utxo2.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}
@@ -175,7 +175,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	conflicts.addConflict(b)
 }
 
-func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+func onConflictAccepted(event *conflictdag2.ConflictAcceptedEvent[utxo2.TransactionID]) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -201,7 +201,7 @@ func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.Transactio
 	}
 }
 
-func onConflictRejected(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+func onConflictRejected(event *conflictdag2.ConflictRejectedEvent[utxo2.TransactionID]) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -229,9 +229,9 @@ func sendAllConflicts() {
 	conflicts.sendAllConflicts()
 }
 
-func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
+func issuerOfOldestAttachment(conflictID utxo2.TransactionID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
-	deps.Tangle.Storage.Attachments(utxo.TransactionID(conflictID)).Consume(func(attachment *tangleold.Attachment) {
+	deps.Tangle.Storage.Attachments(utxo2.TransactionID(conflictID)).Consume(func(attachment *tangleold.Attachment) {
 		deps.Tangle.Storage.Block(attachment.BlockID()).Consume(func(block *tangleold.Block) {
 			if oldestAttachmentTime.IsZero() || block.IssuingTime().Before(oldestAttachmentTime) {
 				oldestAttachmentTime = block.IssuingTime()
@@ -243,7 +243,7 @@ func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
 }
 
 type timeHeapElement struct {
-	conflictID  utxo.OutputID
+	conflictID  utxo2.OutputID
 	arrivalTime time.Time
 }
 
@@ -276,12 +276,12 @@ func (h *timeHeap) Pop() interface{} {
 var _ heap.Interface = &timeHeap{}
 
 type boundedConflictMap struct {
-	conflictSets map[utxo.OutputID]*conflictSet
-	conflicts    map[utxo.TransactionID]*conflict
+	conflictSets map[utxo2.OutputID]*conflictSet
+	conflicts    map[utxo2.TransactionID]*conflict
 	conflictHeap *timeHeap
 }
 
-func (b *boundedConflictMap) conflictset(conflictID utxo.OutputID) (conflict *conflictSet, exists bool) {
+func (b *boundedConflictMap) conflictset(conflictID utxo2.OutputID) (conflict *conflictSet, exists bool) {
 	conflict, exists = b.conflictSets[conflictID]
 	return
 }
@@ -307,7 +307,7 @@ func (b *boundedConflictMap) addConflictSet(c *conflictSet) {
 	sendConflictSetUpdate(c)
 }
 
-func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
+func (b *boundedConflictMap) resolveConflict(conflictID utxo2.OutputID) {
 	if c, exists := b.conflictSets[conflictID]; exists && !c.Resolved {
 		c.Resolved = true
 		c.TimeToResolve = clock.Since(c.ArrivalTime)
@@ -331,7 +331,7 @@ func (b *boundedConflictMap) addConflict(br *conflict) {
 	sendConflictUpdate(br)
 }
 
-func (b *boundedConflictMap) addConflictMember(conflictID utxo.TransactionID, resourceID utxo.OutputID) {
+func (b *boundedConflictMap) addConflictMember(conflictID utxo2.TransactionID, resourceID utxo2.OutputID) {
 	if _, exists := b.conflicts[conflictID]; exists {
 		b.conflicts[conflictID].ConflictSetIDs.Add(resourceID)
 		b.conflicts[conflictID].UpdatedTime = clock.SyncedTime()
@@ -339,7 +339,7 @@ func (b *boundedConflictMap) addConflictMember(conflictID utxo.TransactionID, re
 	}
 }
 
-func (b *boundedConflictMap) conflict(conflictID utxo.TransactionID) (conflict *conflict, exists bool) {
+func (b *boundedConflictMap) conflict(conflictID utxo2.TransactionID) (conflict *conflict, exists bool) {
 	conflict, exists = b.conflicts[conflictID]
 	return
 }

@@ -12,8 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -22,8 +23,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 )
 
 const (

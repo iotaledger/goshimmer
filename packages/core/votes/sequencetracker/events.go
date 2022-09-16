@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	markers2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/booker/markers"
 )
 
 type Events struct {
@@ -22,7 +22,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 
 type VoterUpdatedEvent struct {
 	Voter                 *validator.Validator
-	NewMaxSupportedIndex  markers.Index
-	PrevMaxSupportedIndex markers.Index
-	SequenceID            markers.SequenceID
+	NewMaxSupportedIndex  markers2.Index
+	PrevMaxSupportedIndex markers2.Index
+	SequenceID            markers2.SequenceID
 }

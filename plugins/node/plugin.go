@@ -7,8 +7,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -38,19 +38,19 @@ func init() {
 func provide() (result providerResult) {
 	result.Network = network.New(
 		deps.P2PManager,
-		func(id models.BlockID) (*models.Block, bool) {
+		func(id models2.BlockID) (*models2.Block, bool) {
 			return result.Protocol.Block(id)
 		},
 		Plugin.Logger(),
 	)
 
-	result.Protocol = protocol.New(result.Network, Plugin.Logger())
+	result.Protocol = chain.New(result.Network, Plugin.Logger())
 
 	return
 }
 
 type providerResult struct {
-	Protocol *protocol.Protocol
+	Protocol *chain.Protocol
 	Network  *network.Network
 
 	dig.Out

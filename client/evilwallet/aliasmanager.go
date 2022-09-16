@@ -6,15 +6,15 @@ import (
 	"github.com/cockroachdb/errors"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // region AliasManager /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AliasManager is the manager for output aliases.
 type AliasManager struct {
-	outputMap map[string]devnetvm.Output
-	inputMap  map[string]devnetvm.Input
+	outputMap map[string]devnetvm2.Output
+	inputMap  map[string]devnetvm2.Input
 
 	outputAliasCount *atomic.Uint64
 	mu               sync.RWMutex
@@ -23,14 +23,14 @@ type AliasManager struct {
 // NewAliasManager creates and returns a new AliasManager.
 func NewAliasManager() *AliasManager {
 	return &AliasManager{
-		outputMap:        make(map[string]devnetvm.Output),
-		inputMap:         make(map[string]devnetvm.Input),
+		outputMap:        make(map[string]devnetvm2.Output),
+		inputMap:         make(map[string]devnetvm2.Input),
 		outputAliasCount: atomic.NewUint64(0),
 	}
 }
 
 // AddOutputAlias maps the given outputAliasName to output, if there's duplicate outputAliasName, it will be overwritten.
-func (a *AliasManager) AddOutputAlias(output devnetvm.Output, aliasName string) {
+func (a *AliasManager) AddOutputAlias(output devnetvm2.Output, aliasName string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (a *AliasManager) AddOutputAlias(output devnetvm.Output, aliasName string) 
 }
 
 // AddInputAlias adds an input alias.
-func (a *AliasManager) AddInputAlias(input devnetvm.Input, aliasName string) {
+func (a *AliasManager) AddInputAlias(input devnetvm2.Input, aliasName string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -48,7 +48,7 @@ func (a *AliasManager) AddInputAlias(input devnetvm.Input, aliasName string) {
 }
 
 // GetInput returns the input for the alias specified.
-func (a *AliasManager) GetInput(aliasName string) (devnetvm.Input, bool) {
+func (a *AliasManager) GetInput(aliasName string) (devnetvm2.Input, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	in, ok := a.inputMap[aliasName]
@@ -56,7 +56,7 @@ func (a *AliasManager) GetInput(aliasName string) (devnetvm.Input, bool) {
 }
 
 // GetOutput returns the output for the alias specified.
-func (a *AliasManager) GetOutput(aliasName string) devnetvm.Output {
+func (a *AliasManager) GetOutput(aliasName string) devnetvm2.Output {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -68,8 +68,8 @@ func (a *AliasManager) ClearAllAliases() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	a.inputMap = make(map[string]devnetvm.Input)
-	a.outputMap = make(map[string]devnetvm.Output)
+	a.inputMap = make(map[string]devnetvm2.Input)
+	a.outputMap = make(map[string]devnetvm2.Output)
 }
 
 // ClearAliases clears provided aliases.
@@ -86,7 +86,7 @@ func (a *AliasManager) ClearAliases(aliases ScenarioAlias) {
 }
 
 // AddOutputAliases batch adds the outputs their respective aliases.
-func (a *AliasManager) AddOutputAliases(outputs []devnetvm.Output, aliases []string) error {
+func (a *AliasManager) AddOutputAliases(outputs []devnetvm2.Output, aliases []string) error {
 	if len(outputs) != len(aliases) {
 		return errors.New("mismatch outputs and aliases length")
 	}
@@ -102,7 +102,7 @@ func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) error
 		return errors.New("mismatch outputs and aliases length")
 	}
 	for i, out := range inputs {
-		input := devnetvm.NewUTXOInput(out.OutputID)
+		input := devnetvm2.NewUTXOInput(out.OutputID)
 		a.AddInputAlias(input, aliases[i])
 	}
 	return nil

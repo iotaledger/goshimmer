@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // TimedBalance represents a balance that is time dependent.

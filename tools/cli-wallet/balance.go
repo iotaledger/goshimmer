@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -133,7 +133,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			}
 			balances := alias.Balances()
 			i := 0
-			balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+			balances.ForEach(func(color devnetvm2.Color, balance uint64) bool {
 				if i == 0 {
 					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "[ OK ]", aliasID.Base58(),
 						balance, cliWallet.AssetRegistry().Symbol(color),
@@ -155,7 +155,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 			}
 			balances := alias.Balances()
 			i := 0
-			balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+			balances.ForEach(func(color devnetvm2.Color, balance uint64) bool {
 				if i == 0 {
 					_, _ = fmt.Fprintf(wAlias, "%s\t%s\t%d %s\t%s\t%s\n", "[PEND]", aliasID.Base58(),
 						balance, cliWallet.AssetRegistry().Symbol(color),
@@ -222,7 +222,7 @@ func printTimedBalance(header, timeTitle string, cliWallet *wallet.Wallet, confi
 	_ = w.Flush()
 }
 
-func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirmed, pending map[devnetvm.AliasAddress]*devnetvm.AliasOutput) {
+func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirmed, pending map[devnetvm2.AliasAddress]*devnetvm2.AliasOutput) {
 	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
@@ -237,7 +237,7 @@ func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirme
 	for aliasID, alias := range confirmed {
 		balances := alias.Balances()
 		i := 0
-		balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+		balances.ForEach(func(color devnetvm2.Color, balance uint64) bool {
 			if i == 0 {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "[ OK ]", aliasID.Base58(), balance,
 					cliWallet.AssetRegistry().Symbol(color),
@@ -256,7 +256,7 @@ func printAliasBalance(header, idName string, cliWallet *wallet.Wallet, confirme
 	for aliasID, alias := range pending {
 		balances := alias.Balances()
 		i := 0
-		balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+		balances.ForEach(func(color devnetvm2.Color, balance uint64) bool {
 			if i == 0 {
 				_, _ = fmt.Fprintf(w, "%s\t%s\t%d %s\t%s\t%s\n", "[PEND]", aliasID.Base58(), balance,
 					cliWallet.AssetRegistry().Symbol(color),

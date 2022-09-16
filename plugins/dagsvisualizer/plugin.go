@@ -14,7 +14,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/consensus/acceptance"
 )
 
 // PluginName is the name of the dags visualizer plugin.

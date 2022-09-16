@@ -12,10 +12,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -100,9 +100,9 @@ func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
 		WeakChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.WeakChild).Base58(),
 		ShallowLikeChildren:     deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.ShallowLikeChild).Base58(),
 		Solid:                   blockMetadata.IsSolid(),
-		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo2.TransactionID.Bytes), base58.Encode),
+		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo2.TransactionID.Bytes), base58.Encode),
+		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.SubtractedConflictIDs().Slice(), utxo2.TransactionID.Bytes), base58.Encode),
 		Scheduled:               blockMetadata.Scheduled(),
 		Booked:                  blockMetadata.IsBooked(),
 		ObjectivelyInvalid:      blockMetadata.IsObjectivelyInvalid(),
@@ -208,7 +208,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-		case devnetvm.AddressLength:
+		case devnetvm2.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
 				result.Address = addr
@@ -245,7 +245,7 @@ func findBlock(blockID tangleold.BlockID) (explorerBlk *ExplorerBlock, err error
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-	address, err := devnetvm.AddressFromBase58EncodedString(strAddress)
+	address, err := devnetvm2.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
@@ -263,14 +263,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			metaData = outputMetadata
 		})
 
-		var txID utxo.TransactionID
-		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
-			if output, ok := output.(devnetvm.Output); ok {
+		var txID utxo2.TransactionID
+		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo2.Output) {
+			if output, ok := output.(devnetvm2.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
-					if tx, ok := transaction.(*devnetvm.Transaction); ok {
+				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo2.Transaction) {
+					if tx, ok := transaction.(*devnetvm2.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})

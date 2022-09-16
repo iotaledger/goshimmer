@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
 )
 
 func init() {
@@ -16,7 +16,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(Payload))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}
@@ -72,10 +72,10 @@ func (p *Payload) SentTime() int64 {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Payload type.
-var Type = payload.NewType(payloadType, PayloadName)
+var Type = payload2.NewType(payloadType, PayloadName)
 
 // Type returns the type of the Payload.
-func (p *Payload) Type() payload.Type {
+func (p *Payload) Type() payload2.Type {
 	return Type
 }
 

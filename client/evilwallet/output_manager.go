@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 var (
@@ -22,9 +22,9 @@ var (
 type Output struct {
 	// *wallet.Output
 	OutputID utxo.OutputID
-	Address  devnetvm.Address
+	Address  devnetvm2.Address
 	Index    uint64
-	Balance  *devnetvm.ColoredBalances
+	Balance  *devnetvm2.ColoredBalances
 }
 
 // Outputs is a list of Output.
@@ -131,7 +131,7 @@ func (o *OutputManager) Track(outputIDs []utxo.OutputID) (allConfirmed bool) {
 
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *devnetvm.ColoredBalances) *Output {
+func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *devnetvm2.ColoredBalances) *Output {
 	outputIDs := o.RequestOutputsByAddress(addr.Base58())
 	if len(outputIDs) == 0 {
 		return nil
@@ -144,7 +144,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(w *Wallet, output devnetvm.Output) *Output {
+func (o *OutputManager) AddOutput(w *Wallet, output devnetvm2.Output) *Output {
 	outputID := output.ID()
 	idx := w.AddrIndexMap(output.Address().Base58())
 	out := w.AddUnspentOutput(output.Address(), idx, outputID, output.Balances())
@@ -222,7 +222,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 			continue
 		}
 		addr := output.Address
-		go func(addr devnetvm.Address) {
+		go func(addr devnetvm2.Address) {
 			defer wg.Done()
 			outputIDs := o.RequestOutputsByAddress(addr.Base58())
 			ok := o.Track(outputIDs)

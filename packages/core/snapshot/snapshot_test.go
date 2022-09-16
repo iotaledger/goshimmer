@@ -14,9 +14,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	ledger2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 const (
@@ -31,9 +31,9 @@ var nodesToPledge = []string{
 }
 
 var (
-	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	outputsWithMetadata = make([]*ledger2.OutputWithMetadata, 0)
 	activityLog         = epoch.NewSnapshotEpochActivity()
-	epochDiffs          = make([]*ledger.EpochDiff, 0)
+	epochDiffs          = make([]*ledger2.EpochDiff, 0)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints    = make([]*SolidEntryPoints, 0)
 )
@@ -54,8 +54,8 @@ func Test_CreateAndReadSnapshot(t *testing.T) {
 
 func Test_CreateAndReadEmptySnapshot(t *testing.T) {
 	// clear all data
-	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffs = make([]*ledger.EpochDiff, 0)
+	outputsWithMetadata = make([]*ledger2.OutputWithMetadata, 0)
+	epochDiffs = make([]*ledger2.EpochDiff, 0)
 	manaDistribution = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints = make([]*SolidEntryPoints, 0)
 
@@ -72,16 +72,16 @@ func Test_CreateAndReadEmptySnapshot(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
+func createEmptySnapshot(t *testing.T) (header *ledger2.SnapshotHeader) {
 	fullEpochIndex := epoch.Index(0)
 	diffEpochIndex := epoch.Index(0)
 
-	headerProd := func() (header *ledger.SnapshotHeader, err error) {
+	headerProd := func() (header *ledger2.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(diffEpochIndex)
 		ecRecord.SetECR(commitment.MerkleRoot{})
 		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
-		header = &ledger.SnapshotHeader{
+		header = &ledger2.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
 			DiffEpochIndex: diffEpochIndex,
 			LatestECRecord: ecRecord,
@@ -91,13 +91,13 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	}
 
 	// prepare outputsWithMetadata
-	utxoStatesProd := func() *ledger.OutputWithMetadata {
+	utxoStatesProd := func() *ledger2.OutputWithMetadata {
 		return nil
 	}
 
-	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
-		outputs := make([]*ledger.OutputWithMetadata, 0)
-		diffs = ledger.NewEpochDiff(outputs, outputs)
+	epochDiffsProd := func() (diffs *ledger2.EpochDiff) {
+		outputs := make([]*ledger2.OutputWithMetadata, 0)
+		diffs = ledger2.NewEpochDiff(outputs, outputs)
 		return
 	}
 
@@ -116,16 +116,16 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
+func createSnapshot(t *testing.T) (header *ledger2.SnapshotHeader) {
 	fullEpochIndex := epoch.Index(1)
 	diffEpochIndex := epoch.Index(3)
 
-	headerProd := func() (header *ledger.SnapshotHeader, err error) {
+	headerProd := func() (header *ledger2.SnapshotHeader, err error) {
 		ecRecord := epoch.NewECRecord(diffEpochIndex)
 		ecRecord.SetECR(commitment.MerkleRoot{})
 		ecRecord.SetPrevEC(commitment.MerkleRoot{})
 
-		header = &ledger.SnapshotHeader{
+		header = &ledger2.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
 			DiffEpochIndex: diffEpochIndex,
 			LatestECRecord: ecRecord,
@@ -137,7 +137,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	// prepare outputsWithMetadata
 	createsOutputsWithMetadatas(110)
 	i := 0
-	utxoStatesProd := func() *ledger.OutputWithMetadata {
+	utxoStatesProd := func() *ledger2.OutputWithMetadata {
 		if i == len(outputsWithMetadata) {
 			return nil
 		}
@@ -150,7 +150,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	// prepare epoch diffs
 	createsEpochDiffs(fullEpochIndex, diffEpochIndex)
 	k := 0
-	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
+	epochDiffsProd := func() (diffs *ledger2.EpochDiff) {
 		if i == len(epochDiffs) {
 			return nil
 		}
@@ -194,14 +194,14 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+func readSnapshot(t *testing.T) (header *ledger2.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger2.OutputWithMetadata, epochDiffs []*ledger2.EpochDiff, activity epoch.SnapshotEpochActivity) {
+	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger2.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
-	epochDiffConsumer := func(diffs *ledger.EpochDiff) {
+	epochDiffConsumer := func(diffs *ledger2.EpochDiff) {
 		epochDiffs = append(epochDiffs, diffs)
 	}
-	headerConsumer := func(h *ledger.SnapshotHeader) {
+	headerConsumer := func(h *ledger2.SnapshotHeader) {
 		header = h
 	}
 	activityLogConsumer := func(ea epoch.SnapshotEpochActivity) {
@@ -219,11 +219,11 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 func createsEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index) {
 	l, size := 0, 10
 	for i := fullEpochIndex + 1; i <= diffEpochIndex; i++ {
-		spent, created := make([]*ledger.OutputWithMetadata, 0), make([]*ledger.OutputWithMetadata, 0)
+		spent, created := make([]*ledger2.OutputWithMetadata, 0), make([]*ledger2.OutputWithMetadata, 0)
 		spent = append(spent, outputsWithMetadata[l*size:(l+1)*size]...)
 		created = append(created, outputsWithMetadata[(l+1)*size:(l+2)*size]...)
 
-		epochDiffs = append(epochDiffs, ledger.NewEpochDiff(spent, created))
+		epochDiffs = append(epochDiffs, ledger2.NewEpochDiff(spent, created))
 		l += 2
 	}
 }
@@ -265,22 +265,22 @@ func createsOutputsWithMetadatas(total int) {
 				break
 			}
 			// pledge to ID but send funds to random address
-			output, outputMetadata := createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-			outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+			output, outputMetadata := createOutput(devnetvm2.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
+			outputsWithMetadata = append(outputsWithMetadata, ledger2.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 			i++
 		}
 	}
 
 }
 
-func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identity.ID, creationTime time.Time) (output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
-	output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
-		devnetvm.ColorIOTA: tokenAmount,
+func createOutput(address devnetvm2.Address, tokenAmount uint64, pledgeID identity.ID, creationTime time.Time) (output devnetvm2.Output, outputMetadata *ledger2.OutputMetadata) {
+	output = devnetvm2.NewSigLockedColoredOutput(devnetvm2.NewColoredBalances(map[devnetvm2.Color]uint64{
+		devnetvm2.ColorIOTA: tokenAmount,
 	}), address)
 	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, outputCounter))
 	outputCounter++
 
-	outputMetadata = ledger.NewOutputMetadata(output.ID())
+	outputMetadata = ledger2.NewOutputMetadata(output.ID())
 	outputMetadata.SetConfirmationState(confirmation.Confirmed)
 	outputMetadata.SetAccessManaPledgeID(pledgeID)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
@@ -289,7 +289,7 @@ func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identit
 	return output, outputMetadata
 }
 
-func compareSnapshotHeader(t *testing.T, created, unmarshal *ledger.SnapshotHeader) {
+func compareSnapshotHeader(t *testing.T, created, unmarshal *ledger2.SnapshotHeader) {
 	assert.Equal(t, created.FullEpochIndex, unmarshal.FullEpochIndex)
 	assert.Equal(t, created.DiffEpochIndex, unmarshal.DiffEpochIndex)
 	assert.Equal(t, created.OutputWithMetadataCount, unmarshal.OutputWithMetadataCount)
@@ -312,7 +312,7 @@ func compareSolidEntryPoints(t *testing.T, created, unmarshal []*SolidEntryPoint
 	}
 }
 
-func compareOutputWithMetadataSlice(t *testing.T, created, unmarshal []*ledger.OutputWithMetadata) {
+func compareOutputWithMetadataSlice(t *testing.T, created, unmarshal []*ledger2.OutputWithMetadata) {
 	assert.Equal(t, len(created), len(unmarshal))
 	for i := 0; i < len(created); i++ {
 		ob, err := created[i].Bytes()
@@ -323,7 +323,7 @@ func compareOutputWithMetadataSlice(t *testing.T, created, unmarshal []*ledger.O
 	}
 }
 
-func compareEpochDiffs(t *testing.T, created, unmarshal []*ledger.EpochDiff) {
+func compareEpochDiffs(t *testing.T, created, unmarshal []*ledger2.EpochDiff) {
 	assert.Equal(t, len(created), len(unmarshal))
 	for i, diffs := range created {
 		uDiffs := unmarshal[i]

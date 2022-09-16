@@ -8,21 +8,21 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/ledger"
+	utxo2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/utxo"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
+	indexer2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm/indexer"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 type FaucetConnector struct {
 	tangle  *tangleold.Tangle
-	indexer *indexer.Indexer
+	indexer *indexer2.Indexer
 }
 
-func NewConnector(t *tangleold.Tangle, indexer *indexer.Indexer) *FaucetConnector {
+func NewConnector(t *tangleold.Tangle, indexer *indexer2.Indexer) *FaucetConnector {
 	return &FaucetConnector{
 		tangle:  t,
 		indexer: indexer,
@@ -30,14 +30,14 @@ func NewConnector(t *tangleold.Tangle, indexer *indexer.Indexer) *FaucetConnecto
 }
 
 func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs wallet.OutputsByAddressAndOutputID, err error) {
-	unspentOutputs = make(map[address.Address]map[utxo.OutputID]*wallet.Output)
+	unspentOutputs = make(map[address.Address]map[utxo2.OutputID]*wallet.Output)
 
 	for _, addr := range addresses {
 		fmt.Println("> Getting unspent outputs for ", addr.Base58())
-		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-			f.tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer2.AddressOutputMapping) {
+			f.tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo2.Output) {
 				fmt.Println("> > Found output ", output.String())
-				if typedOutput, ok := output.(devnetvm.Output); ok {
+				if typedOutput, ok := output.(devnetvm2.Output); ok {
 					f.tangle.Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
 							walletOutput := &wallet.Output{
@@ -52,7 +52,7 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 
 							// store output in result
 							if _, addressExists := unspentOutputs[addr]; !addressExists {
-								unspentOutputs[addr] = make(map[utxo.OutputID]*wallet.Output)
+								unspentOutputs[addr] = make(map[utxo2.OutputID]*wallet.Output)
 							}
 							unspentOutputs[addr][typedOutput.ID()] = walletOutput
 						}
@@ -65,7 +65,7 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 	return
 }
 
-func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
+func (f *FaucetConnector) SendTransaction(tx *devnetvm2.Transaction) (err error) {
 	// attach to block layer
 	issueTransaction := func() (*tangleold.Block, error) {
 		block, e := deps.Tangle.IssuePayload(tx)
@@ -94,13 +94,13 @@ func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]str
 	return
 }
 
-func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
+func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo2.TransactionID) (confirmationState confirmation.State, err error) {
 	f.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
 	return
 }
 
-func (f *FaucetConnector) GetUnspentAliasOutput(address *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
+func (f *FaucetConnector) GetUnspentAliasOutput(address *devnetvm2.AliasAddress) (output *devnetvm2.AliasOutput, err error) {
 	panic("GetUnspentAliasOutput is not implemented in faucet connector.")
 }

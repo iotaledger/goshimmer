@@ -6,13 +6,14 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/database"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
 )
 
 type Chain struct {
 	ForkingPoint *Commitment
-	BlockStorage *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
+	// Metadatastorage
+	BlockStorage *database.PersistentEpochStorage[models2.BlockID, models2.Block, *models2.BlockID, *models2.Block]
 
 	latestCommittableEpoch epoch.Index
 	commitmentsByIndex     map[epoch.Index]*Commitment
@@ -34,7 +35,7 @@ func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {
 	return 0
 }
 
-func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models.Block), batchSize int) (err error) {
+func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models2.Block), batchSize int) (err error) {
 	c.RLock()
 	defer c.RUnlock()
 
@@ -42,15 +43,15 @@ func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*mod
 		return errors.Errorf("cannot stream blocks of epoch %d: not committable yet", index)
 	}
 
-	blocks := make([]*models.Block, 0)
-	if err = c.BlockStorage.Iterate(index, func(key models.BlockID, value *models.Block) bool {
+	blocks := make([]*models2.Block, 0)
+	if err = c.BlockStorage.Iterate(index, func(key models2.BlockID, value *models2.Block) bool {
 		value.SetID(key)
 
 		blocks = append(blocks, value)
 
 		if len(blocks) == batchSize {
 			callback(blocks)
-			blocks = make([]*models.Block, 0)
+			blocks = make([]*models2.Block, 0)
 		}
 
 		return true

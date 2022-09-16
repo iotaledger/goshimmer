@@ -2,7 +2,8 @@ package gossip
 
 import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 )
 

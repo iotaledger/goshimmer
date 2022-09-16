@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/chain/engine/tangle/models/payload"
 )
 
 func init() {
@@ -14,7 +14,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Chat type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(Payload))
 	if err != nil {
 		panic(fmt.Errorf("error registering Chat as Payload interface: %w", err))
 	}
@@ -60,10 +60,10 @@ func NewPayload(from, to, block string) *Payload {
 }
 
 // Type represents the identifier which addresses the chat payload type.
-var Type = payload.NewType(payloadType, PayloadName)
+var Type = payload2.NewType(payloadType, PayloadName)
 
 // Type returns the type of the Payload.
-func (p *Payload) Type() payload.Type {
+func (p *Payload) Type() payload2.Type {
 	return Type
 }
 

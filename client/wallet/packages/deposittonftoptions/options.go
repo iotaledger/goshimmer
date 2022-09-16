@@ -3,7 +3,7 @@ package deposittonftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 // DepositFundsToNFTOption is a function that provides options.
@@ -18,7 +18,7 @@ func WaitForConfirmation(wait bool) DepositFundsToNFTOption {
 }
 
 // Amount sets how much funds should be withdrew.
-func Amount(amount map[devnetvm.Color]uint64) DepositFundsToNFTOption {
+func Amount(amount map[devnetvm2.Color]uint64) DepositFundsToNFTOption {
 	return func(options *DepositFundsToNFTOptions) error {
 		options.Amount = amount
 		return nil
@@ -28,7 +28,7 @@ func Amount(amount map[devnetvm.Color]uint64) DepositFundsToNFTOption {
 // Alias specifies which alias to transfer.
 func Alias(aliasID string) DepositFundsToNFTOption {
 	return func(options *DepositFundsToNFTOptions) error {
-		parsed, err := devnetvm.AliasAddressFromBase58EncodedString(aliasID)
+		parsed, err := devnetvm2.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
 		}
@@ -55,8 +55,8 @@ func ConsensusManaPledgeID(nodeID string) DepositFundsToNFTOption {
 
 // DepositFundsToNFTOptions is a struct that is used to aggregate the optional parameters in the DepositFundsToNFT call.
 type DepositFundsToNFTOptions struct {
-	Amount                map[devnetvm.Color]uint64
-	Alias                 *devnetvm.AliasAddress
+	Amount                map[devnetvm2.Color]uint64
+	Alias                 *devnetvm2.AliasAddress
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool

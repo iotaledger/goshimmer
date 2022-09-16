@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	devnetvm2 "github.com/iotaledger/goshimmer/packages/protocol/chain/ledger/vm/devnetvm"
 )
 
 func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -44,25 +44,25 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "color must be set")
 	}
 
-	destinationAddress, err := devnetvm.AddressFromBase58EncodedString(*addressPtr)
+	destinationAddress, err := devnetvm2.AddressFromBase58EncodedString(*addressPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 		return
 	}
 
-	var color devnetvm.Color
+	var color devnetvm2.Color
 	switch *colorPtr {
 	case "IOTA":
-		color = devnetvm.ColorIOTA
+		color = devnetvm2.ColorIOTA
 	case "NEW":
-		color = devnetvm.ColorMint
+		color = devnetvm2.ColorMint
 	default:
 		colorBytes, parseErr := base58.Decode(*colorPtr)
 		if parseErr != nil {
 			printUsage(command, parseErr.Error())
 		}
 
-		color, _, parseErr = devnetvm.ColorFromBytes(colorBytes)
+		color, _, parseErr = devnetvm2.ColorFromBytes(colorBytes)
 		if parseErr != nil {
 			printUsage(command, parseErr.Error())
 		}
@@ -89,7 +89,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if !(*fallbackAddressPtr != "" && *fallbackDeadlinePtr > 0) {
 			printUsage(command, "please provide both fallb-addr and fallb-deadline arguments for conditional sending")
 		}
-		fAddy, aErr := devnetvm.AddressFromBase58EncodedString(*fallbackAddressPtr)
+		fAddy, aErr := devnetvm2.AddressFromBase58EncodedString(*fallbackAddressPtr)
 		if aErr != nil {
 			printUsage(command, fmt.Sprintf("wrong fallback address: %s", aErr.Error()))
 		}
