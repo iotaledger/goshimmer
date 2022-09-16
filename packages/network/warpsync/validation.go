@@ -38,7 +38,7 @@ func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet
 	prevEC := commitment.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetPrevEC())
 
 	ecRecord := commitment.New(commitment.NewID(ei, ecr, prevEC))
-	ecRecord.PublishData(ei, ecr, prevEC)
+	ecRecord.PublishData(prevEC, ei, ecr)
 
 	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ID().Base58())
 

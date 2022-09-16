@@ -223,7 +223,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *commitment.
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *commitment.Commitment {
 		return commitment.New(commitment.NewID(ei, ecr, prevECRecord.ID()))
 	}).Consume(func(e *commitment.Commitment) {
-		e.PublishData(ei, ecr, prevECRecord.ID())
+		e.PublishData(prevECRecord.ID(), ei, ecr)
 		e.PublishRoots(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot)
 		ecRecord = e
 	})
@@ -234,8 +234,8 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *commitment.
 func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *commitment.Commitment) {
 	f.storage.CachedECRecord(ei).Consume(func(record *commitment.Commitment) {
 		ecRecord = commitment.New(commitment.NewID(ei, record.RootsID(), record.PrevID()))
-		ecRecord.PublishData(ei, record.RootsID(), record.PrevID())
-		ecRecord.PublishRoots(record.Roots().TangleRoot, record.Roots().StateMutationRoot, record.Roots().StateRoot, record.Roots().ManaRoot)
+		ecRecord.PublishData(record.PrevID(), ei, record.RootsID())
+		ecRecord.PublishRoots(record.Roots().TangleRoot(), record.Roots().StateMutationRoot(), record.Roots().StateRoot(), record.Roots().ManaRoot())
 	})
 	return
 }

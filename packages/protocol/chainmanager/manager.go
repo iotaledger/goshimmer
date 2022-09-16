@@ -27,7 +27,7 @@ func NewManager(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, s
 	}
 
 	manager.SnapshotCommitment = manager.Commitment(commitment.NewID(snapshotIndex, snapshotRootsID, snapshotPrevID), true)
-	manager.SnapshotCommitment.PublishData(snapshotIndex, snapshotRootsID, snapshotPrevID)
+	manager.SnapshotCommitment.PublishData(snapshotPrevID, snapshotIndex, snapshotRootsID)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
@@ -37,7 +37,7 @@ func NewManager(snapshotIndex epoch.Index, snapshotRootsID commitment.RootsID, s
 
 func (c *Manager) ProcessCommitment(index epoch.Index, ecr commitment.RootsID, prevEC commitment.ID) (chain *Chain, wasForked bool) {
 	commitment := c.Commitment(commitment.NewID(index, ecr, prevEC), true)
-	if !commitment.PublishData(index, ecr, prevEC) {
+	if !commitment.PublishData(prevEC, index, ecr) {
 		return commitment.Chain(), false
 	}
 

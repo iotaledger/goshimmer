@@ -18,7 +18,7 @@ type Protocol struct {
 	// dispatcher      *dispatcher.Dispatcher
 	// solidification  *solidification.Solidification
 
-	optsNodeID           string
+	optsBaseDirectory    string
 	optsSettingsFile     string
 	optsDBManagerOptions []options.Option[database.Manager]
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
@@ -26,15 +26,19 @@ type Protocol struct {
 	*logger.Logger
 }
 
+func (p *Protocol) FilePath(optPathElements ...string) string {
+	return filepath.Join(append([]string{p.optsBaseDirectory}, optPathElements...)...)
+}
+
 func New(networkInstance *network.Network, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
-		Logger: log,
+		optsBaseDirectory: "",
+		optsSettingsFile:  "settings.bin",
 
-		optsNodeID:       "iota",
-		optsSettingsFile: "settings.bin",
+		Logger: log,
 	}, opts, func(n *Protocol) {
 		n.network = networkInstance
-		n.settings = NewSettings(filepath.Join(n.optsNodeID, n.optsSettingsFile))
+		n.settings = NewSettings(n.FilePath(n.optsSettingsFile))
 
 		// n.databaseManager = database.NewManager(n.optsDBManagerOptions...)
 
