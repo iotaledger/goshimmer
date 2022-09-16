@@ -6,8 +6,9 @@ import (
 
 	"github.com/iotaledger/hive.go/core/serix"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -36,7 +37,7 @@ func init() {
 		panic(fmt.Errorf("error registering block ID slice type settings: %w", err))
 	}
 
-	err = serix.DefaultAPI.RegisterTypeSettings(epoch.SnapshotEpochActivity{}, ts)
+	err = serix.DefaultAPI.RegisterTypeSettings(activitylog.SnapshotEpochActivity{}, ts)
 	if err != nil {
 		panic(fmt.Errorf("error registering EpochDiff map type settings: %w", err))
 	}
@@ -98,10 +99,10 @@ type EpochDiffProducerFunc func() (epochDiffs *ledger.EpochDiff)
 type EpochDiffsConsumerFunc func(epochDiffs *ledger.EpochDiff)
 
 // ActivityLogProducerFunc is the type of function that produces ActivityLog when taking a snapshot.
-type ActivityLogProducerFunc func() (activityLogs epoch.SnapshotEpochActivity)
+type ActivityLogProducerFunc func() (activityLogs activitylog.SnapshotEpochActivity)
 
 // ActivityLogConsumerFunc is the type of function that consumes Activity logs when loading a snapshot.
-type ActivityLogConsumerFunc func(activityLogs epoch.SnapshotEpochActivity)
+type ActivityLogConsumerFunc func(activityLogs activitylog.SnapshotEpochActivity)
 
 // HeaderProducerFunc is the type of function that produces snapshot header when taking a snapshot.
 type HeaderProducerFunc func() (header *ledger.SnapshotHeader, err error)

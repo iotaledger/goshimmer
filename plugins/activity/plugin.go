@@ -11,6 +11,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 
 type dependencies struct {
 	dig.In
-	Tangle *tangleold.Tangle
+	Tangle *tangle.Tangle
 }
 
 func init() {

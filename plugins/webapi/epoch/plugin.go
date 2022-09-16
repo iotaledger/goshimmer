@@ -149,7 +149,7 @@ func getEI(c echo.Context) (epoch.Index, error) {
 	eiText := c.Param("ei")
 	eiNumber, err := strconv.Atoi(eiText)
 	if err != nil {
-		return 0, errors.Wrap(err, "can't parse EI from URL param")
+		return 0, errors.Wrap(err, "can't parse Index from URL param")
 	}
 	return epoch.Index(uint64(eiNumber)), nil
 }

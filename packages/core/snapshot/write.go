@@ -9,6 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/serix"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -197,7 +198,7 @@ func writeEpochDiffs(writeSeeker io.WriteSeeker, diffs *ledger.EpochDiff) error 
 	return nil
 }
 
-func writeActivityLog(writeSeeker io.WriteSeeker, activityLog epoch.SnapshotEpochActivity) error {
+func writeActivityLog(writeSeeker io.WriteSeeker, activityLog activitylog.SnapshotEpochActivity) error {
 	writeFuncWrap := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
@@ -234,7 +235,7 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 		return writeFunc(writeSeeker, name, value)
 	}
 
-	// write EI
+	// write Index
 	if err := writeFuncWrap("solid entry points epoch", seps.EI); err != nil {
 		return err
 	}
@@ -278,7 +279,7 @@ func NewActivityLogProducer(notarizationMgr *notarization.Manager, epochDiffInde
 	if err != nil {
 		panic(err)
 	}
-	return func() (activityLogs epoch.SnapshotEpochActivity) {
+	return func() (activityLogs activitylog.SnapshotEpochActivity) {
 		return activityLog
 	}
 }
