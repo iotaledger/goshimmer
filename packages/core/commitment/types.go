@@ -22,3 +22,7 @@ func (m MerkleRoot) Base58() string {
 func (m MerkleRoot) Bytes() []byte {
 	return m[:]
 }
+
+type ID = MerkleRoot
+
+type RootsID = MerkleRoot
