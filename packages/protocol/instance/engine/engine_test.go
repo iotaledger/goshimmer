@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/debug"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 func TestEngine_Solidification(t *testing.T) {

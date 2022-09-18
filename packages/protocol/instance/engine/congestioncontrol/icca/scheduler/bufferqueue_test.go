@@ -11,9 +11,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region Buffered Queue test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ func TestBufferQueue_Submit(t *testing.T) {
 
 	var size int
 	for i := 0; i < numBlocks; i++ {
-		blk := newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
+		blk := newTestBlock(models2.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		size++
 		elements, err := b.Submit(blk, mockAccessManaRetriever)
 		assert.Empty(t, elements)
@@ -53,7 +53,7 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 	blocks := make([]*Block, numBlocks)
 	for i := range blocks {
 
-		blocks[i] = newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
+		blocks[i] = newTestBlock(models2.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		elements, err := b.Submit(blocks[i], mockAccessManaRetriever)
 		assert.Empty(t, elements)
 		assert.NoError(t, err)
@@ -74,10 +74,10 @@ func TestBufferQueue_SubmitWithDrop_Unready(t *testing.T) {
 	preparedBlocks := make([]*Block, 0, 2*numBlocks)
 	now := time.Now()
 	for i := 0; i < numBlocks/2; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(noManaNode.PublicKey()), models.WithIssuingTime(now.Add(time.Duration(i)))))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models2.WithIssuer(noManaNode.PublicKey()), models2.WithIssuingTime(now.Add(time.Duration(i)))))
 	}
 	for i := numBlocks / 2; i < numBlocks; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(selfNode.PublicKey()), models.WithIssuingTime(now.Add(time.Duration(i)))))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models2.WithIssuer(selfNode.PublicKey()), models2.WithIssuingTime(now.Add(time.Duration(i)))))
 	}
 	for _, blk := range preparedBlocks {
 		droppedBlocks, err := b.Submit(blk, mockAccessManaRetriever)
@@ -89,14 +89,14 @@ func TestBufferQueue_SubmitWithDrop_Unready(t *testing.T) {
 	assert.EqualValues(t, maxBuffer, b.Size())
 
 	// dropping single unready block
-	droppedBlocks, err := b.Submit(newTestBlock(models.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
+	droppedBlocks, err := b.Submit(newTestBlock(models2.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Len(t, droppedBlocks, 1)
 	assert.Equal(t, preparedBlocks[0].ID(), droppedBlocks[0].ID())
 	assert.LessOrEqual(t, maxBuffer, b.Size())
 
 	// dropping two unready blocks to fit the new one
-	droppedBlocks, err = b.Submit(newTestBlock(models.WithIssuer(selfNode.PublicKey()), models.WithPayload(payload.NewGenericDataPayload(make([]byte, 44)))), mockAccessManaRetriever)
+	droppedBlocks, err = b.Submit(newTestBlock(models2.WithIssuer(selfNode.PublicKey()), models2.WithPayload(payload.NewGenericDataPayload(make([]byte, 44)))), mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Len(t, droppedBlocks, 1)
 	assert.Equal(t, preparedBlocks[1].ID(), droppedBlocks[0].ID())
@@ -108,7 +108,7 @@ func TestBufferQueue_SubmitWithDrop_DropNewBlock(t *testing.T) {
 	b := NewBufferQueue(maxBuffer)
 	preparedBlocks := make([]*Block, 0, 2*numBlocks)
 	for i := 0; i < numBlocks; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(selfNode.PublicKey())))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models2.WithIssuer(selfNode.PublicKey())))
 	}
 	for _, blk := range preparedBlocks {
 		droppedBlocks, err := b.Submit(blk, mockAccessManaRetriever)
@@ -120,7 +120,7 @@ func TestBufferQueue_SubmitWithDrop_DropNewBlock(t *testing.T) {
 	assert.EqualValues(t, maxBuffer, b.Size())
 
 	// drop newly submitted block when all blocks in the buffer are not ready
-	newBlock := newTestBlock(models.WithIssuer(noManaNode.PublicKey()), models.WithPayload(payload.NewGenericDataPayload(make([]byte, 40))))
+	newBlock := newTestBlock(models2.WithIssuer(noManaNode.PublicKey()), models2.WithPayload(payload.NewGenericDataPayload(make([]byte, 40))))
 	droppedBlocks, err := b.Submit(newBlock, mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Len(t, droppedBlocks, 1)
@@ -133,10 +133,10 @@ func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 	b := NewBufferQueue(maxBuffer)
 	preparedBlocks := make([]*Block, 0, 2*numBlocks)
 	for i := 0; i < numBlocks/2; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(noManaNode.PublicKey())))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models2.WithIssuer(noManaNode.PublicKey())))
 	}
 	for i := 0; i < numBlocks/2; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(selfNode.PublicKey())))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models2.WithIssuer(selfNode.PublicKey())))
 	}
 	for _, blk := range preparedBlocks {
 		droppedBlocks, err := b.Submit(blk, mockAccessManaRetriever)
@@ -149,14 +149,14 @@ func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 	assert.EqualValues(t, maxBuffer, b.Size())
 
 	// drop single ready block
-	droppedBlocks, err := b.Submit(newTestBlock(models.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
+	droppedBlocks, err := b.Submit(newTestBlock(models2.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Len(t, droppedBlocks, 1)
 	assert.Equal(t, preparedBlocks[0].ID(), droppedBlocks[0].ID())
 	assert.LessOrEqual(t, maxBuffer, b.Size())
 
 	// drop two ready blocks to fit the newly submitted one
-	droppedBlocks, err = b.Submit(newTestBlock(models.WithIssuer(selfNode.PublicKey()), models.WithPayload(payload.NewGenericDataPayload(make([]byte, 44)))), mockAccessManaRetriever)
+	droppedBlocks, err = b.Submit(newTestBlock(models2.WithIssuer(selfNode.PublicKey()), models2.WithPayload(payload.NewGenericDataPayload(make([]byte, 44)))), mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Len(t, droppedBlocks, 1)
 	assert.Equal(t, preparedBlocks[1].ID(), droppedBlocks[0].ID())
@@ -168,7 +168,7 @@ func TestBufferQueue_Ready(t *testing.T) {
 
 	blocks := make([]*Block, numBlocks)
 	for i := range blocks {
-		blocks[i] = newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
+		blocks[i] = newTestBlock(models2.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		elements, err := b.Submit(blocks[i], mockAccessManaRetriever)
 		assert.NoError(t, err)
 		assert.Empty(t, elements)
@@ -187,13 +187,13 @@ func TestBufferQueue_Ready(t *testing.T) {
 func TestBufferQueue_Time(t *testing.T) {
 	b := NewBufferQueue(maxBuffer)
 
-	future := newTestBlock(models.WithIssuer(selfNode.PublicKey()), models.WithIssuingTime(time.Now().Add(time.Second)))
+	future := newTestBlock(models2.WithIssuer(selfNode.PublicKey()), models2.WithIssuingTime(time.Now().Add(time.Second)))
 	elements, err := b.Submit(future, mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Empty(t, elements)
 	assert.True(t, b.Ready(future))
 
-	now := newTestBlock(models.WithIssuer(selfNode.PublicKey()))
+	now := newTestBlock(models2.WithIssuer(selfNode.PublicKey()))
 	elements, err = b.Submit(now, mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Empty(t, elements)
@@ -210,7 +210,7 @@ func TestBufferQueue_Ring(t *testing.T) {
 
 	blocks := make([]*Block, numBlocks)
 	for i := range blocks {
-		blocks[i] = newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
+		blocks[i] = newTestBlock(models2.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		elements, err := b.Submit(blocks[i], mockAccessManaRetriever)
 		assert.NoError(t, err)
 		assert.Empty(t, elements)
@@ -228,9 +228,9 @@ func TestBufferQueue_IDs(t *testing.T) {
 
 	assert.Empty(t, b.IDs())
 
-	ids := make([]models.BlockID, numBlocks)
+	ids := make([]models2.BlockID, numBlocks)
 	for i := range ids {
-		blk := newTestBlock(models.WithIssuer(identity.GenerateIdentity().PublicKey()))
+		blk := newTestBlock(models2.WithIssuer(identity.GenerateIdentity().PublicKey()))
 		elements, err := b.Submit(blk, mockAccessManaRetriever)
 		assert.NoError(t, err)
 		assert.Empty(t, elements)
@@ -259,12 +259,12 @@ func TestBufferQueue_InsertNode(t *testing.T) {
 func TestBufferQueue_RemoveNode(t *testing.T) {
 	b := NewBufferQueue(maxBuffer)
 
-	elements, err := b.Submit(newTestBlock(models.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
+	elements, err := b.Submit(newTestBlock(models2.WithIssuer(selfNode.PublicKey())), mockAccessManaRetriever)
 	assert.Empty(t, elements)
 	assert.NoError(t, err)
 
 	otherNode := identity.GenerateIdentity()
-	elements, err = b.Submit(newTestBlock(models.WithIssuer(otherNode.PublicKey())), mockAccessManaRetriever)
+	elements, err = b.Submit(newTestBlock(models2.WithIssuer(otherNode.PublicKey())), mockAccessManaRetriever)
 	assert.NoError(t, err)
 	assert.Empty(t, elements)
 
@@ -288,12 +288,12 @@ func ringLen(b *BufferQueue) int {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func newTestBlock(opts ...options.Option[models.Block]) *Block {
-	parents := models.NewParentBlockIDs()
-	parents.AddStrong(models.EmptyBlockID)
-	opts = append(opts, models.WithParents(parents))
+func newTestBlock(opts ...options.Option[models2.Block]) *Block {
+	parents := models2.NewParentBlockIDs()
+	parents.AddStrong(models2.EmptyBlockID)
+	opts = append(opts, models2.WithParents(parents))
 
-	blk := NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...)))))
+	blk := NewBlock(virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(opts...)))))
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}

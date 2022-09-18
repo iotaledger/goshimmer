@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,12 +24,12 @@ type TestFramework struct {
 	BlockDAG *BlockDAG
 
 	test                *testing.T
-	evictionManager     *eviction.Manager[models.BlockID]
+	evictionManager     *eviction.Manager[models2.BlockID]
 	solidBlocks         int32
 	missingBlocks       int32
 	invalidBlocks       int32
 	attachedBlocks      int32
-	orphanedBlocks      models.BlockIDs
+	orphanedBlocks      models2.BlockIDs
 	orphanedBlocksMutex sync.Mutex
 
 	optsBlockDAG []options.Option[BlockDAG]
@@ -41,18 +41,18 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
-		orphanedBlocks: models.NewBlockIDs(),
+		orphanedBlocks: models2.NewBlockIDs(),
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
+				t.evictionManager = eviction.NewManager(0, models2.GenesisRootBlockProvider)
 			}
 
 			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
 		}
 
-		t.ModelsTestFramework = models.NewTestFramework(
-			models.WithBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID)),
+		t.ModelsTestFramework = models2.NewTestFramework(
+			models2.WithBlock("Genesis", models2.NewEmptyBlock(models2.EmptyBlockID)),
 		)
 	}, (*TestFramework).setupEvents)
 }
@@ -100,7 +100,7 @@ func (t *TestFramework) AssertSolid(expectedValues map[string]bool) {
 	}
 }
 
-func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models.BlockIDs, msgAndArgs ...interface{}) {
+func (t *TestFramework) AssertOrphanedBlocks(orphanedBlocks models2.BlockIDs, msgAndArgs ...interface{}) {
 	t.orphanedBlocksMutex.Lock()
 	defer t.orphanedBlocksMutex.Unlock()
 
@@ -136,7 +136,7 @@ func (t *TestFramework) AssertBlock(alias string, callback func(block *Block)) {
 func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
+			assert.Equal(t.test, t.BlockIDs(children...), models2.NewBlockIDs(lo.Map(block.strongChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -144,7 +144,7 @@ func (t *TestFramework) AssertStrongChildren(m map[string][]string) {
 func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
+			assert.Equal(t.test, t.BlockIDs(children...), models2.NewBlockIDs(lo.Map(block.weakChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -152,7 +152,7 @@ func (t *TestFramework) AssertWeakChildren(m map[string][]string) {
 func (t *TestFramework) AssertLikedInsteadChildren(m map[string][]string) {
 	for alias, children := range m {
 		t.AssertBlock(alias, func(block *Block) {
-			assert.Equal(t.test, t.BlockIDs(children...), models.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
+			assert.Equal(t.test, t.BlockIDs(children...), models2.NewBlockIDs(lo.Map(block.likedInsteadChildren, (*Block).ID)...))
 		})
 	}
 }
@@ -216,13 +216,13 @@ func (t *TestFramework) setupEvents() {
 	}))
 }
 
-type ModelsTestFramework = models.TestFramework
+type ModelsTestFramework = models2.TestFramework
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models2.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.evictionManager = evictionManager
 	}

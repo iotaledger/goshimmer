@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,7 +27,7 @@ type TestFramework struct {
 	optsEngineOptions   []options.Option[Engine]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.Manager[models.BlockID]
+	optsEvictionManager *eviction.Manager[models2.BlockID]
 	optsValidatorSet    *validator.Set
 
 	*TangleTestFramework
@@ -44,7 +44,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			}
 
 			if t.optsEvictionManager == nil {
-				t.optsEvictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
+				t.optsEvictionManager = eviction.NewManager(0, models2.GenesisRootBlockProvider)
 			}
 
 			if t.optsValidatorSet == nil {

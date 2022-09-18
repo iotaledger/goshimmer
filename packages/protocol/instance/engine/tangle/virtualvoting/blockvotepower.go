@@ -3,7 +3,7 @@ package virtualvoting
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type BlockVotePower struct {

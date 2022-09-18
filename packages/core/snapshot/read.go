@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // streamSnapshotDataFrom consumes a snapshot from the given reader.

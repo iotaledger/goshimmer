@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -6,10 +6,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,7 +52,7 @@ type TangleTreeUpdatedEvent struct {
 	// EI is the index of the block.
 	EI epoch.Index
 	// BlockID is the blockID that inserted/removed to/from the tangle smt.
-	BlockID models.BlockID
+	BlockID models2.BlockID
 }
 
 // BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
@@ -83,7 +84,7 @@ type EpochCommittableEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
 	// ECRecord is the ec root of committable epoch.
-	ECRecord *commitment.Commitment
+	ECRecord *chainmanager.Commitment
 }
 
 // EpochConfirmedEvent is a container that acts as a dictionary for the EpochConfirmed event related parameters.
@@ -95,7 +96,7 @@ type EpochConfirmedEvent struct {
 // CompetingCommitmentDetectedEvent is a container that acts as a dictionary for the CompetingCommitmentDetectedEvent event related parameters.
 type CompetingCommitmentDetectedEvent struct {
 	// Block is the block that contains the competing commitment.
-	Block *models.Block
+	Block *models2.Block
 }
 
 // SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.

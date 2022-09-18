@@ -12,15 +12,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // We create epochCount blocks, each in a different epoch and with a different marker, then we prune the markerManager and expect the mapping to be pruned accordingly.
 func Test_PruneMarkerBlockMapping(t *testing.T) {
 	const epochCount = 100
 
-	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
+	markerManager := NewMarkerManager[models2.BlockID, *blockdag.Block]()
 
 	tf := blockdag.NewTestFramework(t)
 
@@ -32,13 +32,13 @@ func Test_PruneMarkerBlockMapping(t *testing.T) {
 		if idx == 1 {
 			return blockdag.NewBlock(tf.CreateBlock(
 				alias,
-				models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
+				models2.WithIssuingTime(time.Unix(epoch.GenesisTime, 0)),
 			)), alias
 		}
 		return blockdag.NewBlock(tf.CreateBlock(
 			alias,
-			models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
-			models.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
+			models2.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk%s-%d", prefix, idx-1))),
+			models2.WithIssuingTime(time.Unix(epoch.GenesisTime+int64(idx-1)*epoch.Duration, 0)),
 		)), alias
 	}
 
@@ -77,7 +77,7 @@ func Test_PruneSequences(t *testing.T) {
 
 	epoch.GenesisTime = time.Now().Unix() - epochCount*epoch.Duration
 
-	markerManager := NewMarkerManager[models.BlockID, *blockdag.Block]()
+	markerManager := NewMarkerManager[models2.BlockID, *blockdag.Block]()
 
 	// Create the sequence structure for the test. We creatte sequenceCount sequences for each of epochCount epochs.
 	// Each sequence X references the sequences X-2, X-1.
@@ -176,7 +176,7 @@ func Test_PruneSequences(t *testing.T) {
 	}
 }
 
-func verifySequence(t *testing.T, markerManager *MarkerManager[models.BlockID, *blockdag.Block], sequenceID markers.SequenceID, pruningEpoch, epochCount, sequenceCount, totalSequences int, permanentSequenceID ...markers.SequenceID) {
+func verifySequence(t *testing.T, markerManager *MarkerManager[models2.BlockID, *blockdag.Block], sequenceID markers.SequenceID, pruningEpoch, epochCount, sequenceCount, totalSequences int, permanentSequenceID ...markers.SequenceID) {
 	epochIndex := epoch.Index(int(sequenceID) / sequenceCount)
 
 	sequence, sequenceExists := markerManager.SequenceManager.Sequence(sequenceID)
@@ -239,7 +239,7 @@ func validateReferencedMarkers(t *testing.T, sequence *markers.Sequence, sequenc
 	assert.True(t, expectedReferencedMarkers.Equals(referencedMarkers), "expected the referenced markers for sequence %d to be %s but got %s", sequenceID, expectedReferencedMarkers, referencedMarkers)
 }
 
-func validateBlockMarkerMappingPruning(t *testing.T, markerBlockMapping map[markers.Marker]*blockdag.Block, markerManager *MarkerManager[models.BlockID, *blockdag.Block], prunedEpochs int) {
+func validateBlockMarkerMappingPruning(t *testing.T, markerBlockMapping map[markers.Marker]*blockdag.Block, markerManager *MarkerManager[models2.BlockID, *blockdag.Block], prunedEpochs int) {
 	for marker, expectedBlock := range markerBlockMapping {
 		mappedBlock, exists := markerManager.BlockFromMarker(marker)
 		if expectedBlock.ID().EpochIndex <= epoch.Index(prunedEpochs) {

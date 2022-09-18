@@ -16,23 +16,23 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionType represents the payload Type of Transaction.
-var TransactionType payload.Type
+var TransactionType payload2.Type
 
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType")
+	TransactionType = payload2.NewType(1337, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(Transaction))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}
@@ -205,7 +205,7 @@ func (t *Transaction) FromBytes(data []byte) error {
 }
 
 // Type returns the Type of the Payload.
-func (t *Transaction) Type() payload.Type {
+func (t *Transaction) Type() payload2.Type {
 	return TransactionType
 }
 
@@ -242,7 +242,7 @@ func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) 
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ payload.Payload = new(Transaction)
+var _ payload2.Payload = new(Transaction)
 
 var _ utxo.Transaction = new(Transaction)
 
@@ -262,10 +262,10 @@ type transactionEssenceModel struct {
 	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
 	AccessPledgeID identity.ID `serix:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
-	ConsensusPledgeID identity.ID     `serix:"3"`
-	Inputs            Inputs          `serix:"4,lengthPrefixType=uint16"`
-	Outputs           Outputs         `serix:"5,lengthPrefixType=uint16"`
-	Payload           payload.Payload `serix:"6,optional"`
+	ConsensusPledgeID identity.ID      `serix:"3"`
+	Inputs            Inputs           `serix:"4,lengthPrefixType=uint16"`
+	Outputs           Outputs          `serix:"5,lengthPrefixType=uint16"`
+	Payload           payload2.Payload `serix:"6,optional"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
@@ -300,7 +300,7 @@ func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEs
 }
 
 // SetPayload set the optional Payload of the TransactionEssence.
-func (t *TransactionEssence) SetPayload(p payload.Payload) {
+func (t *TransactionEssence) SetPayload(p payload2.Payload) {
 	t.M.Payload = p
 }
 
@@ -335,7 +335,7 @@ func (t *TransactionEssence) Outputs() Outputs {
 }
 
 // Payload returns the optional Payload of the TransactionEssence.
-func (t *TransactionEssence) Payload() payload.Payload {
+func (t *TransactionEssence) Payload() payload2.Payload {
 	return t.M.Payload
 }
 

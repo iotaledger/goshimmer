@@ -7,6 +7,8 @@ import (
 
 type MerkleRoot [blake2b.Size256]byte
 
+var EmptyMerkleRoot = MerkleRoot{}
+
 func NewMerkleRoot(bytes []byte) MerkleRoot {
 	b := [blake2b.Size256]byte{}
 	copy(b[:], bytes[:])

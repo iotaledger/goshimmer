@@ -16,19 +16,21 @@ type TestFramework struct {
 	Manager *Manager
 
 	test               *testing.T
-	commitmentsByAlias map[string]*Commitment
+	commitmentsByAlias map[string]*commitment.Commitment
 
 	sync.RWMutex
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	snapshotCommitment := commitment.New(commitment.ID{0}, 0, commitment.RootsID{0})
+
 	return options.Apply(&TestFramework{
-		Manager: NewManager(0, commitment.RootsID{0}, commitment.ID{0}),
+		Manager: NewManager(snapshotCommitment),
 
 		test:               test,
-		commitmentsByAlias: make(map[string]*Commitment),
+		commitmentsByAlias: make(map[string]*commitment.Commitment),
 	}, opts, func(t *TestFramework) {
-		t.commitmentsByAlias["Genesis"] = t.Manager.SnapshotCommitment
+		t.commitmentsByAlias["Genesis"] = snapshotCommitment
 	})
 }
 
@@ -39,23 +41,19 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	prevCommitmentID, previousIndex := t.previousCommitmentID(prevAlias)
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
-	currentCommitment := NewCommitment(commitment.NewID(previousIndex+1, randomECR, prevCommitmentID))
-	currentCommitment.PublishData(prevCommitmentID, previousIndex+1, randomECR)
-
-	t.commitmentsByAlias[alias] = currentCommitment
+	t.commitmentsByAlias[alias] = commitment.New(prevCommitmentID, previousIndex+1, randomECR)
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (chain *Chain, wasForked bool) {
-	commitment := t.commitment(alias)
 
-	return t.Manager.ProcessCommitment(commitment.Index(), commitment.RootsID(), commitment.PrevID())
+	return t.Manager.ProcessCommitment(t.commitment(alias))
 }
 
 func (t *TestFramework) Chain(alias string) (chain *Chain) {
 	return t.Manager.Chain(t.EC(alias))
 }
 
-func (t *TestFramework) commitment(alias string) (commitment *Commitment) {
+func (t *TestFramework) commitment(alias string) (commitment *commitment.Commitment) {
 	t.RLock()
 	defer t.RUnlock()
 

@@ -20,9 +20,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 const (
@@ -61,29 +61,27 @@ const (
 // Block represents the core block for the base layer Tangle.
 type Block struct {
 	model.Storable[BlockID, Block, *Block, block] `serix:"0"`
-	payload                                       payload.Payload
+	payload                                       payload2.Payload
 	issuerID                                      *identity.ID
 }
 
 type block struct {
 	// core properties (get sent over the wire)
-	Version              uint8              `serix:"0"`
-	Parents              ParentBlockIDs     `serix:"1"`
-	IssuerPublicKey      ed25519.PublicKey  `serix:"2"`
-	IssuingTime          time.Time          `serix:"3"`
-	SequenceNumber       uint64             `serix:"4"`
-	PayloadBytes         []byte             `serix:"5,lengthPrefixType=uint32"`
-	EI                   epoch.Index        `serix:"6"`
-	ECR                  commitment.RootsID `serix:"7"`
-	PrevEC               commitment.ID      `serix:"8"`
-	LatestConfirmedEpoch epoch.Index        `serix:"9"`
-	Nonce                uint64             `serix:"10"`
-	Signature            ed25519.Signature  `serix:"11"`
+	Version              uint8                  `serix:"0"`
+	Parents              ParentBlockIDs         `serix:"1"`
+	IssuerPublicKey      ed25519.PublicKey      `serix:"2"`
+	IssuingTime          time.Time              `serix:"3"`
+	SequenceNumber       uint64                 `serix:"4"`
+	PayloadBytes         []byte                 `serix:"5,lengthPrefixType=uint32"`
+	EpochCommitment      *commitment.Commitment `serix:"6"`
+	LatestConfirmedEpoch epoch.Index            `serix:"7"`
+	Nonce                uint64                 `serix:"8"`
+	Signature            ed25519.Signature      `serix:"9"`
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
 func NewBlock(opts ...options.Option[Block]) *Block {
-	defaultPayload := payload.NewGenericDataPayload([]byte(""))
+	defaultPayload := payload2.NewGenericDataPayload([]byte(""))
 
 	blk := model.NewStorable[BlockID, Block](&block{
 		Version:         BlockVersion,
@@ -92,9 +90,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 		IssuingTime:     time.Now(),
 		SequenceNumber:  0,
 		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
-		EI:              epoch.Index(0),
-		ECR:             commitment.RootsID{},
-		PrevEC:          commitment.ID{},
+		EpochCommitment: commitment.New(commitment.ID{}, 0, commitment.RootsID{}),
 	})
 	blk.payload = defaultPayload
 
@@ -104,7 +100,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
 	newBlock = model.NewStorable[BlockID, Block](&block{})
 	newBlock.SetID(id)
-	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+	newBlock.M.PayloadBytes = lo.PanicOnErr(payload2.NewGenericDataPayload([]byte("")).Bytes())
 
 	return options.Apply(newBlock, opts)
 }
@@ -190,7 +186,7 @@ func (b *Block) SequenceNumber() uint64 {
 }
 
 // Payload returns the Payload of the block.
-func (b *Block) Payload() payload.Payload {
+func (b *Block) Payload() payload2.Payload {
 	b.Lock()
 	defer b.Unlock()
 	if b.payload == nil {
@@ -215,19 +211,9 @@ func (b *Block) Nonce() uint64 {
 	return b.M.Nonce
 }
 
-// EI returns the EI of the block.
-func (b *Block) EI() epoch.Index {
-	return b.M.EI
-}
-
-// ECR returns the ECR of the block.
-func (b *Block) ECR() commitment.RootsID {
-	return b.M.ECR
-}
-
-// PrevEC returns the PrevEC of the block.
-func (b *Block) PrevEC() commitment.ID {
-	return b.M.PrevEC
+// Commitment returns the Commitment of the block.
+func (b *Block) Commitment() *commitment.Commitment {
+	return b.M.EpochCommitment
 }
 
 // LatestConfirmedEpoch returns the LatestConfirmedEpoch of the block.
@@ -358,7 +344,7 @@ func WithSequenceNumber(sequenceNumber uint64) options.Option[Block] {
 	}
 }
 
-func WithPayload(payload payload.Payload) options.Option[Block] {
+func WithPayload(payload payload2.Payload) options.Option[Block] {
 	return func(m *Block) {
 		m.payload = payload
 		m.M.PayloadBytes = lo.PanicOnErr(payload.Bytes())
@@ -383,11 +369,9 @@ func WithLatestConfirmedEpoch(epoch epoch.Index) options.Option[Block] {
 	}
 }
 
-func WithCommitmentRecord(ecRecord *commitment.Commitment) options.Option[Block] {
+func WithCommitment(commitment *commitment.Commitment) options.Option[Block] {
 	return func(b *Block) {
-		b.M.EI = ecRecord.Index()
-		b.M.ECR = ecRecord.RootsID()
-		b.M.PrevEC = ecRecord.PrevID()
+		b.M.EpochCommitment = commitment
 	}
 }
 

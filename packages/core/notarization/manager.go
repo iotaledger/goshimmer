@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
@@ -126,7 +126,7 @@ func onlyIfBootstrapped[E any](engine *engine.Engine, handler func(event E)) *ev
 }
 
 // StartSnapshot locks the commitment factory and returns the latest ecRecord and last confirmed epoch index.
-func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *commitment.Commitment, err error) {
+func (m *Manager) StartSnapshot() (fullEpochIndex epoch.Index, ecRecord *chainmanager.Commitment, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 
 	latestConfirmedEpoch, err := m.LatestConfirmedEpochIndex()
@@ -221,7 +221,10 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 		panic("could not set current epoch index")
 	}
 
-	m.epochCommitmentFactory.storage.ecRecordStorage.Store(header.LatestECRecord).Release()
+	commitmentToStore := chainmanager.NewCommitment(header.LatestECRecord.ID())
+	commitmentToStore.PublishData(header.LatestECRecord)
+
+	m.epochCommitmentFactory.storage.ecRecordStorage.Store(commitmentToStore).Release()
 }
 
 // LoadActivityLogs loads activity logs from the snapshot and updates the activity tree.
@@ -267,7 +270,7 @@ func (m *Manager) SnapshotLedgerState(prodChan chan *ledger.OutputWithMetadata, 
 }
 
 // GetLatestEC returns the latest commitment that a new block should commit to.
-func (m *Manager) GetLatestEC() (ecRecord *commitment.Commitment, err error) {
+func (m *Manager) GetLatestEC() (ecRecord *chainmanager.Commitment, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
@@ -327,7 +330,7 @@ func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 	}
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 
-	blockEI := block.EI()
+	blockEI := block.Commitment().Index()
 	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
 	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
 
@@ -337,7 +340,7 @@ func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 			StartEI:   latestCommittableEI,
 			EndEI:     blockEI,
 			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ID(),
-			EndPrevEC: block.PrevEC(),
+			EndPrevEC: block.Commitment().PrevID(),
 		})
 	}
 }

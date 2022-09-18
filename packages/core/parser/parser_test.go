@@ -16,15 +16,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
-	parentBlocks := models.NewParentBlockIDs()
-	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+	parentBlocks := models2.NewParentBlockIDs()
+	parentBlocks.Add(models2.StrongParentType, models2.EmptyBlockID)
 
-	blkBytes := lo.PanicOnErr(models.NewBlock(models.WithParents(parentBlocks)).Bytes())
+	blkBytes := lo.PanicOnErr(models2.NewBlock(models2.WithParents(parentBlocks)).Bytes())
 	blkParser := NewParser()
 	blkParser.Setup()
 
@@ -36,12 +36,12 @@ func BenchmarkBlockParser_ParseBytesSame(b *testing.B) {
 }
 
 func BenchmarkBlockParser_ParseBytesDifferent(b *testing.B) {
-	parentBlocks := models.NewParentBlockIDs()
-	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+	parentBlocks := models2.NewParentBlockIDs()
+	parentBlocks.Add(models2.StrongParentType, models2.EmptyBlockID)
 
 	blockBytes := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		blockBytes[i] = lo.PanicOnErr(models.NewBlock(models.WithParents(parentBlocks), models.WithPayload(payload.NewGenericDataPayload([]byte(fmt.Sprintf("Payload-%d", i))))).Bytes())
+		blockBytes[i] = lo.PanicOnErr(models2.NewBlock(models2.WithParents(parentBlocks), models2.WithPayload(payload.NewGenericDataPayload([]byte(fmt.Sprintf("Payload-%d", i))))).Bytes())
 	}
 
 	blkParser := NewParser()
@@ -55,10 +55,10 @@ func BenchmarkBlockParser_ParseBytesDifferent(b *testing.B) {
 }
 
 func TestBlockParser_ParseBlock(t *testing.T) {
-	parentBlocks := models.NewParentBlockIDs()
-	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+	parentBlocks := models2.NewParentBlockIDs()
+	parentBlocks.Add(models2.StrongParentType, models2.EmptyBlockID)
 
-	blk := models.NewBlock(models.WithParents(parentBlocks), models.WithPayload(payload.NewGenericDataPayload([]byte("Test"))))
+	blk := models2.NewBlock(models2.WithParents(parentBlocks), models2.WithPayload(payload.NewGenericDataPayload([]byte("Test"))))
 
 	blkParser := NewParser()
 	blkParser.Setup()
@@ -119,8 +119,8 @@ var (
 // }
 
 func TestPowFilter_Filter(t *testing.T) {
-	parentBlocks := models.NewParentBlockIDs()
-	parentBlocks.Add(models.StrongParentType, models.EmptyBlockID)
+	parentBlocks := models2.NewParentBlockIDs()
+	parentBlocks.Add(models2.StrongParentType, models2.EmptyBlockID)
 
 	filter := NewPowFilter(testWorker, testDifficulty)
 
@@ -136,7 +136,7 @@ func TestPowFilter_Filter(t *testing.T) {
 
 	issuer := ed25519.GenerateKeyPair().PublicKey
 
-	blk := models.NewBlock(models.WithParents(parentBlocks), models.WithIssuer(issuer), models.WithIssuingTime(time.Unix(100, 0)), models.WithNonce(0))
+	blk := models2.NewBlock(models2.WithParents(parentBlocks), models2.WithIssuer(issuer), models2.WithIssuingTime(time.Unix(100, 0)), models2.WithNonce(0))
 	blkBytes := lo.PanicOnErr(blk.Bytes())
 
 	t.Run("reject invalid nonce", func(t *testing.T) {
@@ -147,7 +147,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), blkBytes[:len(blkBytes)-len(blk.Signature())-pow.NonceBytes], testDifficulty)
 	require.NoError(t, err)
 
-	blkPOW := models.NewBlock(models.WithParents(parentBlocks), models.WithIssuer(issuer), models.WithIssuingTime(time.Unix(100, 0)), models.WithNonce(nonce))
+	blkPOW := models2.NewBlock(models2.WithParents(parentBlocks), models2.WithIssuer(issuer), models2.WithIssuingTime(time.Unix(100, 0)), models2.WithNonce(nonce))
 	blkPOWBytes := lo.PanicOnErr(blkPOW.Bytes())
 
 	t.Run("accept valid nonce", func(t *testing.T) {

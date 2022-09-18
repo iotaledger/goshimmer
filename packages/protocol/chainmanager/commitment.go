@@ -1,26 +1,68 @@
 package chainmanager
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type Commitment struct {
+	model.Storable[commitment.ID, Commitment, *Commitment, *commitment.Commitment] `serix:"0"`
+
 	children    []*Commitment
 	chain       *Chain
 	entityMutex *syncutils.StarvingMutex
-
-	*commitment.Commitment
 }
 
 func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
-	return &Commitment{
-		children:    make([]*Commitment, 0),
-		entityMutex: syncutils.NewStarvingMutex(),
+	newCommitment = model.NewStorable[commitment.ID, Commitment, *commitment.Commitment](nil)
+	newCommitment.SetID(id)
+	newCommitment.children = make([]*Commitment, 0)
+	newCommitment.entityMutex = syncutils.NewStarvingMutex()
 
-		Commitment: commitment.New(id),
+	return newCommitment
+}
+
+func (c *Commitment) Commitment() (commitment *commitment.Commitment) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.M
+}
+
+func (c *Commitment) PrevID() (prevID commitment.ID) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.M == nil {
+		return
 	}
+
+	return c.M.PrevID()
+}
+
+func (c *Commitment) Index() (index epoch.Index) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.M == nil {
+		return
+	}
+
+	return c.M.Index()
+}
+
+func (c *Commitment) RootsID() (rootsID commitment.ID) {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.M == nil {
+		return
+	}
+
+	return c.M.RootsID()
 }
 
 func (c *Commitment) Children() (children []*Commitment) {
@@ -38,6 +80,17 @@ func (c *Commitment) Chain() (chain *Chain) {
 	defer c.RUnlock()
 
 	return c.chain
+}
+
+func (c *Commitment) PublishData(commitment *commitment.Commitment) (published bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	if published = c.M == nil; published {
+		c.M = commitment
+	}
+
+	return
 }
 
 func (c *Commitment) lockEntity() {
@@ -68,4 +121,8 @@ func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 	}
 
 	return
+}
+
+func (c *Commitment) PublishRoots(root commitment.MerkleRoot, root2 commitment.MerkleRoot, root3 commitment.MerkleRoot, root4 commitment.MerkleRoot) {
+
 }

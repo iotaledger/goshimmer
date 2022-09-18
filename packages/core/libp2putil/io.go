@@ -8,7 +8,7 @@ import (
 	"github.com/multiformats/go-varint"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // UvarintWriter writes protobuf blocks.

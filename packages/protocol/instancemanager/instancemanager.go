@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type InstanceManager struct {
@@ -40,7 +40,7 @@ func (p *InstanceManager) DispatchBlockData(bytes []byte, neighbor *p2p.Neighbor
 		return
 	}
 
-	chain, wasForked := p.chainManager.ProcessCommitment(block.EI(), block.ECR(), block.PrevEC())
+	chain, wasForked := p.chainManager.ProcessCommitment(block.Commitment())
 	if chain == nil {
 		p.Events.InvalidBlockReceived.Trigger(neighbor)
 		return

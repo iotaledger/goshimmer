@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/causalorder"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region BlockDAG /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,25 +24,25 @@ type BlockDAG struct {
 	Events *Events
 
 	// EvictionManager contains the local manager used to orchestrate the eviction of old Blocks inside the BlockDAG.
-	EvictionManager *eviction.LockableManager[models.BlockID]
+	EvictionManager *eviction.LockableManager[models2.BlockID]
 
 	// memStorage contains the in-memory storage of the BlockDAG.
-	memStorage *memstorage.EpochStorage[models.BlockID, *Block]
+	memStorage *memstorage.EpochStorage[models2.BlockID, *Block]
 
 	// solidifier contains the solidifier instance used to determine the solidity of Blocks.
-	solidifier *causalorder.CausalOrder[models.BlockID, *Block]
+	solidifier *causalorder.CausalOrder[models2.BlockID, *Block]
 
 	// orphanageMutex is a mutex that is used to synchronize updates to the orphanage flags.
-	orphanageMutex *syncutils.DAGMutex[models.BlockID]
+	orphanageMutex *syncutils.DAGMutex[models2.BlockID]
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(evictionManager *eviction.Manager[models2.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
 		Events:          NewEvents(),
 		EvictionManager: evictionManager.Lockable(),
-		memStorage:      memstorage.NewEpochStorage[models.BlockID, *Block](),
-		orphanageMutex:  syncutils.NewDAGMutex[models.BlockID](),
+		memStorage:      memstorage.NewEpochStorage[models2.BlockID, *Block](),
+		orphanageMutex:  syncutils.NewDAGMutex[models2.BlockID](),
 	}, opts, func(b *BlockDAG) {
 		b.solidifier = causalorder.New(
 			evictionManager,
@@ -50,7 +50,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 			(*Block).IsSolid,
 			b.markSolid,
 			b.markInvalid,
-			causalorder.WithReferenceValidator[models.BlockID](checkReference),
+			causalorder.WithReferenceValidator[models2.BlockID](checkReference),
 		)
 
 		b.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(b.evictEpoch))
@@ -58,7 +58,7 @@ func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Opti
 }
 
 // Attach is used to attach new Blocks to the BlockDAG. It is the main function of the BlockDAG that triggers Events.
-func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, err error) {
+func (b *BlockDAG) Attach(data *models2.Block) (block *Block, wasAttached bool, err error) {
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.Events.BlockAttached.Trigger(block)
 
@@ -69,7 +69,7 @@ func (b *BlockDAG) Attach(data *models.Block) (block *Block, wasAttached bool, e
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the BlockDAG.
-func (b *BlockDAG) Block(id models.BlockID) (block *Block, exists bool) {
+func (b *BlockDAG) Block(id models2.BlockID) (block *Block, exists bool) {
 	b.EvictionManager.RLock()
 	defer b.EvictionManager.RUnlock()
 
@@ -114,7 +114,7 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statu
 		updateEvent.Trigger(block)
 	}
 
-	b.propagateOrphanageUpdate(block.Children(), models.NewBlockIDs(block.ID()), updateEvent, updateFunc)
+	b.propagateOrphanageUpdate(block.Children(), models2.NewBlockIDs(block.ID()), updateEvent, updateFunc)
 
 	return
 }
@@ -158,7 +158,7 @@ func (b *BlockDAG) markInvalid(block *Block, reason error) {
 }
 
 // attach tries to attach the given Block to the BlockDAG.
-func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, err error) {
+func (b *BlockDAG) attach(data *models2.Block) (block *Block, wasAttached bool, err error) {
 	b.EvictionManager.RLock()
 	defer b.EvictionManager.RUnlock()
 
@@ -174,7 +174,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 		b.Events.MissingBlockAttached.Trigger(block)
 	}
 
-	block.ForEachParent(func(parent models.Parent) {
+	block.ForEachParent(func(parent models2.Parent) {
 		b.registerChild(block, parent)
 	})
 
@@ -182,7 +182,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 }
 
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
-func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
+func (b *BlockDAG) canAttach(data *models2.Block) (block *Block, canAttach bool, err error) {
 	if b.EvictionManager.IsTooOld(data.ID()) {
 		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
 	}
@@ -197,7 +197,7 @@ func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, 
 
 // canAttachToParents determines if the Block references parents in a non-pruned epoch. If a Block is found to violate
 // this condition but exists as a missing entry, we mark it as invalid.
-func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (block *Block, canAttach bool, err error) {
+func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models2.Block) (block *Block, canAttach bool, err error) {
 	for _, parentID := range data.Parents() {
 		if b.EvictionManager.IsTooOld(parentID) {
 			if storedBlock != nil {
@@ -213,13 +213,13 @@ func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (b
 
 // registerChild registers the given Block as a child of the parent. It triggers a BlockMissing event if the referenced
 // Block does not exist, yet.
-func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
+func (b *BlockDAG) registerChild(child *Block, parent models2.Parent) {
 	if b.EvictionManager.IsRootBlock(parent.ID) {
 		return
 	}
 
 	parentBlock, _ := b.memStorage.Get(parent.ID.EpochIndex, true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
-		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
+		newBlock = NewBlock(models2.NewEmptyBlock(parent.ID), WithMissing(true))
 
 		b.Events.BlockMissing.Trigger(newBlock)
 
@@ -230,9 +230,9 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 }
 
 // block retrieves the Block with given id from the mem-storage.
-func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
+func (b *BlockDAG) block(id models2.BlockID) (block *Block, exists bool) {
 	if b.EvictionManager.IsRootBlock(id) {
-		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
+		return NewBlock(models2.NewEmptyBlock(id), WithSolid(true)), true
 	}
 
 	storage := b.memStorage.Get(id.EpochIndex, false)
@@ -261,9 +261,9 @@ func (b *BlockDAG) inheritOrphanage(block *Block) {
 }
 
 // orphanedBlocksInPastCone returns an aggregation of the orphaned Blocks of the parents of the given Block.
-func (b *BlockDAG) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models.BlockIDs) {
-	orphanedBlocks = models.NewBlockIDs()
-	block.ForEachParent(func(parent models.Parent) {
+func (b *BlockDAG) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models2.BlockIDs) {
+	orphanedBlocks = models2.NewBlockIDs()
+	block.ForEachParent(func(parent models2.Parent) {
 		parentBlock, exists := b.Block(parent.ID)
 		if !exists {
 			panic(fmt.Sprintf("failed to find parent block with %s", parent.ID))
@@ -279,7 +279,7 @@ func (b *BlockDAG) orphanedBlocksInPastCone(block *Block) (orphanedBlocks models
 }
 
 // orphanageUpdaters returns the Event and update function used for handling the different types of orphanage updates.
-func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
+func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models2.BlockIDs) (bool, bool)) {
 	if !orphaned {
 		return b.Events.BlockUnorphaned, (*Block).removeOrphanedBlocksInPastCone
 	}
@@ -288,7 +288,7 @@ func (b *BlockDAG) orphanageUpdaters(orphaned bool) (updateEvent *event.Linkable
 }
 
 // propagateOrphanageUpdate propagates the orphanage status of a Block to its future cone.
-func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models.BlockIDs, updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models.BlockIDs) (bool, bool)) {
+func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks models2.BlockIDs, updateEvent *event.Linkable[*Block, Events, *Events], updateFunc func(*Block, models2.BlockIDs) (bool, bool)) {
 	b.walkFutureCone(blocks, func(currentBlock *Block) []*Block {
 		b.orphanageMutex.Lock(currentBlock.ID())
 		defer b.orphanageMutex.Unlock(currentBlock.ID())

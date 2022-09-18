@@ -6,9 +6,9 @@ import (
 	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	payload2 "github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
@@ -83,13 +83,13 @@ type Balance struct {
 
 // ProcessPayload returns different structs regarding to the
 // payload type.
-func ProcessPayload(p payload.Payload) interface{} {
+func ProcessPayload(p payload2.Payload) interface{} {
 	switch p.Type() {
-	case payload.GenericDataPayloadType:
+	case payload2.GenericDataPayloadType:
 		// data payload
 		return BasicPayload{
 			ContentTitle: "GenericDataPayload",
-			Content:      p.(*payload.GenericDataPayload).Blob(),
+			Content:      p.(*payload2.GenericDataPayload).Blob(),
 		}
 	case devnetvm.TransactionType:
 		return processTransactionPayload(p)
@@ -116,7 +116,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 }
 
 // processTransactionPayload handles Value payload
-func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
+func processTransactionPayload(p payload2.Payload) (tp TransactionPayload) {
 	tx := p.(*devnetvm.Transaction)
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)

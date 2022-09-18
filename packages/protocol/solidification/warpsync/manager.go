@@ -14,17 +14,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 const minimumWindowSize = 10
 
 // LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(models.BlockID) (*models.Block, bool)
+type LoadBlockFunc func(models2.BlockID) (*models2.Block, bool)
 
 // ProcessBlockFunc defines a function that processes block's bytes from a given peer.
-type ProcessBlockFunc func(*p2p.Neighbor, *models.Block)
+type ProcessBlockFunc func(*p2p.Neighbor, *models2.Block)
 
 // The Manager handles the connected neighbors.
 type Manager struct {

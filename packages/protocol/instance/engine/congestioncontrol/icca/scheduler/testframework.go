@@ -17,9 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,8 +40,8 @@ type TestFramework struct {
 	optsTangle              []options.Option[tangle.Tangle]
 	optsGadget              []options.Option[acceptance.Gadget]
 	optsValidatorSet        *validator.Set
-	optsEvictionManager     *eviction.Manager[models.BlockID]
-	optsIsBlockAcceptedFunc func(models.BlockID) bool
+	optsEvictionManager     *eviction.Manager[models2.BlockID]
+	optsIsBlockAcceptedFunc func(models2.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
 	*TangleTestFramework
 }
@@ -54,7 +54,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
 		if t.optsEvictionManager == nil {
-			t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
+			t.optsEvictionManager = eviction.NewManager[models2.BlockID](0, models2.GenesisRootBlockProvider)
 		}
 		if t.optsValidatorSet == nil {
 			t.optsValidatorSet = validator.NewSet()
@@ -145,13 +145,13 @@ func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity)
 	return issuerIdentity
 }
 
-func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
-	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
-		parents := models.NewParentBlockIDs()
-		parents.AddStrong(models.EmptyBlockID)
-		opts = append(opts, models.WithParents(parents))
-		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models2.Block]) *Block {
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	if len(blk.ParentsByType(models2.StrongParentType)) == 0 {
+		parents := models2.NewParentBlockIDs()
+		parents.AddStrong(models2.EmptyBlockID)
+		opts = append(opts, models2.WithParents(parents))
+		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	}
 	if err := blk.DetermineID(); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
@@ -242,13 +242,13 @@ func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
 }
-func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
+func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models2.BlockID) bool) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models2.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}
