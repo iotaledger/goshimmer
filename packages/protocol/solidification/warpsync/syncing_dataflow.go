@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
@@ -24,7 +24,7 @@ type syncingFlowParams struct {
 	neighbor          *p2p.Neighbor
 	tangleTree        *smt.SparseMerkleTree
 	epochBlocksLeft   int64
-	epochBlocks       map[models2.BlockID]*models2.Block
+	epochBlocks       map[models.BlockID]*models.Block
 	stateMutationRoot commitment.MerkleRoot
 	stateRoot         commitment.MerkleRoot
 	manaRoot          commitment.MerkleRoot

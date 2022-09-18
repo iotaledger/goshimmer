@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,7 +29,7 @@ import (
 type TestFramework struct {
 	TipManager           *Manager
 	mockAcceptance       *acceptance.MockAcceptanceGadget
-	scheduledBlocks      *shrinkingmap.ShrinkingMap[models2.BlockID, *scheduler.Block]
+	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
 
 	test       *testing.T
@@ -47,7 +47,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		test:            test,
 		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
-		scheduledBlocks: shrinkingmap.New[models2.BlockID, *scheduler.Block](),
+		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 		optsGenesisTime: time.Now().Add(-5 * time.Hour),
 	}, opts, func(t *TestFramework) {
 		t.TestFramework = tangle.NewTestFramework(
@@ -105,7 +105,7 @@ func (t *TestFramework) createGenesis() {
 		virtualvoting.NewBlock(
 			booker.NewBlock(
 				blockdag.NewBlock(
-					models2.NewEmptyBlock(models2.EmptyBlockID, models2.WithIssuingTime(t.optsGenesisTime)),
+					models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)),
 					blockdag.WithSolid(true),
 				),
 				booker.WithBooked(true),
@@ -121,7 +121,7 @@ func (t *TestFramework) createGenesis() {
 	t.SetMarkersAccepted(genesisMarker)
 }
 
-func (t *TestFramework) mockSchedulerBlock(id models2.BlockID) (block *scheduler.Block, exists bool) {
+func (t *TestFramework) mockSchedulerBlock(id models.BlockID) (block *scheduler.Block, exists bool) {
 	t.scheduledBlocksMutex.RLock()
 	defer t.scheduledBlocksMutex.RUnlock()
 
@@ -164,7 +164,7 @@ func (t *TestFramework) AssertTipsRemoved(count uint32) {
 }
 
 func (t *TestFramework) AssertTips(actualTips scheduler.Blocks, expectedStateAliases ...string) {
-	actualTipsIDs := models2.NewBlockIDs()
+	actualTipsIDs := models.NewBlockIDs()
 
 	for it := actualTips.Iterator(); it.HasNext(); {
 		actualTipsIDs.Add(it.Next().ID())

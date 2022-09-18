@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Network struct {
@@ -53,11 +53,11 @@ func New(p2pManager *p2p.Manager, logger *logger.Logger, opts ...options.Option[
 	return network
 }
 
-func (n *Network) SendBlock(block *models2.Block, peers ...*peer.Peer) {
+func (n *Network) SendBlock(block *models.Block, peers ...*peer.Peer) {
 	n.gossipProtocol.SendBlock(lo.PanicOnErr(block.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
 }
 
-func (n *Network) RequestBlock(id models2.BlockID, peers ...*peer.Peer) {
+func (n *Network) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
 	n.gossipProtocol.RequestBlock(lo.PanicOnErr(id.Bytes()), lo.Map(peers, (*peer.Peer).ID)...)
 }
 

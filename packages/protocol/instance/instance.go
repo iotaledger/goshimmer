@@ -19,18 +19,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Instance /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Instance struct {
 	Events              *Events
-	BlockStorage        *database.PersistentEpochStorage[models2.BlockID, models2.Block, *models2.BlockID, *models2.Block]
+	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
-	EvictionManager     *eviction.Manager[models2.BlockID]
+	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -49,7 +49,7 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models2.BlockID, models2.Block](databaseManager, kvstore.Realm{0x09})
+		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
 
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
@@ -65,10 +65,10 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 		}
 		p.logger = logger
 
-		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models2.BlockID] {
+		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
 			// TODO: implement me and set snapshot epoch!
 			// p.SnapshotManager.GetSolidEntryPoints(index)
-			return set.NewAdvancedSet[models2.BlockID]()
+			return set.NewAdvancedSet[models.BlockID]()
 		})
 
 		// TODO: when engine is ready
@@ -79,11 +79,11 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 	})
 }
 
-func (p *Instance) ProcessBlockFromPeer(block *models2.Block, neighbor *p2p.Neighbor) {
+func (p *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
 	p.Inbox.ProcessReceivedBlock(block, neighbor)
 }
 
-func (p *Instance) Block(id models2.BlockID) (block *models2.Block, exists bool) {
+func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.Block, true
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +39,7 @@ func TestScheduler_AddBlock(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models2.NewBlock(models2.WithStrongParents(tf.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(models.WithStrongParents(tf.BlockIDs("Genesis"))), blockdag.WithSolid(true), blockdag.WithOrphaned(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
 	assert.NoError(t, blk.DetermineID())
 
 	tf.Scheduler.AddBlock(blk)
@@ -59,7 +59,7 @@ func TestScheduler_Submit(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	blk := tf.CreateSchedulerBlock(models2.WithIssuer(selfNode.PublicKey()))
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(selfNode.PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
 	time.Sleep(100 * time.Millisecond)
 	// unsubmit to allow the scheduler to shutdown
@@ -123,14 +123,14 @@ func TestScheduler_Dropped(t *testing.T) {
 
 	tf.CreateIssuer("nomana", 0)
 
-	droppedBlockIDChan := make(chan models2.BlockID, numBlocks)
+	droppedBlockIDChan := make(chan models.BlockID, numBlocks)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
 		droppedBlockIDChan <- block.ID()
 	}))
 
 	for i := 0; i < numBlocks; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
-		tf.CreateBlock(alias, models2.WithIssuer(tf.Issuer("nomana").PublicKey()), models2.WithStrongParents(models2.NewBlockIDs(tf.Block("Genesis").ID())))
+		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("nomana").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
 	}
 	droppedCounter := 0
@@ -150,7 +150,7 @@ func TestScheduler_Dropped(t *testing.T) {
 func TestScheduler_Schedule(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	blockScheduled := make(chan models2.BlockID, 1)
+	blockScheduled := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
@@ -159,7 +159,7 @@ func TestScheduler_Schedule(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 	// create a new block from a different node
-	blk := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 
@@ -176,14 +176,14 @@ func TestScheduler_Schedule(t *testing.T) {
 func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	blockDropped := make(chan models2.BlockID, 1)
+	blockDropped := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
 		blockDropped <- block.ID()
 	}))
 
 	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
-	blk := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
@@ -207,7 +207,7 @@ func TestScheduler_HandleOrphanedBlock_Ready(t *testing.T) {
 func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	blockScheduled := make(chan models2.BlockID, 1)
+	blockScheduled := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
@@ -217,7 +217,7 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	// create a new block from a different node
-	blk := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Scheduler.Ready(blk)
 
@@ -238,14 +238,14 @@ func TestScheduler_HandleOrphanedBlock_Scheduled(t *testing.T) {
 func TestScheduler_HandleOrphanedBlock_Unready(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	blockDropped := make(chan models2.BlockID, 1)
+	blockDropped := make(chan models.BlockID, 1)
 	tf.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
 		blockDropped <- block.ID()
 	}))
 
 	tf.CreateIssuer("peer", 10)
 	// create a new block from a different node
-	blk := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blk := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(blk))
 	tf.Tangle.SetOrphaned(blk.Block.Block.Block, true)
 
@@ -264,8 +264,8 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	tf := NewTestFramework(t, WithSchedulerOptions(WithAcceptedBlockScheduleThreshold(time.Minute)))
 	tf.CreateIssuer("peer", 10)
 
-	blockScheduled := make(chan models2.BlockID, 1)
-	blockSkipped := make(chan models2.BlockID, 1)
+	blockScheduled := make(chan models.BlockID, 1)
+	blockSkipped := make(chan models.BlockID, 1)
 
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
@@ -278,9 +278,9 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	// create a new block from a different node and mark it as ready and confirmed, but younger than 1 minute
-	blkReadyConfirmedNew := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blkReadyConfirmedNew := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkReadyConfirmedNew.ID(): true,
 	})
 
@@ -297,11 +297,11 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 
 	// create a new block from a different node and mark it as unready and confirmed, but younger than 1 minute
-	blkUnreadyConfirmedNew := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	blkUnreadyConfirmedNew := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedNew))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkUnreadyConfirmedNew.ID(): true,
 	})
 
@@ -321,9 +321,9 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 
 	// create a new block from a different node and mark it as ready and confirmed, but older than 1 minute
-	blkReadyConfirmedOld := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithIssuingTime(time.Now().Add(-2*time.Minute)))
+	blkReadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkReadyConfirmedOld.ID(): true,
 	})
 
@@ -340,9 +340,9 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 
 	// create a new block from a different node and mark it as unready and confirmed, but older than 1 minute
-	blkUnreadyConfirmedOld := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithIssuingTime(time.Now().Add(-2*time.Minute)))
+	blkUnreadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedOld))
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 		blkUnreadyConfirmedOld.ID(): true,
 	})
 
@@ -370,17 +370,17 @@ func TestScheduler_Time(t *testing.T) {
 	tf.Scheduler.Start()
 	defer tf.Scheduler.Shutdown()
 
-	futureBlock := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithIssuingTime(time.Now().Add(1*time.Second)))
+	futureBlock := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)))
 	assert.NoError(t, tf.Scheduler.Submit(futureBlock))
 
-	nowBlock := tf.CreateSchedulerBlock(models2.WithIssuer(tf.Issuer("peer").PublicKey()))
+	nowBlock := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 	assert.NoError(t, tf.Scheduler.Submit(nowBlock))
 
 	tf.Scheduler.Ready(futureBlock)
 	tf.Scheduler.Ready(nowBlock)
 
 	done := make(chan struct{})
-	scheduledIDs := models2.NewBlockIDs()
+	scheduledIDs := models.NewBlockIDs()
 	go func() {
 		defer close(done)
 		timer := time.NewTimer(time.Until(futureBlock.IssuingTime()) + 100*time.Millisecond)
@@ -396,7 +396,7 @@ func TestScheduler_Time(t *testing.T) {
 	}()
 
 	<-done
-	assert.Equal(t, models2.NewBlockIDs(nowBlock.ID(), futureBlock.ID()), scheduledIDs)
+	assert.Equal(t, models.NewBlockIDs(nowBlock.ID(), futureBlock.ID()), scheduledIDs)
 }
 
 func TestScheduler_Issue(t *testing.T) {
@@ -411,20 +411,20 @@ func TestScheduler_Issue(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	const numBlocks = 5
-	blockScheduled := make(chan models2.BlockID, numBlocks)
+	blockScheduled := make(chan models.BlockID, numBlocks)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
 
-	ids := models2.NewBlockIDs()
+	ids := models.NewBlockIDs()
 	for i := 0; i < numBlocks; i++ {
-		block := tf.CreateBlock(fmt.Sprintf("blk-%d", i), models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithStrongParents(models2.NewBlockIDs(tf.Block("Genesis").ID())))
+		block := tf.CreateBlock(fmt.Sprintf("blk-%d", i), models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(models.NewBlockIDs(tf.Block("Genesis").ID())))
 		ids.Add(block.ID())
 		_, _, err := tf.Tangle.Attach(block)
 		assert.NoError(t, err)
 	}
 
-	scheduledIDs := models2.NewBlockIDs()
+	scheduledIDs := models.NewBlockIDs()
 	assert.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
@@ -438,7 +438,7 @@ func TestScheduler_Issue(t *testing.T) {
 
 	for i := 0; i < numBlocks; i++ {
 		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
-		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models2.BlockID]bool{
+		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
 			block.ID(): true,
 		})
 		tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
@@ -459,24 +459,24 @@ func TestSchedulerFlow(t *testing.T) {
 	defer tf.Scheduler.Shutdown()
 
 	// testing desired scheduled order: A - B - D - E - C
-	tf.CreateBlock("A", models2.WithIssuer(tf.Issuer("self").PublicKey()), models2.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.CreateBlock("B", models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithIssuingTime(time.Now().Add(1*time.Second)), models2.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.CreateBlock("A", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.CreateBlock("B", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.BlockIDs("Genesis")))
 
 	// set C to have a timestamp in the future
-	tf.CreateBlock("C", models2.WithIssuer(tf.Issuer("self").PublicKey()), models2.WithIssuingTime(time.Now().Add(5*time.Second)), models2.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.CreateBlock("C", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(5*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
-	tf.CreateBlock("D", models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.CreateBlock("D", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
-	tf.CreateBlock("E", models2.WithIssuer(tf.Issuer("self").PublicKey()), models2.WithIssuingTime(time.Now().Add(3*time.Second)), models2.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.CreateBlock("E", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(3*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
-	blockScheduled := make(chan models2.BlockID, 5)
+	blockScheduled := make(chan models.BlockID, 5)
 	tf.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		blockScheduled <- block.ID()
 	}))
 
 	tf.IssueBlocks("A", "B", "C", "D", "E").WaitUntilAllTasksProcessed()
 
-	var scheduledIDs []models2.BlockID
+	var scheduledIDs []models.BlockID
 	assert.Eventually(t, func() bool {
 		select {
 		case id := <-blockScheduled:
@@ -487,7 +487,7 @@ func TestSchedulerFlow(t *testing.T) {
 		}
 	}, 10*time.Second, 100*time.Millisecond)
 
-	assert.Equal(t, scheduledIDs, []models2.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
+	assert.Equal(t, scheduledIDs, []models.BlockID{tf.Block("A").ID(), tf.Block("B").ID(), tf.Block("D").ID(), tf.Block("E").ID(), tf.Block("C").ID()})
 }
 
 func TestSchedulerParallelSubmit(t *testing.T) {
@@ -510,19 +510,19 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	for i := 0; i < totalBlkCount/2; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		parentOption := models2.WithStrongParents(tf.BlockIDs("Genesis"))
+		parentOption := models.WithStrongParents(tf.BlockIDs("Genesis"))
 		if i > 1 {
-			parentOption = models2.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2)))
+			parentOption = models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2)))
 		}
 
-		tf.CreateBlock(alias, models2.WithIssuer(tf.Issuer("self").PublicKey()), parentOption)
+		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("self").PublicKey()), parentOption)
 		blockAliases = append(blockAliases, alias)
 	}
 
 	for i := totalBlkCount / 2; i < totalBlkCount; i++ {
 		alias := fmt.Sprintf("blk-%d", i)
 
-		tf.CreateBlock(alias, models2.WithIssuer(tf.Issuer("peer").PublicKey()), models2.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2))))
+		tf.CreateBlock(alias, models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.BlockIDs(fmt.Sprintf("blk-%d", i-1), fmt.Sprintf("blk-%d", i-2))))
 		blockAliases = append(blockAliases, alias)
 	}
 

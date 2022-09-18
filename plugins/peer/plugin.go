@@ -23,7 +23,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	database2 "github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	databasePackage "github.com/iotaledger/goshimmer/packages/protocol/instance/database"
 	"github.com/iotaledger/goshimmer/plugins/database"
 )
 
@@ -167,12 +167,12 @@ func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
 		return nil, nil, false, err
 	}
 
-	db, err := database2.NewDB(Parameters.PeerDBDirectory)
+	db, err := databasePackage.NewDB(Parameters.PeerDBDirectory)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
-	peerDBKVStore, err := db.NewStore().WithRealm([]byte{database2.PrefixPeer})
+	peerDBKVStore, err := db.NewStore().WithRealm([]byte{databasePackage.PrefixPeer})
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer store: %w", err)
 	}

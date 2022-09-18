@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
-	payload2 "github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func init() {
@@ -31,7 +31,7 @@ func init() {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
 
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(MockedTransaction))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(MockedTransaction))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
 	}
@@ -444,13 +444,13 @@ func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 }
 
 // Type returns the type of the Transaction.
-func (m *MockedTransaction) Type() payload2.Type {
+func (m *MockedTransaction) Type() payload.Type {
 	return 44
 }
 
 // code contract (make sure the struct implements all required methods).
 var _ utxo.Transaction = new(MockedTransaction)
-var _ payload2.Payload = new(MockedTransaction)
+var _ payload.Payload = new(MockedTransaction)
 
 // _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
 var _uniqueEssenceCounter uint64

@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ type TestFramework struct {
 	optsGadgetOptions   []options.Option[Gadget]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.Manager[models2.BlockID]
+	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
 	optsTangle          *tangle.Tangle
 	optsTangleOptions   []options.Option[tangle.Tangle]
@@ -55,7 +55,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models2.BlockID](0, models2.GenesisRootBlockProvider)
+					t.optsEvictionManager = eviction.NewManager[models.BlockID](0, models.GenesisRootBlockProvider)
 				}
 
 				if t.optsValidatorSet == nil {
@@ -192,7 +192,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models2.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}
@@ -211,7 +211,7 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
 	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
-	AcceptedBlocks     models2.BlockIDs
+	AcceptedBlocks     models.BlockIDs
 	AcceptedMarkers    *markers.Markers
 
 	mutex sync.RWMutex
@@ -220,12 +220,12 @@ type MockAcceptanceGadget struct {
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
 		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
-		AcceptedBlocks:     models2.NewBlockIDs(),
+		AcceptedBlocks:     models.NewBlockIDs(),
 		AcceptedMarkers:    markers.NewMarkers(),
 	}
 }
 
-func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models2.BlockIDs) {
+func (m *MockAcceptanceGadget) SetBlocksAccepted(blocks models.BlockIDs) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -244,7 +244,7 @@ func (m *MockAcceptanceGadget) SetMarkersAccepted(markers ...markers.Marker) {
 }
 
 // IsBlockAccepted mocks its interface function returning that all blocks are confirmed.
-func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models2.BlockID) bool {
+func (m *MockAcceptanceGadget) IsBlockAccepted(blockID models.BlockID) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

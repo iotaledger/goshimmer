@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 
 // MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
 // It must be >= MaxBlockSize.
-var MaxDeficit = new(big.Rat).SetInt64(int64(models2.MaxBlockSize))
+var MaxDeficit = new(big.Rat).SetInt64(int64(models.MaxBlockSize))
 
 // ErrNotRunning is returned when a block is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
@@ -42,9 +42,9 @@ type Scheduler struct {
 	Events *Events
 	Tangle *tangle.Tangle
 
-	EvictionManager *eviction.LockableManager[models2.BlockID]
+	EvictionManager *eviction.LockableManager[models.BlockID]
 
-	blocks        *memstorage.EpochStorage[models2.BlockID, *Block]
+	blocks        *memstorage.EpochStorage[models.BlockID, *Block]
 	ticker        *time.Ticker
 	bufferMutex   sync.RWMutex
 	buffer        *BufferQueue
@@ -53,7 +53,7 @@ type Scheduler struct {
 
 	totalAccessManaRetrieveFunc func() float64
 	accessManaMapRetrieverFunc  func() map[identity.ID]float64
-	isBlockAcceptedFunc         func(models2.BlockID) bool
+	isBlockAcceptedFunc         func(models.BlockID) bool
 
 	optsRate                           time.Duration
 	optsMaxBufferSize                  int
@@ -66,7 +66,7 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(isBlockAccepted func(models2.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
 		Tangle:          tangle,
@@ -77,7 +77,7 @@ func New(isBlockAccepted func(models2.BlockID) bool, tangle *tangle.Tangle, acce
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
 
 		deficits:                           shrinkingmap.New[identity.ID, *big.Rat](),
-		blocks:                             memstorage.NewEpochStorage[models2.BlockID, *Block](),
+		blocks:                             memstorage.NewEpochStorage[models.BlockID, *Block](),
 		optsMaxBufferSize:                  300,
 		optsAcceptedBlockScheduleThreshold: 5 * time.Minute,
 		optsRate:                           5 * time.Millisecond,
@@ -216,7 +216,7 @@ func (s *Scheduler) Shutdown() {
 }
 
 // Block retrieves the Block with given id from the mem-storage.
-func (s *Scheduler) Block(id models2.BlockID) (block *Block, exists bool) {
+func (s *Scheduler) Block(id models.BlockID) (block *Block, exists bool) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
@@ -336,7 +336,7 @@ func (s *Scheduler) isEligible(block *Block) (eligible bool) {
 // isReady returns true if the given blockID's parents are eligible.
 func (s *Scheduler) isReady(block *Block) (ready bool) {
 	ready = true
-	block.ForEachParent(func(parent models2.Parent) {
+	block.ForEachParent(func(parent models.Parent) {
 		if parentBlock, parentExists := s.block(parent.ID); !parentExists || !s.isEligible(parentBlock) {
 			ready = false
 			return
@@ -395,7 +395,7 @@ func (s *Scheduler) ready(block *Block) {
 }
 
 // block retrieves the Block with given id from the mem-storage.
-func (s *Scheduler) block(id models2.BlockID) (block *Block, exists bool) {
+func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.EvictionManager.IsRootBlock(id) {
 		tangleBlock, _ := s.Tangle.VirtualVoting.Block(id)
 

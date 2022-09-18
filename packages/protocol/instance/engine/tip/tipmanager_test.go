@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 func TestTipManager_DataBlockTips(t *testing.T) {
@@ -49,7 +49,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 	// Block 3
 	{
-		tf.CreateBlock("Block3", models2.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
+		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Block1", "Block2")))
 		tf.IssueBlocksAndSetAccepted("Block3").WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
@@ -64,7 +64,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 			count++
 
 			alias := fmt.Sprintf("Block%d", n)
-			tf.CreateBlock(alias, models2.WithStrongParents(tf.BlockIDs("Block1")))
+			tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Block1")))
 			tf.IssueBlocksAndSetAccepted(alias).WaitUntilAllTasksProcessed()
 
 			tf.AssertTipCount(1 + count)
@@ -96,7 +96,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	tf := NewTestFramework(t,
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models2.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
 
 	createTestTangleTSC(tf)
@@ -147,7 +147,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf := NewTestFramework(t,
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
-		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models2.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
+		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
 
 	createTestTangleTSC(tf)
@@ -204,30 +204,30 @@ func createTestTangleTSC(tf *TestFramework) {
 
 	// SEQUENCE 0
 	{
-		tf.CreateBlock("Marker-0/1", models2.WithStrongParents(tf.BlockIDs("Genesis")), models2.WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		tf.CreateBlock("Marker-0/1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(time.Now().Add(-9*time.Minute)))
 		tf.IssueBlocks("Marker-0/1").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSC", 3, []string{lastBlockAlias}, time.Minute)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-0/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-0/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-0/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/2", 5, []string{"Marker-0/2"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-0/3", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-0/3", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-0/3").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/3", 5, []string{"Marker-0/3"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-0/4", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-0/4", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-0/4").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "0/4", 5, []string{"Marker-0/4"}, 0)
 		tf.PreventNewMarkers(false)
 
 		// issue block for test case #16
-		tf.CreateBlock("0/1-postTSC-direct_0", models2.WithStrongParents(tf.BlockIDs("Marker-0/1")))
+		tf.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.BlockIDs("Marker-0/1")))
 		tf.IssueBlocks("0/1-postTSC-direct_0").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
@@ -260,12 +260,12 @@ func createTestTangleTSC(tf *TestFramework) {
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq1", 6, []string{lastBlockAlias}, time.Minute*4)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-1/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)), models2.WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		tf.CreateBlock("Marker-1/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)), models.WithIssuingTime(time.Now().Add(-3*time.Minute)))
 		tf.IssueBlocks("Marker-1/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "1/2", 5, []string{"Marker-1/2"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-1/3", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-1/3", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-1/3").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "1/3", 5, []string{"Marker-1/3"}, 0)
@@ -302,12 +302,12 @@ func createTestTangleTSC(tf *TestFramework) {
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq2", 6, []string{lastBlockAlias}, time.Minute*4)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-2/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)), models2.WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		tf.CreateBlock("Marker-2/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)), models.WithIssuingTime(time.Now().Add(-3*time.Minute)))
 		tf.IssueBlocks("Marker-2/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/2", 5, []string{"Marker-2/2"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-2/3", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-2/3", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-2/3").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/3", 5, []string{"Marker-2/3"}, 0)
@@ -340,7 +340,7 @@ func createTestTangleTSC(tf *TestFramework) {
 
 	// SEQUENCE 2 + 0
 	{
-		tf.CreateBlock("Marker-2/5", models2.WithStrongParents(tf.BlockIDs("0/4_4", "2/3_4")))
+		tf.CreateBlock("Marker-2/5", models.WithStrongParents(tf.BlockIDs("0/4_4", "2/3_4")))
 		tf.IssueBlocks("Marker-2/5").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "2/5", 5, []string{"Marker-2/5"}, 0)
@@ -361,7 +361,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-3/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-3/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-3/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "3/2", 5, []string{"Marker-3/2"}, 0)
@@ -386,7 +386,7 @@ func createTestTangleTSC(tf *TestFramework) {
 	{
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
-		tf.CreateBlock("Marker-4/5", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-4/5", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-4/5").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(false)
 
@@ -403,7 +403,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-5/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-5/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-5/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "5/2", 5, []string{"Marker-5/2"}, 0)
@@ -429,7 +429,7 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.PreventNewMarkers(true)
 		lastBlockAlias = issueBlocks(tf, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
 		tf.PreventNewMarkers(false)
-		tf.CreateBlock("Marker-6/2", models2.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
+		tf.CreateBlock("Marker-6/2", models.WithStrongParents(tf.BlockIDs(lastBlockAlias)))
 		tf.IssueBlocks("Marker-6/2").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(true)
 		_ = issueBlocks(tf, "6/2", 5, []string{"Marker-6/2"}, 0)
@@ -454,12 +454,12 @@ func createTestTangleTSC(tf *TestFramework) {
 func issueBlocks(tf *TestFramework, blockPrefix string, blockCount int, parents []string, timestampOffset time.Duration) string {
 	blockAlias := fmt.Sprintf("%s_%d", blockPrefix, 0)
 
-	tf.CreateBlock(blockAlias, models2.WithStrongParents(tf.BlockIDs(parents...)), models2.WithIssuingTime(time.Now().Add(-timestampOffset)))
+	tf.CreateBlock(blockAlias, models.WithStrongParents(tf.BlockIDs(parents...)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
 	tf.IssueBlocks(blockAlias).WaitUntilAllTasksProcessed()
 
 	for i := 1; i < blockCount; i++ {
 		alias := fmt.Sprintf("%s_%d", blockPrefix, i)
-		tf.CreateBlock(alias, models2.WithStrongParents(tf.BlockIDs(blockAlias)), models2.WithIssuingTime(time.Now().Add(-timestampOffset)))
+		tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs(blockAlias)), models.WithIssuingTime(time.Now().Add(-timestampOffset)))
 		tf.IssueBlocks(alias).WaitUntilAllTasksProcessed()
 		// fmt.Println("issuing block", tf.Block(alias).ID())
 		blockAlias = alias

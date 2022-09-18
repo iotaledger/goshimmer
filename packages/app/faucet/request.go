@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	payload2 "github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func init() {
@@ -19,7 +19,7 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload2.Payload)(nil), new(Payload))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}
@@ -37,7 +37,7 @@ type Payload struct {
 }
 
 type requestModel struct {
-	PayloadType           payload2.Type
+	PayloadType           payload.Type
 	Address               devnetvm.Address `serix:"1"`
 	AccessManaPledgeID    identity.ID      `serix:"2"`
 	ConsensusManaPledgeID identity.ID      `serix:"3"`
@@ -46,7 +46,7 @@ type requestModel struct {
 
 // RequestType represents the identifier for the faucet Payload type.
 var (
-	RequestType = payload2.NewType(payloadType, ObjectName)
+	RequestType = payload.NewType(payloadType, ObjectName)
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
@@ -79,7 +79,7 @@ func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err err
 }
 
 // Type returns the type of the faucet Payload.
-func (p *Payload) Type() payload2.Type {
+func (p *Payload) Type() payload.Type {
 	return RequestType
 }
 

@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Chain struct {
@@ -31,7 +31,7 @@ func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {
 	return 0
 }
 
-func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models2.Block), batchSize int) (err error) {
+func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models.Block), batchSize int) (err error) {
 	c.RLock()
 	defer c.RUnlock()
 	/*

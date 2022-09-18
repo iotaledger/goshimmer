@@ -10,11 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type acceptanceGadget interface {
-	IsBlockAccepted(blockID models2.BlockID) (accepted bool)
+	IsBlockAccepted(blockID models.BlockID) (accepted bool)
 	IsMarkerAccepted(marker markers.Marker) (accepted bool)
 	FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index)
 }
@@ -22,7 +22,7 @@ type acceptanceGadget interface {
 // TimeRetrieverFunc is a function type to retrieve the time.
 type timeRetrieverFunc func() time.Time
 
-type blockRetrieverFunc func(id models2.BlockID) (block *scheduler.Block, exists bool)
+type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
 // region Manager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,8 +117,8 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 	return false
 }
 
-func (t *Manager) RemoveStrongParents(block *models2.Block) {
-	block.ForEachParent(func(parent models2.Parent) {
+func (t *Manager) RemoveStrongParents(block *models.Block) {
+	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
 		// if t.isLastTipForConflict(parentBlockID) {
@@ -132,11 +132,11 @@ func (t *Manager) RemoveStrongParents(block *models2.Block) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *Manager) Tips(countParents int) (parents scheduler.Blocks) {
-	if countParents > models2.MaxParentsCount {
-		countParents = models2.MaxParentsCount
+	if countParents > models.MaxParentsCount {
+		countParents = models.MaxParentsCount
 	}
-	if countParents < models2.MinParentsCount {
-		countParents = models2.MinParentsCount
+	if countParents < models.MinParentsCount {
+		countParents = models.MinParentsCount
 	}
 
 	return t.selectTips(countParents)
@@ -374,7 +374,7 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 	}
 
 	// if block is younger than TSC and not accepted, walk through strong parents' past cones
-	for parentID := range block.ParentsByType(models2.StrongParentType) {
+	for parentID := range block.ParentsByType(models.StrongParentType) {
 		parentBlock, exists := t.blockRetrieverFunc(parentID)
 		if exists {
 			blockWalker.Push(parentBlock)
