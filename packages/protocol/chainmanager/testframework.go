@@ -27,11 +27,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 	return options.Apply(&TestFramework{
 		Manager: NewManager(snapshotCommitment),
 
-		test:               test,
-		commitmentsByAlias: make(map[string]*commitment.Commitment),
-	}, opts, func(t *TestFramework) {
-		t.commitmentsByAlias["Genesis"] = snapshotCommitment
-	})
+		test: test,
+		commitmentsByAlias: map[string]*commitment.Commitment{
+			"Genesis": snapshotCommitment,
+		},
+	}, opts)
 }
 
 func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
