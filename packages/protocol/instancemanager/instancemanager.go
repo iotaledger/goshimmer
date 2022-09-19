@@ -3,6 +3,8 @@ package instancemanager
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/logger"
+
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -18,7 +20,7 @@ type InstanceManager struct {
 	chainManager       *chainmanager.Manager
 }
 
-func New(snapshotCommitment *commitment.Commitment) (manager *InstanceManager) {
+func New(snapshotCommitment *commitment.Commitment, log *logger.Logger) (manager *InstanceManager) {
 	manager = &InstanceManager{
 		Events: NewEvents(),
 
@@ -26,7 +28,13 @@ func New(snapshotCommitment *commitment.Commitment) (manager *InstanceManager) {
 		chainManager:       chainmanager.NewManager(snapshotCommitment),
 	}
 
+	// create WorkingDirectory for new chain (if not exists)
+	// copy over current snapshot to that working directory (if it doesn't exist yet)
+	// start new instance with that working directory
+	// add instance to instancesByChainID
+
 	// todo try to instantiate main protocol
+	manager.activeInstance = instance.New(nil, log)
 
 	manager.Events.Instance.LinkTo(manager.activeInstance.Events)
 

@@ -86,12 +86,7 @@ func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	}
 	header.DiffEpochIndex = epoch.Index(index)
 
-	var latestECRecordLen int64
-	if err := binary.Read(reader, binary.LittleEndian, &latestECRecordLen); err != nil {
-		return nil, errors.Errorf("unable to read latest ECRecord bytes len: %w", err)
-	}
-
-	ecRecordBytes := make([]byte, latestECRecordLen)
+	ecRecordBytes := make([]byte, commitment.Size)
 	if err := binary.Read(reader, binary.LittleEndian, ecRecordBytes); err != nil {
 		return nil, errors.Errorf("unable to read latest ECRecord: %w", err)
 	}

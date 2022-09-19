@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/require"
 
@@ -14,25 +16,22 @@ import (
 )
 
 func TestProtocol(t *testing.T) {
+	require.NoError(t, logger.InitGlobalLogger(configuration.New()))
+
+	log := logger.NewLogger(t.Name())
 	baseDirectory := t.TempDir()
 	diskUtil := diskutil.New(baseDirectory)
 
-	snapshotCommitment := commitment.New(commitment.ID{1}, 2, commitment.RootsID{3})
-
-	snapshotHeader := ledger.SnapshotHeader{
+	snapshotHeaderBytes, err := serix.DefaultAPI.Encode(context.Background(), ledger.SnapshotHeader{
 		OutputWithMetadataCount: 1,
 		FullEpochIndex:          2,
 		DiffEpochIndex:          3,
-		LatestECRecord:          snapshotCommitment,
-	}
-
-	snapshotHeaderBytes, err := serix.DefaultAPI.Encode(context.Background(), &snapshotHeader)
+		LatestECRecord:          commitment.New(commitment.ID{4}, 5, commitment.RootsID{6}),
+	})
 	require.NoError(t, err)
-	fmt.Println(snapshotHeaderBytes)
-
 	require.NoError(t, diskUtil.WriteFile(diskUtil.RelativePath("snapshot.bin"), snapshotHeaderBytes))
 
-	protocol := New(nil, nil, WithBaseDirectory(baseDirectory))
+	protocol := New(nil, log, WithBaseDirectory(baseDirectory))
 
 	fmt.Println(protocol)
 }

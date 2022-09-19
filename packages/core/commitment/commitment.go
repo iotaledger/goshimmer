@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
+const Size = blake2b.Size256 + blake2b.Size256 + 8
+
 type Commitment struct {
 	model.Immutable[Commitment, *Commitment, commitment] `serix:"0"`
 }

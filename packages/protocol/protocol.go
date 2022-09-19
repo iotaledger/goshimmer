@@ -60,7 +60,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 
 			panic(err)
 		}
-		p.instanceManager = instancemanager.New(snapshotCommitment)
+		p.instanceManager = instancemanager.New(snapshotCommitment, log)
 
 		p.Events.InstanceManager = p.instanceManager.Events
 

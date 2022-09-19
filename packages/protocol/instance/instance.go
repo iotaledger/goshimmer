@@ -51,17 +51,20 @@ func New(databaseManager *database.Manager, logger *logger.Logger, opts ...optio
 	}, opts, func(p *Instance) {
 		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
 
-		err := snapshot.LoadSnapshot(
+		if err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,
 			p.NotarizationManager.LoadECandEIs,
 			p.SnapshotManager.LoadSolidEntryPoints,
 			p.NotarizationManager.LoadOutputsWithMetadata,
 			p.NotarizationManager.LoadEpochDiff,
 			emptyActivityConsumer,
-		)
+		); err != nil {
+			panic(err)
+		}
+
 		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
 		if err != nil {
-			return
+			panic(err)
 		}
 		p.logger = logger
 

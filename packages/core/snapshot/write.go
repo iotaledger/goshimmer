@@ -328,10 +328,6 @@ func writeSnapshotHeader(writeSeeker io.WriteSeeker, header *ledger.SnapshotHead
 		return err
 	}
 
-	if latestLenErr := writeFuncWrap("latestECRecordBytesLen", int64(len(data))); latestLenErr != nil {
-		return latestLenErr
-	}
-
 	if latestErr := writeFuncWrap("latestECRecord", data); err != nil {
 		return latestErr
 	}
