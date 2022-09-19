@@ -22,7 +22,7 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 		ForkingPoint: forkingPoint,
 
 		commitmentsByIndex: map[epoch.Index]*Commitment{
-			forkingPoint.Index(): forkingPoint,
+			forkingPoint.Commitment().Index(): forkingPoint,
 		},
 	}
 }
@@ -82,5 +82,5 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.commitmentsByIndex[commitment.Index()] = commitment
+	c.commitmentsByIndex[commitment.Commitment().Index()] = commitment
 }

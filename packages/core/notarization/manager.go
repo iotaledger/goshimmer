@@ -222,7 +222,7 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 	}
 
 	commitmentToStore := chainmanager.NewCommitment(header.LatestECRecord.ID())
-	commitmentToStore.PublishData(header.LatestECRecord)
+	commitmentToStore.PublishCommitment(header.LatestECRecord)
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(commitmentToStore).Release()
 }

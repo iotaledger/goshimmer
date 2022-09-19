@@ -225,10 +225,9 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanage
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *chainmanager.Commitment {
 		return chainmanager.NewCommitment(newCommitment.ID())
 	}).Consume(func(e *chainmanager.Commitment) {
-		e.PublishData(newCommitment)
-		e.PublishRoots(roots.TangleRoot(), roots.StateMutationRoot(), roots.StateRoot(), roots.ManaRoot())
-
 		ecRecord = e
+		ecRecord.PublishCommitment(newCommitment)
+		ecRecord.PublishRoots(roots)
 	})
 
 	return ecRecord, nil

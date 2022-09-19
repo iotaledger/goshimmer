@@ -26,7 +26,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	}
 
 	manager.SnapshotCommitment = manager.Commitment(snapshot.ID(), true)
-	manager.SnapshotCommitment.PublishData(snapshot)
+	manager.SnapshotCommitment.PublishCommitment(snapshot)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
@@ -36,11 +36,11 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 
 func (c *Manager) ProcessCommitment(commitments *commitment.Commitment) (chain *Chain, wasForked bool) {
 	chainCommitment := c.Commitment(commitments.ID(), true)
-	if !chainCommitment.PublishData(commitments) {
+	if !chainCommitment.PublishCommitment(commitments) {
 		return chainCommitment.Chain(), false
 	}
 
-	if chain, wasForked = c.registerChild(chainCommitment.PrevID(), chainCommitment); chain == nil {
+	if chain, wasForked = c.registerChild(chainCommitment.Commitment().PrevID(), chainCommitment); chain == nil {
 		return
 	}
 
@@ -92,7 +92,7 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 
 		commitments[i] = currentCommitment
 
-		id = currentCommitment.PrevID()
+		id = currentCommitment.Commitment().PrevID()
 	}
 
 	return

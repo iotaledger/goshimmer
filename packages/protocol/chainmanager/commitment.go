@@ -5,11 +5,10 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type Commitment struct {
-	model.Storable[commitment.ID, Commitment, *Commitment, *commitment.Commitment] `serix:"0"`
+	model.Storable[commitment.ID, Commitment, *Commitment, commitmentModel] `serix:"0"`
 
 	children    []*Commitment
 	chain       *Chain
@@ -17,52 +16,25 @@ type Commitment struct {
 }
 
 func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
-	newCommitment = model.NewStorable[commitment.ID, Commitment, *commitment.Commitment](nil)
-	newCommitment.SetID(id)
+	newCommitment = model.NewStorable[commitment.ID, Commitment](&commitmentModel{})
 	newCommitment.children = make([]*Commitment, 0)
 	newCommitment.entityMutex = syncutils.NewStarvingMutex()
 
+	newCommitment.SetID(id)
+
 	return newCommitment
+}
+
+type commitmentModel struct {
+	Commitment *commitment.Commitment `serix:"0,optional"`
+	Roots      *commitment.Roots      `serix:"1,optional"`
 }
 
 func (c *Commitment) Commitment() (commitment *commitment.Commitment) {
 	c.RLock()
 	defer c.RUnlock()
 
-	return c.M
-}
-
-func (c *Commitment) PrevID() (prevID commitment.ID) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.M == nil {
-		return
-	}
-
-	return c.M.PrevID()
-}
-
-func (c *Commitment) Index() (index epoch.Index) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.M == nil {
-		return
-	}
-
-	return c.M.Index()
-}
-
-func (c *Commitment) RootsID() (rootsID commitment.ID) {
-	c.RLock()
-	defer c.RUnlock()
-
-	if c.M == nil {
-		return
-	}
-
-	return c.M.RootsID()
+	return c.M.Commitment
 }
 
 func (c *Commitment) Children() (children []*Commitment) {
@@ -82,12 +54,23 @@ func (c *Commitment) Chain() (chain *Chain) {
 	return c.chain
 }
 
-func (c *Commitment) PublishData(commitment *commitment.Commitment) (published bool) {
+func (c *Commitment) PublishCommitment(commitment *commitment.Commitment) (published bool) {
 	c.Lock()
 	defer c.Unlock()
 
-	if published = c.M == nil; published {
-		c.M = commitment
+	if published = c.M.Commitment == nil; published {
+		c.M.Commitment = commitment
+	}
+
+	return
+}
+
+func (c *Commitment) PublishRoots(roots *commitment.Roots) (published bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	if published = c.M.Roots == nil; published {
+		c.M.Roots = roots
 	}
 
 	return
@@ -121,8 +104,4 @@ func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {
 	}
 
 	return
-}
-
-func (c *Commitment) PublishRoots(root commitment.MerkleRoot, root2 commitment.MerkleRoot, root3 commitment.MerkleRoot, root4 commitment.MerkleRoot) {
-
 }

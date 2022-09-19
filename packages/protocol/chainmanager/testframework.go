@@ -116,9 +116,7 @@ func (t *TestFramework) AssertChainState(chains map[string]string) {
 
 			require.NotNil(t.test, chainCommitment)
 			require.EqualValues(t.test, t.EC(commitmentAlias), chainCommitment.ID())
-			require.EqualValues(t.test, t.EI(commitmentAlias), chainCommitment.Index())
-			require.EqualValues(t.test, t.ECR(commitmentAlias), chainCommitment.RootsID())
-			require.EqualValues(t.test, t.PrevEC(commitmentAlias), chainCommitment.PrevID())
+			require.EqualValues(t.test, t.commitment(commitmentAlias), chainCommitment.Commitment())
 		}
 	}
 }
