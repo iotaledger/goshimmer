@@ -14,8 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 const minimumWindowSize = 10

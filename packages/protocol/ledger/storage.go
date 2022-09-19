@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 )

@@ -1,15 +1,14 @@
-package node
+package protocol
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -51,7 +50,7 @@ func provide() (result providerResult) {
 }
 
 type providerResult struct {
-	Protocol *chain.Chain
+	Protocol *protocol.Protocol
 	Network  *network.Network
 
 	dig.Out

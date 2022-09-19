@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"hash"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -16,6 +17,10 @@ func New(basePath string) (newDiskUtil *DiskUtil) {
 	return &DiskUtil{
 		basePath: basePath,
 	}
+}
+
+func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {
+	return ioutil.WriteFile(path, data, 0)
 }
 
 func (d *DiskUtil) RelativePath(pathElements ...string) (path string) {

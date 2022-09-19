@@ -3,18 +3,14 @@ package chainmanager
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Chain struct {
 	ForkingPoint *Commitment
 	// Metadatastorage
 
-	protocolInstance       *instance.Instance
 	latestCommittableEpoch epoch.Index
 	commitmentsByIndex     map[epoch.Index]*Commitment
 
@@ -26,7 +22,7 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 		ForkingPoint: forkingPoint,
 
 		commitmentsByIndex: map[epoch.Index]*Commitment{
-			forkingPoint.Index(): forkingPoint,
+			forkingPoint.Commitment().Index(): forkingPoint,
 		},
 	}
 }
@@ -38,30 +34,32 @@ func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {
 func (c *Chain) StreamEpochBlocks(index epoch.Index, callback func(blocks []*models.Block), batchSize int) (err error) {
 	c.RLock()
 	defer c.RUnlock()
-
-	if index > c.latestCommittableEpoch {
-		return errors.Errorf("cannot stream blocks of epoch %d: not committable yet", index)
-	}
-
-	blocks := make([]*models.Block, 0)
-	if err = c.protocolInstance.BlockStorage.Iterate(index, func(key models.BlockID, value *models.Block) bool {
-		value.SetID(key)
-
-		blocks = append(blocks, value)
-
-		if len(blocks) == batchSize {
-			callback(blocks)
-			blocks = make([]*models.Block, 0)
+	/*
+		if index > c.latestCommittableEpoch {
+			return errors.Errorf("cannot stream blocks of epoch %d: not committable yet", index)
 		}
 
-		return true
-	}); err != nil {
-		return errors.Errorf("failed to stream epoch blocks: %w", err)
-	}
+		blocks := make([]*models2.Block, 0)
+		if err = c.protocolInstance.BlockStorage.Iterate(index, func(key models2.BlockID, value *models2.Block) bool {
+			value.SetID(key)
 
-	if len(blocks) > 0 {
-		callback(blocks)
-	}
+			blocks = append(blocks, value)
+
+			if len(blocks) == batchSize {
+				callback(blocks)
+				blocks = make([]*models2.Block, 0)
+			}
+
+			return true
+		}); err != nil {
+			return errors.Errorf("failed to stream epoch blocks: %w", err)
+		}
+
+		if len(blocks) > 0 {
+			callback(blocks)
+		}
+
+	*/
 
 	return
 }
@@ -84,5 +82,5 @@ func (c *Chain) addCommitment(commitment *Commitment) {
 	c.Lock()
 	defer c.Unlock()
 
-	c.commitmentsByIndex[commitment.Index()] = commitment
+	c.commitmentsByIndex[commitment.Commitment().Index()] = commitment
 }

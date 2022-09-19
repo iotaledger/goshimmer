@@ -6,10 +6,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,7 +84,7 @@ type EpochCommittableEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
 	// ECRecord is the ec root of committable epoch.
-	ECRecord *commitment.Commitment
+	ECRecord *chainmanager.Commitment
 }
 
 // EpochConfirmedEvent is a container that acts as a dictionary for the EpochConfirmed event related parameters.

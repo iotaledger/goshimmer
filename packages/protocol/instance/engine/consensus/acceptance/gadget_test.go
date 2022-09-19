@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 func TestGadget_update_conflictsStepwise(t *testing.T) {

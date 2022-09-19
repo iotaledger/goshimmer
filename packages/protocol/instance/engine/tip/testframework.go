@@ -20,8 +20,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////

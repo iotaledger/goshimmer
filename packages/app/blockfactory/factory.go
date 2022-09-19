@@ -8,10 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +101,7 @@ func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockI
 		models.WithIssuingTime(f.issuingTime(references)),
 		models.WithPayload(p),
 		models.WithLatestConfirmedEpoch(lastConfirmedEpochIndex),
-		models.WithECRecord(epochCommitment),
+		models.WithCommitment(epochCommitment),
 		models.WithSignature(ed25519.EmptySignature), // placeholder will be set after signing
 
 		// jUsT4fUn
@@ -242,7 +243,7 @@ func (f TipSelectorFunc) Tips(countParents int) (parents models.BlockIDs) {
 type ReferencesFunc func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error)
 
 // CommitmentFunc is a function type that returns the commitment of the latest committable epoch.
-type CommitmentFunc func() (ecRecord *epoch.ECRecord, lastConfirmedEpochIndex epoch.Index, err error)
+type CommitmentFunc func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
