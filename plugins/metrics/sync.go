@@ -7,7 +7,7 @@ import (
 var isTangleTimeSynced atomic.Bool
 
 func measureSynced() {
-	tts := deps.Tangle.TimeManager.Synced()
+	tts := deps.Protocol.Instance().Engine.IsSynced()
 	isTangleTimeSynced.Store(tts)
 }
 

@@ -25,61 +25,63 @@ var (
 	// maxBufferSize maximum number of blocks can be stored in the buffer.
 	maxBufferSize int
 
-	// nodeQueueSizes current size of each node's queue.
-	nodeQueueSizes map[identity.ID]int
-	// nodeQueueSizes current amount of aMana of each node in the queue.
-	nodeAccessMana *schedulerutils.AccessManaCache
-	// nodeQueueSizesMutex protect map from concurrent read/write.
-	nodeQueueSizesMutex syncutils.RWMutex
+	// issuerQueueSizes current size of each issuer's queue.
+	issuerQueueSizes map[identity.ID]int
+	// issuerQueueSizes current amount of aMana of each issuer in the queue.
+	issuerAccessMana map[identity.ID]int
+	// issuerQueueSizesMutex protect map from concurrent read/write.
+	issuerQueueSizesMutex syncutils.RWMutex
 )
 
 func measureSchedulerMetrics() {
-	nodeQueueSizesMutex.Lock()
-	defer nodeQueueSizesMutex.Unlock()
-	nodeQueueSizes = make(map[identity.ID]int)
-	for k, v := range deps.Tangle.Scheduler.NodeQueueSizes() {
-		nodeQueueSizes[k] = v
+	issuerQueueSizesMutex.Lock()
+	defer issuerQueueSizesMutex.Unlock()
+	issuerQueueSizes = make(map[identity.ID]int)
+	for k, v := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
+		issuerQueueSizes[k] = v
 	}
-	if nodeAccessMana == nil {
-		nodeAccessMana = deps.Tangle.Scheduler.AccessManaCache()
-	}
-	bufferSize = deps.Tangle.Scheduler.BufferSize()
-	maxBufferSize = deps.Tangle.Options.SchedulerParams.MaxBufferSize
-	schedulerDeficit, _ = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
-	schedulerRate = deps.Tangle.Scheduler.Rate()
-	readyBlocksCount = deps.Tangle.Scheduler.ReadyBlocksCount()
-	totalBlocksCount = deps.Tangle.Scheduler.TotalBlocksCount()
+	// TODO: implement when mana is refactored
+	//if issuerAccessMana == nil {
+	//	issuerAccessMana = deps.Tangle.Scheduler.AccessManaCache()
+	//}
+	bufferSize = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize()
+	maxBufferSize = deps.Protocol.Instance().Engine.CongestionControl.MaxBufferSize()
+	schedulerDeficit, _ = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
+	schedulerRate = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate()
+	readyBlocksCount = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.ReadyBlocksCount()
+	totalBlocksCount = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.TotalBlocksCount()
 }
 
-// SchedulerNodeQueueSizes current size of each node's queue.
-func SchedulerNodeQueueSizes() map[string]int {
-	nodeQueueSizesMutex.RLock()
-	defer nodeQueueSizesMutex.RUnlock()
+// SchedulerIssuerQueueSizes current size of each issuer's queue.
+func SchedulerIssuerQueueSizes() map[string]int {
+	issuerQueueSizesMutex.RLock()
+	defer issuerQueueSizesMutex.RUnlock()
 
 	// copy the original map
 	clone := make(map[string]int)
-	for key, element := range nodeQueueSizes {
+	for key, element := range issuerQueueSizes {
 		clone[key.String()] = element
 	}
 
 	return clone
 }
 
-// SchedulerNodeAManaAmount current aMana value for each node in the queue.
-func SchedulerNodeAManaAmount() map[string]float64 {
-	nodeQueueSizesMutex.RLock()
-	defer nodeQueueSizesMutex.RUnlock()
+// SchedulerIssuerAManaAmount current aMana value for each issuer in the queue.
+func SchedulerIssuerAManaAmount() map[string]float64 {
+	issuerQueueSizesMutex.RLock()
+	defer issuerQueueSizesMutex.RUnlock()
 
 	// copy the original map
 	clone := make(map[string]float64)
-	for key := range nodeQueueSizes {
-		clone[key.String()] = nodeAccessMana.GetCachedMana(key)
-	}
+	// TODO: implement when mana is refactored
+	//for key := range issuerQueueSizes {
+	//	clone[key.String()] = issuerAccessMana.GetCachedMana(key)
+	//}
 
 	return clone
 }
 
-// SchedulerTotalBufferBlocksCount returns if the node is synced based on tangle time.
+// SchedulerTotalBufferBlocksCount returns if the issuer is synced based on tangle time.
 func SchedulerTotalBufferBlocksCount() int {
 	return totalBlocksCount
 }
@@ -94,7 +96,7 @@ func SchedulerMaxBufferSize() int {
 	return maxBufferSize
 }
 
-// SchedulerDeficit local node's deficit value.
+// SchedulerDeficit local issuer's deficit value.
 func SchedulerDeficit() float64 {
 	return schedulerDeficit
 }

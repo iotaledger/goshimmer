@@ -20,5 +20,5 @@ func registerEpochCommittmentMetrics() {
 
 func collectEpochCommittmentMetrics() {
 	ecRecord := metrics.LastCommittedEpoch()
-	lastCommittedEpoch.Set(float64(ecRecord.EI()))
+	lastCommittedEpoch.Set(float64(ecRecord))
 }

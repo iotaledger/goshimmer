@@ -78,12 +78,12 @@ func registerSchedulerMetrics() {
 
 func collectSchedulerMetrics() {
 	queueSizePerNode.Reset()
-	nodeQueueSizeMap := metrics.SchedulerNodeQueueSizes()
+	nodeQueueSizeMap := metrics.SchedulerIssuerQueueSizes()
 	for currentNodeID, queueSize := range nodeQueueSizeMap {
 		queueSizePerNode.WithLabelValues(currentNodeID).Set(float64(queueSize))
 	}
 	manaAmountPerNode.Reset()
-	nodeAManaMap := metrics.SchedulerNodeAManaAmount()
+	nodeAManaMap := metrics.SchedulerIssuerAManaAmount()
 	for currentNodeID, aMana := range nodeAManaMap {
 		manaAmountPerNode.WithLabelValues(currentNodeID).Set(aMana)
 	}

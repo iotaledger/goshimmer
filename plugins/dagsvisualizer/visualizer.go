@@ -18,6 +18,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -57,73 +60,62 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
+	storeClosure := event.NewClosure(func(block *blockdag.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleVertex,
-			Data: newTangleVertex(event.Block),
+			Data: newTangleVertex(block.Block),
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
 		storeWsBlock(wsBlk)
 	})
 
-	bookedClosure := event.NewClosure(func(event *tangleold.BlockBookedEvent) {
-		blockID := event.BlockID
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangleold.BlockMetadata) {
-			conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(blockID)
-			if err != nil {
-				conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
-			}
-
-			wsBlk := &wsBlock{
-				Type: BlkTypeTangleBooked,
-				Data: &tangleBooked{
-					ID:          blockID.Base58(),
-					IsMarker:    blkMetadata.StructureDetails().IsPastMarker(),
-					ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
-				},
-			}
-			visualizerWorkerPool.TrySubmit(wsBlk)
-			storeWsBlock(wsBlk)
-		})
-	})
-
-	blkConfirmedClosure := event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
-		blockID := event.Block.ID()
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetadata *tangleold.BlockMetadata) {
-			wsBlk := &wsBlock{
-				Type: BlkTypeTangleConfirmed,
-				Data: &tangleConfirmed{
-					ID:                    blockID.Base58(),
-					ConfirmationState:     blkMetadata.ConfirmationState().String(),
-					ConfirmationStateTime: blkMetadata.ConfirmationStateTime().UnixNano(),
-				},
-			}
-			visualizerWorkerPool.TrySubmit(wsBlk)
-			storeWsBlock(wsBlk)
-		})
-	})
-
-	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		var blkID tangleold.BlockID
-		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangleold.Attachment) {
-			blkID = a.BlockID()
-		})
+	bookedClosure := event.NewClosure(func(block *booker.Block) {
+		conflictIDs := deps.Protocol.Instance().Engine.Tangle.BlockConflicts(block)
 
 		wsBlk := &wsBlock{
-			Type: BlkTypeTangleTxConfirmationState,
-			Data: &tangleTxConfirmationStateChanged{
-				ID:          blkID.Base58(),
-				IsConfirmed: deps.AcceptanceGadget.IsTransactionConfirmed(event.TransactionID),
+			Type: BlkTypeTangleBooked,
+			Data: &tangleBooked{
+				ID:          block.ID().Base58(),
+				IsMarker:    block.StructureDetails().IsPastMarker(),
+				ConflictIDs: lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
 		storeWsBlock(wsBlk)
 	})
 
-	deps.Tangle.Storage.Events.BlockStored.Attach(storeClosure)
-	deps.Tangle.Booker.Events.BlockBooked.Attach(bookedClosure)
-	deps.AcceptanceGadget.Events().BlockAccepted.Attach(blkConfirmedClosure)
-	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(txAcceptedClosure)
+	blkConfirmedClosure := event.NewClosure(func(block *acceptance.Block) {
+		wsBlk := &wsBlock{
+			Type: BlkTypeTangleConfirmed,
+			Data: &tangleConfirmed{
+				ID:                    block.ID().Base58(),
+				ConfirmationState:     blkMetadata.ConfirmationState().String(),
+				ConfirmationStateTime: blkMetadata.ConfirmationStateTime().UnixNano(),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
+	})
+
+	txAcceptedClosure := event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		attachmentBlock := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(event.TransactionID)
+
+		wsBlk := &wsBlock{
+			Type: BlkTypeTangleTxConfirmationState,
+			Data: &tangleTxConfirmationStateChanged{
+				ID:          attachmentBlock.ID().Base58(),
+				IsConfirmed: deps.Protocol.Instance().Engine.Ledger.Utils.TransactionConfirmationState(event.TransactionID).IsAccepted(),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsBlk)
+		storeWsBlock(wsBlk)
+	})
+
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkConfirmedClosure)
+	// TODO: attach to linkable event instead of an event of a specific protocol instance
+	deps.Protocol.Instance().Engine.Ledger.Events.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
 func registerUTXOEvents() {

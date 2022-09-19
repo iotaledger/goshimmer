@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instancemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -72,6 +73,9 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 			p.instanceManager.DispatchBlockData(event.Data, event.Neighbor)
 		}))
 	})
+}
+func (p *Protocol) Instance() (instance *instance.Instance) {
+	return p.instanceManager.CurrentInstance()
 }
 
 func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *commitment.Commitment, err error) {

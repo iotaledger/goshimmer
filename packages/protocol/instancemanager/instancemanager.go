@@ -58,3 +58,7 @@ func (p *InstanceManager) DispatchBlockData(bytes []byte, neighbor *p2p.Neighbor
 
 	return
 }
+
+func (p *InstanceManager) CurrentInstance() *instance.Instance {
+	return p.activeInstance
+}

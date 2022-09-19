@@ -16,15 +16,16 @@ var (
 )
 
 func measureRateSetter() {
-	rateSetter := deps.Tangle.RateSetter
-	Events.RateSetterUpdated.Trigger(&RateSetterMetric{
-		Size:     rateSetter.Size(),
-		Estimate: rateSetter.Estimate(),
-		Rate:     rateSetter.Rate(),
-	})
-	ownRate = rateSetter.Rate()
-	rateSetterBufferSize = rateSetter.Size()
-	rateSetterEstimate = rateSetter.Estimate()
+	// TODO: finish when RateSetter is implemented
+	//rateSetter := deps.Tangle.RateSetter
+	//Events.RateSetterUpdated.Trigger(&RateSetterMetric{
+	//	Size:     rateSetter.Size(),
+	//	Estimate: rateSetter.Estimate(),
+	//	Rate:     rateSetter.Rate(),
+	//})
+	//ownRate = rateSetter.Rate()
+	//rateSetterBufferSize = rateSetter.Size()
+	//rateSetterEstimate = rateSetter.Estimate()
 }
 
 func OwnRate() float64 {

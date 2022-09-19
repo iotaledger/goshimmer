@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 )
 
 const (
@@ -32,33 +34,29 @@ func init() {
 
 type dependencies struct {
 	dig.In
-	Tangle *tangleold.Tangle
-	Server *echo.Echo
-	Chat   *chat.Chat
+	Protocol *protocol.Protocol
+	Server   *echo.Echo
+	Chat     *chat.Chat
 }
 
 func configure(_ *node.Plugin) {
-	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
-		onReceiveBlockFromBlockLayer(event.BlockID)
-	}))
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
 	configureWebAPI()
 }
 
-func onReceiveBlockFromBlockLayer(blockID tangleold.BlockID) {
+func onReceiveBlockFromBlockLayer(block *booker.Block) {
 	var chatEvent *chat.BlockReceivedEvent
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-		if block.Payload().Type() != chat.Type {
-			return
-		}
-		chatPayload := block.Payload().(*chat.Payload)
-		chatEvent = &chat.BlockReceivedEvent{
-			From:      chatPayload.From(),
-			To:        chatPayload.To(),
-			Block:     chatPayload.Block(),
-			Timestamp: block.IssuingTime(),
-			BlockID:   block.ID().Base58(),
-		}
-	})
+	if block.Payload().Type() != chat.Type {
+		return
+	}
+	chatPayload := block.Payload().(*chat.Payload)
+	chatEvent = &chat.BlockReceivedEvent{
+		From:      chatPayload.From(),
+		To:        chatPayload.To(),
+		Block:     chatPayload.Block(),
+		Timestamp: block.IssuingTime(),
+		BlockID:   block.ID().Base58(),
+	}
 
 	if chatEvent == nil {
 		return

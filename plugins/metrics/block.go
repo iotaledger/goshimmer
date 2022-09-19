@@ -5,6 +5,9 @@ import (
 
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"go.uber.org/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 )
 
 // BlockType defines the component for the different BPS metrics.
@@ -127,7 +130,7 @@ var (
 	blockTips atomic.Uint64
 
 	// total number of parents of all blocks per parent type.
-	parentsCountPerType      = make(map[tangleold.ParentsType]uint64)
+	parentsCountPerType      = make(map[models.ParentsType]uint64)
 	parentsCountPerTypeMutex syncutils.RWMutex
 
 	// Number of blocks per payload type since start of the node.
@@ -328,12 +331,12 @@ func FinalizedBlockCountPerType() map[BlockType]uint64 {
 }
 
 // ParentCountPerType returns a map of parent counts per parent type.
-func ParentCountPerType() map[tangleold.ParentsType]uint64 {
+func ParentCountPerType() map[models.ParentsType]uint64 {
 	parentsCountPerTypeMutex.RLock()
 	defer parentsCountPerTypeMutex.RUnlock()
 
 	// copy the original map
-	clone := make(map[tangleold.ParentsType]uint64)
+	clone := make(map[models.ParentsType]uint64)
 	for key, element := range parentsCountPerType {
 		clone[key] = element
 	}
@@ -364,7 +367,7 @@ func increasePerComponentCounter(c ComponentType) {
 	blockCountPerComponentGrafana[c]++
 }
 
-func increasePerParentType(c tangleold.ParentsType) {
+func increasePerParentType(c models.ParentsType) {
 	parentsCountPerTypeMutex.Lock()
 	defer parentsCountPerTypeMutex.Unlock()
 
@@ -389,7 +392,7 @@ func measurePerComponentCounter() {
 }
 
 func measureBlockTips() {
-	blockTips.Store(uint64(deps.Tangle.TipManager.TipCount()))
+	blockTips.Store(uint64(deps.Protocol.Instance().Engine.TipManager.TipCount()))
 }
 
 // increases the received BPS counter
@@ -410,23 +413,25 @@ func measureReceivedBPS() {
 }
 
 func measureRequestQueueSize() {
-	size := int64(deps.Tangle.Requester.RequestQueueSize())
-	requestQueueSize.Store(size)
+	// TODO: finish when requester is done
+	//size := int64(deps.Protocol.Instance().Requester.RequestQueueSize())
+	//requestQueueSize.Store(size)
 }
 
 func measureInitialDBStats() {
-	dbStatsResult := deps.Tangle.Storage.DBStats()
-
-	initialBlockCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
-	initialBlockCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
-	initialBlockCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
-	initialBlockCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
-
-	initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
-	initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
-	initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
-
-	initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
-
-	initialMissingBlockCountDB = uint64(dbStatsResult.MissingBlockCount)
+	// TODO: finish when Database is finished
+	//dbStatsResult := deps.Protocol.Instance()..Storage.DBStats()
+	//
+	//initialBlockCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
+	//initialBlockCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
+	//initialBlockCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
+	//initialBlockCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
+	//
+	//initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
+	//initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
+	//initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
+	//
+	//initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
+	//
+	//initialMissingBlockCountDB = uint64(dbStatsResult.MissingBlockCount)
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
 
@@ -25,7 +27,7 @@ var (
 )
 
 type dependencies struct {
-	Tangle *tangleold.Tangle
+	Instance *instance.Instance
 }
 
 func init() {
@@ -55,15 +57,15 @@ func run(_ *node.Plugin) {
 	}
 
 	// Get Blocks from node.
-	notifyNewBlk := event.NewClosure(func(event *tangleold.BlockStoredEvent) {
-		server.Broadcast([]byte(event.Block.String()))
+	notifyNewBlk := event.NewClosure(func(block *blockdag.Block) {
+		server.Broadcast([]byte(block.Block.String()))
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[BlkUpdater]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.BlockStored.Attach(notifyNewBlk)
+		deps.Instance.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
 		<-ctx.Done()
 		Plugin.LogInfof("Stopping Broadcast...")
-		deps.Tangle.Storage.Events.BlockStored.Detach(notifyNewBlk)
+		deps.Instance.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
 		Plugin.LogInfof("Stopping Broadcast... \tDone")
 	}, shutdown.PriorityBroadcast); err != nil {
 		Plugin.LogError("Failed to start as daemon: %s", err)

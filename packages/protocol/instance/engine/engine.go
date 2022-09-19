@@ -68,6 +68,10 @@ func (e *Engine) IsBootstrapped() (isBootstrapped bool) {
 	return time.Since(e.Clock.RelativeConfirmedTime()) < e.optsBootstrappedThreshold
 }
 
+func (e *Engine) IsSynced() (isBootstrapped bool) {
+	return time.Since(e.Clock.AcceptedTime()) < e.optsBootstrappedThreshold
+}
+
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
 }

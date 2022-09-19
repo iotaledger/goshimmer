@@ -16,13 +16,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 const (
@@ -50,10 +50,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local            *peer.Local
-	Tangle           *tangleold.Tangle
-	BootstrapManager *bootstrapmanager.Manager
-	Indexer          *indexer.Indexer
+	Local    *peer.Local
+	Protocol *protocol.Protocol
+	Indexer  *indexer.Indexer
 }
 
 func init() {
@@ -116,7 +115,7 @@ func run(plugin *node.Plugin) {
 
 func waitUntilBootstrapped(ctx context.Context) bool {
 	// if we are already bootstrapped, there is no need to wait for the event
-	if deps.BootstrapManager.Bootstrapped() {
+	if deps.Protocol.Instance().Engine.IsBootstrapped() {
 		return true
 	}
 
@@ -130,26 +129,27 @@ func waitUntilBootstrapped(ctx context.Context) bool {
 }
 
 func checkForMana(ctx context.Context) error {
-	nodeID := deps.Tangle.Options.Identity.ID()
-
-	aMana, _, err := blocklayer.GetAccessMana(nodeID)
-	// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-	if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-		return err
-	}
-	if aMana < tangleold.MinMana {
-		return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-	}
+	// TODO: finish when mana stuff is refactored
+	//nodeID := deps.Tangle.Options.Identity.ID()
+	//
+	//aMana, _, err := blocklayer.GetAccessMana(nodeID)
+	//// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+	//if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+	//	return err
+	//}
+	//if aMana < tangleold.MinMana {
+	//	return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
+	//}
 	return nil
 }
 
 func configureEvents() {
-	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangleold.BlockProcessedEvent) {
-		onBlockProcessed(event.BlockID)
-	}))
-	deps.BootstrapManager.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
-		bootstrapped <- true
-	}))
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
+	// TODO: need an bootstrapped event
+	// TODO: when instance is switched, the plugin needs to wait until new chain is bootstrapped etc.?
+	//deps.Protocol.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
+	//	bootstrapped <- true
+	//}))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
@@ -168,7 +168,7 @@ func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	return nil
 }
 
-func onBlockProcessed(blockID tangleold.BlockID) {
+func onBlockProcessed(block *virtualvoting.Block) {
 	// Do not start picking up request while waiting for initialization.
 	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req blks will be enqueued
 	// and addresses will be funded again. Therefore, do not process any faucet request blocks until we are in
@@ -176,26 +176,24 @@ func onBlockProcessed(blockID tangleold.BlockID) {
 	if !initDone.Load() {
 		return
 	}
-	deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-		if !faucet.IsFaucetReq(block) {
-			return
-		}
-		fundingRequest := block.Payload().(*faucet.Payload)
+	if !faucet.IsFaucetReq(block.Block.Block.Block) {
+		return
+	}
+	fundingRequest := block.Payload().(*faucet.Payload)
 
-		// pledge mana to requester if not specified in the request
-		emptyID := identity.ID{}
-		var aManaPledge identity.ID
-		if fundingRequest.AccessManaPledgeID() == emptyID {
-			aManaPledge = identity.NewID(block.IssuerPublicKey())
-		}
+	// pledge mana to requester if not specified in the request
+	emptyID := identity.ID{}
+	var aManaPledge identity.ID
+	if fundingRequest.AccessManaPledgeID() == emptyID {
+		aManaPledge = identity.NewID(block.IssuerPublicKey())
+	}
 
-		var cManaPledge identity.ID
-		if fundingRequest.ConsensusManaPledgeID() == emptyID {
-			cManaPledge = identity.NewID(block.IssuerPublicKey())
-		}
+	var cManaPledge identity.ID
+	if fundingRequest.ConsensusManaPledgeID() == emptyID {
+		cManaPledge = identity.NewID(block.IssuerPublicKey())
+	}
 
-		_ = handleFaucetRequest(fundingRequest, aManaPledge, cManaPledge)
-	})
+	_ = handleFaucetRequest(fundingRequest, aManaPledge, cManaPledge)
 }
 
 func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) error {

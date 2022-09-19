@@ -6,6 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 var (
@@ -17,8 +19,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Protocol *protocol.Protocol
 }
 
 func init() {
@@ -31,15 +33,15 @@ func configure(_ *node.Plugin) {
 }
 
 func getNodesHandler(c echo.Context) (err error) {
-	activeNodes, _ := deps.Tangle.WeightProvider.(*tangleold.CManaWeightProvider).WeightsOfRelevantVoters()
+	activeValidators := deps.Protocol.Instance().SybilProtection.ValidatorSet
 
-	activeNodesString := make([]string, 0)
+	activeValidatorsString := make([]string, 0)
 
-	for id := range activeNodes {
-		activeNodesString = append(activeNodesString, id.String())
+	for _, validator := range activeValidators.Slice() {
+		activeValidatorsString = append(activeValidatorsString, validator.ID().String())
 	}
 
-	return c.JSON(http.StatusOK, activeNodesString)
+	return c.JSON(http.StatusOK, activeValidatorsString)
 }
 
 func getWeightsHandler(c echo.Context) (err error) {

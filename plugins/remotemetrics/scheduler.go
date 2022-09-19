@@ -4,10 +4,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 )
 
 func obtainSchedulerStats(timestamp time.Time) {
-	scheduler := deps.Tangle.Scheduler
+	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
 	queueMap, aManaNormalizedMap := prepQueueMaps(scheduler)
 
 	var myID string
@@ -17,7 +18,7 @@ func obtainSchedulerStats(timestamp time.Time) {
 	record := remotemetrics.SchedulerMetrics{
 		Type:                         "schedulerSample",
 		NodeID:                       myID,
-		Synced:                       deps.Tangle.Synced(),
+		Synced:                       deps.Protocol.Instance().Engine.IsSynced(),
 		MetricsLevel:                 Parameters.MetricsLevel,
 		BufferSize:                   uint32(scheduler.BufferSize()),
 		BufferLength:                 uint32(scheduler.TotalBlocksCount()),
@@ -30,17 +31,18 @@ func obtainSchedulerStats(timestamp time.Time) {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func prepQueueMaps(s *tangleold.Scheduler) (queueMap map[string]uint32, aManaNormalizedMap map[string]float64) {
-	queueSizes := s.NodeQueueSizes()
+func prepQueueMaps(s *scheduler.Scheduler) (queueMap map[string]uint32, aManaNormalizedMap map[string]float64) {
+	queueSizes := s.IssuerQueueSizes()
 	queueMap = make(map[string]uint32, len(queueSizes))
 	aManaNormalizedMap = make(map[string]float64, len(queueSizes))
 
-	for id, size := range queueSizes {
-		nodeID := id.String()
-		aMana := s.GetManaFromCache(id)
-
-		queueMap[nodeID] = uint32(size)
-		aManaNormalizedMap[nodeID] = float64(size) / float64(aMana)
-	}
+	// TODO: implement when mana is refactored
+	//for id, size := range queueSizes {
+	//	nodeID := id.String()
+	//	aMana := s.GetManaFromCache(id)
+	//
+	//	queueMap[nodeID] = uint32(size)
+	//	aManaNormalizedMap[nodeID] = float64(size) / float64(aMana)
+	//}
 	return
 }

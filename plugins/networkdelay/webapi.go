@@ -22,20 +22,22 @@ func broadcastNetworkDelayPayload(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 
-	now := clock.SyncedTime().UnixNano()
+	//now := time.Now().UnixNano()
+	//
+	//payload := NewPayload(id, now)
+	//
+	//nowWithoutClock := time.Now()
 
-	payload := NewPayload(id, now)
+	// TODO: implement when issuing blocks is figured out
+	//blk, err := deps.Tangle.IssuePayload(payload)
+	//if err != nil {
+	//	return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	//}
 
-	nowWithoutClock := time.Now()
+	//sendPoWInfo(payload, time.Since(nowWithoutClock))
 
-	blk, err := deps.Tangle.IssuePayload(payload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-	}
-
-	sendPoWInfo(payload, time.Since(nowWithoutClock))
-
-	return c.JSON(http.StatusOK, Response{ID: blk.ID().Base58()})
+	//return c.JSON(http.StatusOK, Response{ID: blk.ID().Base58()})
+	return nil
 }
 
 // Response contains the ID of the block sent.

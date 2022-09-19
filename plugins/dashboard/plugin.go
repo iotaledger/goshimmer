@@ -22,6 +22,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
@@ -51,7 +52,7 @@ type dependencies struct {
 
 	Node       *configuration.Configuration
 	Local      *peer.Local
-	Tangle     *tangleold.Tangle
+	Protocol   *protocol.Protocol
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
 	Chat       *chat.Chat          `optional:"true"`
@@ -334,25 +335,25 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	tm := deps.Tangle.TimeManager
+	tm := deps.Protocol.Instance().Engine.Clock
 	status.TangleTime = tangleTime{
-		Synced:           tm.Synced(),
-		Bootstrapped:     tm.Bootstrapped(),
+		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
+		Bootstrapped:     deps.Protocol.Instance().Engine.IsBootstrapped(),
 		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
 		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
-		ATT:              tm.ATT().UnixNano(),
-		RATT:             tm.RATT().UnixNano(),
-		CTT:              tm.CTT().UnixNano(),
-		RCTT:             tm.RCTT().UnixNano(),
+		ATT:              tm.AcceptedTime().UnixNano(),
+		RATT:             tm.RelativeAcceptedTime().UnixNano(),
+		CTT:              tm.ConfirmedTime().UnixNano(),
+		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Tangle.Scheduler.Running(),
-		Rate:              deps.Tangle.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+		Running:           deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Running(),
+		Rate:              deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate().String(),
+		MaxBufferSize:     deps.Protocol.Instance().Engine.CongestionControl.Scheduler.MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize(),
 		Deficit:           deficit,
 	}
 	return status
