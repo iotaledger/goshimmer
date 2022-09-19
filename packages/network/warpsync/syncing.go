@@ -58,9 +58,9 @@ func (p *Protocol) SendEpochEnd(ei epoch.Index, ec commitment.ID, roots *commitm
 	epochBlocksEnd := &wp.EpochBlocksEnd{
 		EI:                int64(ei),
 		EC:                ec.Bytes(),
-		StateMutationRoot: roots.StateMutationRoot.Bytes(),
-		StateRoot:         roots.StateRoot.Bytes(),
-		ManaRoot:          roots.ManaRoot.Bytes(),
+		StateMutationRoot: roots.StateMutationRoot().Bytes(),
+		StateRoot:         roots.StateRoot().Bytes(),
+		ManaRoot:          roots.ManaRoot().Bytes(),
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochBlocksEnd{EpochBlocksEnd: epochBlocksEnd}}
 

@@ -25,7 +25,7 @@ func streamSnapshotDataFrom(
 	epochDiffsConsumer EpochDiffsConsumerFunc,
 	activityLogConsumer ActivityLogConsumerFunc) error {
 
-	header, err := readSnapshotHeader(reader)
+	header, err := ReadSnapshotHeader(reader)
 	if err != nil {
 		return errors.Wrap(err, "failed to stream snapshot header from snapshot")
 	}
@@ -68,7 +68,7 @@ func streamSnapshotDataFrom(
 	return nil
 }
 
-func readSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
+func ReadSnapshotHeader(reader io.ReadSeeker) (*ledger.SnapshotHeader, error) {
 	header := &ledger.SnapshotHeader{}
 
 	if err := binary.Read(reader, binary.LittleEndian, &header.OutputWithMetadataCount); err != nil {

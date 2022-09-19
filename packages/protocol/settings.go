@@ -24,18 +24,18 @@ func NewSettings(filePath string) (settings *Settings) {
 	}
 }
 
-func (s *Settings) ChainID() commitment.ID {
+func (s *Settings) SnapshotCommitment() *commitment.Commitment {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.storage.ChainID
+	return s.storage.SnapshotCommitment
 }
 
-func (s *Settings) SetChainID(chainID commitment.ID) {
+func (s *Settings) SetSnapshotCommitment(snapshotCommitment *commitment.Commitment) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.storage.ChainID = chainID
+	s.storage.SnapshotCommitment = snapshotCommitment
 
 	s.Persist()
 }
@@ -45,6 +45,15 @@ func (s *Settings) SnapshotChecksum() (checksum [32]byte) {
 	defer s.RUnlock()
 
 	return s.storage.SnapshotChecksum
+}
+
+func (s *Settings) SetSnapshotChecksum(checksum [32]byte) {
+	s.Lock()
+	defer s.Unlock()
+
+	s.storage.SnapshotChecksum = checksum
+
+	s.Persist()
 }
 
 func (s *Settings) Persist() {
@@ -58,8 +67,8 @@ func (s *Settings) Persist() {
 // region settingsStorage //////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsStorage struct {
-	ChainID          commitment.ID `serix:"0"`
-	SnapshotChecksum [32]byte      `serix:"1"`
+	SnapshotCommitment *commitment.Commitment `serix:"0"`
+	SnapshotChecksum   [32]byte               `serix:"1"`
 
 	storable.Struct[settingsStorage, *settingsStorage]
 }

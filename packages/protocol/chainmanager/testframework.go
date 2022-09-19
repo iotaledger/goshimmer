@@ -39,10 +39,10 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	prevCommitmentID, previousIndex := t.previousCommitmentID(prevAlias)
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
-	commitment := NewCommitment(commitment.NewID(previousIndex+1, randomECR, prevCommitmentID))
-	commitment.PublishData(previousIndex+1, randomECR, prevCommitmentID)
+	currentCommitment := NewCommitment(commitment.NewID(previousIndex+1, randomECR, prevCommitmentID))
+	currentCommitment.PublishData(prevCommitmentID, previousIndex+1, randomECR)
 
-	t.commitmentsByAlias[alias] = commitment
+	t.commitmentsByAlias[alias] = currentCommitment
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (chain *Chain, wasForked bool) {

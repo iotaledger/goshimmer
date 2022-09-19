@@ -6,8 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/protocol/dispatcher"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instancemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/solidification/warpsync"
 )
 
@@ -15,7 +14,7 @@ import (
 
 type Solidification struct {
 	network  *network.Network
-	parser   *dispatcher.Dispatcher
+	parser   *instancemanager.InstanceManager
 	protocol *chain.Chain
 
 	requester *requester.Requester
@@ -27,7 +26,7 @@ type Solidification struct {
 	optsRequester []options.Option[requester.Requester]
 }
 
-func New(network *network.Network, parser *dispatcher.Dispatcher, protocol *chain.Chain, opts ...options.Option[Solidification]) (solidification *Solidification) {
+func New(network *network.Network, parser *instancemanager.InstanceManager, protocol *chain.Chain, opts ...options.Option[Solidification]) (solidification *Solidification) {
 	return options.Apply(new(Solidification), opts, func(s *Solidification) {
 		s.network = network
 		s.parser = parser

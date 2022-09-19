@@ -39,7 +39,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 	epochToValidate := endRange
 	ecChain[start] = startEC
 	ecRecordChain[end] = commitment.New(commitment.NewID(end, commitment.RootsID{}, endPrevEC))
-	ecRecordChain[end].PublishData(end, commitment.RootsID{}, endPrevEC)
+	ecRecordChain[end].PublishData(endPrevEC, end, commitment.RootsID{})
 
 	for {
 		select {
