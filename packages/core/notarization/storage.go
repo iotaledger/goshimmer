@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	database2 "github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -52,14 +52,14 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	new.baseStore = new.epochCommitmentStorageOptions.store
 
 	new.ledgerstateStorage = objectstorage.NewStructStorage[ledger.OutputWithMetadata](
-		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixLedgerState),
+		objectstorage.NewStoreWithRealm(new.baseStore, database2.PrefixNotarization, prefixLedgerState),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
 	new.ecRecordStorage = objectstorage.NewStructStorage[chainmanager.Commitment](
-		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixECRecord),
+		objectstorage.NewStoreWithRealm(new.baseStore, database2.PrefixNotarization, prefixECRecord),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -162,11 +162,11 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		return epochDiffStorage
 	}
 
-	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, prefixEpochDiffSpent}, ei.Bytes()...))
+	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database2.PrefixNotarization, prefixEpochDiffSpent}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
-	createdDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, prefixEpochDiffCreated}, ei.Bytes()...))
+	createdDiffStore, err := s.baseStore.WithRealm(append([]byte{database2.PrefixNotarization, prefixEpochDiffCreated}, ei.Bytes()...))
 	if err != nil {
 		panic(err)
 	}
@@ -230,7 +230,7 @@ type options struct {
 	store kvstore.KVStore
 
 	// cacheTimeProvider contains the cacheTimeProvider that overrides the local cache times.
-	cacheTimeProvider *database.CacheTimeProvider
+	cacheTimeProvider *database2.CacheTimeProvider
 
 	epochCommitmentCacheTime time.Duration
 }
@@ -240,7 +240,7 @@ type options struct {
 func newOptions(option ...Option) (new *options) {
 	return (&options{
 		store:                    mapdb.NewMapDB(),
-		cacheTimeProvider:        database.NewCacheTimeProvider(0),
+		cacheTimeProvider:        database2.NewCacheTimeProvider(0),
 		epochCommitmentCacheTime: 10 * time.Second,
 	}).apply(option...)
 }

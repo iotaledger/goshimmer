@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	database2 "github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/inbox"
@@ -26,7 +26,7 @@ import (
 
 type Instance struct {
 	Events              *Events
-	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
+	BlockStorage        *database2.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
@@ -39,17 +39,17 @@ type Instance struct {
 
 	optsSnapshotFile     string
 	optsEngineOptions    []options.Option[engine.Engine]
-	optsDBManagerOptions []options.Option[database.Manager]
+	optsDBManagerOptions []options.Option[database2.Manager]
 }
 
-func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+func New(databaseManager *database2.Manager, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(&Instance{
 		Events:       NewEvents(),
 		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
 	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
+		p.BlockStorage = database2.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
 
 		err := snapshot.LoadSnapshot(
 			p.optsSnapshotFile,

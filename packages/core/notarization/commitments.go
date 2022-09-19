@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	database2 "github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -67,11 +67,11 @@ type EpochCommitmentFactory struct {
 func NewEpochCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
-	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeNodes)
-	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixStateTreeValues)
+	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixStateTreeNodes)
+	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixStateTreeValues)
 
-	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeNodes)
-	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
+	manaRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixManaTreeNodes)
+	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database2.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: shrinkingmap.New[epoch.Index, *CommitmentTrees](),
@@ -310,7 +310,7 @@ func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWit
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
 	// Volatile storage for small trees
-	db, _ := database.NewMemDB("")
+	db, _ := database2.NewMemDB("")
 	blockIDStore := db.NewStore()
 	blockValueStore := db.NewStore()
 	stateMutationIDStore := db.NewStore()
