@@ -24,13 +24,13 @@ func TestManager_Get(t *testing.T) {
 
 	// Create and write data to buckets.
 	{
-		for i := 0; i < bucketsCount; i++ {
+		for i := granularity; i < bucketsCount; i++ {
 			bucket := m.Get(epoch.Index(i), getRealm(i))
 			assert.NoError(t, bucket.Set(getKey(i), getValue(i)))
 		}
 
 		// Check that internal data structure is correct.
-		for i := 0; i < bucketsCount; i += granularity {
+		for i := granularity; i < bucketsCount; i += granularity {
 			db, exists := m.dbs.Get(epoch.Index(i))
 			require.True(t, exists, "db %d does not exist in data structure", i)
 			assert.Equal(t, epoch.Index(i), db.index)
@@ -42,7 +42,7 @@ func TestManager_Get(t *testing.T) {
 		}
 
 		// Check that folder structure is correct.
-		for i := 0; i < bucketsCount; i++ {
+		for i := granularity; i < bucketsCount; i++ {
 			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
 			if i%granularity == 0 {
 				assert.True(t, fileInfo.IsDir())
@@ -55,7 +55,7 @@ func TestManager_Get(t *testing.T) {
 
 	// Read data from buckets.
 	{
-		for i := 0; i < bucketsCount; i++ {
+		for i := granularity; i < bucketsCount; i++ {
 			bucket := m.Get(epoch.Index(i), getRealm(i))
 			value, err := bucket.Get(getKey(i))
 			assert.NoError(t, err)
@@ -65,7 +65,7 @@ func TestManager_Get(t *testing.T) {
 
 	// Flush buckets and check that they are marked healthy.
 	{
-		for i := 0; i < bucketsCount; i++ {
+		for i := granularity; i < bucketsCount; i++ {
 			m.Flush(epoch.Index(i))
 			bucket := m.getBucket(epoch.Index(i))
 			setHealthy, err := bucket.Has(healthKey)
@@ -87,7 +87,7 @@ func TestManager_Get(t *testing.T) {
 	m = NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
-		for i := 0; i < bucketsCount; i++ {
+		for i := granularity; i < bucketsCount; i++ {
 			bucket := m.Get(epoch.Index(i), getRealm(i))
 			value, err := bucket.Get(getKey(i))
 			assert.NoError(t, err)

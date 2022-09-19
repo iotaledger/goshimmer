@@ -3,6 +3,7 @@ package database
 import (
 	"container/heap"
 	"context"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -19,10 +20,6 @@ import (
 )
 
 // TODO:
-//  - prune old buckets/epochs
-//  - flush epochs based on epoch commitments (link together via plugins)
-//  - prevent GET access to old buckets/epochs; and if still available and accessed, for how long should DB be kept open?
-//  - add functionality for permanent storage
 //  - on node startup: check if buckets are healthy and remove all that are unhealthy -> possibly report latest bucket
 //     to enable seamless startup after a crash/shutdown during an epoch
 
@@ -43,6 +40,8 @@ type Manager struct {
 	cleaner *timeutil.Ticker
 	ctx     context.Context
 	mutex   sync.Mutex
+
+	lastPrunedIndex epoch.Index
 
 	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
 	optsGranularity      int64
@@ -105,6 +104,10 @@ func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	if index <= m.lastPrunedIndex {
+		return nil
+	}
+
 	withRealm, err := m.getBucket(index).WithRealm(realm)
 	if err != nil {
 		panic(err)
@@ -125,6 +128,27 @@ func (m *Manager) Flush(index epoch.Index) {
 	bucket := m.getBucket(index)
 	err := bucket.Set(healthKey, []byte{1})
 	if err != nil {
+		panic(err)
+	}
+}
+
+func (m *Manager) PruneUntilEpoch(index epoch.Index) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for ; m.lastPrunedIndex <= index; m.lastPrunedIndex++ {
+		m.prune(m.lastPrunedIndex)
+	}
+}
+
+func (m *Manager) prune(index epoch.Index) {
+	dbBaseIndex := m.computeDBBaseIndex(index)
+	_, exists := m.dbs.Get(dbBaseIndex)
+	if exists {
+		m.dbs.Delete(dbBaseIndex)
+	}
+
+	if err := os.RemoveAll(dbPathFromIndex(m.optsBaseDir, dbBaseIndex)); err != nil {
 		panic(err)
 	}
 }
@@ -150,7 +174,7 @@ func (m *Manager) Shutdown() {
 //   index 1 -> db 0
 //   index 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
-	startingIndex := index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
+	startingIndex := m.computeDBBaseIndex(index)
 	db, exists := m.dbs.Get(startingIndex)
 	if !exists {
 		db = m.createDBInstance(startingIndex)
@@ -159,6 +183,11 @@ func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 	db.lastAccessed = time.Now()
 
 	return db
+}
+
+func (m *Manager) computeDBBaseIndex(index epoch.Index) epoch.Index {
+	startingIndex := index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
+	return startingIndex
 }
 
 // getBucket returns the bucket for the given index or creates a new one if it does not yet exist.
@@ -183,7 +212,7 @@ func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
 // createDBInstance creates a new DB instance for the given index.
 // If a folder/DB for the given index already exists, it is opened.
 func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
-	db, err := m.optsDBProvider(filepath.Join(m.optsBaseDir, strconv.FormatInt(int64(index), 10)))
+	db, err := m.optsDBProvider(dbPathFromIndex(m.optsBaseDir, index))
 	if err != nil {
 		panic(err)
 	}
@@ -255,4 +284,8 @@ func indexToRealm(index epoch.Index) kvstore.Realm {
 		byte(0xff & (index >> 48)),
 		byte(0xff & (index >> 54)),
 	}
+}
+
+func dbPathFromIndex(base string, index epoch.Index) string {
+	return filepath.Join(base, strconv.FormatInt(int64(index), 10))
 }
