@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 
 	"github.com/iotaledger/hive.go/core/identity"
@@ -146,7 +146,7 @@ func readSnapshotFromFile(filePath string) (err error) {
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		fmt.Println(h)
 	}
-	activityLogConsumer := func(activity epoch.SnapshotEpochActivity) {
+	activityLogConsumer := func(activity activitylog.SnapshotEpochActivity) {
 		fmt.Println(activity)
 	}
 	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
