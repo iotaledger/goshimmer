@@ -1,4 +1,4 @@
-package node
+package protocol
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -49,7 +50,7 @@ func provide() (result providerResult) {
 }
 
 type providerResult struct {
-	Protocol *chain.Chain
+	Protocol *protocol.Protocol
 	Network  *network.Network
 
 	dig.Out
