@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ func TestManager_Get(t *testing.T) {
 	const granularity = 3
 	baseDir := t.TempDir()
 
-	m := NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
+	m := NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir), WithMaxOpenDBs(2))
 
 	// Create and write data to buckets.
 	{
@@ -73,11 +74,17 @@ func TestManager_Get(t *testing.T) {
 		}
 	}
 
+	// Clean the least recently used DB instances.
+	{
+		m.cleanLRU()
+		assert.Equal(t, 2, m.dbs.Size())
+	}
+
 	// Simulate node shutdown.
 	m.Shutdown()
 	m = nil
 
-	m = NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
+	m = NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
 		for i := 0; i < bucketsCount; i++ {
