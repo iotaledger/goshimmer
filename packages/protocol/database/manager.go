@@ -32,8 +32,12 @@ type dbInstance struct {
 }
 
 type Manager struct {
-	dbs   *shrinkingmap.ShrinkingMap[epoch.Index, *dbInstance]
-	mutex sync.Mutex
+	permanentStorage kvstore.KVStore
+	permanentBaseDir string
+
+	dbs             *shrinkingmap.ShrinkingMap[epoch.Index, *dbInstance]
+	bucketedBaseDir string
+	mutex           sync.Mutex
 
 	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
 	optsGranularity int64
@@ -47,7 +51,19 @@ func NewManager(opts ...options.Option[Manager]) *Manager {
 		optsGranularity: 10,
 		optsBaseDir:     "db",
 		optsDBProvider:  NewMemDB,
-	}, opts)
+	}, opts, func(m *Manager) {
+		m.bucketedBaseDir = filepath.Join(m.optsBaseDir, "pruned")
+		m.permanentBaseDir = filepath.Join(m.optsBaseDir, "permanent")
+		db, err := m.optsDBProvider(m.permanentBaseDir)
+		if err != nil {
+			panic(err)
+		}
+		m.permanentStorage = db.NewStore()
+	})
+}
+
+func (m *Manager) PermanentStorage() kvstore.KVStore {
+	return m.permanentStorage
 }
 
 func (m *Manager) Get(index epoch.Index, realm kvstore.Realm) kvstore.KVStore {
@@ -86,6 +102,8 @@ func (m *Manager) Shutdown() {
 		db.instance.Close()
 		return true
 	})
+
+	m.permanentStorage.Close()
 }
 
 // getDBInstance returns the DB instance for the given index or creates a new one if it does not yet exist.
@@ -127,7 +145,7 @@ func (m *Manager) getBucket(index epoch.Index) (bucket kvstore.KVStore) {
 // createDBInstance creates a new DB instance for the given index.
 // If a folder/DB for the given index already exists, it is opened.
 func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
-	db, err := m.optsDBProvider(filepath.Join(m.optsBaseDir, strconv.FormatInt(int64(index), 10)))
+	db, err := m.optsDBProvider(filepath.Join(m.bucketedBaseDir, strconv.FormatInt(int64(index), 10)))
 	if err != nil {
 		panic(err)
 	}
