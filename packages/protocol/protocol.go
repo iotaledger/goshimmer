@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -13,12 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instancemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -27,11 +23,11 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network         *network.Network
-	disk            *diskutil.DiskUtil
-	settings        *Settings
-	chainManager    *chainmanager.Manager
-	instanceManager *instancemanager.InstanceManager
+	network        *network.Network
+	disk           *diskutil.DiskUtil
+	settings       *Settings
+	chainManager   *chainmanager.Manager
+	activeInstance *instance.Instance
 	// solidification  *solidification.Solidification
 
 	optsBaseDirectory    string
@@ -57,7 +53,8 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 		p.disk = diskutil.New(p.optsBaseDirectory)
 		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-		// GLOBAL
+		// GLOBAL //////////////////////////////////////////////////////////////////////////////////////////////////////
+
 		nodeSnapshotFile := p.disk.Path(p.optsSnapshotFile)
 		snapshotCommitment, err := p.snapshotCommitment(nodeSnapshotFile)
 		if err != nil {
@@ -66,39 +63,40 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 			panic(err)
 		}
 
-		// CHAIN SPECIFIC
+		// CHAIN SPECIFIC //////////////////////////////////////////////////////////////////////////////////////////////
+
+		// create WorkingDirectory for new chain
 		chainDirectory := p.disk.Path(fmt.Sprintf("%x", snapshotCommitment.ID().Bytes()))
 		if err = p.disk.CreateDir(chainDirectory); err != nil {
 			panic(err)
 		}
 
+		// copy over current snapshot to that working directory
 		chainSnapshotFile := diskutil.New(chainDirectory).Path("snapshot.bin")
 		if err = p.disk.CopyFile(nodeSnapshotFile, chainSnapshotFile); err != nil {
 			panic(err)
 		}
 
+		// start new instance with that working directory
+		p.activeInstance = instance.New(chainDirectory, snapshotCommitment, log)
+
 		fmt.Println(diskutil.New(chainDirectory).Path("snapshot.bin"))
 
-		// create WorkingDirectory for new chain (if not exists)
-		// copy over current snapshot to that working directory (if it doesn't exist yet)
-		// start new instance with that working directory
 		// add instance to instancesByChainID
 
 		p.chainManager = chainmanager.NewManager(snapshotCommitment)
 
 		//		p.instanceManager = instancemanager.New(p.disk, log)
 
-		_ = instance.New(p.disk, log)
-
-		p.Events.InstanceManager = p.instanceManager.Events
-
-		p.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-			p.network.SendBlock(block.Block.Block.Block.Block)
-		}))
-
-		p.network.Events.Gossip.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-			p.instanceManager.DispatchBlockData(event.Data, event.Neighbor)
-		}))
+		// p.Events.InstanceManager = p.instanceManager.Events
+		//
+		// p.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		// 	p.network.SendBlock(block.Block.Block.Block.Block)
+		// }))
+		//
+		// p.network.Events.Gossip.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
+		// 	p.instanceManager.DispatchBlockData(event.Data, event.Neighbor)
+		// }))
 	})
 }
 

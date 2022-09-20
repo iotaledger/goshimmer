@@ -5,11 +5,15 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 )
 
@@ -39,4 +43,11 @@ func TestProtocol(t *testing.T) {
 	protocol := New(nil, log, WithBaseDirectory(diskUtil.Path()))
 
 	fmt.Println(protocol)
+
+	debug.SetEnabled(true)
+
+	tf := engine.NewTestFramework(t, engine.WithEngine(protocol.activeInstance.Engine))
+	tf.CreateBlock("A", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.IssueBlocks("A")
+	event.Loop.WaitUntilAllTasksProcessed()
 }

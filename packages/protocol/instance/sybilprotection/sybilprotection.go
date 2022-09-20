@@ -20,6 +20,7 @@ type SybilProtection struct {
 
 func New(engine *engine.Engine, validatorSet *validator.Set, opts ...options.Option[SybilProtection]) (sybilProtection *SybilProtection) {
 	return options.Apply(&SybilProtection{
+		Engine:       engine,
 		ValidatorSet: validatorSet,
 	}, opts, func(s *SybilProtection) {
 		s.ActivityTracker = activitytracker.New(s.ValidatorSet, engine.Clock.RelativeAcceptedTime, s.optsActivityTrackerOptions...)

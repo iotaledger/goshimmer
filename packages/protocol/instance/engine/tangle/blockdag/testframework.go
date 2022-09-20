@@ -45,7 +45,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
+				t.evictionManager = eviction.NewManager[models.BlockID]()
 			}
 
 			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
