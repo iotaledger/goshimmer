@@ -1,7 +1,6 @@
 package snapshotcreator
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
@@ -37,8 +36,6 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 			DiffEpochIndex: 0,
 			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
 		}
-
-		fmt.Println(header)
 
 		return
 	}
@@ -78,7 +75,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 
 		o := outputsWithMetadata[i]
 		i++
-		fmt.Println(o)
+
 		return o
 	}
 
@@ -127,7 +124,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 		o := outputsWithMetadata[i]
 		i++
-		fmt.Println(o)
+
 		return o
 	}
 
@@ -137,8 +134,6 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 			DiffEpochIndex: 0,
 			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
 		}
-
-		fmt.Println(header)
 
 		return
 	}
