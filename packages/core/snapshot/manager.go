@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/types"
 
@@ -57,6 +58,20 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	activityProducer := NewActivityLogProducer(m.notarizationMgr, ecRecord.Commitment().Index())
 
 	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd, activityProducer)
+
+	return
+}
+
+func (m *Manager) SolidEntryPoints(index epoch.Index) (entryPoints *set.AdvancedSet[models.BlockID]) {
+	m.RLock()
+	defer m.RUnlock()
+
+	entryPoints = set.NewAdvancedSet[models.BlockID]()
+	if entryPointsMap, ok := m.seps.Get(index); ok {
+		for entryPoint := range entryPointsMap {
+			entryPoints.Add(entryPoint)
+		}
+	}
 
 	return
 }

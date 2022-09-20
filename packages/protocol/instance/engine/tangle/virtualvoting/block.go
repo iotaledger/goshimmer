@@ -9,7 +9,7 @@ import (
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Block represents a Block annotated with OTV related metadata.
+// Block represents a Block annotated with VirtualVoting related metadata.
 type Block struct {
 	subjectivelyInvalid bool
 
@@ -21,6 +21,24 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	return options.Apply(&Block{
 		Block: bookerBlock,
 	}, opts)
+}
+
+func (b *Block) IsSubjectivelyInvalid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.subjectivelyInvalid
+}
+
+func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.subjectivelyInvalid; wasUpdated {
+		b.subjectivelyInvalid = true
+	}
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

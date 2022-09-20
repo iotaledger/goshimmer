@@ -19,7 +19,7 @@ type Events struct {
 	MissingBlockAttached *event.Linkable[*Block, Events, *Events]
 
 	// BlockInvalid is triggered when a Block is found to be invalid.
-	BlockInvalid *event.Linkable[*Block, Events, *Events]
+	BlockInvalid *event.Linkable[*BlockInvalidEvent, Events, *Events]
 
 	// BlockOrphaned is triggered when a Block becomes orphaned.
 	BlockOrphaned *event.Linkable[*Block, Events, *Events]
@@ -37,8 +37,13 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockSolid:           event.NewLinkable[*Block, Events, *Events](),
 		BlockMissing:         event.NewLinkable[*Block, Events, *Events](),
 		MissingBlockAttached: event.NewLinkable[*Block, Events, *Events](),
-		BlockInvalid:         event.NewLinkable[*Block, Events, *Events](),
+		BlockInvalid:         event.NewLinkable[*BlockInvalidEvent, Events, *Events](),
 		BlockOrphaned:        event.NewLinkable[*Block, Events, *Events](),
 		BlockUnorphaned:      event.NewLinkable[*Block, Events, *Events](),
 	}
 })
+
+type BlockInvalidEvent struct {
+	Block  *Block
+	Reason error
+}

@@ -1,15 +1,15 @@
 package instance
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"time"
+
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -36,34 +36,42 @@ type Instance struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
-	logger *logger.Logger
+	dbManager *database.Manager
+	logger    *logger.Logger
 
 	optsSnapshotFile     string
-	optsSnapshotDepth int
+	optsSnapshotDepth    int
 	optsEngineOptions    []options.Option[engine.Engine]
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(disk *diskutil.DiskUtil, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+func New(chainDirectory string, snapshotCommitment *commitment.Commitment, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(&Instance{
-		Events:       NewEvents(),
-		ValidatorSet: validator.NewSet(),
+		Events:          NewEvents(),
+		ValidatorSet:    validator.NewSet(),
+		EvictionManager: eviction.NewManager[models.BlockID](),
 
-		optsSnapshotFile: "snapshot.bin",
+		dbManager:         database.NewManager(database.WithBaseDir(chainDirectory)),
+		logger:            logger,
+		optsSnapshotFile:  "snapshot.bin",
 		optsSnapshotDepth: 5,
 	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models.BlockID, models.Block](nil, kvstore.Realm{0x09})
+		p.BlockStorage = database.New[models.BlockID, models.Block](p.dbManager, kvstore.Realm{0x09})
+		p.Engine = engine.New(snapshotCommitment.Index().EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
+		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 
 		p.NotarizationManager = notarization.NewManager(
-			notarization.NewEpochCommitmentFactory(deps.Storage, p.optsSnapshotDepth),
+			notarization.NewEpochCommitmentFactory(p.dbManager.PermanentStorage(), p.optsSnapshotDepth),
 			p.Engine,
-			notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
-			notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-			notarization.ManaEpochDelay(ManaParameters);
+			notarization.MinCommittableEpochAge(1*time.Minute),
+			notarization.BootstrapWindow(2*time.Minute),
+			notarization.ManaEpochDelay(2),
 		)
 
+		p.SnapshotManager = snapshot.NewManager(p.NotarizationManager, 5)
+
 		if err := snapshot.LoadSnapshot(
-			disk.Path(p.optsSnapshotFile),
+			diskutil.New(chainDirectory).Path("snapshot.bin"),
 			p.NotarizationManager.LoadECandEIs,
 			p.SnapshotManager.LoadSolidEntryPoints,
 			p.NotarizationManager.LoadOutputsWithMetadata,
@@ -73,23 +81,9 @@ func New(disk *diskutil.DiskUtil, logger *logger.Logger, opts ...options.Option[
 			panic(err)
 		}
 
-		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
-		if err != nil {
-			panic(err)
-		}
-		p.logger = logger
+		p.EvictionManager.EvictUntil(snapshotCommitment.Index(), p.SnapshotManager.SolidEntryPoints(snapshotCommitment.Index()))
 
-		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
-			// TODO: implement me and set snapshot epoch!
-			// p.SnapshotManager.GetSolidEntryPoints(index)
-			return set.NewAdvancedSet[models.BlockID]()
-		})
-
-		// TODO: when engine is ready
-		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
 		p.Events.Engine.LinkTo(p.Engine.Events)
-
-		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 	})
 }
 
@@ -115,9 +109,9 @@ func (p *Instance) ReportInvalidBlock(neighbor *p2p.Neighbor) {
 
 func (p *Instance) setupNotarization() {
 	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
-	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		p.EvictionManager.EvictUntilEpoch(event.EI)
-	}))
+	// p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+	// 	p.EvictionManager.EvictUntil(event.EI)
+	// }))
 }
 
 func (p *Instance) Start() {
