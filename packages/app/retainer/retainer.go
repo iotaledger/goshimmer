@@ -56,6 +56,8 @@ func (r *Retainer) setupEvents() {
 	r.engine.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
+
+		cm.ConflictIDs = r.engine.Tangle.BlockConflicts(block)
 	}))
 
 	r.engine.Events.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
@@ -75,6 +77,8 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
+
+	r.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -106,10 +110,16 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	defer r.evictionManager.RUnlock()
 
 	storage := r.cachedMetadata.Get(epochIndex)
+	if storage == nil {
+		return metas
+	}
 
 	metas = make([]*BlockMetadata, 0, storage.Size())
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
-		metas = append(metas, newBlockMetadata(cm))
+		blockMetadata := newBlockMetadata(cm)
+		blockMetadata.M.ConflictIDs = r.engine.Tangle.BlockConflicts(cm.Booker.Block)
+
+		metas = append(metas, blockMetadata)
 		return true
 	})
 

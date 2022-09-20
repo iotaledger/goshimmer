@@ -87,4 +87,16 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
+func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsValidatorSet = validatorSet
+	}
+}
+
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsEvictionManager = evictionManager
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

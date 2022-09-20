@@ -1,11 +1,13 @@
 package retainer
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
@@ -20,8 +22,10 @@ import (
 // region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type cachedMetadata struct {
-	BlockDAG      *blockWithTime[*blockdag.Block]
-	Booker        *blockWithTime[*booker.Block]
+	BlockDAG *blockWithTime[*blockdag.Block]
+	Booker   *blockWithTime[*booker.Block]
+	// calculated property
+	ConflictIDs   utxo.TransactionIDs
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
 	Acceptance    *blockWithTime[*acceptance.Block]
@@ -50,11 +54,13 @@ func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
 	defer c.Unlock()
 	c.VirtualVoting = newBlockWithTime(block)
 }
+
 func (c *cachedMetadata) setAcceptanceBlock(block *acceptance.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Acceptance = newBlockWithTime(block)
 }
+
 func (c *cachedMetadata) setSchedulerBlock(block *scheduler.Block) {
 	c.Lock()
 	defer c.Unlock()
@@ -81,6 +87,7 @@ func newBlockWithTime[BlockType any](block BlockType) *blockWithTime[BlockType] 
 
 // region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
+// BlockMetadata stores block metadata generated during processing of the block.
 type BlockMetadata struct {
 	model.Storable[models.BlockID, BlockMetadata, *BlockMetadata, blockMetadataModel] `serix:"0"`
 }
@@ -117,10 +124,17 @@ type blockMetadataModel struct {
 	Dropped       bool      `serix:"20"`
 	SchedulerTime time.Time `serix:"21"`
 
-	// scheduler.Block
-
+	// acceptance.Block
 	Accepted     bool      `serix:"22"`
 	AcceptedTime time.Time `serix:"23"`
+}
+
+func (b *BlockMetadata) Encode() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), b.M)
+}
+
+func (b *BlockMetadata) Decode(bytes []byte) (int, error) {
+	return serix.DefaultAPI.Decode(context.Background(), bytes, &b.M)
 }
 
 func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
@@ -139,18 +153,24 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		copyFromBlockDAGBlock(cm.BlockDAG, b)
 		b.SetID(cm.BlockDAG.Block.ID())
 	}
+
 	if cm.Booker != nil {
 		copyFromBookerBlock(cm.Booker, b)
+		b.M.ConflictIDs = cm.ConflictIDs
 	}
+
 	if cm.VirtualVoting != nil {
 		copyFromVirtualVotingBlock(cm.VirtualVoting, b)
 	}
+
 	if cm.Scheduler != nil {
 		copyFromSchedulerBlock(cm.Scheduler, b)
 	}
+
 	if cm.Acceptance != nil {
 		copyFromAcceptanceBlock(cm.Acceptance, b)
 	}
+
 	return b
 }
 
@@ -184,10 +204,8 @@ func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetad
 			PastMarkers:   pastMarkers,
 		}
 	}
-	blockMetadata.M.AddedConflictIDs = utxo.TransactionIDs(block.AddedConflictIDs().Clone())
-	blockMetadata.M.SubtractedConflictIDs = utxo.TransactionIDs(block.SubtractedConflictIDs().Clone())
-	// TODO:
-	// blockMetadata.M.ConflictIDs = ??
+	blockMetadata.M.AddedConflictIDs = block.AddedConflictIDs().Clone()
+	blockMetadata.M.SubtractedConflictIDs = block.SubtractedConflictIDs().Clone()
 	blockMetadata.M.BookedTime = blockWithTime.Time
 }
 
