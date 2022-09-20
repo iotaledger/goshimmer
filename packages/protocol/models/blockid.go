@@ -41,6 +41,18 @@ func NewBlockID(identifier [32]byte, epochIndex epoch.Index) BlockID {
 	}
 }
 
+func (b BlockID) EncodeJSON() (any, error) {
+	return b.Base58(), nil
+}
+
+func (b *BlockID) DecodeJSON(val any) error {
+	serialized, ok := val.(string)
+	if !ok {
+		return errors.New("incorrect type")
+	}
+	return b.FromBase58(serialized)
+}
+
 // FromBytes deserializes a BlockID from a byte slice.
 func (b *BlockID) FromBytes(serialized []byte) (consumedBytes int, err error) {
 	return serix.DefaultAPI.Decode(context.Background(), serialized, b, serix.WithValidation())
