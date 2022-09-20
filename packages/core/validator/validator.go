@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -53,6 +54,10 @@ func (v *Validator) SetWeight(weight uint64) (wasUpdated bool) {
 
 	return false
 
+}
+
+func (v *Validator) String() string {
+	return fmt.Sprintf("Validator(%s, %d)", v.id.String(), v.weight)
 }
 
 func WithWeight(weight uint64) options.Option[Validator] {

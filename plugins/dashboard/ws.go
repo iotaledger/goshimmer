@@ -52,7 +52,7 @@ func configureWebSocketWorkerPool() {
 			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsBlock(&wsblk{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsBlock(&wsblk{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: deps.Tangle.TipManager.TipCount(),
+				TotalTips: deps.Protocol.Instance().Engine.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsBlock(&wsblk{MsgTypeComponentCounterMetric, x})

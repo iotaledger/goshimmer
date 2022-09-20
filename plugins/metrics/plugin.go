@@ -14,8 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -27,6 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
@@ -250,7 +249,7 @@ func registerLocalMetrics() {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -273,8 +272,7 @@ func registerLocalMetrics() {
 		delete(activeConflicts, conflictID)
 	}))
 
-	// TODO: protocol should link ledger events so we don't attach to a specific instance
-	deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 

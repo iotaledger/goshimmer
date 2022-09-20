@@ -161,6 +161,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
+	// TODO: fix when mana is figured out
 	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 	consensusPayload := &ManaNetworkListBlkData{ManaType: mana.ConsensusMana.String()}
 	for nodeID, weight := range weights {

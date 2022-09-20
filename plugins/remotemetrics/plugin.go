@@ -122,12 +122,12 @@ func configureConflictConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	// TODO: attach to linkable event when it's ready
-	deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		onConflictConfirmed(event.ID)
 	}))
-	// TODO: attach to linkable event when it's ready
-	deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -144,8 +144,7 @@ func configureBlockFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		// TODO: attach to linkable event when it's ready
-		deps.Protocol.Instance().Engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {

@@ -59,6 +59,7 @@ func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *evictio
 		e.Events.Consensus = e.Consensus.Events
 		e.Events.CongestionControl = e.CongestionControl.Events
 		e.Events.TipManager = e.TipManager.Events
+		e.Events.Ledger = e.Ledger.Events
 
 		e.setupTipManagerEvents()
 	})

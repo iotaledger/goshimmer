@@ -28,7 +28,7 @@ func NewDoubleSpendFilter() *DoubleSpendFilter {
 func (d *DoubleSpendFilter) Add(tx *devnetvm.Transaction) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	now := clock.SyncedTime()
+	now := time.Now()
 	for _, input := range tx.Essence().Inputs() {
 		if input.Type() != devnetvm.UTXOInputType {
 			continue
@@ -84,7 +84,7 @@ func (d *DoubleSpendFilter) CleanUp() {
 	if len(d.addedAt) == 0 {
 		return
 	}
-	now := clock.SyncedTime()
+	now := time.Now()
 	for txID, addedTime := range d.addedAt {
 		if now.Sub(addedTime) > DoubleSpendFilterCleanupInterval {
 			d.remove(txID)

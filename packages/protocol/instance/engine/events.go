@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tip"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
 type Events struct {
@@ -16,6 +17,7 @@ type Events struct {
 	Consensus         *consensus.Events
 	CongestionControl *congestioncontrol.Events
 	TipManager        *tip.Events
+	Ledger            *ledger.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -28,5 +30,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		Consensus:         consensus.NewEvents(),
 		CongestionControl: congestioncontrol.NewEvents(),
 		TipManager:        tip.NewEvents(),
+		Ledger:            ledger.NewEvents(),
 	}
 })

@@ -114,8 +114,7 @@ func registerTangleEvents() {
 	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
 	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
 	deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkConfirmedClosure)
-	// TODO: attach to linkable event instead of an event of a specific protocol instance
-	deps.Protocol.Instance().Engine.Ledger.Events.TransactionAccepted.Attach(txAcceptedClosure)
+	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
 func registerUTXOEvents() {

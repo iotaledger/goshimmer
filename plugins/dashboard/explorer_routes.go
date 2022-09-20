@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -75,10 +76,10 @@ type ExplorerBlock struct {
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
-func createExplorerBlock(blk *tangleold.Block) *ExplorerBlock {
+// TODO: implement when retainer is ready
+func createExplorerBlock(blk *models.Block) *ExplorerBlock {
 	blockID := blk.ID()
 	cachedBlockMetadata := deps.Tangle.Storage.BlockMetadata(blockID)
-	defer cachedBlockMetadata.Release()
 	blockMetadata, _ := cachedBlockMetadata.Unwrap()
 
 	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)

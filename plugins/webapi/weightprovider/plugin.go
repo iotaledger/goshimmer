@@ -23,16 +23,17 @@ type dependencies struct {
 	Protocol *protocol.Protocol
 }
 
+// TODO: rename to validatorset or sth?
 func init() {
 	Plugin = node.NewPlugin("WebAPIWeightProviderEndpoint", deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	deps.Server.GET("weightprovider/activenodes", getNodesHandler)
+	deps.Server.GET("weightprovider/activeissuers", getIssuersHandler)
 	deps.Server.GET("weightprovider/weights", getWeightsHandler)
 }
 
-func getNodesHandler(c echo.Context) (err error) {
+func getIssuersHandler(c echo.Context) (err error) {
 	activeValidators := deps.Protocol.Instance().SybilProtection.ValidatorSet
 
 	activeValidatorsString := make([]string, 0)
@@ -45,15 +46,15 @@ func getNodesHandler(c echo.Context) (err error) {
 }
 
 func getWeightsHandler(c echo.Context) (err error) {
-	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
+	validatorSet := deps.Protocol.Instance().Engine.Tangle.ValidatorSet
 
-	weightsString := make(map[string]float64)
-	for nodeID, mana := range weights {
-		weightsString[nodeID.String()] = mana
+	weightsString := make(map[string]uint64)
+	for _, validator := range validatorSet.Slice() {
+		weightsString[validator.ID().String()] = validator.Weight()
 	}
 	resp := Weights{
 		Weights:     weightsString,
-		TotalWeight: totalWeight,
+		TotalWeight: validatorSet.TotalWeight(),
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -61,6 +62,6 @@ func getWeightsHandler(c echo.Context) (err error) {
 
 // Weights defines the weights associated to the nodes.
 type Weights struct {
-	Weights     map[string]float64 `json:"weights"`
-	TotalWeight float64            `json:"totalWeight"`
+	Weights     map[string]uint64 `json:"weights"`
+	TotalWeight int64             `json:"totalWeight"`
 }

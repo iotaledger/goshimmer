@@ -12,6 +12,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -25,9 +26,9 @@ const PluginName = "WebAPIInfoEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Local  *peer.Local
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Local    *peer.Local
+	Protocol *protocol.Protocol
 }
 
 var (
@@ -96,15 +97,16 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	tm := deps.Tangle.TimeManager
+	tm := deps.Protocol.Instance().Engine.Clock
+	// TODO: figure out where to take last accepted block from
 	lcm := tm.LastAcceptedBlock()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:          deps.Tangle.TimeManager.Synced(),
+		Synced:          deps.Protocol.Instance().Engine.IsSynced(),
 		AcceptedBlockID: lcm.BlockID.Base58(),
-		ATT:             tm.ATT().UnixNano(),
-		RATT:            tm.RATT().UnixNano(),
-		CTT:             tm.CTT().UnixNano(),
-		RCTT:            tm.RCTT().UnixNano(),
+		ATT:             tm.AcceptedTime().UnixNano(),
+		RATT:            tm.RelativeAcceptedTime().UnixNano(),
+		CTT:             tm.ConfirmedTime().UnixNano(),
+		RCTT:            tm.RelativeConfirmedTime().UnixNano(),
 	}
 
 	t := time.Now()
@@ -117,12 +119,12 @@ func getInfo(c echo.Context) error {
 		ConsensusTimestamp: tConsensus,
 	}
 
-	nodeQueueSizes := make(map[string]int)
-	for nodeID, size := range deps.Tangle.Scheduler.NodeQueueSizes() {
-		nodeQueueSizes[nodeID.String()] = size
+	issuerQueueSizes := make(map[string]int)
+	for issuerID, size := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
+		issuerQueueSizes[issuerID.String()] = size
 	}
-
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
+	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:               banner.AppVersion,
@@ -140,17 +142,18 @@ func getInfo(c echo.Context) error {
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,
 		Scheduler: jsonmodels.Scheduler{
-			Running:           deps.Tangle.Scheduler.Running(),
-			Rate:              deps.Tangle.Scheduler.Rate().String(),
-			MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+			Running:           scheduler.Running(),
+			Rate:              scheduler.Rate().String(),
+			MaxBufferSize:     scheduler.MaxBufferSize(),
+			CurrentBufferSize: scheduler.BufferSize(),
 			Deficit:           deficit,
-			NodeQueueSizes:    nodeQueueSizes,
+			NodeQueueSizes:    issuerQueueSizes,
 		},
-		RateSetter: jsonmodels.RateSetter{
-			Rate:     deps.Tangle.RateSetter.Rate(),
-			Size:     deps.Tangle.RateSetter.Size(),
-			Estimate: deps.Tangle.RateSetter.Estimate(),
-		},
+		//TODO: finish when ratesetter is available
+		//RateSetter: jsonmodels.RateSetter{
+		//	Rate:     deps.Tangle.RateSetter.Rate(),
+		//	Size:     deps.Tangle.RateSetter.Size(),
+		//	Estimate: deps.Tangle.RateSetter.Estimate(),
+		//},
 	})
 }

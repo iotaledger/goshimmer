@@ -26,7 +26,6 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangleold.Tangle
 }
 
 // Plugin gets the plugin instance.

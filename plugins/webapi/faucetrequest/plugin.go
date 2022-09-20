@@ -11,6 +11,7 @@ import (
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -24,8 +25,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Protocol *protocol.Protocol
 }
 
 // Plugin gets the plugin instance.
@@ -71,7 +72,7 @@ func requestFunds(c echo.Context) error {
 	}
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
-
+	// TODO: finish when issuing blocks if figured out
 	blk, err := deps.Tangle.BlockFactory.IssuePayload(faucetPayload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetRequestResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})

@@ -155,6 +155,10 @@ func (b *Booker) GetLatestAttachment(txID utxo.TransactionID) (attachment *Block
 	return b.attachments.getLatestAttachment(txID)
 }
 
+func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments Blocks) {
+	return NewBlocks(b.attachments.Get(txID)...)
+}
+
 func (b *Booker) evictEpoch(epochIndex epoch.Index) {
 	b.bookingOrder.EvictEpoch(epochIndex)
 
