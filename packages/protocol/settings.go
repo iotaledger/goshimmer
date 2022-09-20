@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -20,40 +21,45 @@ type Settings struct {
 
 func NewSettings(filePath string) (settings *Settings) {
 	return &Settings{
-		storage: storable.InitStruct(&settingsStorage{}, filePath),
+		storage: storable.InitStruct(&settingsStorage{
+			Chains: set.NewAdvancedSet[commitment.ID](),
+		}, filePath),
 	}
 }
 
-func (s *Settings) SnapshotCommitment() *commitment.Commitment {
+func (s *Settings) ActiveChainID() commitment.ID {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.storage.SnapshotCommitment
+	return s.storage.ActiveChainID
 }
 
-func (s *Settings) SetSnapshotCommitment(snapshotCommitment *commitment.Commitment) {
+func (s *Settings) SetActiveChainID(chainID commitment.ID) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.storage.SnapshotCommitment = snapshotCommitment
-
-	s.Persist()
+	s.storage.ActiveChainID = chainID
 }
 
-func (s *Settings) SnapshotChecksum() (checksum [32]byte) {
+func (s *Settings) Chains() (chains *set.AdvancedSet[commitment.ID]) {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.storage.SnapshotChecksum
+	return s.storage.Chains.Clone()
 }
 
-func (s *Settings) SetSnapshotChecksum(checksum [32]byte) {
+func (s *Settings) AddChain(chainID commitment.ID) (added bool) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.storage.SnapshotChecksum = checksum
+	return s.storage.Chains.Add(chainID)
+}
 
-	s.Persist()
+func (s *Settings) RemoveChain(chainID commitment.ID) (deleted bool) {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.storage.Chains.Delete(chainID)
 }
 
 func (s *Settings) Persist() {
@@ -67,8 +73,8 @@ func (s *Settings) Persist() {
 // region settingsStorage //////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsStorage struct {
-	SnapshotChecksum   [32]byte               `serix:"0"`
-	SnapshotCommitment *commitment.Commitment `serix:"1,optional"`
+	ActiveChainID commitment.ID                   `serix:"0"`
+	Chains        *set.AdvancedSet[commitment.ID] `serix:"1"`
 
 	storable.Struct[settingsStorage, *settingsStorage]
 }

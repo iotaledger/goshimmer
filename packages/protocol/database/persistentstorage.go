@@ -13,7 +13,7 @@ type PersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.Seria
 	realm     Realm
 }
 
-func New[K, V any, KPtr IndexedKey[K], VPtr constraints.Serializable[V]](dbManager *Manager, realm Realm) *PersistentEpochStorage[K, V, KPtr, VPtr] {
+func NewPersistentEpochStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.Serializable[V]](dbManager *Manager, realm Realm) *PersistentEpochStorage[K, V, KPtr, VPtr] {
 	return &PersistentEpochStorage[K, V, KPtr, VPtr]{
 		dbManager: dbManager,
 		realm:     realm,
