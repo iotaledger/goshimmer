@@ -22,7 +22,7 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 	}, opts)
 }
 
-func (b *Block) Accepted() bool {
+func (b *Block) IsAccepted() bool {
 	b.RLock()
 	defer b.RUnlock()
 
