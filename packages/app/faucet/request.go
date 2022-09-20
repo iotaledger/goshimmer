@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func init() {

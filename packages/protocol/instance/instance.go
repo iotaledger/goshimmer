@@ -8,18 +8,19 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Instance /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,30 +39,43 @@ type Instance struct {
 	logger *logger.Logger
 
 	optsSnapshotFile     string
+	optsSnapshotDepth int
 	optsEngineOptions    []options.Option[engine.Engine]
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+func New(disk *diskutil.DiskUtil, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(&Instance{
 		Events:       NewEvents(),
 		ValidatorSet: validator.NewSet(),
 
 		optsSnapshotFile: "snapshot.bin",
+		optsSnapshotDepth: 5,
 	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
+		p.BlockStorage = database.New[models.BlockID, models.Block](nil, kvstore.Realm{0x09})
 
-		err := snapshot.LoadSnapshot(
-			p.optsSnapshotFile,
+		p.NotarizationManager = notarization.NewManager(
+			notarization.NewEpochCommitmentFactory(deps.Storage, p.optsSnapshotDepth),
+			p.Engine,
+			notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+			notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
+			notarization.ManaEpochDelay(ManaParameters);
+		)
+
+		if err := snapshot.LoadSnapshot(
+			disk.Path(p.optsSnapshotFile),
 			p.NotarizationManager.LoadECandEIs,
 			p.SnapshotManager.LoadSolidEntryPoints,
 			p.NotarizationManager.LoadOutputsWithMetadata,
 			p.NotarizationManager.LoadEpochDiff,
 			emptyActivityConsumer,
-		)
+		); err != nil {
+			panic(err)
+		}
+
 		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
 		if err != nil {
-			return
+			panic(err)
 		}
 		p.logger = logger
 

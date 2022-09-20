@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/cockroachdb/errors"
@@ -13,7 +14,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instancemanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -25,8 +28,9 @@ type Protocol struct {
 	Events *Events
 
 	network         *network.Network
-	diskUtil        *diskutil.DiskUtil
+	disk            *diskutil.DiskUtil
 	settings        *Settings
+	chainManager    *chainmanager.Manager
 	instanceManager *instancemanager.InstanceManager
 	// solidification  *solidification.Solidification
 
@@ -50,14 +54,41 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 		Logger: log,
 	}, opts, func(p *Protocol) {
 		p.network = networkInstance
-		p.diskUtil = diskutil.New(p.optsBaseDirectory)
-		p.settings = NewSettings(p.diskUtil.RelativePath(p.optsSettingsFileName))
+		p.disk = diskutil.New(p.optsBaseDirectory)
+		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-		snapshotCommitment, err := p.snapshotCommitment(p.diskUtil.RelativePath(p.optsSnapshotFile))
+		// GLOBAL
+		nodeSnapshotFile := p.disk.Path(p.optsSnapshotFile)
+		snapshotCommitment, err := p.snapshotCommitment(nodeSnapshotFile)
 		if err != nil {
-			panic(errors.Errorf("failed to retrieve snapshot commitment: %w", err))
+			fmt.Println(errors.Errorf("failed to retrieve snapshot commitment: %w", err))
+
+			panic(err)
 		}
-		p.instanceManager = instancemanager.New(snapshotCommitment)
+
+		// CHAIN SPECIFIC
+		chainDirectory := p.disk.Path(fmt.Sprintf("%x", snapshotCommitment.ID().Bytes()))
+		if err = p.disk.CreateDir(chainDirectory); err != nil {
+			panic(err)
+		}
+
+		chainSnapshotFile := diskutil.New(chainDirectory).Path("snapshot.bin")
+		if err = p.disk.CopyFile(nodeSnapshotFile, chainSnapshotFile); err != nil {
+			panic(err)
+		}
+
+		fmt.Println(diskutil.New(chainDirectory).Path("snapshot.bin"))
+
+		// create WorkingDirectory for new chain (if not exists)
+		// copy over current snapshot to that working directory (if it doesn't exist yet)
+		// start new instance with that working directory
+		// add instance to instancesByChainID
+
+		p.chainManager = chainmanager.NewManager(snapshotCommitment)
+
+		//		p.instanceManager = instancemanager.New(p.disk, log)
+
+		_ = instance.New(p.disk, log)
 
 		p.Events.InstanceManager = p.instanceManager.Events
 
@@ -72,7 +103,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 }
 
 func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *commitment.Commitment, err error) {
-	checksum, err := p.diskUtil.FileChecksum(snapshotFile)
+	checksum, err := p.disk.FileChecksum(snapshotFile)
 	if err != nil {
 		return nil, errors.Errorf("failed to calculate checksum of snapshot file '%s': %w", snapshotFile, err)
 	}
@@ -83,7 +114,7 @@ func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *
 
 	snapshotHeader, err := p.readSnapshotHeader(snapshotFile)
 	if err != nil {
-		return nil, errors.Errorf("failed to read snapshot header from file '%s': %w", snapshotFile, err)
+		return nil, errors.Errorf("failed to read snapshot commitment: %w", err)
 	}
 
 	p.settings.SetSnapshotChecksum(checksum)
@@ -94,7 +125,7 @@ func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *
 }
 
 func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledger.SnapshotHeader, err error) {
-	if err = p.diskUtil.WithFile(snapshotFile, func(file *os.File) (err error) {
+	if err = p.disk.WithFile(snapshotFile, func(file *os.File) (err error) {
 		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
 		return
 	}); err != nil {
@@ -107,6 +138,12 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsBaseDirectory = baseDirectory
+	}
+}
 
 func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
 	return func(n *Protocol) {

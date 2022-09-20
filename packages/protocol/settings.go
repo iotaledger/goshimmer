@@ -67,8 +67,8 @@ func (s *Settings) Persist() {
 // region settingsStorage //////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsStorage struct {
-	SnapshotCommitment *commitment.Commitment `serix:"0"`
-	SnapshotChecksum   [32]byte               `serix:"1"`
+	SnapshotChecksum   [32]byte               `serix:"0"`
+	SnapshotCommitment *commitment.Commitment `serix:"1,optional"`
 
 	storable.Struct[settingsStorage, *settingsStorage]
 }

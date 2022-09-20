@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 type Manager struct {
@@ -26,8 +25,8 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
 
-	manager.SnapshotCommitment = manager.Commitment(commitment.NewID(snapshot.Index(), snapshot.RootsID(), snapshot.PrevID()), true)
-	manager.SnapshotCommitment.PublishData(snapshot.PrevID(), snapshot.Index(), snapshot.RootsID())
+	manager.SnapshotCommitment = manager.Commitment(snapshot.ID(), true)
+	manager.SnapshotCommitment.PublishCommitment(snapshot)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
@@ -35,13 +34,13 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	return
 }
 
-func (c *Manager) ProcessCommitment(index epoch.Index, ecr commitment.RootsID, prevEC commitment.ID) (chain *Chain, wasForked bool) {
-	commitment := c.Commitment(commitment.NewID(index, ecr, prevEC), true)
-	if !commitment.PublishData(prevEC, index, ecr) {
-		return commitment.Chain(), false
+func (c *Manager) ProcessCommitment(commitments *commitment.Commitment) (chain *Chain, wasForked bool) {
+	chainCommitment := c.Commitment(commitments.ID(), true)
+	if !chainCommitment.PublishCommitment(commitments) {
+		return chainCommitment.Chain(), false
 	}
 
-	if chain, wasForked = c.registerChild(prevEC, commitment); chain == nil {
+	if chain, wasForked = c.registerChild(chainCommitment.Commitment().PrevID(), chainCommitment); chain == nil {
 		return
 	}
 
@@ -49,7 +48,7 @@ func (c *Manager) ProcessCommitment(index epoch.Index, ecr commitment.RootsID, p
 		c.Events.ForkDetected.Trigger(chain)
 	}
 
-	if children := commitment.Children(); len(children) != 0 {
+	if children := chainCommitment.Children(); len(children) != 0 {
 		for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
 			childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
 		}
@@ -93,7 +92,7 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 
 		commitments[i] = currentCommitment
 
-		id = currentCommitment.PrevID()
+		id = currentCommitment.Commitment().PrevID()
 	}
 
 	return

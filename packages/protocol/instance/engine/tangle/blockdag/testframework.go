@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

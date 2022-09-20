@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"hash"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -18,8 +19,40 @@ func New(basePath string) (newDiskUtil *DiskUtil) {
 	}
 }
 
-func (d *DiskUtil) RelativePath(pathElements ...string) (path string) {
-	return filepath.Join(append([]string{d.basePath}, pathElements...)...)
+func (d *DiskUtil) CopyFile(src, dst string) (err error) {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer dstFile.Close()
+
+	if _, err = io.Copy(dstFile, srcFile); err != nil {
+		return
+	}
+
+	return dstFile.Sync()
+}
+
+func (d *DiskUtil) CreateDir(directoryPath string, perm ...os.FileMode) (err error) {
+	if len(perm) > 0 {
+		return os.MkdirAll(directoryPath, perm[0])
+	}
+
+	return os.MkdirAll(directoryPath, 0755)
+}
+
+func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {
+	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (d *DiskUtil) Path(relativePathElements ...string) (path string) {
+	return filepath.Join(append([]string{d.basePath}, relativePathElements...)...)
 }
 
 func (d *DiskUtil) FileChecksum(filePath string, hash ...hash.Hash) (checksum [32]byte, err error) {

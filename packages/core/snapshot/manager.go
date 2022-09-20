@@ -9,8 +9,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // Manager is the snapshot manager.
@@ -45,16 +45,16 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
-			DiffEpochIndex: ecRecord.Index(),
-			LatestECRecord: ecRecord,
+			DiffEpochIndex: ecRecord.Commitment().Index(),
+			LatestECRecord: ecRecord.Commitment(),
 		}
 		return header, nil
 	}
 
-	sepsProd := NewSolidEntryPointsProducer(fullEpochIndex, ecRecord.Index(), m)
+	sepsProd := NewSolidEntryPointsProducer(fullEpochIndex, ecRecord.Commitment().Index(), m)
 	outputWithMetadataProd := NewLedgerUTXOStatesProducer(m.notarizationMgr)
-	epochDiffsProd := NewEpochDiffsProducer(fullEpochIndex, ecRecord.Index(), m.notarizationMgr)
-	activityProducer := NewActivityLogProducer(m.notarizationMgr, ecRecord.Index())
+	epochDiffsProd := NewEpochDiffsProducer(fullEpochIndex, ecRecord.Commitment().Index(), m.notarizationMgr)
+	activityProducer := NewActivityLogProducer(m.notarizationMgr, ecRecord.Commitment().Index())
 
 	header, err = CreateSnapshot(snapshotFileName, headerProd, sepsProd, outputWithMetadataProd, epochDiffsProd, activityProducer)
 

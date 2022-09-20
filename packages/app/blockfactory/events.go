@@ -3,7 +3,7 @@ package blockfactory
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // Events represents events happening on a block factory.

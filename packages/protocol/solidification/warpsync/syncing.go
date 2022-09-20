@@ -19,8 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type epochSyncStart struct {

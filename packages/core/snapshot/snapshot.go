@@ -8,8 +8,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // Snapshot contains the data to be put in a snapshot file.
@@ -78,7 +78,7 @@ func LoadSnapshot(filePath string,
 	f, err := os.Open(filePath)
 	defer f.Close()
 	if err != nil {
-		return fmt.Errorf("fail to open the snapshot file")
+		return fmt.Errorf("fail to open the snapshot file %s: %s", filePath, err)
 	}
 
 	err = streamSnapshotDataFrom(f, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer, activityLogConsumer)

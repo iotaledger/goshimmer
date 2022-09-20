@@ -3,11 +3,14 @@ package instancemanager
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/logger"
+
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type InstanceManager struct {
@@ -18,7 +21,9 @@ type InstanceManager struct {
 	chainManager       *chainmanager.Manager
 }
 
-func New(snapshotCommitment *commitment.Commitment) (manager *InstanceManager) {
+func New(diskUtil *diskutil.DiskUtil, log *logger.Logger) (manager *InstanceManager) {
+	var snapshotCommitment *commitment.Commitment
+
 	manager = &InstanceManager{
 		Events: NewEvents(),
 
@@ -26,7 +31,13 @@ func New(snapshotCommitment *commitment.Commitment) (manager *InstanceManager) {
 		chainManager:       chainmanager.NewManager(snapshotCommitment),
 	}
 
+	// create WorkingDirectory for new chain (if not exists)
+	// copy over current snapshot to that working directory (if it doesn't exist yet)
+	// start new instance with that working directory
+	// add instance to instancesByChainID
+
 	// todo try to instantiate main protocol
+	manager.activeInstance = instance.New(nil, log)
 
 	manager.Events.Instance.LinkTo(manager.activeInstance.Events)
 
@@ -40,7 +51,7 @@ func (p *InstanceManager) DispatchBlockData(bytes []byte, neighbor *p2p.Neighbor
 		return
 	}
 
-	chain, wasForked := p.chainManager.ProcessCommitment(block.EI(), block.ECR(), block.PrevEC())
+	chain, wasForked := p.chainManager.ProcessCommitment(block.Commitment())
 	if chain == nil {
 		p.Events.InvalidBlockReceived.Trigger(neighbor)
 		return

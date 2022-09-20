@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -25,7 +25,7 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStorage *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 
-	ecRecordStorage *objectstorage.ObjectStorage[*commitment.Commitment]
+	ecRecordStorage *objectstorage.ObjectStorage[*chainmanager.Commitment]
 
 	// Delta storages
 	epochDiffStoragesMutex sync.Mutex
@@ -58,7 +58,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.ecRecordStorage = objectstorage.NewStructStorage[commitment.Commitment](
+	new.ecRecordStorage = objectstorage.NewStructStorage[chainmanager.Commitment](
 		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixECRecord),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -71,9 +71,9 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 }
 
 // CachedECRecord retrieves cached ECRecord of the given Index. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentCallback ...func(ei epoch.Index) *commitment.Commitment) (cachedEpochDiff *objectstorage.CachedObject[*commitment.Commitment]) {
+func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentCallback ...func(ei epoch.Index) *chainmanager.Commitment) (cachedEpochDiff *objectstorage.CachedObject[*chainmanager.Commitment]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *commitment.Commitment {
+		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *chainmanager.Commitment {
 			return computeIfAbsentCallback[0](ei)
 		})
 	}

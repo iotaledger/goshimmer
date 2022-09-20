@@ -16,8 +16,8 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/serializer/v2"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models/payload"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////

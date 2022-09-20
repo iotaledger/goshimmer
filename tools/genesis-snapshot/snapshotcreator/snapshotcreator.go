@@ -1,18 +1,19 @@
 package snapshotcreator
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -30,23 +31,17 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 	now := time.Now()
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
-		ecRecord := epoch.NewECRecord(0)
-		ecRecord.SetECR(commitment.MerkleRoot{})
-		ecRecord.SetPrevEC(commitment.MerkleRoot{})
-
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: ecRecord,
+			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
 		}
-
-		fmt.Println(header)
 
 		return
 	}
 
 	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
-		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
+		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]models.BlockID, 0)}
 	}
 
 	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
@@ -61,8 +56,8 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	// prepare activity log
-	epochActivity := epoch.NewSnapshotEpochActivity()
-	epochActivity[epoch.Index(0)] = epoch.NewSnapshotNodeActivity()
+	epochActivity := activitylog.NewSnapshotEpochActivity()
+	epochActivity[epoch.Index(0)] = activitylog.NewSnapshotNodeActivity()
 
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
@@ -80,11 +75,11 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 
 		o := outputsWithMetadata[i]
 		i++
-		fmt.Println(o)
+
 		return o
 	}
 
-	activityLogProd := func() epoch.SnapshotEpochActivity {
+	activityLogProd := func() activitylog.SnapshotEpochActivity {
 		return epochActivity
 	}
 
@@ -106,8 +101,8 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	// prepare activity log
-	epochActivity := epoch.NewSnapshotEpochActivity()
-	epochActivity[epoch.Index(0)] = epoch.NewSnapshotNodeActivity()
+	epochActivity := activitylog.NewSnapshotEpochActivity()
+	epochActivity[epoch.Index(0)] = activitylog.NewSnapshotNodeActivity()
 
 	// This is the same seed used to derive the faucet ID.
 	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
@@ -129,28 +124,22 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 
 		o := outputsWithMetadata[i]
 		i++
-		fmt.Println(o)
+
 		return o
 	}
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
-		ecRecord := epoch.NewECRecord(0)
-		ecRecord.SetECR(commitment.MerkleRoot{})
-		ecRecord.SetPrevEC(commitment.MerkleRoot{})
-
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: ecRecord,
+			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
 		}
-
-		fmt.Println(header)
 
 		return
 	}
 
 	sepsProd := func() (sep *snapshot.SolidEntryPoints) {
-		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]tangleold.BlockID, 0)}
+		return &snapshot.SolidEntryPoints{EI: epoch.Index(0), Seps: make([]models.BlockID, 0)}
 	}
 
 	epochDiffsProd := func() (diffs *ledger.EpochDiff) {
@@ -159,7 +148,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		return
 	}
 
-	activityLogProd := func() epoch.SnapshotEpochActivity {
+	activityLogProd := func() activitylog.SnapshotEpochActivity {
 		return epochActivity
 	}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////

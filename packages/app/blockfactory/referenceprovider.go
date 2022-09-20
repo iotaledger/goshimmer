@@ -5,11 +5,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region ReferenceProvider ////////////////////////////////////////////////////////////////////////////////////////////
