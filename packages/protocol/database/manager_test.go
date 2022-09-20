@@ -8,9 +8,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/core/byteutils"
+	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -34,11 +36,6 @@ func TestManager_Get(t *testing.T) {
 			db, exists := m.dbs.Get(epoch.Index(i))
 			require.True(t, exists, "db %d does not exist in data structure", i)
 			assert.Equal(t, epoch.Index(i), db.index)
-			if i+granularity < bucketsCount {
-				assert.Len(t, db.buckets, granularity)
-			} else {
-				assert.Len(t, db.buckets, bucketsCount-i)
-			}
 		}
 
 		// Check that folder structure is correct.
@@ -74,10 +71,50 @@ func TestManager_Get(t *testing.T) {
 		}
 	}
 
+	// Check that only expected values + health is in each bucket.
+	{
+		expected := make([][]byte, 0)
+		for i := granularity; i < bucketsCount; i++ {
+			bucketData := byteutils.ConcatBytes(getRealm(i), getRealm(i), getKey(i), getValue(i))
+			healthData := byteutils.ConcatBytes(getRealm(i), healthKey, []byte{1})
+			expected = append(expected, bucketData, healthData)
+		}
+
+		actual := make([][]byte, 0)
+		for i := granularity; i < bucketsCount; i = i + granularity {
+			db := m.getDBInstance(epoch.Index(i))
+			require.NoError(t, db.store.Iterate(kvstore.EmptyPrefix, func(key kvstore.Key, value kvstore.Value) bool {
+				actual = append(actual, byteutils.ConcatBytes(key, value))
+				return true
+			}))
+		}
+
+		assert.ElementsMatch(t, expected, actual)
+	}
+
 	// Clean the least recently used DB instances.
 	{
 		m.cleanLRU()
 		assert.Equal(t, 2, m.dbs.Size())
+	}
+
+	// Prune some stuff.
+	expectedLastPruned := epoch.Index(5)
+	{
+		// Pruning an epoch that is not dividable by granularity does not actually prune.
+		m.PruneUntilEpoch(4)
+		assert.EqualValues(t, 2, m.lastPrunedIndex)
+
+		m.PruneUntilEpoch(5)
+		assert.EqualValues(t, 5, m.lastPrunedIndex)
+	}
+
+	// Insert into buckets but DO NOT mark as clean. When restoring from disk they should not be healthy and thus be
+	// deleted.
+	totalBucketCount := bucketsCount + 10
+	for i := bucketsCount; i < totalBucketCount; i++ {
+		bucket := m.Get(epoch.Index(i), getRealm(i))
+		assert.NoError(t, bucket.Set(getKey(i), getValue(i)))
 	}
 
 	// Simulate node shutdown.
@@ -87,17 +124,62 @@ func TestManager_Get(t *testing.T) {
 	m = NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
-		for i := granularity; i < bucketsCount; i++ {
+		for i := int(expectedLastPruned); i < bucketsCount; i++ {
 			bucket := m.Get(epoch.Index(i), getRealm(i))
 			value, err := bucket.Get(getKey(i))
 			assert.NoError(t, err)
-			assert.Equal(t, getValue(i), value)
+			assert.Equal(t, getValue(i), value, "epoch %d: expected %+v but got %+v", i, getValue(i), value)
 		}
 	}
+
+	latestBucketIndex := m.RestoreFromDisk()
+	assert.EqualValues(t, bucketsCount-1, latestBucketIndex)
+
+	// Check that folder structure is correct. Everything above bucketsCount-1 was unhealthy -> db files should be deleted.
+	{
+		for i := int(expectedLastPruned); i < totalBucketCount; i++ {
+			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
+			if i%granularity == 0 && i < bucketsCount {
+				assert.True(t, fileInfo.IsDir())
+				require.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, fmt.Sprintf("%d: no such file or directory", i))
+			}
+		}
+	}
+
+	// Check that there's no unhealthy bucket in the highest db instance.
+	{
+		latestDBIndex := m.computeDBBaseIndex(latestBucketIndex)
+		expected := make([][]byte, 0)
+		for i := latestDBIndex + granularity - 1; i >= latestDBIndex; i-- {
+			if i > latestBucketIndex {
+				continue
+			}
+			j := int(i)
+			bucketData := byteutils.ConcatBytes(getRealm(j), getRealm(j), getKey(j), getValue(j))
+			healthData := byteutils.ConcatBytes(getRealm(j), healthKey, []byte{1})
+			expected = append(expected, bucketData, healthData)
+		}
+
+		actual := make([][]byte, 0)
+		for i := latestDBIndex + granularity - 1; i > latestBucketIndex; i-- {
+			db := m.getDBInstance(i)
+			require.NoError(t, db.store.Iterate(kvstore.EmptyPrefix, func(key kvstore.Key, value kvstore.Value) bool {
+				actual = append(actual, byteutils.ConcatBytes(key, value))
+				return true
+			}))
+		}
+
+		assert.ElementsMatch(t, expected, actual)
+	}
+
+	// We pruned until epoch index granularity. Thus this should be the pruned epoch index after restoring.
+	assert.Equal(t, expectedLastPruned, m.lastPrunedIndex)
 }
 
 func getRealm(i int) kvstore.Realm {
-	return []byte("realm" + strconv.Itoa(i))
+	return indexToRealm(epoch.Index(i))
 }
 
 func getKey(i int) []byte {
