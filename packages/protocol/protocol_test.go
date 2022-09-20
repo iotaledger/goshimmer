@@ -47,7 +47,7 @@ func TestProtocol(t *testing.T) {
 	debug.SetEnabled(true)
 
 	tf := engine.NewTestFramework(t, engine.WithEngine(protocol.activeInstance.Engine))
-	tf.CreateBlock("A", models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.IssueBlocks("A")
+	tf.Tangle.CreateBlock("A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))
+	tf.Tangle.IssueBlocks("A")
 	event.Loop.WaitUntilAllTasksProcessed()
 }

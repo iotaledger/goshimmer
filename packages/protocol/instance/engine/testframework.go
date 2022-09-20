@@ -30,8 +30,8 @@ type TestFramework struct {
 	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
 
-	*TangleTestFramework
-	*AcceptanceTestFramework
+	Tangle     *TangleTestFramework
+	Acceptance *AcceptanceTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
@@ -54,8 +54,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.Engine = New(time.Now(), t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsEngineOptions...)
 		}
 
-		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.AcceptanceTestFramework = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.TangleTestFramework))
+		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
+		t.Acceptance = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.Tangle))
 	})
 }
 

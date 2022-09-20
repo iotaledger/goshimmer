@@ -179,9 +179,9 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddInt32(&(t.missingBlocks), -1)
 	}))
 
-	t.BlockDAG.Events.BlockInvalid.Hook(event.NewClosure(func(metadata *Block) {
+	t.BlockDAG.Events.BlockInvalid.Hook(event.NewClosure(func(event *BlockInvalidEvent) {
 		if debug.GetEnabled() {
-			t.test.Logf("INVALID: %s", metadata.ID())
+			t.test.Logf("INVALID: %s (%s)", event.Block.ID(), event.Reason)
 		}
 		atomic.AddInt32(&(t.invalidBlocks), 1)
 	}))

@@ -13,16 +13,16 @@ func TestEngine_Solidification(t *testing.T) {
 	defer debug.SetEnabled(false)
 
 	tf := NewTestFramework(t)
-	tf.CreateBlock("block1", models.WithStrongParents(tf.BlockIDs("Genesis")))
-	tf.CreateBlock("block2", models.WithStrongParents(tf.BlockIDs("block1")))
-	tf.IssueBlocks("block2").WaitUntilAllTasksProcessed()
-	tf.AssertSolid(map[string]bool{
+	tf.Tangle.CreateBlock("block1", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))
+	tf.Tangle.CreateBlock("block2", models.WithStrongParents(tf.Tangle.BlockIDs("block1")))
+	tf.Tangle.IssueBlocks("block2").WaitUntilAllTasksProcessed()
+	tf.Tangle.AssertSolid(map[string]bool{
 		"block1": false,
 		"block2": false,
 	})
 
-	tf.IssueBlocks("block1").WaitUntilAllTasksProcessed()
-	tf.AssertSolid(map[string]bool{
+	tf.Tangle.IssueBlocks("block1").WaitUntilAllTasksProcessed()
+	tf.Tangle.AssertSolid(map[string]bool{
 		"block1": true,
 		"block2": true,
 	})

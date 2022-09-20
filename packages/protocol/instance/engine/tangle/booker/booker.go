@@ -222,8 +222,8 @@ func (b *Booker) book(block *Block) (err error) {
 	return nil
 }
 
-func (b *Booker) markInvalid(block *Block, _ error) {
-	b.SetInvalid(block.Block)
+func (b *Booker) markInvalid(block *Block, reason error) {
+	b.SetInvalid(block.Block, reason)
 }
 
 func (b *Booker) inheritConflictIDs(block *Block) (err error) {
