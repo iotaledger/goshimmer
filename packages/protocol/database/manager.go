@@ -198,8 +198,7 @@ func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 }
 
 func (m *Manager) computeDBBaseIndex(index epoch.Index) epoch.Index {
-	startingIndex := index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
-	return startingIndex
+	return index / epoch.Index(m.optsGranularity) * epoch.Index(m.optsGranularity)
 }
 
 // getBucket returns the bucket for the given index or creates a new one if it does not yet exist.
