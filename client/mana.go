@@ -24,7 +24,7 @@ const (
 func (api *GoShimmerAPI) GetOwnMana() (*jsonmodels.GetManaResponse, error) {
 	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&jsonmodels.GetManaRequest{NodeID: ""}, res); err != nil {
+		&jsonmodels.GetManaRequest{IssuerID: ""}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -35,7 +35,7 @@ func (api *GoShimmerAPI) GetOwnMana() (*jsonmodels.GetManaResponse, error) {
 func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*jsonmodels.GetManaResponse, error) {
 	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&jsonmodels.GetManaRequest{NodeID: fullNodeID}, res); err != nil {
+		&jsonmodels.GetManaRequest{IssuerID: fullNodeID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil

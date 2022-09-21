@@ -3,7 +3,6 @@ package info
 import (
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/node"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -109,9 +107,8 @@ func getInfo(c echo.Context) error {
 		RCTT:            tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	t := time.Now()
-	accessMana, tAccess, _ := blocklayer.GetAccessMana(deps.Local.ID(), t)
-	consensusMana, tConsensus, _ := blocklayer.GetConsensusMana(deps.Local.ID(), t)
+	accessMana, tAccess, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,

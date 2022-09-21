@@ -52,9 +52,9 @@ type TangleTime struct {
 
 // Mana contains the different mana values of the node.
 type Mana struct {
-	Access             float64   `json:"access"`
+	Access             int64     `json:"access"`
 	AccessTimestamp    time.Time `json:"accessTimestamp"`
-	Consensus          float64   `json:"consensus"`
+	Consensus          int64     `json:"consensus"`
 	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 }
 

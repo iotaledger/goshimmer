@@ -48,7 +48,7 @@ func getIssuersHandler(c echo.Context) (err error) {
 func getWeightsHandler(c echo.Context) (err error) {
 	validatorSet := deps.Protocol.Instance().Engine.Tangle.ValidatorSet
 
-	weightsString := make(map[string]uint64)
+	weightsString := make(map[string]int64)
 	for _, validator := range validatorSet.Slice() {
 		weightsString[validator.ID().String()] = validator.Weight()
 	}
@@ -62,6 +62,6 @@ func getWeightsHandler(c echo.Context) (err error) {
 
 // Weights defines the weights associated to the nodes.
 type Weights struct {
-	Weights     map[string]uint64 `json:"weights"`
-	TotalWeight int64             `json:"totalWeight"`
+	Weights     map[string]int64 `json:"weights"`
+	TotalWeight int64            `json:"totalWeight"`
 }

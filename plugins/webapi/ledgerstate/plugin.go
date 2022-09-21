@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -27,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
@@ -535,24 +533,6 @@ func PostTransaction(c echo.Context) error {
 	if has {
 		err = errors.Errorf("transaction is conflicting with previously submitted transaction %s", conflictingID.Base58())
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
-	}
-
-	// validate allowed mana pledge nodes.
-	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(models2.AccessMana)
-	if allowedAccessMana.IsFilterEnabled {
-		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
-			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
-				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.Essence().AccessPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
-			})
-		}
-	}
-	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(models2.ConsensusMana)
-	if allowedConsensusMana.IsFilterEnabled {
-		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
-			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
-				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.Essence().ConsensusPledgeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
-			})
-		}
 	}
 
 	// check transaction validity

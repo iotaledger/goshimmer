@@ -2,7 +2,6 @@ package mana
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/labstack/echo"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // getPercentileHandler handles the request.
@@ -19,41 +17,41 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := manamodels.IDFromStr(request.NodeID)
+	ID, err := manamodels.IDFromStr(request.IssuerID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	if request.NodeID == "" {
+	if request.IssuerID == "" {
 		ID = deps.Local.ID()
 	}
-	t := time.Now()
-	access, tAccess, err := manaPlugin.GetManaMap(manamodels.AccessMana, t)
+
+	access, tAccess, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	accessPercentile, err := access.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			accessPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensus, tConsensus, err := manaPlugin.GetManaMap(manamodels.ConsensusMana, t)
+	consensus, tConsensus, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	consensusPercentile, err := consensus.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			consensusPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
 	return c.JSON(http.StatusOK, jsonmodels.GetPercentileResponse{
-		ShortNodeID:        ID.String(),
-		NodeID:             base58.Encode(ID.Bytes()),
+		ShortIssuerID:      ID.String(),
+		IssuerID:           base58.Encode(ID.Bytes()),
 		Access:             accessPercentile,
 		AccessTimestamp:    tAccess.Unix(),
 		Consensus:          consensusPercentile,
