@@ -23,14 +23,12 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network            *network.Network
-	disk               *diskutil.DiskUtil
-	settings           *Settings
-	chainManager       *chainmanager.Manager
-	activeInstance     *instance.Instance
-	instancesByChainID map[commitment.ID]*instance.Instance
-	// solidification  *solidification.Solidification
-
+	network              *network.Network
+	disk                 *diskutil.DiskUtil
+	settings             *Settings
+	chainManager         *chainmanager.Manager
+	mainInstance         *instance.Instance
+	instancesByChainID   map[commitment.ID]*instance.Instance
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotFile     string
@@ -59,17 +57,15 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 			panic(err)
 		}
 
-		for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
-			chainID := chains.Next()
-
-			p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		if err := p.instantiateChains(); err != nil {
+			panic(err)
 		}
 
-		if len(p.instancesByChainID) == 0 {
-			panic("no chains found - please provide a snapshot file")
-		}
+		// setup events
 
-		p.activeInstance = p.instancesByChainID[p.settings.ActiveChainID()]
+		if err := p.activateMainChain(); err != nil {
+			panic(err)
+		}
 
 		// CHAIN SPECIFIC //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -92,6 +88,34 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 }
 func (p *Protocol) Instance() (instance *instance.Instance) {
 	return p.activeInstance
+}
+
+func (p *Protocol) instantiateChains() (err error) {
+	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
+		chainID := chains.Next()
+
+		p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+	}
+
+	if len(p.instancesByChainID) == 0 {
+		return errors.New("no chains to instantiate (missing snapshot file)")
+	}
+
+	return
+}
+
+func (p *Protocol) activateMainChain() (err error) {
+	chainID := p.settings.MainChainID()
+
+	mainInstance, exists := p.instancesByChainID[chainID]
+	if !exists {
+		return errors.Errorf("instance for chain '%s' does not exist", chainID)
+	}
+
+	p.mainInstance = mainInstance
+	p.Events.Instance.LinkTo(mainInstance.Events)
+
+	return
 }
 
 func (p *Protocol) importSnapshot(fileName string) (err error) {
@@ -125,7 +149,7 @@ func (p *Protocol) importSnapshot(fileName string) (err error) {
 	}
 
 	p.settings.AddChain(chainID)
-	p.settings.SetActiveChainID(chainID)
+	p.settings.SetMainChainID(chainID)
 	p.settings.Persist()
 
 	return

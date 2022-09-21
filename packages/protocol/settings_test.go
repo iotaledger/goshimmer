@@ -11,11 +11,11 @@ func TestSettings(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "setting.bin")
 
 	settings := NewSettings(filePath)
-	require.Equal(t, [32]byte{}, settings.ActiveChainID())
+	require.Equal(t, [32]byte{}, settings.MainChainID())
 
-	settings.SetActiveChainID([32]byte{1})
-	require.Equal(t, [32]byte{1}, settings.ActiveChainID())
+	settings.SetMainChainID([32]byte{1})
+	require.Equal(t, [32]byte{1}, settings.MainChainID())
 
 	restoredSettings := NewSettings(filePath)
-	require.Equal(t, [32]byte{1}, restoredSettings.ActiveChainID())
+	require.Equal(t, [32]byte{1}, restoredSettings.MainChainID())
 }
