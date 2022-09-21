@@ -177,7 +177,7 @@ func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 
 	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if chain == nil {
-		// TODO: TRIGGER WARPSYNC?
+		// TODO: TRIGGER CHAIN SOLIDIFICATION?
 		return
 	}
 
