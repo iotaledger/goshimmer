@@ -1,7 +1,6 @@
 package database
 
 import (
-	"container/heap"
 	"context"
 	"fmt"
 	"io/fs"
@@ -11,16 +10,13 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/generalheap"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/timed"
 	"github.com/iotaledger/hive.go/core/timeutil"
+	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -30,14 +26,13 @@ import (
 var healthKey = []byte("bucket_health")
 
 type dbInstance struct {
-	lastAccessed time.Time
-	index        epoch.Index
-	instance     DB              // actual DB instance on disk within folder index
-	store        kvstore.KVStore // KVStore that is used to access the DB instance
+	index    epoch.Index
+	instance DB              // actual DB instance on disk within folder index
+	store    kvstore.KVStore // KVStore that is used to access the DB instance
 }
 
 type Manager struct {
-	dbs     *shrinkingmap.ShrinkingMap[epoch.Index, *dbInstance]
+	openDBs *cache.Cache[epoch.Index, *dbInstance]
 	cleaner *timeutil.Ticker
 	ctx     context.Context
 	mutex   sync.Mutex
@@ -45,60 +40,26 @@ type Manager struct {
 	lastPrunedIndex epoch.Index
 
 	// The granularity of the DB instances (i.e. how many buckets/epochs are stored in one DB).
-	optsGranularity      int64
-	optsBaseDir          string
-	optsDBProvider       DBProvider
-	optsMaxOpenDBs       int
-	optsCleaningInterval time.Duration
+	optsGranularity int64
+	optsBaseDir     string
+	optsDBProvider  DBProvider
+	optsMaxOpenDBs  int
 }
 
 func NewManager(ctx context.Context, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		ctx: ctx,
-		dbs: shrinkingmap.New[epoch.Index, *dbInstance](),
 
-		optsGranularity:      10,
-		optsBaseDir:          "db",
-		optsDBProvider:       NewMemDB,
-		optsMaxOpenDBs:       5,
-		optsCleaningInterval: time.Minute,
+		optsGranularity: 10,
+		optsBaseDir:     "db",
+		optsDBProvider:  NewMemDB,
+		optsMaxOpenDBs:  10,
 	}, opts, func(m *Manager) {
-	})
-}
-
-func (m *Manager) StartCleaner() {
-	m.cleaner = timeutil.NewTicker(m.cleanLRU, m.optsCleaningInterval, m.ctx)
-}
-
-// cleanLRU is a simple LRU mechanism that keeps the number of open database instances to m.optsMaxOpenDBs.
-// It is executed with an interval m.optsCleaningInterval if the cleaner is started.
-func (m *Manager) cleanLRU() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	countDBs := m.dbs.Size()
-	if countDBs < m.optsMaxOpenDBs {
-		return
-	}
-
-	lru := generalheap.Heap[timed.HeapKey, *dbInstance]{}
-	m.dbs.ForEach(func(index epoch.Index, db *dbInstance) bool {
-		heap.Push(&lru, &generalheap.HeapElement[timed.HeapKey, *dbInstance]{
-			Key:   timed.HeapKey(db.lastAccessed),
-			Value: db,
+		m.openDBs = cache.New[epoch.Index, *dbInstance](m.optsMaxOpenDBs)
+		m.openDBs.SetEvictCallback(func(index epoch.Index, db *dbInstance) {
+			db.instance.Close()
 		})
-
-		return true
 	})
-
-	for countDBs > m.optsMaxOpenDBs {
-		countDBs--
-
-		db := lru[0].Value
-		heap.Pop(&lru)
-		db.instance.Close()
-		m.dbs.Delete(db.index)
-	}
 }
 
 func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
@@ -190,9 +151,9 @@ func (m *Manager) prune(index epoch.Index) {
 }
 
 func (m *Manager) removeDBInstance(dbBaseIndex epoch.Index) {
-	_, exists := m.dbs.Get(dbBaseIndex)
+	_, exists := m.openDBs.Get(dbBaseIndex)
 	if exists {
-		m.dbs.Delete(dbBaseIndex)
+		m.openDBs.Remove(dbBaseIndex)
 	}
 	if err := os.RemoveAll(dbPathFromIndex(m.optsBaseDir, dbBaseIndex)); err != nil {
 		panic(err)
@@ -204,7 +165,6 @@ func (m *Manager) removeBucket(bucket kvstore.KVStore) {
 	if err != nil {
 		panic(err)
 	}
-	bucket.Flush()
 }
 
 func (m *Manager) Shutdown() {
@@ -215,9 +175,8 @@ func (m *Manager) Shutdown() {
 		m.cleaner.WaitForGracefulShutdown()
 	}
 
-	m.dbs.ForEach(func(index epoch.Index, db *dbInstance) bool {
+	m.openDBs.Each(func(index epoch.Index, db *dbInstance) {
 		db.instance.Close()
-		return true
 	})
 }
 
@@ -229,12 +188,11 @@ func (m *Manager) Shutdown() {
 //   index 2 -> db 2
 func (m *Manager) getDBInstance(index epoch.Index) (db *dbInstance) {
 	startingIndex := m.computeDBBaseIndex(index)
-	db, exists := m.dbs.Get(startingIndex)
+	db, exists := m.openDBs.Get(startingIndex)
 	if !exists {
 		db = m.createDBInstance(startingIndex)
-		m.dbs.Set(startingIndex, db)
+		m.openDBs.Put(startingIndex, db)
 	}
-	db.lastAccessed = time.Now()
 
 	return db
 }

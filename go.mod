@@ -41,7 +41,12 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
-require github.com/panjf2000/ants/v2 v2.5.0 // indirect
+require (
+	github.com/panjf2000/ants/v2 v2.5.0 // indirect
+	github.com/segmentio/fasthash v1.0.3 // indirect
+	github.com/zyedidia/generic v1.1.0 // indirect
+	golang.org/x/exp v0.0.0-20220907003533-145caa8ea1d0 // indirect
+)
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect

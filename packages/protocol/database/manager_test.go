@@ -31,13 +31,6 @@ func TestManager_Get(t *testing.T) {
 			assert.NoError(t, bucket.Set(getKey(i), getValue(i)))
 		}
 
-		// Check that internal data structure is correct.
-		for i := granularity; i < bucketsCount; i += granularity {
-			db, exists := m.dbs.Get(epoch.Index(i))
-			require.True(t, exists, "db %d does not exist in data structure", i)
-			assert.Equal(t, epoch.Index(i), db.index)
-		}
-
 		// Check that folder structure is correct.
 		for i := granularity; i < bucketsCount; i++ {
 			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
@@ -91,13 +84,7 @@ func TestManager_Get(t *testing.T) {
 
 		assert.ElementsMatch(t, expected, actual)
 	}
-
-	// Clean the least recently used DB instances.
-	{
-		m.cleanLRU()
-		assert.Equal(t, 2, m.dbs.Size())
-	}
-
+	
 	// Prune some stuff.
 	expectedLastPruned := epoch.Index(5)
 	{
