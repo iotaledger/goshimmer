@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -31,8 +32,10 @@ type dependencies struct {
 
 var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
-	Plugin *node.Plugin
-	deps   = new(dependencies)
+	Plugin             *node.Plugin
+	deps               = new(dependencies)
+	lastAcceptedBlock  *acceptance.Block
+	lastConfirmedBlock *acceptance.Block
 )
 
 func init() {
@@ -40,6 +43,13 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+			lastAcceptedBlock = block
+			lastConfirmedBlock = block
+		}
+	}))
+
 	deps.Server.GET("info", getInfo)
 }
 
@@ -97,14 +107,14 @@ func getInfo(c echo.Context) error {
 	// get TangleTime
 	tm := deps.Protocol.Instance().Engine.Clock
 	// TODO: figure out where to take last accepted block from
-	lcm := tm.LastAcceptedBlock()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:          deps.Protocol.Instance().Engine.IsSynced(),
-		AcceptedBlockID: lcm.BlockID.Base58(),
-		ATT:             tm.AcceptedTime().UnixNano(),
-		RATT:            tm.RelativeAcceptedTime().UnixNano(),
-		CTT:             tm.ConfirmedTime().UnixNano(),
-		RCTT:            tm.RelativeConfirmedTime().UnixNano(),
+		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
+		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
+		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
+		ATT:              tm.AcceptedTime().UnixNano(),
+		RATT:             tm.RelativeAcceptedTime().UnixNano(),
+		CTT:              tm.ConfirmedTime().UnixNano(),
+		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
 	accessMana, tAccess, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(deps.Local.ID())

@@ -62,6 +62,8 @@ func New(snapshotTime time.Time, ledger *ledger.Ledger, evictionManager *evictio
 		e.Events.Ledger = e.Ledger.Events
 
 		e.setupTipManagerEvents()
+		e.setupClockEvents()
+
 	})
 }
 
@@ -75,6 +77,12 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
+}
+
+func (e *Engine) setupClockEvents() {
+	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		e.Clock.SetAcceptedTime(block.IssuingTime())
+	}))
 }
 
 func (e *Engine) setupTipManagerEvents() {

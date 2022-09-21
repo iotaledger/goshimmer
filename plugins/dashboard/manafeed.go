@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/workerpool"
+	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
@@ -143,15 +144,28 @@ func sendManaMapOverall() {
 }
 
 func sendManaMapOnline() {
-	accessManaList, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetOnlineIssuers(manamodels.AccessMana)
+	if deps.Discover == nil {
+		return
+	}
+	knownPeers := deps.Discover.GetVerifiedPeers()
+	manaMap, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.AccessMana)
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of online access mana issuers: %s", err)
 	}
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
-	totalAccessMana := 0.0
-	for i := 0; i < len(accessManaList); i++ {
-		accessPayload.Issuers = append(accessPayload.Issuers, accessManaList[i].ToIssuerStr())
-		totalAccessMana += accessManaList[i].Mana
+	var totalAccessMana int64
+	for _, knownPeer := range knownPeers {
+		manaValue, exists := manaMap[knownPeer.ID()]
+		if !exists {
+			continue
+		}
+
+		accessPayload.Issuers = append(accessPayload.Issuers, manamodels.IssuerStr{
+			ShortIssuerID: knownPeer.ID().String(),
+			IssuerID:      base58.Encode(knownPeer.ID().Bytes()),
+			Mana:          manaValue,
+		})
+		totalAccessMana += manaValue
 	}
 	accessPayload.TotalMana = totalAccessMana
 	broadcastWsBlock(&wsblk{

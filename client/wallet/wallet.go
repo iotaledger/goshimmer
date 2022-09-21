@@ -1278,15 +1278,6 @@ func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region AllowedPledgeNodeIDs /////////////////////////////////////////////////////////////////////////////////////////
-
-// AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
-func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[manamodels.Type][]string, err error) {
-	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region AssetRegistry ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AssetRegistry return the internal AssetRegistry instance of the wallet.
@@ -1916,24 +1907,12 @@ func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance 
 // derivePledgeIDs returns the mana pledge IDs from the provided options.
 func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aID, cID identity.ID, err error) {
 	// determine pledge IDs
-	allowedPledgeNodeIDs, err := wallet.connector.GetAllowedPledgeIDs()
-	if err != nil {
-		return
-	}
-	if aIDFromOptions == "" {
-		aID, err = manamodels.IDFromStr(allowedPledgeNodeIDs[manamodels.AccessMana][0])
-	} else {
-		aID, err = manamodels.IDFromStr(aIDFromOptions)
-	}
+	aID, err = manamodels.IDFromStr(aIDFromOptions)
 	if err != nil {
 		return
 	}
 
-	if cIDFromOptions == "" {
-		cID, err = manamodels.IDFromStr(allowedPledgeNodeIDs[manamodels.ConsensusMana][0])
-	} else {
-		cID, err = manamodels.IDFromStr(cIDFromOptions)
-	}
+	cID, err = manamodels.IDFromStr(cIDFromOptions)
 	return
 }
 

@@ -166,3 +166,18 @@ func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationSta
 	})
 	return
 }
+func (u *Utils) ConfirmedConsumer(outputID utxo.OutputID) (consumerID utxo.TransactionID) {
+	// default to no consumer, i.e. Genesis
+	consumerID = utxo.EmptyTransactionID
+	u.ledger.Storage.CachedConsumers(outputID).Consume(func(consumer *Consumer) {
+		if consumerID != utxo.EmptyTransactionID {
+			return
+		}
+		u.ledger.Storage.CachedTransactionMetadata(consumer.TransactionID()).Consume(func(metadata *TransactionMetadata) {
+			if metadata.ConfirmationState().IsAccepted() {
+				consumerID = consumer.TransactionID()
+			}
+		})
+	})
+	return
+}

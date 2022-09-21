@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
@@ -44,7 +46,9 @@ var (
 	log    *logger.Logger
 	server *echo.Echo
 
-	nodeStartAt = time.Now()
+	nodeStartAt        = time.Now()
+	lastAcceptedBlock  *acceptance.Block
+	lastConfirmedBlock *acceptance.Block
 )
 
 type dependencies struct {
@@ -53,6 +57,7 @@ type dependencies struct {
 	Node       *configuration.Configuration
 	Local      *peer.Local
 	Protocol   *protocol.Protocol
+	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
 	Chat       *chat.Chat          `optional:"true"`
@@ -65,6 +70,13 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+			lastAcceptedBlock = block
+			lastConfirmedBlock = block
+		}
+	}))
+
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureChatLiveFeed()
@@ -339,8 +351,8 @@ func currentNodeStatus() *nodestatus {
 	status.TangleTime = tangleTime{
 		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
 		Bootstrapped:     deps.Protocol.Instance().Engine.IsBootstrapped(),
-		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
-		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
+		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
+		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),
