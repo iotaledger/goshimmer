@@ -143,6 +143,11 @@ func (p *Instance) initEvictionManager() {
 	}
 
 	p.EvictionManager.EvictUntil(latestConfirmedIndex, p.SnapshotManager.SolidEntryPoints(latestConfirmedIndex))
+
+	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+		p.EvictionManager.EvictUntil(event.EI, p.SnapshotManager.SolidEntryPoints(event.EI))
+	}))
+
 	// TODO: SET CLOCK
 }
 
@@ -160,22 +165,6 @@ func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	}
 
 	return p.BlockStorage.Get(id)
-}
-
-func (p *Instance) ReportInvalidBlock(neighbor *p2p.Neighbor) {
-	// TODO: increase euristic counter / trigger event for metrics
-}
-
-func (p *Instance) setupNotarization() {
-	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
-	// p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-	// 	p.EvictionManager.EvictUntil(event.EI)
-	// }))
-}
-
-func (p *Instance) Start() {
-	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
-	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
 func emptyActivityConsumer(logs activitylog.SnapshotEpochActivity) {}
