@@ -18,14 +18,14 @@ type TxInfo struct {
 	// TransactionID is the ID of the transaction.
 	TransactionID utxo.TransactionID
 	// TotalBalance is the amount of funds being transferred via the transaction.
-	TotalBalance float64
+	TotalBalance int64
 	// PledgeID is a map of mana types and the node to which this transaction pledges its mana type to.
 	PledgeID map[Type]identity.ID
 	// InputInfos is a slice of InputInfo that holds mana related info about each input within the transaction.
 	InputInfos []InputInfo
 }
 
-func (t *TxInfo) SumInputs() float64 {
+func (t *TxInfo) SumInputs() int64 {
 	t.TotalBalance = 0
 	for _, input := range t.InputInfos {
 		t.TotalBalance += input.Amount
@@ -36,7 +36,7 @@ func (t *TxInfo) SumInputs() float64 {
 // InputInfo holds mana related info about an input within a transaction.
 type InputInfo struct {
 	// Amount is the balance of the input.
-	Amount float64
+	Amount int64
 	// PledgeID is a map of mana types and the node to which the transaction that created the output pledges its mana type to.
 	PledgeID map[Type]identity.ID
 	// InputID is the input consumed.

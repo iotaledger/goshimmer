@@ -93,7 +93,7 @@ func runVisualizer() {
 	})
 
 	notifyNewBlkAccepted := event.NewClosure(func(block *acceptance.Block) {
-		processBlock(block.Block.Block.Block.Block, block.Accepted())
+		processBlock(block.Block.Block.Block.Block, block.IsAccepted())
 	})
 
 	notifyNewTip := event.NewClosure(func(block *scheduler.Block) {
@@ -105,14 +105,14 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
-		defer deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
-		defer deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.TipManager.TipAdded.Attach(notifyNewTip)
-		defer deps.Protocol.Events.InstanceManager.Instance.Engine.TipManager.TipAdded.Detach(notifyNewTip)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.TipManager.TipRemoved.Attach(notifyDeletedTip)
-		defer deps.Protocol.Events.InstanceManager.Instance.Engine.TipManager.TipRemoved.Detach(notifyDeletedTip)
+		deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
+		defer deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
+		deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
+		defer deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
+		deps.Protocol.Events.Instance.Engine.TipManager.TipAdded.Attach(notifyNewTip)
+		defer deps.Protocol.Events.Instance.Engine.TipManager.TipAdded.Detach(notifyNewTip)
+		deps.Protocol.Events.Instance.Engine.TipManager.TipRemoved.Attach(notifyDeletedTip)
+		defer deps.Protocol.Events.Instance.Engine.TipManager.TipRemoved.Detach(notifyDeletedTip)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()

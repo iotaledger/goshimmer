@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
@@ -119,29 +119,13 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	if Parameters.ManaResearch {
-		// create a background worker that updates the research mana metrics
-		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(ctx context.Context) {
-			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
-			timeutil.NewTicker(func() {
-				measureAccessResearchMana()
-				measureConsensusResearchMana()
-			}, Parameters.ManaUpdateInterval, ctx)
-			// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
-			<-ctx.Done()
-			log.Infof("Stopping Metrics Research Mana Updater ...")
-		}, shutdown.PriorityMetrics); err != nil {
-			log.Panicf("Failed to start as daemon: %s", err)
-		}
-	}
 }
 
 func registerLocalMetrics() {
 	// // Events declared in other packages which we want to listen to here ////
 
 	// increase received BPS counter whenever we attached a block
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 		increaseReceivedBPSCounter()
@@ -152,7 +136,7 @@ func registerLocalMetrics() {
 	}))
 
 	// blocks can only become solid once, then they stay like that, hence no .Dec() part
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		increasePerComponentCounter(Solidifier)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -166,17 +150,17 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a block gets added to missing block storage
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(_ *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		missingBlockCountDB.Inc()
 		solidificationRequests.Inc()
 	}))
 
 	// fired when a missing block was received and removed from missing block storage
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(_ *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		missingBlockCountDB.Dec()
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -191,7 +175,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		increasePerComponentCounter(Booker)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -203,7 +187,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerDropped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -213,7 +197,7 @@ func registerLocalMetrics() {
 		sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerSkipped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -223,7 +207,7 @@ func registerLocalMetrics() {
 		sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		blockType := DataBlock
 		if block.Payload().Type() == devnetvm.TransactionType {
 			blockType = Transaction
@@ -245,11 +229,11 @@ func registerLocalMetrics() {
 
 	// TODO: add metrics for BlockUnorphaned count as well
 	// fired when a message gets added to missing message storage
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(_ *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -272,7 +256,7 @@ func registerLocalMetrics() {
 		delete(activeConflicts, conflictID)
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -302,7 +286,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	models2.Events.Pledged.Attach(event.NewClosure(func(ev *models2.PledgedEvent) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Tracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
 

@@ -8,51 +8,50 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
 type PledgeLog struct {
-	AccessPledges    []float64
-	ConsensusPledges []float64
+	AccessPledges    []int64
+	ConsensusPledges []int64
 }
 
 // AddAccess logs the value of access pledge (base mana 2) pledged.
-func (p *PledgeLog) AddAccess(val float64) {
+func (p *PledgeLog) AddAccess(val int64) {
 	p.AccessPledges = append(p.AccessPledges, val)
 }
 
 // AddConsensus logs the value of consensus pledge (base mana 1) pledged.
-func (p *PledgeLog) AddConsensus(val float64) {
+func (p *PledgeLog) AddConsensus(val int64) {
 	p.ConsensusPledges = append(p.ConsensusPledges, val)
 }
 
-// GetAccessAverage returns the average access mana pledge of a node.
-func (p *PledgeLog) GetAccessAverage() float64 {
+// GetAccessAverage returns the average access mana pledge of a issuer.
+func (p *PledgeLog) GetAccessAverage() int64 {
 	if len(p.AccessPledges) == 0 {
 		return 0
 	}
-	var sum float64
+	var sum int64
 	for _, val := range p.AccessPledges {
 		sum += val
 	}
-	return sum / float64(len(p.AccessPledges))
+	return sum / int64(len(p.AccessPledges))
 }
 
 // GetConsensusAverage returns the consensus mana pledged.
-func (p *PledgeLog) GetConsensusAverage() float64 {
+func (p *PledgeLog) GetConsensusAverage() int64 {
 	if len(p.ConsensusPledges) == 0 {
 		return 0
 	}
-	var sum float64
+	var sum int64
 	for _, val := range p.ConsensusPledges {
 		sum += val
 	}
-	return sum / float64(len(p.ConsensusPledges))
+	return sum / int64(len(p.ConsensusPledges))
 }
 
-// NodePledgeMap is a map of node and a list of mana pledges.
-type NodePledgeMap map[identity.ID]*PledgeLog
+// IssuerPledgeMap is a map of issuer and a list of mana pledges.
+type IssuerPledgeMap map[identity.ID]*PledgeLog
 
 var (
 	// internal metrics for access mana
@@ -66,15 +65,15 @@ var (
 	consensusLock       sync.RWMutex
 
 	// internal metrics for neighbor's mana
-	averageNeighborsAccess    atomic.Float64
-	averageNeighborsConsensus atomic.Float64
+	averageNeighborsAccess    atomic.Int64
+	averageNeighborsConsensus atomic.Int64
 
 	// internal metrics for pledges.
-	pledges     = NodePledgeMap{}
+	pledges     = IssuerPledgeMap{}
 	pledgesLock sync.RWMutex
 )
 
-// AccessPercentile returns the top percentile the node belongs to in terms of access mana holders.
+// AccessPercentile returns the top percentile the issuer belongs to in terms of access mana holders.
 func AccessPercentile() float64 {
 	return accessPercentile.Load()
 }
@@ -90,13 +89,13 @@ func AccessManaMap() manamodels.IssuerMap {
 	return result
 }
 
-// ConsensusPercentile returns the top percentile the node belongs to in terms of consensus mana holders.
+// ConsensusPercentile returns the top percentile the issuer belongs to in terms of consensus mana holders.
 func ConsensusPercentile() float64 {
 	return consensusPercentile.Load()
 }
 
-// OwnConsensusMana returns the consensus mana of the node.
-func OwnConsensusMana() float64 {
+// OwnConsensusMana returns the consensus mana of the issuer.
+func OwnConsensusMana() int64 {
 	consensusLock.RLock()
 	defer consensusLock.RUnlock()
 	return consensusMap[deps.Local.ID()]
@@ -113,43 +112,43 @@ func ConsensusManaMap() manamodels.IssuerMap {
 	return result
 }
 
-// AverageNeighborsAccess returns the average access mana of the nodes neighbors.
-func AverageNeighborsAccess() float64 {
+// AverageNeighborsAccess returns the average access mana of the issuers neighbors.
+func AverageNeighborsAccess() int64 {
 	return averageNeighborsAccess.Load()
 }
 
-// AverageNeighborsConsensus returns the average consensus mana of the nodes neighbors.
-func AverageNeighborsConsensus() float64 {
+// AverageNeighborsConsensus returns the average consensus mana of the issuers neighbors.
+func AverageNeighborsConsensus() int64 {
 	return averageNeighborsConsensus.Load()
 }
 
-// AveragePledgeConsensus returns the average pledged consensus base mana of all nodes.
+// AveragePledgeConsensus returns the average pledged consensus base mana of all issuers.
 func AveragePledgeConsensus() manamodels.IssuerMap {
 	pledgesLock.RLock()
 	defer pledgesLock.RUnlock()
 	result := manamodels.IssuerMap{}
-	for nodeID, pledgeLog := range pledges {
-		result[nodeID] = pledgeLog.GetConsensusAverage()
+	for issuerID, pledgeLog := range pledges {
+		result[issuerID] = pledgeLog.GetConsensusAverage()
 	}
 	return result
 }
 
-// AveragePledgeAccess returns the average pledged access base mana of all nodes.
+// AveragePledgeAccess returns the average pledged access base mana of all issuers.
 func AveragePledgeAccess() manamodels.IssuerMap {
 	pledgesLock.RLock()
 	defer pledgesLock.RUnlock()
 	result := manamodels.IssuerMap{}
-	for nodeID, pledgeLog := range pledges {
-		result[nodeID] = pledgeLog.GetAccessAverage()
+	for issuerID, pledgeLog := range pledges {
+		result[issuerID] = pledgeLog.GetAccessAverage()
 	}
 	return result
 }
 
-// addPledge populates the pledge logs for the node.
+// addPledge populates the pledge logs for the issuer.
 func addPledge(event *mana.PledgedEvent) {
 	pledgesLock.Lock()
 	defer pledgesLock.Unlock()
-	pledgeLog := pledges[event.NodeID]
+	pledgeLog := pledges[event.IssuerID]
 	if pledgeLog == nil {
 		pledgeLog = &PledgeLog{}
 	}
@@ -159,11 +158,11 @@ func addPledge(event *mana.PledgedEvent) {
 	case manamodels.ConsensusMana:
 		pledgeLog.AddConsensus(event.Amount)
 	}
-	pledges[event.NodeID] = pledgeLog
+	pledges[event.IssuerID] = pledgeLog
 }
 
 func measureMana() {
-	tmp, _ := manaPlugin.GetAllManaMaps()
+	tmp, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAllManaMaps()
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[manamodels.AccessMana]
@@ -174,24 +173,30 @@ func measureMana() {
 	consensusMap = tmp[manamodels.ConsensusMana]
 	cPer, _ := consensusMap.GetPercentile(deps.Local.ID())
 	consensusPercentile.Store(cPer)
+
 	neighbors := deps.P2Pmgr.AllNeighbors()
-	neighborAccessMap, _ := manaPlugin.GetNeighborsMana(manamodels.AccessMana, neighbors)
-	accessSum, accessAvg := 0.0, 0.0
-	for _, v := range neighborAccessMap {
-		accessSum += v
+	var accessSum, accessAvg, accessCount int64
+	var consensusSum, consensusAvg, consensusCount int64
+
+	for _, neighbor := range neighbors {
+		neighborAMana, _, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(neighbor.ID())
+		if neighborAMana > 0 {
+			accessCount++
+			accessSum += neighborAMana
+		}
+
+		neighborCMana, _, _ := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(neighbor.ID())
+		if neighborCMana > 0 {
+			consensusCount++
+			consensusSum += neighborCMana
+		}
 	}
-	if len(neighborAccessMap) > 0 {
-		accessAvg = accessSum / float64(len(neighborAccessMap))
+	if accessCount > 0 {
+		accessAvg = accessSum / accessCount
+	}
+	if consensusCount > 0 {
+		consensusAvg = consensusSum / consensusCount
 	}
 	averageNeighborsAccess.Store(accessAvg)
-
-	neighborConsensusMap, _ := manaPlugin.GetNeighborsMana(manamodels.ConsensusMana, neighbors)
-	consensusSum, consensusAvg := 0.0, 0.0
-	for _, v := range neighborConsensusMap {
-		consensusSum += v
-	}
-	if len(neighborConsensusMap) > 0 {
-		consensusAvg = consensusSum / float64(len(neighborConsensusMap))
-	}
 	averageNeighborsConsensus.Store(consensusAvg)
 }

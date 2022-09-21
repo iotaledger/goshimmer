@@ -25,13 +25,13 @@ var (
 	inputPledgeID1      = randIssuerID()
 	inputPledgeID2      = randIssuerID()
 	inputPledgeID3      = randIssuerID()
-	beforeBookingAmount = map[identity.ID]float64{
+	beforeBookingAmount = map[identity.ID]int64{
 		txPledgeID:     0,
 		inputPledgeID1: 5.0,
 		inputPledgeID2: 3.0,
 		inputPledgeID3: 2.0,
 	}
-	afterBookingAmount = map[identity.ID]float64{
+	afterBookingAmount = map[identity.ID]int64{
 		txPledgeID:     10.0,
 		inputPledgeID1: 0,
 		inputPledgeID2: 0,
@@ -76,7 +76,7 @@ var (
 	epochSpentBalances      = []uint64{2, 2, 2, 1}
 	epochCreatedPledgeIDs   = []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID2, inputPledgeID3, inputPledgeID3}
 	epochSpentPledgeIDs     = []identity.ID{inputPledgeID1, inputPledgeID1, inputPledgeID2, inputPledgeID3}
-	afterBookingEpochAmount = map[identity.ID]float64{
+	afterBookingEpochAmount = map[identity.ID]int64{
 		inputPledgeID1: 2.0,
 		inputPledgeID2: 4.0,
 		inputPledgeID3: 4.0,
@@ -251,7 +251,7 @@ func TestTracker_BookEpoch(t *testing.T) {
 		assert.Contains(t, issuerIds, ev.IssuerID)
 	}
 
-	afterEventsAmount := make(map[identity.ID]float64)
+	afterEventsAmount := make(map[identity.ID]int64)
 	afterEventsAmount[inputPledgeID1] = beforeBookingAmount[inputPledgeID1]
 	afterEventsAmount[inputPledgeID2] = beforeBookingAmount[inputPledgeID2]
 	afterEventsAmount[inputPledgeID3] = beforeBookingAmount[inputPledgeID3]

@@ -14,8 +14,6 @@ type ParametersDefinition struct {
 	Global bool `default:"false" usage:"include global metrics"`
 	// ManaUpdateInterval defines interval between mana metrics refreshes.
 	ManaUpdateInterval time.Duration `default:"30s" usage:"mana metrics update interval"`
-	// MetricsManaResearch defines whether to collect research mana metrics.
-	ManaResearch bool `default:"false" usage:"include research mana metrics"`
 }
 
 // Parameters contains the configuration used by the metrics plugin.

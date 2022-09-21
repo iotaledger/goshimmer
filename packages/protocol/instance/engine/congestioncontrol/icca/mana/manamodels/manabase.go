@@ -10,14 +10,14 @@ type ManaBase struct {
 }
 
 type manaBaseModel struct {
-	Value float64 `serix:"0"`
+	Value int64 `serix:"0"`
 }
 
-func NewManaBase(value float64) *ManaBase {
+func NewManaBase(value int64) *ManaBase {
 	return model.NewMutable[ManaBase](&manaBaseModel{Value: value})
 }
 
-func (m *ManaBase) revoke(amount float64) error {
+func (m *ManaBase) revoke(amount int64) error {
 	m.Lock()
 	defer m.Unlock()
 	//if m.BaseMana1-amount < 0.0 {
@@ -27,14 +27,14 @@ func (m *ManaBase) revoke(amount float64) error {
 	return nil
 }
 
-func (m *ManaBase) pledge(pledgedAmount float64) {
+func (m *ManaBase) pledge(pledgedAmount int64) {
 	m.Lock()
 	defer m.Unlock()
 	m.M.Value += pledgedAmount
 }
 
 // BaseValue returns the base mana value (BM1).
-func (m *ManaBase) BaseValue() float64 {
+func (m *ManaBase) BaseValue() int64 {
 	m.RLock()
 	defer m.RUnlock()
 	return m.M.Value

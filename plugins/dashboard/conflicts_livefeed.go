@@ -112,16 +112,16 @@ func runConflictLiveFeed() {
 		onConflictCreatedClosure := event.NewClosure(onConflictCreated)
 		onConflictAcceptedClosure := event.NewClosure(onConflictAccepted)
 		onConflictRejectedClosure := event.NewClosure(onConflictRejected)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(onConflictCreatedClosure)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(onConflictAcceptedClosure)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(onConflictRejectedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(onConflictCreatedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(onConflictAcceptedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictRejected.Attach(onConflictRejectedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Detach(onConflictCreatedClosure)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Detach(onConflictAcceptedClosure)
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictRejected.Detach(onConflictRejectedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Detach(onConflictCreatedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Detach(onConflictAcceptedClosure)
+		deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictRejected.Detach(onConflictRejectedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

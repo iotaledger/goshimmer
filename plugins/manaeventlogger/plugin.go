@@ -51,7 +51,7 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	mana.Events.Pledged.Attach(onPledgeEventClosure)
+	deps.P.Events.Pledged.Attach(onPledgeEventClosure)
 	mana.Events.Revoked.Attach(onRevokeEventClosure)
 }
 

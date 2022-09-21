@@ -14,12 +14,12 @@ type PersistableBaseMana struct {
 
 type persistableBaseManaModel struct {
 	ManaType        Type      `serix:"0"`
-	BaseValues      []float64 `serix:"1,lengthPrefixType=uint16"`
-	EffectiveValues []float64 `serix:"2,lengthPrefixType=uint16"`
+	BaseValues      []int64   `serix:"1,lengthPrefixType=uint16"`
+	EffectiveValues []int64   `serix:"2,lengthPrefixType=uint16"`
 	LastUpdated     time.Time `serix:"3"`
 }
 
-func NewPersistableBaseMana(issuerID identity.ID, manaType Type, baseValues, effectiveValues []float64, lastUpdated time.Time) *PersistableBaseMana {
+func NewPersistableBaseMana(issuerID identity.ID, manaType Type, baseValues, effectiveValues []int64, lastUpdated time.Time) *PersistableBaseMana {
 	persistableBaseMana := model.NewStorable[identity.ID, PersistableBaseMana](
 		&persistableBaseManaModel{
 			ManaType:        manaType,
@@ -42,13 +42,13 @@ func (v *PersistableBaseMana) ManaType() Type {
 	return v.M.ManaType
 }
 
-func (v *PersistableBaseMana) BaseValues() []float64 {
+func (v *PersistableBaseMana) BaseValues() []int64 {
 	v.RLock()
 	defer v.RUnlock()
 	return v.M.BaseValues
 }
 
-func (v *PersistableBaseMana) EffectiveValues() []float64 {
+func (v *PersistableBaseMana) EffectiveValues() []int64 {
 	v.RLock()
 	defer v.RUnlock()
 	return v.M.EffectiveValues

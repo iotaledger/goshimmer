@@ -8,16 +8,16 @@ import (
 // Issuer represents a issuer and its mana value.
 type Issuer struct {
 	ID   identity.ID
-	Mana float64
+	Mana int64
 }
 
 // IssuerStr defines a issuer and its mana value.
 // The issuer ID is stringified.
 type IssuerStr struct {
 	// TODO: rename JSON fields here and in dashboard/client library
-	ShortIssuerID string  `json:"shortNodeID"`
-	IssuerID      string  `json:"nodeID"`
-	Mana          float64 `json:"mana"`
+	ShortIssuerID string `json:"shortNodeID"`
+	IssuerID      string `json:"nodeID"`
+	Mana          int64  `json:"mana"`
 }
 
 // ToIssuerStr converts a Issuer to a Nodestr
@@ -30,10 +30,10 @@ func (n Issuer) ToIssuerStr() IssuerStr {
 }
 
 // IssuerMap is a map of issuerID and mana value.
-type IssuerMap map[identity.ID]float64
+type IssuerMap map[identity.ID]int64
 
 // IssuerMapStr is a IssuerMap but with string id.
-type IssuerMapStr map[string]float64
+type IssuerMapStr map[string]int64
 
 // ToIssuerStrList converts a IssuerMap to list of IssuerStr.
 func (n IssuerMap) ToIssuerStrList() []IssuerStr {

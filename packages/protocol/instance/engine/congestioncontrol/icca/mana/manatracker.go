@@ -68,7 +68,7 @@ func (m *Tracker) onTransactionAccepted(transactionID utxo.TransactionID) {
 	})
 }
 
-func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64, inputInfos []manamodels.InputInfo) {
+func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, inputInfos []manamodels.InputInfo) {
 	inputInfos = make([]manamodels.InputInfo, 0)
 	for _, input := range inputs {
 		var inputInfo manamodels.InputInfo
@@ -79,8 +79,8 @@ func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount float64,
 
 			// first, sum balances of the input, calculate total amount as well for later
 			if amount, exists := o.(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA); exists {
-				inputInfo.Amount = float64(amount)
-				totalAmount += float64(amount)
+				inputInfo.Amount = int64(amount)
+				totalAmount += int64(amount)
 			}
 
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
@@ -167,12 +167,12 @@ func (m *Tracker) bookEpoch(created, spent []*ledger.OutputWithMetadata) (revoke
 		if !exists {
 			continue
 		}
-		oldMana := consensusManaVector.GetOldManaAndRevoke(idToRevoke, float64(outputIOTAs))
+		oldMana := consensusManaVector.GetOldManaAndRevoke(idToRevoke, int64(outputIOTAs))
 
 		// save events for later triggering
 		revokeEvents = append(revokeEvents, &RevokedEvent{
 			IssuerID:      idToRevoke,
-			Amount:        float64(outputIOTAs),
+			Amount:        int64(outputIOTAs),
 			Time:          output.CreationTime(),
 			ManaType:      manamodels.ConsensusMana,
 			TransactionID: output.ID().TransactionID,
@@ -193,10 +193,10 @@ func (m *Tracker) bookEpoch(created, spent []*ledger.OutputWithMetadata) (revoke
 		if !exists {
 			continue
 		}
-		oldMana := consensusManaVector.GetOldManaAndPledge(idToPledge, float64(outputIOTAs))
+		oldMana := consensusManaVector.GetOldManaAndPledge(idToPledge, int64(outputIOTAs))
 		pledgeEvents = append(pledgeEvents, &PledgedEvent{
 			IssuerID:      idToPledge,
-			Amount:        float64(outputIOTAs),
+			Amount:        int64(outputIOTAs),
 			Time:          output.CreationTime(),
 			ManaType:      manamodels.ConsensusMana,
 			TransactionID: output.Output().ID().TransactionID,
@@ -258,7 +258,7 @@ func (m *Tracker) GetManaMap(manaType manamodels.Type) (manamodels.IssuerMap, ti
 }
 
 // GetCMana is a wrapper for the approval weight.
-func (m *Tracker) GetCMana() map[identity.ID]float64 {
+func (m *Tracker) GetCMana() map[identity.ID]int64 {
 	mana, _, err := m.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		panic(err)
@@ -267,7 +267,7 @@ func (m *Tracker) GetCMana() map[identity.ID]float64 {
 }
 
 // GetTotalMana returns sum of mana of all issuers in the network.
-func (m *Tracker) GetTotalMana(manaType manamodels.Type) (float64, time.Time, error) {
+func (m *Tracker) GetTotalMana(manaType manamodels.Type) (int64, time.Time, error) {
 	if !m.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
@@ -277,7 +277,7 @@ func (m *Tracker) GetTotalMana(manaType manamodels.Type) (float64, time.Time, er
 		return 0, time.Now(), err
 	}
 
-	var sum float64
+	var sum int64
 	for _, m := range manaMap {
 		sum += m
 	}
@@ -285,7 +285,7 @@ func (m *Tracker) GetTotalMana(manaType manamodels.Type) (float64, time.Time, er
 }
 
 // GetAccessMana returns the access mana of the issuer specified.
-func (m *Tracker) GetAccessMana(issuerID identity.ID) (float64, time.Time, error) {
+func (m *Tracker) GetAccessMana(issuerID identity.ID) (int64, time.Time, error) {
 	if !m.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
@@ -294,7 +294,7 @@ func (m *Tracker) GetAccessMana(issuerID identity.ID) (float64, time.Time, error
 }
 
 // GetConsensusMana returns the consensus mana of the issuer specified.
-func (m *Tracker) GetConsensusMana(issuerID identity.ID) (float64, time.Time, error) {
+func (m *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, error) {
 	if !m.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}

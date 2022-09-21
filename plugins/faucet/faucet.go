@@ -22,7 +22,7 @@ type Faucet struct {
 
 // NewFaucet creates a new Faucet instance.
 func NewFaucet(faucetSeed *seed.Seed) (f *Faucet) {
-	connector := NewConnector(deps.Protocol.Instance(), deps.Indexer)
+	connector := NewConnector(deps.Protocol, deps.Indexer)
 
 	f = &Faucet{wallet.New(
 		wallet.GenericConnector(connector),

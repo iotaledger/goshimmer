@@ -79,7 +79,7 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to block-layer
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }

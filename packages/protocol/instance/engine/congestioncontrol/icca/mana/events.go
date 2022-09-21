@@ -70,7 +70,7 @@ type ManaVectorUpdateEvent struct {
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
 type PledgedEvent struct {
 	IssuerID      identity.ID
-	Amount        float64
+	Amount        int64
 	Time          time.Time
 	ManaType      manamodels.Type // access or consensus
 	TransactionID utxo.TransactionID
@@ -78,11 +78,11 @@ type PledgedEvent struct {
 
 // PledgedEventJSON is a JSON serializable form of a PledgedEvent.
 type PledgedEventJSON struct {
-	ManaType string  `json:"manaType"`
-	IssuerID string  `json:"issuerID"`
-	Time     int64   `json:"time"`
-	TxID     string  `json:"txID"`
-	Amount   float64 `json:"amount"`
+	ManaType string `json:"manaType"`
+	IssuerID string `json:"issuerID"`
+	Time     int64  `json:"time"`
+	TxID     string `json:"txID"`
+	Amount   int64  `json:"amount"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -161,7 +161,7 @@ var _ Event = &PledgedEvent{}
 // RevokedEvent is the struct that is passed along with triggering a Revoked event.
 type RevokedEvent struct {
 	IssuerID      identity.ID
-	Amount        float64
+	Amount        int64
 	Time          time.Time
 	ManaType      manamodels.Type // shall only be consensus for now
 	TransactionID utxo.TransactionID
@@ -170,12 +170,12 @@ type RevokedEvent struct {
 
 // RevokedEventJSON is a JSON serializable form of a RevokedEvent.
 type RevokedEventJSON struct {
-	ManaType string  `json:"manaType"`
-	IssuerID string  `json:"issuerID"`
-	Time     int64   `json:"time"`
-	TxID     string  `json:"txID"`
-	Amount   float64 `json:"amount"`
-	InputID  string  `json:"inputID"`
+	ManaType string `json:"manaType"`
+	IssuerID string `json:"issuerID"`
+	Time     int64  `json:"time"`
+	TxID     string `json:"txID"`
+	Amount   int64  `json:"amount"`
+	InputID  string `json:"inputID"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -190,7 +190,7 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 	}
 }
 
-// String returns a human readable version of the event.
+// String returns a human-readable version of the event.
 func (r *RevokedEvent) String() string {
 	return stringify.Struct("RevokedEvent",
 		stringify.NewStructField("type", r.ManaType.String()),
@@ -246,7 +246,7 @@ type UpdatedEventJSON struct {
 
 // BaseManaJSON is a JSON serializable form of a BaseMana.
 type BaseManaJSON struct {
-	BaseMana float64 `json:"baseMana"`
+	BaseMana int64 `json:"baseMana"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.

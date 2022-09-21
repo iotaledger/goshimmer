@@ -10,8 +10,8 @@ type ValidatorEvents struct {
 
 type WeightUpdatedEvent struct {
 	Validator *Validator
-	OldWeight uint64
-	NewWeight uint64
+	OldWeight int64
+	NewWeight int64
 }
 
 // newValidatorEvents creates a new ValidatorEvents instance.

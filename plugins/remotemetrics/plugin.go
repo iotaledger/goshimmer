@@ -123,11 +123,11 @@ func configureConflictConfirmationMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		onConflictConfirmed(event.ID)
 	}))
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -144,11 +144,11 @@ func configureBlockFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		deps.Protocol.Events.Instance.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
 			onTransactionConfirmed(event.TransactionID)
 		}))
 	} else {
-		deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 			onBlockFinalized(block.Block.Block.Block.Block)
 		}))
 	}
@@ -158,14 +158,14 @@ func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	} else {
-		deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
 		}))
-		deps.Protocol.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	}
@@ -176,10 +176,10 @@ func configureMissingBlockMetrics() {
 		return
 	}
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.Block, "missingBlock")
 	}))
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 		sendMissingBlockRecord(block.Block, "missingBlockStored")
 	}))
 }

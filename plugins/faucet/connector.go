@@ -6,16 +6,14 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
-
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
@@ -89,14 +87,6 @@ func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) 
 
 func (f *FaucetConnector) RequestFaucetFunds(address address.Address, powTarget int) (err error) {
 	panic("RequestFaucetFunds is not implemented in faucet connector.")
-}
-
-func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[models2.Type][]string, err error) {
-	pledgeIDMap = make(map[models2.Type][]string)
-	pledgeIDMap[models2.AccessMana] = []string{deps.Local.ID().EncodeBase58()}
-	pledgeIDMap[models2.ConsensusMana] = []string{deps.Local.ID().EncodeBase58()}
-
-	return
 }
 
 func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {

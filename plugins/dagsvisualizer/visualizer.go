@@ -111,10 +111,10 @@ func registerTangleEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkAcceptedClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(blkAcceptedClosure)
+	deps.Protocol.Events.Instance.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
 func registerUTXOEvents() {
@@ -164,9 +164,9 @@ func registerUTXOEvents() {
 		})
 	})
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(storeClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(bookedClosure)
+	deps.Protocol.Events.Instance.Engine.Ledger.TransactionAccepted.Attach(txAcceptedClosure)
 }
 
 func registerConflictEvents() {
@@ -220,11 +220,11 @@ func registerConflictEvents() {
 		storeWsBlock(wsBlk)
 	})
 
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(createdClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(conflictConfirmedClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Attach(parentUpdateClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Attach(conflictWeightChangedClosure)
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Attach(conflictWeightChangedClosure)
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(createdClosure)
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(conflictConfirmedClosure)
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictParentsUpdated.Attach(parentUpdateClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.ConflictTracker.VoterAdded.Attach(conflictWeightChangedClosure)
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.ConflictTracker.VoterRemoved.Attach(conflictWeightChangedClosure)
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {

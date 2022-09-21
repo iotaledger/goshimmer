@@ -144,7 +144,7 @@ func checkForMana(ctx context.Context) error {
 }
 
 func configureEvents() {
-	deps.Protocol.Events.InstanceManager.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
 	// TODO: need an bootstrapped event
 	// TODO: when instance is switched, the plugin needs to wait until new chain is bootstrapped etc.?
 	//deps.Protocol.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {

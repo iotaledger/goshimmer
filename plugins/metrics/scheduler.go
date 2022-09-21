@@ -27,8 +27,6 @@ var (
 
 	// issuerQueueSizes current size of each issuer's queue.
 	issuerQueueSizes map[identity.ID]int
-	// issuerQueueSizes current amount of aMana of each issuer in the queue.
-	issuerAccessMana map[identity.ID]int
 	// issuerQueueSizesMutex protect map from concurrent read/write.
 	issuerQueueSizesMutex syncutils.RWMutex
 )
@@ -40,10 +38,6 @@ func measureSchedulerMetrics() {
 	for k, v := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
 		issuerQueueSizes[k] = v
 	}
-	// TODO: implement when mana is refactored
-	//if issuerAccessMana == nil {
-	//	issuerAccessMana = deps.Tangle.Scheduler.AccessManaCache()
-	//}
 	bufferSize = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize()
 	maxBufferSize = deps.Protocol.Instance().Engine.CongestionControl.MaxBufferSize()
 	schedulerDeficit, _ = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
@@ -67,16 +61,15 @@ func SchedulerIssuerQueueSizes() map[string]int {
 }
 
 // SchedulerIssuerAManaAmount current aMana value for each issuer in the queue.
-func SchedulerIssuerAManaAmount() map[string]float64 {
+func SchedulerIssuerAManaAmount() map[string]int64 {
 	issuerQueueSizesMutex.RLock()
 	defer issuerQueueSizesMutex.RUnlock()
 
 	// copy the original map
-	clone := make(map[string]float64)
-	// TODO: implement when mana is refactored
-	//for key := range issuerQueueSizes {
-	//	clone[key.String()] = issuerAccessMana.GetCachedMana(key)
-	//}
+	clone := make(map[string]int64)
+	for key := range issuerQueueSizes {
+		clone[key.String()], _, _ = deps.Protocol.Instance().Engine.CongestionControl.Tracker.GetAccessMana(key)
+	}
 
 	return clone
 }

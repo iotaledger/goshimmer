@@ -59,7 +59,7 @@ func (m *ManaBaseVector) Has(issuerID identity.ID) bool {
 }
 
 // InitializeWithData initializes the mana vector data.
-func (m *ManaBaseVector) InitializeWithData(dataByIssuer map[identity.ID]float64) {
+func (m *ManaBaseVector) InitializeWithData(dataByIssuer map[identity.ID]int64) {
 	m.Lock()
 	defer m.Unlock()
 	for issuerID, value := range dataByIssuer {
@@ -74,7 +74,7 @@ func (m *ManaBaseVector) GetIDBasedOnManaType(output *ledger.OutputWithMetadata)
 	return output.AccessManaPledgeID()
 }
 
-func (m *ManaBaseVector) GetOldManaAndRevoke(oldPledgeIssuerID identity.ID, amount float64) (oldMana ManaBase) {
+func (m *ManaBaseVector) GetOldManaAndRevoke(oldPledgeIssuerID identity.ID, amount int64) (oldMana ManaBase) {
 	if _, exist := m.M.Vector[oldPledgeIssuerID]; !exist {
 		// first time we see this issuer
 		m.M.Vector[oldPledgeIssuerID] = NewManaBase(0)
@@ -84,12 +84,12 @@ func (m *ManaBaseVector) GetOldManaAndRevoke(oldPledgeIssuerID identity.ID, amou
 	// revoke BM1
 	err := m.M.Vector[oldPledgeIssuerID].revoke(amount)
 	if errors.Is(err, ErrBaseManaNegative) {
-		panic(fmt.Sprintf("Revoking %f base mana 1 from issuer %s results in negative balance", amount, oldPledgeIssuerID.String()))
+		panic(fmt.Sprintf("Revoking %d base mana 1 from issuer %s results in negative balance", amount, oldPledgeIssuerID.String()))
 	}
 	return
 }
 
-func (m *ManaBaseVector) GetOldManaAndPledge(newPledgeIssuerID identity.ID, totalBalance float64) (oldMana ManaBase) {
+func (m *ManaBaseVector) GetOldManaAndPledge(newPledgeIssuerID identity.ID, totalBalance int64) (oldMana ManaBase) {
 	if _, exist := m.M.Vector[newPledgeIssuerID]; !exist {
 		// first time we see this issuer
 		m.M.Vector[newPledgeIssuerID] = NewManaBase(0)
@@ -102,7 +102,7 @@ func (m *ManaBaseVector) GetOldManaAndPledge(newPledgeIssuerID identity.ID, tota
 }
 
 // GetMana returns the Effective Base Mana.
-func (m *ManaBaseVector) GetMana(issuerID identity.ID) (manaAmount float64, t time.Time, err error) {
+func (m *ManaBaseVector) GetMana(issuerID identity.ID) (manaAmount int64, t time.Time, err error) {
 	m.Lock()
 	defer m.Unlock()
 	manaAmount, err = m.getMana(issuerID)
@@ -115,7 +115,7 @@ func (m *ManaBaseVector) GetManaMap() (res IssuerMap, t time.Time, err error) {
 	m.Lock()
 	defer m.Unlock()
 	t = time.Now()
-	res = make(map[identity.ID]float64, len(m.M.Vector))
+	res = make(map[identity.ID]int64, len(m.M.Vector))
 	for ID, val := range m.M.Vector {
 		res[ID] = val.BaseValue()
 	}
@@ -132,7 +132,7 @@ func (m *ManaBaseVector) GetHighestManaIssuers(n uint) (res []Issuer, t time.Tim
 		m.Lock()
 		defer m.Unlock()
 		for ID := range m.M.Vector {
-			var mana float64
+			var mana int64
 			mana, err = m.getMana(ID)
 			if err != nil {
 				return err
@@ -164,7 +164,7 @@ func (m *ManaBaseVector) GetHighestManaIssuers(n uint) (res []Issuer, t time.Tim
 // If p is zero or greater than one, it returns all issuers.
 func (m *ManaBaseVector) GetHighestManaIssuersFraction(p float64) (res []Issuer, t time.Time, err error) {
 	emptyIssuerID := identity.ID{}
-	totalMana := 0.0
+	totalMana := int64(0)
 	t = time.Now()
 	err = func() error {
 		// don't lock the vector after this func returns
@@ -176,7 +176,7 @@ func (m *ManaBaseVector) GetHighestManaIssuersFraction(p float64) (res []Issuer,
 				continue
 			}
 
-			var mana float64
+			var mana int64
 			mana, err = m.getMana(ID)
 			if err != nil {
 				return err
@@ -197,9 +197,9 @@ func (m *ManaBaseVector) GetHighestManaIssuersFraction(p float64) (res []Issuer,
 	})
 
 	// how much mana is p percent of total mana
-	manaThreshold := p * totalMana
+	manaThreshold := int64(p * float64(totalMana))
 	// include issuers as long as their counted mana is less than the threshold
-	manaCounted := 0.0
+	manaCounted := int64(0)
 	var n uint
 	for n = 0; int(n) < len(res) && manaCounted < manaThreshold; n++ {
 		manaCounted += res[n].Mana
@@ -237,7 +237,7 @@ func (m *ManaBaseVector) ToPersistables() []*PersistableBaseMana {
 	defer m.RUnlock()
 	var result []*PersistableBaseMana
 	for issuerID, bm := range m.M.Vector {
-		pbm := NewPersistableBaseMana(issuerID, m.Type(), []float64{bm.BaseValue()}, nil, time.Time{})
+		pbm := NewPersistableBaseMana(issuerID, m.Type(), []int64{bm.BaseValue()}, nil, time.Time{})
 		result = append(result, pbm)
 	}
 	return result
@@ -269,7 +269,7 @@ func (m *ManaBaseVector) RemoveZeroIssuers() {
 // // Region Internal methods ////
 
 // getMana returns the consensus mana.
-func (m *ManaBaseVector) getMana(issuerID identity.ID) (float64, error) {
+func (m *ManaBaseVector) getMana(issuerID identity.ID) (int64, error) {
 	if _, exist := m.M.Vector[issuerID]; !exist {
 		return 0.0, ErrIssuerNotFoundInBaseManaVector
 	}

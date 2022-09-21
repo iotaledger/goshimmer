@@ -22,7 +22,7 @@ type PersistableEvent struct {
 	IssuerID      identity.ID        `serix:"2"`
 	Time          time.Time          `serix:"3"`
 	TransactionID utxo.TransactionID `serix:"4"`
-	Amount        float64            `serix:"5"`
+	Amount        int64              `serix:"5"`
 	InputID       utxo.OutputID      `serix:"6"` // for revoke event
 	bytes         []byte
 }
@@ -37,7 +37,7 @@ func (p *PersistableEvent) ToStringValues() []string {
 	_type := strconv.Itoa(int(p.Type))
 	_issuerID := p.IssuerID.String()
 	_fullIssuerID := base58.Encode(p.IssuerID[:])
-	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
+	_amount := strconv.FormatInt(p.Amount, 10)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()
 	_txID := p.TransactionID.Base58()

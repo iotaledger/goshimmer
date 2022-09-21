@@ -77,7 +77,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 
 		// p.Events.InstanceManager = p.instanceManager.Events
 		//
-		// p.Events.InstanceManager.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		// p.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		// 	p.network.SendBlock(block.Block.Block.Block.Block)
 		// }))
 		//
@@ -87,7 +87,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 	})
 }
 func (p *Protocol) Instance() (instance *instance.Instance) {
-	return p.activeInstance
+	return p.mainInstance
 }
 
 func (p *Protocol) instantiateChains() (err error) {
