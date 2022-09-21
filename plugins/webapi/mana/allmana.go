@@ -8,30 +8,30 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
 	t := time.Now()
-	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
+	access, tAccess, err := manaPlugin.GetManaMap(manamodels.AccessMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetAllManaResponse{
 			Error: err.Error(),
 		})
 	}
-	accessList := access.ToNodeStrList()
+	accessList := access.ToIssuerStrList()
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
 	})
-	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
+	consensus, tConsensus, err := manaPlugin.GetManaMap(manamodels.ConsensusMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetAllManaResponse{
 			Error: err.Error(),
 		})
 	}
-	consensusList := consensus.ToNodeStrList()
+	consensusList := consensus.ToIssuerStrList()
 	sort.Slice(consensusList, func(i, j int) bool {
 		return consensusList[i].Mana > consensusList[j].Mana
 	})

@@ -7,20 +7,20 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
-	return getOnlineHandler(c, mana.AccessMana)
+	return getOnlineHandler(c, manamodels.AccessMana)
 }
 
 func getOnlineConsensusHandler(c echo.Context) error {
-	return getOnlineHandler(c, mana.ConsensusMana)
+	return getOnlineHandler(c, manamodels.ConsensusMana)
 }
 
 // getOnlineHandler handles the request.
-func getOnlineHandler(c echo.Context, manaType mana.Type) error {
+func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 	onlinePeersMana, t, err := manaPlugin.GetOnlineNodes(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, jsonmodels.GetOnlineResponse{Error: err.Error()})

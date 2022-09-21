@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 // Type defines if mana is access or consensus type of mana.
 type Type byte

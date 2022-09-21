@@ -9,7 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -19,7 +19,7 @@ func getManaHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
-	ID, err := mana.IDFromStr(request.NodeID)
+	ID, err := manamodels.IDFromStr(request.NodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 	}
@@ -29,7 +29,7 @@ func getManaHandler(c echo.Context) error {
 	t := time.Now()
 	accessMana, tAccess, err := manaPlugin.GetAccessMana(ID, t)
 	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
 			accessMana = 0
 			tAccess = t
 		} else {
@@ -38,7 +38,7 @@ func getManaHandler(c echo.Context) error {
 	}
 	consensusMana, tConsensus, err := manaPlugin.GetConsensusMana(ID, t)
 	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
 			consensusMana = 0
 			tConsensus = t
 		} else {

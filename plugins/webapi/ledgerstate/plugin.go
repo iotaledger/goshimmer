@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -538,7 +538,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// validate allowed mana pledge nodes.
-	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(mana.AccessMana)
+	allowedAccessMana := blocklayer.GetAllowedPledgeNodes(models2.AccessMana)
 	if allowedAccessMana.IsFilterEnabled {
 		if !allowedAccessMana.Allowed.Has(tx.Essence().AccessPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{
@@ -546,7 +546,7 @@ func PostTransaction(c echo.Context) error {
 			})
 		}
 	}
-	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(mana.ConsensusMana)
+	allowedConsensusMana := blocklayer.GetAllowedPledgeNodes(models2.ConsensusMana)
 	if allowedConsensusMana.IsFilterEnabled {
 		if !allowedConsensusMana.Allowed.Has(tx.Essence().ConsensusPledgeID()) {
 			return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{

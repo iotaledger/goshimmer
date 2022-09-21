@@ -52,13 +52,13 @@ func (api *GoShimmerAPI) GetMana(shortNodeID string) (*jsonmodels.GetManaRespons
 	res := &jsonmodels.GetManaResponse{ShortNodeID: shortNodeID}
 	// look for node's mana values in the map
 	for _, nodeStr := range allManaRes.Access {
-		if nodeStr.ShortNodeID == shortNodeID {
+		if nodeStr.ShortIssuerID == shortNodeID {
 			res.Access = nodeStr.Mana
 			break
 		}
 	}
 	for _, nodeStr := range allManaRes.Consensus {
-		if nodeStr.ShortNodeID == shortNodeID {
+		if nodeStr.ShortIssuerID == shortNodeID {
 			res.Consensus = nodeStr.Mana
 			break
 		}

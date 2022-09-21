@@ -6,7 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 )
 
 const (
@@ -20,28 +20,28 @@ const (
 // ManaBuffer holds recent data related to mana in the dashboard. Used to fill frontend on page load/reload.
 type ManaBuffer struct {
 	// Events store PledgedEvent and RevokedEvent structs in chronological order.
-	Events          []mana.Event
+	Events          []manamodels.Event
 	eventsMutex     sync.RWMutex
 	ValueBlks       []*ManaValueBlkData
 	valueBlksMutex  sync.RWMutex
-	MapOverall      map[mana.Type]*ManaNetworkListBlkData
+	MapOverall      map[manamodels.Type]*ManaNetworkListBlkData
 	mapOverallMutex sync.RWMutex
-	MapOnline       map[mana.Type]*ManaNetworkListBlkData
+	MapOnline       map[manamodels.Type]*ManaNetworkListBlkData
 	mapOnlineMutex  sync.RWMutex
 }
 
 // NewManaBuffer creates and initializes a new, empty buffer.
 func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
-		Events:     make([]mana.Event, 0),
+		Events:     make([]manamodels.Event, 0),
 		ValueBlks:  make([]*ManaValueBlkData, 0),
-		MapOverall: make(map[mana.Type]*ManaNetworkListBlkData),
-		MapOnline:  make(map[mana.Type]*ManaNetworkListBlkData),
+		MapOverall: make(map[manamodels.Type]*ManaNetworkListBlkData),
+		MapOnline:  make(map[manamodels.Type]*ManaNetworkListBlkData),
 	}
 }
 
 // StoreEvent stores an event in the buffer. If it is full, drops the oldest event.
-func (m *ManaBuffer) StoreEvent(event mana.Event) {
+func (m *ManaBuffer) StoreEvent(event manamodels.Event) {
 	m.eventsMutex.Lock()
 	defer m.eventsMutex.Unlock()
 	if len(m.Events) >= maxManaEventsBufferSize {
@@ -58,12 +58,12 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 	for _, ev := range m.Events {
 		var blk *wsblk
 		switch ev.Type() {
-		case mana.EventTypePledge:
+		case manamodels.EventTypePledge:
 			blk = &wsblk{
 				Type: MsgTypeManaInitPledge,
 				Data: ev.ToJSONSerializable(),
 			}
-		case mana.EventTypeRevoke:
+		case manamodels.EventTypeRevoke:
 			blk = &wsblk{
 				Type: MsgTypeManaInitRevoke,
 				Data: ev.ToJSONSerializable(),
@@ -114,7 +114,7 @@ func (m *ManaBuffer) StoreMapOverall(blks ...*ManaNetworkListBlkData) {
 	m.mapOverallMutex.Lock()
 	defer m.mapOverallMutex.Unlock()
 	for _, blk := range blks {
-		manaType, err := mana.TypeFromString(blk.ManaType)
+		manaType, err := manamodels.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue
@@ -144,7 +144,7 @@ func (m *ManaBuffer) StoreMapOnline(blks ...*ManaNetworkListBlkData) {
 	m.mapOnlineMutex.Lock()
 	defer m.mapOnlineMutex.Unlock()
 	for _, blk := range blks {
-		manaType, err := mana.TypeFromString(blk.ManaType)
+		manaType, err := manamodels.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue

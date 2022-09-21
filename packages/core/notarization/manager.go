@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -69,7 +69,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine
 			UTXOTreeInserted:          event.New[*UTXOUpdatedEvent](),
 			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
 			EpochCommittable:          event.New[*EpochCommittableEvent](),
-			ManaVectorUpdate:          event.New[*mana.ManaVectorUpdateEvent](),
+			ManaVectorUpdate:          event.New[*manamodels.ManaVectorUpdateEvent](),
 			Bootstrapped:              event.New[*BootstrappedEvent](),
 			SyncRange:                 event.New[*SyncRangeEvent](),
 			ActivityTreeInserted:      event.New[*ActivityTreeUpdatedEvent](),
@@ -384,7 +384,7 @@ func (m *Manager) OnBlockOrphaned(block *blockdag.Block) {
 	// 		m.log.Error(err)
 	// 		return
 	// 	}
-	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{Index: ei, NodeID: nodeID})
+	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{Index: ei, IssuerID: nodeID})
 	// }
 
 	if _, exists := m.engine.Tangle.ValidatorSet.Get(nodeID); !exists {
@@ -470,7 +470,7 @@ func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
 }
 
 // OnConflictConfirmed is the handler for conflict confirmed event.
-func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*manamodels.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -504,7 +504,7 @@ func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
 }
 
 // OnConflictRejected is the handler for conflict created event.
-func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*manamodels.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -524,7 +524,7 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 }
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
-func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*manamodels.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
@@ -575,7 +575,7 @@ func (m *Manager) Shutdown() {
 	m.epochCommitmentFactory.storage.shutdown()
 }
 
-func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) ([]*EpochCommittableEvent, []*manamodels.ManaVectorUpdateEvent) {
 	count, _ := m.pendingConflictsCounters.Get(ei)
 	count--
 	m.pendingConflictsCounters.Set(ei, count)
@@ -690,7 +690,7 @@ func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata,
 	return
 }
 
-func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdateEvent) {
+func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *manamodels.ManaVectorUpdateEvent) {
 	manaEpoch := ei - epoch.Index(m.options.ManaEpochDelay)
 	spent := []*ledger.OutputWithMetadata{}
 	created := []*ledger.OutputWithMetadata{}
@@ -699,14 +699,14 @@ func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdate
 		spent, created = m.epochCommitmentFactory.loadDiffUTXOs(manaEpoch)
 	}
 
-	return &mana.ManaVectorUpdateEvent{
+	return &manamodels.ManaVectorUpdateEvent{
 		EI:      ei,
 		Spent:   spent,
 		Created: created,
 	}
 }
 
-func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*manamodels.ManaVectorUpdateEvent) {
 	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		m.log.Errorf("could not obtain last committed epoch index: %v", err)
@@ -714,7 +714,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 	}
 
 	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
-	manaVectorUpdateEvents := make([]*mana.ManaVectorUpdateEvent, 0)
+	manaVectorUpdateEvents := make([]*manamodels.ManaVectorUpdateEvent, 0)
 	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
 		if !m.isCommittable(ei) {
 			break
@@ -747,7 +747,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 	return epochCommittableEvents, manaVectorUpdateEvents
 }
 
-func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*mana.ManaVectorUpdateEvent) {
+func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableEvent, manaVectorUpdateEvents []*manamodels.ManaVectorUpdateEvent) {
 	for _, epochCommittableEvent := range epochCommittableEvents {
 		m.Events.EpochCommittable.Trigger(epochCommittableEvent)
 	}

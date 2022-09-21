@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 const (
 	// PrefixAccess is the storage prefix for access mana storage.

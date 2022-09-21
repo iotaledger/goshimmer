@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/model"

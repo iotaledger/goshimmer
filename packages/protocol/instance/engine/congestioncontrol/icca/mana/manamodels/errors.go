@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import "github.com/cockroachdb/errors"
 
@@ -19,4 +19,6 @@ var (
 	ErrInvalidTargetManaType = errors.New("invalid target mana type")
 	// ErrUnknownManaEvent is returned if mana event type could not be identified.
 	ErrUnknownManaEvent = errors.New("unknown mana event")
+	// ErrQueryNotAllowed is returned when the node is not synced and mana debug mode is disabled.
+	ErrQueryNotAllowed = errors.New("mana query not allowed, node is not synced, debug mode disabled")
 )

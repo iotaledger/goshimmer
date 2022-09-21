@@ -12,7 +12,7 @@ import (
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
@@ -58,14 +58,14 @@ func requestFunds(c echo.Context) error {
 	var accessManaPledgeID identity.ID
 	var consensusManaPledgeID identity.ID
 	if request.AccessManaPledgeID != "" {
-		accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
+		accessManaPledgeID, err = manamodels.IDFromStr(request.AccessManaPledgeID)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid access mana node ID"})
 		}
 	}
 
 	if request.ConsensusManaPledgeID != "" {
-		consensusManaPledgeID, err = mana.IDFromStr(request.ConsensusManaPledgeID)
+		consensusManaPledgeID, err = manamodels.IDFromStr(request.ConsensusManaPledgeID)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid consensus mana node ID"})
 		}

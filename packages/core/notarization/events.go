@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -24,7 +24,7 @@ type Events struct {
 	// CompetingCommitmentDetected is an event that gets triggered whenever a competing epoch commitment is detected.
 	CompetingCommitmentDetected *event.Event[*CompetingCommitmentDetectedEvent]
 	// ManaVectorUpdate is an event that gets triggered whenever the consensus mana vector needs to be updated.
-	ManaVectorUpdate *event.Event[*mana.ManaVectorUpdateEvent]
+	ManaVectorUpdate *event.Event[*models2.ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
 	TangleTreeInserted *event.Event[*TangleTreeUpdatedEvent]
 	// TangleTreeRemoved is an event that gets triggered when a Block is removed from Tangle smt.

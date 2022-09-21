@@ -8,13 +8,13 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 // Handler handles the request.
 func allowedManaPledgeHandler(c echo.Context) error {
-	access := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	access := manaPlugin.GetAllowedPledgeNodes(manamodels.AccessMana)
 	var accessNodes []string
 	access.Allowed.ForEach(func(element identity.ID) {
 		accessNodes = append(accessNodes, base58.Encode(element.Bytes()))
@@ -23,7 +23,7 @@ func allowedManaPledgeHandler(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, jsonmodels.AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
 	}
 
-	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	consensus := manaPlugin.GetAllowedPledgeNodes(manamodels.ConsensusMana)
 	var consensusNodes []string
 	consensus.Allowed.ForEach(func(element identity.ID) {
 		consensusNodes = append(consensusNodes, base58.Encode(element.Bytes()))

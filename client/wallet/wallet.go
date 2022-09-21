@@ -25,7 +25,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -1281,7 +1281,7 @@ func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 // region AllowedPledgeNodeIDs /////////////////////////////////////////////////////////////////////////////////////////
 
 // AllowedPledgeNodeIDs retrieves the allowed pledge node IDs.
-func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[mana.Type][]string, err error) {
+func (wallet *Wallet) AllowedPledgeNodeIDs() (res map[manamodels.Type][]string, err error) {
 	return wallet.connector.(*WebConnector).GetAllowedPledgeIDs()
 }
 
@@ -1921,18 +1921,18 @@ func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aI
 		return
 	}
 	if aIDFromOptions == "" {
-		aID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.AccessMana][0])
+		aID, err = manamodels.IDFromStr(allowedPledgeNodeIDs[manamodels.AccessMana][0])
 	} else {
-		aID, err = mana.IDFromStr(aIDFromOptions)
+		aID, err = manamodels.IDFromStr(aIDFromOptions)
 	}
 	if err != nil {
 		return
 	}
 
 	if cIDFromOptions == "" {
-		cID, err = mana.IDFromStr(allowedPledgeNodeIDs[mana.ConsensusMana][0])
+		cID, err = manamodels.IDFromStr(allowedPledgeNodeIDs[manamodels.ConsensusMana][0])
 	} else {
-		cID, err = mana.IDFromStr(cIDFromOptions)
+		cID, err = manamodels.IDFromStr(cIDFromOptions)
 	}
 	return
 }

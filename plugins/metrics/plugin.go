@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
@@ -302,7 +302,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	mana.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
+	models2.Events.Pledged.Attach(event.NewClosure(func(ev *models2.PledgedEvent) {
 		addPledge(ev)
 	}))
 

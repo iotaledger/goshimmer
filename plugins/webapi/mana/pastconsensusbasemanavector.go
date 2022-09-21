@@ -27,7 +27,7 @@ package mana
 //	}
 //
 //	return c.JSON(http.StatusOK, jsonmodels.PastConsensusManaVectorResponse{
-//		Consensus: manaMap.ToNodeStrList(),
+//		Consensus: manaMap.ToIssuerStrList(),
 //		TimeStamp: timestamp.Unix(),
 //	})
 //}

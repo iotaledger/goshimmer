@@ -9,7 +9,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
@@ -19,7 +19,7 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := mana.IDFromStr(request.NodeID)
+	ID, err := manamodels.IDFromStr(request.NodeID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -27,25 +27,25 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 	t := time.Now()
-	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
+	access, tAccess, err := manaPlugin.GetManaMap(manamodels.AccessMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	accessPercentile, err := access.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
 			accessPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
+	consensus, tConsensus, err := manaPlugin.GetManaMap(manamodels.ConsensusMana, t)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
 	consensusPercentile, err := consensus.GetPercentile(ID)
 	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrNodeNotFoundInBaseManaVector) {
 			consensusPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})

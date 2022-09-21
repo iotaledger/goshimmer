@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	models2 "github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -91,10 +91,10 @@ func (f *FaucetConnector) RequestFaucetFunds(address address.Address, powTarget 
 	panic("RequestFaucetFunds is not implemented in faucet connector.")
 }
 
-func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	pledgeIDMap = make(map[mana.Type][]string)
-	pledgeIDMap[mana.AccessMana] = []string{deps.Local.ID().EncodeBase58()}
-	pledgeIDMap[mana.ConsensusMana] = []string{deps.Local.ID().EncodeBase58()}
+func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[models2.Type][]string, err error) {
+	pledgeIDMap = make(map[models2.Type][]string)
+	pledgeIDMap[models2.AccessMana] = []string{deps.Local.ID().EncodeBase58()}
+	pledgeIDMap[models2.ConsensusMana] = []string{deps.Local.ID().EncodeBase58()}
 
 	return
 }

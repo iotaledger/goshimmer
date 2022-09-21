@@ -100,7 +100,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 	})
 }
 func (p *Protocol) Instance() (instance *instance.Instance) {
-	return p.instanceManager.CurrentInstance()
+	return p.activeInstance
 }
 
 func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *commitment.Commitment, err error) {

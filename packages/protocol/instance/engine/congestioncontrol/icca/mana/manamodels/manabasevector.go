@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import (
 	"bytes"
@@ -64,19 +64,19 @@ func (m *ManaBaseVector) Has(nodeID identity.ID) bool {
 //			if ev.Time.After(t) {
 //				return nil
 //			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
+//			if _, exist := m.vector[ev.IssuerID]; !exist {
+//				m.vector[ev.IssuerID] = &ConsensusBaseMana{}
 //			}
-//			m.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
+//			m.vector[ev.IssuerID].pledge(txInfoFromPledgeEvent(ev))
 //		case EventTypeRevoke:
 //			ev := _ev.(*RevokedEvent)
 //			if ev.Time.After(t) {
 //				return nil
 //			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
+//			if _, exist := m.vector[ev.IssuerID]; !exist {
+//				m.vector[ev.IssuerID] = &ConsensusBaseMana{}
 //			}
-//			err := m.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
+//			err := m.vector[ev.IssuerID].revoke(ev.Amount, ev.Time)
 //			if err != nil {
 //				return err
 //			}
@@ -267,7 +267,7 @@ func (m *ManaBaseVector) GetMana(nodeID identity.ID) (manaAmount float64, t time
 }
 
 // GetManaMap returns mana perception of the node.
-func (m *ManaBaseVector) GetManaMap() (res NodeMap, t time.Time, err error) {
+func (m *ManaBaseVector) GetManaMap() (res IssuerMap, t time.Time, err error) {
 	m.Lock()
 	defer m.Unlock()
 	t = time.Now()
@@ -281,7 +281,7 @@ func (m *ManaBaseVector) GetManaMap() (res NodeMap, t time.Time, err error) {
 // GetHighestManaNodes return the n-highest mana nodes in descending order.
 // It also updates the mana values for each node.
 // If n is zero, it returns all nodes.
-func (m *ManaBaseVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, err error) {
+func (m *ManaBaseVector) GetHighestManaNodes(n uint) (res []Issuer, t time.Time, err error) {
 	t = time.Now()
 	err = func() error {
 		// don't lock the vector after this func returns
@@ -293,7 +293,7 @@ func (m *ManaBaseVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, e
 			if err != nil {
 				return err
 			}
-			res = append(res, Node{
+			res = append(res, Issuer{
 				ID:   ID,
 				Mana: mana,
 			})
@@ -318,7 +318,7 @@ func (m *ManaBaseVector) GetHighestManaNodes(n uint) (res []Node, t time.Time, e
 // GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
 // It also updates the mana values for each node.
 // If p is zero or greater than one, it returns all nodes.
-func (m *ManaBaseVector) GetHighestManaNodesFraction(p float64) (res []Node, t time.Time, err error) {
+func (m *ManaBaseVector) GetHighestManaNodesFraction(p float64) (res []Issuer, t time.Time, err error) {
 	emptyNodeID := identity.ID{}
 	totalMana := 0.0
 	t = time.Now()
@@ -337,7 +337,7 @@ func (m *ManaBaseVector) GetHighestManaNodesFraction(p float64) (res []Node, t t
 			if err != nil {
 				return err
 			}
-			res = append(res, Node{
+			res = append(res, Issuer{
 				ID:   ID,
 				Mana: mana,
 			})

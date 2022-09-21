@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestNodeMap_GetPercentile(t *testing.T) {
-	nodes := make(NodeMap)
+	nodes := make(IssuerMap)
 	nodes[identity.GenerateIdentity().ID()] = 1
 	nodes[identity.GenerateIdentity().ID()] = 2
 	nodes[identity.GenerateIdentity().ID()] = 3

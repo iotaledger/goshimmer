@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import (
 	"time"
@@ -26,11 +26,11 @@ type BaseManaVector interface {
 	// GetMana returns the mana value of a node with default weights.
 	GetMana(identity.ID) (float64, time.Time, error)
 	// GetManaMap returns the map derived from the vector.
-	GetManaMap() (NodeMap, time.Time, error)
+	GetManaMap() (IssuerMap, time.Time, error)
 	// GetHighestManaNodes returns the n highest mana nodes in descending order.
-	GetHighestManaNodes(uint) ([]Node, time.Time, error)
+	GetHighestManaNodes(uint) ([]Issuer, time.Time, error)
 	// GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
-	GetHighestManaNodesFraction(p float64) ([]Node, time.Time, error)
+	GetHighestManaNodesFraction(p float64) ([]Issuer, time.Time, error)
 	// SetMana sets the base mana for a node.
 	SetMana(identity.ID, BaseMana)
 	// ForEach executes a callback function for each entry in the vector.

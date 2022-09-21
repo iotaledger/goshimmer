@@ -1,4 +1,4 @@
-package mana
+package manamodels
 
 import (
 	"context"
