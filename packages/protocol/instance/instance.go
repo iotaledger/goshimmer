@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -45,7 +44,7 @@ type Instance struct {
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(chainDirectory string, snapshotCommitment *commitment.Commitment, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(&Instance{
 		Events:          NewEvents(),
 		ValidatorSet:    validator.NewSet(),
@@ -56,8 +55,8 @@ func New(chainDirectory string, snapshotCommitment *commitment.Commitment, logge
 		optsSnapshotFile:  "snapshot.bin",
 		optsSnapshotDepth: 5,
 	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models.BlockID, models.Block](p.dbManager, kvstore.Realm{0x09})
-		p.Engine = engine.New(snapshotCommitment.Index().EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
+		p.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](p.dbManager, kvstore.Realm{0x09})
+		p.Engine = engine.New(time.Time{}, ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
 		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
 
 		p.NotarizationManager = notarization.NewManager(
@@ -67,7 +66,6 @@ func New(chainDirectory string, snapshotCommitment *commitment.Commitment, logge
 			notarization.BootstrapWindow(2*time.Minute),
 			notarization.ManaEpochDelay(2),
 		)
-
 		p.SnapshotManager = snapshot.NewManager(p.NotarizationManager, 5)
 
 		if err := snapshot.LoadSnapshot(
@@ -81,7 +79,13 @@ func New(chainDirectory string, snapshotCommitment *commitment.Commitment, logge
 			panic(err)
 		}
 
-		p.EvictionManager.EvictUntil(snapshotCommitment.Index(), p.SnapshotManager.SolidEntryPoints(snapshotCommitment.Index()))
+		latestConfirmedIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
+		if err != nil {
+			panic(err)
+		}
+
+		p.EvictionManager.EvictUntil(latestConfirmedIndex, p.SnapshotManager.SolidEntryPoints(latestConfirmedIndex))
+		// TODO: SET CLOCK
 
 		p.Events.Engine.LinkTo(p.Engine.Events)
 	})

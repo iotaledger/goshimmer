@@ -7,7 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/natefinch/atomic"
 )
+
+func ReplaceFile(src, dst string) (err error) {
+	return atomic.ReplaceFile(src, dst)
+}
 
 type DiskUtil struct {
 	basePath string
@@ -37,6 +43,18 @@ func (d *DiskUtil) CopyFile(src, dst string) (err error) {
 	}
 
 	return dstFile.Sync()
+}
+
+func (d *DiskUtil) Exists(path string) (exists bool) {
+	if _, err := os.Stat(path); err != nil {
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
+
+		return false
+	}
+
+	return true
 }
 
 func (d *DiskUtil) CreateDir(directoryPath string, perm ...os.FileMode) (err error) {

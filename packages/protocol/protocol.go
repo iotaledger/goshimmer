@@ -23,11 +23,12 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network        *network.Network
-	disk           *diskutil.DiskUtil
-	settings       *Settings
-	chainManager   *chainmanager.Manager
-	activeInstance *instance.Instance
+	network            *network.Network
+	disk               *diskutil.DiskUtil
+	settings           *Settings
+	chainManager       *chainmanager.Manager
+	activeInstance     *instance.Instance
+	instancesByChainID map[commitment.ID]*instance.Instance
 	// solidification  *solidification.Solidification
 
 	optsBaseDirectory    string
@@ -43,6 +44,7 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
+		instancesByChainID:   make(map[commitment.ID]*instance.Instance),
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
 		optsSnapshotFile:     "snapshot.bin",
@@ -53,38 +55,27 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 		p.disk = diskutil.New(p.optsBaseDirectory)
 		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-		// GLOBAL //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-		nodeSnapshotFile := p.disk.Path(p.optsSnapshotFile)
-		snapshotCommitment, err := p.snapshotCommitment(nodeSnapshotFile)
-		if err != nil {
-			fmt.Println(errors.Errorf("failed to retrieve snapshot commitment: %w", err))
-
+		if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFile)); err != nil {
 			panic(err)
 		}
+
+		for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
+			chainID := chains.Next()
+
+			p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		}
+
+		if len(p.instancesByChainID) == 0 {
+			panic("no chains found - please provide a snapshot file")
+		}
+
+		p.activeInstance = p.instancesByChainID[p.settings.ActiveChainID()]
 
 		// CHAIN SPECIFIC //////////////////////////////////////////////////////////////////////////////////////////////
 
-		// create WorkingDirectory for new chain
-		chainDirectory := p.disk.Path(fmt.Sprintf("%x", snapshotCommitment.ID().Bytes()))
-		if err = p.disk.CreateDir(chainDirectory); err != nil {
-			panic(err)
-		}
-
-		// copy over current snapshot to that working directory
-		chainSnapshotFile := diskutil.New(chainDirectory).Path("snapshot.bin")
-		if err = p.disk.CopyFile(nodeSnapshotFile, chainSnapshotFile); err != nil {
-			panic(err)
-		}
-
-		// start new instance with that working directory
-		p.activeInstance = instance.New(chainDirectory, snapshotCommitment, log)
-
-		fmt.Println(diskutil.New(chainDirectory).Path("snapshot.bin"))
-
 		// add instance to instancesByChainID
 
-		p.chainManager = chainmanager.NewManager(snapshotCommitment)
+		// p.chainManager = chainmanager.NewManager(snapshotCommitment)
 
 		//		p.instanceManager = instancemanager.New(p.disk, log)
 
@@ -103,26 +94,41 @@ func (p *Protocol) Instance() (instance *instance.Instance) {
 	return p.activeInstance
 }
 
-func (p *Protocol) snapshotCommitment(snapshotFile string) (snapshotCommitment *commitment.Commitment, err error) {
-	checksum, err := p.disk.FileChecksum(snapshotFile)
-	if err != nil {
-		return nil, errors.Errorf("failed to calculate checksum of snapshot file '%s': %w", snapshotFile, err)
+func (p *Protocol) importSnapshot(fileName string) (err error) {
+	var snapshotHeader *ledger.SnapshotHeader
+
+	if err = p.disk.WithFile(fileName, func(file *os.File) (err error) {
+		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
+
+		return
+	}); err != nil {
+		if os.IsNotExist(err) {
+			p.Logger.Debugf("snapshot file '%s' does not exist", fileName)
+
+			return nil
+		}
+
+		return errors.Errorf("failed to read snapshot header from file '%s': %w", fileName, err)
 	}
 
-	if checksum == p.settings.SnapshotChecksum() {
-		return p.settings.SnapshotCommitment(), nil
+	chainID := snapshotHeader.LatestECRecord.ID()
+	chainDirectory := p.disk.Path(fmt.Sprintf("%x", chainID.Bytes()))
+
+	if !p.disk.Exists(chainDirectory) {
+		if err = p.disk.CreateDir(chainDirectory); err != nil {
+			return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
+		}
 	}
 
-	snapshotHeader, err := p.readSnapshotHeader(snapshotFile)
-	if err != nil {
-		return nil, errors.Errorf("failed to read snapshot commitment: %w", err)
+	if err = diskutil.ReplaceFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
 	}
 
-	p.settings.SetSnapshotChecksum(checksum)
-	p.settings.SetSnapshotCommitment(snapshotHeader.LatestECRecord)
+	p.settings.AddChain(chainID)
+	p.settings.SetActiveChainID(chainID)
 	p.settings.Persist()
 
-	return snapshotHeader.LatestECRecord, nil
+	return
 }
 
 func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledger.SnapshotHeader, err error) {
