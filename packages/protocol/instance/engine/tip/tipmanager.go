@@ -79,7 +79,7 @@ func (t *Manager) AddTip(block *scheduler.Block) {
 	}
 
 	// a tip loses its tip status if it is referenced by another block
-	t.RemoveStrongParents(block.Block.Block.Block.Block)
+	t.RemoveStrongParents(block.ModelsBlock)
 }
 
 func (t *Manager) addTip(block *scheduler.Block) (added bool) {

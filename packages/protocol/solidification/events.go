@@ -1,4 +1,4 @@
-package gossip
+package solidification
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"

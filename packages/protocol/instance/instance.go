@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -26,6 +27,7 @@ import (
 
 type Instance struct {
 	Events              *Events
+	GenesisCommitment   *commitment.Commitment
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
@@ -70,7 +72,11 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 
 		if err := snapshot.LoadSnapshot(
 			diskutil.New(chainDirectory).Path("snapshot.bin"),
-			p.NotarizationManager.LoadECandEIs,
+			func(header *ledger.SnapshotHeader) {
+				p.GenesisCommitment = header.LatestECRecord
+
+				p.NotarizationManager.LoadECandEIs(header)
+			},
 			p.SnapshotManager.LoadSolidEntryPoints,
 			p.NotarizationManager.LoadOutputsWithMetadata,
 			p.NotarizationManager.LoadEpochDiff,
@@ -97,7 +103,7 @@ func (p *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neigh
 
 func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
-		return cachedBlock.Block, true
+		return cachedBlock.ModelsBlock, true
 	}
 
 	if id.Index() > p.EvictionManager.MaxEvictedEpoch() {
