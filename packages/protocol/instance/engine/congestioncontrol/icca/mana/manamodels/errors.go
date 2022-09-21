@@ -11,14 +11,14 @@ var (
 	ErrEffBaseManaNegative = errors.New("effective base mana should never be negative")
 	// ErrUnknownManaType is returned if mana type could not be identified.
 	ErrUnknownManaType = errors.New("unknown mana type")
-	// ErrNodeNotFoundInBaseManaVector is returned if the node is not found in the base mana vector.
-	ErrNodeNotFoundInBaseManaVector = errors.New("node not present in base mana vector")
+	// ErrIssuerNotFoundInBaseManaVector is returned if the issuer is not found in the base mana vector.
+	ErrIssuerNotFoundInBaseManaVector = errors.New("issuer not present in base mana vector")
 	// ErrInvalidWeightParameter is returned if an invalid weight parameter is passed.
 	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
 	// ErrInvalidTargetManaType is returned if a research base mana vector can't handle the target mana type.
 	ErrInvalidTargetManaType = errors.New("invalid target mana type")
 	// ErrUnknownManaEvent is returned if mana event type could not be identified.
 	ErrUnknownManaEvent = errors.New("unknown mana event")
-	// ErrQueryNotAllowed is returned when the node is not synced and mana debug mode is disabled.
-	ErrQueryNotAllowed = errors.New("mana query not allowed, node is not synced, debug mode disabled")
+	// ErrQueryNotAllowed is returned when the issuer is not synced and mana debug mode is disabled.
+	ErrQueryNotAllowed = errors.New("mana query not allowed, issuer is not synced, debug mode disabled")
 )

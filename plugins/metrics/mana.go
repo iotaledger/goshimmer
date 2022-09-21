@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
@@ -145,7 +146,7 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 }
 
 // addPledge populates the pledge logs for the node.
-func addPledge(event *manamodels.PledgedEvent) {
+func addPledge(event *mana.PledgedEvent) {
 	pledgesLock.Lock()
 	defer pledgesLock.Unlock()
 	pledgeLog := pledges[event.NodeID]

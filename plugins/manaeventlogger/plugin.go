@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 )
 
 const (
@@ -26,9 +26,9 @@ var (
 	// Plugin is the plugin instance of the manaeventlogger plugin.
 	Plugin               *node.Plugin
 	log                  *logger.Logger
-	onPledgeEventClosure *event.Closure[*manamodels.PledgedEvent]
-	onRevokeEventClosure *event.Closure[*manamodels.RevokedEvent]
-	eventsBuffer         []manamodels.Event
+	onPledgeEventClosure *event.Closure[*mana.PledgedEvent]
+	onRevokeEventClosure *event.Closure[*mana.RevokedEvent]
+	eventsBuffer         []mana.Event
 	eventsBufferSize     int
 	csvPath              string
 	mu                   sync.Mutex
@@ -51,15 +51,15 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	manamodels.Events.Pledged.Attach(onPledgeEventClosure)
-	manamodels.Events.Revoked.Attach(onRevokeEventClosure)
+	mana.Events.Pledged.Attach(onPledgeEventClosure)
+	mana.Events.Revoked.Attach(onRevokeEventClosure)
 }
 
-func logPledge(ev *manamodels.PledgedEvent) {
+func logPledge(ev *mana.PledgedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }
 
-func logRevoke(ev *manamodels.RevokedEvent) {
+func logRevoke(ev *mana.RevokedEvent) {
 	eventsBuffer = append(eventsBuffer, ev)
 }
 
@@ -69,7 +69,7 @@ func checkBuffer() {
 	if len(eventsBuffer) < eventsBufferSize {
 		return
 	}
-	evs := make([]manamodels.Event, len(eventsBuffer))
+	evs := make([]mana.Event, len(eventsBuffer))
 	copy(evs, eventsBuffer)
 	go func() {
 		if err := writeEventsToCSV(evs); err != nil {
@@ -79,7 +79,7 @@ func checkBuffer() {
 	eventsBuffer = nil
 }
 
-func writeEventsToCSV(evs []manamodels.Event) error {
+func writeEventsToCSV(evs []mana.Event) error {
 	csvMu.Lock()
 	defer csvMu.Unlock()
 	if len(evs) == 0 {
@@ -129,8 +129,8 @@ func run(_ *node.Plugin) {
 			}
 		}
 		log.Infof("stopping %s", PluginName)
-		manamodels.Events.Pledged.Detach(onPledgeEventClosure)
-		manamodels.Events.Revoked.Detach(onRevokeEventClosure)
+		mana.Events.Pledged.Detach(onPledgeEventClosure)
+		mana.Events.Revoked.Detach(onRevokeEventClosure)
 		if err := writeEventsToCSV(eventsBuffer); err != nil {
 			log.Infof("error writing events to csv: %w", err)
 		}

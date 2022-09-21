@@ -19,7 +19,7 @@ type persistableBaseManaModel struct {
 	LastUpdated     time.Time `serix:"3"`
 }
 
-func NewPersistableBaseMana(nodeID identity.ID, manaType Type, baseValues, effectiveValues []float64, lastUpdated time.Time) *PersistableBaseMana {
+func NewPersistableBaseMana(issuerID identity.ID, manaType Type, baseValues, effectiveValues []float64, lastUpdated time.Time) *PersistableBaseMana {
 	persistableBaseMana := model.NewStorable[identity.ID, PersistableBaseMana](
 		&persistableBaseManaModel{
 			ManaType:        manaType,
@@ -28,11 +28,11 @@ func NewPersistableBaseMana(nodeID identity.ID, manaType Type, baseValues, effec
 			LastUpdated:     lastUpdated,
 		},
 	)
-	persistableBaseMana.SetID(nodeID)
+	persistableBaseMana.SetID(issuerID)
 	return persistableBaseMana
 }
 
-func (v *PersistableBaseMana) NodeID() identity.ID {
+func (v *PersistableBaseMana) IssuerID() identity.ID {
 	return v.ID()
 }
 

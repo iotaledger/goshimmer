@@ -25,7 +25,7 @@ type TxInfo struct {
 	InputInfos []InputInfo
 }
 
-func (t *TxInfo) sumInputs() float64 {
+func (t *TxInfo) SumInputs() float64 {
 	t.TotalBalance = 0
 	for _, input := range t.InputInfos {
 		t.TotalBalance += input.Amount

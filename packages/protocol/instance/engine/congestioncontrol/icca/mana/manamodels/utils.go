@@ -55,7 +55,7 @@ func (n IssuerMap) GetPercentile(issuer identity.ID) (float64, error) {
 	}
 	value, ok := n[issuer]
 	if !ok {
-		return 0, ErrNodeNotFoundInBaseManaVector
+		return 0, ErrIssuerNotFoundInBaseManaVector
 	}
 	nBelow := 0.0
 	for _, val := range n {

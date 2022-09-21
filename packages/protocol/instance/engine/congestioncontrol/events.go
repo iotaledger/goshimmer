@@ -3,11 +3,13 @@ package congestioncontrol
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 )
 
 type Events struct {
 	Scheduler *scheduler.Events
+	Tracker   *mana.Events
 
 	event.LinkableCollection[Events, *Events]
 }

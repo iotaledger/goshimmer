@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 )
 
@@ -20,7 +21,7 @@ const (
 // ManaBuffer holds recent data related to mana in the dashboard. Used to fill frontend on page load/reload.
 type ManaBuffer struct {
 	// Events store PledgedEvent and RevokedEvent structs in chronological order.
-	Events          []manamodels.Event
+	Events          []mana.Event
 	eventsMutex     sync.RWMutex
 	ValueBlks       []*ManaValueBlkData
 	valueBlksMutex  sync.RWMutex
@@ -33,7 +34,7 @@ type ManaBuffer struct {
 // NewManaBuffer creates and initializes a new, empty buffer.
 func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
-		Events:     make([]manamodels.Event, 0),
+		Events:     make([]mana.Event, 0),
 		ValueBlks:  make([]*ManaValueBlkData, 0),
 		MapOverall: make(map[manamodels.Type]*ManaNetworkListBlkData),
 		MapOnline:  make(map[manamodels.Type]*ManaNetworkListBlkData),
@@ -41,7 +42,7 @@ func NewManaBuffer() *ManaBuffer {
 }
 
 // StoreEvent stores an event in the buffer. If it is full, drops the oldest event.
-func (m *ManaBuffer) StoreEvent(event manamodels.Event) {
+func (m *ManaBuffer) StoreEvent(event mana.Event) {
 	m.eventsMutex.Lock()
 	defer m.eventsMutex.Unlock()
 	if len(m.Events) >= maxManaEventsBufferSize {
@@ -58,12 +59,12 @@ func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
 	for _, ev := range m.Events {
 		var blk *wsblk
 		switch ev.Type() {
-		case manamodels.EventTypePledge:
+		case mana.EventTypePledge:
 			blk = &wsblk{
 				Type: MsgTypeManaInitPledge,
 				Data: ev.ToJSONSerializable(),
 			}
-		case manamodels.EventTypeRevoke:
+		case mana.EventTypeRevoke:
 			blk = &wsblk{
 				Type: MsgTypeManaInitRevoke,
 				Data: ev.ToJSONSerializable(),

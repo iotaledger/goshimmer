@@ -49,8 +49,8 @@ func TestPledgeAndUpdateRegularOldFunds_Consensus(t *testing.T) {
 		},
 	}
 
-	bm.pledge(_txInfo.sumInputs())
+	bm.pledge(_txInfo.SumInputs())
 
-	assert.Equal(t, 10.0, _txInfo.sumInputs())
+	assert.Equal(t, 10.0, _txInfo.SumInputs())
 	assert.Equal(t, 11.0, bm.BaseValue())
 }

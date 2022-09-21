@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -42,7 +43,7 @@ func TestPersistableEvent_ObjectStorageValue(t *testing.T) {
 
 func TestPersistableEvent_FromBytes(t *testing.T) {
 	ev := &PersistableEvent{
-		Type:          EventTypePledge,
+		Type:          mana.EventTypePledge,
 		NodeID:        identity.ID{},
 		Amount:        100,
 		Time:          time.Now(),

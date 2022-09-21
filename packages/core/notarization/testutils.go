@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 )
 
 const (
@@ -84,7 +84,7 @@ func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
 }
 
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
-func (e *EventMock) ManaVectorUpdate(event *manamodels.ManaVectorUpdateEvent) {
+func (e *EventMock) ManaVectorUpdate(event *mana.ManaVectorUpdateEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }

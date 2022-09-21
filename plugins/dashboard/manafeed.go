@@ -15,6 +15,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
@@ -46,24 +47,25 @@ func configureManaFeed() {
 		case MsgTypeManaMapOnline:
 			sendManaMapOnline()
 		case MsgTypeManaPledge:
-			sendManaPledge(task.Param(1).(*manamodels.PledgedEvent))
+			sendManaPledge(task.Param(1).(*mana.PledgedEvent))
 		case MsgTypeManaRevoke:
-			sendManaRevoke(task.Param(1).(*manamodels.RevokedEvent))
+			sendManaRevoke(task.Param(1).(*mana.RevokedEvent))
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(manaFeedWorkerCount), workerpool.QueueSize(manaFeedWorkerQueueSize))
 }
 
 func runManaFeed() {
-	notifyManaPledge := event.NewClosure(func(ev *manamodels.PledgedEvent) {
+	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
 		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
 	})
-	notifyManaRevoke := event.NewClosure(func(ev *manamodels.RevokedEvent) {
+	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
 		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
-		manamodels.Events.Pledged.Attach(notifyManaPledge)
-		manamodels.Events.Revoked.Attach(notifyManaRevoke)
+		// TODO: use linkable events on protocol level
+		deps.Protocol.Instance().Events.Engine.CongestionControl.Tracker.Pledged.Attach(notifyManaPledge)
+		deps.Protocol.Instance().Events.Engine.CongestionControl.Tracker.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -184,7 +186,7 @@ func sendManaMapOnline() {
 	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
 }
 
-func sendManaPledge(ev *manamodels.PledgedEvent) {
+func sendManaPledge(ev *mana.PledgedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaPledge,
@@ -192,7 +194,7 @@ func sendManaPledge(ev *manamodels.PledgedEvent) {
 	})
 }
 
-func sendManaRevoke(ev *manamodels.RevokedEvent) {
+func sendManaRevoke(ev *mana.RevokedEvent) {
 	ManaBufferInstance().StoreEvent(ev)
 	broadcastWsBlock(&wsblk{
 		Type: MsgTypeManaRevoke,

@@ -19,7 +19,7 @@ type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
 	Type          byte               `serix:"0"` // pledge or revoke
 	ManaType      Type               `serix:"1"` // access or consensus
-	NodeID        identity.ID        `serix:"2"`
+	IssuerID      identity.ID        `serix:"2"`
 	Time          time.Time          `serix:"3"`
 	TransactionID utxo.TransactionID `serix:"4"`
 	Amount        float64            `serix:"5"`
@@ -29,20 +29,20 @@ type PersistableEvent struct {
 
 // ToStringKeys returns the keys (properties) of the persistable event as a list of strings.
 func (p *PersistableEvent) ToStringKeys() []string {
-	return []string{"type", "nodeID", "fullNodeID", "amount", "time", "manaType", "transactionID", "inputID"}
+	return []string{"type", "issuerID", "fullIssuerID", "amount", "time", "manaType", "transactionID", "inputID"}
 }
 
 // ToStringValues returns the persistableEvents values as a string array.
 func (p *PersistableEvent) ToStringValues() []string {
 	_type := strconv.Itoa(int(p.Type))
-	_nodeID := p.NodeID.String()
-	_fullNodeID := base58.Encode(p.NodeID[:])
+	_issuerID := p.IssuerID.String()
+	_fullIssuerID := base58.Encode(p.IssuerID[:])
 	_amount := strconv.FormatFloat(p.Amount, 'g', -1, 64)
 	_time := strconv.FormatInt(p.Time.Unix(), 10)
 	_manaType := p.ManaType.String()
 	_txID := p.TransactionID.Base58()
 	_inputID := p.InputID.Base58()
-	return []string{_type, _nodeID, _fullNodeID, _amount, _time, _manaType, _txID, _inputID}
+	return []string{_type, _issuerID, _fullIssuerID, _amount, _time, _manaType, _txID, _inputID}
 }
 
 // Bytes marshals the persistable event into a sequence of bytes.

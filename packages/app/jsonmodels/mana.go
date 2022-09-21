@@ -1,6 +1,7 @@
 package jsonmodels
 
 import (
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 )
 
@@ -31,8 +32,8 @@ type GetAllManaResponse struct {
 
 // EventLogsJSON is a events log in JSON.
 type EventLogsJSON struct {
-	Pledge []*manamodels.PledgedEventJSON `json:"pledge"`
-	Revoke []*manamodels.RevokedEventJSON `json:"revoke"`
+	Pledge []*mana.PledgedEventJSON `json:"pledge"`
+	Revoke []*mana.RevokedEventJSON `json:"revoke"`
 }
 
 // GetEventLogsRequest is the request.
