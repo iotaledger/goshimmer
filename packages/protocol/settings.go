@@ -27,18 +27,18 @@ func NewSettings(filePath string) (settings *Settings) {
 	}
 }
 
-func (s *Settings) ActiveChainID() commitment.ID {
+func (s *Settings) MainChainID() commitment.ID {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.storage.ActiveChainID
+	return s.storage.MainChainID
 }
 
-func (s *Settings) SetActiveChainID(chainID commitment.ID) {
+func (s *Settings) SetMainChainID(chainID commitment.ID) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.storage.ActiveChainID = chainID
+	s.storage.MainChainID = chainID
 }
 
 func (s *Settings) Chains() (chains *set.AdvancedSet[commitment.ID]) {
@@ -73,8 +73,8 @@ func (s *Settings) Persist() {
 // region settingsStorage //////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsStorage struct {
-	ActiveChainID commitment.ID                   `serix:"0"`
-	Chains        *set.AdvancedSet[commitment.ID] `serix:"1"`
+	MainChainID commitment.ID                   `serix:"0"`
+	Chains      *set.AdvancedSet[commitment.ID] `serix:"1"`
 
 	storable.Struct[settingsStorage, *settingsStorage]
 }
