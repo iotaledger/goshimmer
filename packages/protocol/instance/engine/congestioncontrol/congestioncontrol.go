@@ -15,7 +15,7 @@ type CongestionControl struct {
 	Events *Events
 	Gadget *acceptance.Gadget
 
-	optsScheduler []options.Option[scheduler.Scheduler]
+	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 	*mana.Tracker
 	*scheduler.Scheduler
 }
@@ -26,7 +26,7 @@ func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, accessManaMapRetrieve
 		Gadget: gadget,
 	}, opts, func(c *CongestionControl) {
 		c.Tracker = mana.NewTracker(tangle.Ledger)
-		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, accessManaMapRetrieverFunc, totalAccessManaRetrieveFunc, c.optsScheduler...)
+		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, accessManaMapRetrieverFunc, totalAccessManaRetrieveFunc, c.optsSchedulerOptions...)
 
 		c.Events.Scheduler = c.Scheduler.Events
 		c.Events.Tracker = c.Tracker.Events
@@ -37,4 +37,10 @@ func (c *CongestionControl) setupEvents() {
 	c.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
 		c.HandleAcceptedBlock(acceptedBlock.Block)
 	}))
+}
+
+func WithSchedulerOptions(opts ...options.Option[scheduler.Scheduler]) options.Option[CongestionControl] {
+	return func(c *CongestionControl) {
+		c.optsSchedulerOptions = opts
+	}
 }

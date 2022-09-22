@@ -44,14 +44,16 @@ type Instance struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
-	chainDirectory            string
-	dbManager                 *database.Manager
-	logger                    *logger.Logger
-	optsBootstrappedThreshold time.Duration
-	optsSnapshotFile          string
-	optsSnapshotDepth         int
-	optsEngineOptions         []options.Option[engine.Engine]
-	optsDBManagerOptions      []options.Option[database.Manager]
+	chainDirectory                 string
+	dbManager                      *database.Manager
+	logger                         *logger.Logger
+	optsBootstrappedThreshold      time.Duration
+	optsSnapshotFile               string
+	optsSnapshotDepth              int
+	optsEngineOptions              []options.Option[engine.Engine]
+	optsDBManagerOptions           []options.Option[database.Manager]
+	optsNotarizationManagerOptions []notarization.ManagerOption
+	optsTipManagerOptions          []options.Option[tipmanager.TipManager]
 }
 
 func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
@@ -262,9 +264,21 @@ func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Ins
 	}
 }
 
+func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Instance] {
+	return func(p *Instance) {
+		p.optsTipManagerOptions = opts
+	}
+}
+
 func WithSnapshotFile(snapshotFile string) options.Option[Instance] {
 	return func(p *Instance) {
 		p.optsSnapshotFile = snapshotFile
+	}
+}
+
+func WithNotarizationManagerOptions(managerOptions ...notarization.ManagerOption) options.Option[Instance] {
+	return func(i *Instance) {
+		i.optsNotarizationManagerOptions = managerOptions
 	}
 }
 

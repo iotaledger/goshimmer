@@ -24,22 +24,22 @@ type Engine struct {
 	Consensus         *consensus.Consensus
 	CongestionControl *congestioncontrol.CongestionControl
 
-	optsTangle            []options.Option[tangle.Tangle]
-	optsConsensus         []options.Option[consensus.Consensus]
-	optsCongestionControl []options.Option[congestioncontrol.CongestionControl]
+	optsTangleOptions            []options.Option[tangle.Tangle]
+	optsConsensusOptions         []options.Option[consensus.Consensus]
+	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
 }
 
 func New(isBootstrapped func() bool, ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(&Engine{}, opts, func(e *Engine) {
 		e.IsBootstrapped = isBootstrapped
 		e.Ledger = ledger
-		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangle...)
-		e.Consensus = consensus.New(e.Tangle, e.optsConsensus...)
+		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangleOptions...)
+		e.Consensus = consensus.New(e.Tangle, e.optsConsensusOptions...)
 		e.CongestionControl = congestioncontrol.New(e.Consensus.Gadget, e.Tangle, func() map[identity.ID]float64 {
 			panic("implement me")
 		}, func() float64 {
 			panic("implement me")
-		}, e.optsCongestionControl...)
+		}, e.optsCongestionControlOptions...)
 
 		e.Events = NewEvents()
 		e.Events.Tangle = e.Tangle.Events
@@ -65,13 +65,19 @@ func (e *Engine) setupTipManagerEvents() {
 
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsTangle = opts
+		e.optsTangleOptions = opts
 	}
 }
 
 func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.Option[Engine] {
 	return func(e *Engine) {
-		e.optsConsensus = opts
+		e.optsConsensusOptions = opts
+	}
+}
+
+func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsCongestionControlOptions = opts
 	}
 }
 

@@ -43,6 +43,7 @@ type Protocol struct {
 	optsSnapshotFile     string
 	optsDBManagerOptions []options.Option[database.Manager]
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
+	optsInstanceOptions []options.Option[instance.Instance]
 
 	*logger.Logger
 }
@@ -222,5 +223,11 @@ func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Opti
 // 		n.optsSolidificationOptions = opts
 // 	}
 // }
+
+func WithInstanceOptions(opts ...options.Option[instance.Instance]) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsInstanceOptions = opts
+	}
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

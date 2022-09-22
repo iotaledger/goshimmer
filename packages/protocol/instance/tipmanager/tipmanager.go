@@ -427,7 +427,7 @@ func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Dura
 	}
 }
 
-func Width(maxWidth int) options.Option[TipManager] {
+func WithWidth(maxWidth int) options.Option[TipManager] {
 	return func(t *TipManager) {
 		t.optsWidth = maxWidth
 	}
