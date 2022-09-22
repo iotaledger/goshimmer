@@ -123,8 +123,8 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	return ledger
 }
 
-// LoadOutputWithMetadatas loads OutputWithMetadatas from a snapshot file to the storage.
-func (l *Ledger) LoadOutputWithMetadatas(outputsWithMetadatas []*OutputWithMetadata) {
+// LoadOutputsWithMetadata loads OutputWithMetadatas from a snapshot file to the storage.
+func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadatas []*OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())

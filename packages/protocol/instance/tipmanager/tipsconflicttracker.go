@@ -1,4 +1,4 @@
-package tip
+package tipmanager
 
 // type TipsConflictTracker struct {
 // 	missingConflicts  utxo.TransactionIDs

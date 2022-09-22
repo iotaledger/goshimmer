@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -48,7 +48,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
 		}
 		if t.optsClock == nil {
-			t.optsClock = clock.NewClock(time.Now().Add(-5 * time.Hour))
+			t.optsClock = clock.New(time.Now().Add(-5 * time.Hour))
 		}
 
 		if t.OrphanageManager == nil {

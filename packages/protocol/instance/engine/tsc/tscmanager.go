@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/timed"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"

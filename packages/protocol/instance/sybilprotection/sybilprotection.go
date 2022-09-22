@@ -1,40 +1,33 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/sybilprotection/activitytracker"
 )
 
 type SybilProtection struct {
-	ActivityTracker *activitytracker.ActivityTracker
-	Engine          *engine.Engine
-	ValidatorSet    *validator.Set
-
+	activityTracker            *activitytracker.ActivityTracker
+	validatorSet               *validator.Set
 	optsActivityTrackerOptions []options.Option[activitytracker.ActivityTracker]
 }
 
-func New(engine *engine.Engine, validatorSet *validator.Set, opts ...options.Option[SybilProtection]) (sybilProtection *SybilProtection) {
+func New(validatorSet *validator.Set, retrieverFunc activitytracker.TimeRetrieverFunc, opts ...options.Option[SybilProtection]) (sybilProtection *SybilProtection) {
 	return options.Apply(&SybilProtection{
-		Engine:       engine,
-		ValidatorSet: validatorSet,
+		validatorSet: validatorSet,
 	}, opts, func(s *SybilProtection) {
-		s.ActivityTracker = activitytracker.New(s.ValidatorSet, engine.Clock.RelativeAcceptedTime, s.optsActivityTrackerOptions...)
-	}, (*SybilProtection).setupEvents)
+		s.activityTracker = activitytracker.New(validatorSet, retrieverFunc, s.optsActivityTrackerOptions...)
+	})
 }
 
-func (s *SybilProtection) setupEvents() {
-	s.Engine.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
-		activeValidator, exists := s.ValidatorSet.Get(block.IssuerID())
-		if !exists {
-			// TODO: figure out the validator weight here
-			activeValidator = validator.New(block.IssuerID(), validator.WithWeight(0))
-		}
+func (s *SybilProtection) TrackActiveValidators(block *blockdag.Block) {
+	activeValidator, exists := s.validatorSet.Get(block.IssuerID())
+	if !exists {
+		// TODO: figure out the validator weight here
+		activeValidator = validator.New(block.IssuerID(), validator.WithWeight(0))
+	}
 
-		s.ActivityTracker.Update(activeValidator, block.IssuingTime())
-	}))
+	s.activityTracker.Update(activeValidator, block.IssuingTime())
 }

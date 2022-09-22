@@ -1,4 +1,4 @@
-package tip
+package tipmanager
 
 import (
 	"time"
@@ -24,9 +24,9 @@ type timeRetrieverFunc func() time.Time
 
 type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists bool)
 
-// region Manager ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Manager struct {
+type TipManager struct {
 	Events *Events
 
 	tangle             *tangle.Tangle
@@ -43,8 +43,8 @@ type Manager struct {
 	optsWidth                          int
 }
 
-func NewManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[Manager]) *Manager {
-	return options.Apply(&Manager{
+func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[TipManager]) *TipManager {
+	return options.Apply(&TipManager{
 		Events: NewEvents(),
 
 		tangle:             tangle,
@@ -62,7 +62,7 @@ func NewManager(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever b
 	}, opts)
 }
 
-func (t *Manager) AddTip(block *scheduler.Block) {
+func (t *TipManager) AddTip(block *scheduler.Block) {
 	// Check if any children that are accepted or scheduled and return if true, to guarantee that parents are not added
 	// to the tipset after their children.
 	if t.checkMonotonicity(block) {
@@ -82,7 +82,7 @@ func (t *Manager) AddTip(block *scheduler.Block) {
 	t.RemoveStrongParents(block.ModelsBlock)
 }
 
-func (t *Manager) addTip(block *scheduler.Block) (added bool) {
+func (t *TipManager) addTip(block *scheduler.Block) (added bool) {
 	if t.tips.Set(block, block) {
 		// t.tipsConflictTracker.AddTip(block)
 		t.Events.TipAdded.Trigger(block)
@@ -92,7 +92,7 @@ func (t *Manager) addTip(block *scheduler.Block) (added bool) {
 	return false
 }
 
-func (t *Manager) DeleteTip(block *scheduler.Block) (deleted bool) {
+func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	if _, deleted = t.tips.Delete(block); deleted {
 		// t.tipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
@@ -101,7 +101,7 @@ func (t *Manager) DeleteTip(block *scheduler.Block) (deleted bool) {
 }
 
 // checkMonotonicity returns true if the block has any accepted or scheduled child.
-func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
+func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
 	for _, child := range block.Children() {
 		if t.acceptanceGadget.IsBlockAccepted(child.ID()) {
 			return true
@@ -117,7 +117,7 @@ func (t *Manager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccep
 	return false
 }
 
-func (t *Manager) RemoveStrongParents(block *models.Block) {
+func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	block.ForEachParent(func(parent models.Parent) {
 		// TODO: reintroduce TipsConflictTracker
 		// We do not want to remove the tip if it is the last one representing a pending conflict.
@@ -131,7 +131,7 @@ func (t *Manager) RemoveStrongParents(block *models.Block) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *Manager) Tips(countParents int) (parents scheduler.Blocks) {
+func (t *TipManager) Tips(countParents int) (parents scheduler.Blocks) {
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
@@ -142,7 +142,7 @@ func (t *Manager) Tips(countParents int) (parents scheduler.Blocks) {
 	return t.selectTips(countParents)
 }
 
-func (t *Manager) selectTips(count int) (parents scheduler.Blocks) {
+func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
 	parents = scheduler.NewBlocks()
 
 	tips := t.tips.RandomUniqueEntries(count)
@@ -171,12 +171,12 @@ func (t *Manager) selectTips(count int) (parents scheduler.Blocks) {
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *Manager) AllTips() []*scheduler.Block {
+func (t *TipManager) AllTips() []*scheduler.Block {
 	return t.tips.Keys()
 }
 
 // TipCount the amount of tips.
-func (t *Manager) TipCount() int {
+func (t *TipManager) TipCount() int {
 	return t.tips.Size()
 }
 
@@ -191,7 +191,7 @@ func (t *Manager) TipCount() int {
 //
 // This function is optimized through the use of markers and the following assumption:
 //   If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
-func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
+func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
 
 	if t.timeRetrieverFunc() == t.genesisTime {
@@ -231,7 +231,7 @@ func (t *Manager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampV
 	return true
 }
 
-func (t *Manager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker]) {
+func (t *TipManager) processInitialBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker]) {
 	if block.StructureDetails() == nil || block.StructureDetails().PastMarkers().Size() == 0 {
 		// need to walk blocks
 		blockWalker.Push(block)
@@ -250,7 +250,7 @@ func (t *Manager) processInitialBlock(block *scheduler.Block, blockWalker *walke
 	})
 }
 
-func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
+func (t *TipManager) checkMarker(marker markers.Marker, previousBlock *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (block *scheduler.Block, timestampValid bool) {
 	block, exists := t.schedulerBlockFromMarker(marker)
 	if !exists {
 		return nil, false
@@ -321,7 +321,7 @@ func (t *Manager) checkMarker(marker markers.Marker, previousBlock *scheduler.Bl
 	return block, true
 }
 
-func (t *Manager) schedulerBlockFromMarker(marker markers.Marker) (block *scheduler.Block, exists bool) {
+func (t *TipManager) schedulerBlockFromMarker(marker markers.Marker) (block *scheduler.Block, exists bool) {
 	bookerBlock, exists := t.tangle.Booker.BlockFromMarker(marker)
 	if !exists {
 		return nil, false
@@ -334,7 +334,7 @@ func (t *Manager) schedulerBlockFromMarker(marker markers.Marker) (block *schedu
 }
 
 // isMarkerOldAndAccepted check whether previousMarker is accepted and older than minSupportedTimestamp. It is used to check whether to walk blocks in the past cone of the current marker.
-func (t *Manager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
+func (t *TipManager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSupportedTimestamp time.Time) bool {
 	block, exists := t.tangle.Booker.BlockFromMarker(previousMarker)
 	if !exists {
 		return false
@@ -346,7 +346,7 @@ func (t *Manager) isMarkerOldAndAccepted(previousMarker markers.Marker, minSuppo
 	return false
 }
 
-func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, firstUnacceptedMarker markers.Marker) (tscValid bool) {
+func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, firstUnacceptedMarker markers.Marker) (tscValid bool) {
 	// oldest unaccepted marker is in the future cone of the past marker (same sequence), therefore past marker is accepted and there is no need to check
 	// this condition is covered by other checks but leaving it here just for safety
 	if pastMarker.Index() < firstUnacceptedMarker.Index() {
@@ -361,7 +361,7 @@ func (t *Manager) processMarker(pastMarker markers.Marker, minSupportedTimestamp
 	return block.IssuingTime().After(minSupportedTimestamp)
 }
 
-func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[*scheduler.Block], minSupportedTimestamp time.Time) (timestampValid bool) {
 	// if block is older than TSC then it's incorrect no matter the confirmation status
 	if block.IssuingTime().Before(minSupportedTimestamp) {
 		blockWalker.StopWalk()
@@ -386,7 +386,7 @@ func (t *Manager) checkBlock(block *scheduler.Block, blockWalker *walker.Walker[
 
 // firstUnacceptedMarker is similar to acceptance.FirstUnacceptedIndex, except it skips any marker gaps and returns
 // an existing marker.
-func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
+func (t *TipManager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnacceptedMarker markers.Marker) {
 	firstUnacceptedIndex := t.acceptanceGadget.FirstUnacceptedIndex(pastMarker.SequenceID())
 	// skip any gaps in marker indices
 	for ; firstUnacceptedIndex <= pastMarker.Index(); firstUnacceptedIndex++ {
@@ -403,7 +403,7 @@ func (t *Manager) firstUnacceptedMarker(pastMarker markers.Marker) (firstUnaccep
 	return firstUnacceptedMarker
 }
 
-func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
+func (t *TipManager) previousMarkerWithBlock(sequence *markers.Sequence, markerIndex markers.Index) (previousMarker markers.Marker, block *scheduler.Block) {
 	// skip any gaps in marker indices and start from marker below current one.
 	for markerIndex--; sequence.LowestIndex() < markerIndex; markerIndex-- {
 		previousMarker = markers.NewMarker(sequence.ID(), markerIndex)
@@ -421,14 +421,14 @@ func (t *Manager) previousMarkerWithBlock(sequence *markers.Sequence, markerInde
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[Manager] {
-	return func(o *Manager) {
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TipManager] {
+	return func(o *TipManager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 
-func Width(maxWidth int) options.Option[Manager] {
-	return func(t *Manager) {
+func Width(maxWidth int) options.Option[TipManager] {
+	return func(t *TipManager) {
 		t.optsWidth = maxWidth
 	}
 }
