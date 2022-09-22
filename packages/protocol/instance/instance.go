@@ -76,6 +76,7 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 		(*Instance).initSnapshotManager,
 		(*Instance).loadSnapshot,
 		(*Instance).initEvictionManager,
+		(*Instance).initTipManager,
 		(*Instance).initSybilProtection,
 	)
 }
@@ -117,6 +118,8 @@ func (i *Instance) initNotarizationManager() {
 		notarization.BootstrapWindow(2*time.Minute),
 		notarization.ManaEpochDelay(2),
 	)
+
+	// TODO: WIRE UP EVENTS OUTSIDE
 }
 
 func (i *Instance) initSnapshotManager() {

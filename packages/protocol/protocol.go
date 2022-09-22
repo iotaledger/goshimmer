@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
@@ -168,13 +169,7 @@ func (p *Protocol) instance() (instance *instance.Instance) {
 	return p.activeInstance
 }
 
-func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
-	block := new(models.Block)
-	if _, err := block.FromBytes(event.Data); err != nil {
-		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
-		return
-	}
-
+func (p *Protocol) IssueBlock(block *models.Block, optOrigin ...*p2p.Neighbor) {
 	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if chain == nil {
 		// TODO: TRIGGER CHAIN SOLIDIFICATION?
@@ -182,8 +177,22 @@ func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 	}
 
 	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		targetInstance.ProcessBlockFromPeer(block, event.Neighbor)
+		if len(optOrigin) > 0 {
+			targetInstance.ProcessBlockFromPeer(block, optOrigin[0])
+		} else {
+			targetInstance.ProcessBlockFromPeer(block, nil)
+		}
 	}
+}
+
+func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
+	block := new(models.Block)
+	if _, err := block.FromBytes(event.Data); err != nil {
+		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
+		return
+	}
+
+	p.IssueBlock(block, event.Neighbor)
 }
 
 func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
