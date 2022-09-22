@@ -90,6 +90,29 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 	})
 }
 
+func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
+	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	if chain == nil {
+		// TODO: TRIGGER CHAIN SOLIDIFICATION?
+		return
+	}
+
+	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
+		if len(optSrc) > 0 {
+			targetInstance.ProcessBlockFromPeer(block, optSrc[0])
+		} else {
+			targetInstance.ProcessBlockFromPeer(block, nil)
+		}
+	}
+}
+
+func (p *Protocol) Instance() (instance *instance.Instance) {
+	p.activeInstanceMutex.RLock()
+	defer p.activeInstanceMutex.RUnlock()
+
+	return p.activeInstance
+}
+
 func (p *Protocol) importSnapshot(fileName string) (err error) {
 	var snapshotHeader *ledger.SnapshotHeader
 
@@ -160,29 +183,6 @@ func (p *Protocol) activateMainChain() (err error) {
 	p.Events.Instance.LinkTo(mainInstance.Events)
 
 	return
-}
-
-func (p *Protocol) Instance() (instance *instance.Instance) {
-	p.activeInstanceMutex.RLock()
-	defer p.activeInstanceMutex.RUnlock()
-
-	return p.activeInstance
-}
-
-func (p *Protocol) IssueBlock(block *models.Block, optOrigin ...*p2p.Neighbor) {
-	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	if chain == nil {
-		// TODO: TRIGGER CHAIN SOLIDIFICATION?
-		return
-	}
-
-	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		if len(optOrigin) > 0 {
-			targetInstance.ProcessBlockFromPeer(block, optOrigin[0])
-		} else {
-			targetInstance.ProcessBlockFromPeer(block, nil)
-		}
-	}
 }
 
 func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
