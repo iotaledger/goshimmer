@@ -3,17 +3,20 @@ package protocol
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instancemanager"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 )
 
 type Events struct {
-	InstanceManager *instancemanager.Events
+	InvalidBlockReceived *event.Linkable[*p2p.Neighbor, Events, *Events]
+
+	Instance *instance.Events
 
 	event.LinkableCollection[Events, *Events]
 }
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
-		InstanceManager: instancemanager.NewEvents(),
+		Instance: instance.NewEvents(),
 	}
 })

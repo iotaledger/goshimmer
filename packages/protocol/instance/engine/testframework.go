@@ -30,8 +30,8 @@ type TestFramework struct {
 	optsEvictionManager *eviction.Manager[models.BlockID]
 	optsValidatorSet    *validator.Set
 
-	*TangleTestFramework
-	*AcceptanceTestFramework
+	Tangle     *TangleTestFramework
+	Acceptance *AcceptanceTestFramework
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
@@ -44,7 +44,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			}
 
 			if t.optsEvictionManager == nil {
-				t.optsEvictionManager = eviction.NewManager(0, models.GenesisRootBlockProvider)
+				t.optsEvictionManager = eviction.NewManager[models.BlockID]()
 			}
 
 			if t.optsValidatorSet == nil {
@@ -54,8 +54,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.Engine = New(time.Now(), t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsEngineOptions...)
 		}
 
-		t.TangleTestFramework = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
-		t.AcceptanceTestFramework = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.TangleTestFramework))
+		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))
+		t.Acceptance = acceptance.NewTestFramework(test, acceptance.WithTangle(t.Engine.Tangle), acceptance.WithTangleTestFramework(t.Tangle))
 	})
 }
 
@@ -84,6 +84,18 @@ func WithLedger(ledger *ledger.Ledger) options.Option[TestFramework] {
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsLedgerOptions = opts
+	}
+}
+
+func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsValidatorSet = validatorSet
+	}
+}
+
+func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+	return func(t *TestFramework) {
+		t.optsEvictionManager = evictionManager
 	}
 }
 

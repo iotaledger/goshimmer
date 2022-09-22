@@ -1,20 +1,24 @@
 package instance
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/inbox"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/sybilprotection"
@@ -26,6 +30,7 @@ import (
 
 type Instance struct {
 	Events              *Events
+	GenesisCommitment   *commitment.Commitment
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
 	NotarizationManager *notarization.Manager
@@ -35,51 +40,115 @@ type Instance struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
-	logger *logger.Logger
-
+	chainDirectory       string
+	dbManager            *database.Manager
+	logger               *logger.Logger
 	optsSnapshotFile     string
+	optsSnapshotDepth    int
 	optsEngineOptions    []options.Option[engine.Engine]
 	optsDBManagerOptions []options.Option[database.Manager]
 }
 
-func New(databaseManager *database.Manager, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
-	return options.Apply(&Instance{
-		Events:       NewEvents(),
-		ValidatorSet: validator.NewSet(),
+func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+	return options.Apply(
+		&Instance{
+			Events:          NewEvents(),
+			ValidatorSet:    validator.NewSet(),
+			EvictionManager: eviction.NewManager[models.BlockID](),
 
-		optsSnapshotFile: "snapshot.bin",
-	}, opts, func(p *Instance) {
-		p.BlockStorage = database.New[models.BlockID, models.Block](databaseManager, kvstore.Realm{0x09})
+			chainDirectory:    chainDirectory,
+			dbManager:         database.NewManager(database.WithBaseDir(chainDirectory)),
+			logger:            logger,
+			optsSnapshotFile:  "snapshot.bin",
+			optsSnapshotDepth: 5,
+		}, opts,
 
-		if err := snapshot.LoadSnapshot(
-			p.optsSnapshotFile,
-			p.NotarizationManager.LoadECandEIs,
-			p.SnapshotManager.LoadSolidEntryPoints,
-			p.NotarizationManager.LoadOutputsWithMetadata,
-			p.NotarizationManager.LoadEpochDiff,
-			emptyActivityConsumer,
-		); err != nil {
-			panic(err)
-		}
+		(*Instance).initBlockStorage,
+		(*Instance).initEngine,
+		(*Instance).initSybilProtection,
+		(*Instance).initNotarizationManager,
+		(*Instance).initSnapshotManager,
+		(*Instance).loadSnapshot,
+		(*Instance).initEvictionManager,
+	)
+}
 
-		snapshotIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
-		if err != nil {
-			panic(err)
-		}
-		p.logger = logger
+func (p *Instance) initBlockStorage() {
+	p.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](p.dbManager, kvstore.Realm{0x09})
+}
 
-		p.EvictionManager = eviction.NewManager(snapshotIndex, func(index epoch.Index) *set.AdvancedSet[models.BlockID] {
-			// TODO: implement me and set snapshot epoch!
-			// p.SnapshotManager.GetSolidEntryPoints(index)
-			return set.NewAdvancedSet[models.BlockID]()
+func (p *Instance) initEngine() {
+	p.Engine = engine.New(time.Time{}, ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
+
+	p.Events.Engine.LinkTo(p.Engine.Events)
+}
+
+func (p *Instance) initSybilProtection() {
+	p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
+}
+
+func (p *Instance) initNotarizationManager() {
+	p.NotarizationManager = notarization.NewManager(
+		notarization.NewEpochCommitmentFactory(p.dbManager.PermanentStorage(), p.optsSnapshotDepth),
+		p.Engine,
+		notarization.MinCommittableEpochAge(1*time.Minute),
+		notarization.BootstrapWindow(2*time.Minute),
+		notarization.ManaEpochDelay(2),
+	)
+}
+
+func (p *Instance) initSnapshotManager() {
+	p.SnapshotManager = snapshot.NewManager(p.NotarizationManager, 5)
+
+	p.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+		p.SnapshotManager.RemoveSolidEntryPoint(block.ModelsBlock)
+	}))
+
+	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		block.ForEachParentByType(models.StrongParentType, func(parent models.BlockID) bool {
+			if parent.EpochIndex < block.ID().EpochIndex {
+				p.SnapshotManager.InsertSolidEntryPoint(parent)
+			}
+
+			return true
 		})
+	}))
 
-		// TODO: when engine is ready
-		p.Engine = engine.New(snapshotIndex.EndTime(), ledger.New(), p.EvictionManager, p.ValidatorSet, p.optsEngineOptions...)
-		p.Events.Engine.LinkTo(p.Engine.Events)
+	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
+		p.SnapshotManager.AdvanceSolidEntryPoints(e.EI)
+	}))
+}
 
-		p.SybilProtection = sybilprotection.New(p.Engine, p.ValidatorSet)
-	})
+func (p *Instance) loadSnapshot() {
+	if err := snapshot.LoadSnapshot(
+		diskutil.New(p.chainDirectory).Path("snapshot.bin"),
+		func(header *ledger.SnapshotHeader) {
+			p.GenesisCommitment = header.LatestECRecord
+
+			p.NotarizationManager.LoadECandEIs(header)
+		},
+		p.SnapshotManager.LoadSolidEntryPoints,
+		p.NotarizationManager.LoadOutputsWithMetadata,
+		p.NotarizationManager.LoadEpochDiff,
+		emptyActivityConsumer,
+	); err != nil {
+		panic(err)
+	}
+}
+
+func (p *Instance) initEvictionManager() {
+	latestConfirmedIndex, err := p.NotarizationManager.LatestConfirmedEpochIndex()
+	if err != nil {
+		panic(err)
+	}
+
+	p.EvictionManager.EvictUntil(latestConfirmedIndex, p.SnapshotManager.SolidEntryPoints(latestConfirmedIndex))
+
+	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+		p.EvictionManager.EvictUntil(event.EI, p.SnapshotManager.SolidEntryPoints(event.EI))
+	}))
+
+	// TODO: SET CLOCK
 }
 
 func (p *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
@@ -88,7 +157,7 @@ func (p *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neigh
 
 func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := p.Engine.Tangle.BlockDAG.Block(id); cachedBlockExists {
-		return cachedBlock.Block, true
+		return cachedBlock.ModelsBlock, true
 	}
 
 	if id.Index() > p.EvictionManager.MaxEvictedEpoch() {
@@ -96,22 +165,6 @@ func (p *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 	}
 
 	return p.BlockStorage.Get(id)
-}
-
-func (p *Instance) ReportInvalidBlock(neighbor *p2p.Neighbor) {
-	// TODO: increase euristic counter / trigger event for metrics
-}
-
-func (p *Instance) setupNotarization() {
-	// Once an epoch becomes committable, nothing can change anymore. We can safely evict until the given epoch index.
-	p.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		p.EvictionManager.EvictUntilEpoch(event.EI)
-	}))
-}
-
-func (p *Instance) Start() {
-	// p.Events.Engine.CongestionControl.Events.BlockScheduled.Attach(event.NewClosure(p.Network.SendBlock))
-	// p.Solidification.Requester.Events.BlockRequested.Attach(event.NewClosure(p.Network.RequestBlock))
 }
 
 func emptyActivityConsumer(logs activitylog.SnapshotEpochActivity) {}

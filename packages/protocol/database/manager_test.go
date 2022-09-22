@@ -32,10 +32,10 @@ func TestManager_Get(t *testing.T) {
 
 		// Check that folder structure is correct.
 		for i := granularity; i < bucketsCount; i++ {
-			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
+			fileInfo, err := os.Stat(filepath.Join(baseDir, "pruned", strconv.Itoa(i)))
 			if i%granularity == 0 {
-				assert.True(t, fileInfo.IsDir())
 				require.NoError(t, err)
+				assert.True(t, fileInfo.IsDir())
 			} else {
 				assert.ErrorContains(t, err, fmt.Sprintf("%d: no such file or directory", i))
 			}
@@ -93,6 +93,19 @@ func TestManager_Get(t *testing.T) {
 
 		m.PruneUntilEpoch(7)
 		assert.EqualValues(t, 5, m.maxPruned)
+
+		// Check that folder structure is correct and everything below expectedFirstBucket is deleted.
+		for i := granularity; i < bucketsCount; i++ {
+			fileInfo, err := os.Stat(filepath.Join(baseDir, "pruned", strconv.Itoa(i)))
+			if i < int(expectedFirstBucket) {
+				assert.ErrorContains(t, err, fmt.Sprintf("%d: no such file or directory", i))
+			} else if i%granularity == 0 {
+				require.NoError(t, err)
+				assert.True(t, fileInfo.IsDir())
+			} else {
+				assert.ErrorContains(t, err, fmt.Sprintf("%d: no such file or directory", i))
+			}
+		}
 	}
 
 	// Insert into buckets but DO NOT mark as clean. When restoring from disk they should not be healthy and thus be
@@ -124,10 +137,10 @@ func TestManager_Get(t *testing.T) {
 	// Check that folder structure is correct. Everything above bucketsCount-1 was unhealthy -> db files should be deleted.
 	{
 		for i := int(expectedFirstBucket); i < totalBucketCount; i++ {
-			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
+			fileInfo, err := os.Stat(filepath.Join(baseDir, "pruned", strconv.Itoa(i)))
 			if i%granularity == 0 && i < bucketsCount {
-				assert.True(t, fileInfo.IsDir())
 				require.NoError(t, err)
+				assert.True(t, fileInfo.IsDir())
 			} else {
 				assert.ErrorContains(t, err, fmt.Sprintf("%d: no such file or directory", i))
 			}

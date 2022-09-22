@@ -1,4 +1,4 @@
-package gossip
+package solidification
 
 import (
 	"time"
@@ -32,7 +32,7 @@ type Requester struct {
 }
 
 // New creates a new block requester.
-func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Requester]) *Requester {
+func NewRequester(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Requester]) *Requester {
 	return options.Apply(&Requester{
 		Events: NewEvents(),
 

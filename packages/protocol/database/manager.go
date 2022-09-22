@@ -9,11 +9,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/zyedidia/generic/cache"
+
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -21,8 +22,12 @@ import (
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Manager struct {
-	openDBs      *cache.Cache[epoch.Index, *dbInstance]
-	openDBsMutex sync.Mutex
+	permanentStorage kvstore.KVStore
+	permanentBaseDir string
+
+	openDBs         *cache.Cache[epoch.Index, *dbInstance]
+	bucketedBaseDir string
+	openDBsMutex    sync.Mutex
 
 	maxPruned      epoch.Index
 	maxPrunedMutex sync.RWMutex
@@ -36,12 +41,19 @@ type Manager struct {
 
 func NewManager(opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
+		maxPruned:       -1,
 		optsGranularity: 10,
 		optsBaseDir:     "db",
 		optsDBProvider:  NewMemDB,
 		optsMaxOpenDBs:  10,
 	}, opts, func(m *Manager) {
-		m.maxPruned = -1
+		m.bucketedBaseDir = filepath.Join(m.optsBaseDir, "pruned")
+		m.permanentBaseDir = filepath.Join(m.optsBaseDir, "permanent")
+		db, err := m.optsDBProvider(m.permanentBaseDir)
+		if err != nil {
+			panic(err)
+		}
+		m.permanentStorage = db.NewStore()
 
 		m.openDBs = cache.New[epoch.Index, *dbInstance](m.optsMaxOpenDBs)
 		m.openDBs.SetEvictCallback(func(baseIndex epoch.Index, db *dbInstance) {
@@ -50,8 +62,14 @@ func NewManager(opts ...options.Option[Manager]) *Manager {
 	})
 }
 
+func (m *Manager) PermanentStorage() kvstore.KVStore {
+	return m.permanentStorage
+}
+
 func (m *Manager) RestoreFromDisk() (latestBucketIndex epoch.Index) {
-	dbInfos := getSortedDBInstancesFromDisk(m.optsBaseDir)
+	dbInfos := getSortedDBInstancesFromDisk(m.bucketedBaseDir)
+
+	// TODO: what to do if dbInfos is empty? -> start with a fresh DB?
 
 	m.maxPrunedMutex.Lock()
 	m.maxPruned = dbInfos[len(dbInfos)-1].baseIndex - 1
@@ -152,6 +170,8 @@ func (m *Manager) Shutdown() {
 	m.openDBs.Each(func(index epoch.Index, db *dbInstance) {
 		db.instance.Close()
 	})
+
+	m.permanentStorage.Close()
 }
 
 // getDBInstance returns the DB instance for the given baseIndex or creates a new one if it does not yet exist.
@@ -194,7 +214,7 @@ func (m *Manager) getDBAndBucket(index epoch.Index) (db *dbInstance, bucket kvst
 // createDBInstance creates a new DB instance for the given baseIndex.
 // If a folder/DB for the given baseIndex already exists, it is opened.
 func (m *Manager) createDBInstance(index epoch.Index) (newDBInstance *dbInstance) {
-	db, err := m.optsDBProvider(dbPathFromIndex(m.optsBaseDir, index))
+	db, err := m.optsDBProvider(dbPathFromIndex(m.bucketedBaseDir, index))
 	if err != nil {
 		panic(err)
 	}
@@ -229,7 +249,7 @@ func (m *Manager) removeDBInstance(dbBaseIndex epoch.Index) {
 	defer m.openDBsMutex.Unlock()
 
 	m.openDBs.Remove(dbBaseIndex)
-	if err := os.RemoveAll(dbPathFromIndex(m.optsBaseDir, dbBaseIndex)); err != nil {
+	if err := os.RemoveAll(dbPathFromIndex(m.bucketedBaseDir, dbBaseIndex)); err != nil {
 		panic(err)
 	}
 }

@@ -78,7 +78,7 @@ func LoadSnapshot(filePath string,
 	f, err := os.Open(filePath)
 	defer f.Close()
 	if err != nil {
-		return fmt.Errorf("fail to open the snapshot file")
+		return fmt.Errorf("fail to open the snapshot file %s: %s", filePath, err)
 	}
 
 	err = streamSnapshotDataFrom(f, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffsConsumer, activityLogConsumer)

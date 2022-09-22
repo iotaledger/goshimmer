@@ -1,37 +1,74 @@
 package protocol
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/configuration"
+	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 )
 
+func init() {
+	if err := logger.InitGlobalLogger(configuration.New()); err != nil {
+		panic(err)
+	}
+}
+
 func TestProtocol(t *testing.T) {
-	require.NoError(t, logger.InitGlobalLogger(configuration.New()))
-
 	log := logger.NewLogger(t.Name())
-	baseDirectory := t.TempDir()
-	diskUtil := diskutil.New(baseDirectory)
+	diskUtil := diskutil.New(t.TempDir())
 
-	snapshotHeaderBytes, err := serix.DefaultAPI.Encode(context.Background(), ledger.SnapshotHeader{
-		OutputWithMetadataCount: 1,
-		FullEpochIndex:          2,
-		DiffEpochIndex:          3,
-		LatestECRecord:          commitment.New(commitment.ID{4}, 5, commitment.RootsID{6}),
-	})
-	require.NoError(t, err)
-	require.NoError(t, diskUtil.WriteFile(diskUtil.RelativePath("snapshot.bin"), snapshotHeaderBytes))
+	require.NoError(t, snapshotcreator.CreateSnapshot(diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+		identity.GenerateIdentity().ID(): 100,
+	}))
 
-	protocol := New(nil, log, WithBaseDirectory(baseDirectory))
+	testNetwork := newMockedNetwork()
+
+	protocol := New(testNetwork, log, WithBaseDirectory(diskUtil.Path()))
 
 	fmt.Println(protocol)
+
+	debug.SetEnabled(true)
+
+	tf := engine.NewTestFramework(t, engine.WithEngine(protocol.activeInstance.Engine))
+	tf.Tangle.CreateBlock("A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))
+	tf.Tangle.IssueBlocks("A")
+	event.Loop.WaitUntilAllTasksProcessed()
 }
+
+type mockedNetwork struct {
+	events *network.Events
+}
+
+func newMockedNetwork() (newMockedNetwork *mockedNetwork) {
+	return &mockedNetwork{
+		events: network.NewEvents(),
+	}
+}
+
+func (m *mockedNetwork) Events() *network.Events {
+	return m.events
+}
+
+func (m *mockedNetwork) SendBlock(block *models.Block, peers ...*peer.Peer) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m *mockedNetwork) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
+	// TODO implement me
+	panic("implement me")
+}
+
+var _ network.Interface = &mockedNetwork{}

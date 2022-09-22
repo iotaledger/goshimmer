@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -40,9 +39,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 		evictedEntities: make(map[string]*MockedOrderedEntity),
 	}, opts, func(t *TestFramework) {
 		t.CausalOrder = New[MockedEntityID, *MockedOrderedEntity](
-			eviction.NewManager[MockedEntityID](0, func(index epoch.Index) *set.AdvancedSet[MockedEntityID] {
-				return set.NewAdvancedSet(NewMockedEntityID(0))
-			}),
+			eviction.NewManager[MockedEntityID](),
 			func(id MockedEntityID) (entity *MockedOrderedEntity, exists bool) {
 				return t.Get(id.alias)
 			}, (*MockedOrderedEntity).IsOrdered,
@@ -144,7 +141,7 @@ func (t *TestFramework) EntityIDs(aliases ...string) (entityIDs []MockedEntityID
 
 // EvictEpoch evicts all Entities that are older than the given epoch.
 func (t *TestFramework) EvictEpoch(index epoch.Index) {
-	t.evictionManager.EvictUntilEpoch(index)
+	t.evictionManager.EvictUntil(index, nil)
 	t.CausalOrder.EvictEpoch(index)
 }
 

@@ -7,7 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/natefinch/atomic"
 )
+
+func ReplaceFile(src, dst string) (err error) {
+	return atomic.ReplaceFile(src, dst)
+}
 
 type DiskUtil struct {
 	basePath string
@@ -19,12 +25,52 @@ func New(basePath string) (newDiskUtil *DiskUtil) {
 	}
 }
 
-func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {
-	return ioutil.WriteFile(path, data, 0)
+func (d *DiskUtil) CopyFile(src, dst string) (err error) {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer dstFile.Close()
+
+	if _, err = io.Copy(dstFile, srcFile); err != nil {
+		return
+	}
+
+	return dstFile.Sync()
 }
 
-func (d *DiskUtil) RelativePath(pathElements ...string) (path string) {
-	return filepath.Join(append([]string{d.basePath}, pathElements...)...)
+func (d *DiskUtil) Exists(path string) (exists bool) {
+	if _, err := os.Stat(path); err != nil {
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
+
+		return false
+	}
+
+	return true
+}
+
+func (d *DiskUtil) CreateDir(directoryPath string, perm ...os.FileMode) (err error) {
+	if len(perm) > 0 {
+		return os.MkdirAll(directoryPath, perm[0])
+	}
+
+	return os.MkdirAll(directoryPath, 0755)
+}
+
+func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {
+	return ioutil.WriteFile(path, data, 0666)
+}
+
+func (d *DiskUtil) Path(relativePathElements ...string) (path string) {
+	return filepath.Join(append([]string{d.basePath}, relativePathElements...)...)
 }
 
 func (d *DiskUtil) FileChecksum(filePath string, hash ...hash.Hash) (checksum [32]byte, err error) {

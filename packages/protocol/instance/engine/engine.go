@@ -76,7 +76,7 @@ func (e *Engine) setupTipManagerEvents() {
 	e.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(e.TipManager.AddTip))
 
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		e.TipManager.RemoveStrongParents(block.Block.Block.Block.Block)
+		e.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {

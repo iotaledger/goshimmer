@@ -77,16 +77,22 @@ func (b *BlockDAG) Block(id models.BlockID) (block *Block, exists bool) {
 }
 
 // SetInvalid marks a Block as invalid and propagates the invalidity to its future cone.
-func (b *BlockDAG) SetInvalid(block *Block) (wasUpdated bool) {
+func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 	if wasUpdated = block.setInvalid(); wasUpdated {
-		b.Events.BlockInvalid.Trigger(block)
+		b.Events.BlockInvalid.Trigger(&BlockInvalidEvent{
+			Block:  block,
+			Reason: reason,
+		})
 
 		b.walkFutureCone(block.Children(), func(currentBlock *Block) []*Block {
 			if !currentBlock.setInvalid() {
 				return nil
 			}
 
-			b.Events.BlockInvalid.Trigger(currentBlock)
+			b.Events.BlockInvalid.Trigger(&BlockInvalidEvent{
+				Block:  currentBlock,
+				Reason: reason,
+			})
 
 			return currentBlock.Children()
 		})
@@ -146,7 +152,7 @@ func (b *BlockDAG) markSolid(block *Block) (err error) {
 func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
 	for _, parentID := range block.Parents() {
 		parent, parentExists := b.Block(parentID)
-		if parentExists && !parent.IssuingTime().Before(block.IssuingTime()) {
+		if parentExists && parent.IssuingTime().After(block.IssuingTime()) {
 			return errors.Errorf("timestamp monotonicity check failed for parent %s with timestamp %s. block timestamp %s", parent.ID(), parent.IssuingTime(), block.IssuingTime())
 		}
 	}
@@ -154,7 +160,7 @@ func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
 }
 
 func (b *BlockDAG) markInvalid(block *Block, reason error) {
-	b.SetInvalid(block)
+	b.SetInvalid(block, reason)
 }
 
 // attach tries to attach the given Block to the BlockDAG.
@@ -201,7 +207,7 @@ func (b *BlockDAG) canAttachToParents(storedBlock *Block, data *models.Block) (b
 	for _, parentID := range data.Parents() {
 		if b.EvictionManager.IsTooOld(parentID) {
 			if storedBlock != nil {
-				b.SetInvalid(storedBlock)
+				b.SetInvalid(storedBlock, errors.Errorf("block with %s references too old parent %s", data.ID(), parentID))
 			}
 
 			return storedBlock, false, errors.Errorf("parent %s of block %s is too old", parentID, data.ID())
