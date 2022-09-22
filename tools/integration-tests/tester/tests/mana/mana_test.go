@@ -253,7 +253,7 @@ func TestManaApis(t *testing.T) {
 		t.Logf("/mana/consensus/nhighest %+v", cResp)
 		nodeIDs := make([]string, len(cResp.Nodes))
 		for i := range cResp.Nodes {
-			nodeIDs[i] = cResp.Nodes[i].NodeID
+			nodeIDs[i] = cResp.Nodes[i].IssuerID
 		}
 		require.Len(t, nodeIDs, len(n.Peers()))
 		for _, peer := range n.Peers() {

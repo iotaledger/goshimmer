@@ -16,9 +16,16 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
@@ -38,7 +45,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle          *tangleold.Tangle
+	Protocol        *protocol.Protocol
 	P2Pmgr          *p2p.Manager        `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
@@ -112,160 +119,121 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	if Parameters.ManaResearch {
-		// create a background worker that updates the research mana metrics
-		if err := daemon.BackgroundWorker("Metrics Research Mana Updater", func(ctx context.Context) {
-			defer log.Infof("Stopping Metrics Research Mana Updater ... done")
-			timeutil.NewTicker(func() {
-				measureAccessResearchMana()
-				measureConsensusResearchMana()
-			}, Parameters.ManaUpdateInterval, ctx)
-			// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
-			<-ctx.Done()
-			log.Infof("Stopping Metrics Research Mana Updater ...")
-		}, shutdown.PriorityMetrics); err != nil {
-			log.Panicf("Failed to start as daemon: %s", err)
-		}
-	}
 }
 
 func registerLocalMetrics() {
 	// // Events declared in other packages which we want to listen to here ////
 
 	// increase received BPS counter whenever we attached a block
-	deps.Tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(event *tangleold.BlockStoredEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 		increaseReceivedBPSCounter()
-		increasePerPayloadCounter(event.Block.Payload().Type())
+		increasePerPayloadCounter(block.Payload().Type())
 
-		deps.Tangle.Storage.BlockMetadata(event.Block.ID()).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			sumTimesSinceIssued[Store] += blkMetaData.ReceivedTime().Sub(event.Block.IssuingTime())
-		})
+		sumTimesSinceIssued[Store] += time.Since(block.IssuingTime())
 		increasePerComponentCounter(Store)
 	}))
 
 	// blocks can only become solid once, then they stay like that, hence no .Dec() part
-	deps.Tangle.Solidifier.Events.BlockSolid.Attach(event.NewClosure(func(event *tangleold.BlockSolidEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		increasePerComponentCounter(Solidifier)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
 		// Consume should release cachedBlockMetadata
-		deps.Tangle.Storage.BlockMetadata(event.Block.ID()).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			if blkMetaData.IsSolid() {
-				sumTimesSinceReceived[Solidifier] += blkMetaData.SolidificationTime().Sub(blkMetaData.ReceivedTime())
-			}
-		})
+		if block.IsSolid() {
+			// TODO: figure out whether to use retainer to get the times
+			//sumTimesSinceReceived[Solidifier] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Solidifier] += time.Since(block.IssuingTime())
+		}
 	}))
 
 	// fired when a block gets added to missing block storage
-	deps.Tangle.Solidifier.Events.BlockMissing.Attach(event.NewClosure(func(_ *tangleold.BlockMissingEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		missingBlockCountDB.Inc()
 		solidificationRequests.Inc()
 	}))
 
 	// fired when a missing block was received and removed from missing block storage
-	deps.Tangle.Storage.Events.MissingBlockStored.Attach(event.NewClosure(func(_ *tangleold.MissingBlockStoredEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		missingBlockCountDB.Dec()
 	}))
 
-	deps.Tangle.Scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(event *tangleold.BlockScheduledEvent) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 		schedulerTimeMutex.Lock()
 		defer schedulerTimeMutex.Unlock()
 
-		blockID := event.BlockID
-		// Consume should release cachedBlockMetadata
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			if blkMetaData.Scheduled() {
-				sumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
-
-				sumTimesSinceReceived[Scheduler] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
-				deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-					sumTimesSinceIssued[Scheduler] += blkMetaData.ScheduledTime().Sub(block.IssuingTime())
-				})
-			}
-		})
+		if block.IsScheduled() {
+			// TODO: figure out whether to use retainer to get the times
+			//sumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
+			//sumTimesSinceReceived[Scheduler] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Scheduler] += time.Since(block.IssuingTime())
+		}
 	}))
 
-	deps.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(func(event *tangleold.BlockBookedEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		increasePerComponentCounter(Booker)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
-		blockID := event.BlockID
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			if blkMetaData.IsBooked() {
-				sumTimesSinceReceived[Booker] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
-				deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-					sumTimesSinceIssued[Booker] += blkMetaData.BookedTime().Sub(block.IssuingTime())
-				})
-			}
-		})
+		if block.IsBooked() {
+			// TODO: figure out whether to use retainer to get the times
+			//sumTimesSinceReceived[Booker] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
+			sumTimesSinceIssued[Booker] += time.Since(block.IssuingTime())
+		}
 	}))
 
-	deps.Tangle.Scheduler.Events.BlockDiscarded.Attach(event.NewClosure(func(event *tangleold.BlockDiscardedEvent) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerDropped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
-		blockID := event.BlockID
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			sumTimesSinceReceived[SchedulerDropped] += time.Since(blkMetaData.ReceivedTime())
-			deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-				sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
-			})
-		})
+		// TODO: figure out whether to use retainer to get the times
+		//sumTimesSinceReceived[SchedulerDropped] += time.Since(blkMetaData.ReceivedTime())
+		sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Tangle.Scheduler.Events.BlockSkipped.Attach(event.NewClosure(func(event *tangleold.BlockSkippedEvent) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerSkipped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
-		blockID := event.BlockID
-		deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blkMetaData *tangleold.BlockMetadata) {
-			sumTimesSinceReceived[SchedulerSkipped] += time.Since(blkMetaData.ReceivedTime())
-			deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-				sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
-			})
-		})
+		// TODO: figure out whether to use retainer to get the times
+		//sumTimesSinceReceived[SchedulerSkipped] += time.Since(blkMetaData.ReceivedTime())
+		sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().BlockAccepted.Attach(event.NewClosure(func(event *tangleold.BlockAcceptedEvent) {
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		blockType := DataBlock
-		block := event.Block
-		blockID := block.ID()
-		deps.Tangle.Utils.ComputeIfTransaction(blockID, func(_ utxo.TransactionID) {
+		if block.Payload().Type() == devnetvm.TransactionType {
 			blockType = Transaction
-		})
+		}
+
 		blockFinalizationTotalTimeMutex.Lock()
 		defer blockFinalizationTotalTimeMutex.Unlock()
 		finalizedBlockCountMutex.Lock()
 		defer finalizedBlockCountMutex.Unlock()
 
-		block.ForEachParent(func(parent tangleold.Parent) {
+		block.ForEachParent(func(parent models.Parent) {
 			increasePerParentType(parent.Type)
 		})
 		blockFinalizationIssuedTotalTime[blockType] += uint64(time.Since(block.IssuingTime()).Milliseconds())
-		if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
-			blockFinalizationReceivedTotalTime[blockType] += uint64(time.Since(blockMetadata.ReceivedTime()).Milliseconds())
-		}) {
-			finalizedBlockCount[blockType]++
-		}
+		// TODO: figure out whether to use retainer to get the times
+		//blockFinalizationReceivedTotalTime[blockType] += uint64(time.Since(blockMetadata.ReceivedTime()).Milliseconds())
+		finalizedBlockCount[blockType]++
 	}))
 
 	// TODO: add metrics for BlockUnorphaned count as well
 	// fired when a message gets added to missing message storage
-	deps.Tangle.OrphanageManager.Events.BlockOrphaned.Attach(event.NewClosure(func(evt *tangleold.BlockOrphanedEvent) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(_ *blockdag.Block) {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -273,11 +241,8 @@ func registerLocalMetrics() {
 		if _, exists := activeConflicts[conflictID]; !exists {
 			return
 		}
-		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(conflictID)
-		if err != nil {
-			return
-		}
-		deps.Tangle.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+		firstAttachment := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(conflictID)
+		deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 			if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
 				finalizedConflictCountDB.Inc()
 				delete(activeConflicts, conflictingConflictID)
@@ -286,12 +251,12 @@ func registerLocalMetrics() {
 		})
 		finalizedConflictCountDB.Inc()
 		confirmedConflictCount.Inc()
-		conflictConfirmationTotalTime.Add(uint64(time.Since(oldestAttachmentTime).Milliseconds()))
+		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
 
 		delete(activeConflicts, conflictID)
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Instance.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
@@ -321,7 +286,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	mana.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Tracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
 

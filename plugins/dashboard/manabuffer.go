@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 )
 
 const (
@@ -24,9 +25,9 @@ type ManaBuffer struct {
 	eventsMutex     sync.RWMutex
 	ValueBlks       []*ManaValueBlkData
 	valueBlksMutex  sync.RWMutex
-	MapOverall      map[mana.Type]*ManaNetworkListBlkData
+	MapOverall      map[manamodels.Type]*ManaNetworkListBlkData
 	mapOverallMutex sync.RWMutex
-	MapOnline       map[mana.Type]*ManaNetworkListBlkData
+	MapOnline       map[manamodels.Type]*ManaNetworkListBlkData
 	mapOnlineMutex  sync.RWMutex
 }
 
@@ -35,8 +36,8 @@ func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
 		Events:     make([]mana.Event, 0),
 		ValueBlks:  make([]*ManaValueBlkData, 0),
-		MapOverall: make(map[mana.Type]*ManaNetworkListBlkData),
-		MapOnline:  make(map[mana.Type]*ManaNetworkListBlkData),
+		MapOverall: make(map[manamodels.Type]*ManaNetworkListBlkData),
+		MapOnline:  make(map[manamodels.Type]*ManaNetworkListBlkData),
 	}
 }
 
@@ -114,7 +115,7 @@ func (m *ManaBuffer) StoreMapOverall(blks ...*ManaNetworkListBlkData) {
 	m.mapOverallMutex.Lock()
 	defer m.mapOverallMutex.Unlock()
 	for _, blk := range blks {
-		manaType, err := mana.TypeFromString(blk.ManaType)
+		manaType, err := manamodels.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue
@@ -144,7 +145,7 @@ func (m *ManaBuffer) StoreMapOnline(blks ...*ManaNetworkListBlkData) {
 	m.mapOnlineMutex.Lock()
 	defer m.mapOnlineMutex.Unlock()
 	for _, blk := range blks {
-		manaType, err := mana.TypeFromString(blk.ManaType)
+		manaType, err := manamodels.TypeFromString(blk.ManaType)
 		if err != nil {
 			log.Errorf("couldn't parse type of mana: %w", err)
 			continue

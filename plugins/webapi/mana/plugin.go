@@ -1,10 +1,13 @@
 package mana
 
 import (
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // PluginName is the name of the web API mana endpoint plugin.
@@ -13,8 +16,10 @@ const PluginName = "WebAPIManaEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Local  *peer.Local
+	Discovery *discover.Protocol
+	Protocol  *protocol.Protocol
+	Server    *echo.Echo
+	Local     *peer.Local
 }
 
 var (
@@ -35,8 +40,4 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("/mana/percentile", getPercentileHandler)
 	deps.Server.GET("/mana/access/online", getOnlineAccessHandler)
 	deps.Server.GET("/mana/consensus/online", getOnlineConsensusHandler)
-	deps.Server.GET("mana/allowedManaPledge", allowedManaPledgeHandler)
-	// deps.Server.GET("/mana/consensus/past", getPastConsensusManaVectorHandler)
-	// deps.Server.GET("/mana/consensus/logs", getEventLogsHandler)
-	// deps.Server.GET("/mana/consensus/metadata", getPastConsensusVectorMetadataHandler)
 }

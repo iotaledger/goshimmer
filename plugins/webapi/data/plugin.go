@@ -12,8 +12,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -68,7 +66,7 @@ func broadcastData(c echo.Context) error {
 	}
 
 	// await BlockScheduled event to be triggered.
-	blk, err := blocklayer.AwaitBlockToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
+	blk, err := deps.Issuer.AwaitBlockToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
@@ -27,7 +28,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle    *tangleold.Tangle
+	Protocol  *protocol.Protocol
 	GossipMgr *gossip.Manager
 	P2PMgr    *p2p.Manager
 }

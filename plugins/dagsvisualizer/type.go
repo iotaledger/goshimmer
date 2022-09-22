@@ -55,9 +55,9 @@ type tangleBooked struct {
 }
 
 type tangleConfirmed struct {
-	ID                    string `json:"ID"`
-	ConfirmationState     string `json:"confirmationState"`
-	ConfirmationStateTime int64  `json:"confirmationStateTime"`
+	ID           string `json:"ID"`
+	Accepted     bool   `json:"confirmationState"`
+	AcceptedTime int64  `json:"confirmationStateTime"`
 }
 
 type tangleTxConfirmationStateChanged struct {
@@ -94,7 +94,7 @@ type conflictVertex struct {
 	IsConfirmed       bool                                     `json:"isConfirmed"`
 	Conflicts         *jsonmodels.GetConflictConflictsResponse `json:"conflicts"`
 	ConfirmationState string                                   `json:"confirmationState"`
-	AW                float64                                  `json:"aw"`
+	AW                int64                                    `json:"aw"`
 }
 
 type conflictParentUpdate struct {
@@ -109,9 +109,9 @@ type conflictConfirmationStateChanged struct {
 }
 
 type conflictWeightChanged struct {
-	ID                string  `json:"ID"`
-	Weight            float64 `json:"weight"`
-	ConfirmationState string  `json:"confirmationState"`
+	ID                string `json:"ID"`
+	Weight            int64  `json:"weight"`
+	ConfirmationState string `json:"confirmationState"`
 }
 
 type searchResult struct {

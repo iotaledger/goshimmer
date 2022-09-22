@@ -2,6 +2,7 @@ package booker
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
@@ -107,6 +108,18 @@ func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) 
 
 	b.structureDetails = structureDetails
 }
+
+// region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Blocks represents a collection of Block.
+type Blocks = *set.AdvancedSet[*Block]
+
+// NewBlocks returns a new Block collection with the given elements.
+func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
+	return set.NewAdvancedSet(blocks...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 

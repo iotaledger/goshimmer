@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -125,20 +124,6 @@ func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.Trans
 		return
 	}
 	return txmeta.ConfirmationState, nil
-}
-
-// GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
-func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	res, err := webConnector.client.GetAllowedManaPledgeNodeIDs()
-	if err != nil {
-		return
-	}
-	pledgeIDMap = map[mana.Type][]string{
-		mana.AccessMana:    res.Access.Allowed,
-		mana.ConsensusMana: res.Consensus.Allowed,
-	}
-
-	return
 }
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.

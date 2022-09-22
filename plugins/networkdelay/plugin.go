@@ -12,6 +12,8 @@ import (
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -38,7 +40,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle       *tangleold.Tangle
+	Protocol     *protocol.Protocol
 	Local        *peer.Local
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	Server       *echo.Echo
@@ -77,44 +79,40 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to block-layer
-	deps.Tangle.ApprovalWeightManager.Events.BlockProcessed.Attach(event.NewClosure(func(event *tangleold.BlockProcessedEvent) {
-		onReceiveBlockFromBlockLayer(event.BlockID)
-	}))
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
-func onReceiveBlockFromBlockLayer(blockID tangleold.BlockID) {
-	deps.Tangle.Storage.Block(blockID).Consume(func(solidBlock *tangleold.Block) {
-		blockPayload := solidBlock.Payload()
-		if blockPayload.Type() != Type {
-			return
-		}
+func onReceiveBlockFromBlockLayer(block *virtualvoting.Block) {
+	blockPayload := block.Payload()
+	if blockPayload.Type() != Type {
+		return
+	}
 
-		// check for node identity
-		issuerPubKey := solidBlock.IssuerPublicKey()
-		if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
-			return
-		}
+	// check for node identity
+	issuerPubKey := block.IssuerPublicKey()
+	if issuerPubKey != originPublicKey || issuerPubKey == myPublicKey {
+		return
+	}
 
-		networkDelayObject, ok := blockPayload.(*Payload)
-		if !ok {
-			app.LogInfo("could not cast payload to network delay payload")
+	networkDelayObject, ok := blockPayload.(*Payload)
+	if !ok {
+		app.LogInfo("could not cast payload to network delay payload")
 
-			return
-		}
+		return
+	}
 
-		now := clock.SyncedTime().UnixNano()
+	now := time.Now().UnixNano()
 
-		// abort if block was sent more than 1min ago
-		// this should only happen due to a node resyncing
-		if time.Duration(now-networkDelayObject.SentTime()) > time.Minute {
-			app.LogDebugf("Received network delay block with >1min delay\n%s", networkDelayObject)
-			return
-		}
+	// abort if block was sent more than 1min ago
+	// this should only happen due to a node resyncing
+	if time.Duration(now-networkDelayObject.SentTime()) > time.Minute {
+		app.LogDebugf("Received network delay block with >1min delay\n%s", networkDelayObject)
+		return
+	}
 
-		sendToRemoteLog(networkDelayObject, now)
-	})
+	sendToRemoteLog(networkDelayObject, now)
 }
 
 func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
@@ -125,7 +123,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.SentTime(),
 		Clock:       clockEnabled,
-		Synced:      deps.Tangle.Synced(),
+		Synced:      deps.Protocol.Instance().Engine.IsSynced(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)
@@ -139,7 +137,7 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Synced:      deps.Tangle.Synced(),
+		Synced:      deps.Protocol.Instance().Engine.IsSynced(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)

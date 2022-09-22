@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
@@ -36,7 +37,7 @@ type dependencies struct {
 	GossipMgr *gossip.Manager
 	Server    *echo.Echo
 	Firewall  *firewall.Firewall
-	Tangle    *tangleold.Tangle
+	Protocol  *protocol.Protocol
 }
 
 type firewallDeps struct {
@@ -78,7 +79,7 @@ func start(ctx context.Context) {
 
 	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
-			if !deps.Tangle.Bootstrapped() {
+			if !deps.Protocol.Instance().Engine.IsBootstrapped() {
 				return
 			}
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{

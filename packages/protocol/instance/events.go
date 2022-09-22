@@ -6,12 +6,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 )
 
 type Events struct {
 	Engine     *engine.Events
 	Clock      *clock.Events
 	TipManager *tipmanager.Events
+	EvictionManager *eviction.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -22,5 +24,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		Engine:     engine.NewEvents(),
 		Clock:      clock.NewEvents(),
 		TipManager: tipmanager.NewEvents(),
+		EvictionManager: eviction.NewEvents(),
 	}
 })

@@ -57,6 +57,7 @@ type Instance struct {
 func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(
 		&Instance{
+			Clock:           clock.New(),
 			Events:          NewEvents(),
 			ValidatorSet:    validator.NewSet(),
 			EvictionManager: eviction.NewManager[models.BlockID](),
@@ -68,9 +69,8 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
-
-		(*Instance).initClock,
 		(*Instance).initEngine,
+		(*Instance).initClock,
 		(*Instance).initBlockStorage,
 		(*Instance).initNotarizationManager,
 		(*Instance).initSnapshotManager,
@@ -85,7 +85,9 @@ func (i *Instance) IsBootstrapped() (isBootstrapped bool) {
 }
 
 func (i *Instance) initClock() {
-	i.Clock = clock.New()
+	i.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		i.Clock.SetAcceptedTime(block.IssuingTime())
+	}))
 
 	i.Events.Clock = i.Clock.Events
 }
@@ -185,6 +187,9 @@ func (i *Instance) initEvictionManager() {
 	}))
 
 	i.Clock.SetAcceptedTime(latestConfirmedIndex.EndTime())
+
+	i.Events.EvictionManager = i.EvictionManager.Events
+
 }
 
 func (i *Instance) initTipManager() {

@@ -525,11 +525,11 @@ type ConflictWeight struct {
 	Parents           []string           `json:"parents"`
 	ConflictIDs       []string           `json:"conflictIDs,omitempty"`
 	ConfirmationState confirmation.State `json:"confirmationState"`
-	ApprovalWeight    float64            `json:"approvalWeight"`
+	ApprovalWeight    int64              `json:"approvalWeight"`
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) ConflictWeight {
+func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
 		ID: conflict.ID().Base58(),
 		Parents: func() []string {

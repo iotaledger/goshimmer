@@ -42,19 +42,20 @@ type InfoResponse struct {
 
 // TangleTime contains the TangleTime sync detailed status.
 type TangleTime struct {
-	AcceptedBlockID string `json:"blockID"`
-	ATT             int64  `json:"ATT"`
-	RATT            int64  `json:"RATT"`
-	CTT             int64  `json:"CTT"`
-	RCTT            int64  `json:"RCTT"`
-	Synced          bool   `json:"synced"`
+	AcceptedBlockID  string `json:"blockID"`
+	ConfirmedBlockID string `json:"confirmedBlockID"`
+	ATT              int64  `json:"ATT"`
+	RATT             int64  `json:"RATT"`
+	CTT              int64  `json:"CTT"`
+	RCTT             int64  `json:"RCTT"`
+	Synced           bool   `json:"synced"`
 }
 
 // Mana contains the different mana values of the node.
 type Mana struct {
-	Access             float64   `json:"access"`
+	Access             int64     `json:"access"`
 	AccessTimestamp    time.Time `json:"accessTimestamp"`
-	Consensus          float64   `json:"consensus"`
+	Consensus          int64     `json:"consensus"`
 	ConsensusTimestamp time.Time `json:"consensusTimestamp"`
 }
 
