@@ -59,6 +59,8 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		TransactionConflictIDUpdated: event.NewLinkable[*TransactionConflictIDUpdatedEvent, Events, *Events](),
 		TransactionInvalid:           event.NewLinkable[*TransactionInvalidEvent, Events, *Events](),
 		Error:                        event.NewLinkable[error, Events, *Events](),
+
+		ConflictDAG: conflictdag.NewEvents[utxo.TransactionID, utxo.OutputID](),
 	}
 })
 

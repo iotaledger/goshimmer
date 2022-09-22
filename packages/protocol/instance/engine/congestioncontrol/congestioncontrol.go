@@ -22,13 +22,14 @@ type CongestionControl struct {
 
 func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
 	return options.Apply(&CongestionControl{
+		Events: NewEvents(),
 		Gadget: gadget,
 	}, opts, func(c *CongestionControl) {
 		c.Tracker = mana.NewTracker(tangle.Ledger)
 		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, accessManaMapRetrieverFunc, totalAccessManaRetrieveFunc, c.optsScheduler...)
+
 		c.Events.Scheduler = c.Scheduler.Events
 		c.Events.Tracker = c.Tracker.Events
-
 	}, (*CongestionControl).setupEvents)
 }
 

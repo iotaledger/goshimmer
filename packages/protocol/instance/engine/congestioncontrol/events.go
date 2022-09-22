@@ -18,5 +18,6 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Scheduler: scheduler.NewEvents(),
+		Tracker:   mana.NewEvents(),
 	}
 })
