@@ -1,4 +1,4 @@
-package tip
+package tipmanager
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
@@ -27,7 +27,7 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	TipManager           *Manager
+	TipManager           *TipManager
 	mockAcceptance       *acceptance.MockAcceptanceGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
 	scheduledBlocksMutex sync.RWMutex
@@ -38,7 +38,7 @@ type TestFramework struct {
 
 	optsGenesisTime       time.Time
 	optsClock             *clock.Clock
-	optsTipManagerOptions []options.Option[Manager]
+	optsTipManagerOptions []options.Option[TipManager]
 	optsTangleOptions     []options.Option[tangle.Tangle]
 	*tangle.TestFramework
 }
@@ -55,11 +55,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			tangle.WithTangleOptions(t.optsTangleOptions...),
 		)
 		if t.optsClock == nil {
-			t.optsClock = clock.NewClock(t.optsGenesisTime)
+			t.optsClock = clock.New()
 		}
+		t.optsClock.SetAcceptedTime(t.optsGenesisTime)
 
 		if t.TipManager == nil {
-			t.TipManager = NewManager(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsGenesisTime, t.optsTipManagerOptions...)
+			t.TipManager = New(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, t.optsGenesisTime, t.optsTipManagerOptions...)
 		}
 
 	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
@@ -186,7 +187,7 @@ func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTipManagerOptions(opts ...options.Option[Manager]) options.Option[TestFramework] {
+func WithTipManagerOptions(opts ...options.Option[TipManager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTipManagerOptions = opts
 	}

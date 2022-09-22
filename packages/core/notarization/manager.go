@@ -14,8 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
@@ -33,6 +33,7 @@ const (
 
 // Manager is the notarization manager.
 type Manager struct {
+	clock                       *clock.Clock
 	engine                      *engine.Engine
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
@@ -45,7 +46,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine, opts ...ManagerOption) (new *Manager) {
+func NewManager(c *clock.Clock, e *engine.Engine, epochCommitmentFactory *EpochCommitmentFactory, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
@@ -56,6 +57,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine
 	}
 
 	new = &Manager{
+		clock:                    c,
 		engine:                   e,
 		epochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
@@ -109,7 +111,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, e *engine.Engine
 		new.OnConflictRejected(event.ID)
 	}))
 
-	new.engine.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
+	new.clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
 		new.OnAcceptanceTimeUpdated(event.NewTime)
 	}))
 
@@ -639,7 +641,7 @@ func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved
 
 func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnough bool) {
 	t := ei.EndTime()
-	currentATT := m.engine.Clock.AcceptedTime()
+	currentATT := m.clock.AcceptedTime()
 	if len(issuingTime) > 0 && issuingTime[0].After(currentATT) {
 		currentATT = issuingTime[0]
 	}
@@ -761,7 +763,7 @@ func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittableE
 
 func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 	if !m.Bootstrapped() &&
-		(ei > epoch.IndexFromTime(m.engine.Clock.RelativeAcceptedTime().Add(-m.options.BootstrapWindow)) ||
+		(ei > epoch.IndexFromTime(m.clock.RelativeAcceptedTime().Add(-m.options.BootstrapWindow)) ||
 			m.options.BootstrapWindow == 0) {
 		m.bootstrapMutex.Lock()
 		m.bootstrapped = true

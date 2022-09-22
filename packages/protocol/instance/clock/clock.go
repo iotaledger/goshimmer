@@ -17,13 +17,11 @@ type Clock struct {
 	sync.RWMutex
 }
 
-// NewClock creates a new Clock with the given genesisTime.
-func NewClock(genesisTime time.Time) (clock *Clock) {
-	clock = &Clock{Events: NewEvents()}
-	clock.SetAcceptedTime(genesisTime)
-	clock.SetConfirmedTime(genesisTime)
-
-	return clock
+// New creates a new Clock with the given genesisTime.
+func New() (clock *Clock) {
+	return &Clock{
+		Events: NewEvents(),
+	}
 }
 
 // AcceptedTime returns the time of the last accepted Block.

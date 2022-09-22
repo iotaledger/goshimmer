@@ -3,8 +3,10 @@ package protocol
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -12,10 +14,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,11 +29,13 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network              *network.Network
+	network              network.Interface
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	mainInstance         *instance.Instance
+	solidification       *solidification.Solidification
+	activeInstance       *instance.Instance
+	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*instance.Instance
 	optsBaseDirectory    string
 	optsSettingsFileName string
@@ -38,10 +46,12 @@ type Protocol struct {
 	*logger.Logger
 }
 
-func New(networkInstance *network.Network, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(networkInstance network.Interface, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
+		network:              networkInstance,
+		solidification:       solidification.New(networkInstance, log),
 		instancesByChainID:   make(map[commitment.ID]*instance.Instance),
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
@@ -49,7 +59,6 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 
 		Logger: log,
 	}, opts, func(p *Protocol) {
-		p.network = networkInstance
 		p.disk = diskutil.New(p.optsBaseDirectory)
 		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
@@ -57,65 +66,27 @@ func New(networkInstance *network.Network, log *logger.Logger, opts ...options.O
 			panic(err)
 		}
 
-		if err := p.instantiateChains(); err != nil {
-			panic(err)
+		if p.instantiateChains() == 0 {
+			panic("no chains found (please provide a snapshot file)")
 		}
-
-		// setup events
 
 		if err := p.activateMainChain(); err != nil {
 			panic(err)
 		}
 
-		// CHAIN SPECIFIC //////////////////////////////////////////////////////////////////////////////////////////////
+		p.chainManager = chainmanager.NewManager(p.instance().GenesisCommitment)
 
-		// add instance to instancesByChainID
+		// setup solidification event
+		p.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
+		p.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
 
-		// p.chainManager = chainmanager.NewManager(snapshotCommitment)
-
-		//		p.instanceManager = instancemanager.New(p.disk, log)
-
-		// p.Events.InstanceManager = p.instanceManager.Events
-		//
-		// p.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		// 	p.network.SendBlock(block.Block.Block.Block.Block)
-		// }))
-		//
-		// p.network.Events.Gossip.BlockReceived.Attach(event.NewClosure(func(event *gossip.BlockReceivedEvent) {
-		// 	p.instanceManager.DispatchBlockData(event.Data, event.Neighbor)
-		// }))
+		// setup gossip events
+		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
+		p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
+		p.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+			p.network.SendBlock(block.ModelsBlock)
+		}))
 	})
-}
-func (p *Protocol) Instance() (instance *instance.Instance) {
-	return p.mainInstance
-}
-
-func (p *Protocol) instantiateChains() (err error) {
-	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
-		chainID := chains.Next()
-
-		p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
-	}
-
-	if len(p.instancesByChainID) == 0 {
-		return errors.New("no chains to instantiate (missing snapshot file)")
-	}
-
-	return
-}
-
-func (p *Protocol) activateMainChain() (err error) {
-	chainID := p.settings.MainChainID()
-
-	mainInstance, exists := p.instancesByChainID[chainID]
-	if !exists {
-		return errors.Errorf("instance for chain '%s' does not exist", chainID)
-	}
-
-	p.mainInstance = mainInstance
-	p.Events.Instance.LinkTo(mainInstance.Events)
-
-	return
 }
 
 func (p *Protocol) importSnapshot(fileName string) (err error) {
@@ -164,6 +135,61 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 	}
 
 	return snapshotHeader, err
+}
+
+func (p *Protocol) instantiateChains() (chainCount int) {
+	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
+		chainID := chains.Next()
+
+		p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+	}
+
+	return len(p.instancesByChainID)
+}
+
+func (p *Protocol) activateMainChain() (err error) {
+	chainID := p.settings.MainChainID()
+
+	mainInstance, exists := p.instancesByChainID[chainID]
+	if !exists {
+		return errors.Errorf("instance for chain '%s' does not exist", chainID)
+	}
+
+	p.activeInstance = mainInstance
+	p.Events.Instance.LinkTo(mainInstance.Events)
+
+	return
+}
+
+func (p *Protocol) instance() (instance *instance.Instance) {
+	p.activeInstanceMutex.RLock()
+	defer p.activeInstanceMutex.RUnlock()
+
+	return p.activeInstance
+}
+
+func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
+	block := new(models.Block)
+	if _, err := block.FromBytes(event.Data); err != nil {
+		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
+		return
+	}
+
+	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	if chain == nil {
+		// TODO: TRIGGER CHAIN SOLIDIFICATION?
+		return
+	}
+
+	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
+		targetInstance.ProcessBlockFromPeer(block, event.Neighbor)
+	}
+}
+
+func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
+	if block, exists := p.instance().Block(event.BlockID); exists {
+		p.network.SendBlock(block, event.Neighbor.Peer)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,8 +21,10 @@ type Block struct {
 	weakChildren             []*Block
 	likedInsteadChildren     []*Block
 
-	*models.Block
+	*ModelsBlock
 }
+
+type ModelsBlock = models.Block
 
 // NewBlock creates a new Block with the given options.
 func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Block) {
@@ -31,7 +33,7 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 		strongChildren:           make([]*Block, 0),
 		weakChildren:             make([]*Block, 0),
 		likedInsteadChildren:     make([]*Block, 0),
-		Block:                    data,
+		ModelsBlock:              data,
 	}, opts)
 }
 
@@ -230,7 +232,7 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 
 func WithModelOptions(opts ...options.Option[models.Block]) options.Option[Block] {
 	return func(block *Block) {
-		options.Apply(block.Block, opts)
+		options.Apply(block.ModelsBlock, opts)
 	}
 }
 

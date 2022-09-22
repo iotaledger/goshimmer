@@ -29,6 +29,8 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockReceived:        event.NewLinkable[*BlockReceivedEvent, Events, *Events](),
 		InvalidBlockReceived: event.NewLinkable[*peer.Peer, Events, *Events](),
 		PeerDropped:          event.NewLinkable[*peer.Peer, Events, *Events](),
+
+		Gossip: gossip.NewEvents(),
 	}
 })
 

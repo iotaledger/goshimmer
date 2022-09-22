@@ -1,5 +1,5 @@
 //nolint:dupl
-package tip
+package tipmanager
 
 import (
 	"fmt"
