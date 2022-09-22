@@ -84,15 +84,15 @@ func TestManager_Get(t *testing.T) {
 
 		assert.ElementsMatch(t, expected, actual)
 	}
-	
+
 	// Prune some stuff.
-	expectedLastPruned := epoch.Index(5)
+	expectedFirstBucket := epoch.Index(5) + 1
 	{
 		// Pruning an epoch that is not dividable by granularity does not actually prune.
 		m.PruneUntilEpoch(4)
 		assert.EqualValues(t, 2, m.lastPrunedIndex)
 
-		m.PruneUntilEpoch(5)
+		m.PruneUntilEpoch(7)
 		assert.EqualValues(t, 5, m.lastPrunedIndex)
 	}
 
@@ -111,7 +111,7 @@ func TestManager_Get(t *testing.T) {
 	m = NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
-		for i := int(expectedLastPruned); i < bucketsCount; i++ {
+		for i := int(expectedFirstBucket); i < bucketsCount; i++ {
 			bucket := m.Get(epoch.Index(i), getRealm(i))
 			value, err := bucket.Get(getKey(i))
 			assert.NoError(t, err)
@@ -124,7 +124,7 @@ func TestManager_Get(t *testing.T) {
 
 	// Check that folder structure is correct. Everything above bucketsCount-1 was unhealthy -> db files should be deleted.
 	{
-		for i := int(expectedLastPruned); i < totalBucketCount; i++ {
+		for i := int(expectedFirstBucket); i < totalBucketCount; i++ {
 			fileInfo, err := os.Stat(filepath.Join(baseDir, strconv.Itoa(i)))
 			if i%granularity == 0 && i < bucketsCount {
 				assert.True(t, fileInfo.IsDir())
@@ -162,7 +162,7 @@ func TestManager_Get(t *testing.T) {
 	}
 
 	// We pruned until epoch index granularity. Thus this should be the pruned epoch index after restoring.
-	assert.Equal(t, expectedLastPruned, m.lastPrunedIndex)
+	assert.Equal(t, expectedFirstBucket-1, m.lastPrunedIndex)
 }
 
 func getRealm(i int) kvstore.Realm {

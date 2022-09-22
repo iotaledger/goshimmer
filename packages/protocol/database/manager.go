@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -55,6 +54,8 @@ func NewManager(ctx context.Context, opts ...options.Option[Manager]) *Manager {
 		optsDBProvider:  NewMemDB,
 		optsMaxOpenDBs:  10,
 	}, opts, func(m *Manager) {
+		m.lastPrunedIndex = -1
+
 		m.openDBs = cache.New[epoch.Index, *dbInstance](m.optsMaxOpenDBs)
 		m.openDBs.SetEvictCallback(func(index epoch.Index, db *dbInstance) {
 			db.instance.Close()
@@ -125,27 +126,21 @@ func (m *Manager) PruneUntilEpoch(index epoch.Index) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	var indexToPrune epoch.Index
+	var baseIndexToPrune epoch.Index
 	if m.computeDBBaseIndex(index)+epoch.Index(m.optsGranularity)-1 == index {
 		// Upper bound of the DB instance should be pruned. So we can delete the entire DB file.
-		indexToPrune = index
+		baseIndexToPrune = index
 	} else {
-		indexToPrune = m.computeDBBaseIndex(index) - 1
+		baseIndexToPrune = m.computeDBBaseIndex(index) - 1
 	}
 
-	for m.lastPrunedIndex < indexToPrune {
-		m.prune(m.lastPrunedIndex)
-
-		if m.lastPrunedIndex == 0 {
-			m.lastPrunedIndex = epoch.Index(m.optsGranularity) - 1
-			continue
-		}
+	for m.lastPrunedIndex+epoch.Index(m.optsGranularity) <= baseIndexToPrune {
 		m.lastPrunedIndex = m.lastPrunedIndex + epoch.Index(m.optsGranularity)
+		m.prune(m.lastPrunedIndex)
 	}
 }
 
 func (m *Manager) prune(index epoch.Index) {
-	fmt.Println("prune", index)
 	dbBaseIndex := m.computeDBBaseIndex(index)
 	m.removeDBInstance(dbBaseIndex)
 }
