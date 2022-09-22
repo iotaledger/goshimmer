@@ -86,7 +86,7 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 
 		p.EvictionManager.EvictUntil(latestConfirmedIndex, p.SnapshotManager.SolidEntryPoints(latestConfirmedIndex))
 		// TODO: SET CLOCK
-
+		p.Events.EvictionManager.LinkTo(p.EvictionManager.Events)
 		p.Events.Engine.LinkTo(p.Engine.Events)
 	})
 }

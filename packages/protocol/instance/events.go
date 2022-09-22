@@ -4,12 +4,14 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 )
 
 type Events struct {
 	SwitchedEngine *event.Linkable[*engine.Engine, Events, *Events]
 
-	Engine *engine.Events
+	Engine          *engine.Events
+	EvictionManager *eviction.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -19,6 +21,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		SwitchedEngine: event.NewLinkable[*engine.Engine, Events, *Events](),
 
-		Engine: engine.NewEvents(),
+		Engine:          engine.NewEvents(),
+		EvictionManager: eviction.NewEvents(),
 	}
 })

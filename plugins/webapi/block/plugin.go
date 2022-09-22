@@ -1,20 +1,23 @@
 package block
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/node"
-	"github.com/iotaledger/hive.go/core/stringify"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,8 +32,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Retainer *retainer.Retainer
 }
 
 func init() {
@@ -42,57 +45,58 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("blocks/:blockID/metadata", GetBlockMetadata)
 	deps.Server.POST("blocks/payload", PostPayload)
 
-	deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
-	deps.Server.GET("blocks/sequences/:sequenceID/markerindexconflictidmapping", GetMarkerIndexConflictIDMapping)
+	// TODO: add markers to be retained by the retainer
+	//deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
+	//deps.Server.GET("blocks/sequences/:sequenceID/markerindexconflictidmapping", GetMarkerIndexConflictIDMapping)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetSequence //////////////////////////////////////////////////////////////////////////////////////////////////
-
-// GetSequence is the handler for the /blocks/sequences/:sequenceID endpoint.
-func GetSequence(c echo.Context) (err error) {
-	sequenceID, err := sequenceIDFromContext(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markersold.Sequence) {
-		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markersold.NewMarker(sequenceID, sequence.HighestIndex()))
-		err = c.String(http.StatusOK, stringify.Struct("Sequence",
-			stringify.NewStructField("ID", sequence.ID()),
-			stringify.NewStructField("LowestIndex", sequence.LowestIndex()),
-			stringify.NewStructField("HighestIndex", sequence.HighestIndex()),
-			stringify.NewStructField("BlockWithLastMarker", blockWithLastMarker),
-		))
-	}) {
-		return
-	}
-
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region GetMarkerIndexConflictIDMapping ////////////////////////////////////////////////////////////////////////////////
-
-// GetMarkerIndexConflictIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexconflictidmapping endpoint.
-func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
-	sequenceID, err := sequenceIDFromContext(c)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangleold.MarkerIndexConflictIDMapping) {
-		err = c.String(http.StatusOK, markerIndexConflictIDMapping.String())
-	}) {
-		return
-	}
-
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//// region GetSequence //////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//// GetSequence is the handler for the /blocks/sequences/:sequenceID endpoint.
+//func GetSequence(c echo.Context) (err error) {
+//	sequenceID, err := sequenceIDFromContext(c)
+//	if err != nil {
+//		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+//	}
+//
+//	if deps.Tangle.Booker.MarkersManager.Sequence(sequenceID).Consume(func(sequence *markersold.Sequence) {
+//		blockWithLastMarker := deps.Tangle.Booker.MarkersManager.BlockID(markersold.NewMarker(sequenceID, sequence.HighestIndex()))
+//		err = c.String(http.StatusOK, stringify.Struct("Sequence",
+//			stringify.NewStructField("ID", sequence.ID()),
+//			stringify.NewStructField("LowestIndex", sequence.LowestIndex()),
+//			stringify.NewStructField("HighestIndex", sequence.HighestIndex()),
+//			stringify.NewStructField("BlockWithLastMarker", blockWithLastMarker),
+//		))
+//	}) {
+//		return
+//	}
+//
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
+//}
+//
+//// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//// region GetMarkerIndexConflictIDMapping ////////////////////////////////////////////////////////////////////////////////
+//
+//// GetMarkerIndexConflictIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexconflictidmapping endpoint.
+//func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
+//	sequenceID, err := sequenceIDFromContext(c)
+//	if err != nil {
+//		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+//	}
+//
+//	if deps.Tangle.Storage.MarkerIndexConflictIDMapping(sequenceID).Consume(func(markerIndexConflictIDMapping *tangleold.MarkerIndexConflictIDMapping) {
+//		err = c.String(http.StatusOK, markerIndexConflictIDMapping.String())
+//	}) {
+//		return
+//	}
+//
+//	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
+//}
+//
+//// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region GetBlock ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -102,47 +106,43 @@ func GetBlock(c echo.Context) (err error) {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
-
-	if deps.Tangle.Storage.Block(blockID).Consume(func(block *tangleold.Block) {
-		var payloadBytes []byte
-		payloadBytes, err = block.Payload().Bytes()
-
-		ecRecord := epoch.NewECRecord(block.ECRecordEI())
-		ecRecord.SetECR(block.ECR())
-		ecRecord.SetPrevEC(block.PrevEC())
-
-		err = c.JSON(http.StatusOK, jsonmodels.Block{
-			ID:                  block.ID().Base58(),
-			StrongParents:       block.ParentsByType(tangleold.StrongParentType).Base58(),
-			WeakParents:         block.ParentsByType(tangleold.WeakParentType).Base58(),
-			ShallowLikeParents:  block.ParentsByType(tangleold.ShallowLikeParentType).Base58(),
-			StrongChildren:      deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.StrongChild).Base58(),
-			WeakChildren:        deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.WeakChild).Base58(),
-			ShallowLikeChildren: deps.Tangle.Utils.ApprovingBlockIDs(block.ID(), tangleold.ShallowLikeChild).Base58(),
-			IssuerPublicKey:     block.IssuerPublicKey().String(),
-			IssuingTime:         block.IssuingTime().Unix(),
-			SequenceNumber:      block.SequenceNumber(),
-			PayloadType:         block.Payload().Type().String(),
-			TransactionID: func() string {
-				if block.Payload().Type() == devnetvm.TransactionType {
-					return block.Payload().(*devnetvm.Transaction).ID().Base58()
-				}
-
-				return ""
-			}(),
-			EC:                   ecRecord.ComputeEC().Base58(),
-			EI:                   uint64(block.ECRecordEI()),
-			ECR:                  block.ECR().Base58(),
-			PrevEC:               block.PrevEC().Base58(),
-			Payload:              payloadBytes,
-			Signature:            block.Signature().String(),
-			LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
-		})
-	}) {
-		return
+	block, exists := deps.Retainer.Block(blockID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Block with %s", blockID)))
 	}
+	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+	}
+	var payloadBytes []byte
+	payloadBytes, err = block.Payload().Bytes()
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Block with %s", blockID)))
+	return c.JSON(http.StatusOK, jsonmodels.Block{
+		ID:                   blockMetadata.ID().Base58(),
+		StrongParents:        block.ParentsByType(models.StrongParentType).Base58(),
+		WeakParents:          block.ParentsByType(models.WeakParentType).Base58(),
+		ShallowLikeParents:   block.ParentsByType(models.ShallowLikeParentType).Base58(),
+		StrongChildren:       blockMetadata.M.StrongChildren.Base58(),
+		WeakChildren:         blockMetadata.M.WeakChildren.Base58(),
+		LikedInsteadChildren: blockMetadata.M.LikedInsteadChildren.Base58(),
+		IssuerPublicKey:      block.IssuerPublicKey().String(),
+		IssuingTime:          block.IssuingTime().Unix(),
+		SequenceNumber:       block.SequenceNumber(),
+		PayloadType:          block.Payload().Type().String(),
+		TransactionID: func() string {
+			if block.Payload().Type() == devnetvm.TransactionType {
+				return block.Payload().(*devnetvm.Transaction).ID().Base58()
+			}
+			return ""
+		}(),
+		CommitmentID:         block.Commitment().ID().Base58(),
+		EpochIndex:           uint64(block.Commitment().Index()),
+		CommitmentRootsID:    block.Commitment().RootsID().Base58(),
+		PrevCommitmentID:     block.Commitment().PrevID().Base58(),
+		Payload:              payloadBytes,
+		Signature:            block.Signature().String(),
+		LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -156,37 +156,16 @@ func GetBlockMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
-		err = c.JSON(http.StatusOK, NewBlockMetadata(blockMetadata))
-	}) {
-		return
+	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
+	if !exists {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
+	}
+	metadataEncoded, err := serix.DefaultAPI.MapEncode(context.Background(), blockMetadata)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Wrapf(err, "failed to serialize BlockMetadata with %s", blockID)))
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
-}
-
-// NewBlockMetadata returns BlockMetadata from the given tangleold.BlockMetadata.
-func NewBlockMetadata(metadata *tangleold.BlockMetadata) jsonmodels.BlockMetadata {
-	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(metadata.ID())
-
-	return jsonmodels.BlockMetadata{
-		ID:                    metadata.ID().Base58(),
-		ReceivedTime:          metadata.ReceivedTime().Unix(),
-		Solid:                 metadata.IsSolid(),
-		SolidificationTime:    metadata.SolidificationTime().Unix(),
-		StructureDetails:      jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
-		AddedConflictIDs:      lo.Map(metadata.AddedConflictIDs().Slice(), utxo.TransactionID.Base58),
-		SubtractedConflictIDs: lo.Map(metadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Base58),
-		Scheduled:             metadata.Scheduled(),
-		ScheduledTime:         metadata.ScheduledTime().Unix(),
-		Booked:                metadata.IsBooked(),
-		BookedTime:            metadata.BookedTime().Unix(),
-		ObjectivelyInvalid:    metadata.IsObjectivelyInvalid(),
-		SubjectivelyInvalid:   metadata.IsSubjectivelyInvalid(),
-		ConfirmationState:     metadata.ConfirmationState(),
-		ConfirmationStateTime: metadata.ConfirmationStateTime().Unix(),
-	}
+	return c.JSON(http.StatusOK, metadataEncoded)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,10 +199,10 @@ func PostPayload(c echo.Context) error {
 
 // blockIDFromContext determines the BlockID from the blockID parameter in an echo.Context. It expects it to
 // either be a base58 encoded string or the builtin alias EmptyBlockID.
-func blockIDFromContext(c echo.Context) (blockID tangleold.BlockID, err error) {
+func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 	switch blockIDString := c.Param("blockID"); blockIDString {
 	case "EmptyBlockID":
-		blockID = tangleold.EmptyBlockID
+		blockID = models.EmptyBlockID
 	default:
 		err = blockID.FromBase58(blockIDString)
 	}
@@ -232,13 +211,13 @@ func blockIDFromContext(c echo.Context) (blockID tangleold.BlockID, err error) {
 }
 
 // sequenceIDFromContext determines the sequenceID from the sequenceID parameter in an echo.Context.
-func sequenceIDFromContext(c echo.Context) (id markersold.SequenceID, err error) {
+func sequenceIDFromContext(c echo.Context) (id markers.SequenceID, err error) {
 	sequenceIDInt, err := strconv.Atoi(c.Param("sequenceID"))
 	if err != nil {
 		return
 	}
 
-	return markersold.SequenceID(sequenceIDInt), nil
+	return markers.SequenceID(sequenceIDInt), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

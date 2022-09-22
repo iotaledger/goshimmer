@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
@@ -56,6 +57,7 @@ type dependencies struct {
 
 	Node       *configuration.Configuration
 	Local      *peer.Local
+	Retainer   *retainer.Retainer
 	Protocol   *protocol.Protocol
 	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`

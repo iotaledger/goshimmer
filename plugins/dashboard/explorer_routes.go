@@ -11,7 +11,7 @@ import (
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -38,14 +38,14 @@ type ExplorerBlock struct {
 	IssuerShortID string `json:"issuer_short_id"`
 	// The signature of the block.
 	Signature string `json:"signature"`
-	// ParentsByType is the map of parents group by type
+	// ParentsByType is the map of parents groups by type
 	ParentsByType map[string][]string `json:"parentsByType"`
 	// StrongChildren are the strong children of the block.
 	StrongChildren []string `json:"strongChildren"`
 	// WeakChildren are the weak children of the block.
 	WeakChildren []string `json:"weakChildren"`
-	// ShallowLikeChildren are the shallow like children of the block.
-	ShallowLikeChildren []string `json:"shallowLikeChildren"`
+	// LikedInsteadChildren are the shallow like children of the block.
+	LikedInsteadChildren []string `json:"shallowLikeChildren"`
 	// Solid defines the solid status of the block.
 	Solid                 bool               `json:"solid"`
 	ConflictIDs           []string           `json:"conflictIDs"`
@@ -69,69 +69,63 @@ type ExplorerBlock struct {
 	PastMarkers   string `json:"pastMarkers"`
 
 	// Epoch commitment
-	EC                   string `json:"ec"`
+	CommitmentID         string `json:"ec"`
 	EI                   uint64 `json:"ei"`
-	ECR                  string `json:"ecr"`
-	PrevEC               string `json:"prevEC"`
+	CommitmentRootsID    string `json:"ecr"`
+	PreviousCommitmentID string `json:"prevEC"`
 	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
-// TODO: implement when retainer is ready
-func createExplorerBlock(blk *models.Block) *ExplorerBlock {
-	blockID := blk.ID()
-	cachedBlockMetadata := deps.Tangle.Storage.BlockMetadata(blockID)
-	blockMetadata, _ := cachedBlockMetadata.Unwrap()
-
-	conflictIDs, _ := deps.Tangle.Booker.BlockConflictIDs(blockID)
-
-	ecRecord := epoch.NewECRecord(blk.ECRecordEI())
-	ecRecord.SetECR(blk.ECR())
-	ecRecord.SetPrevEC(blk.PrevEC())
-
+func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetadata) *ExplorerBlock {
+	// TODO: change this to bool flags for confirmation and acceptance
+	confirmationState := confirmation.Pending
+	if blockMetadata.M.Accepted {
+		confirmationState = confirmation.Accepted
+	}
 	t := &ExplorerBlock{
-		ID:                      blockID.Base58(),
-		SolidificationTimestamp: blockMetadata.SolidificationTime().Unix(),
-		IssuanceTimestamp:       blk.IssuingTime().Unix(),
-		IssuerPublicKey:         blk.IssuerPublicKey().String(),
-		IssuerShortID:           identity.NewID(blk.IssuerPublicKey()).String(),
-		Signature:               blk.Signature().String(),
-		SequenceNumber:          blk.SequenceNumber(),
-		ParentsByType:           prepareParentReferences(blk),
-		StrongChildren:          deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.StrongChild).Base58(),
-		WeakChildren:            deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.WeakChild).Base58(),
-		ShallowLikeChildren:     deps.Tangle.Utils.ApprovingBlockIDs(blockID, tangleold.ShallowLikeChild).Base58(),
-		Solid:                   blockMetadata.IsSolid(),
-		ConflictIDs:             lo.Map(lo.Map(conflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.AddedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.SubtractedConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
-		Scheduled:               blockMetadata.Scheduled(),
-		Booked:                  blockMetadata.IsBooked(),
-		ObjectivelyInvalid:      blockMetadata.IsObjectivelyInvalid(),
-		SubjectivelyInvalid:     blockMetadata.IsSubjectivelyInvalid(),
-		ConfirmationState:       blockMetadata.ConfirmationState(),
-		ConfirmationStateTime:   blockMetadata.ConfirmationStateTime().Unix(),
-		PayloadType:             uint32(blk.Payload().Type()),
-		Payload:                 ProcessPayload(blk.Payload()),
-		EC:                      ecRecord.ComputeEC().Base58(),
-		EI:                      uint64(blk.ECRecordEI()),
-		ECR:                     blk.ECR().Base58(),
-		PrevEC:                  blk.PrevEC().Base58(),
-		LatestConfirmedEpoch:    uint64(blk.LatestConfirmedEpoch()),
+		ID:                      block.ID().Base58(),
+		SolidificationTimestamp: blockMetadata.M.SolidTime.Unix(),
+		IssuanceTimestamp:       block.IssuingTime().Unix(),
+		IssuerPublicKey:         block.IssuerPublicKey().String(),
+		IssuerShortID:           identity.NewID(block.IssuerPublicKey()).String(),
+		Signature:               block.Signature().String(),
+		SequenceNumber:          block.SequenceNumber(),
+		ParentsByType:           prepareParentReferences(block),
+		StrongChildren:          blockMetadata.M.StrongChildren.Base58(),
+		WeakChildren:            blockMetadata.M.WeakChildren.Base58(),
+		LikedInsteadChildren:    blockMetadata.M.LikedInsteadChildren.Base58(),
+		Solid:                   blockMetadata.M.Solid,
+		ConflictIDs:             lo.Map(lo.Map(blockMetadata.M.ConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		AddedConflictIDs:        lo.Map(lo.Map(blockMetadata.M.AddedConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		SubtractedConflictIDs:   lo.Map(lo.Map(blockMetadata.M.SubtractedConflictIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		Scheduled:               blockMetadata.M.Scheduled,
+		Booked:                  blockMetadata.M.Booked,
+		ObjectivelyInvalid:      blockMetadata.M.Invalid,
+		SubjectivelyInvalid:     blockMetadata.M.SubjectivelyInvalid,
+		ConfirmationState:       confirmationState,
+		ConfirmationStateTime:   blockMetadata.M.AcceptedTime.Unix(),
+		PayloadType:             block.Payload().Type(),
+		Payload:                 ProcessPayload(block.Payload()),
+		CommitmentID:            block.Commitment().ID().Base58(),
+		EI:                      uint64(block.Commitment().Index()),
+		CommitmentRootsID:       block.Commitment().RootsID().Base58(),
+		PreviousCommitmentID:    block.Commitment().PrevID().Base58(),
+		LatestConfirmedEpoch:    uint64(block.LatestConfirmedEpoch()),
 	}
 
-	if d := blockMetadata.StructureDetails(); d != nil {
-		t.Rank = d.Rank()
-		t.PastMarkerGap = d.PastMarkerGap()
-		t.IsPastMarker = d.IsPastMarker()
-		t.PastMarkers = d.PastMarkers().String()
+	if d := blockMetadata.M.StructureDetails; d != nil {
+		t.Rank = d.Rank
+		t.PastMarkerGap = d.PastMarkerGap
+		t.IsPastMarker = d.IsPastMarker
+		t.PastMarkers = fmt.Sprintf("Markers{%+v}", d.PastMarkers)
 	}
 
 	return t
 }
 
-func prepareParentReferences(blk *tangleold.Block) map[string][]string {
+func prepareParentReferences(blk *models.Block) map[string][]string {
 	parentsByType := make(map[string][]string)
-	blk.ForEachParent(func(parent tangleold.Parent) {
+	blk.ForEachParent(func(parent models.Parent) {
 		if _, ok := parentsByType[parent.Type.String()]; !ok {
 			parentsByType[parent.Type.String()] = make([]string, 0)
 		}
@@ -165,7 +159,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/block/:id", func(c echo.Context) (err error) {
-		var blockID tangleold.BlockID
+		var blockID models.BlockID
 		err = blockID.FromBase58(c.Param("id"))
 		if err != nil {
 			return
@@ -215,8 +209,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case tangleold.BlockIDLength:
-			var blockID tangleold.BlockID
+		case models.BlockIDLength:
+			var blockID models.BlockID
 			err = blockID.FromBase58(c.Param("id"))
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
@@ -235,12 +229,18 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findBlock(blockID tangleold.BlockID) (explorerBlk *ExplorerBlock, err error) {
-	if !deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
-		explorerBlk = createExplorerBlock(blk)
-	}) {
-		err = fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())
+func findBlock(blockID models.BlockID) (explorerBlk *ExplorerBlock, err error) {
+	block, exists := deps.Retainer.Block(blockID)
+	if !exists {
+		return nil, fmt.Errorf("%w: block %s", ErrNotFound, blockID.Base58())
 	}
+
+	blockMetadata, exists := deps.Retainer.BlockMetadata(blockID)
+	if !exists {
+		return nil, fmt.Errorf("%w: block metadata %s", ErrNotFound, blockID.Base58())
+	}
+
+	explorerBlk = createExplorerBlock(block, blockMetadata)
 
 	return
 }
@@ -260,24 +260,24 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var timestamp int64
 
 		// get output metadata + confirmation status from conflict of the output
-		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Instance().Engine.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		var txID utxo.TransactionID
-		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+		deps.Protocol.Instance().Engine.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
 			if output, ok := output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+				deps.Protocol.Instance().Engine.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
 					if tx, ok := transaction.(*devnetvm.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})
 
 				// obtain information about the consumer of the output being considered
-				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
+				confirmedConsumerID := deps.Protocol.Instance().Engine.Ledger.Utils.ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
 					ID:                jsonmodels.NewOutputID(output.ID()),

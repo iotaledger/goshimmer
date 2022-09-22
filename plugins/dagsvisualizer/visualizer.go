@@ -89,7 +89,7 @@ func registerTangleEvents() {
 			Type: BlkTypeTangleConfirmed,
 			Data: &tangleConfirmed{
 				ID:           block.ID().Base58(),
-				Accepted:     block.Accepted(),
+				Accepted:     block.IsAccepted(),
 				AcceptedTime: time.Now().UnixNano(),
 			},
 		}
@@ -254,17 +254,16 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-
-		var blocks []*tangleVertex
-		var txs []*utxoVertex
-		var conflicts []*conflictVertex
+		//startEpoch := epoch.IndexFromTime(startTimestamp)
+		//endEpoch := epoch.IndexFromTime(endTimestamp)
+		//
+		//var blocks []*tangleVertex
+		//var txs []*utxoVertex
+		//var conflicts []*conflictVertex
 		//conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
 		//entryBlks := models.NewBlockIDs()
 		// TODO: use retainer and optimize to use data locality
-		//deps.Tangle.Storage.Children(tangleold.EmptyBlockID).Consume(func(child *tangleold.Child) {
-		//	entryBlks.Add(child.ChildBlockID())
-		//})
-		//
+
 		//deps.Tangle.Utils.WalkBlockID(func(blockID tangleold.BlockID, walker *walker.Walker[tangleold.BlockID]) {
 		//	deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
 		//		// only keep blocks that is issued in the given time interval
@@ -304,7 +303,8 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		//	})
 		//}, entryBlks)
 
-		return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
+		//return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
+		return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 	})
 }
 
@@ -328,32 +328,36 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 	return true
 }
 
-// TODO: refactor this method to use new models
-//func newTangleVertex(block *tangleold.Block) (ret *tangleVertex) {
-//	deps.Tangle.Storage.BlockMetadata(block.ID()).Consume(func(blkMetadata *tangleold.BlockMetadata) {
-//		conflictIDs, err := deps.Tangle.Booker.BlockConflictIDs(block.ID())
-//		if err != nil {
-//			conflictIDs = set.NewAdvancedSet[utxo.TransactionID]()
-//		}
-//		ret = &tangleVertex{
-//			ID:                    block.ID().Base58(),
-//			StrongParentIDs:       block.ParentsByType(tangleold.StrongParentType).Base58(),
-//			WeakParentIDs:         block.ParentsByType(tangleold.WeakParentType).Base58(),
-//			ShallowLikeParentIDs:  block.ParentsByType(tangleold.ShallowLikeParentType).Base58(),
-//			ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
-//			IsMarker:              blkMetadata.StructureDetails() != nil && blkMetadata.StructureDetails().IsPastMarker(),
-//			IsTx:                  block.Payload().Type() == devnetvm.TransactionType,
-//			IsConfirmed:           deps.AcceptanceGadget.IsBlockConfirmed(block.ID()),
-//			ConfirmationStateTime: blkMetadata.ConfirmationStateTime().UnixNano(),
-//			ConfirmationState:     blkMetadata.ConfirmationState().String(),
-//		}
-//	})
-//
-//	if ret.IsTx {
-//		ret.TxID = block.Payload().(*devnetvm.Transaction).ID().Base58()
-//	}
-//	return
-//}
+func newTangleVertex(block *models.Block) (ret *tangleVertex) {
+	blockMetadata, exists := deps.Retainer.BlockMetadata(block.ID())
+	conflictIDs := utxo.NewTransactionIDs()
+	if exists {
+		conflictIDs = blockMetadata.M.ConflictIDs
+	}
+
+	// TODO: replace confirmation with bool flags
+	confirmationState := confirmation.Pending
+	if blockMetadata.M.Accepted {
+		confirmationState = confirmation.Accepted
+	}
+	ret = &tangleVertex{
+		ID:                    block.ID().Base58(),
+		StrongParentIDs:       block.ParentsByType(models.StrongParentType).Base58(),
+		WeakParentIDs:         block.ParentsByType(models.WeakParentType).Base58(),
+		ShallowLikeParentIDs:  block.ParentsByType(models.ShallowLikeParentType).Base58(),
+		ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
+		IsMarker:              blockMetadata.M.StructureDetails != nil && blockMetadata.M.StructureDetails.IsPastMarker,
+		IsTx:                  block.Payload().Type() == devnetvm.TransactionType,
+		IsConfirmed:           blockMetadata.M.Accepted,
+		ConfirmationStateTime: blockMetadata.M.AcceptedTime.UnixNano(),
+		ConfirmationState:     confirmationState.String(),
+	}
+
+	if ret.IsTx {
+		ret.TxID = block.Payload().(*devnetvm.Transaction).ID().Base58()
+	}
+	return
+}
 
 func newUTXOVertex(blkID models.BlockID, tx *devnetvm.Transaction) (ret *utxoVertex) {
 	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
