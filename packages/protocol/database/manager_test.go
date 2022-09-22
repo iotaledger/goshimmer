@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,7 +21,7 @@ func TestManager_Get(t *testing.T) {
 	const granularity = 3
 	baseDir := t.TempDir()
 
-	m := NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir), WithMaxOpenDBs(2))
+	m := NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir), WithMaxOpenDBs(2))
 
 	// Create and write data to buckets.
 	{
@@ -90,10 +89,10 @@ func TestManager_Get(t *testing.T) {
 	{
 		// Pruning an epoch that is not dividable by granularity does not actually prune.
 		m.PruneUntilEpoch(4)
-		assert.EqualValues(t, 2, m.lastPrunedIndex)
+		assert.EqualValues(t, 2, m.maxPruned)
 
 		m.PruneUntilEpoch(7)
-		assert.EqualValues(t, 5, m.lastPrunedIndex)
+		assert.EqualValues(t, 5, m.maxPruned)
 	}
 
 	// Insert into buckets but DO NOT mark as clean. When restoring from disk they should not be healthy and thus be
@@ -108,7 +107,7 @@ func TestManager_Get(t *testing.T) {
 	m.Shutdown()
 	m = nil
 
-	m = NewManager(context.Background(), WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
+	m = NewManager(WithGranularity(granularity), WithDBProvider(NewDB), WithBaseDir(baseDir))
 	// Read data from buckets after shutdown (needs to be properly reconstructed from disk).
 	{
 		for i := int(expectedFirstBucket); i < bucketsCount; i++ {
@@ -161,8 +160,8 @@ func TestManager_Get(t *testing.T) {
 		assert.ElementsMatch(t, expected, actual)
 	}
 
-	// We pruned until epoch index granularity. Thus this should be the pruned epoch index after restoring.
-	assert.Equal(t, expectedFirstBucket-1, m.lastPrunedIndex)
+	// We pruned until epoch baseIndex granularity. Thus this should be the pruned epoch baseIndex after restoring.
+	assert.Equal(t, expectedFirstBucket-1, m.maxPruned)
 }
 
 func getRealm(i int) kvstore.Realm {
