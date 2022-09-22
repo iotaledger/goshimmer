@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -40,6 +41,8 @@ type Events struct {
 
 	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
 	Error *event.Linkable[error, Events, *Events]
+
+	ConflictDAG *conflictdag.Events[utxo.TransactionID, utxo.OutputID]
 
 	event.LinkableCollection[Events, *Events]
 }

@@ -10,7 +10,7 @@ import (
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -26,7 +26,6 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangleold.Tangle
 }
 
 // Plugin gets the plugin instance.
@@ -64,8 +63,8 @@ func processFaucetRequest(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetAPIResponse{Error: "Invalid consensus mana node ID"})
 	}
 
-	consensusManaPledgeID, err = mana.IDFromStr(request.ConsensusManaPledgeID)
-	accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
+	consensusManaPledgeID, err = manamodels.IDFromStr(request.ConsensusManaPledgeID)
+	accessManaPledgeID, err = manamodels.IDFromStr(request.AccessManaPledgeID)
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 

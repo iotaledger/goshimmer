@@ -45,6 +45,7 @@ func New(isBootstrapped func() bool, ledger *ledger.Ledger, evictionManager *evi
 		e.Events.Tangle = e.Tangle.Events
 		e.Events.Consensus = e.Consensus.Events
 		e.Events.CongestionControl = e.CongestionControl.Events
+		e.Events.Ledger = e.Ledger.Events
 
 		e.setupTipManagerEvents()
 	})

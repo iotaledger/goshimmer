@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -9,7 +10,7 @@ import (
 
 type Validator struct {
 	id     identity.ID
-	weight uint64
+	weight int64
 
 	Events *ValidatorEvents
 
@@ -28,14 +29,14 @@ func (v *Validator) ID() identity.ID {
 	return v.id
 }
 
-func (v *Validator) Weight() uint64 {
+func (v *Validator) Weight() int64 {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
 	return v.weight
 }
 
-func (v *Validator) SetWeight(weight uint64) (wasUpdated bool) {
+func (v *Validator) SetWeight(weight int64) (wasUpdated bool) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
@@ -55,7 +56,11 @@ func (v *Validator) SetWeight(weight uint64) (wasUpdated bool) {
 
 }
 
-func WithWeight(weight uint64) options.Option[Validator] {
+func (v *Validator) String() string {
+	return fmt.Sprintf("Validator(%s, %d)", v.id.String(), v.weight)
+}
+
+func WithWeight(weight int64) options.Option[Validator] {
 	return func(validator *Validator) {
 		validator.weight = weight
 	}

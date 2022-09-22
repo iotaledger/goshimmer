@@ -65,7 +65,7 @@ func getCurrentEC(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
-	ec := ecRecord.ComputeEC()
+	ec := ecRecord.ID()
 
 	return c.JSON(http.StatusOK, ec.Base58())
 }
@@ -111,7 +111,7 @@ func getBlocks(c echo.Context) error {
 
 	blocks := make([]string, len(blockIDs))
 	for i, m := range blockIDs {
-		blocks[i] = m.String()
+		blocks[i] = m
 	}
 	resp := jsonmodels.EpochBlocksResponse{Blocks: blocks}
 

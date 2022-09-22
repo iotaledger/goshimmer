@@ -1,13 +1,11 @@
 package ratesetter
 
 import (
-	"net/http"
-
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -16,8 +14,8 @@ const PluginName = "WebAPIRateSetterEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Protocol *protocol.Protocol
 }
 
 var (
@@ -35,9 +33,11 @@ func configure(_ *node.Plugin) {
 }
 
 func getRateSetterEstimate(c echo.Context) error {
-	return c.JSON(http.StatusOK, jsonmodels.RateSetter{
-		Rate:     deps.Tangle.RateSetter.Rate(),
-		Size:     deps.Tangle.RateSetter.Size(),
-		Estimate: deps.Tangle.RateSetter.Estimate(),
-	})
+	// TODO: finish when ratesetter is available
+	//return c.JSON(http.StatusOK, jsonmodels.RateSetter{
+	//	Rate:     deps.Tangle.RateSetter.Rate(),
+	//	Size:     deps.Tangle.RateSetter.Size(),
+	//	Estimate: deps.Tangle.RateSetter.Estimate(),
+	//})
+	return nil
 }

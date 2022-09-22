@@ -1,6 +1,8 @@
 package remotemetrics
 
 import (
+	"time"
+
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
@@ -10,7 +12,7 @@ var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
-	tts := deps.Tangle.TimeManager.Synced()
+	tts := deps.Protocol.Instance().Engine.IsSynced()
 	if oldTangleTimeSynced != tts {
 		var myID string
 		if deps.Local != nil {
@@ -20,11 +22,11 @@ func checkSynced() {
 			Type:           "sync",
 			NodeID:         myID,
 			MetricsLevel:   Parameters.MetricsLevel,
-			Time:           clock.SyncedTime(),
-			ATT:            deps.Tangle.TimeManager.ATT(),
-			RATT:           deps.Tangle.TimeManager.RATT(),
-			CTT:            deps.Tangle.TimeManager.CTT(),
-			RCTT:           deps.Tangle.TimeManager.RCTT(),
+			Time:           time.Now(),
+			ATT:            deps.Protocol.Instance().Engine.Clock.AcceptedTime(),
+			RATT:           deps.Protocol.Instance().Engine.Clock.RelativeAcceptedTime(),
+			CTT:            deps.Protocol.Instance().Engine.Clock.ConfirmedTime(),
+			RCTT:           deps.Protocol.Instance().Engine.Clock.RelativeConfirmedTime(),
 			CurrentStatus:  tts,
 			PreviousStatus: oldTangleTimeSynced,
 		}

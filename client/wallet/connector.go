@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -15,7 +14,6 @@ type Connector interface {
 	UnspentOutputs(addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID, err error)
 	SendTransaction(transaction *devnetvm.Transaction) (err error)
 	RequestFaucetFunds(address address.Address, powTarget int) (err error)
-	GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error)
 	GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error)
 	GetUnspentAliasOutput(address *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error)
 }

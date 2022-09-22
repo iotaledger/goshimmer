@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -34,7 +35,7 @@ func (r *RemoteLoggerConn) SendLogMsg(level logger.Level, name, msg string) {
 		level.CapitalString(),
 		name,
 		msg,
-		clock.SyncedTime(),
+		time.Now(),
 		remoteLogType,
 	}
 

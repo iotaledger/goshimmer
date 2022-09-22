@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/autopeering/discover"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/autopeering/selection"
@@ -21,7 +22,10 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
@@ -43,7 +47,9 @@ var (
 	log    *logger.Logger
 	server *echo.Echo
 
-	nodeStartAt = time.Now()
+	nodeStartAt        = time.Now()
+	lastAcceptedBlock  *acceptance.Block
+	lastConfirmedBlock *acceptance.Block
 )
 
 type dependencies struct {
@@ -51,7 +57,9 @@ type dependencies struct {
 
 	Node       *configuration.Configuration
 	Local      *peer.Local
-	Tangle     *tangleold.Tangle
+	Retainer   *retainer.Retainer
+	Protocol   *protocol.Protocol
+	Discover   *discover.Protocol  `optional:"true"`
 	Selection  *selection.Protocol `optional:"true"`
 	P2PManager *p2p.Manager        `optional:"true"`
 	Chat       *chat.Chat          `optional:"true"`
@@ -64,6 +72,13 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+			lastAcceptedBlock = block
+			lastConfirmedBlock = block
+		}
+	}))
+
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureChatLiveFeed()
@@ -334,25 +349,25 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	tm := deps.Tangle.TimeManager
+	tm := deps.Protocol.Instance().Engine.Clock
 	status.TangleTime = tangleTime{
-		Synced:           tm.Synced(),
-		Bootstrapped:     tm.Bootstrapped(),
-		AcceptedBlockID:  tm.LastAcceptedBlock().BlockID.Base58(),
-		ConfirmedBlockID: tm.LastConfirmedBlock().BlockID.Base58(),
-		ATT:              tm.ATT().UnixNano(),
-		RATT:             tm.RATT().UnixNano(),
-		CTT:              tm.CTT().UnixNano(),
-		RCTT:             tm.RCTT().UnixNano(),
+		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
+		Bootstrapped:     deps.Protocol.Instance().Engine.IsBootstrapped(),
+		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
+		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
+		ATT:              tm.AcceptedTime().UnixNano(),
+		RATT:             tm.RelativeAcceptedTime().UnixNano(),
+		CTT:              tm.ConfirmedTime().UnixNano(),
+		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Tangle.Scheduler.Running(),
-		Rate:              deps.Tangle.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+		Running:           deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Running(),
+		Rate:              deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate().String(),
+		MaxBufferSize:     deps.Protocol.Instance().Engine.CongestionControl.Scheduler.MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize(),
 		Deficit:           deficit,
 	}
 	return status

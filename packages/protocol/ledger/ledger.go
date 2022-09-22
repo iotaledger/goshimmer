@@ -98,6 +98,8 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
 	}, ledger.optConflictDAG...)...)
 
+	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
+
 	ledger.Storage = newStorage(ledger)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)

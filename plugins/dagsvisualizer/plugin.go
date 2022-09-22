@@ -13,8 +13,9 @@ import (
 	"github.com/labstack/echo/middleware"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // PluginName is the name of the dags visualizer plugin.
@@ -31,8 +32,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle           *tangleold.Tangle
-	AcceptanceGadget *acceptance.Gadget
+	Retainer *retainer.Retainer
+	Protocol *protocol.Protocol
 }
 
 func init() {

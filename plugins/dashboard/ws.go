@@ -52,7 +52,7 @@ func configureWebSocketWorkerPool() {
 			broadcastWsBlock(&wsblk{MsgTypeNodeStatus, currentNodeStatus()})
 			broadcastWsBlock(&wsblk{MsgTypeNeighborMetric, neighborMetrics()})
 			broadcastWsBlock(&wsblk{MsgTypeTipsMetric, &tipsInfo{
-				TotalTips: deps.Tangle.TipManager.TipCount(),
+				TotalTips: deps.Protocol.Instance().Engine.TipManager.TipCount(),
 			}})
 		case *componentsmetric:
 			broadcastWsBlock(&wsblk{MsgTypeComponentCounterMetric, x})
@@ -149,9 +149,6 @@ func broadcastWsBlock(blk interface{}, dontDrop ...bool) {
 }
 
 func sendInitialData(ws *websocket.Conn) error {
-	if err := sendAllowedManaPledge(ws); err != nil {
-		return err
-	}
 	if err := ManaBufferInstance().SendEvents(ws); err != nil {
 		return err
 	}

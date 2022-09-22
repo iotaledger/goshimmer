@@ -8,24 +8,25 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 type FaucetConnector struct {
-	tangle  *tangleold.Tangle
-	indexer *indexer.Indexer
+	protocol *protocol.Protocol
+	indexer  *indexer.Indexer
 }
 
-func NewConnector(t *tangleold.Tangle, indexer *indexer.Indexer) *FaucetConnector {
+func NewConnector(p *protocol.Protocol, indexer *indexer.Indexer) *FaucetConnector {
 	return &FaucetConnector{
-		tangle:  t,
-		indexer: indexer,
+		protocol: p,
+		indexer:  indexer,
 	}
 }
 
@@ -35,10 +36,10 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 	for _, addr := range addresses {
 		fmt.Println("> Getting unspent outputs for ", addr.Base58())
 		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-			f.tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			f.protocol.Instance().Engine.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				fmt.Println("> > Found output ", output.String())
 				if typedOutput, ok := output.(devnetvm.Output); ok {
-					f.tangle.Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+					f.protocol.Instance().Engine.Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
 							walletOutput := &wallet.Output{
 								Address:                  addr,
@@ -67,12 +68,14 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 
 func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	// attach to block layer
-	issueTransaction := func() (*tangleold.Block, error) {
-		block, e := deps.Tangle.IssuePayload(tx)
-		if e != nil {
-			return nil, e
-		}
-		return block, nil
+	issueTransaction := func() (*models.Block, error) {
+		// TODO: finish when issuing blocks if implemented
+		//block, e := deps.Tangle.IssuePayload(tx)
+		//if e != nil {
+		//	return nil, e
+		//}
+		//return block, nil
+		return nil, nil
 	}
 
 	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), Parameters.MaxTransactionBookedAwaitTime)
@@ -86,16 +89,8 @@ func (f *FaucetConnector) RequestFaucetFunds(address address.Address, powTarget 
 	panic("RequestFaucetFunds is not implemented in faucet connector.")
 }
 
-func (f *FaucetConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
-	pledgeIDMap = make(map[mana.Type][]string)
-	pledgeIDMap[mana.AccessMana] = []string{deps.Local.ID().EncodeBase58()}
-	pledgeIDMap[mana.ConsensusMana] = []string{deps.Local.ID().EncodeBase58()}
-
-	return
-}
-
 func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
-	f.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
+	f.protocol.Instance().Engine.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
 	return

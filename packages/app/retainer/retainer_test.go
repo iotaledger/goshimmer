@@ -50,8 +50,8 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	tf := engine.NewTestFramework(t)
 	retainer := NewRetainer(tf.Engine, database.NewManager())
-	b := tf.CreateBlock("A")
-	tf.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	b := tf.Tangle.CreateBlock("A")
+	tf.Tangle.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := tf.Engine.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
 	meta, exists := retainer.BlockMetadata(block.ID())
@@ -89,15 +89,15 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	epoch.GenesisTime = time.Now().Add(-5 * time.Minute).Unix()
-	evictionManager := eviction.NewManager(0, models.GenesisRootBlockProvider)
+	evictionManager := eviction.NewManager[models.BlockID]()
 	tf := engine.NewTestFramework(t, engine.WithEvictionManager(evictionManager))
 	retainer := NewRetainer(tf.Engine, database.NewManager())
-	b := tf.CreateBlock("A")
-	tf.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	b := tf.Tangle.CreateBlock("A")
+	tf.Tangle.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := tf.Engine.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
-	evictionManager.EvictUntilEpoch(b.ID().EpochIndex + 1)
-	tf.TangleTestFramework.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
+	evictionManager.EvictUntil(b.ID().EpochIndex+1, nil)
+	tf.Tangle.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	assert.True(t, exists)

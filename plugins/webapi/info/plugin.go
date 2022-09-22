@@ -3,19 +3,19 @@ package info
 import (
 	"net/http"
 	"sort"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -25,15 +25,17 @@ const PluginName = "WebAPIInfoEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Local  *peer.Local
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Local    *peer.Local
+	Protocol *protocol.Protocol
 }
 
 var (
 	// Plugin is the plugin instance of the web API info endpoint plugin.
-	Plugin *node.Plugin
-	deps   = new(dependencies)
+	Plugin             *node.Plugin
+	deps               = new(dependencies)
+	lastAcceptedBlock  *acceptance.Block
+	lastConfirmedBlock *acceptance.Block
 )
 
 func init() {
@@ -41,6 +43,13 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+			lastAcceptedBlock = block
+			lastConfirmedBlock = block
+		}
+	}))
+
 	deps.Server.GET("info", getInfo)
 }
 
@@ -96,20 +105,20 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	tm := deps.Tangle.TimeManager
-	lcm := tm.LastAcceptedBlock()
+	tm := deps.Protocol.Instance().Engine.Clock
+	// TODO: figure out where to take last accepted block from
 	tangleTime := jsonmodels.TangleTime{
-		Synced:          deps.Tangle.TimeManager.Synced(),
-		AcceptedBlockID: lcm.BlockID.Base58(),
-		ATT:             tm.ATT().UnixNano(),
-		RATT:            tm.RATT().UnixNano(),
-		CTT:             tm.CTT().UnixNano(),
-		RCTT:            tm.RCTT().UnixNano(),
+		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
+		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
+		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
+		ATT:              tm.AcceptedTime().UnixNano(),
+		RATT:             tm.RelativeAcceptedTime().UnixNano(),
+		CTT:              tm.ConfirmedTime().UnixNano(),
+		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	t := time.Now()
-	accessMana, tAccess, _ := blocklayer.GetAccessMana(deps.Local.ID(), t)
-	consensusMana, tConsensus, _ := blocklayer.GetConsensusMana(deps.Local.ID(), t)
+	accessMana, tAccess, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -117,12 +126,12 @@ func getInfo(c echo.Context) error {
 		ConsensusTimestamp: tConsensus,
 	}
 
-	nodeQueueSizes := make(map[string]int)
-	for nodeID, size := range deps.Tangle.Scheduler.NodeQueueSizes() {
-		nodeQueueSizes[nodeID.String()] = size
+	issuerQueueSizes := make(map[string]int)
+	for issuerID, size := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
+		issuerQueueSizes[issuerID.String()] = size
 	}
-
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
+	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:               banner.AppVersion,
@@ -140,17 +149,18 @@ func getInfo(c echo.Context) error {
 		DisabledPlugins: disabledPlugins,
 		Mana:            nodeMana,
 		Scheduler: jsonmodels.Scheduler{
-			Running:           deps.Tangle.Scheduler.Running(),
-			Rate:              deps.Tangle.Scheduler.Rate().String(),
-			MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+			Running:           scheduler.Running(),
+			Rate:              scheduler.Rate().String(),
+			MaxBufferSize:     scheduler.MaxBufferSize(),
+			CurrentBufferSize: scheduler.BufferSize(),
 			Deficit:           deficit,
-			NodeQueueSizes:    nodeQueueSizes,
+			NodeQueueSizes:    issuerQueueSizes,
 		},
-		RateSetter: jsonmodels.RateSetter{
-			Rate:     deps.Tangle.RateSetter.Rate(),
-			Size:     deps.Tangle.RateSetter.Size(),
-			Estimate: deps.Tangle.RateSetter.Estimate(),
-		},
+		//TODO: finish when ratesetter is available
+		//RateSetter: jsonmodels.RateSetter{
+		//	Rate:     deps.Tangle.RateSetter.Rate(),
+		//	Size:     deps.Tangle.RateSetter.Size(),
+		//	Estimate: deps.Tangle.RateSetter.Estimate(),
+		//},
 	})
 }

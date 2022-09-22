@@ -115,6 +115,9 @@ func NewManager(c *clock.Clock, e *engine.Engine, epochCommitmentFactory *EpochC
 		new.OnAcceptanceTimeUpdated(event.NewTime)
 	}))
 
+	// This is here temporarily until consensus mana tracking is moved to sybilprotection package.
+	new.Events.ManaVectorUpdate.Attach(new.engine.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
+
 	return new
 }
 
@@ -386,7 +389,7 @@ func (m *Manager) OnBlockOrphaned(block *blockdag.Block) {
 	// 		m.log.Error(err)
 	// 		return
 	// 	}
-	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{Index: ei, NodeID: nodeID})
+	// 	m.Events.ActivityTreeRemoved.Trigger(&ActivityTreeUpdatedEvent{Index: ei, IssuerID: nodeID})
 	// }
 
 	if _, exists := m.engine.Tangle.ValidatorSet.Get(nodeID); !exists {

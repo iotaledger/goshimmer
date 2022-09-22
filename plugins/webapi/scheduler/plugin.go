@@ -9,6 +9,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -17,9 +18,9 @@ const PluginName = "WebAPISchedulerEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Local  *peer.Local
-	Tangle *tangleold.Tangle
+	Server   *echo.Echo
+	Local    *peer.Local
+	Protocol *protocol.Protocol
 }
 
 var (
@@ -37,17 +38,18 @@ func configure(_ *node.Plugin) {
 }
 
 func getSchedulerInfo(c echo.Context) error {
+	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
 	nodeQueueSizes := make(map[string]int)
-	for nodeID, size := range deps.Tangle.Scheduler.NodeQueueSizes() {
+	for nodeID, size := range scheduler.IssuerQueueSizes() {
 		nodeQueueSizes[nodeID.String()] = size
 	}
 
-	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 	return c.JSON(http.StatusOK, jsonmodels.Scheduler{
-		Running:           deps.Tangle.Scheduler.Running(),
-		Rate:              deps.Tangle.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+		Running:           scheduler.Running(),
+		Rate:              scheduler.Rate().String(),
+		MaxBufferSize:     scheduler.MaxBufferSize(),
+		CurrentBufferSize: scheduler.BufferSize(),
 		NodeQueueSizes:    nodeQueueSizes,
 		Deficit:           deficit,
 	})
