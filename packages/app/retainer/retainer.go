@@ -35,7 +35,7 @@ func NewRetainer(engine *engine.Engine, dbManager *database.Manager, opts ...opt
 		evictionManager: engine.Tangle.EvictionManager.Lockable(),
 		optsRealm:       []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.New[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata](dbManager, r.optsRealm)
+		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata](dbManager, r.optsRealm)
 	})
 }
 
