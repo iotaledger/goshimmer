@@ -10,7 +10,9 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
@@ -22,8 +24,8 @@ const PluginName = "WebAPIDataEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server      *echo.Echo
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 var (
@@ -61,8 +63,8 @@ func broadcastData(c echo.Context) error {
 		})
 	}
 
-	issueData := func() (*tangleold.Block, error) {
-		return deps.Tangle.IssuePayload(payload.NewGenericDataPayload(request.Data))
+	issueData := func() (*models.Block, error) {
+		return deps.BlockIssuer.IssuePayload(payload.NewGenericDataPayload(request.Data))
 	}
 
 	// await BlockScheduled event to be triggered.

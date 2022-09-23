@@ -41,7 +41,7 @@ func broadcastActivityBlock() {
 	// sleep some time according to rate setter estimate
 	//time.Sleep(rateSetter.Estimate())
 
-	//blk, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
+	//blk, err := deps.Tangle.CreateBlock(activityPayload, Parameters.ParentsCount)
 	//if err != nil {
 	//	Plugin.LogWarnf("error issuing activity block: %s", err)
 	//	return

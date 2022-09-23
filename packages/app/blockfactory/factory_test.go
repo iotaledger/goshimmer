@@ -9,10 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
+
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
 func TestFactory_IssuePayload(t *testing.T) {
@@ -54,7 +55,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 	pay := payload.NewGenericDataPayload([]byte("test"))
 
 	factory := NewBlockFactory(localIdentity, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
-	createdBlock, err := factory.IssuePayload(pay, 2)
+	createdBlock, err := factory.CreateBlock(pay, 2)
 	require.NoError(t, err)
 
 	assert.Contains(t, createdBlock.ParentsByType(models.StrongParentType), block1.ID(), block2.ID())

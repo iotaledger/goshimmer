@@ -287,6 +287,14 @@ func (m *Manager) GetLatestEC() (ecRecord *chainmanager.Commitment, err error) {
 	return
 }
 
+// LatestCommitableEpochIndex returns the latest commitable epoch index.
+func (m *Manager) LatestCommitableEpochIndex() (ecRecord epoch.Index, err error) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+
+	return m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+}
+
 // LatestConfirmedEpochIndex returns the latest epoch index that has been confirmed.
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.epochCommitmentFactoryMutex.RLock()

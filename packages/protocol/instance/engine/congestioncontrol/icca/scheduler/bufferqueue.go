@@ -60,7 +60,7 @@ func (b *BufferQueue) IssuerQueue(issuerID identity.ID) *IssuerQueue {
 
 // Submit submits a block. Return blocks dropped from the scheduler to make room for the submitted block.
 // The submitted block can also be returned as dropped if the issuer does not have enough access mana.
-func (b *BufferQueue) Submit(blk *Block, accessManaRetriever func(identity.ID) float64) (elements []*Block, err error) {
+func (b *BufferQueue) Submit(blk *Block, accessManaRetriever func(identity.ID) int64) (elements []*Block, err error) {
 	issuerID := blk.IssuerID()
 	element, issuerActive := b.activeIssuers.Get(issuerID)
 	var issuerQueue *IssuerQueue
@@ -86,7 +86,7 @@ func (b *BufferQueue) Submit(blk *Block, accessManaRetriever func(identity.ID) f
 	return nil, nil
 }
 
-func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (droppedBlocks []*Block) {
+func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) int64) (droppedBlocks []*Block) {
 	start := b.Current()
 	// remove as many blocks as necessary to stay within max buffer size
 	for b.Size() > b.maxBuffer {
@@ -97,7 +97,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (d
 		for q := start; ; {
 			issuerMana := accessManaRetriever(q.IssuerID())
 			if issuerMana > 0.0 {
-				if scale := float64(q.Size()) / issuerMana; scale > maxScale {
+				if scale := float64(q.Size()) / float64(issuerMana); scale > maxScale {
 					maxScale = scale
 					maxIssuerID = q.IssuerID()
 				}

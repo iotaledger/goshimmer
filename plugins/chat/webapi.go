@@ -36,7 +36,7 @@ func SendChatBlock(c echo.Context) error {
 
 	// TODO: finish when ratesetter and blockfactory are figured out
 	//chatPayload := chat.NewPayload(req.From, req.To, req.Block)
-	//blk, err := deps.Protocol.Instance().IssuePayload(chatPayload)
+	//blk, err := deps.Protocol.Instance().CreateBlock(chatPayload)
 	//if err != nil {
 	//	return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	//}

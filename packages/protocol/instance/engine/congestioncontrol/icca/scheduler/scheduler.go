@@ -25,7 +25,7 @@ import (
 const (
 	// MinMana is the minimum amount of Mana needed to issue blocks.
 	// MaxBlockSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
-	MinMana float64 = 1.0
+	MinMana int64 = 1
 )
 
 // MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
@@ -51,8 +51,8 @@ type Scheduler struct {
 	deficitsMutex sync.RWMutex
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
 
-	totalAccessManaRetrieveFunc func() float64
-	accessManaMapRetrieverFunc  func() map[identity.ID]float64
+	totalAccessManaRetrieveFunc func() int64
+	accessManaMapRetrieverFunc  func() map[identity.ID]int64
 	isBlockAcceptedFunc         func(models.BlockID) bool
 
 	optsRate                           time.Duration
@@ -66,7 +66,7 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
 		Tangle:          tangle,
@@ -521,7 +521,7 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 	return rounds, schedulingIssuer
 }
 
-func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]float64) {
+func (s *Scheduler) updateActiveIssuersList(manaMap map[identity.ID]int64) {
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
 	// remove issuers that don't have mana and have empty queue
@@ -584,7 +584,7 @@ func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 	return block, nil
 }
 
-func (s *Scheduler) getAccessMana(id identity.ID) float64 {
+func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 	mana, exists := s.accessManaMapRetrieverFunc()[id]
 	if exists {
 		return mana

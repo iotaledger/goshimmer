@@ -17,11 +17,11 @@ import (
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
 	engine                   *engine.Engine
-	latestEpochIndexCallback func() epoch.Index
+	latestEpochIndexCallback func() (epoch.Index, error)
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func() (epoch.Index, error)) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
 		engine:                   engine,
 		latestEpochIndexCallback: latestEpochIndexCallback,
@@ -32,7 +32,10 @@ func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func()
 func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
 	references = models.NewParentBlockIDs()
 
-	references[models.WeakParentType] = r.weakParentsFromUnacceptedInputs(payload)
+	references[models.WeakParentType], err = r.weakParentsFromUnacceptedInputs(payload)
+	if err != nil {
+		return
+	}
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
@@ -65,13 +68,13 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	return references, nil
 }
 
-func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs) {
+func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
 
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
 	tx, isTx := payload.(utxo.Transaction)
 	if !isTx {
-		return weakParents
+		return weakParents, nil
 	}
 
 	referencedTransactions := r.engine.Ledger.Utils.ReferencedTransactions(tx)
@@ -79,7 +82,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 		referencedTransactionID := it.Next()
 
 		if len(weakParents) == models.MaxParentsCount {
-			return weakParents
+			return weakParents, nil
 		}
 
 		if !r.engine.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
@@ -88,7 +91,11 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			committableEpoch := r.latestEpochIndexCallback()
+			committableEpoch, err := r.latestEpochIndexCallback()
+			if err != nil {
+				return nil, err
+			}
+
 			if latestAttachment.ID().Index() <= committableEpoch {
 				continue
 			}
@@ -97,7 +104,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 		}
 	}
 
-	return weakParents
+	return weakParents, nil
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
@@ -181,7 +188,11 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
 	block := r.engine.Tangle.Booker.GetEarliestAttachment(txID)
 
-	committableEpoch := r.latestEpochIndexCallback()
+	committableEpoch, err := r.latestEpochIndexCallback()
+	if err != nil {
+		return blockID, err
+	}
+
 	if block.ID().Index() <= committableEpoch {
 		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}

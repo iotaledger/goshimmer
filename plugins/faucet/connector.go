@@ -70,7 +70,7 @@ func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) 
 	// attach to block layer
 	issueTransaction := func() (*models.Block, error) {
 		// TODO: finish when issuing blocks if implemented
-		//block, e := deps.Tangle.IssuePayload(tx)
+		//block, e := deps.Tangle.CreateBlock(tx)
 		//if e != nil {
 		//	return nil, e
 		//}

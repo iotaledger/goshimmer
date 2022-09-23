@@ -42,7 +42,7 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	// TODO: implement when issuing blocks is known
-	//blockSpammer = spammer.New(deps.Tangle.IssuePayload, log, deps.Tangle.RateSetter.Estimate)
+	//blockSpammer = spammer.New(deps.Tangle.CreateBlock, log, deps.Tangle.RateSetter.Estimate)
 	deps.Server.GET("spammer", handleRequest)
 }
 

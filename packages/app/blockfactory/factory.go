@@ -22,8 +22,7 @@ type Factory struct {
 	Events *Events
 
 	// referenceProvider *ReferenceProvider
-	identity *identity.LocalIdentity
-
+	identity       *identity.LocalIdentity
 	blockRetriever func(blockID models.BlockID) (block *blockdag.Block, exists bool)
 	tipSelector    TipSelector
 	referencesFunc ReferencesFunc
@@ -48,13 +47,13 @@ func NewBlockFactory(localIdentity *identity.LocalIdentity, blockRetriever func(
 	}, opts)
 }
 
-// IssuePayload creates a new block including sequence number and tip selection and returns it.
-func (f *Factory) IssuePayload(p payload.Payload, parentsCount ...int) (*models.Block, error) {
-	return f.IssuePayloadWithReferences(p, nil, parentsCount...)
+// CreateBlock creates a new block including sequence number and tip selection and returns it.
+func (f *Factory) CreateBlock(p payload.Payload, parentsCount ...int) (*models.Block, error) {
+	return f.CreateBlockWithReferences(p, nil, parentsCount...)
 }
 
-// IssuePayloadWithReferences creates a new block with the references submit.
-func (f *Factory) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (*models.Block, error) {
+// CreateBlockWithReferences creates a new block with the references submit.
+func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (*models.Block, error) {
 	strongParentsCount := 2
 	if len(strongParentsCountOpt) > 0 {
 		strongParentsCount = strongParentsCountOpt[0]
