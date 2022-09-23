@@ -76,10 +76,6 @@ func configure(plugin *node.Plugin) {
 	if metrics.Parameters.Global {
 		registerClientsMetrics()
 	}
-
-	if metrics.Parameters.ManaResearch {
-		registerManaResearchMetrics()
-	}
 }
 
 func addCollect(collect func()) {

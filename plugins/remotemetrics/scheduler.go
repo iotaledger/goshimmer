@@ -18,7 +18,7 @@ func obtainSchedulerStats(timestamp time.Time) {
 	record := remotemetrics.SchedulerMetrics{
 		Type:                         "schedulerSample",
 		NodeID:                       myID,
-		Synced:                       deps.Protocol.Instance().Engine.IsSynced(),
+		Synced:                       deps.Protocol.Instance().IsSynced(),
 		MetricsLevel:                 Parameters.MetricsLevel,
 		BufferSize:                   uint32(scheduler.BufferSize()),
 		BufferLength:                 uint32(scheduler.TotalBlocksCount()),
@@ -37,12 +37,12 @@ func prepQueueMaps(s *scheduler.Scheduler) (queueMap map[string]uint32, aManaNor
 	aManaNormalizedMap = make(map[string]float64, len(queueSizes))
 
 	// TODO: implement when mana is refactored
-	//for id, size := range queueSizes {
+	// for id, size := range queueSizes {
 	//	nodeID := id.String()
 	//	aMana := s.GetManaFromCache(id)
 	//
 	//	queueMap[nodeID] = uint32(size)
 	//	aManaNormalizedMap[nodeID] = float64(size) / float64(aMana)
-	//}
+	// }
 	return
 }

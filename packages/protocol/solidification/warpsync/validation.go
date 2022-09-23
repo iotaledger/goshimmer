@@ -38,8 +38,8 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 	epochToValidate := endRange
 	ecChain[start] = startEC
-	ecRecordChain[end] = commitment.New(commitment.NewID(end, commitment.RootsID{}, endPrevEC))
-	ecRecordChain[end].PublishData(endPrevEC, end, commitment.RootsID{})
+	// ecRecordChain[end] = commitment.New(commitment.NewID(end, commitment.RootsID{}, endPrevEC))
+	// ecRecordChain[end].PublishData(endPrevEC, end, commitment.RootsID{})
 
 	for {
 		select {
@@ -50,7 +50,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			ecRecord := commitment.ecRecord
 			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.Index()
-			m.log.Debugw("read committment", "Index", commitmentEI, "EC", ecRecord.ID.Base58())
+			m.log.Debugw("read committment", "Index", commitmentEI, "EC", ecRecord.ID().Base58())
 
 			activePeers.Set(peerID, commitment.neighbor)
 			// Ignore invalid neighbor.
@@ -68,10 +68,10 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 			// If we already validated this epoch, we check if the neighbor is on the target chain.
 			if commitmentEI > epochToValidate {
-				if ecRecordChain[commitmentEI].ID != ecRecord.ID {
-					m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
-					discardedPeers.Add(peerID)
-				}
+				// if ecRecordChain[commitmentEI].ID != ecRecord.ID {
+				// 	m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
+				// 	discardedPeers.Add(peerID)
+				// }
 				continue
 			}
 
@@ -100,11 +100,11 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 						continue
 					}
 					proposedECRecord := epochCommitment.ecRecord
-					if ecRecordChain[epochToValidate+1].PrevID() != proposedECRecord.ID {
-						m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
-						discardedPeers.Add(peerID)
-						continue
-					}
+					// if ecRecordChain[epochToValidate+1].PrevID() != proposedECRecord.ID {
+					// 	m.log.Infow("ignoring commitment outside of the target chain", "peer", peerID)
+					// 	discardedPeers.Add(peerID)
+					// 	continue
+					// }
 
 					// If we already stored the target epoch for the chain, we just keep validating neighbors.
 					if _, exists := ecRecordChain[epochToValidate]; exists {
@@ -113,7 +113,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 
 					// We store the valid committment for this chain.
 					ecRecordChain[epochToValidate] = proposedECRecord
-					ecChain[epochToValidate] = proposedECRecord.ID
+					// ecChain[epochToValidate] = proposedECRecord.ID
 				}
 
 				// Stop if we were not able to validate epochToValidate.

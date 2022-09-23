@@ -85,7 +85,7 @@ func collectSchedulerMetrics() {
 	manaAmountPerNode.Reset()
 	nodeAManaMap := metrics.SchedulerIssuerAManaAmount()
 	for currentNodeID, aMana := range nodeAManaMap {
-		manaAmountPerNode.WithLabelValues(currentNodeID).Set(aMana)
+		manaAmountPerNode.WithLabelValues(currentNodeID).Set(float64(aMana))
 	}
 	schedulerRate.Set(float64(metrics.SchedulerRate()))
 	readyBlocksCount.Set(float64(metrics.SchedulerReadyBlocksCount()))

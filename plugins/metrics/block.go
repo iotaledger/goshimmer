@@ -392,7 +392,7 @@ func measurePerComponentCounter() {
 }
 
 func measureBlockTips() {
-	blockTips.Store(uint64(deps.Protocol.Instance().Engine.TipManager.TipCount()))
+	blockTips.Store(uint64(deps.Protocol.Instance().TipManager.TipCount()))
 }
 
 // increases the received BPS counter
@@ -414,24 +414,24 @@ func measureReceivedBPS() {
 
 func measureRequestQueueSize() {
 	// TODO: finish when requester is done
-	//size := int64(deps.Protocol.Instance().Requester.RequestQueueSize())
-	//requestQueueSize.Store(size)
+	// size := int64(deps.Protocol.Instance().Requester.RequestQueueSize())
+	// requestQueueSize.Store(size)
 }
 
 func measureInitialDBStats() {
 	// TODO: finish when Database is finished
-	//dbStatsResult := deps.Protocol.Instance()..Storage.DBStats()
+	// dbStatsResult := deps.Protocol.Instance()..Storage.DBStats()
 	//
-	//initialBlockCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
-	//initialBlockCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
-	//initialBlockCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
-	//initialBlockCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
+	// initialBlockCountPerComponentDB[Store] = uint64(dbStatsResult.StoredCount)
+	// initialBlockCountPerComponentDB[Solidifier] = uint64(dbStatsResult.SolidCount)
+	// initialBlockCountPerComponentDB[Booker] = uint64(dbStatsResult.BookedCount)
+	// initialBlockCountPerComponentDB[Scheduler] = uint64(dbStatsResult.ScheduledCount)
 	//
-	//initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
-	//initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
-	//initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
+	// initialSumTimeSinceReceived[Solidifier] = dbStatsResult.SumSolidificationReceivedTime
+	// initialSumTimeSinceReceived[Booker] = dbStatsResult.SumBookedReceivedTime
+	// initialSumTimeSinceReceived[Scheduler] = dbStatsResult.SumSchedulerReceivedTime
 	//
-	//initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
+	// initialSumSchedulerBookedTime = dbStatsResult.SumSchedulerBookedTime
 	//
-	//initialMissingBlockCountDB = uint64(dbStatsResult.MissingBlockCount)
+	// initialMissingBlockCountDB = uint64(dbStatsResult.MissingBlockCount)
 }

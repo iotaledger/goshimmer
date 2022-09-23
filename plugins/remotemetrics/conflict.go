@@ -47,7 +47,7 @@ func onConflictConfirmed(conflictID utxo.TransactionID) {
 	// update conflict metric counts even if node is not synced.
 	oldestAttachment := updateMetricCounts(conflictID, transactionID)
 
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 
@@ -73,7 +73,7 @@ func onConflictConfirmed(conflictID utxo.TransactionID) {
 }
 
 func sendConflictMetrics() {
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 

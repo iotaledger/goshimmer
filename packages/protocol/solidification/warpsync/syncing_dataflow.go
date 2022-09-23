@@ -107,14 +107,14 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 }
 
 func (m *Manager) epochVerifyCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
-	rootID := commitment.NewRootsID(commitment.NewMerkleRoot(params.tangleTree.Root()), params.stateMutationRoot, params.stateRoot, params.manaRoot)
-
-	syncedECRecord := commitment.New(commitment.NewID(params.targetEpoch, rootID, params.targetPrevEC))
-	syncedECRecord.PublishData(params.targetPrevEC, params.targetEpoch, rootID)
-
-	if syncedECRecord.ID() != params.targetEC {
-		return errors.Errorf("epoch %d EC record is not correct", params.targetEpoch)
-	}
+	// rootID := commitment.NewRootsID(commitment.NewMerkleRoot(params.tangleTree.Root()), params.stateMutationRoot, params.stateRoot, params.manaRoot)
+	//
+	// syncedECRecord := commitment.New(commitment.NewID(params.targetEpoch, rootID, params.targetPrevEC))
+	// syncedECRecord.PublishData(params.targetPrevEC, params.targetEpoch, rootID)
+	//
+	// if syncedECRecord.ID() != params.targetEC {
+	// 	return errors.Errorf("epoch %d EC record is not correct", params.targetEpoch)
+	// }
 
 	return next(params)
 }

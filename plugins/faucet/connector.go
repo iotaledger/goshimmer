@@ -14,8 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 type FaucetConnector struct {

@@ -85,7 +85,12 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 }
 
 func (i *Instance) IsBootstrapped() (isBootstrapped bool) {
+	// TODO: add bootstrapped flag from notarization
 	return time.Since(i.Clock.RelativeConfirmedTime()) < i.optsBootstrappedThreshold
+}
+
+func (i *Instance) IsSynced() (isBootstrapped bool) {
+	return i.IsBootstrapped() && time.Since(i.Clock.AcceptedTime()) < i.optsBootstrappedThreshold
 }
 
 func (i *Instance) initEngine() {

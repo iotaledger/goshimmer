@@ -247,7 +247,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 	}
 
 	// Send epoch terminator.
-	m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())
+	// TODO: m.protocol.SendEpochEnd(ei, ec, commitment.Roots(), nbr.ID())
 	m.log.Debugw("sent epoch blocks end", "peer", nbr.ID(), "Index", ei, "ID", ec.Base58())
 }
 
