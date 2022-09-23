@@ -12,21 +12,19 @@ type ParametersDefinition struct {
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed blocks in its past cone will not be selected.
 	TimeSinceConfirmationThreshold time.Duration `default:"30s" usage:"Time Since Confirmation (TSC) threshold"`
-	// Snapshot contains snapshots related configuration parameters.
-	Snapshot struct {
-		// File is the path to the snapshot file.
-		File string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
-
-		// TODO: this should be removed
-		// GenesisNode is the identity of the node that is allowed to attach to the Genesis block.
-		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis block"`
-	}
-
 	// BootstrapWindow defines the time window in which the node considers itself as synced according to TangleTime.
 	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to AcceptanceTime"`
-
 	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.
 	GenesisTime int64 `default:"0" usage:"resets the genesis time to the specified value, unix time in seconds"`
+	// Snapshot contains snapshots related configuration parameters.
+	Snapshot struct {
+		// FileName is the path to the snapshot file.
+		FileName string `default:"snapshot.bin" usage:"the file name of the snapshot file, relative to the database directory"`
+	}
+	Settings struct {
+		// FileName is the path to the settings file.
+		FileName string `default:"settings.bin" usage:"the file name of the settings file, relative to the database directory"`
+	}
 }
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
@@ -62,6 +60,9 @@ type DatabaseParametersDefinition struct {
 
 	// InMemory defines whether to use an in-memory database.
 	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`
+
+	MaxOpenDBs  int   `default:"10" usage:"maximum number of open database instances"`
+	Granularity int64 `default:"10" usage:"granularity of the epoch/bucketed database"`
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`

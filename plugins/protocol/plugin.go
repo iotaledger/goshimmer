@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
@@ -47,6 +48,13 @@ func provide() (p *protocol.Protocol) {
 	//		tangleold.SyncTimeWindow(Parameters.BootstrapWindow),
 	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
 
+	var dbProvider database.DBProvider
+	if DatabaseParameters.InMemory {
+		dbProvider = database.NewMemDB
+	} else {
+		dbProvider = database.NewDB
+	}
+
 	p = protocol.New(deps.Network, Plugin.Logger(),
 		protocol.WithInstanceOptions(
 			instance.WithNotarizationManagerOptions(
@@ -72,14 +80,14 @@ func provide() (p *protocol.Protocol) {
 				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
 			instance.WithDatabaseManagerOptions(
-			// TODO: database.WithDBProvider(),
-			// database.WithMaxOpenDBs(5),
-			// database.WithGranularity(5),
+				database.WithDBProvider(dbProvider),
+				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
+				database.WithGranularity(DatabaseParameters.Granularity),
 			),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
-		// TODO: protocol.WithSnapshotFileName(),
-		// protocol.WithSettingsFileName(),
+		protocol.WithSnapshotFileName(Parameters.Snapshot.FileName),
+		protocol.WithSettingsFileName(Parameters.Settings.FileName),
 	)
 
 	return p
