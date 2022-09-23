@@ -30,7 +30,7 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	notifyNewBlk := event.NewClosure(func(block *blockdag.Block) {
-		liveFeedWorkerPool.TrySubmit(block.Block)
+		liveFeedWorkerPool.TrySubmit(block.ModelsBlock)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[BlkUpdater]", func(ctx context.Context) {

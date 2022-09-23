@@ -1,7 +1,7 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
 type EpochInfo struct {
@@ -10,11 +10,11 @@ type EpochInfo struct {
 	PrevEC string `json:"prevEC"`
 }
 
-func EpochInfoFromRecord(record *epoch.ECRecord) *EpochInfo {
+func EpochInfoFromRecord(c *commitment.Commitment) *EpochInfo {
 	return &EpochInfo{
-		EI:     uint64(record.EI()),
-		ECR:    record.ECR().Base58(),
-		PrevEC: record.PrevEC().Base58(),
+		EI:     uint64(c.Index()),
+		ECR:    c.RootsID().Base58(),
+		PrevEC: c.PrevID().Base58(),
 	}
 }
 

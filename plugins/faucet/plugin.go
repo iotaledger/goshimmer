@@ -130,16 +130,16 @@ func waitUntilBootstrapped(ctx context.Context) bool {
 
 func checkForMana(ctx context.Context) error {
 	// TODO: finish when mana stuff is refactored
-	//nodeID := deps.Tangle.Options.Identity.ID()
+	// nodeID := deps.Tangle.Options.Identity.ID()
 	//
-	//aMana, _, err := blocklayer.GetAccessMana(nodeID)
-	//// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-	//if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+	// aMana, _, err := blocklayer.GetAccessMana(nodeID)
+	// // ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+	// if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
 	//	return err
-	//}
-	//if aMana < tangleold.MinMana {
+	// }
+	// if aMana < tangleold.MinMana {
 	//	return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-	//}
+	// }
 	return nil
 }
 
@@ -147,9 +147,9 @@ func configureEvents() {
 	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
 	// TODO: need an bootstrapped event
 	// TODO: when instance is switched, the plugin needs to wait until new chain is bootstrapped etc.?
-	//deps.Protocol.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
+	// deps.Protocol.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
 	//	bootstrapped <- true
-	//}))
+	// }))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
@@ -176,7 +176,7 @@ func onBlockProcessed(block *virtualvoting.Block) {
 	if !initDone.Load() {
 		return
 	}
-	if !faucet.IsFaucetReq(block.Block.Block.Block) {
+	if !faucet.IsFaucetReq(block.ModelsBlock) {
 		return
 	}
 	fundingRequest := block.Payload().(*faucet.Payload)

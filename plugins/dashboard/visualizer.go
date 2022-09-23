@@ -89,11 +89,11 @@ func runVisualizer() {
 	}
 
 	notifyNewBlkStored := event.NewClosure(func(block *blockdag.Block) {
-		processBlock(block.Block, false)
+		processBlock(block.ModelsBlock, false)
 	})
 
 	notifyNewBlkAccepted := event.NewClosure(func(block *acceptance.Block) {
-		processBlock(block.Block.Block.Block.Block, block.IsAccepted())
+		processBlock(block.ModelsBlock, block.IsAccepted())
 	})
 
 	notifyNewTip := event.NewClosure(func(block *scheduler.Block) {
@@ -109,10 +109,10 @@ func runVisualizer() {
 		defer deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
 		deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
 		defer deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
-		deps.Protocol.Events.Instance.Engine.TipManager.TipAdded.Attach(notifyNewTip)
-		defer deps.Protocol.Events.Instance.Engine.TipManager.TipAdded.Detach(notifyNewTip)
-		deps.Protocol.Events.Instance.Engine.TipManager.TipRemoved.Attach(notifyDeletedTip)
-		defer deps.Protocol.Events.Instance.Engine.TipManager.TipRemoved.Detach(notifyDeletedTip)
+		deps.Protocol.Events.Instance.TipManager.TipAdded.Attach(notifyNewTip)
+		defer deps.Protocol.Events.Instance.TipManager.TipAdded.Detach(notifyNewTip)
+		deps.Protocol.Events.Instance.TipManager.TipRemoved.Attach(notifyDeletedTip)
+		defer deps.Protocol.Events.Instance.TipManager.TipRemoved.Detach(notifyDeletedTip)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()
