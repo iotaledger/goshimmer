@@ -2,7 +2,6 @@ package engine
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
@@ -38,11 +37,7 @@ func New(isBootstrapped func() bool, ledger *ledger.Ledger, evictionManager *evi
 		e.Ledger = ledger
 		e.Tangle = tangle.New(ledger, evictionManager, validatorSet, e.optsTangleOptions...)
 		e.Consensus = consensus.New(e.Tangle, e.optsConsensusOptions...)
-		e.CongestionControl = congestioncontrol.New(e.Consensus.Gadget, e.Tangle, func() map[identity.ID]float64 {
-			panic("implement me")
-		}, func() float64 {
-			panic("implement me")
-		}, e.optsCongestionControlOptions...)
+		e.CongestionControl = congestioncontrol.New(e.Consensus.Gadget, e.Tangle, e.optsCongestionControlOptions...)
 		e.TSCManager = tsc.New(e.Consensus.IsBlockAccepted, e.Tangle)
 
 		e.Events = NewEvents()

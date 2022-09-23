@@ -28,7 +28,7 @@ type TestFramework struct {
 	Scheduler      *Scheduler
 	mockAcceptance *acceptance.MockAcceptanceGadget
 	issuersByAlias map[string]*identity.Identity
-	issuersMana    map[identity.ID]float64
+	issuersMana    map[identity.ID]int64
 
 	test *testing.T
 
@@ -49,7 +49,7 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
 	return options.Apply(&TestFramework{
 		test:           test,
-		issuersMana:    make(map[identity.ID]float64),
+		issuersMana:    make(map[identity.ID]int64),
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: acceptance.NewMockAcceptanceGadget(),
 	}, opts, func(t *TestFramework) {
@@ -115,12 +115,12 @@ func (t *TestFramework) setupEvents() {
 	return
 }
 
-func (t *TestFramework) CreateIssuer(alias string, issuerMana float64) {
+func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
 	t.issuersByAlias[alias] = identity.GenerateIdentity()
 	t.issuersMana[t.issuersByAlias[alias].ID()] = issuerMana
 }
 
-func (t *TestFramework) UpdateIssuers(newIssuers map[string]float64) {
+func (t *TestFramework) UpdateIssuers(newIssuers map[string]int64) {
 	for alias, mana := range newIssuers {
 		_, exists := t.issuersByAlias[alias]
 		if !exists {
@@ -129,10 +129,10 @@ func (t *TestFramework) UpdateIssuers(newIssuers map[string]float64) {
 		t.issuersMana[t.issuersByAlias[alias].ID()] = mana
 	}
 
-	for alias, identity := range t.issuersByAlias {
+	for alias, issuerIdentity := range t.issuersByAlias {
 		_, exists := newIssuers[alias]
 		if !exists {
-			delete(t.issuersMana, identity.ID())
+			delete(t.issuersMana, issuerIdentity.ID())
 		}
 	}
 }
@@ -162,13 +162,13 @@ func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block
 	return schedulerBlock
 }
 
-func (t *TestFramework) TotalMana() (totalMana float64) {
+func (t *TestFramework) TotalMana() (totalMana int64) {
 	for _, mana := range t.issuersMana {
 		totalMana += mana
 	}
 	return
 }
-func (t *TestFramework) ManaMap() map[identity.ID]float64 {
+func (t *TestFramework) ManaMap() map[identity.ID]int64 {
 	return t.issuersMana
 }
 

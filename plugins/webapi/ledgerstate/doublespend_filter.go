@@ -24,7 +24,7 @@ func NewDoubleSpendFilter() *DoubleSpendFilter {
 	}
 }
 
-// Add adds a transaction and it's consumed inputs to the doubleSpendFilter.
+// Add adds a transaction, and it's consumed inputs to the doubleSpendFilter.
 func (d *DoubleSpendFilter) Add(tx *devnetvm.Transaction) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()

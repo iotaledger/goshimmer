@@ -2,7 +2,6 @@ package faucet
 
 import (
 	"context"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
@@ -40,11 +39,8 @@ var (
 	targetPoWDifficulty int
 
 	// signals that the faucet has initialized itself and can start funding requests.
-	initDone     atomic.Bool
-	bootstrapped chan bool
-
-	waitForManaWindow = 5 * time.Second
-	deps              = new(dependencies)
+	initDone atomic.Bool
+	deps     = new(dependencies)
 )
 
 type dependencies struct {
@@ -78,9 +74,8 @@ func newFaucet() *Faucet {
 	return NewFaucet(walletseed.NewSeed(seedBytes))
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	bootstrapped = make(chan bool, 1)
 
 	configureEvents()
 }
@@ -88,19 +83,6 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
-
-		plugin.LogInfo("Waiting for node to become bootstrapped...")
-		if !waitUntilBootstrapped(ctx) {
-			return
-		}
-		plugin.LogInfo("Waiting for node to become bootstrapped... done")
-
-		plugin.LogInfo("Waiting for node to have sufficient access mana")
-		if err := checkForMana(ctx); err != nil {
-			plugin.LogErrorf("failed to get sufficient access mana: %s", err)
-			return
-		}
-		plugin.LogInfo("Waiting for node to have sufficient access mana... done")
 
 		initDone.Store(true)
 
@@ -113,43 +95,8 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func waitUntilBootstrapped(ctx context.Context) bool {
-	// if we are already bootstrapped, there is no need to wait for the event
-	if deps.Protocol.Instance().Engine.IsBootstrapped() {
-		return true
-	}
-
-	// block until we are either bootstrapped or shutting down
-	select {
-	case <-bootstrapped:
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
-func checkForMana(ctx context.Context) error {
-	// TODO: finish when mana stuff is refactored
-	// nodeID := deps.Tangle.Options.Identity.ID()
-	//
-	// aMana, _, err := blocklayer.GetAccessMana(nodeID)
-	// // ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-	// if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-	//	return err
-	// }
-	// if aMana < tangleold.MinMana {
-	//	return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-	// }
-	return nil
-}
-
 func configureEvents() {
 	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
-	// TODO: need an bootstrapped event
-	// TODO: when instance is switched, the plugin needs to wait until new chain is bootstrapped etc.?
-	// deps.Protocol.Events.Bootstrapped.Attach(event.NewClosure(func(event *bootstrapmanager.BootstrappedEvent) {
-	//	bootstrapped <- true
-	// }))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {

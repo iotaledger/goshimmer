@@ -16,14 +16,14 @@ import (
 
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
-	engine                   *engine.Engine
-	latestEpochIndexCallback func() epoch.Index
+	engineCallback           func() *engine.Engine
+	latestEpochIndexCallback func() (epoch.Index, error)
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(engineCallback func() *engine.Engine, latestEpochIndexCallback func() (epoch.Index, error)) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
-		engine:                   engine,
+		engineCallback:           engineCallback,
 		latestEpochIndexCallback: latestEpochIndexCallback,
 	}
 }
@@ -32,7 +32,10 @@ func NewReferenceProvider(engine *engine.Engine, latestEpochIndexCallback func()
 func (r *ReferenceProvider) References(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
 	references = models.NewParentBlockIDs()
 
-	references[models.WeakParentType] = r.weakParentsFromUnacceptedInputs(payload)
+	references[models.WeakParentType], err = r.weakParentsFromUnacceptedInputs(payload)
+	if err != nil {
+		return
+	}
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
@@ -65,30 +68,34 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	return references, nil
 }
 
-func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs) {
+func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payload) (weakParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
-
+	engineInstance := r.engineCallback()
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
 	tx, isTx := payload.(utxo.Transaction)
 	if !isTx {
-		return weakParents
+		return weakParents, nil
 	}
 
-	referencedTransactions := r.engine.Ledger.Utils.ReferencedTransactions(tx)
+	referencedTransactions := engineInstance.Ledger.Utils.ReferencedTransactions(tx)
 	for it := referencedTransactions.Iterator(); it.HasNext(); {
 		referencedTransactionID := it.Next()
 
 		if len(weakParents) == models.MaxParentsCount {
-			return weakParents
+			return weakParents, nil
 		}
 
-		if !r.engine.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
-			latestAttachment := r.engine.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
+		if !engineInstance.Ledger.Utils.TransactionConfirmationState(referencedTransactionID).IsAccepted() {
+			latestAttachment := engineInstance.Tangle.Booker.GetLatestAttachment(referencedTransactionID)
 			if latestAttachment == nil {
 				continue
 			}
 
-			committableEpoch := r.latestEpochIndexCallback()
+			committableEpoch, err := r.latestEpochIndexCallback()
+			if err != nil {
+				return nil, err
+			}
+
 			if latestAttachment.ID().Index() <= committableEpoch {
 				continue
 			}
@@ -97,16 +104,18 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 		}
 	}
 
-	return weakParents
+	return weakParents, nil
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
 func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs) (addedReferences models.ParentBlockIDs, success bool) {
-	block, exists := r.engine.Tangle.Booker.Block(blockID)
+	engineInstance := r.engineCallback()
+
+	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
 		return nil, false
 	}
-	blockConflicts := r.engine.Tangle.Booker.BlockConflicts(block)
+	blockConflicts := engineInstance.Tangle.Booker.BlockConflicts(block)
 
 	addedReferences = models.NewParentBlockIDs()
 	if blockConflicts.IsEmpty() {
@@ -115,7 +124,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
-		r.engine.Tangle.BlockDAG.SetOrphaned(block.Block, true)
+		engineInstance.Tangle.BlockDAG.SetOrphaned(block.Block, true)
 		return nil, false
 	}
 
@@ -150,10 +159,12 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
 func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs) (adjust bool, blkID models.BlockID, err error) {
+	engineInstance := r.engineCallback()
+
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		if likedConflictID, dislikedConflictIDs := r.engine.Consensus.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
+		if likedConflictID, dislikedConflictIDs := engineInstance.Consensus.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
 			// only triggers in first iteration
 			if likedConflictID == conflictID {
 				return false, models.EmptyBlockID, nil
@@ -163,13 +174,13 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 				continue
 			}
 
-			excludedConflictIDs.AddAll(r.engine.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
+			excludedConflictIDs.AddAll(engineInstance.Ledger.Utils.ConflictIDsInFutureCone(dislikedConflictIDs))
 
 			return true, blkID, nil
 		}
 
 		// only walk deeper if we don't like "something else"
-		r.engine.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		engineInstance.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			w.PushFront(conflict.Parents().Slice()...)
 		})
 	}
@@ -179,9 +190,13 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
 func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
-	block := r.engine.Tangle.Booker.GetEarliestAttachment(txID)
+	block := r.engineCallback().Tangle.Booker.GetEarliestAttachment(txID)
 
-	committableEpoch := r.latestEpochIndexCallback()
+	committableEpoch, err := r.latestEpochIndexCallback()
+	if err != nil {
+		return blockID, err
+	}
+
 	if block.ID().Index() <= committableEpoch {
 		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}
@@ -191,14 +206,16 @@ func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block
 
 // payloadLiked checks if the payload of a Block is liked.
 func (r *ReferenceProvider) payloadLiked(blockID models.BlockID) (liked bool) {
-	block, exists := r.engine.Tangle.Booker.Block(blockID)
+	engineInstance := r.engineCallback()
+
+	block, exists := engineInstance.Tangle.Booker.Block(blockID)
 	if !exists {
 		return false
 	}
-	conflictIDs := r.engine.Tangle.Booker.PayloadConflictIDs(block)
+	conflictIDs := engineInstance.Tangle.Booker.PayloadConflictIDs(block)
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		if !r.engine.Consensus.ConflictLiked(it.Next()) {
+		if !engineInstance.Consensus.ConflictLiked(it.Next()) {
 			return false
 		}
 	}

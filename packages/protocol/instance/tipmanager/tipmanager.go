@@ -131,7 +131,7 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(countParents int) (parents scheduler.Blocks) {
+func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
@@ -142,8 +142,8 @@ func (t *TipManager) Tips(countParents int) (parents scheduler.Blocks) {
 	return t.selectTips(countParents)
 }
 
-func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
-	parents = scheduler.NewBlocks()
+func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
+	parents = models.NewBlockIDs()
 
 	tips := t.tips.RandomUniqueEntries(count)
 
@@ -152,7 +152,7 @@ func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
 		for i, it := 0, t.tangle.EvictionManager.RootBlocks().Iterator(); it.HasNext() && i < count; i++ {
 			blockID := it.Next()
 			if block, exists := t.blockRetrieverFunc(blockID); exists {
-				parents.Add(block)
+				parents.Add(block.ID())
 			}
 		}
 		return parents
@@ -161,7 +161,7 @@ func (t *TipManager) selectTips(count int) (parents scheduler.Blocks) {
 	// at least one tip is returned
 	for _, tip := range tips {
 		if t.isPastConeTimestampCorrect(tip) {
-			parents.Add(tip)
+			parents.Add(tip.ID())
 		}
 	}
 

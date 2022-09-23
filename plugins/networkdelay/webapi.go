@@ -29,7 +29,7 @@ func broadcastNetworkDelayPayload(c echo.Context) error {
 	//nowWithoutClock := time.Now()
 
 	// TODO: implement when issuing blocks is figured out
-	//blk, err := deps.Tangle.IssuePayload(payload)
+	//blk, err := deps.Tangle.CreateBlock(payload)
 	//if err != nil {
 	//	return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	//}

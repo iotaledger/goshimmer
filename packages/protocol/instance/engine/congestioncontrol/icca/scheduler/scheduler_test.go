@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
@@ -69,7 +70,7 @@ func TestScheduler_Submit(t *testing.T) {
 func TestScheduler_updateActiveNodeList(t *testing.T) {
 	tf := NewTestFramework(t)
 
-	tf.Scheduler.updateActiveIssuersList(map[identity.ID]float64{})
+	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
 	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
 	for _, alias := range []string{"A", "B", "C", "D", "E", "F", "G"} {
 		tf.CreateIssuer(alias, 0)
@@ -93,7 +94,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	assert.Contains(t, issuerIDs, tf.Issuer("E").ID())
 	assert.NotContains(t, issuerIDs, tf.Issuer("F").ID())
 	assert.NotContains(t, issuerIDs, tf.Issuer("G").ID())
-	tf.UpdateIssuers(map[string]float64{
+	tf.UpdateIssuers(map[string]int64{
 		"A": 30,
 		"B": 15,
 		"C": 25,
@@ -114,7 +115,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	assert.Contains(t, issuerIDs, tf.Issuer("F").ID())
 	assert.Contains(t, issuerIDs, tf.Issuer("G").ID())
 
-	tf.Scheduler.updateActiveIssuersList(map[identity.ID]float64{})
+	tf.Scheduler.updateActiveIssuersList(map[identity.ID]int64{})
 	assert.Equal(t, 0, tf.Scheduler.buffer.NumActiveIssuers())
 }
 
@@ -280,8 +281,8 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as ready and confirmed, but younger than 1 minute
 	blkReadyConfirmedNew := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
-		blkReadyConfirmedNew.ID(): true,
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
+		blkReadyConfirmedNew.ID(): types.Void,
 	})
 
 	assert.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedNew))
@@ -301,8 +302,8 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedNew))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
-		blkUnreadyConfirmedNew.ID(): true,
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
+		blkUnreadyConfirmedNew.ID(): types.Void,
 	})
 
 	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedNew.Block, acceptance.WithAccepted(true)))
@@ -323,8 +324,8 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as ready and confirmed, but older than 1 minute
 	blkReadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
-		blkReadyConfirmedOld.ID(): true,
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
+		blkReadyConfirmedOld.ID(): types.Void,
 	})
 
 	assert.NoError(t, tf.Scheduler.Submit(blkReadyConfirmedOld))
@@ -342,8 +343,8 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	// create a new block from a different node and mark it as unready and confirmed, but older than 1 minute
 	blkUnreadyConfirmedOld := tf.CreateSchedulerBlock(models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(-2*time.Minute)))
 	assert.NoError(t, tf.Scheduler.Submit(blkUnreadyConfirmedOld))
-	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
-		blkUnreadyConfirmedOld.ID(): true,
+	lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
+		blkUnreadyConfirmedOld.ID(): types.Void,
 	})
 
 	tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(blkUnreadyConfirmedOld.Block, acceptance.WithAccepted(true)))
@@ -438,8 +439,8 @@ func TestScheduler_Issue(t *testing.T) {
 
 	for i := 0; i < numBlocks; i++ {
 		block, _ := tf.Scheduler.Block(tf.Block(fmt.Sprintf("blk-%d", i)).ID())
-		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]bool{
-			block.ID(): true,
+		lo.MergeMaps(tf.mockAcceptance.AcceptedBlocks, map[models.BlockID]types.Empty{
+			block.ID(): types.Void,
 		})
 		tf.mockAcceptance.BlockAcceptedEvent.Trigger(acceptance.NewBlock(block.Block, acceptance.WithAccepted(true)))
 	}

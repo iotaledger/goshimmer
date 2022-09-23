@@ -12,11 +12,13 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,8 +33,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server   *echo.Echo
-	Retainer *retainer.Retainer
+	Server      *echo.Echo
+	Retainer    *retainer.Retainer
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 func init() {
@@ -173,24 +176,23 @@ func GetBlockMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /blocks/payload endpoint.
 func PostPayload(c echo.Context) error {
-	// var request jsonmodels.PostPayloadRequest
-	// if err := c.Bind(&request); err != nil {
-	// 	Plugin.LogInfo(err.Error())
-	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	// }
-	//
-	// parsedPayload, _, err := payload.FromBytes(request.Payload)
-	// if err != nil {
-	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	// }
-	//
-	// blk, err := deps.Tangle.IssuePayload(parsedPayload)
-	// if err != nil {
-	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	// }
-	//
-	// return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
-	return nil
+	var request jsonmodels.PostPayloadRequest
+	if err := c.Bind(&request); err != nil {
+		Plugin.LogInfo(err.Error())
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	parsedPayload, _, err := payload.FromBytes(request.Payload)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	blk, err := deps.BlockIssuer.IssuePayload(parsedPayload)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
