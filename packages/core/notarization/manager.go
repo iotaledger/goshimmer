@@ -449,7 +449,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 	txID := event.TransactionID
 
-	has, err := m.isTransactionInEpoch(event.TransactionID, oldEpoch); 
+	has, err := m.isTransactionInEpoch(event.TransactionID, oldEpoch)
 	if err != nil {
 		m.log.Error(err)
 		return

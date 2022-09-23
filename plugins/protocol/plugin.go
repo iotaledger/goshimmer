@@ -13,6 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
 )
@@ -29,11 +32,12 @@ var (
 type dependencies struct {
 	dig.In
 
-	Network network.Interface
+	Network  network.Interface
+	Protocol *protocol.Protocol
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configureLogging)
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -41,7 +45,7 @@ func init() {
 	}))
 }
 
-func provide() (p *protocol.Protocol) {
+func provide(n network.Interface) (p *protocol.Protocol) {
 
 	// TODO:
 	//		tangleold.GenesisTime(genesisTime), -> set global variable
@@ -54,8 +58,7 @@ func provide() (p *protocol.Protocol) {
 	} else {
 		dbProvider = database.NewDB
 	}
-
-	p = protocol.New(deps.Network, Plugin.Logger(),
+	p = protocol.New(n, Plugin.Logger(),
 		protocol.WithInstanceOptions(
 			instance.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
@@ -91,4 +94,22 @@ func provide() (p *protocol.Protocol) {
 	)
 
 	return p
+}
+
+func configureLogging(*node.Plugin) {
+	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		Plugin.LogInfof("Block %s attached", block.ID())
+	}))
+
+	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+		Plugin.LogInfof("Block %s booked", block.ID())
+	}))
+
+	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+		Plugin.LogInfof("Block %s tracked", block.ID())
+	}))
+
+	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		Plugin.LogInfof("Block %s scheduled", block.ID())
+	}))
 }

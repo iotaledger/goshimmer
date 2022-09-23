@@ -88,7 +88,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			},
 			i.identity.ID(),
 			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Instance().Engine.CongestionControl.Scheduler.Rate()))...)
-	})
+	}, (*BlockIssuer).setupEvents)
 }
 
 func (f *BlockIssuer) setupEvents() {

@@ -43,6 +43,8 @@ func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, opts ...options.Optio
 
 		c.Events.Scheduler = c.Scheduler.Events
 		c.Events.Tracker = c.Tracker.Events
+
+		c.Scheduler.Start()
 	}, (*CongestionControl).setupEvents)
 }
 

@@ -65,6 +65,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 			Events:          NewEvents(),
 			ValidatorSet:    validator.NewSet(),
 			EvictionManager: eviction.NewManager[models.BlockID](),
+			Inbox:           inbox.New(),
 
 			chainDirectory:            chainDirectory,
 			logger:                    logger,
@@ -257,6 +258,11 @@ func (i *Instance) initSybilProtection() {
 
 func (i *Instance) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
 	i.Inbox.ProcessReceivedBlock(block, neighbor)
+
+	// TODO: how do we wire up the attach?
+	if _, _, err := i.Engine.Tangle.Attach(block); err != nil {
+		panic(err)
+	}
 }
 
 func (i *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {

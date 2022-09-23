@@ -1,6 +1,7 @@
 package chainmanager
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/syncutils"
 
@@ -28,6 +29,23 @@ func NewCommitment(id commitment.ID) (newCommitment *Commitment) {
 type commitmentModel struct {
 	Commitment *commitment.Commitment `serix:"0,optional"`
 	Roots      *commitment.Roots      `serix:"1,optional"`
+}
+
+// TODO: this is just a temporary fix
+// FromObjectStorage deserializes a model from the object storage.
+func (c *Commitment) FromObjectStorage(key, data []byte) (err error) {
+	if _, err = c.FromBytes(data); err != nil {
+		return errors.Errorf("failed to decode Model: %w", err)
+	}
+	c.SetID(c.Commitment().ID())
+
+	return nil
+}
+
+// TODO: this is just a temporary fix
+// ObjectStorageKey returns the bytes, that are used as a key to store the object in the k/v store.
+func (c *Commitment) ObjectStorageKey() (key []byte) {
+	return c.Commitment().Index().Bytes()
 }
 
 func (c *Commitment) Commitment() (commitment *commitment.Commitment) {

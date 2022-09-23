@@ -48,9 +48,6 @@ func broadcastActivityBlock() {
 	}
 
 	Plugin.LogDebugf("issued activity block %s", blk.ID())
-
-	Plugin.LogInfof("Activity plugin not implemented")
-
 }
 
 func run(_ *node.Plugin) {
