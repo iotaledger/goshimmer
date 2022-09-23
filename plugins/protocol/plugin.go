@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
 )
 
@@ -65,6 +66,9 @@ func provide() (p *protocol.Protocol) {
 						// TODO:			AccessManaMapRetrieverFunc:      accessManaMapRetriever,
 						//			TotalAccessManaRetrieveFunc:     totalAccessManaRetriever,
 					),
+				),
+				engine.WithTSCManagerOptions(
+					tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 				),
 			),
 			instance.WithTipManagerOptions(
