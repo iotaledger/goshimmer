@@ -34,8 +34,9 @@ type BlockIssuer struct {
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
 
-	optsRateSetterOptions   []options.Option[ratesetter.RateSetter]
-	optsBlockFactoryOptions []options.Option[blockfactory.Factory]
+	optsRateSetterOptions      []options.Option[ratesetter.RateSetter]
+	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
+	optsIgnoreBootstrappedFlag bool
 }
 
 // New creates a new block issuer.
@@ -86,7 +87,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return totalMana
 			},
 			i.identity.ID(),
-			i.optsRateSetterOptions...)
+			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Instance().Engine.CongestionControl.Scheduler.Rate()))...)
 	})
 }
 
@@ -98,7 +99,7 @@ func (f *BlockIssuer) setupEvents() {
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
 func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
-	if !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
@@ -113,7 +114,7 @@ func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 
 // IssuePayloadWithReferences creates a new block with the references submit.
 func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (block *models.Block, err error) {
-	if !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
@@ -128,7 +129,7 @@ func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
 func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, maxAwait time.Duration) error {
-	if !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -167,7 +168,7 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 
 // IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
 func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
-	if !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -211,6 +212,12 @@ func WithBlockFactoryOptions(blockFactoryOptions []options.Option[blockfactory.F
 func WithRateSetterOptions(rateSetterOptions []options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsRateSetterOptions = rateSetterOptions
+	}
+}
+
+func WithIgnoreBootstrappedFlag(ignoreBootstrappedFlag bool) options.Option[BlockIssuer] {
+	return func(issuer *BlockIssuer) {
+		issuer.optsIgnoreBootstrappedFlag = ignoreBootstrappedFlag
 	}
 }
 
