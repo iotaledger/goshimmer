@@ -11,9 +11,9 @@ import (
 )
 
 type Events struct {
-	Engine          *engine.Events
-	Clock           *clock.Events
-	TipManager      *tipmanager.Events
+	Engine              *engine.Events
+	Clock               *clock.Events
+	TipManager          *tipmanager.Events
 	EvictionManager     *eviction.Events
 	NotarizationManager *notarization.Events
 

@@ -9,10 +9,9 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/spammer"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 )
 
 var blockSpammer *spammer.Spammer
@@ -30,8 +29,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Protocol *protocol.Protocol
-	Server   *echo.Echo
+	BlockIssuer *blockissuer.BlockIssuer
+	Server      *echo.Echo
 }
 
 func init() {
@@ -42,7 +41,7 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	// TODO: implement when issuing blocks is known
-	//blockSpammer = spammer.New(deps.Tangle.IssuePayload, log, deps.Tangle.RateSetter.Estimate)
+	blockSpammer = spammer.New(deps.BlockIssuer.IssuePayload, log, deps.BlockIssuer.Estimate)
 	deps.Server.GET("spammer", handleRequest)
 }
 

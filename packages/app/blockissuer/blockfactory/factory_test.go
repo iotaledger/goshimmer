@@ -53,7 +53,7 @@ func TestFactory_IssuePayload(t *testing.T) {
 	pay := payload.NewGenericDataPayload([]byte("test"))
 
 	factory := NewBlockFactory(localIdentity, blockRetriever, tipSelectorFunc, referencesFunc, commitmentFunc)
-	createdBlock, err := factory.IssuePayload(pay, 2)
+	createdBlock, err := factory.CreateBlock(pay, 2)
 	require.NoError(t, err)
 
 	assert.Contains(t, createdBlock.ParentsByType(models.StrongParentType), block1.ID(), block2.ID())

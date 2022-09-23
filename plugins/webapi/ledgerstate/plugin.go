@@ -555,7 +555,7 @@ func PostTransaction(c echo.Context) error {
 
 	// TODO: finish when issuing blocks is figured out
 	//issueTransaction := func() (*models.Block, error) {
-	//	return deps.Tangle.IssuePayload(tx)
+	//	return deps.Tangle.CreateBlock(tx)
 	//}
 
 	// add tx to double spend doubleSpendFilter

@@ -27,8 +27,8 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tf.Tangle.CreateBlock("Block4", models.WithPayload(tf.Tangle.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Tangle.Identity("V2").PublicKey()))
 	tf.Tangle.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Engine, func() epoch.Index {
-		return 0
+	rp := NewReferenceProvider(func() *engine.Engine { return tf.Engine }, func() (epoch.Index, error) {
+		return 0, nil
 	})
 
 	checkReferences(t, rp, nil, tf.Tangle.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
@@ -50,8 +50,8 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf.Tangle.CreateBlock("Block4", models.WithPayload(tf.Tangle.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tf.Tangle.Identity("V1").PublicKey()))
 	tf.Tangle.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Engine, func() epoch.Index {
-		return 0
+	rp := NewReferenceProvider(func() *engine.Engine { return tf.Engine }, func() (epoch.Index, error) {
+		return 0, nil
 	})
 
 	// Verify that like references are set correctly.
@@ -100,8 +100,8 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf.Tangle.CreateBlock("Block4", models.WithPayload(tf.Tangle.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
 	tf.Tangle.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Engine, func() epoch.Index {
-		return 0
+	rp := NewReferenceProvider(func() *engine.Engine { return tf.Engine }, func() (epoch.Index, error) {
+		return 0, nil
 	})
 
 	{
@@ -125,7 +125,7 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 		})
 	}
 
-	// Issue reattachment of TX3 (Block5) and make sure it is referenced in favor of Block3 (earliest attachment).
+	// IssueBlock reattachment of TX3 (Block5) and make sure it is referenced in favor of Block3 (earliest attachment).
 	tf.Tangle.CreateBlock("Block5", models.WithPayload(tf.Tangle.Transaction("TX3")))
 	tf.Tangle.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 

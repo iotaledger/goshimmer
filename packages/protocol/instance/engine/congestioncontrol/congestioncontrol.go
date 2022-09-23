@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
@@ -20,13 +21,25 @@ type CongestionControl struct {
 	*scheduler.Scheduler
 }
 
-func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]float64, totalAccessManaRetrieveFunc func() float64, opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
+func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
 	return options.Apply(&CongestionControl{
 		Events: NewEvents(),
 		Gadget: gadget,
 	}, opts, func(c *CongestionControl) {
 		c.Tracker = mana.NewTracker(tangle.Ledger)
-		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, accessManaMapRetrieverFunc, totalAccessManaRetrieveFunc, c.optsSchedulerOptions...)
+		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, func() map[identity.ID]int64 {
+			manaMap, _, err := c.Tracker.GetManaMap(manamodels.AccessMana)
+			if err != nil {
+				return make(map[identity.ID]int64)
+			}
+			return manaMap
+		}, func() int64 {
+			totalMana, _, err := c.Tracker.GetTotalMana(manamodels.AccessMana)
+			if err != nil {
+				return 0
+			}
+			return totalMana
+		}, c.optsSchedulerOptions...)
 
 		c.Events.Scheduler = c.Scheduler.Events
 		c.Events.Tracker = c.Tracker.Events

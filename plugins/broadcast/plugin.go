@@ -58,7 +58,7 @@ func run(_ *node.Plugin) {
 
 	// Get Blocks from node.
 	notifyNewBlk := event.NewClosure(func(block *blockdag.Block) {
-		server.Broadcast([]byte(block.Block.String()))
+		server.Broadcast([]byte(block.ModelsBlock.String()))
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[BlkUpdater]", func(ctx context.Context) {
