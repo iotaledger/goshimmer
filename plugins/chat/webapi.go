@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
 
@@ -34,15 +35,13 @@ func SendChatBlock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "block is too long"})
 	}
 
-	// TODO: finish when ratesetter and blockfactory are figured out
-	//chatPayload := chat.NewPayload(req.From, req.To, req.Block)
-	//blk, err := deps.Protocol.Instance().CreateBlock(chatPayload)
-	//if err != nil {
-	//	return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-	//}
+	chatPayload := chat.NewPayload(req.From, req.To, req.Block)
+	blk, err := deps.BlockIssuer.IssuePayload(chatPayload)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 
-	//return c.JSON(http.StatusOK, Response{BlockID: blk.ID().Base58()})
-	return nil
+	return c.JSON(http.StatusOK, Response{BlockID: blk.ID().Base58()})
 }
 
 // Request defines the chat block to send.

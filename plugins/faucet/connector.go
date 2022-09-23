@@ -8,27 +8,28 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-type FaucetConnector struct {
-	protocol *protocol.Protocol
-	indexer  *indexer.Indexer
+type Connector struct {
+	blockIssuer *blockissuer.BlockIssuer
+	protocol    *protocol.Protocol
+	indexer     *indexer.Indexer
 }
 
-func NewConnector(p *protocol.Protocol, indexer *indexer.Indexer) *FaucetConnector {
-	return &FaucetConnector{
+func NewConnector(p *protocol.Protocol, indexer *indexer.Indexer) *Connector {
+	return &Connector{
 		protocol: p,
 		indexer:  indexer,
 	}
 }
 
-func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentOutputs wallet.OutputsByAddressAndOutputID, err error) {
+func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs wallet.OutputsByAddressAndOutputID, err error) {
 	unspentOutputs = make(map[address.Address]map[utxo.OutputID]*wallet.Output)
 
 	for _, addr := range addresses {
@@ -64,36 +65,31 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 	return
 }
 
-func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
-	// attach to block layer
-	issueTransaction := func() (*models.Block, error) {
-		// TODO: finish when issuing blocks if implemented
-		//block, e := deps.Tangle.CreateBlock(tx)
-		//if e != nil {
-		//	return nil, e
-		//}
-		//return block, nil
-		return nil, nil
-	}
-
-	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), Parameters.MaxTransactionBookedAwaitTime)
+func (f *Connector) SendTransaction(tx *devnetvm.Transaction) (err error) {
+	block, err := f.blockIssuer.CreateBlock(tx)
 	if err != nil {
 		return errors.Errorf("%v: tx %s", err, tx.ID().String())
 	}
+
+	err = f.blockIssuer.IssueBlockAndAwaitBlockToBeBooked(block, Parameters.MaxTransactionBookedAwaitTime)
+	if err != nil {
+		return errors.Errorf("%v: tx %s", err, tx.ID().String())
+	}
+
 	return nil
 }
 
-func (f *FaucetConnector) RequestFaucetFunds(address address.Address, powTarget int) (err error) {
+func (f *Connector) RequestFaucetFunds(address address.Address, powTarget int) (err error) {
 	panic("RequestFaucetFunds is not implemented in faucet connector.")
 }
 
-func (f *FaucetConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
+func (f *Connector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
 	f.protocol.Instance().Engine.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(tm *ledger.TransactionMetadata) {
 		confirmationState = tm.ConfirmationState()
 	})
 	return
 }
 
-func (f *FaucetConnector) GetUnspentAliasOutput(address *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
+func (f *Connector) GetUnspentAliasOutput(address *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
 	panic("GetUnspentAliasOutput is not implemented in faucet connector.")
 }

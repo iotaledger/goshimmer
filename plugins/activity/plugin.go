@@ -10,8 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/timeutil"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 var (
@@ -22,7 +24,8 @@ var (
 
 type dependencies struct {
 	dig.In
-	Protocol *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
+	Protocol    *protocol.Protocol
 }
 
 func init() {
@@ -35,19 +38,16 @@ func configure(plugin *node.Plugin) {
 
 // broadcastActivityBlock broadcasts a sync beacon via communication layer.
 func broadcastActivityBlock() {
-	//activityPayload := payload.NewGenericDataPayload([]byte("activity"))
+	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 
-	// TODO: add this when ratesetter is refactored
-	// sleep some time according to rate setter estimate
-	//time.Sleep(rateSetter.Estimate())
+	time.Sleep(deps.BlockIssuer.Estimate())
+	blk, err := deps.BlockIssuer.IssuePayload(activityPayload, Parameters.ParentsCount)
+	if err != nil {
+		Plugin.LogWarnf("error issuing activity block: %s", err)
+		return
+	}
 
-	//blk, err := deps.Tangle.CreateBlock(activityPayload, Parameters.ParentsCount)
-	//if err != nil {
-	//	Plugin.LogWarnf("error issuing activity block: %s", err)
-	//	return
-	//}
-
-	//Plugin.LogDebugf("issued activity block %s", blk.ID())
+	Plugin.LogDebugf("issued activity block %s", blk.ID())
 
 	Plugin.LogInfof("Activity plugin not implemented")
 

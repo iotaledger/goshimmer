@@ -12,7 +12,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
@@ -57,21 +56,22 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
 	}
 
-	if request.MaxEstimate > 0 && deps.Tangle.RateSetter.Estimate().Milliseconds() > request.MaxEstimate {
+	if request.MaxEstimate > 0 && deps.BlockIssuer.Estimate().Milliseconds() > request.MaxEstimate {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
 			Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
 		})
 	}
 
-	issueData := func() (*models.Block, error) {
-		return deps.BlockIssuer.IssuePayload(payload.NewGenericDataPayload(request.Data))
-	}
-
-	// await BlockScheduled event to be triggered.
-	blk, err := deps.Issuer.AwaitBlockToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
+	constructedBlock, err := deps.BlockIssuer.CreateBlock(payload.NewGenericDataPayload(request.Data))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: blk.ID().Base58()})
+	// await BlockScheduled event to be triggered.
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeIssued(constructedBlock, maxIssuedAwaitTime)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.DataResponse{ID: constructedBlock.ID().Base58()})
 }

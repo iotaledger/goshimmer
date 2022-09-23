@@ -17,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
@@ -78,7 +80,7 @@ func newFaucet() *Faucet {
 	return NewFaucet(walletseed.NewSeed(seedBytes))
 }
 
-func configure(plugin *node.Plugin) {
+func configure(_ *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 	bootstrapped = make(chan bool, 1)
 
@@ -129,17 +131,15 @@ func waitUntilBootstrapped(ctx context.Context) bool {
 }
 
 func checkForMana(ctx context.Context) error {
-	// TODO: finish when mana stuff is refactored
-	// nodeID := deps.Tangle.Options.Identity.ID()
-	//
-	// aMana, _, err := blocklayer.GetAccessMana(nodeID)
-	// // ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
-	// if err != nil && !errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-	//	return err
-	// }
-	// if aMana < tangleold.MinMana {
-	//	return errors.Errorf("insufficient access mana: %f < %f", aMana, tangleold.MinMana)
-	// }
+	// TODO: wait for mana
+	aMana, _, err := deps.Protocol.Instance().Engine.CongestionControl.Tracker.GetAccessMana(deps.Local.ID())
+	// ignore ErrNodeNotFoundInBaseManaVector and treat it as 0 mana
+	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
+		return err
+	}
+	if aMana < scheduler.MinMana {
+		return errors.Errorf("insufficient access mana: %f < %f", aMana, scheduler.MinMana)
+	}
 	return nil
 }
 

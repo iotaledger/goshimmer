@@ -1,6 +1,9 @@
 package blockissuer
 
 import (
+	"time"
+
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -10,8 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
@@ -38,7 +44,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:            NewEvents(),
 		identity:          localIdentity,
 		protocol:          protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(protocol.Instance().Engine, protocol.Instance().NotarizationManager.LatestCommitableEpochIndex),
+		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Instance().Engine }, protocol.Instance().NotarizationManager.LatestCommitableEpochIndex),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(localIdentity, func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
 			return i.protocol.Instance().Engine.Tangle.BlockDAG.Block(blockID)
@@ -76,39 +82,97 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 
 func (f *BlockIssuer) setupEvents() {
 	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
-		err := f.RateSetter.Issue(block)
-		if err != nil {
-			return
-		}
+		f.protocol.IssueBlock(block)
 	}))
 }
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
-func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) error {
-
-	// TODO:
-	// MaxEstimate wait
-	// whether to actually wait for booking
-	// wait for scheduling
-	// number of parents
-	// number of strong parents
-	// optional references
-	//if request.MaxEstimate > 0 && deps.Tangle.RateSetter.Estimate().Milliseconds() > request.MaxEstimate {
-	//	return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
-	//		Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
-	//	})
-	//}
-	constructedBlock, err := f.Factory.CreateBlock(p, parentsCount...)
+func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
+	block, err = f.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
-		return err
+		f.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
+		return block, err
 	}
 
-	return f.Issue(constructedBlock)
+	return block, f.Issue(block)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
-func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (*models.Block, error) {
+func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (block *models.Block, err error) {
+	block, err = f.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
+	if err != nil {
+		f.Events.Error.Trigger(errors.Errorf("block with references could not be created: %w", err))
+		return nil, err
+	}
 
+	return block, f.Issue(block)
+}
+
+// IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
+func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, maxAwait time.Duration) error {
+	// first subscribe to the transaction booked event
+	booked := make(chan *booker.Block, 1)
+	// exit is used to let the caller exit if for whatever
+	// reason the same transaction gets booked multiple times
+	exit := make(chan struct{})
+	defer close(exit)
+
+	closure := event.NewClosure(func(bookedBlock *booker.Block) {
+		if block.ID() != bookedBlock.ID() {
+			return
+		}
+		select {
+		case booked <- bookedBlock:
+		case <-exit:
+		}
+	})
+	f.protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(closure)
+	defer f.protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Detach(closure)
+
+	err := f.Issue(block)
+
+	if err != nil {
+		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
+	}
+
+	select {
+	case <-time.After(maxAwait):
+		return ErrBlockWasNotBookedInTime
+	case <-booked:
+		return nil
+	}
+}
+
+// IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
+func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
+	scheduled := make(chan *scheduler.Block, 1)
+	exit := make(chan struct{})
+	defer close(exit)
+
+	closure := event.NewClosure(func(scheduledBlock *scheduler.Block) {
+		if block.ID() != scheduledBlock.ID() {
+			return
+		}
+		select {
+		case scheduled <- scheduledBlock:
+		case <-exit:
+		}
+	})
+	f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+
+	err := f.Issue(block)
+
+	if err != nil {
+		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
+	}
+
+	select {
+	case <-time.After(maxAwait):
+		return ErrBlockWasNotScheduledInTime
+	case <-scheduled:
+		return nil
+	}
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////

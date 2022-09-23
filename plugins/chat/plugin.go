@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -34,9 +35,11 @@ func init() {
 
 type dependencies struct {
 	dig.In
-	Protocol *protocol.Protocol
-	Server   *echo.Echo
-	Chat     *chat.Chat
+
+	BlockIssuer *blockissuer.BlockIssuer
+	Protocol    *protocol.Protocol
+	Server      *echo.Echo
+	Chat        *chat.Chat
 }
 
 func configure(_ *node.Plugin) {

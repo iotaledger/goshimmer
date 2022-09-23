@@ -61,7 +61,6 @@ func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models
 
 	block, err := f.issuePayload(p, references, strongParentsCount)
 	if err != nil {
-		f.Events.Error.Trigger(errors.Errorf("block could not be issued: %w", err))
 		return nil, err
 	}
 
