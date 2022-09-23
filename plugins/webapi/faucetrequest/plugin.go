@@ -74,12 +74,11 @@ func requestFunds(c echo.Context) error {
 	}
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
-	//TODO: finish when issuing blocks if figured out
+	// TODO: finish when issuing blocks if figured out
 	blk, err := deps.BlockIssuer.IssuePayload(faucetPayload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetRequestResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.FaucetRequestResponse{ID: blk.ID().Base58()})
-	return nil
 }

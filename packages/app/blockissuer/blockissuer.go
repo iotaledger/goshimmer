@@ -204,12 +204,12 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithBlockFactoryOptions(blockFactoryOptions []options.Option[blockfactory.Factory]) options.Option[BlockIssuer] {
+func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.Factory]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
-func WithRateSetterOptions(rateSetterOptions []options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
+func WithRateSetterOptions(rateSetterOptions ...options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsRateSetterOptions = rateSetterOptions
 	}
