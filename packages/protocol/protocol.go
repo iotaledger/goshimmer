@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -40,8 +39,7 @@ type Protocol struct {
 	instancesByChainID   map[commitment.ID]*instance.Instance
 	optsBaseDirectory    string
 	optsSettingsFileName string
-	optsSnapshotFile     string
-	optsDBManagerOptions []options.Option[database.Manager]
+	optsSnapshotFileName string
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
 	optsInstanceOptions []options.Option[instance.Instance]
 
@@ -57,14 +55,15 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		instancesByChainID:   make(map[commitment.ID]*instance.Instance),
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
-		optsSnapshotFile:     "snapshot.bin",
+		optsSnapshotFileName: "snapshot.bin",
 
 		Logger: log,
 	}, opts, func(p *Protocol) {
+		fmt.Println(p.optsBaseDirectory)
 		p.disk = diskutil.New(p.optsBaseDirectory)
 		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-		if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFile)); err != nil {
+		if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFileName)); err != nil {
 			panic(err)
 		}
 
@@ -166,7 +165,7 @@ func (p *Protocol) instantiateChains() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = instance.New(p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		p.instancesByChainID[chainID] = instance.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
 	}
 
 	return len(p.instancesByChainID)
@@ -212,9 +211,15 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 	}
 }
 
-func WithDBManagerOptions(opts ...options.Option[database.Manager]) options.Option[Protocol] {
+func WithSnapshotFileName(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsDBManagerOptions = opts
+		n.optsSnapshotFileName = snapshot
+	}
+}
+
+func WithSettingsFileName(settings string) options.Option[Protocol] {
+	return func(n *Protocol) {
+		n.optsSettingsFileName = settings
 	}
 }
 

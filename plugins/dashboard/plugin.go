@@ -26,7 +26,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
@@ -73,6 +77,18 @@ func init() {
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
+
+	lastAcceptedBlock = &acceptance.Block{
+		Block: &virtualvoting.Block{
+			Block: &booker.Block{
+				Block: &blockdag.Block{
+					ModelsBlock: models.NewEmptyBlock(models.EmptyBlockID),
+				},
+			},
+		},
+	}
+	lastConfirmedBlock = lastAcceptedBlock
+
 	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block

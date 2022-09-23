@@ -71,7 +71,15 @@ func provide() (p *protocol.Protocol) {
 				tipmanager.WithWidth(Parameters.TangleWidth),
 				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
+			instance.WithDatabaseManagerOptions(
+			// TODO: database.WithDBProvider(),
+			// database.WithMaxOpenDBs(5),
+			// database.WithGranularity(5),
+			),
 		),
+		protocol.WithBaseDirectory(DatabaseParameters.Directory),
+		// TODO: protocol.WithSnapshotFileName(),
+		// protocol.WithSettingsFileName(),
 	)
 
 	return p

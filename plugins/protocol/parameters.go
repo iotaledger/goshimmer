@@ -55,6 +55,18 @@ type NotarizationParametersDefinition struct {
 	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 }
 
+// DatabaseParametersDefinition contains the definition of configuration parameters used by the storage layer.
+type DatabaseParametersDefinition struct {
+	// Directory defines the directory of the database.
+	Directory string `default:"db" usage:"path to the database directory"`
+
+	// InMemory defines whether to use an in-memory database.
+	InMemory bool `default:"false" usage:"whether the database is only kept in memory and not persisted"`
+
+	// ForceCacheTime is a new global cache time in seconds for object storage.
+	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
+}
+
 // Parameters contains the general configuration used by the blocklayer plugin.
 var Parameters = &ParametersDefinition{}
 
@@ -67,9 +79,13 @@ var SchedulerParameters = &SchedulerParametersDefinition{}
 // NotarizationParameters contains the configuration used by the notarization plugin.
 var NotarizationParameters = &NotarizationParametersDefinition{}
 
+// DatabaseParameters contains configuration parameters used by Database.
+var DatabaseParameters = &DatabaseParametersDefinition{}
+
 func init() {
 	config.BindParameters(Parameters, "protocol")
 	config.BindParameters(ManaParameters, "mana")
 	config.BindParameters(SchedulerParameters, "scheduler")
 	config.BindParameters(NotarizationParameters, "notarization")
+	config.BindParameters(DatabaseParameters, "database")
 }
