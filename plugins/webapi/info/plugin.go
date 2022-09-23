@@ -105,7 +105,7 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	tm := deps.Protocol.Instance().Engine.Clock
+	tm := deps.Protocol.Instance().Clock
 	// TODO: figure out where to take last accepted block from
 	tangleTime := jsonmodels.TangleTime{
 		Synced:           deps.Protocol.Instance().IsSynced(),

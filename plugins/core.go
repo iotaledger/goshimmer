@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/firewall"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/goshimmer/plugins/manainitializer"
@@ -40,7 +39,6 @@ var Core = node.Plugins(
 	manualpeering.Plugin,
 	profiling.Plugin,
 	p2p.Plugin,
-	gossip.Plugin,
 	network.Plugin,
 	protocol.Plugin,
 	warpsync.Plugin,

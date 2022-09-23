@@ -63,7 +63,7 @@ func registerTangleEvents() {
 	storeClosure := event.NewClosure(func(block *blockdag.Block) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeTangleVertex,
-			Data: newTangleVertex(block.Block),
+			Data: newTangleVertex(block.ModelsBlock),
 		}
 		visualizerWorkerPool.TrySubmit(wsBlk)
 		storeWsBlock(wsBlk)
@@ -254,17 +254,17 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		if !reqValid {
 			return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 		}
-		//startEpoch := epoch.IndexFromTime(startTimestamp)
-		//endEpoch := epoch.IndexFromTime(endTimestamp)
+		// startEpoch := epoch.IndexFromTime(startTimestamp)
+		// endEpoch := epoch.IndexFromTime(endTimestamp)
 		//
-		//var blocks []*tangleVertex
-		//var txs []*utxoVertex
-		//var conflicts []*conflictVertex
-		//conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
-		//entryBlks := models.NewBlockIDs()
+		// var blocks []*tangleVertex
+		// var txs []*utxoVertex
+		// var conflicts []*conflictVertex
+		// conflictMap := set.NewAdvancedSet[utxo.TransactionID]()
+		// entryBlks := models.NewBlockIDs()
 		// TODO: use retainer and optimize to use data locality
 
-		//deps.Tangle.Utils.WalkBlockID(func(blockID tangleold.BlockID, walker *walker.Walker[tangleold.BlockID]) {
+		// deps.Tangle.Utils.WalkBlockID(func(blockID tangleold.BlockID, walker *walker.Walker[tangleold.BlockID]) {
 		//	deps.Tangle.Storage.Block(blockID).Consume(func(blk *tangleold.Block) {
 		//		// only keep blocks that is issued in the given time interval
 		//		if blk.IssuingTime().After(startTimestamp) && blk.IssuingTime().Before(endTimestamp) {
@@ -301,9 +301,9 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		//			})
 		//		}
 		//	})
-		//}, entryBlks)
+		// }, entryBlks)
 
-		//return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
+		// return c.JSON(http.StatusOK, searchResult{Blocks: blocks, Txs: txs, Conflicts: conflicts})
 		return c.JSON(http.StatusBadRequest, searchResult{Error: "invalid timestamp range"})
 	})
 }

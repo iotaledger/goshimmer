@@ -22,9 +22,6 @@ const (
 	protocolID = "gossip/0.0.1"
 )
 
-// LoadBlockFunc defines a function that returns the block for the given id.
-type LoadBlockFunc func(blockId models.BlockID) ([]byte, error)
-
 // The Manager handles the connected neighbors.
 type Manager struct {
 	p2pManager *p2p.Manager
