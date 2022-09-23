@@ -59,7 +59,6 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 
 		Logger: log,
 	}, opts, func(p *Protocol) {
-		fmt.Println(p.optsBaseDirectory)
 		p.disk = diskutil.New(p.optsBaseDirectory)
 		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
