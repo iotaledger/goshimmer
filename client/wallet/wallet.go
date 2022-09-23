@@ -56,6 +56,7 @@ type Wallet struct {
 	reusableAddress          bool
 	ConfirmationPollInterval time.Duration
 	ConfirmationTimeout      time.Duration
+	Stateless                bool
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -93,7 +94,7 @@ func New(options ...Option) (wallet *Wallet) {
 	}
 
 	// initialize output manager
-	wallet.outputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector)
+	wallet.outputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector, wallet.Stateless)
 	err := wallet.outputManager.Refresh(true)
 	if err != nil {
 		panic(err)
