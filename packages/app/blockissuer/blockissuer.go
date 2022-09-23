@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/app/blockfactory"
-	"github.com/iotaledger/goshimmer/packages/app/ratesetter"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
