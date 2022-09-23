@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -18,11 +19,9 @@ import (
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 
-	ecRecord := epoch.NewECRecord(10)
-	ecRecord.SetECR([32]byte{123, 255})
-	ecRecord.SetPrevEC([32]byte{90, 111})
+	ecRecord := commitment.New([32]byte{90, 111}, 10, [32]byte{123, 255})
 	confirmedEpochIndex := epoch.Index(25)
-	commitmentFunc := func() (*epoch.ECRecord, epoch.Index, error) {
+	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
 		return ecRecord, confirmedEpochIndex, nil
 	}
 
@@ -63,9 +62,9 @@ func TestFactory_IssuePayload(t *testing.T) {
 	assert.Equal(t, createdBlock.IssuingTime(), block1.IssuingTime().Add(time.Second))
 	assert.EqualValues(t, 1337, createdBlock.SequenceNumber())
 	assert.Equal(t, lo.PanicOnErr(pay.Bytes()), lo.PanicOnErr(createdBlock.Payload().Bytes()))
-	assert.Equal(t, ecRecord.EI(), createdBlock.EI())
-	assert.Equal(t, ecRecord.ECR(), createdBlock.ECR())
-	assert.Equal(t, ecRecord.PrevEC(), createdBlock.PrevEC())
+	assert.Equal(t, ecRecord.Index(), createdBlock.Commitment().Index())
+	assert.Equal(t, ecRecord.RootsID(), createdBlock.Commitment().RootsID())
+	assert.Equal(t, ecRecord.PrevID(), createdBlock.Commitment().PrevID())
 	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
 	assert.EqualValues(t, 42, createdBlock.Nonce())
 
