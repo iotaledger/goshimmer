@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,16 +45,16 @@ func configure(_ *node.Plugin) {
 	deps.Server.POST("blocks/payload", PostPayload)
 
 	// TODO: add markers to be retained by the retainer
-	//deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
-	//deps.Server.GET("blocks/sequences/:sequenceID/markerindexconflictidmapping", GetMarkerIndexConflictIDMapping)
+	// deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
+	// deps.Server.GET("blocks/sequences/:sequenceID/markerindexconflictidmapping", GetMarkerIndexConflictIDMapping)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//// region GetSequence //////////////////////////////////////////////////////////////////////////////////////////////////
+// // region GetSequence //////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//// GetSequence is the handler for the /blocks/sequences/:sequenceID endpoint.
-//func GetSequence(c echo.Context) (err error) {
+// // GetSequence is the handler for the /blocks/sequences/:sequenceID endpoint.
+// func GetSequence(c echo.Context) (err error) {
 //	sequenceID, err := sequenceIDFromContext(c)
 //	if err != nil {
 //		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -74,14 +73,14 @@ func configure(_ *node.Plugin) {
 //	}
 //
 //	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Sequence with %s", sequenceID)))
-//}
+// }
 //
-//// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//// region GetMarkerIndexConflictIDMapping ////////////////////////////////////////////////////////////////////////////////
+// // region GetMarkerIndexConflictIDMapping ////////////////////////////////////////////////////////////////////////////////
 //
-//// GetMarkerIndexConflictIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexconflictidmapping endpoint.
-//func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
+// // GetMarkerIndexConflictIDMapping is the handler for the /blocks/sequences/:sequenceID/markerindexconflictidmapping endpoint.
+// func GetMarkerIndexConflictIDMapping(c echo.Context) (err error) {
 //	sequenceID, err := sequenceIDFromContext(c)
 //	if err != nil {
 //		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -94,9 +93,9 @@ func configure(_ *node.Plugin) {
 //	}
 //
 //	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load MarkerIndexConflictIDMapping of %s", sequenceID)))
-//}
+// }
 //
-//// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region GetBlock ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -174,23 +173,24 @@ func GetBlockMetadata(c echo.Context) (err error) {
 
 // PostPayload is the handler for the /blocks/payload endpoint.
 func PostPayload(c echo.Context) error {
-	var request jsonmodels.PostPayloadRequest
-	if err := c.Bind(&request); err != nil {
-		Plugin.LogInfo(err.Error())
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	parsedPayload, _, err := payload.FromBytes(request.Payload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	blk, err := deps.Tangle.IssuePayload(parsedPayload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	}
-
-	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
+	// var request jsonmodels.PostPayloadRequest
+	// if err := c.Bind(&request); err != nil {
+	// 	Plugin.LogInfo(err.Error())
+	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	// }
+	//
+	// parsedPayload, _, err := payload.FromBytes(request.Payload)
+	// if err != nil {
+	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	// }
+	//
+	// blk, err := deps.Tangle.IssuePayload(parsedPayload)
+	// if err != nil {
+	// 	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	// }
+	//
+	// return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

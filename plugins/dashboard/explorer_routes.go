@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -58,7 +59,7 @@ type ExplorerBlock struct {
 	ConfirmationState     confirmation.State `json:"confirmationState"`
 	ConfirmationStateTime int64              `json:"confirmationStateTime"`
 	// PayloadType defines the type of the payload.
-	PayloadType uint32 `json:"payload_type"`
+	PayloadType payload.Type `json:"payload_type"`
 	// Payload is the content of the payload.
 	Payload interface{} `json:"payload"`
 
