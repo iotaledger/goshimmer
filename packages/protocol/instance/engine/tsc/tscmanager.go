@@ -6,11 +6,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/timed"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -24,7 +22,6 @@ type TSCManager struct {
 	unconfirmedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
 	tangle            *tangle.Tangle
 	isBlockAccepted   func(models.BlockID) bool
-	clock             *clock.Clock
 
 	optsTimeSinceConfirmationThreshold time.Duration
 
@@ -32,26 +29,19 @@ type TSCManager struct {
 }
 
 // New returns a new instance of TSCManager.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, clock *clock.Clock, opts ...options.Option[TSCManager]) *TSCManager {
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, opts ...options.Option[TSCManager]) *TSCManager {
 	return options.Apply(&TSCManager{
 		isBlockAccepted:                    isBlockAccepted,
-		clock:                              clock,
 		tangle:                             tangle,
 		optsTimeSinceConfirmationThreshold: time.Minute,
-	}, opts, (*TSCManager).Setup)
+	}, opts)
 }
 
-func (o *TSCManager) Setup() {
-	o.tangle.Events.Booker.BlockBooked.Attach(event.NewClosure(o.AddBlock))
-
-	o.clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(o.HandleTimeUpdate))
-
-}
-
-func (o *TSCManager) HandleTimeUpdate(evt *clock.TimeUpdate) {
+func (o *TSCManager) HandleTimeUpdate(newTime time.Time) {
 	o.Lock()
 	defer o.Unlock()
-	o.orphanBeforeTSC(evt.NewTime.Add(-o.optsTimeSinceConfirmationThreshold))
+
+	o.orphanBeforeTSC(newTime.Add(-o.optsTimeSinceConfirmationThreshold))
 }
 
 func (o *TSCManager) AddBlock(block *booker.Block) {

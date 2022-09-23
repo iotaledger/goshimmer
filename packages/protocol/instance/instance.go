@@ -73,6 +73,7 @@ func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[In
 		}, opts,
 		(*Instance).initEngine,
 		(*Instance).initClock,
+		(*Instance).initTSCManager,
 		(*Instance).initBlockStorage,
 		(*Instance).initNotarizationManager,
 		(*Instance).initSnapshotManager,
@@ -87,6 +88,12 @@ func (i *Instance) IsBootstrapped() (isBootstrapped bool) {
 	return time.Since(i.Clock.RelativeConfirmedTime()) < i.optsBootstrappedThreshold
 }
 
+func (i *Instance) initEngine() {
+	i.Engine = engine.New(i.IsBootstrapped, ledger.New(), i.EvictionManager, i.ValidatorSet, i.optsEngineOptions...)
+
+	i.Events.Engine = i.Engine.Events
+}
+
 func (i *Instance) initClock() {
 	i.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		i.Clock.SetAcceptedTime(block.IssuingTime())
@@ -95,10 +102,14 @@ func (i *Instance) initClock() {
 	i.Events.Clock = i.Clock.Events
 }
 
-func (i *Instance) initEngine() {
-	i.Engine = engine.New(i.IsBootstrapped, ledger.New(), i.EvictionManager, i.ValidatorSet, i.optsEngineOptions...)
+func (i *Instance) initTSCManager() {
+	// TODO: this is wired up here since the TSC manager needs the clock which is not present in the engine.
+	//  Since we eventually want to move all parts of the engine to the instance this is temporary.
 
-	i.Events.Engine = i.Engine.Events
+	i.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(i.Engine.TSCManager.AddBlock))
+	i.Events.Clock.AcceptanceTimeUpdated.Attach(event.NewClosure(func(e *clock.TimeUpdate) {
+		i.Engine.TSCManager.HandleTimeUpdate(e.NewTime)
+	}))
 }
 
 func (i *Instance) initBlockStorage() {

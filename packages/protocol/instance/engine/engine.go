@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -23,10 +24,12 @@ type Engine struct {
 	Tangle            *tangle.Tangle
 	Consensus         *consensus.Consensus
 	CongestionControl *congestioncontrol.CongestionControl
+	TSCManager        *tsc.TSCManager
 
 	optsTangleOptions            []options.Option[tangle.Tangle]
 	optsConsensusOptions         []options.Option[consensus.Consensus]
 	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
+	optsTSCManagerOptions        []options.Option[tsc.TSCManager]
 }
 
 func New(isBootstrapped func() bool, ledger *ledger.Ledger, evictionManager *eviction.Manager[models.BlockID], validatorSet *validator.Set, opts ...options.Option[Engine]) (engine *Engine) {
@@ -40,23 +43,18 @@ func New(isBootstrapped func() bool, ledger *ledger.Ledger, evictionManager *evi
 		}, func() float64 {
 			panic("implement me")
 		}, e.optsCongestionControlOptions...)
+		e.TSCManager = tsc.New(e.Consensus.IsBlockAccepted, e.Tangle)
 
 		e.Events = NewEvents()
 		e.Events.Tangle = e.Tangle.Events
 		e.Events.Consensus = e.Consensus.Events
 		e.Events.CongestionControl = e.CongestionControl.Events
 		e.Events.Ledger = e.Ledger.Events
-
-		e.setupTipManagerEvents()
 	})
 }
 
 func (e *Engine) Shutdown() {
 	e.Ledger.Shutdown()
-}
-
-func (e *Engine) setupTipManagerEvents() {
-
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,6 +76,12 @@ func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.O
 func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsCongestionControlOptions = opts
+	}
+}
+
+func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsTSCManagerOptions = opts
 	}
 }
 

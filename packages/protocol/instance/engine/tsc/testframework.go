@@ -2,13 +2,11 @@ package tsc
 
 import (
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -18,8 +16,8 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	OrphanageManager *TSCManager
-	mockAcceptance   *acceptance.MockAcceptanceGadget
+	TSCManager     *TSCManager
+	mockAcceptance *acceptance.MockAcceptanceGadget
 
 	test *testing.T
 
@@ -27,7 +25,6 @@ type TestFramework struct {
 	optsTangle              []options.Option[tangle.Tangle]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
-	optsClock               *clock.Clock
 	*tangle.TestFramework
 }
 
@@ -47,14 +44,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.optsBlockAcceptedEvent == nil {
 			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
 		}
-		if t.optsClock == nil {
-			t.optsClock = clock.New(time.Now().Add(-5 * time.Hour))
+
+		if t.TSCManager == nil {
+			t.TSCManager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsTSCManager...)
 		}
 
-		if t.OrphanageManager == nil {
-			t.OrphanageManager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsClock, t.optsTSCManager...)
-		}
-
+		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(t.TSCManager.AddBlock))
 	})
 }
 
