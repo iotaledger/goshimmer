@@ -43,9 +43,8 @@ func init() {
 func provide() (p *protocol.Protocol) {
 
 	// TODO:
-	//		tangleold.GenesisTime(genesisTime),
-	//		tangleold.SyncTimeWindow(Parameters.TangleTimeWindow),
-	//		tangleold.StartSynced(Parameters.StartSynced),
+	//		tangleold.GenesisTime(genesisTime), -> set global variable
+	//		tangleold.SyncTimeWindow(Parameters.BootstrapWindow),
 	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
 
 	p = protocol.New(deps.Network, Plugin.Logger(),
@@ -53,18 +52,15 @@ func provide() (p *protocol.Protocol) {
 			instance.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				// TODO: notarization.ManaEpochDelay(ManaParameters.EpochDelay),
+				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
 			instance.WithEngineOptions(
 				engine.WithCongestionControlOptions(
 					congestioncontrol.WithSchedulerOptions(
 						scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
-						// TODO: TotalSupply:                     2779530283277761,
 						scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
 						scheduler.WithRate(SchedulerParameters.Rate),
-						// TODO:			AccessManaMapRetrieverFunc:      accessManaMapRetriever,
-						//			TotalAccessManaRetrieveFunc:     totalAccessManaRetriever,
 					),
 				),
 				engine.WithTSCManagerOptions(
