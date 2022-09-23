@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type connection struct {
