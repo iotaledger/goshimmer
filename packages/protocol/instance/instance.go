@@ -140,6 +140,7 @@ func (i *Instance) initNotarizationManager() {
 	)
 
 	// TODO: WIRE UP EVENTS OUTSIDE
+	i.Events.NotarizationManager = i.NotarizationManager.Events
 }
 
 func (i *Instance) initSnapshotManager() {
