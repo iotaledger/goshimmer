@@ -167,6 +167,15 @@ func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID ut
 	return removeLeaf(commitment.stateMutationTree, txID.Bytes())
 }
 
+// hasStateMutationLeaf returns if the leaf is part of the state mutation sparse merkle tree.
+func (f *EpochCommitmentFactory) hasStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) (has bool, err error) {
+	commitment, err := f.getCommitmentTrees(ei)
+	if err != nil {
+		return false, errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
+	}
+	return commitment.stateMutationTree.Has(txID.Bytes())
+}
+
 // insertTangleLeaf inserts blk to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID models.BlockID) error {
 	commitment, err := f.getCommitmentTrees(ei)
@@ -247,11 +256,19 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
+		cachedObj, stored := epochDiffStorage.spent.StoreIfAbsent(spentOutputWithMetadata)
+		if !stored {
+			continue
+		}
+		cachedObj.Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
+		cachedObj, stored := epochDiffStorage.created.StoreIfAbsent(createdOutputWithMetadata)
+		if !stored {
+			continue
+		}
+		cachedObj.Release()
 	}
 }
 

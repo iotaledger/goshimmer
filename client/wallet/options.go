@@ -81,3 +81,10 @@ func GenericConnector(connector Connector) Option {
 		wallet.connector = connector
 	}
 }
+
+// Stateless allows to run the wallet in a stateless mode, meaning outputs will always be refreshed from the connector.
+func Stateless(stateless bool) Option {
+	return func(wallet *Wallet) {
+		wallet.Stateless = stateless
+	}
+}

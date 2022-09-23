@@ -18,10 +18,11 @@ import (
 
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
-	sampleCommitment := commitment.New(commitment.ID{0}, 0, commitment.RootsID{0})
+
+	ecRecord := commitment.New([32]byte{90, 111}, 10, [32]byte{123, 255})
 	confirmedEpochIndex := epoch.Index(25)
 	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
-		return sampleCommitment, confirmedEpochIndex, nil
+		return ecRecord, confirmedEpochIndex, nil
 	}
 
 	referencesFunc := func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
@@ -61,9 +62,9 @@ func TestFactory_IssuePayload(t *testing.T) {
 	assert.Equal(t, createdBlock.IssuingTime(), block1.IssuingTime().Add(time.Second))
 	assert.EqualValues(t, 1337, createdBlock.SequenceNumber())
 	assert.Equal(t, lo.PanicOnErr(pay.Bytes()), lo.PanicOnErr(createdBlock.Payload().Bytes()))
-	assert.Equal(t, sampleCommitment.Index(), createdBlock.Commitment().Index())
-	assert.Equal(t, sampleCommitment.RootsID(), createdBlock.Commitment().RootsID())
-	assert.Equal(t, sampleCommitment.PrevID(), createdBlock.Commitment().PrevID())
+	assert.Equal(t, ecRecord.Index(), createdBlock.Commitment().Index())
+	assert.Equal(t, ecRecord.RootsID(), createdBlock.Commitment().RootsID())
+	assert.Equal(t, ecRecord.PrevID(), createdBlock.Commitment().PrevID())
 	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
 	assert.EqualValues(t, 42, createdBlock.Nonce())
 

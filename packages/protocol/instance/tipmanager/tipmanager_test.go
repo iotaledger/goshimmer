@@ -230,17 +230,17 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.CreateBlock("0/1-postTSC-direct_0", models.WithStrongParents(tf.BlockIDs("Marker-0/1")))
 		tf.IssueBlocks("0/1-postTSC-direct_0").WaitUntilAllTasksProcessed()
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"Marker-0/1":    markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSC_0":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSC_1":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSC_2":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSC_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSC_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSC_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-0/2":    markers2.NewMarkers(markers2.NewMarker(0, 2)),
-			"Marker-0/3":    markers2.NewMarkers(markers2.NewMarker(0, 3)),
-			"Marker-0/4":    markers2.NewMarkers(markers2.NewMarker(0, 4)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-0/2":    markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Marker-0/3":    markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Marker-0/4":    markers.NewMarkers(markers.NewMarker(0, 4)),
 		}))
 	}
 
@@ -248,10 +248,10 @@ func createTestTangleTSC(tf *TestFramework) {
 	{
 		_ = issueBlocks(tf, "0/0", 3, []string{"Genesis"}, time.Minute)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/0_0": markers2.NewMarkers(markers2.NewMarker(0, 0)),
-			"0/0_1": markers2.NewMarkers(markers2.NewMarker(0, 0)),
-			"0/0_2": markers2.NewMarkers(markers2.NewMarker(0, 0)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/0_0": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"0/0_1": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"0/0_2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		}))
 	}
 	// SEQUENCE 1
@@ -271,28 +271,28 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "1/3", 5, []string{"Marker-1/3"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/1-preTSCSeq1_0":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq1_1":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq1_2":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_3": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_4": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq1_5": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-1/2":        markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"1/2_0":             markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"1/2_1":             markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"1/2_2":             markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"1/2_3":             markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"1/2_4":             markers2.NewMarkers(markers2.NewMarker(1, 2)),
-			"Marker-1/3":        markers2.NewMarkers(markers2.NewMarker(1, 3)),
-			"1/3_0":             markers2.NewMarkers(markers2.NewMarker(1, 3)),
-			"1/3_1":             markers2.NewMarkers(markers2.NewMarker(1, 3)),
-			"1/3_2":             markers2.NewMarkers(markers2.NewMarker(1, 3)),
-			"1/3_3":             markers2.NewMarkers(markers2.NewMarker(1, 3)),
-			"1/3_4":             markers2.NewMarkers(markers2.NewMarker(1, 3)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/1-preTSCSeq1_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-1/2":        markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_0":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_1":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_2":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_3":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_4":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Marker-1/3":        markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_0":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_1":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_2":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_3":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_4":             markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 	}
 
@@ -313,28 +313,28 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "2/3", 5, []string{"Marker-2/3"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/1-preTSCSeq2_0":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq2_1":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq2_2":  markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_3": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_4": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq2_5": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-2/2":        markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"2/2_0":             markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"2/2_1":             markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"2/2_2":             markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"2/2_3":             markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"2/2_4":             markers2.NewMarkers(markers2.NewMarker(2, 2)),
-			"Marker-2/3":        markers2.NewMarkers(markers2.NewMarker(2, 3)),
-			"2/3_0":             markers2.NewMarkers(markers2.NewMarker(2, 3)),
-			"2/3_1":             markers2.NewMarkers(markers2.NewMarker(2, 3)),
-			"2/3_2":             markers2.NewMarkers(markers2.NewMarker(2, 3)),
-			"2/3_3":             markers2.NewMarkers(markers2.NewMarker(2, 3)),
-			"2/3_4":             markers2.NewMarkers(markers2.NewMarker(2, 3)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/1-preTSCSeq2_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-2/2":        markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_0":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_1":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_2":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_3":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_4":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Marker-2/3":        markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_0":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_1":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_2":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_3":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_4":             markers.NewMarkers(markers.NewMarker(2, 3)),
 		}))
 	}
 
@@ -346,13 +346,13 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "2/5", 5, []string{"Marker-2/5"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"Marker-2/5": markers2.NewMarkers(markers2.NewMarker(2, 5)),
-			"2/5_0":      markers2.NewMarkers(markers2.NewMarker(2, 5)),
-			"2/5_1":      markers2.NewMarkers(markers2.NewMarker(2, 5)),
-			"2/5_2":      markers2.NewMarkers(markers2.NewMarker(2, 5)),
-			"2/5_3":      markers2.NewMarkers(markers2.NewMarker(2, 5)),
-			"2/5_4":      markers2.NewMarkers(markers2.NewMarker(2, 5)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"Marker-2/5": markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_0":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_1":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_2":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_3":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_4":      markers.NewMarkers(markers.NewMarker(2, 5)),
 		}))
 	}
 
@@ -367,18 +367,18 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "3/2", 5, []string{"Marker-3/2"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/1-postTSCSeq3_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_3": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq3_4": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-3/2":        markers2.NewMarkers(markers2.NewMarker(3, 2)),
-			"3/2_0":             markers2.NewMarkers(markers2.NewMarker(3, 2)),
-			"3/2_1":             markers2.NewMarkers(markers2.NewMarker(3, 2)),
-			"3/2_2":             markers2.NewMarkers(markers2.NewMarker(3, 2)),
-			"3/2_3":             markers2.NewMarkers(markers2.NewMarker(3, 2)),
-			"3/2_4":             markers2.NewMarkers(markers2.NewMarker(3, 2)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/1-postTSCSeq3_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-3/2":        markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_0":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_1":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_2":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_3":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_4":             markers.NewMarkers(markers.NewMarker(3, 2)),
 		}))
 	}
 
@@ -390,12 +390,12 @@ func createTestTangleTSC(tf *TestFramework) {
 		tf.IssueBlocks("Marker-4/5").WaitUntilAllTasksProcessed()
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"2/3+0/4_0":  markers2.NewMarkers(markers2.NewMarker(2, 3), markers2.NewMarker(0, 4)),
-			"2/3+0/4_1":  markers2.NewMarkers(markers2.NewMarker(2, 3), markers2.NewMarker(0, 4)),
-			"2/3+0/4_2":  markers2.NewMarkers(markers2.NewMarker(2, 3), markers2.NewMarker(0, 4)),
-			"2/3+0/4_3":  markers2.NewMarkers(markers2.NewMarker(2, 3), markers2.NewMarker(0, 4)),
-			"Marker-4/5": markers2.NewMarkers(markers2.NewMarker(4, 5)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"2/3+0/4_0":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_1":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_2":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_3":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"Marker-4/5": markers.NewMarkers(markers.NewMarker(4, 5)),
 		}))
 	}
 	// SEQUENCE 5
@@ -409,18 +409,18 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "5/2", 5, []string{"Marker-5/2"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/1-preTSCSeq5_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_3": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-preTSCSeq5_4": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-5/2":       markers2.NewMarkers(markers2.NewMarker(5, 2)),
-			"5/2_0":            markers2.NewMarkers(markers2.NewMarker(5, 2)),
-			"5/2_1":            markers2.NewMarkers(markers2.NewMarker(5, 2)),
-			"5/2_2":            markers2.NewMarkers(markers2.NewMarker(5, 2)),
-			"5/2_3":            markers2.NewMarkers(markers2.NewMarker(5, 2)),
-			"5/2_4":            markers2.NewMarkers(markers2.NewMarker(5, 2)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/1-preTSCSeq5_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-5/2":       markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_0":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_1":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_2":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_3":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_4":            markers.NewMarkers(markers.NewMarker(5, 2)),
 		}))
 	}
 
@@ -435,18 +435,18 @@ func createTestTangleTSC(tf *TestFramework) {
 		_ = issueBlocks(tf, "6/2", 5, []string{"Marker-6/2"}, 0)
 		tf.PreventNewMarkers(false)
 
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers2.Markers{
-			"0/1-postTSCSeq6_0": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_1": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_2": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_3": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"0/1-postTSCSeq6_4": markers2.NewMarkers(markers2.NewMarker(0, 1)),
-			"Marker-6/2":        markers2.NewMarkers(markers2.NewMarker(6, 2)),
-			"6/2_0":             markers2.NewMarkers(markers2.NewMarker(6, 2)),
-			"6/2_1":             markers2.NewMarkers(markers2.NewMarker(6, 2)),
-			"6/2_2":             markers2.NewMarkers(markers2.NewMarker(6, 2)),
-			"6/2_3":             markers2.NewMarkers(markers2.NewMarker(6, 2)),
-			"6/2_4":             markers2.NewMarkers(markers2.NewMarker(6, 2)),
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"0/1-postTSCSeq6_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-6/2":        markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_0":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_1":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_2":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_3":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_4":             markers.NewMarkers(markers.NewMarker(6, 2)),
 		}))
 	}
 }

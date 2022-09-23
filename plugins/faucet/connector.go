@@ -1,8 +1,6 @@
 package faucet
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/pkg/errors"
 
@@ -33,10 +31,8 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 	unspentOutputs = make(map[address.Address]map[utxo.OutputID]*wallet.Output)
 
 	for _, addr := range addresses {
-		fmt.Println("> Getting unspent outputs for ", addr.Base58())
 		f.indexer.CachedAddressOutputMappings(addr.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
 			f.protocol.Instance().Engine.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
-				fmt.Println("> > Found output ", output.String())
 				if typedOutput, ok := output.(devnetvm.Output); ok {
 					f.protocol.Instance().Engine.Ledger.Storage.CachedOutputMetadata(typedOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 						if !outputMetadata.IsSpent() {
@@ -61,7 +57,6 @@ func (f *Connector) UnspentOutputs(addresses ...address.Address) (unspentOutputs
 			})
 		})
 	}
-	fmt.Printf("%+v\n", unspentOutputs)
 	return
 }
 

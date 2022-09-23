@@ -449,6 +449,15 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 	txID := event.TransactionID
 
+	has, err := m.isTransactionInEpoch(event.TransactionID, oldEpoch); 
+	if err != nil {
+		m.log.Error(err)
+		return
+	}
+	if !has {
+		return
+	}
+
 	var spent, created []*ledger.OutputWithMetadata
 	m.engine.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		spent, created = m.resolveOutputs(tx)
@@ -595,6 +604,8 @@ func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.In
 	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
+	// TODO: in case of a reorg, a transaction spending the same output of another TX will cause a duplicate element
+	// in cache in the objectstorage if we don't hook to the reorged transaction "orphanage".
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
 
 	m.Events.StateMutationTreeInserted.Trigger(&StateMutationTreeUpdatedEvent{TransactionID: txID})
@@ -613,6 +624,10 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 	m.Events.UTXOTreeRemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
 
 	return nil
+}
+
+func (m *Manager) isTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index) (has bool, err error) {
+	return m.epochCommitmentFactory.hasStateMutationLeaf(ei, txID)
 }
 
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
