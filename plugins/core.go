@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/blockissuer"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -47,4 +48,5 @@ var Core = node.Plugins(
 	metrics.Plugin,
 	spammer.Plugin,
 	manainitializer.Plugin,
+	blockissuer.Plugin,
 )

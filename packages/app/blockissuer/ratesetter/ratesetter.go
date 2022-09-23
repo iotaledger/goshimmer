@@ -43,9 +43,12 @@ var (
 
 // RateSetter is a Tangle component that takes care of congestion control of local node.
 type RateSetter struct {
-	Events              *Events
-	protocol            *protocol.Protocol
-	self                identity.ID
+	Events                      *Events
+	protocol                    *protocol.Protocol
+	self                        identity.ID
+	totalAccessManaRetrieveFunc func() int64
+	accessManaMapRetrieverFunc  func() map[identity.ID]int64
+
 	issuingQueue        *IssuerQueue
 	issueChan           chan *models.Block
 	ownRate             *atomic.Float64
@@ -56,12 +59,10 @@ type RateSetter struct {
 	shutdownOnce        sync.Once
 	initOnce            sync.Once
 
-	optsEnabled                 bool
-	optsInitialRate             float64
-	optsPause                   time.Duration
-	optsSchedulerRate           time.Duration
-	totalAccessManaRetrieveFunc func() int64
-	accessManaMapRetrieverFunc  func() map[identity.ID]int64
+	optsEnabled       bool
+	optsInitialRate   float64
+	optsPause         time.Duration
+	optsSchedulerRate time.Duration
 }
 
 // New returns a new RateSetter.
@@ -82,25 +83,14 @@ func New(protocol *protocol.Protocol, accessManaMapRetrieverFunc func() map[iden
 		r.initialPauseUpdates = uint(r.optsPause / r.optsSchedulerRate)
 		r.maxRate = float64(time.Second / r.optsSchedulerRate)
 	}, func(r *RateSetter) {
-		go r.issuerLoop()
+		if r.optsEnabled {
+			go r.issuerLoop()
+		}
 	})
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	//if !r.optsEnabled {
-	//	r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(block *models.Block) {
-	//		r.Events.BlockIssued.Trigger(block)
-	//	}))
-	//	return
-	//}
-	//
-	//r.tangle.BlockFactory.Events.BlockConstructed.Attach(event.NewClosure(func(block *models.Block) {
-	//	if err := r.Issue(block); err != nil {
-	//		r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
-	//	}
-	//}))
-
 	r.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
@@ -112,8 +102,13 @@ func (r *RateSetter) setupEvents() {
 	}))
 }
 
-// Issue submits a block to the local issuing queue.
-func (r *RateSetter) Issue(block *models.Block) error {
+// IssueBlock submits a block to the local issuing queue.
+func (r *RateSetter) IssueBlock(block *models.Block) error {
+	if !r.optsEnabled {
+		r.Events.BlockIssued.Trigger(block)
+		return nil
+	}
+
 	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
@@ -250,6 +245,34 @@ func (r *RateSetter) initializeInitialRate() {
 		ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
 		totalMana := float64(r.totalAccessManaRetrieveFunc())
 		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithEnabled(enabled bool) options.Option[RateSetter] {
+	return func(rateSetter *RateSetter) {
+		rateSetter.optsEnabled = enabled
+	}
+}
+
+func WithInitialRate(initialRate float64) options.Option[RateSetter] {
+	return func(rateSetter *RateSetter) {
+		rateSetter.optsInitialRate = initialRate
+	}
+}
+
+func WithSchedulerRate(schedulerRate time.Duration) options.Option[RateSetter] {
+	return func(rateSetter *RateSetter) {
+		rateSetter.optsSchedulerRate = schedulerRate
+	}
+}
+
+func WithPause(pause time.Duration) options.Option[RateSetter] {
+	return func(rateSetter *RateSetter) {
+		rateSetter.optsPause = pause
 	}
 }
 

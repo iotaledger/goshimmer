@@ -9,22 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/models/payload"
-
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
-
-	ecRecord := epoch.NewECRecord(10)
-	ecRecord.SetECR([32]byte{123, 255})
-	ecRecord.SetPrevEC([32]byte{90, 111})
+	sampleCommitment := commitment.New(commitment.ID{0}, 0, commitment.RootsID{0})
 	confirmedEpochIndex := epoch.Index(25)
-	commitmentFunc := func() (*epoch.ECRecord, epoch.Index, error) {
-		return ecRecord, confirmedEpochIndex, nil
+	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
+		return sampleCommitment, confirmedEpochIndex, nil
 	}
 
 	referencesFunc := func(payload payload.Payload, strongParents models.BlockIDs) (references models.ParentBlockIDs, err error) {
@@ -64,9 +61,9 @@ func TestFactory_IssuePayload(t *testing.T) {
 	assert.Equal(t, createdBlock.IssuingTime(), block1.IssuingTime().Add(time.Second))
 	assert.EqualValues(t, 1337, createdBlock.SequenceNumber())
 	assert.Equal(t, lo.PanicOnErr(pay.Bytes()), lo.PanicOnErr(createdBlock.Payload().Bytes()))
-	assert.Equal(t, ecRecord.EI(), createdBlock.EI())
-	assert.Equal(t, ecRecord.ECR(), createdBlock.ECR())
-	assert.Equal(t, ecRecord.PrevEC(), createdBlock.PrevEC())
+	assert.Equal(t, sampleCommitment.Index(), createdBlock.Commitment().Index())
+	assert.Equal(t, sampleCommitment.RootsID(), createdBlock.Commitment().RootsID())
+	assert.Equal(t, sampleCommitment.PrevID(), createdBlock.Commitment().PrevID())
 	assert.Equal(t, confirmedEpochIndex, createdBlock.LatestConfirmedEpoch())
 	assert.EqualValues(t, 42, createdBlock.Nonce())
 

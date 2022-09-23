@@ -37,7 +37,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	rateSetter.Events.BlockIssued.Attach(event.NewClosure(func(event *BlockConstructedEvent) { blockIssued <- event.Block }))
 
 	blk := newBlock(localNode.PublicKey())
-	assert.NoError(t, rateSetter.Issue(blk))
+	assert.NoError(t, rateSetter.IssueBlock(blk))
 	assert.Eventually(t, func() bool {
 		select {
 		case blk1 := <-blockIssued:
@@ -73,7 +73,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			epoch.NewECRecord(0),
 		)
 		assert.NoError(t, blk.DetermineID())
-		assert.NoError(t, rateSetter.Issue(blk))
+		assert.NoError(t, rateSetter.IssueBlock(blk))
 	}
 
 	assert.Eventually(t, func() bool {
