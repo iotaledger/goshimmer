@@ -6,7 +6,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/protocol"
 )
 
 var dbSize prometheus.Gauge
@@ -25,7 +25,7 @@ func registerDBMetrics() {
 }
 
 func collectDBSize() {
-	size, err := directorySize(database.Parameters.Directory)
+	size, err := directorySize(protocol.DatabaseParameters.Directory)
 	if err == nil {
 		dbSize.Set(float64(size))
 	}

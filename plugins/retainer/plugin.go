@@ -44,7 +44,7 @@ func configure(_ *node.Plugin) {
 }
 
 func createRetainer() *retainer.Retainer {
-	//TODO: retainer needs to use protocol instead of engine
+	// TODO: retainer needs to use protocol instead of engine
 	// TODO: retainer db needs to be be pruned (create configuration)
-	return retainer.NewRetainer(deps.Protocol, database.NewManager(database.WithBaseDir(Parameters.DBPath)))
+	return retainer.NewRetainer(deps.Protocol, database.NewManager(protocol.DatabaseVersion, database.WithBaseDir(Parameters.DBPath)))
 }

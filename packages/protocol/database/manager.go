@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/cockroachdb/errors"
 	"github.com/zyedidia/generic/cache"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
@@ -39,8 +40,8 @@ type Manager struct {
 	optsMaxOpenDBs  int
 }
 
-func NewManager(opts ...options.Option[Manager]) *Manager {
-	return options.Apply(&Manager{
+func NewManager(version Version, opts ...options.Option[Manager]) *Manager {
+	m := options.Apply(&Manager{
 		maxPruned:       -1,
 		optsGranularity: 10,
 		optsBaseDir:     "db",
@@ -60,6 +61,36 @@ func NewManager(opts ...options.Option[Manager]) *Manager {
 			db.instance.Close()
 		})
 	})
+
+	if err := m.checkVersion(version); err != nil {
+		panic(err)
+	}
+
+	return m
+}
+
+// checkVersion checks whether the database is compatible with the current schema version.
+// also automatically sets the version if the database is new.
+func (m *Manager) checkVersion(version Version) error {
+	entry, err := m.permanentStorage.Get(dbVersionKey)
+	if errors.Is(err, kvstore.ErrKeyNotFound) {
+		// set the version in an empty DB
+		return m.permanentStorage.Set(dbVersionKey, lo.PanicOnErr(version.Bytes()))
+	}
+	if err != nil {
+		return err
+	}
+	if len(entry) == 0 {
+		return errors.Errorf("no database version was persisted")
+	}
+	var storedVersion Version
+	if _, err := storedVersion.FromBytes(entry); err != nil {
+		return err
+	}
+	if storedVersion != version {
+		return errors.Errorf("incompatible database versions: supported version: %d, version of database: %d", version, storedVersion)
+	}
+	return nil
 }
 
 func (m *Manager) PermanentStorage() kvstore.KVStore {
@@ -312,6 +343,8 @@ type dbInstance struct {
 // utils ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var healthKey = []byte("bucket_health")
+
+var dbVersionKey = []byte("db_version")
 
 // indexToRealm converts an baseIndex to a realm with some shifting magic.
 func indexToRealm(index epoch.Index) kvstore.Realm {

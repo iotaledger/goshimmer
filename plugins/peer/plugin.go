@@ -24,7 +24,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	databasePkg "github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/protocol"
 )
 
 // PluginName is the name of the Peer plugin.
@@ -211,9 +211,9 @@ func isPeerDBNew() (bool, error) {
 
 // checks that the peer database path does not reside within the main database directory.
 func checkValidPeerDBPath() error {
-	absMainDBPath, err := filepath.Abs(database.Parameters.Directory)
+	absMainDBPath, err := filepath.Abs(protocol.DatabaseParameters.Directory)
 	if err != nil {
-		return fmt.Errorf("cannot resolve absolute path of %s: %w", database.Parameters.Directory, err)
+		return fmt.Errorf("cannot resolve absolute path of %s: %w", protocol.DatabaseParameters.Directory, err)
 	}
 
 	absPeerDBPath, err := filepath.Abs(Parameters.PeerDBDirectory)
@@ -222,7 +222,7 @@ func checkValidPeerDBPath() error {
 	}
 
 	if strings.Index(absPeerDBPath, absMainDBPath) == 0 {
-		return fmt.Errorf("peerDB: %s should not be a subdirectory of mainDB: %s", Parameters.PeerDBDirectory, database.Parameters.Directory)
+		return fmt.Errorf("peerDB: %s should not be a subdirectory of mainDB: %s", Parameters.PeerDBDirectory, protocol.DatabaseParameters.Directory)
 	}
 	return nil
 }

@@ -44,6 +44,7 @@ type Instance struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
+	databaseVersion                database.Version
 	chainDirectory                 string
 	dbManager                      *database.Manager
 	logger                         *logger.Logger
@@ -51,26 +52,27 @@ type Instance struct {
 	optsSnapshotFile               string
 	optsSnapshotDepth              int
 	optsEngineOptions              []options.Option[engine.Engine]
-	optsDBManagerOptions           []options.Option[database.Manager]
+	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsNotarizationManagerOptions []notarization.ManagerOption
 	optsTipManagerOptions          []options.Option[tipmanager.TipManager]
 }
 
-func New(chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
+func New(databaseVersion database.Version, chainDirectory string, logger *logger.Logger, opts ...options.Option[Instance]) (protocol *Instance) {
 	return options.Apply(
 		&Instance{
+			databaseVersion: databaseVersion,
 			Clock:           clock.New(),
 			Events:          NewEvents(),
 			ValidatorSet:    validator.NewSet(),
 			EvictionManager: eviction.NewManager[models.BlockID](),
 
 			chainDirectory:            chainDirectory,
-			dbManager:                 database.NewManager(database.WithBaseDir(chainDirectory)),
 			logger:                    logger,
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
+		(*Instance).initDatabaseManager,
 		(*Instance).initEngine,
 		(*Instance).initClock,
 		(*Instance).initTSCManager,
@@ -91,6 +93,12 @@ func (i *Instance) IsBootstrapped() (isBootstrapped bool) {
 
 func (i *Instance) IsSynced() (isBootstrapped bool) {
 	return i.IsBootstrapped() && time.Since(i.Clock.AcceptedTime()) < i.optsBootstrappedThreshold
+}
+
+func (i *Instance) initDatabaseManager() {
+	i.optsDatabaseManagerOptions = append(i.optsDatabaseManagerOptions, database.WithBaseDir(i.chainDirectory))
+
+	i.dbManager = database.NewManager(i.databaseVersion, i.optsDatabaseManagerOptions...)
 }
 
 func (i *Instance) initEngine() {
@@ -293,9 +301,15 @@ func WithSnapshotFile(snapshotFile string) options.Option[Instance] {
 	}
 }
 
-func WithNotarizationManagerOptions(managerOptions ...notarization.ManagerOption) options.Option[Instance] {
+func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Instance] {
 	return func(i *Instance) {
-		i.optsNotarizationManagerOptions = managerOptions
+		i.optsDatabaseManagerOptions = opts
+	}
+}
+
+func WithNotarizationManagerOptions(opts ...notarization.ManagerOption) options.Option[Instance] {
+	return func(i *Instance) {
+		i.optsNotarizationManagerOptions = opts
 	}
 }
 

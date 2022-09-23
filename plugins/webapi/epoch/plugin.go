@@ -4,8 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
-
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 )
 
 // PluginName is the name of the web API epoch endpoint plugin.
@@ -20,8 +18,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server          *echo.Echo
-	NotarizationMgr *notarization.Manager
+	Server *echo.Echo
 }
 
 func init() {

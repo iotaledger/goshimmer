@@ -63,20 +63,7 @@ func NewManager(c *clock.Clock, e *engine.Engine, epochCommitmentFactory *EpochC
 		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
 		log:                      options.Log,
 		options:                  options,
-		Events: &Events{
-			TangleTreeInserted:        event.New[*TangleTreeUpdatedEvent](),
-			TangleTreeRemoved:         event.New[*TangleTreeUpdatedEvent](),
-			StateMutationTreeInserted: event.New[*StateMutationTreeUpdatedEvent](),
-			StateMutationTreeRemoved:  event.New[*StateMutationTreeUpdatedEvent](),
-			UTXOTreeInserted:          event.New[*UTXOUpdatedEvent](),
-			UTXOTreeRemoved:           event.New[*UTXOUpdatedEvent](),
-			EpochCommittable:          event.New[*EpochCommittableEvent](),
-			ManaVectorUpdate:          event.New[*mana.ManaVectorUpdateEvent](),
-			Bootstrapped:              event.New[*BootstrappedEvent](),
-			SyncRange:                 event.New[*SyncRangeEvent](),
-			ActivityTreeInserted:      event.New[*ActivityTreeUpdatedEvent](),
-			ActivityTreeRemoved:       event.New[*ActivityTreeUpdatedEvent](),
-		},
+		Events:                   NewEvents(),
 	}
 
 	new.engine.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
