@@ -12,7 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.6.0.20220919120731-993cbfe0ff62
+	github.com/iotaledger/hive.go/core v1.0.0-beta.6.0.20220922132817-c814a3f018cb
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -31,6 +31,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
+	github.com/zyedidia/generic v1.1.0
 	gitlab.com/NebulousLabs/merkletree v0.0.0-20200118113624-07fbf710afc4
 	go.dedis.ch/kyber/v3 v3.0.14
 	go.uber.org/atomic v1.10.0
@@ -41,7 +42,11 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
 
-require github.com/panjf2000/ants/v2 v2.5.0 // indirect
+require (
+	github.com/iotaledger/hive.go v0.0.0-20220922132817-c814a3f018cb // indirect
+	github.com/panjf2000/ants/v2 v2.5.0 // indirect
+	golang.org/x/tools v0.1.12 // indirect
+)
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
