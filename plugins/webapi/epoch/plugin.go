@@ -1,53 +1,44 @@
 package epoch
 
-//
-// import (
-// 	"net/http"
-// 	"sort"
-// 	"strconv"
-//
-// 	"github.com/cockroachdb/errors"
-// 	"github.com/iotaledger/hive.go/core/node"
-// 	"github.com/labstack/echo"
-// 	"go.uber.org/dig"
-//
-// 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-// 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-// 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-// 	"github.com/iotaledger/goshimmer/plugins/epochstorage"
-// )
-//
-// // PluginName is the name of the web API epoch endpoint plugin.
-// const PluginName = "WebAPIEpochEndpoint"
-//
-// var (
-// 	// Plugin is the plugin instance of the web API epoch endpoint plugin.
-// 	Plugin *node.Plugin
-// 	deps   = new(dependencies)
-// )
-//
-// type dependencies struct {
-// 	dig.In
-//
-// 	Server          *echo.Echo
-// 	EpochStorage    *node.Plugin `name:"epochstorage"`
-// 	NotarizationMgr *notarization.Manager
-// }
-//
-// func init() {
-// 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
-// }
-//
-// func configure(_ *node.Plugin) {
-// 	deps.Server.GET("epochs", getAllCommittedEpochs)
-// 	deps.Server.GET("ec", getCurrentEC)
-// 	deps.Server.GET("epoch/:ei", getCommittedEpoch)
-// 	deps.Server.GET("epoch/:ei/utxos", getUTXOs)
-// 	deps.Server.GET("epoch/:ei/blocks", getBlocks)
-// 	deps.Server.GET("epoch/:ei/transactions", getTransactions)
-// 	deps.Server.GET("epoch/:ei/pending-conflict-count", getPendingConflictsCount)
-// 	deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
-// }
+import (
+	"github.com/iotaledger/hive.go/core/node"
+	"github.com/labstack/echo"
+	"go.uber.org/dig"
+
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
+)
+
+// PluginName is the name of the web API epoch endpoint plugin.
+const PluginName = "WebAPIEpochEndpoint"
+
+var (
+	// Plugin is the plugin instance of the web API epoch endpoint plugin.
+	Plugin *node.Plugin
+	deps   = new(dependencies)
+)
+
+type dependencies struct {
+	dig.In
+
+	Server          *echo.Echo
+	NotarizationMgr *notarization.Manager
+}
+
+func init() {
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+}
+
+func configure(_ *node.Plugin) {
+	// deps.Server.GET("epochs", getAllCommittedEpochs)
+	// deps.Server.GET("ec", getCurrentEC)
+	// deps.Server.GET("epoch/:ei", getCommittedEpoch)
+	// deps.Server.GET("epoch/:ei/utxos", getUTXOs)
+	// deps.Server.GET("epoch/:ei/blocks", getBlocks)
+	// deps.Server.GET("epoch/:ei/transactions", getTransactions)
+	// deps.Server.GET("epoch/:ei/pending-conflict-count", getPendingConflictsCount)
+	// deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
+}
+
 //
 // func getAllCommittedEpochs(c echo.Context) error {
 // 	allEpochs := epochstorage.GetCommittableEpochs()

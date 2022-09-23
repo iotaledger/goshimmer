@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
@@ -33,7 +32,6 @@ type dependencies struct {
 	dig.In
 
 	Local            *peer.Local
-	GossipMgr        *gossip.Manager
 	Server           *echo.Echo
 	ManualPeeringMgr *manualpeering.Manager
 }

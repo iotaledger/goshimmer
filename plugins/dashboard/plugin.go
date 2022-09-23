@@ -27,6 +27,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
 	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
@@ -220,9 +221,9 @@ type wsblk struct {
 }
 
 type blk struct {
-	ID          string `json:"id"`
-	Value       int64  `json:"value"`
-	PayloadType uint32 `json:"payload_type"`
+	ID          string       `json:"id"`
+	Value       int64        `json:"value"`
+	PayloadType payload.Type `json:"payload_type"`
 }
 
 type nodestatus struct {

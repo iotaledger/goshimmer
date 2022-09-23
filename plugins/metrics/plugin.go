@@ -28,7 +28,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
@@ -45,11 +44,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	Protocol        *protocol.Protocol
-	P2Pmgr          *p2p.Manager        `optional:"true"`
-	Selection       *selection.Protocol `optional:"true"`
-	Local           *peer.Local
-	NotarizationMgr *notarization.Manager
+	Protocol  *protocol.Protocol
+	P2Pmgr    *p2p.Manager        `optional:"true"`
+	Selection *selection.Protocol `optional:"true"`
+	Local     *peer.Local
 }
 
 func init() {
@@ -144,7 +142,7 @@ func registerLocalMetrics() {
 		// Consume should release cachedBlockMetadata
 		if block.IsSolid() {
 			// TODO: figure out whether to use retainer to get the times
-			//sumTimesSinceReceived[Solidifier] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			// sumTimesSinceReceived[Solidifier] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
 			sumTimesSinceIssued[Solidifier] += time.Since(block.IssuingTime())
 		}
 	}))
@@ -169,8 +167,8 @@ func registerLocalMetrics() {
 
 		if block.IsScheduled() {
 			// TODO: figure out whether to use retainer to get the times
-			//sumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
-			//sumTimesSinceReceived[Scheduler] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
+			// sumSchedulerBookedTime += blkMetaData.ScheduledTime().Sub(blkMetaData.BookedTime())
+			// sumTimesSinceReceived[Scheduler] += blkMetaData.ScheduledTime().Sub(blkMetaData.ReceivedTime())
 			sumTimesSinceIssued[Scheduler] += time.Since(block.IssuingTime())
 		}
 	}))
@@ -182,7 +180,7 @@ func registerLocalMetrics() {
 
 		if block.IsBooked() {
 			// TODO: figure out whether to use retainer to get the times
-			//sumTimesSinceReceived[Booker] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
+			// sumTimesSinceReceived[Booker] += blkMetaData.BookedTime().Sub(blkMetaData.ReceivedTime())
 			sumTimesSinceIssued[Booker] += time.Since(block.IssuingTime())
 		}
 	}))
@@ -193,7 +191,7 @@ func registerLocalMetrics() {
 		defer sumTimeMutex.Unlock()
 
 		// TODO: figure out whether to use retainer to get the times
-		//sumTimesSinceReceived[SchedulerDropped] += time.Since(blkMetaData.ReceivedTime())
+		// sumTimesSinceReceived[SchedulerDropped] += time.Since(blkMetaData.ReceivedTime())
 		sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 	}))
 
@@ -203,7 +201,7 @@ func registerLocalMetrics() {
 		defer sumTimeMutex.Unlock()
 
 		// TODO: figure out whether to use retainer to get the times
-		//sumTimesSinceReceived[SchedulerSkipped] += time.Since(blkMetaData.ReceivedTime())
+		// sumTimesSinceReceived[SchedulerSkipped] += time.Since(blkMetaData.ReceivedTime())
 		sumTimesSinceIssued[SchedulerSkipped] += time.Since(block.IssuingTime())
 	}))
 
@@ -223,7 +221,7 @@ func registerLocalMetrics() {
 		})
 		blockFinalizationIssuedTotalTime[blockType] += uint64(time.Since(block.IssuingTime()).Milliseconds())
 		// TODO: figure out whether to use retainer to get the times
-		//blockFinalizationReceivedTotalTime[blockType] += uint64(time.Since(blockMetadata.ReceivedTime()).Milliseconds())
+		// blockFinalizationReceivedTotalTime[blockType] += uint64(time.Since(blockMetadata.ReceivedTime()).Milliseconds())
 		finalizedBlockCount[blockType]++
 	}))
 
@@ -290,5 +288,5 @@ func registerLocalMetrics() {
 		addPledge(ev)
 	}))
 
-	deps.NotarizationMgr.Events.EpochCommittable.Attach(onEpochCommitted)
+	deps.Protocol.Events.Instance.NotarizationManager.EpochCommittable.Attach(onEpochCommitted)
 }
