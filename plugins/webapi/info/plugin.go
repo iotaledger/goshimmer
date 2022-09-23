@@ -108,7 +108,7 @@ func getInfo(c echo.Context) error {
 	tm := deps.Protocol.Instance().Engine.Clock
 	// TODO: figure out where to take last accepted block from
 	tangleTime := jsonmodels.TangleTime{
-		Synced:           deps.Protocol.Instance().Engine.IsSynced(),
+		Synced:           deps.Protocol.Instance().IsSynced(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
 		ATT:              tm.AcceptedTime().UnixNano(),
@@ -156,11 +156,11 @@ func getInfo(c echo.Context) error {
 			Deficit:           deficit,
 			NodeQueueSizes:    issuerQueueSizes,
 		},
-		//TODO: finish when ratesetter is available
-		//RateSetter: jsonmodels.RateSetter{
+		// TODO: finish when ratesetter is available
+		// RateSetter: jsonmodels.RateSetter{
 		//	Rate:     deps.Tangle.RateSetter.Rate(),
 		//	Size:     deps.Tangle.RateSetter.Size(),
 		//	Estimate: deps.Tangle.RateSetter.Estimate(),
-		//},
+		// },
 	})
 }

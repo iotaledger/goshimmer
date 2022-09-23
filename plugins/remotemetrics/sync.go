@@ -12,7 +12,7 @@ var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
-	tts := deps.Protocol.Instance().Engine.IsSynced()
+	tts := deps.Protocol.Instance().IsSynced()
 	if oldTangleTimeSynced != tts {
 		var myID string
 		if deps.Local != nil {
@@ -23,10 +23,10 @@ func checkSynced() {
 			NodeID:         myID,
 			MetricsLevel:   Parameters.MetricsLevel,
 			Time:           time.Now(),
-			ATT:            deps.Protocol.Instance().Engine.Clock.AcceptedTime(),
-			RATT:           deps.Protocol.Instance().Engine.Clock.RelativeAcceptedTime(),
-			CTT:            deps.Protocol.Instance().Engine.Clock.ConfirmedTime(),
-			RCTT:           deps.Protocol.Instance().Engine.Clock.RelativeConfirmedTime(),
+			ATT:            deps.Protocol.Instance().Clock.AcceptedTime(),
+			RATT:           deps.Protocol.Instance().Clock.RelativeAcceptedTime(),
+			CTT:            deps.Protocol.Instance().Clock.ConfirmedTime(),
+			RCTT:           deps.Protocol.Instance().Clock.RelativeConfirmedTime(),
 			CurrentStatus:  tts,
 			PreviousStatus: oldTangleTimeSynced,
 		}

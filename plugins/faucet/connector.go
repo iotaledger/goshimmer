@@ -13,9 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/goshimmer/plugins/blocklayer"
 )
 
 type FaucetConnector struct {
@@ -68,17 +65,17 @@ func (f *FaucetConnector) UnspentOutputs(addresses ...address.Address) (unspentO
 
 func (f *FaucetConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	// attach to block layer
-	issueTransaction := func() (*models.Block, error) {
-		// TODO: finish when issuing blocks if implemented
-		//block, e := deps.Tangle.IssuePayload(tx)
-		//if e != nil {
-		//	return nil, e
-		//}
-		//return block, nil
-		return nil, nil
-	}
+	// issueTransaction := func() (*models.Block, error) {
+	// TODO: finish when issuing blocks if implemented
+	// block, e := deps.Tangle.IssuePayload(tx)
+	// if e != nil {
+	//	return nil, e
+	// }
+	// return block, nil
+	// return nil, nil
+	// }
 
-	_, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), Parameters.MaxTransactionBookedAwaitTime)
+	// _, err = blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), Parameters.MaxTransactionBookedAwaitTime)
 	if err != nil {
 		return errors.Errorf("%v: tx %s", err, tx.ID().String())
 	}

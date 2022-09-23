@@ -12,7 +12,7 @@ import (
 )
 
 func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 	var nodeID string
@@ -31,7 +31,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	record.IssuedTimestamp = block.IssuingTime()
 	record.IssuerID = issuerID.String()
 	// TODO: implement when mana is refactored
-	//record.AccessMana = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.GetManaFromCache(issuerID)
+	// record.AccessMana = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.GetManaFromCache(issuerID)
 	record.StrongEdgeCount = len(block.ParentsByType(models.StrongParentType))
 	if weakParentsCount := len(block.ParentsByType(models.WeakParentType)); weakParentsCount > 0 {
 		record.StrongEdgeCount = weakParentsCount
@@ -41,7 +41,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	}
 
 	// TODO: implement when retainer plugin is ready
-	//deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
+	// deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 	//	record.ReceivedTimestamp = blockMetadata.ReceivedTime()
 	//	record.ScheduledTimestamp = blockMetadata.ScheduledTime()
 	//	record.DroppedTimestamp = blockMetadata.DiscardedTime()
@@ -68,7 +68,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	//	record.DeltaScheduledReceived = scheduleDoneTime.Sub(blockMetadata.ReceivedTime()).Nanoseconds()
 	//	record.DeltaReceivedIssued = blockMetadata.ReceivedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	//	record.SchedulingTime = scheduleDoneTime.Sub(blockMetadata.QueuedTime()).Nanoseconds()
-	//})
+	// })
 
 	// override block solidification data if block contains a transaction
 	if block.Payload().Type() == devnetvm.TransactionType {
@@ -84,17 +84,17 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 }
 
 func onTransactionConfirmed(transactionID utxo.TransactionID) {
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 
 	earliestAttachment := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(transactionID)
 
-	onBlockFinalized(earliestAttachment.Block.Block)
+	onBlockFinalized(earliestAttachment.ModelsBlock)
 }
 
 func onBlockFinalized(block *models.Block) {
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 
@@ -123,13 +123,13 @@ func onBlockFinalized(block *models.Block) {
 		record.ShallowLikeEdgeCount = shallowLikeParentsCount
 	}
 
-	//TODO: implement when retainer plugin is ready
-	//deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
+	// TODO: implement when retainer plugin is ready
+	// deps.Tangle.Storage.BlockMetadata(blockID).Consume(func(blockMetadata *tangleold.BlockMetadata) {
 	//	record.ScheduledTimestamp = blockMetadata.ScheduledTime()
 	//	record.DeltaScheduled = blockMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	//	record.BookedTimestamp = blockMetadata.BookedTime()
 	//	record.DeltaBooked = blockMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
-	//})
+	// })
 
 	if block.Payload().Type() == devnetvm.TransactionType {
 		transaction := block.Payload().(utxo.Transaction)
@@ -144,7 +144,7 @@ func onBlockFinalized(block *models.Block) {
 }
 
 func sendMissingBlockRecord(block *models.Block, recordType string) {
-	if !deps.Protocol.Instance().Engine.IsSynced() {
+	if !deps.Protocol.Instance().IsSynced() {
 		return
 	}
 

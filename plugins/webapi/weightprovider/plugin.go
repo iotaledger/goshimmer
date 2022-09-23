@@ -34,7 +34,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getIssuersHandler(c echo.Context) (err error) {
-	activeValidators := deps.Protocol.Instance().SybilProtection.ValidatorSet
+	activeValidators := deps.Protocol.Instance().ValidatorSet
 
 	activeValidatorsString := make([]string, 0)
 

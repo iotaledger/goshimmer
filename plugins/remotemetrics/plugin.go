@@ -149,7 +149,7 @@ func configureBlockFinalizedMetrics() {
 		}))
 	} else {
 		deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-			onBlockFinalized(block.Block.Block.Block.Block)
+			onBlockFinalized(block.ModelsBlock)
 		}))
 	}
 }
@@ -177,9 +177,9 @@ func configureMissingBlockMetrics() {
 	}
 
 	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		sendMissingBlockRecord(block.Block, "missingBlock")
+		sendMissingBlockRecord(block.ModelsBlock, "missingBlock")
 	}))
 	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		sendMissingBlockRecord(block.Block, "missingBlockStored")
+		sendMissingBlockRecord(block.ModelsBlock, "missingBlockStored")
 	}))
 }

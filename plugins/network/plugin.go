@@ -1,4 +1,4 @@
-package protocol
+package network
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
