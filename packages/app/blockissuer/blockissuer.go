@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -73,21 +73,21 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		i.RateSetter = ratesetter.New(
 			i.protocol,
 			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Instance().Engine.CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
+				manaMap, _, err := i.protocol.Instance().CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
 				if err != nil {
 					return make(map[identity.ID]int64)
 				}
 				return manaMap
 			},
 			func() int64 {
-				totalMana, _, err := i.protocol.Instance().Engine.CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
+				totalMana, _, err := i.protocol.Instance().CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
 				if err != nil {
 					return 0
 				}
 				return totalMana
 			},
 			i.identity.ID(),
-			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Instance().Engine.CongestionControl.Scheduler.Rate()))...)
+			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Instance().CongestionControl.Scheduler.Rate()))...)
 	})
 }
 
@@ -185,8 +185,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	f.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"

@@ -5,9 +5,9 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 )

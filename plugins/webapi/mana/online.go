@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 )
 
 func getOnlineAccessHandler(c echo.Context) error {
@@ -21,7 +21,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
-	manaMap, t, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manaType)
+	manaMap, t, err := deps.Protocol.Instance().CongestionControl.GetManaMap(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, jsonmodels.GetOnlineResponse{Error: err.Error()})
 	}

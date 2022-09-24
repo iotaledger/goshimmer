@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -158,14 +158,14 @@ func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	} else {
-		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
 		}))
-		deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	}

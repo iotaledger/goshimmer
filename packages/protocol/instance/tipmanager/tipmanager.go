@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/randommap"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -186,11 +186,12 @@ func (t *TipManager) TipCount() int {
 
 // isPastConeTimestampCorrect performs the TSC check for the given tip.
 // Conceptually, this involves the following steps:
-//   1. Collect all accepted blocks in the tip's past cone at the boundary of accepted/unaccapted.
-//   2. Order by timestamp (ascending), if the oldest accepted block > TSC threshold then return false.
+//  1. Collect all accepted blocks in the tip's past cone at the boundary of accepted/unaccapted.
+//  2. Order by timestamp (ascending), if the oldest accepted block > TSC threshold then return false.
 //
 // This function is optimized through the use of markers and the following assumption:
-//   If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
+//
+//	If there's any unaccepted block >TSC threshold, then the oldest accepted block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
 

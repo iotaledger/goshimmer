@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -158,7 +158,7 @@ func registerLocalMetrics() {
 		missingBlockCountDB.Dec()
 	}))
 
-	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -185,7 +185,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerDropped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -195,7 +195,7 @@ func registerLocalMetrics() {
 		sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Instance.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerSkipped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -284,7 +284,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	deps.Protocol.Events.Instance.Engine.CongestionControl.Tracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
+	deps.Protocol.Events.Instance.CongestionControl.Tracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
 

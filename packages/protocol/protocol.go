@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
@@ -84,7 +84,7 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		// setup gossip events
 		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
 		p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
-		p.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 			p.network.SendBlock(block.ModelsBlock)
 		}))
 	})

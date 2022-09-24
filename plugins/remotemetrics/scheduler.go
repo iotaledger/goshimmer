@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 )
 
 func obtainSchedulerStats(timestamp time.Time) {
-	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
+	scheduler := deps.Protocol.Instance().CongestionControl.Scheduler
 	queueMap, aManaNormalizedMap := prepQueueMaps(scheduler)
 
 	var myID string

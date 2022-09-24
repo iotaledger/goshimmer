@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -31,7 +31,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	record.IssuedTimestamp = block.IssuingTime()
 	record.IssuerID = issuerID.String()
 	// TODO: implement when mana is refactored
-	// record.AccessMana = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.GetManaFromCache(issuerID)
+	// record.AccessMana = deps.Protocol.Instance().CongestionControl.Scheduler.GetManaFromCache(issuerID)
 	record.StrongEdgeCount = len(block.ParentsByType(models.StrongParentType))
 	if weakParentsCount := len(block.ParentsByType(models.WeakParentType)); weakParentsCount > 0 {
 		record.StrongEdgeCount = weakParentsCount

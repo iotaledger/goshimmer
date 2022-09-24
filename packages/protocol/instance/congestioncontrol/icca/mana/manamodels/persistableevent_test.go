@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 

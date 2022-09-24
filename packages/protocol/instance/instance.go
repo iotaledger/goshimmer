@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
@@ -40,6 +41,7 @@ type Instance struct {
 	EvictionManager     *eviction.Manager[models.BlockID]
 	Engine              *engine.Engine
 	Clock               *clock.Clock
+	CongestionControl   *congestioncontrol.CongestionControl
 	TipManager          *tipmanager.TipManager
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -54,6 +56,7 @@ type Instance struct {
 	optsEngineOptions              []options.Option[engine.Engine]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsNotarizationManagerOptions []notarization.ManagerOption
+	optsCongestionControlOptions   []options.Option[congestioncontrol.CongestionControl]
 	optsTipManagerOptions          []options.Option[tipmanager.TipManager]
 }
 
@@ -81,6 +84,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Instance).initSnapshotManager,
 		(*Instance).loadSnapshot,
 		(*Instance).initEvictionManager,
+		(*Instance).initCongestionControl,
 		(*Instance).initTipManager,
 		(*Instance).initSybilProtection,
 	)
@@ -222,8 +226,14 @@ func (i *Instance) initEvictionManager() {
 
 }
 
+func (i *Instance) initCongestionControl() {
+	i.CongestionControl = congestioncontrol.New(i.Engine.Consensus.Gadget, i.Engine.Tangle, i.optsCongestionControlOptions...)
+
+	i.Events.CongestionControl = i.CongestionControl.Events
+}
+
 func (i *Instance) initTipManager() {
-	i.TipManager = tipmanager.New(i.Engine.Tangle, i.Engine.Consensus.Gadget, i.Engine.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.GenesisCommitment.Index().EndTime())
+	i.TipManager = tipmanager.New(i.Engine.Tangle, i.Engine.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.GenesisCommitment.Index().EndTime())
 
 	i.Engine.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
 
@@ -232,7 +242,7 @@ func (i *Instance) initTipManager() {
 	}))
 
 	i.Engine.Events.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if schedulerBlock, exists := i.Engine.CongestionControl.Scheduler.Block(block.ID()); exists {
+		if schedulerBlock, exists := i.CongestionControl.Scheduler.Block(block.ID()); exists {
 			i.TipManager.DeleteTip(schedulerBlock)
 		}
 	}))
@@ -286,6 +296,12 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Instance] {
 func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Instance] {
 	return func(p *Instance) {
 		p.optsEngineOptions = opts
+	}
+}
+
+func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Instance] {
+	return func(e *Instance) {
+		e.optsCongestionControlOptions = opts
 	}
 }
 

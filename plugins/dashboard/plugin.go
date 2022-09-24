@@ -378,13 +378,13 @@ func currentNodeStatus() *nodestatus {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.Instance().CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Running(),
-		Rate:              deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Protocol.Instance().Engine.CongestionControl.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize(),
+		Running:           deps.Protocol.Instance().CongestionControl.Scheduler.Running(),
+		Rate:              deps.Protocol.Instance().CongestionControl.Scheduler.Rate().String(),
+		MaxBufferSize:     deps.Protocol.Instance().CongestionControl.Scheduler.MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.Instance().CongestionControl.Scheduler.BufferSize(),
 		Deficit:           deficit,
 	}
 	return status

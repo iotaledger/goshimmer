@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 )
 
 func TestRevokedEvent_ToPersistable(t *testing.T) {

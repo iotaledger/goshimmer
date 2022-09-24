@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
@@ -73,9 +73,9 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setSchedulerBlock(block)
 	})
-	r.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
-	r.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
-	r.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
 	r.protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())

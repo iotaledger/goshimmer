@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
@@ -13,6 +14,7 @@ import (
 type Events struct {
 	Engine              *engine.Events
 	Clock               *clock.Events
+	CongestionControl   *congestioncontrol.Events
 	TipManager          *tipmanager.Events
 	EvictionManager     *eviction.Events
 	NotarizationManager *notarization.Events
@@ -25,6 +27,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Engine:              engine.NewEvents(),
 		Clock:               clock.NewEvents(),
+		CongestionControl:   congestioncontrol.NewEvents(),
 		TipManager:          tipmanager.NewEvents(),
 		EvictionManager:     eviction.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),

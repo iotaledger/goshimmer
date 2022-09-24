@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.
@@ -26,7 +26,7 @@ func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
-	highestNodes, t, err := deps.Protocol.Instance().Engine.CongestionControl.GetHighestManaIssuers(manaType, uint(number))
+	highestNodes, t, err := deps.Protocol.Instance().CongestionControl.GetHighestManaIssuers(manaType, uint(number))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}

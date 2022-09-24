@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -303,8 +303,8 @@ func (m *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, erro
 }
 
 // TODO: this should be processed on another level based on mana maps available in the manager
-//// GetNeighborsMana returns the type mana of the issuers neighbors.
-//func (m *Tracker) GetNeighborsMana(manaType manamodels.Type, neighbors []*p2p.Neighbor) (manamodels.IssuerMap, error) {
+// // GetNeighborsMana returns the type mana of the issuers neighbors.
+// func (m *Tracker) GetNeighborsMana(manaType manamodels.Type, neighbors []*p2p.Neighbor) (manamodels.IssuerMap, error) {
 //	if !m.QueryAllowed() {
 //		return manamodels.IssuerMap{}, manamodels.ErrQueryNotAllowed
 //	}
@@ -316,7 +316,7 @@ func (m *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, erro
 //		res[n.ID()] = value
 //	}
 //	return res, nil
-//}
+// }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other issuers.
 func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, error) {
@@ -331,9 +331,9 @@ func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, er
 }
 
 // TODO: this should be processed on another level based on mana maps available in the manager
-//// GetOnlineIssuers gets the list of currently known (and verified) peers in the network, and their respective mana values.
-//// Sorted in descending order based on mana. Zero mana issuers are excluded.
-//func (m *Tracker) GetOnlineIssuers(manaType manamodels.Type) (onlineIssuersMana []manamodels.Issuer, t time.Time, err error) {
+// // GetOnlineIssuers gets the list of currently known (and verified) peers in the network, and their respective mana values.
+// // Sorted in descending order based on mana. Zero mana issuers are excluded.
+// func (m *Tracker) GetOnlineIssuers(manaType manamodels.Type) (onlineIssuersMana []manamodels.Issuer, t time.Time, err error) {
 //	if !m.QueryAllowed() {
 //		return []manamodels.Issuer{}, time.Now(), manamodels.ErrQueryNotAllowed
 //	}
@@ -360,7 +360,7 @@ func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, er
 //		return onlineIssuersMana[i].Mana > onlineIssuersMana[j].Mana
 //	})
 //	return
-//}
+// }
 
 func (m *Tracker) cleanupManaVectors() {
 	for _, vecType := range []manamodels.Type{manamodels.AccessMana, manamodels.ConsensusMana} {

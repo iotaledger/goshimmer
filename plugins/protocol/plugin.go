@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
 )

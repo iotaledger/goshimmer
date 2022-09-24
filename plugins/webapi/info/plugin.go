@@ -55,41 +55,43 @@ func configure(_ *node.Plugin) {
 
 // getInfo returns the info of the node
 // e.g.,
-// {
-// 	"version":"v0.2.0",
-//	"tangleTime":{
-// 		"blockID":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
-// 		"time":1595528075204868900,
-// 		"synced":true
-// }
-// 	"identityID":"5bf4aa1d6c47e4ce",
-// 	"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
-// 	"enabledplugins":[
-// 		"Config",
-// 		"AutoPeering",
-// 		"Analysis",
-// 		"WebAPIDataEndpoint",
-// 		"BlockLayer",
-// 		"CLI",
-// 		"Database",
-// 		"WebAPIAutoPeeringEndpoint",
-// 		"Metrics",
-// 		"PortCheck",
-// 		"Dashboard",
-// 		"WebAPI",
-// 		"WebAPIInfoEndpoint",
-// 		"WebAPIBlockEndpoint",
-// 		"Banner",
-// 		"Gossip",
-// 		"GracefulShutdown",
-// 		"Logger"
-// 	],
-// 	"disabledplugins":[
-// 		"RemoteLog",
-// 		"Spammer",
-// 		"WebAPIAuth"
-// 	]
-// }
+//
+//	{
+//		"version":"v0.2.0",
+//		"tangleTime":{
+//			"blockID":"24Uq4UFQ7p5oLyjuXX32jHhNreo5hY9eo8Awh36RhdTHCwFMtct3SE2rhe3ceYz6rjKDjBs3usoHS3ujFEabP5ri",
+//			"time":1595528075204868900,
+//			"synced":true
+//	}
+//
+//		"identityID":"5bf4aa1d6c47e4ce",
+//		"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
+//		"enabledplugins":[
+//			"Config",
+//			"AutoPeering",
+//			"Analysis",
+//			"WebAPIDataEndpoint",
+//			"BlockLayer",
+//			"CLI",
+//			"Database",
+//			"WebAPIAutoPeeringEndpoint",
+//			"Metrics",
+//			"PortCheck",
+//			"Dashboard",
+//			"WebAPI",
+//			"WebAPIInfoEndpoint",
+//			"WebAPIBlockEndpoint",
+//			"Banner",
+//			"Gossip",
+//			"GracefulShutdown",
+//			"Logger"
+//		],
+//		"disabledplugins":[
+//			"RemoteLog",
+//			"Spammer",
+//			"WebAPIAuth"
+//		]
+//	}
 func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
@@ -117,8 +119,8 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(deps.Local.ID())
+	accessMana, tAccess, _ := deps.Protocol.Instance().CongestionControl.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Instance().CongestionControl.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -127,10 +129,10 @@ func getInfo(c echo.Context) error {
 	}
 
 	issuerQueueSizes := make(map[string]int)
-	for issuerID, size := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
+	for issuerID, size := range deps.Protocol.Instance().CongestionControl.Scheduler.IssuerQueueSizes() {
 		issuerQueueSizes[issuerID.String()] = size
 	}
-	scheduler := deps.Protocol.Instance().Engine.CongestionControl.Scheduler
+	scheduler := deps.Protocol.Instance().CongestionControl.Scheduler
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{

@@ -15,8 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/clock"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -449,7 +449,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 	txID := event.TransactionID
 
-	has, err := m.isTransactionInEpoch(event.TransactionID, oldEpoch); 
+	has, err := m.isTransactionInEpoch(event.TransactionID, oldEpoch)
 	if err != nil {
 		m.log.Error(err)
 		return

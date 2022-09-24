@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 )
 
 // getPercentileHandler handles the request.
@@ -25,7 +25,7 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	access, tAccess, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.AccessMana)
+	access, tAccess, err := deps.Protocol.Instance().CongestionControl.GetManaMap(manamodels.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -37,7 +37,7 @@ func getPercentileHandler(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensus, tConsensus, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.ConsensusMana)
+	consensus, tConsensus, err := deps.Protocol.Instance().CongestionControl.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
