@@ -15,10 +15,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

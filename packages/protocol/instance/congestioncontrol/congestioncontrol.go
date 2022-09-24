@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
 )
 
 type CongestionControl struct {

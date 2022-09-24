@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/conflictresolver"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 

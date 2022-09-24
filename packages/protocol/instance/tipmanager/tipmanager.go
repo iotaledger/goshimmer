@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

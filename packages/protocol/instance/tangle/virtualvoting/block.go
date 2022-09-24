@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

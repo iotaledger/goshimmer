@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"

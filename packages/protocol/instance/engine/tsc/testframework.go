@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

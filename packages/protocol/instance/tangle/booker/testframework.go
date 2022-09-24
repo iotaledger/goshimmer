@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"

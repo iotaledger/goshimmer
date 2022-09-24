@@ -18,9 +18,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )

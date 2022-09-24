@@ -13,7 +13,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 

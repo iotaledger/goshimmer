@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

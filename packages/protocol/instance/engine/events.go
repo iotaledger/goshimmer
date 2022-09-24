@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 

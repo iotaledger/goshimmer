@@ -3,7 +3,7 @@ package acceptance
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/virtualvoting"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////

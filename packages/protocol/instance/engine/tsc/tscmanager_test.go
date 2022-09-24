@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 

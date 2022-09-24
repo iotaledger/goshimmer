@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -540,10 +540,10 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
 	}
 
-	//TODO: check if transaction is too old
-	//if tx.Essence().Timestamp().Before(time.Now().Add(-models.MaxReattachmentTimeMin)) {
+	// TODO: check if transaction is too old
+	// if tx.Essence().Timestamp().Before(time.Now().Add(-models.MaxReattachmentTimeMin)) {
 	//	return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: fmt.Sprintf("transaction timestamp is older than MaxReattachmentTime (%s) and cannot be issued", tangleold.MaxReattachmentTimeMin)})
-	//}
+	// }
 
 	// if transaction is in the future we wait until the time arrives
 	if tx.Essence().Timestamp().After(time.Now()) {
@@ -554,17 +554,17 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// TODO: finish when issuing blocks is figured out
-	//issueTransaction := func() (*models.Block, error) {
+	// issueTransaction := func() (*models.Block, error) {
 	//	return deps.Tangle.CreateBlock(tx)
-	//}
+	// }
 
 	// add tx to double spend doubleSpendFilter
-	//FilterAdd(tx)
-	//if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+	// FilterAdd(tx)
+	// if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 	//	if we failed to issue the transaction, we remove it
-	//FilterRemove(tx.ID())
-	//return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
-	//}
+	// FilterRemove(tx.ID())
+	// return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
+	// }
 	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 

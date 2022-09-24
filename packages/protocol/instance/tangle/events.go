@@ -3,9 +3,9 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/virtualvoting"
 )
 
 type Events struct {
