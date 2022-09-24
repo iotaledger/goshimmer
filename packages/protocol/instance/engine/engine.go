@@ -23,9 +23,8 @@ type Engine struct {
 	Consensus      *consensus.Consensus
 	TSCManager     *tsc.TSCManager
 
-	optsTangleOptions    []options.Option[tangle.Tangle]
-	optsConsensusOptions []options.Option[consensus.Consensus]
-
+	optsTangleOptions     []options.Option[tangle.Tangle]
+	optsConsensusOptions  []options.Option[consensus.Consensus]
 	optsTSCManagerOptions []options.Option[tsc.TSCManager]
 }
 
