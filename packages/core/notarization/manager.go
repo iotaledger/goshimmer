@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -20,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -56,7 +54,7 @@ func NewManager(c *clock.Clock, e *engine.Engine, epochCommitmentFactory *EpochC
 		option(options)
 	}
 
-	new = &Manager{
+	return &Manager{
 		clock:                    c,
 		engine:                   e,
 		epochCommitmentFactory:   epochCommitmentFactory,
@@ -65,56 +63,6 @@ func NewManager(c *clock.Clock, e *engine.Engine, epochCommitmentFactory *EpochC
 		options:                  options,
 		Events:                   NewEvents(),
 	}
-
-	new.engine.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		new.OnBlockAttached(block)
-	}))
-
-	new.engine.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
-		new.OnBlockAccepted(block)
-	}))
-
-	new.engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
-		new.OnBlockOrphaned(block)
-	}))
-
-	new.engine.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionAcceptedEvent) {
-		new.OnTransactionAccepted(event)
-	}))
-
-	new.engine.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionInclusionUpdatedEvent) {
-		new.OnTransactionInclusionUpdated(event)
-	}))
-
-	new.engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		new.OnConflictAccepted(event.ID)
-	}))
-
-	new.engine.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		new.OnConflictCreated(event.ID)
-	}))
-
-	new.engine.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-		new.OnConflictRejected(event.ID)
-	}))
-
-	new.clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
-		new.OnAcceptanceTimeUpdated(event.NewTime)
-	}))
-
-	// This is here temporarily until consensus mana tracking is moved to sybilprotection package.
-	new.Events.ManaVectorUpdate.Attach(new.engine.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
-
-	return new
-}
-
-func onlyIfBootstrapped[E any](engine *engine.Engine, handler func(event E)) *event.Closure[E] {
-	return event.NewClosure(func(event E) {
-		if !engine.IsBootstrapped() {
-			return
-		}
-		handler(event)
-	})
 }
 
 // StartSnapshot locks the commitment factory and returns the latest ecRecord and last confirmed epoch index.

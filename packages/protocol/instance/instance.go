@@ -26,6 +26,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -151,7 +153,27 @@ func (i *Instance) initNotarizationManager() {
 		notarization.ManaEpochDelay(2),
 	)
 
-	// TODO: WIRE UP EVENTS OUTSIDE
+	i.Engine.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(i.NotarizationManager.OnBlockAttached))
+	i.Engine.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockAccepted))
+	i.Engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockOrphaned))
+	i.Engine.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionAccepted))
+	i.Engine.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionInclusionUpdated))
+	i.Engine.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		i.NotarizationManager.OnConflictAccepted(event.ID)
+	}))
+	i.Engine.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		i.NotarizationManager.OnConflictCreated(event.ID)
+	}))
+	i.Engine.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+		i.NotarizationManager.OnConflictRejected(event.ID)
+	}))
+	i.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(i, func(event *clock.TimeUpdate) {
+		i.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
+	}))
+
+	// This is here temporarily until consensus mana tracking is moved to sybilprotection package.
+	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
+
 	i.Events.NotarizationManager = i.NotarizationManager.Events
 }
 
@@ -235,7 +257,7 @@ func (i *Instance) initCongestionControl() {
 func (i *Instance) initTipManager() {
 	i.TipManager = tipmanager.New(i.Engine.Tangle, i.Engine.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.GenesisCommitment.Index().EndTime())
 
-	i.Engine.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
+	i.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
 
 	i.Engine.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		i.TipManager.RemoveStrongParents(block.ModelsBlock)
@@ -282,6 +304,15 @@ func (i *Instance) Block(id models.BlockID) (block *models.Block, exists bool) {
 }
 
 func emptyActivityConsumer(logs activitylog.SnapshotEpochActivity) {}
+
+func onlyIfBootstrapped[E any](engine *Instance, handler func(event E)) *event.Closure[E] {
+	return event.NewClosure(func(event E) {
+		if !engine.IsBootstrapped() {
+			return
+		}
+		handler(event)
+	})
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
