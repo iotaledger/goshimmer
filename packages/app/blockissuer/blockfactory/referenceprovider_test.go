@@ -10,30 +10,34 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
 
 func TestReferenceProvider_References1(t *testing.T) {
-	tf := engine.NewTestFramework(t)
+	tf := protocol.NewTestFramework(t)
 
-	tf.Tangle.CreateIdentity("V1", validator.WithWeight(10))
-	tf.Tangle.CreateIdentity("V2", validator.WithWeight(20))
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
 
-	tf.Tangle.CreateBlock("Block1", models.WithPayload(tf.Tangle.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tf.Tangle.Identity("V1").PublicKey()))
-	tf.Tangle.CreateBlock("Block2", models.WithPayload(tf.Tangle.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tf.Tangle.Identity("V1").PublicKey()))
-	tf.Tangle.CreateBlock("Block3", models.WithPayload(tf.Tangle.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tf.Tangle.Identity("V1").PublicKey()))
-	tf.Tangle.CreateBlock("Block4", models.WithPayload(tf.Tangle.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tf.Tangle.Identity("V2").PublicKey()))
-	tf.Tangle.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+	tangleTF.CreateIdentity("V1", validator.WithWeight(10))
+	tangleTF.CreateIdentity("V2", validator.WithWeight(20))
 
-	rp := NewReferenceProvider(func() *engine.Engine { return tf.Engine }, func() (epoch.Index, error) {
+	tangleTF.CreateBlock("Block1", models.WithPayload(tangleTF.CreateTransaction("TX1", 3, "Genesis")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
+	tangleTF.CreateBlock("Block2", models.WithPayload(tangleTF.CreateTransaction("TX2", 1, "TX1.0")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
+	tangleTF.CreateBlock("Block3", models.WithPayload(tangleTF.CreateTransaction("TX3", 1, "TX1.1")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
+	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tangleTF.Identity("V2").PublicKey()))
+	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
+
+	rp := NewReferenceProvider(tf.Protocol.Engine, func() (epoch.Index, error) {
 		return 0, nil
 	})
 
-	checkReferences(t, rp, nil, tf.Tangle.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
-		models.StrongParentType:      tf.Tangle.BlockIDs("Block3", "Block4"),
-		models.ShallowLikeParentType: tf.Tangle.BlockIDs("Block4"),
+	checkReferences(t, rp, nil, tangleTF.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
+		models.StrongParentType:      tangleTF.BlockIDs("Block3", "Block4"),
+		models.ShallowLikeParentType: tangleTF.BlockIDs("Block4"),
 	})
 }
 
