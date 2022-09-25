@@ -239,8 +239,8 @@ func registerLocalMetrics() {
 		if _, exists := activeConflicts[conflictID]; !exists {
 			return
 		}
-		firstAttachment := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(conflictID)
-		deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
+		firstAttachment := deps.Protocol.Engine().Engine.Tangle.GetEarliestAttachment(conflictID)
+		deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
 			if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
 				finalizedConflictCountDB.Inc()
 				delete(activeConflicts, conflictingConflictID)

@@ -75,7 +75,7 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 			panic(err)
 		}
 
-		p.chainManager = chainmanager.NewManager(p.Instance().GenesisCommitment)
+		p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
 
 		// setup solidification event
 		p.Events.Instance.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
@@ -106,7 +106,7 @@ func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
 	}
 }
 
-func (p *Protocol) Instance() (instance *engine.Engine) {
+func (p *Protocol) Engine() (instance *engine.Engine) {
 	p.activeInstanceMutex.RLock()
 	defer p.activeInstanceMutex.RUnlock()
 
@@ -196,7 +196,7 @@ func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 }
 
 func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
-	if block, exists := p.Instance().Block(event.BlockID); exists {
+	if block, exists := p.Engine().Block(event.BlockID); exists {
 		p.network.SendBlock(block, event.Neighbor.Peer)
 	}
 }

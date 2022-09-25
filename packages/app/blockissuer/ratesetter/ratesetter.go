@@ -96,7 +96,7 @@ func (r *RateSetter) setupEvents() {
 			r.pauseUpdates--
 			return
 		}
-		if r.issuingQueue.Size()+r.protocol.Instance().CongestionControl.Scheduler.IssuerQueueSize(r.self) > 0 {
+		if r.issuingQueue.Size()+r.protocol.Engine().CongestionControl.Scheduler.IssuerQueueSize(r.self) > 0 {
 			r.rateSetting()
 		}
 	}))
@@ -167,7 +167,7 @@ func (r *RateSetter) rateSetting() {
 	ownRate := r.ownRate.Load()
 
 	// TODO: make sure not to issue or scheduled blocks older than TSC
-	if float64(r.protocol.Instance().CongestionControl.Scheduler.IssuerQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
+	if float64(r.protocol.Engine().CongestionControl.Scheduler.IssuerQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = r.initialPauseUpdates
 	} else {

@@ -135,7 +135,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 		UpdatedTime: time.Now(),
 	}
 
-	deps.Protocol.Instance().Engine.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
+	deps.Protocol.Engine().Engine.Ledger.Storage.CachedTransaction(conflictID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -148,7 +148,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b.ConflictSetIDs = conflict.ConflictSetIDs()
 	})
 
@@ -166,7 +166,7 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		deps.Protocol.Instance().Engine.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+		deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}
@@ -229,7 +229,7 @@ func sendAllConflicts() {
 }
 
 func issuerOfOldestAttachment(conflictID utxo.TransactionID) (id identity.ID) {
-	block := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(conflictID)
+	block := deps.Protocol.Engine().Engine.Tangle.GetEarliestAttachment(conflictID)
 	if block != nil {
 		return block.IssuerID()
 	}

@@ -162,7 +162,7 @@ func addPledge(event *mana.PledgedEvent) {
 }
 
 func measureMana() {
-	tmp, _ := deps.Protocol.Instance().CongestionControl.GetAllManaMaps()
+	tmp, _ := deps.Protocol.Engine().CongestionControl.GetAllManaMaps()
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[manamodels.AccessMana]
@@ -180,13 +180,13 @@ func measureMana() {
 	var accessAvg, consensusAvg float64
 
 	for _, neighbor := range neighbors {
-		neighborAMana, _, _ := deps.Protocol.Instance().CongestionControl.GetAccessMana(neighbor.ID())
+		neighborAMana, _, _ := deps.Protocol.Engine().CongestionControl.GetAccessMana(neighbor.ID())
 		if neighborAMana > 0 {
 			accessCount++
 			accessSum += neighborAMana
 		}
 
-		neighborCMana, _, _ := deps.Protocol.Instance().CongestionControl.GetConsensusMana(neighbor.ID())
+		neighborCMana, _, _ := deps.Protocol.Engine().CongestionControl.GetConsensusMana(neighbor.ID())
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana

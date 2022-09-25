@@ -107,10 +107,10 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	tm := deps.Protocol.Instance().Clock
+	tm := deps.Protocol.Engine().Clock
 	// TODO: figure out where to take last accepted block from
 	tangleTime := jsonmodels.TangleTime{
-		Synced:           deps.Protocol.Instance().IsSynced(),
+		Synced:           deps.Protocol.Engine().IsSynced(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
 		ATT:              tm.AcceptedTime().UnixNano(),
@@ -119,8 +119,8 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Instance().CongestionControl.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Instance().CongestionControl.GetConsensusMana(deps.Local.ID())
+	accessMana, tAccess, _ := deps.Protocol.Engine().CongestionControl.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Engine().CongestionControl.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -129,10 +129,10 @@ func getInfo(c echo.Context) error {
 	}
 
 	issuerQueueSizes := make(map[string]int)
-	for issuerID, size := range deps.Protocol.Instance().CongestionControl.Scheduler.IssuerQueueSizes() {
+	for issuerID, size := range deps.Protocol.Engine().CongestionControl.Scheduler.IssuerQueueSizes() {
 		issuerQueueSizes[issuerID.String()] = size
 	}
-	scheduler := deps.Protocol.Instance().CongestionControl.Scheduler
+	scheduler := deps.Protocol.Engine().CongestionControl.Scheduler
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{

@@ -366,10 +366,10 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	tm := deps.Protocol.Instance().Clock
+	tm := deps.Protocol.Engine().Clock
 	status.TangleTime = tangleTime{
-		Synced:           deps.Protocol.Instance().IsSynced(),
-		Bootstrapped:     deps.Protocol.Instance().Engine.IsBootstrapped(),
+		Synced:           deps.Protocol.Engine().IsSynced(),
+		Bootstrapped:     deps.Protocol.Engine().Engine.IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),
@@ -378,13 +378,13 @@ func currentNodeStatus() *nodestatus {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Protocol.Instance().CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.Engine().CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Protocol.Instance().CongestionControl.Scheduler.Running(),
-		Rate:              deps.Protocol.Instance().CongestionControl.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Protocol.Instance().CongestionControl.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Protocol.Instance().CongestionControl.Scheduler.BufferSize(),
+		Running:           deps.Protocol.Engine().CongestionControl.Scheduler.Running(),
+		Rate:              deps.Protocol.Engine().CongestionControl.Scheduler.Rate().String(),
+		MaxBufferSize:     deps.Protocol.Engine().CongestionControl.Scheduler.MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.Engine().CongestionControl.Scheduler.BufferSize(),
 		Deficit:           deficit,
 	}
 	return status

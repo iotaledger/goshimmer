@@ -261,24 +261,24 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var timestamp int64
 
 		// get output metadata + confirmation status from conflict of the output
-		deps.Protocol.Instance().Engine.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		var txID utxo.TransactionID
-		deps.Protocol.Instance().Engine.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
 			if output, ok := output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Protocol.Instance().Engine.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+				deps.Protocol.Engine().Engine.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
 					if tx, ok := transaction.(*devnetvm.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})
 
 				// obtain information about the consumer of the output being considered
-				confirmedConsumerID := deps.Protocol.Instance().Engine.Ledger.Utils.ConfirmedConsumer(output.ID())
+				confirmedConsumerID := deps.Protocol.Engine().Engine.Ledger.Utils.ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
 					ID:                jsonmodels.NewOutputID(output.ID()),

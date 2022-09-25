@@ -40,7 +40,7 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 }
 
 func (r *Retainer) Block(blockID models.BlockID) (block *models.Block, exists bool) {
-	return r.protocol.Instance().Block(blockID)
+	return r.protocol.Engine().Block(blockID)
 }
 
 func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadata, exists bool) {
@@ -61,7 +61,7 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
-		cm.ConflictIDs = r.protocol.Instance().Engine.Tangle.BlockConflicts(block)
+		cm.ConflictIDs = r.protocol.Engine().Engine.Tangle.BlockConflicts(block)
 	}))
 
 	r.protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
@@ -121,7 +121,7 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	metas = make([]*BlockMetadata, 0, storage.Size())
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
-		blockMetadata.M.ConflictIDs = r.protocol.Instance().Engine.Tangle.BlockConflicts(cm.Booker.Block)
+		blockMetadata.M.ConflictIDs = r.protocol.Engine().Engine.Tangle.BlockConflicts(cm.Booker.Block)
 
 		metas = append(metas, blockMetadata)
 		return true
