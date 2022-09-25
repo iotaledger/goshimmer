@@ -113,12 +113,9 @@ func TestP2PSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	neighborA, err := mgrB.p2pManager.GetNeighbor(peerA.ID())
-	require.NoError(t, err)
-
 	mgrB.On("blockReceived", &BlockReceivedEvent{
 		Data:     testBlockData,
-		Neighbor: neighborA,
+		Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID())),
 	}).Once()
 
 	mgrA.SendBlock(testBlockData)
@@ -166,12 +163,9 @@ func TestP2PSendTwice(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	neighborA, err := mgrB.p2pManager.GetNeighbor(peerA.ID())
-	require.NoError(t, err)
-
 	mgrB.On("blockReceived", &BlockReceivedEvent{
 		Data:     testBlockData,
-		Neighbor: neighborA,
+		Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID())),
 	}).Twice()
 
 	mgrA.SendBlock(testBlockData)
@@ -294,11 +288,8 @@ func TestSingleSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	neighborA, err := mgrB.p2pManager.GetNeighbor(peerA.ID())
-	require.NoError(t, err)
-
 	// only mgr should receive the block
-	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Neighbor: neighborA}).Once()
+	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID()))}).Once()
 
 	// A sends the block only to B
 	mgrA.SendBlock(testBlockData, peerB.ID())
