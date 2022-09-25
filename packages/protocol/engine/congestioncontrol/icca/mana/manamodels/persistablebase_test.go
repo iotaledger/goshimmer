@@ -1,7 +1,6 @@
 package manamodels
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -17,11 +16,11 @@ func TestPersistableBaseMana_Bytes(t *testing.T) {
 	marshalUtil.WriteByte(byte(p.ManaType()))
 	marshalUtil.WriteUint16(uint16(len(p.BaseValues())))
 	for _, val := range p.BaseValues() {
-		marshalUtil.WriteUint64(math.Float64bits(val))
+		marshalUtil.WriteInt64(val)
 	}
 	marshalUtil.WriteUint16(uint16(len(p.EffectiveValues())))
 	for _, val := range p.EffectiveValues() {
-		marshalUtil.WriteUint64(math.Float64bits(val))
+		marshalUtil.WriteInt64(val)
 	}
 
 	marshalUtil.WriteTime(p.LastUpdated())
@@ -51,5 +50,5 @@ func TestPersistableBaseMana_FromBytes(t *testing.T) {
 }
 
 func newPersistableMana() *PersistableBaseMana {
-	return NewPersistableBaseMana(identity.ID{}, ConsensusMana, []float64{1, 1}, []float64{1, 1}, time.Now())
+	return NewPersistableBaseMana(identity.ID{}, ConsensusMana, []int64{1, 1}, []int64{1, 1}, time.Now())
 }

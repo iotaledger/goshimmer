@@ -1,7 +1,6 @@
 package manamodels
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -19,10 +17,10 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(ev.Type)
 	marshalUtil.WriteByte(byte(ev.ManaType))
-	marshalUtil.WriteBytes(ev.NodeID.Bytes())
+	marshalUtil.WriteBytes(ev.IssuerID.Bytes())
 	marshalUtil.WriteTime(ev.Time)
 	marshalUtil.WriteBytes(ev.TransactionID.Bytes())
-	marshalUtil.WriteUint64(math.Float64bits(ev.Amount))
+	marshalUtil.WriteInt64(ev.Amount)
 	marshalUtil.WriteBytes(ev.InputID.Bytes())
 
 	bytes := marshalUtil.Bytes()
@@ -43,8 +41,8 @@ func TestPersistableEvent_ObjectStorageValue(t *testing.T) {
 
 func TestPersistableEvent_FromBytes(t *testing.T) {
 	ev := &PersistableEvent{
-		Type:          mana.EventTypePledge,
-		NodeID:        identity.ID{},
+		Type:          0,
+		IssuerID:      identity.ID{},
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,

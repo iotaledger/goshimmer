@@ -13,7 +13,7 @@ func TestRevoke_Consensus(t *testing.T) {
 	err := bm.revoke(1.0)
 	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
-	assert.Equal(t, 0.0, bm.BaseValue())
+	assert.Equal(t, int64(0), bm.BaseValue())
 }
 
 func TestRevokeNegativeBalance_Consensus(t *testing.T) {
@@ -51,6 +51,6 @@ func TestPledgeAndUpdateRegularOldFunds_Consensus(t *testing.T) {
 
 	bm.pledge(_txInfo.SumInputs())
 
-	assert.Equal(t, 10.0, _txInfo.SumInputs())
-	assert.Equal(t, 11.0, bm.BaseValue())
+	assert.Equal(t, int64(10), _txInfo.SumInputs())
+	assert.Equal(t, int64(11), bm.BaseValue())
 }

@@ -33,7 +33,7 @@ func TestConsensusBaseManaVector_Size(t *testing.T) {
 	assert.Equal(t, 0, bmv.Size())
 
 	for i := 0; i < 10; i++ {
-		bmv.SetMana(randIssuerID(), NewManaBase(float64(i)))
+		bmv.SetMana(randIssuerID(), NewManaBase(int64(i)))
 	}
 	assert.Equal(t, 10, bmv.Size())
 }
@@ -54,19 +54,19 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 	bmv := NewManaBaseVector(ConsensusMana)
 	randID := randIssuerID()
 	manaValue, _, err := bmv.GetMana(randID)
-	assert.Equal(t, 0.0, manaValue)
+	assert.Equal(t, int64(0), manaValue)
 	assert.Error(t, err)
 
 	bmv.SetMana(randID, NewManaBase(0))
 	manaValue, _, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
-	assert.Equal(t, 0.0, manaValue)
+	assert.Equal(t, int64(0), manaValue)
 
-	bmv.SetMana(randID, NewManaBase(10.0))
+	bmv.SetMana(randID, NewManaBase(10))
 
 	manaValue, _, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
-	assert.Equal(t, 10.0, manaValue)
+	assert.Equal(t, int64(10), manaValue)
 }
 
 func TestConsensusBaseManaVector_ForEach(t *testing.T) {
@@ -77,24 +77,24 @@ func TestConsensusBaseManaVector_ForEach(t *testing.T) {
 	}
 
 	// fore each should iterate over all elements
-	sum := 0.0
+	sum := int64(0)
 	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
 		sum += bm.BaseValue()
 		return true
 	})
-	assert.Equal(t, 10000.0, sum)
+	assert.Equal(t, int64(10000), sum)
 
 	// for each should stop if false is returned from callback
-	sum = 0.0
+	sum = int64(0)
 	bmv.ForEach(func(ID identity.ID, bm BaseMana) bool {
-		if sum >= 5000.0 {
+		if sum >= 5000 {
 			return false
 		}
 		sum += bm.BaseValue()
 		return true
 	})
 
-	assert.Equal(t, 5000.0, sum)
+	assert.Equal(t, int64(5000), sum)
 }
 
 func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
@@ -109,7 +109,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		id := randIssuerID()
-		bmv.SetMana(id, NewManaBase(10.0))
+		bmv.SetMana(id, NewManaBase(10))
 		issuerIDs[id] = 0
 	}
 
@@ -117,7 +117,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 100, len(manaMap))
 	for issuerID, manaValue := range manaMap {
-		assert.Equal(t, 10.0, manaValue)
+		assert.Equal(t, int64(10), manaValue)
 		assert.Contains(t, issuerIDs, issuerID)
 		delete(issuerIDs, issuerID)
 	}
@@ -131,7 +131,7 @@ func TestConsensusBaseManaVector_GetHighestManaIssuers(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		issuerIDs[i] = randIssuerID()
-		bmv.SetMana(issuerIDs[i], NewManaBase(float64(i)))
+		bmv.SetMana(issuerIDs[i], NewManaBase(int64(i)))
 	}
 
 	// requesting the top mana holder
@@ -139,13 +139,13 @@ func TestConsensusBaseManaVector_GetHighestManaIssuers(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, issuerIDs[9], result[0].ID)
-	assert.Equal(t, 9.0, result[0].Mana)
+	assert.Equal(t, int64(9), result[0].Mana)
 
 	// requesting top 3 mana holders
 	result, _, err = bmv.GetHighestManaIssuers(3)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(result))
-	assert.Equal(t, 9.0, result[0].Mana)
+	assert.Equal(t, int64(9), result[0].Mana)
 	for index, value := range result {
 		if index < 2 {
 			// it's greater than the next one
@@ -172,7 +172,7 @@ func TestConsensusBaseManaVector_GetHighestManaIssuersFraction(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		issuerIDs[i] = randIssuerID()
-		bmv.SetMana(issuerIDs[i], NewManaBase(float64(i)))
+		bmv.SetMana(issuerIDs[i], NewManaBase(int64(i)))
 	}
 
 	// requesting minus value
@@ -180,20 +180,20 @@ func TestConsensusBaseManaVector_GetHighestManaIssuersFraction(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 10, len(result))
 	assert.Equal(t, issuerIDs[9], result[0].ID)
-	assert.Equal(t, 9.0, result[0].Mana)
+	assert.Equal(t, int64(9), result[0].Mana)
 
 	// requesting the holders of top 10% of mana
 	result, _, err = bmv.GetHighestManaIssuersFraction(0.1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, issuerIDs[9], result[0].ID)
-	assert.Equal(t, 9.0, result[0].Mana)
+	assert.Equal(t, int64(9), result[0].Mana)
 
 	// requesting holders of top 50% of mana
 	result, _, err = bmv.GetHighestManaIssuersFraction(0.5)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(result))
-	assert.Equal(t, 9.0, result[0].Mana)
+	assert.Equal(t, int64(9), result[0].Mana)
 	for index, value := range result {
 		if index < 2 {
 			// it's greater than the next one
@@ -216,10 +216,10 @@ func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 	issuerIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		issuerIDs[i] = randIssuerID()
-		bmv.SetMana(issuerIDs[i], NewManaBase(float64(i)))
+		bmv.SetMana(issuerIDs[i], NewManaBase(int64(i)))
 	}
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, NewManaBase(float64(i)), bmv.M.Vector[issuerIDs[i]])
+		assert.Equal(t, NewManaBase(int64(i)), bmv.M.Vector[issuerIDs[i]])
 	}
 }
 
@@ -227,7 +227,7 @@ func TestConsensusBaseManaVector_ToPersistables(t *testing.T) {
 	bmv := NewManaBaseVector(ConsensusMana)
 	id1 := randIssuerID()
 	id2 := randIssuerID()
-	data := map[identity.ID]float64{
+	data := map[identity.ID]int64{
 		id1: 1,
 		id2: 10,
 	}
@@ -249,7 +249,7 @@ func TestConsensusBaseManaVector_ToPersistables(t *testing.T) {
 func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		id := randIssuerID()
-		p := NewPersistableBaseMana(id, ConsensusMana, []float64{10}, []float64{100}, baseTime)
+		p := NewPersistableBaseMana(id, ConsensusMana, []int64{10}, []int64{100}, baseTime)
 		bmv := NewManaBaseVector(ConsensusMana)
 		assert.False(t, bmv.Has(id))
 		err := bmv.FromPersistable(p)
@@ -257,11 +257,11 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 		assert.True(t, bmv.Has(id))
 		assert.Equal(t, 1, bmv.Size())
 		bmValue := bmv.M.Vector[id]
-		assert.Equal(t, 10.0, bmValue.BaseValue())
+		assert.Equal(t, int64(10), bmValue.BaseValue())
 	})
 
 	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
-		p := NewPersistableBaseMana(randIssuerID(), ConsensusMana, []float64{0, 0}, []float64{0}, baseTime)
+		p := NewPersistableBaseMana(randIssuerID(), ConsensusMana, []int64{0, 0}, []int64{0}, baseTime)
 
 		bmv := NewManaBaseVector(ConsensusMana)
 
@@ -275,7 +275,7 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 	bmv := NewManaBaseVector(ConsensusMana)
 	id1 := randIssuerID()
 	id2 := randIssuerID()
-	data := map[identity.ID]float64{
+	data := map[identity.ID]int64{
 		id1: 1,
 		id2: 10,
 	}
