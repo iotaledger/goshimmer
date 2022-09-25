@@ -149,8 +149,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Instance.Tangle.Booker.BlockBooked.Attach(closure)
-	defer f.protocol.Events.Instance.Tangle.Booker.BlockBooked.Detach(closure)
+	f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
+	defer f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 
@@ -185,8 +185,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 

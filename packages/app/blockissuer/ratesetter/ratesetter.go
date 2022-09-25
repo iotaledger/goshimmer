@@ -91,7 +91,7 @@ func New(protocol *protocol.Protocol, accessManaMapRetrieverFunc func() map[iden
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return

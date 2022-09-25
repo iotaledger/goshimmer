@@ -10,13 +10,13 @@ import (
 type Events struct {
 	InvalidBlockReceived *event.Linkable[*p2p.Neighbor, Events, *Events]
 
-	Instance *engine.Events
+	Engine *engine.Events
 
 	event.LinkableCollection[Events, *Events]
 }
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
-		Instance: engine.NewEvents(),
+		Engine: engine.NewEvents(),
 	}
 })

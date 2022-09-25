@@ -46,7 +46,7 @@ func getIssuersHandler(c echo.Context) (err error) {
 }
 
 func getWeightsHandler(c echo.Context) (err error) {
-	validatorSet := deps.Protocol.Engine().Engine.Tangle.ValidatorSet
+	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
 
 	weightsString := make(map[string]int64)
 	for _, validator := range validatorSet.Slice() {

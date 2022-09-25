@@ -96,7 +96,7 @@ func run(plugin *node.Plugin) {
 }
 
 func configureEvents() {
-	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {

@@ -89,7 +89,7 @@ func configure(plugin *node.Plugin) {
 	}
 	lastConfirmedBlock = lastAcceptedBlock
 
-	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 			lastConfirmedBlock = block
@@ -369,7 +369,7 @@ func currentNodeStatus() *nodestatus {
 	tm := deps.Protocol.Engine().Clock
 	status.TangleTime = tangleTime{
 		Synced:           deps.Protocol.Engine().IsSynced(),
-		Bootstrapped:     deps.Protocol.Engine().Engine.IsBootstrapped(),
+		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),

@@ -36,5 +36,5 @@ func init() {
 func provide() (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
-	return indexer.New(deps.Protocol.Engine().Engine.Ledger)
+	return indexer.New(deps.Protocol.Engine().Ledger)
 }

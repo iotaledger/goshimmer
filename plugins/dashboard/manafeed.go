@@ -60,8 +60,8 @@ func runManaFeed() {
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
 		// TODO: use linkable events on protocol level
-		deps.Protocol.Events.Instance.CongestionControl.Tracker.Pledged.Attach(notifyManaPledge)
-		deps.Protocol.Events.Instance.CongestionControl.Tracker.Revoked.Attach(notifyManaRevoke)
+		deps.Protocol.Events.Engine.CongestionControl.Tracker.Pledged.Attach(notifyManaPledge)
+		deps.Protocol.Events.Engine.CongestionControl.Tracker.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -173,7 +173,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	validatorSet := deps.Protocol.Engine().Engine.Tangle.ValidatorSet
+	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 	for _, validator := range validatorSet.Slice() {
 		n := manamodels.Issuer{

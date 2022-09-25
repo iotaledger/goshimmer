@@ -49,7 +49,7 @@ func worker(ctx context.Context) {
 }
 
 func getHealthz(c echo.Context) error {
-	if deps.Protocol.Engine().Engine.IsBootstrapped() {
+	if deps.Protocol.Engine().IsBootstrapped() {
 		return c.NoContent(http.StatusServiceUnavailable)
 	}
 	return c.NoContent(http.StatusOK)

@@ -52,19 +52,19 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 }
 
 func (r *Retainer) setupEvents() {
-	r.protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
+	r.protocol.Events.Engine.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(func(block *blockdag.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBlockDAGBlock(block)
 	}))
 
-	r.protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	r.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setBookerBlock(block)
 
-		cm.ConflictIDs = r.protocol.Engine().Engine.Tangle.BlockConflicts(block)
+		cm.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(block)
 	}))
 
-	r.protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	r.protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setVirtualVotingBlock(block)
 	}))
@@ -73,16 +73,16 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setSchedulerBlock(block)
 	})
-	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
-	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
-	r.protocol.Events.Instance.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
-	r.protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	r.protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setAcceptanceBlock(block)
 	}))
 
-	r.protocol.Events.Instance.EvictionManager.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
+	r.protocol.Events.Engine.EvictionManager.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
 }
 
 func (r *Retainer) createOrGetCachedMetadata(id models.BlockID) *cachedMetadata {
@@ -121,7 +121,7 @@ func (r *Retainer) createStorableBlockMetadata(epochIndex epoch.Index) (metas []
 	metas = make([]*BlockMetadata, 0, storage.Size())
 	storage.ForEach(func(blockID models.BlockID, cm *cachedMetadata) bool {
 		blockMetadata := newBlockMetadata(cm)
-		blockMetadata.M.ConflictIDs = r.protocol.Engine().Engine.Tangle.BlockConflicts(cm.Booker.Block)
+		blockMetadata.M.ConflictIDs = r.protocol.Engine().Tangle.BlockConflicts(cm.Booker.Block)
 
 		metas = append(metas, blockMetadata)
 		return true

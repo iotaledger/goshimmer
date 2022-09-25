@@ -109,7 +109,7 @@ func configure(_ *node.Plugin) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
-	deps.Protocol.Engine().Engine.Ledger.Events.TransactionAccepted.Attach(onTransactionAccepted)
+	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Attach(onTransactionAccepted)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -153,12 +153,12 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Protocol.Engine().Engine.Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
+	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Detach(onTransactionAccepted)
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer.AddressOutputMapping) {
-		deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			if typedOutput, ok := output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
@@ -197,7 +197,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 	outputs := outputsOnAddress(address)
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
-		deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			isUnspent = !outputMetadata.IsSpent()
 		})
 
@@ -237,16 +237,16 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
 		for _, output := range outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
-			deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				isUnspent = !outputMetadata.IsSpent()
 			})
 			return
 		}) {
-			deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if !outputMetadata.IsSpent() {
-					deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
+					deps.Protocol.Engine().Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
 						var timestamp time.Time
-						deps.Protocol.Engine().Engine.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo.Transaction) {
+						deps.Protocol.Engine().Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo.Transaction) {
 							timestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 						})
 						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
@@ -274,8 +274,8 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Engine.Tangle.ConflictVoters(conflictID).TotalWeight()))
+	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		err = c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.ConflictVoters(conflictID).TotalWeight()))
 	}) {
 		return
 	}
@@ -294,7 +294,7 @@ func GetConflictChildren(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedChildConflicts := deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
+	cachedChildConflicts := deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedChildConflicts(conflictID)
 	defer cachedChildConflicts.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, cachedChildConflicts.Unwrap()))
@@ -311,12 +311,12 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	if deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflictIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
 		for it := conflict.ConflictSetIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflictIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Protocol.Engine().Engine.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+			deps.Protocol.Engine().Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
 				conflictIDsPerConflictID[conflictID] = append(conflictIDsPerConflictID[conflictID], conflictMember.ConflictID())
 			})
 		}
@@ -340,7 +340,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, deps.Protocol.Engine().Engine.Tangle.ConflictVoters(conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, deps.Protocol.Engine().Tangle.ConflictVoters(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -376,7 +376,7 @@ func GetOutput(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+	if !deps.Protocol.Engine().Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.(devnetvm.Output)))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
@@ -396,7 +396,7 @@ func GetOutputConsumers(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedConsumers := deps.Protocol.Engine().Engine.Ledger.Storage.CachedConsumers(outputID)
+	cachedConsumers := deps.Protocol.Engine().Ledger.Storage.CachedConsumers(outputID)
 	defer cachedConsumers.Release()
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetOutputConsumersResponse(outputID, cachedConsumers.Unwrap()))
@@ -413,8 +413,8 @@ func GetOutputMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Protocol.Engine().Engine.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-		confirmedConsumerID := deps.Protocol.Engine().Engine.Ledger.Utils.ConfirmedConsumer(outputID)
+	if !deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		confirmedConsumerID := deps.Protocol.Engine().Ledger.Utils.ConfirmedConsumer(outputID)
 
 		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
 
@@ -438,7 +438,7 @@ func GetTransaction(c echo.Context) (err error) {
 
 	var tx *devnetvm.Transaction
 	// retrieve transaction
-	if !deps.Protocol.Engine().Engine.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+	if !deps.Protocol.Engine().Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		tx = transaction.(*devnetvm.Transaction)
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
@@ -458,7 +458,7 @@ func GetTransactionMetadata(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Protocol.Engine().Engine.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	if !deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		err = c.JSON(http.StatusOK, jsonmodels.NewTransactionMetadata(transactionMetadata))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load TransactionMetadata of Transaction with %s", transactionID)))
@@ -479,7 +479,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 	}
 
 	blockIDs := models.NewBlockIDs()
-	_ = deps.Protocol.Engine().Engine.Tangle.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
+	_ = deps.Protocol.Engine().Tangle.GetAllAttachments(transactionID).ForEach(func(attachment *booker.Block) error {
 		blockIDs.Add(attachment.ID())
 		return nil
 	})
@@ -536,7 +536,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// check transaction validity
-	if transactionErr := deps.Protocol.Engine().Engine.Ledger.CheckTransaction(context.Background(), tx); transactionErr != nil {
+	if transactionErr := deps.Protocol.Engine().Ledger.CheckTransaction(context.Background(), tx); transactionErr != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
 	}
 

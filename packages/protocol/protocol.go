@@ -78,13 +78,13 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
 
 		// setup solidification event
-		p.Events.Instance.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
-		p.Events.Instance.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
+		p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
+		p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
 
 		// setup gossip events
 		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
 		p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
-		p.Events.Instance.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 			p.network.SendBlock(block.ModelsBlock)
 		}))
 	})
@@ -180,7 +180,7 @@ func (p *Protocol) activateMainChain() (err error) {
 	}
 
 	p.activeInstance = mainInstance
-	p.Events.Instance.LinkTo(mainInstance.Events)
+	p.Events.Engine.LinkTo(mainInstance.Events)
 
 	return
 }
