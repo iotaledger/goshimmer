@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

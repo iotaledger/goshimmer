@@ -9,7 +9,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )

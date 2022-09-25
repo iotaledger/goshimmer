@@ -9,12 +9,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -57,13 +57,13 @@ func provide() (p *protocol.Protocol) {
 
 	p = protocol.New(deps.Network, Plugin.Logger(),
 		protocol.WithInstanceOptions(
-			instance.WithNotarizationManagerOptions(
+			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
-			instance.WithEngineOptions(
+			engine.WithEngineOptions(
 				engine.WithCongestionControlOptions(
 					congestioncontrol.WithSchedulerOptions(
 						scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
@@ -75,11 +75,11 @@ func provide() (p *protocol.Protocol) {
 					tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 				),
 			),
-			instance.WithTipManagerOptions(
+			engine.WithTipManagerOptions(
 				tipmanager.WithWidth(Parameters.TangleWidth),
 				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
-			instance.WithDatabaseManagerOptions(
+			engine.WithDatabaseManagerOptions(
 				database.WithDBProvider(dbProvider),
 				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
 				database.WithGranularity(DatabaseParameters.Granularity),

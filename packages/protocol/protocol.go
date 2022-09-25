@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
@@ -34,14 +34,14 @@ type Protocol struct {
 	settings             *Settings
 	chainManager         *chainmanager.Manager
 	solidification       *solidification.Solidification
-	activeInstance       *instance.Instance
+	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
-	instancesByChainID   map[commitment.ID]*instance.Instance
+	instancesByChainID   map[commitment.ID]*engine.Engine
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotFileName string
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
-	optsInstanceOptions []options.Option[instance.Instance]
+	optsInstanceOptions []options.Option[engine.Engine]
 
 	*logger.Logger
 }
@@ -52,7 +52,7 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 
 		network:              networkInstance,
 		solidification:       solidification.New(networkInstance, log),
-		instancesByChainID:   make(map[commitment.ID]*instance.Instance),
+		instancesByChainID:   make(map[commitment.ID]*engine.Engine),
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
 		optsSnapshotFileName: "snapshot.bin",
@@ -78,8 +78,8 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		p.chainManager = chainmanager.NewManager(p.Instance().GenesisCommitment)
 
 		// setup solidification event
-		p.Events.Instance.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
-		p.Events.Instance.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
+		p.Events.Instance.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
+		p.Events.Instance.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
 
 		// setup gossip events
 		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
@@ -106,7 +106,7 @@ func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
 	}
 }
 
-func (p *Protocol) Instance() (instance *instance.Instance) {
+func (p *Protocol) Instance() (instance *engine.Engine) {
 	p.activeInstanceMutex.RLock()
 	defer p.activeInstanceMutex.RUnlock()
 
@@ -165,7 +165,7 @@ func (p *Protocol) instantiateChains() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = instance.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
 	}
 
 	return len(p.instancesByChainID)
@@ -229,7 +229,7 @@ func WithSettingsFileName(settings string) options.Option[Protocol] {
 // 	}
 // }
 
-func WithInstanceOptions(opts ...options.Option[instance.Instance]) options.Option[Protocol] {
+func WithInstanceOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsInstanceOptions = opts
 	}

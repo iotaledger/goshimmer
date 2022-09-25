@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 )
 
 // region CausalOrderer ////////////////////////////////////////////////////////////////////////////////////////////////

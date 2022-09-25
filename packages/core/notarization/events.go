@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"

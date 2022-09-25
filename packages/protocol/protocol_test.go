@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -14,16 +13,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 )
-
-func init() {
-	if err := logger.InitGlobalLogger(configuration.New()); err != nil {
-		panic(err)
-	}
-}
 
 func TestProtocol(t *testing.T) {
 	log := logger.NewLogger(t.Name())
@@ -41,7 +34,7 @@ func TestProtocol(t *testing.T) {
 
 	debug.SetEnabled(true)
 
-	tf := engine.NewTestFramework(t, engine.WithEngine(protocol.activeInstance.Engine))
+	tf := engine.NewTestFramework(t, engine.WithEngine(protocol.activeInstance))
 	tf.Tangle.CreateBlock("A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))
 	tf.Tangle.IssueBlocks("A")
 	event.Loop.WaitUntilAllTasksProcessed()
