@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -12,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
@@ -26,7 +24,7 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().ID(): 100,
 	}))
 
-	testNetwork := newMockedNetwork()
+	testNetwork := NewMockedNetwork()
 
 	protocol := New(testNetwork, log, WithBaseDirectory(diskUtil.Path()))
 
@@ -39,29 +37,3 @@ func TestProtocol(t *testing.T) {
 	tf.Tangle.IssueBlocks("A")
 	event.Loop.WaitUntilAllTasksProcessed()
 }
-
-type mockedNetwork struct {
-	events *network.Events
-}
-
-func newMockedNetwork() (newMockedNetwork *mockedNetwork) {
-	return &mockedNetwork{
-		events: network.NewEvents(),
-	}
-}
-
-func (m *mockedNetwork) Events() *network.Events {
-	return m.events
-}
-
-func (m *mockedNetwork) SendBlock(block *models.Block, peers ...*peer.Peer) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (m *mockedNetwork) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
-	// TODO implement me
-	panic("implement me")
-}
-
-var _ network.Interface = &mockedNetwork{}

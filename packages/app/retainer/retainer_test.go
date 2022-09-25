@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -48,11 +48,13 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
-	tf := engine.NewTestFramework(t)
-	retainer := NewRetainer(tf.Engine, database.NewManager())
-	b := tf.Tangle.CreateBlock("A")
-	tf.Tangle.IssueBlocks("A").WaitUntilAllTasksProcessed()
-	block, exists := tf.CongestionControl.Block(b.ID())
+	protocolTF := protocol.NewTestFramework(t)
+	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
+	b := tangleTF.CreateBlock("A")
+	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	block, exists := protocolTF.Protocol.Engine().CongestionControl.Block(b.ID())
 	assert.True(t, exists)
 	meta, exists := retainer.BlockMetadata(block.ID())
 	assert.True(t, exists)
@@ -77,7 +79,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	assert.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	assert.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	assert.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	assert.Equal(t, meta.M.ConflictIDs, tf.Engine.Tangle.BlockConflicts(block.Block.Block))
+	assert.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
 
 	assert.Equal(t, meta.M.Tracked, true)
 	assert.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -89,15 +91,18 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	epoch.GenesisTime = time.Now().Add(-5 * time.Minute).Unix()
-	evictionManager := eviction.NewManager[models.BlockID]()
-	tf := engine.NewTestFramework(t, engine.WithEvictionManager(evictionManager))
-	retainer := NewRetainer(tf.Engine, database.NewManager())
-	b := tf.Tangle.CreateBlock("A")
-	tf.Tangle.IssueBlocks("A").WaitUntilAllTasksProcessed()
-	block, exists := tf.CongestionControl.Block(b.ID())
+
+	protocolTF := protocol.NewTestFramework(t)
+	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
+
+	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+
+	b := tangleTF.CreateBlock("A")
+	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
+	block, exists := protocolTF.Protocol.Engine().CongestionControl.Block(b.ID())
 	assert.True(t, exists)
-	evictionManager.EvictUntil(b.ID().EpochIndex+1, nil)
-	tf.Tangle.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
+	protocolTF.Protocol.Engine().EvictionManager.EvictUntil(b.ID().EpochIndex+1, nil)
+	tangleTF.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	assert.True(t, exists)
@@ -122,7 +127,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	assert.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	assert.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	assert.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	assert.Equal(t, meta.M.ConflictIDs, tf.Engine.Tangle.BlockConflicts(block.Block.Block))
+	assert.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
 	assert.Equal(t, meta.M.Tracked, true)
 	assert.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	assert.Equal(t, meta.M.Scheduled, block.IsScheduled())
