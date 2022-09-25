@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 )
@@ -63,17 +62,15 @@ func provide() (p *protocol.Protocol) {
 				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
-			engine.WithEngineOptions(
-				engine.WithCongestionControlOptions(
-					congestioncontrol.WithSchedulerOptions(
-						scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
-						scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
-						scheduler.WithRate(SchedulerParameters.Rate),
-					),
+			engine.WithCongestionControlOptions(
+				congestioncontrol.WithSchedulerOptions(
+					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
+					scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
+					scheduler.WithRate(SchedulerParameters.Rate),
 				),
-				engine.WithTSCManagerOptions(
-					tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-				),
+			),
+			engine.WithTSCManagerOptions(
+				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
 			engine.WithTipManagerOptions(
 				tipmanager.WithWidth(Parameters.TangleWidth),
