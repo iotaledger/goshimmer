@@ -28,7 +28,7 @@ var (
 	selfNode          = identity.New(selfLocalIdentity.PublicKey())
 	noManaIdentity    = identity.GenerateIdentity()
 	noManaNode        = identity.New(noManaIdentity.PublicKey())
-	aMana             = 1.0
+	aMana             = int64(1)
 )
 
 func TestBufferQueue_Submit(t *testing.T) {
@@ -108,7 +108,7 @@ func TestBufferQueue_SubmitWithDrop_DropNewBlock(t *testing.T) {
 	b := NewBufferQueue(maxBuffer)
 	preparedBlocks := make([]*Block, 0, 2*numBlocks)
 	for i := 0; i < numBlocks; i++ {
-		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(selfNode.PublicKey())))
+		preparedBlocks = append(preparedBlocks, newTestBlock(models.WithIssuer(selfNode.PublicKey()), models.WithSequenceNumber(uint64(i))))
 	}
 	for _, blk := range preparedBlocks {
 		droppedBlocks, err := b.Submit(blk, mockAccessManaRetriever)
@@ -303,7 +303,7 @@ func newTestBlock(opts ...options.Option[models.Block]) *Block {
 }
 
 // mockAccessManaRetriever returns mocked access mana value for a node.
-func mockAccessManaRetriever(id identity.ID) float64 {
+func mockAccessManaRetriever(id identity.ID) int64 {
 	if id == selfNode.ID() {
 		return aMana
 	}

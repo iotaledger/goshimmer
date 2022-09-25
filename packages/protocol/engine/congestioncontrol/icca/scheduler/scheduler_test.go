@@ -75,7 +75,7 @@ func TestScheduler_updateActiveNodeList(t *testing.T) {
 	for _, alias := range []string{"A", "B", "C", "D", "E", "F", "G"} {
 		tf.CreateIssuer(alias, 0)
 	}
-	tf.UpdateIssuers(map[string]float64{
+	tf.UpdateIssuers(map[string]int64{
 		"A": 30,
 		"B": 15,
 		"C": 25,
