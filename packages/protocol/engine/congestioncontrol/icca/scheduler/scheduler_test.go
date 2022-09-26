@@ -466,7 +466,7 @@ func TestSchedulerFlow(t *testing.T) {
 	// set C to have a timestamp in the future
 	tf.CreateBlock("C", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(5*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
-	tf.CreateBlock("D", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithStrongParents(tf.BlockIDs("A", "B")))
+	tf.CreateBlock("D", models.WithIssuer(tf.Issuer("peer").PublicKey()), models.WithIssuingTime(time.Now().Add(1*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
 	tf.CreateBlock("E", models.WithIssuer(tf.Issuer("self").PublicKey()), models.WithIssuingTime(time.Now().Add(3*time.Second)), models.WithStrongParents(tf.BlockIDs("A", "B")))
 
