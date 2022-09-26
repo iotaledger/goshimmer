@@ -41,7 +41,7 @@ func init() {
 func configure(_ *node.Plugin) {
 }
 
-func createBlockIssuer() *blockissuer.BlockIssuer {
+func createBlockIssuer(deps dependencies) *blockissuer.BlockIssuer {
 	return blockissuer.New(deps.Protocol, deps.Local.LocalIdentity(),
 		blockissuer.WithBlockFactoryOptions(
 			blockfactory.WithTipSelectionRetryInterval(Parameters.BlockFactory.TipSelectionRetryInterval),
