@@ -5,14 +5,13 @@ go 1.18
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
-	github.com/benbjohnson/clock v1.1.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
 	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.9.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go/core v1.0.0-beta.6.0.20220922132817-c814a3f018cb
+	github.com/iotaledger/hive.go/core v1.0.0-beta.6.0.20220926074352-ab510eeff390
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-beta.3
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
@@ -43,7 +42,6 @@ require (
 )
 
 require (
-	github.com/iotaledger/hive.go v0.0.0-20220922132817-c814a3f018cb // indirect
 	github.com/panjf2000/ants/v2 v2.5.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 )

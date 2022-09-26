@@ -34,13 +34,14 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	return
 }
 
-func (c *Manager) ProcessCommitment(commitments *commitment.Commitment) (chain *Chain, wasForked bool) {
-	chainCommitment := c.Commitment(commitments.ID(), true)
-	if !chainCommitment.PublishCommitment(commitments) {
+func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *Chain, wasForked bool) {
+	chainCommitment := c.Commitment(commitment.ID(), true)
+	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.Chain(), false
 	}
 
 	if chain, wasForked = c.registerChild(chainCommitment.Commitment().PrevID(), chainCommitment); chain == nil {
+		// TODO: CHAIN SOLIDIFICATION
 		return
 	}
 
