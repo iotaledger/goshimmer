@@ -131,7 +131,7 @@ COPY config.default.json /app/config.json
 # Fix permission issue when mounting volumes
 COPY --chown=nonroot:nonroot --from=build /tmp/db/ /app/db/
 
-COPY --from=build /tmp/snapshot.bin /app/db/snapshot.bin
+COPY --chown=nonroot:nonroot --from=build /tmp/snapshot.bin /app/db/snapshot.bin
 
 
 # We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0
