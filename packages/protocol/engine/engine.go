@@ -3,6 +3,7 @@ package engine
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/kvstore"
@@ -78,7 +79,6 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 			Events:          NewEvents(),
 			ValidatorSet:    validator.NewSet(),
 			EvictionManager: eviction.NewManager[models.BlockID](),
-			Inbox:           inbox.New(),
 
 			chainDirectory:            chainDirectory,
 			logger:                    logger,
@@ -86,6 +86,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,
 		}, opts,
+		(*Engine).initInbox,
 		(*Engine).initDatabaseManager,
 		(*Engine).initLedger,
 		(*Engine).initTangle,
@@ -112,6 +113,12 @@ func (i *Engine) IsSynced() (isBootstrapped bool) {
 	return i.IsBootstrapped() && time.Since(i.Clock.AcceptedTime()) < i.optsBootstrappedThreshold
 }
 
+func (i *Engine) initInbox() {
+	i.Inbox = inbox.New()
+
+	i.Events.Inbox = i.Inbox.Events
+}
+
 func (i *Engine) initDatabaseManager() {
 	i.optsDatabaseManagerOptions = append(i.optsDatabaseManagerOptions, database.WithBaseDir(i.chainDirectory))
 
@@ -126,6 +133,12 @@ func (i *Engine) initLedger() {
 
 func (i *Engine) initTangle() {
 	i.Tangle = tangle.New(i.Ledger, i.EvictionManager, i.ValidatorSet, i.optsTangleOptions...)
+
+	i.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
+		if _, _, err := i.Tangle.Attach(block); err != nil {
+			i.Events.Error.Trigger(errors.Errorf("failed to attach block with %s: %w", block.ID(), err))
+		}
+	}))
 
 	i.Events.Tangle = i.Tangle.Events
 }

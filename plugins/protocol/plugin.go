@@ -109,4 +109,8 @@ func configureLogging(*node.Plugin) {
 	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		Plugin.LogInfof("Block %s scheduled", block.ID())
 	}))
+
+	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
+		Plugin.LogErrorf("Error in Engine: %s", err)
+	}))
 }

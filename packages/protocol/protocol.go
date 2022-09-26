@@ -132,15 +132,21 @@ func (p *Protocol) importSnapshot(fileName string) (err error) {
 	chainID := snapshotHeader.LatestECRecord.ID()
 	chainDirectory := p.disk.Path(fmt.Sprintf("%x", chainID.Bytes()))
 
+	fmt.Println("creating chainDirectory", chainDirectory)
 	if !p.disk.Exists(chainDirectory) {
+		fmt.Println("chain directory does not exist", chainDirectory)
 		if err = p.disk.CreateDir(chainDirectory); err != nil {
 			return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
 		}
 	}
 
-	if err = diskutil.ReplaceFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+	if p.disk.CopyFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
 		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
 	}
+	// TODO: we can't move the file because it might be mounted through Docker
+	// if err = diskutil.ReplaceFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
+	// }
 
 	p.settings.AddChain(chainID)
 	p.settings.SetMainChainID(chainID)
