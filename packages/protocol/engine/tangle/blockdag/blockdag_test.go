@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/randommap"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -49,7 +50,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block1", func(block *Block) {
-			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -78,7 +79,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block1", func(block *Block) {
-			assert.False(t, block.Block.IssuingTime().IsZero(), "block should be attached")
+			assert.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
 
@@ -114,7 +115,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -154,7 +155,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.True(t, block.Block.IssuingTime().IsZero(), "block should not be attached")
+			assert.True(t, block.ModelsBlock.IssuingTime().IsZero(), "block should not be attached")
 		})
 	}
 
@@ -194,7 +195,7 @@ func TestBlockDAG_AttachBlock(t *testing.T) {
 		})
 
 		tf.AssertBlock("block3", func(block *Block) {
-			assert.False(t, block.Block.IssuingTime().IsZero(), "block should be attached")
+			assert.False(t, block.ModelsBlock.IssuingTime().IsZero(), "block should be attached")
 		})
 	}
 }
@@ -374,7 +375,7 @@ func TestBlockDAG_AttachInvalid(t *testing.T) {
 	}
 
 	// Prune BlockDAG.
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
@@ -505,7 +506,7 @@ func TestBlockDAG_Prune(t *testing.T) {
 
 	validateState(tf, 0, epochCount)
 
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount / 4)
+	tf.BlockDAG.EvictionManager.EvictUntil(epochCount/4, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tf.WaitUntilAllTasksProcessed()
 
 	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
@@ -513,11 +514,11 @@ func TestBlockDAG_Prune(t *testing.T) {
 	// All orphan blocks should be marked as invalid due to invalidity propagation.
 	tf.AssertInvalidCount(epochCount, "should have invalid blocks")
 
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount / 10)
+	tf.BlockDAG.EvictionManager.EvictUntil(epochCount/10, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/4, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/4")
 
-	tf.BlockDAG.EvictionManager.EvictUntil(epochCount / 2)
+	tf.BlockDAG.EvictionManager.EvictUntil(epochCount/2, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tf.WaitUntilAllTasksProcessed()
 	assert.EqualValues(t, epochCount/2, tf.BlockDAG.EvictionManager.MaxEvictedEpoch(), "maxDroppedEpoch should be epochCount/2")
 
