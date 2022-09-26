@@ -329,27 +329,16 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 }
 
 func newTangleVertex(block *models.Block) (ret *tangleVertex) {
-	blockMetadata, exists := deps.Retainer.BlockMetadata(block.ID())
-	conflictIDs := utxo.NewTransactionIDs()
-	if exists {
-		conflictIDs = blockMetadata.M.ConflictIDs
-	}
-
-	// TODO: replace confirmation with bool flags
 	confirmationState := confirmation.Pending
-	if blockMetadata.M.Accepted {
-		confirmationState = confirmation.Accepted
-	}
+
 	ret = &tangleVertex{
 		ID:                    block.ID().Base58(),
 		StrongParentIDs:       block.ParentsByType(models.StrongParentType).Base58(),
 		WeakParentIDs:         block.ParentsByType(models.WeakParentType).Base58(),
 		ShallowLikeParentIDs:  block.ParentsByType(models.ShallowLikeParentType).Base58(),
-		ConflictIDs:           lo.Map(conflictIDs.Slice(), utxo.TransactionID.Base58),
-		IsMarker:              blockMetadata.M.StructureDetails != nil && blockMetadata.M.StructureDetails.IsPastMarker,
 		IsTx:                  block.Payload().Type() == devnetvm.TransactionType,
-		IsConfirmed:           blockMetadata.M.Accepted,
-		ConfirmationStateTime: blockMetadata.M.AcceptedTime.UnixNano(),
+		IsConfirmed:           false,
+		ConfirmationStateTime: block.IssuingTime().Unix(),
 		ConfirmationState:     confirmationState.String(),
 	}
 
