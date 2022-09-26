@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/logger"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -20,11 +21,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
-	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
@@ -35,7 +35,7 @@ var (
 	testBlockData = []byte("testBlk")
 )
 
-func loadTestBlock(tangleold.BlockID) ([]byte, error) { return testBlockData, nil }
+func loadTestBlock(models.BlockID) ([]byte, error) { return testBlockData, nil }
 
 func TestClose(t *testing.T) {
 	testMgrs := newTestManagers(t, true /* doMock */, "A")
@@ -114,8 +114,8 @@ func TestP2PSend(t *testing.T) {
 	wg.Wait()
 
 	mgrB.On("blockReceived", &BlockReceivedEvent{
-		Data: testBlockData,
-		Peer: peerA,
+		Data:     testBlockData,
+		Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID())),
 	}).Once()
 
 	mgrA.SendBlock(testBlockData)
@@ -164,8 +164,8 @@ func TestP2PSendTwice(t *testing.T) {
 	wg.Wait()
 
 	mgrB.On("blockReceived", &BlockReceivedEvent{
-		Data: testBlockData,
-		Peer: peerA,
+		Data:     testBlockData,
+		Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID())),
 	}).Twice()
 
 	mgrA.SendBlock(testBlockData)
@@ -227,9 +227,8 @@ func TestBroadcast(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	event := &BlockReceivedEvent{Data: testBlockData, Peer: peerA}
-	mgrB.On("blockReceived", event).Once()
-	mgrC.On("blockReceived", event).Once()
+	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID()))}).Once()
+	mgrC.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Neighbor: lo.PanicOnErr(mgrC.p2pManager.GetNeighbor(peerA.ID()))}).Once()
 
 	mgrA.SendBlock(testBlockData)
 	time.Sleep(graceTime)
@@ -290,7 +289,7 @@ func TestSingleSend(t *testing.T) {
 	wg.Wait()
 
 	// only mgr should receive the block
-	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Peer: peerA}).Once()
+	mgrB.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID()))}).Once()
 
 	// A sends the block only to B
 	mgrA.SendBlock(testBlockData, peerB.ID())
@@ -353,14 +352,9 @@ func TestBlockRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := tangleold.BlockID{}
+	mgrB.On("blockRequestReceived", &BlockRequestReceived{BlockID: models.EmptyBlockID, Neighbor: lo.PanicOnErr(mgrB.p2pManager.GetNeighbor(peerA.ID()))}).Once()
 
-	// mgrA should eventually receive the block
-	mgrA.On("blockReceived", &BlockReceivedEvent{Data: testBlockData, Peer: peerB}).Once()
-
-	b, err := proto.Marshal(&gp.BlockRequest{Id: id.Bytes()})
-	require.NoError(t, err)
-	mgrA.RequestBlock(b)
+	mgrA.RequestBlock(lo.PanicOnErr(models.EmptyBlockID.Bytes()))
 	time.Sleep(graceTime)
 
 	mgrA.On("neighborRemoved", mock.Anything).Once()
@@ -547,7 +541,7 @@ func newTestManagers(t testing.TB, doMock bool, names ...string) []*testManager 
 
 		// start the actual gossipping
 		p2pMgr := p2p.NewManager(hst, local, l)
-		mgr := NewManager(p2pMgr, loadTestBlock, l)
+		mgr := NewManager(p2pMgr, l)
 		require.NoError(t, err)
 		tearDown := func() {
 			mgr.Stop()
@@ -580,6 +574,7 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
 	e.p2pManager.NeighborGroupEvents(p2p.NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
 	e.Events.BlockReceived.Hook(event.NewClosure(e.blockReceived))
+	e.Events.BlockRequestReceived.Hook(event.NewClosure(e.blockRequestReceived))
 
 	return e
 }
@@ -589,6 +584,7 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) neighborAdded(event *p2p.NeighborAddedEvent)     { e.Called(event.Neighbor) }
-func (e *mockedManager) neighborRemoved(event *p2p.NeighborRemovedEvent) { e.Called(event.Neighbor) }
-func (e *mockedManager) blockReceived(event *BlockReceivedEvent)         { e.Called(event) }
+func (e *mockedManager) neighborAdded(event *p2p.NeighborAddedEvent)      { e.Called(event.Neighbor) }
+func (e *mockedManager) neighborRemoved(event *p2p.NeighborRemovedEvent)  { e.Called(event.Neighbor) }
+func (e *mockedManager) blockReceived(event *BlockReceivedEvent)          { e.Called(event) }
+func (e *mockedManager) blockRequestReceived(event *BlockRequestReceived) { e.Called(event) }

@@ -41,7 +41,7 @@ func init() {
 			// TODO: refactor when its ready
 			// // TODO: use a different block loader function
 			// loadBlockFunc := func(blockID models.BlockID) (*models.Block, error) {
-			//	block, exists := p.Instance().Block(blockID)
+			//	block, exists := p.Engine().Block(blockID)
 			//	if !exists {
 			//		return nil, errors.Errorf("block %s not found", blockID)
 			//	}

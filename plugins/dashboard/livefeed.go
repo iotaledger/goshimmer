@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -34,10 +34,10 @@ func runLiveFeed() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[BlkUpdater]", func(ctx context.Context) {
-		deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[BlkUpdater] ...")
-		deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[BlkUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

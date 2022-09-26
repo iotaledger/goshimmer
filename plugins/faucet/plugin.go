@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 
@@ -96,7 +96,7 @@ func run(plugin *node.Plugin) {
 }
 
 func configureEvents() {
-	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {

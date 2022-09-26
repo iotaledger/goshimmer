@@ -79,7 +79,7 @@ func start(ctx context.Context) {
 
 	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
-			if !deps.Protocol.Instance().Engine.IsBootstrapped() {
+			if !deps.Protocol.Engine().IsBootstrapped() {
 				return
 			}
 			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{

@@ -25,10 +25,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -89,7 +89,7 @@ func configure(plugin *node.Plugin) {
 	}
 	lastConfirmedBlock = lastAcceptedBlock
 
-	deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 			lastConfirmedBlock = block
@@ -366,10 +366,10 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	tm := deps.Protocol.Instance().Clock
+	tm := deps.Protocol.Engine().Clock
 	status.TangleTime = tangleTime{
-		Synced:           deps.Protocol.Instance().IsSynced(),
-		Bootstrapped:     deps.Protocol.Instance().Engine.IsBootstrapped(),
+		Synced:           deps.Protocol.Engine().IsSynced(),
+		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),
@@ -378,13 +378,13 @@ func currentNodeStatus() *nodestatus {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	deficit, _ := deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
+	deficit, _ := deps.Protocol.Engine().CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
 
 	status.Scheduler = schedulerMetric{
-		Running:           deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Running(),
-		Rate:              deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate().String(),
-		MaxBufferSize:     deps.Protocol.Instance().Engine.CongestionControl.Scheduler.MaxBufferSize(),
-		CurrentBufferSize: deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize(),
+		Running:           deps.Protocol.Engine().CongestionControl.Scheduler.Running(),
+		Rate:              deps.Protocol.Engine().CongestionControl.Scheduler.Rate().String(),
+		MaxBufferSize:     deps.Protocol.Engine().CongestionControl.Scheduler.MaxBufferSize(),
+		CurrentBufferSize: deps.Protocol.Engine().CongestionControl.Scheduler.BufferSize(),
 		Deficit:           deficit,
 	}
 	return status

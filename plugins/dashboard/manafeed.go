@@ -13,8 +13,8 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 )
 
 var (
@@ -60,8 +60,8 @@ func runManaFeed() {
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
 		// TODO: use linkable events on protocol level
-		deps.Protocol.Events.Instance.Engine.CongestionControl.Tracker.Pledged.Attach(notifyManaPledge)
-		deps.Protocol.Events.Instance.Engine.CongestionControl.Tracker.Revoked.Attach(notifyManaRevoke)
+		deps.Protocol.Events.Engine.CongestionControl.Tracker.Pledged.Attach(notifyManaPledge)
+		deps.Protocol.Events.Engine.CongestionControl.Tracker.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -85,12 +85,12 @@ func runManaFeed() {
 // region Websocket block sending handlers (live updates)
 func sendManaValue() {
 	ownID := deps.Local.ID()
-	access, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(ownID)
+	access, _, err := deps.Protocol.Engine().CongestionControl.GetAccessMana(ownID)
 	// if issuer not found, returned value is 0.0
 	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get own access mana: %s ", err.Error())
 	}
-	consensus, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(ownID)
+	consensus, _, err := deps.Protocol.Engine().CongestionControl.GetConsensusMana(ownID)
 	// if issuer not found, returned value is 0.0
 	if err != nil && !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get own consensus mana: %s ", err.Error())
@@ -109,7 +109,7 @@ func sendManaValue() {
 }
 
 func sendManaMapOverall() {
-	accessManaList, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetHighestManaIssuers(manamodels.AccessMana, 0)
+	accessManaList, _, err := deps.Protocol.Engine().CongestionControl.GetHighestManaIssuers(manamodels.AccessMana, 0)
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest access mana issuers: %s ", err.Error())
 	}
@@ -124,7 +124,7 @@ func sendManaMapOverall() {
 		Type: MsgTypeManaMapOverall,
 		Data: accessPayload,
 	})
-	consensusManaList, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetHighestManaIssuers(manamodels.ConsensusMana, 0)
+	consensusManaList, _, err := deps.Protocol.Engine().CongestionControl.GetHighestManaIssuers(manamodels.ConsensusMana, 0)
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of n highest consensus mana issuers: %s ", err.Error())
 	}
@@ -148,7 +148,7 @@ func sendManaMapOnline() {
 		return
 	}
 	knownPeers := deps.Discover.GetVerifiedPeers()
-	manaMap, _, err := deps.Protocol.Instance().Engine.CongestionControl.GetManaMap(manamodels.AccessMana)
+	manaMap, _, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manamodels.AccessMana)
 	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
 		log.Errorf("failed to get list of online access mana issuers: %s", err)
 	}
@@ -173,7 +173,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	validatorSet := deps.Protocol.Instance().Engine.Tangle.ValidatorSet
+	validatorSet := deps.Protocol.Engine().Tangle.ValidatorSet
 	consensusPayload := &ManaNetworkListBlkData{ManaType: manamodels.ConsensusMana.String()}
 	for _, validator := range validatorSet.Slice() {
 		n := manamodels.Issuer{

@@ -35,15 +35,15 @@ func measureSchedulerMetrics() {
 	issuerQueueSizesMutex.Lock()
 	defer issuerQueueSizesMutex.Unlock()
 	issuerQueueSizes = make(map[identity.ID]int)
-	for k, v := range deps.Protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSizes() {
+	for k, v := range deps.Protocol.Engine().CongestionControl.Scheduler.IssuerQueueSizes() {
 		issuerQueueSizes[k] = v
 	}
-	bufferSize = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.BufferSize()
-	maxBufferSize = deps.Protocol.Instance().Engine.CongestionControl.MaxBufferSize()
-	schedulerDeficit, _ = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
-	schedulerRate = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.Rate()
-	readyBlocksCount = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.ReadyBlocksCount()
-	totalBlocksCount = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.TotalBlocksCount()
+	bufferSize = deps.Protocol.Engine().CongestionControl.Scheduler.BufferSize()
+	maxBufferSize = deps.Protocol.Engine().CongestionControl.MaxBufferSize()
+	schedulerDeficit, _ = deps.Protocol.Engine().CongestionControl.Scheduler.Deficit(deps.Local.ID()).Float64()
+	schedulerRate = deps.Protocol.Engine().CongestionControl.Scheduler.Rate()
+	readyBlocksCount = deps.Protocol.Engine().CongestionControl.Scheduler.ReadyBlocksCount()
+	totalBlocksCount = deps.Protocol.Engine().CongestionControl.Scheduler.TotalBlocksCount()
 }
 
 // SchedulerIssuerQueueSizes current size of each issuer's queue.
@@ -68,7 +68,7 @@ func SchedulerIssuerAManaAmount() map[string]int64 {
 	// copy the original map
 	clone := make(map[string]int64)
 	for key := range issuerQueueSizes {
-		clone[key.String()], _, _ = deps.Protocol.Instance().Engine.CongestionControl.Tracker.GetAccessMana(key)
+		clone[key.String()], _, _ = deps.Protocol.Engine().CongestionControl.Tracker.GetAccessMana(key)
 	}
 
 	return clone

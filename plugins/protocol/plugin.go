@@ -9,15 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tsc"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -60,29 +56,27 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 	}
 	p = protocol.New(n, Plugin.Logger(),
 		protocol.WithInstanceOptions(
-			instance.WithNotarizationManagerOptions(
+			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
-			instance.WithEngineOptions(
-				engine.WithCongestionControlOptions(
-					congestioncontrol.WithSchedulerOptions(
-						scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
-						scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
-						scheduler.WithRate(SchedulerParameters.Rate),
-					),
-				),
-				engine.WithTSCManagerOptions(
-					tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
+			engine.WithCongestionControlOptions(
+				congestioncontrol.WithSchedulerOptions(
+					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
+					scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
+					scheduler.WithRate(SchedulerParameters.Rate),
 				),
 			),
-			instance.WithTipManagerOptions(
+			engine.WithTSCManagerOptions(
+				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
+			),
+			engine.WithTipManagerOptions(
 				tipmanager.WithWidth(Parameters.TangleWidth),
 				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
-			instance.WithDatabaseManagerOptions(
+			engine.WithDatabaseManagerOptions(
 				database.WithDBProvider(dbProvider),
 				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
 				database.WithGranularity(DatabaseParameters.Granularity),
@@ -97,19 +91,19 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 }
 
 func configureLogging(*node.Plugin) {
-	deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
 		Plugin.LogInfof("Block %s attached", block.ID())
 	}))
 
-	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
 		Plugin.LogInfof("Block %s booked", block.ID())
 	}))
 
-	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
 		Plugin.LogInfof("Block %s tracked", block.ID())
 	}))
 
-	deps.Protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		Plugin.LogInfof("Block %s scheduled", block.ID())
 	}))
 }

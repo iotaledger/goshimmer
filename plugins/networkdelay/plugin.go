@@ -13,7 +13,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 )
 
@@ -79,7 +79,7 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to block-layer
-	deps.Protocol.Events.Instance.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
+	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
@@ -123,7 +123,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.SentTime(),
 		Clock:       clockEnabled,
-		Synced:      deps.Protocol.Instance().IsSynced(),
+		Synced:      deps.Protocol.Engine().IsSynced(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)
@@ -137,7 +137,7 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Synced:      deps.Protocol.Instance().IsSynced(),
+		Synced:      deps.Protocol.Engine().IsSynced(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)

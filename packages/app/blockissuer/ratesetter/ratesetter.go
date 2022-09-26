@@ -13,7 +13,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -91,12 +91,12 @@ func New(protocol *protocol.Protocol, accessManaMapRetrieverFunc func() map[iden
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	r.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
+	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
 		}
-		if r.issuingQueue.Size()+r.protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSize(r.self) > 0 {
+		if r.issuingQueue.Size()+r.protocol.Engine().CongestionControl.Scheduler.IssuerQueueSize(r.self) > 0 {
 			r.rateSetting()
 		}
 	}))
@@ -167,7 +167,7 @@ func (r *RateSetter) rateSetting() {
 	ownRate := r.ownRate.Load()
 
 	// TODO: make sure not to issue or scheduled blocks older than TSC
-	if float64(r.protocol.Instance().Engine.CongestionControl.Scheduler.IssuerQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
+	if float64(r.protocol.Engine().CongestionControl.Scheduler.IssuerQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = r.initialPauseUpdates
 	} else {
