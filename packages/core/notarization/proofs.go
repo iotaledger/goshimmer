@@ -24,7 +24,7 @@ type CommitmentProof struct {
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
 func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	block, exists := m.engine.Tangle.BlockDAG.Block(blockID)
+	block, exists := m.tangle.BlockDAG.Block(blockID)
 	if !exists {
 		return nil, errors.Errorf("cannot retrieve block with id %s", blockID)
 	}
@@ -40,7 +40,7 @@ func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentPro
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
 	var ei epoch.Index
-	m.engine.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
+	m.ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		ei = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)

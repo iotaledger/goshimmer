@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 )
 
 const (
@@ -43,7 +43,7 @@ type dependencies struct {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
 	configureWebAPI()
 }
 

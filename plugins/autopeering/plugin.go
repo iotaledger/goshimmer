@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 
 	netPkg "github.com/iotaledger/goshimmer/packages/app/metrics/net"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"

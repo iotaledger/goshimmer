@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 )
 
 // getManaHandler handles the request.
@@ -25,7 +25,7 @@ func getManaHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	accessMana, tAccess, err := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(ID)
+	accessMana, tAccess, err := deps.Protocol.Engine().CongestionControl.GetAccessMana(ID)
 	if err != nil {
 		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			accessMana = 0
@@ -33,7 +33,7 @@ func getManaHandler(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensusMana, tConsensus, err := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(ID)
+	consensusMana, tConsensus, err := deps.Protocol.Engine().CongestionControl.GetConsensusMana(ID)
 	if err != nil {
 		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			consensusMana = 0

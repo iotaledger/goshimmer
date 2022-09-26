@@ -13,11 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
@@ -45,23 +45,23 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:            NewEvents(),
 		identity:          localIdentity,
 		protocol:          protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Instance().Engine }, protocol.Instance().NotarizationManager.LatestCommitableEpochIndex),
+		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, protocol.Engine().NotarizationManager.LatestCommitableEpochIndex),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
-				return i.protocol.Instance().Engine.Tangle.BlockDAG.Block(blockID)
+				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
-				return i.protocol.Instance().TipManager.Tips(countParents)
+				return i.protocol.Engine().TipManager.Tips(countParents)
 			},
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
-				latestCommitment, err := i.protocol.Instance().NotarizationManager.GetLatestEC()
+				latestCommitment, err := i.protocol.Engine().NotarizationManager.GetLatestEC()
 				if err != nil {
 					return nil, 0, err
 				}
-				confirmedEpochIndex, err := i.protocol.Instance().NotarizationManager.LatestConfirmedEpochIndex()
+				confirmedEpochIndex, err := i.protocol.Engine().NotarizationManager.LatestConfirmedEpochIndex()
 				if err != nil {
 					return nil, 0, err
 				}
@@ -73,21 +73,21 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		i.RateSetter = ratesetter.New(
 			i.protocol,
 			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Instance().Engine.CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
+				manaMap, _, err := i.protocol.Engine().CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
 				if err != nil {
 					return make(map[identity.ID]int64)
 				}
 				return manaMap
 			},
 			func() int64 {
-				totalMana, _, err := i.protocol.Instance().Engine.CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
+				totalMana, _, err := i.protocol.Engine().CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
 				if err != nil {
 					return 0
 				}
 				return totalMana
 			},
 			i.identity.ID(),
-			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Instance().Engine.CongestionControl.Scheduler.Rate()))...)
+			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Engine().CongestionControl.Scheduler.Rate()))...)
 	})
 }
 
@@ -99,7 +99,7 @@ func (f *BlockIssuer) setupEvents() {
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
 func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
@@ -114,7 +114,7 @@ func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (bloc
 
 // IssuePayloadWithReferences creates a new block with the references submit.
 func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (block *models.Block, err error) {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
@@ -129,7 +129,7 @@ func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
 func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, maxAwait time.Duration) error {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -149,8 +149,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Attach(closure)
-	defer f.protocol.Events.Instance.Engine.Tangle.Booker.BlockBooked.Detach(closure)
+	f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
+	defer f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 
@@ -168,7 +168,7 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 
 // IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
 func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Instance().IsBootstrapped() {
+	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -185,8 +185,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.Instance.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 

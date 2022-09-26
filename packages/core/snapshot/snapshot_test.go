@@ -7,16 +7,19 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 const (
@@ -32,7 +35,7 @@ var nodesToPledge = []string{
 
 var (
 	outputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
-	activityLog         = epoch.NewSnapshotEpochActivity()
+	activityLog         = activitylog.NewSnapshotEpochActivity()
 	epochDiffs          = make([]*ledger.EpochDiff, 0)
 	manaDistribution    = createManaDistribution(cfgPledgeTokenAmount)
 	solidEntryPoints    = make([]*SolidEntryPoints, 0)
@@ -77,17 +80,11 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	diffEpochIndex := epoch.Index(0)
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
-		ecRecord := epoch.NewECRecord(diffEpochIndex)
-		ecRecord.SetECR(commitment.MerkleRoot{})
-		ecRecord.SetPrevEC(commitment.MerkleRoot{})
-
-		header = &ledger.SnapshotHeader{
+		return &ledger.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
 			DiffEpochIndex: diffEpochIndex,
-			LatestECRecord: ecRecord,
-		}
-
-		return
+			LatestECRecord: commitment.New(commitment.MerkleRoot{}, diffEpochIndex, commitment.MerkleRoot{}),
+		}, nil
 	}
 
 	// prepare outputsWithMetadata
@@ -101,12 +98,12 @@ func createEmptySnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return
 	}
 
-	seps := &SolidEntryPoints{EI: 0, Seps: make([]tangleold.BlockID, 0)}
+	seps := &SolidEntryPoints{EI: 0, Seps: make([]models.BlockID, 0)}
 	solidEntryPoints = append(solidEntryPoints, seps)
 	sepsProd := func() (s *SolidEntryPoints) {
 		return seps
 	}
-	activityLogProd := func() (n epoch.SnapshotEpochActivity) {
+	activityLogProd := func() (n activitylog.SnapshotEpochActivity) {
 		return activityLog
 	}
 
@@ -121,17 +118,11 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	diffEpochIndex := epoch.Index(3)
 
 	headerProd := func() (header *ledger.SnapshotHeader, err error) {
-		ecRecord := epoch.NewECRecord(diffEpochIndex)
-		ecRecord.SetECR(commitment.MerkleRoot{})
-		ecRecord.SetPrevEC(commitment.MerkleRoot{})
-
-		header = &ledger.SnapshotHeader{
+		return &ledger.SnapshotHeader{
 			FullEpochIndex: fullEpochIndex,
 			DiffEpochIndex: diffEpochIndex,
-			LatestECRecord: ecRecord,
-		}
-
-		return
+			LatestECRecord: commitment.New(commitment.MerkleRoot{}, diffEpochIndex, commitment.MerkleRoot{}),
+		}, nil
 	}
 
 	// prepare outputsWithMetadata
@@ -171,9 +162,9 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 		return s
 	}
 
-	activityLogProd := func() epoch.SnapshotEpochActivity {
+	activityLogProd := func() activitylog.SnapshotEpochActivity {
 		for ei := fullEpochIndex - 1; ei <= diffEpochIndex; ei++ {
-			activityLog[epoch.Index(ei)] = epoch.NewSnapshotNodeActivity()
+			activityLog[epoch.Index(ei)] = activitylog.NewSnapshotNodeActivity()
 
 			for _, str := range nodesToPledge {
 				nodeID, decodeErr := identity.DecodeIDBase58(str)
@@ -194,7 +185,7 @@ func createSnapshot(t *testing.T) (header *ledger.SnapshotHeader) {
 	return header
 }
 
-func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff, activity epoch.SnapshotEpochActivity) {
+func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEntryPoints, states []*ledger.OutputWithMetadata, epochDiffs []*ledger.EpochDiff, activity activitylog.SnapshotEpochActivity) {
 	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
 		states = append(states, outputWithMetadatas...)
 	}
@@ -204,7 +195,7 @@ func readSnapshot(t *testing.T) (header *ledger.SnapshotHeader, seps []*SolidEnt
 	headerConsumer := func(h *ledger.SnapshotHeader) {
 		header = h
 	}
-	activityLogConsumer := func(ea epoch.SnapshotEpochActivity) {
+	activityLogConsumer := func(ea activitylog.SnapshotEpochActivity) {
 		activity = ea
 	}
 	sepsConsumer := func(s *SolidEntryPoints) {
@@ -230,9 +221,9 @@ func createsEpochDiffs(fullEpochIndex, diffEpochIndex epoch.Index) {
 
 func createSolidEntryPoints(t *testing.T, fullEpochIndex, diffEpochIndex epoch.Index) (seps []*SolidEntryPoints) {
 	for i := fullEpochIndex; i <= diffEpochIndex; i++ {
-		sep := &SolidEntryPoints{EI: i, Seps: make([]tangleold.BlockID, 0)}
+		sep := &SolidEntryPoints{EI: i, Seps: make([]models.BlockID, 0)}
 		for j := 0; j < 101; j++ {
-			var b tangleold.BlockID
+			var b models.BlockID
 			require.NoError(t, b.FromRandomness(i))
 			sep.Seps = append(sep.Seps, b)
 		}
@@ -305,8 +296,8 @@ func compareSolidEntryPoints(t *testing.T, created, unmarshal []*SolidEntryPoint
 	for i := 0; i < len(created); i++ {
 		assert.Equal(t, created[i].EI, unmarshal[i].EI)
 		for j := 0; j < len(created[i].Seps); j++ {
-			ob := created[i].Seps[j].Bytes()
-			rb := unmarshal[i].Seps[j].Bytes()
+			ob := lo.PanicOnErr(created[i].Seps[j].Bytes())
+			rb := lo.PanicOnErr(unmarshal[i].Seps[j].Bytes())
 			assert.ElementsMatch(t, ob, rb)
 		}
 	}
@@ -333,7 +324,7 @@ func compareEpochDiffs(t *testing.T, created, unmarshal []*ledger.EpochDiff) {
 	}
 }
 
-func compareActivityLogs(t *testing.T, created, unmarshal epoch.SnapshotEpochActivity) {
+func compareActivityLogs(t *testing.T, created, unmarshal activitylog.SnapshotEpochActivity) {
 	assert.Equal(t, len(created), len(unmarshal))
 	for ei, al := range created {
 		uLog, ok := unmarshal[ei]
@@ -342,7 +333,7 @@ func compareActivityLogs(t *testing.T, created, unmarshal epoch.SnapshotEpochAct
 	}
 }
 
-func compareActivityLog(t *testing.T, created, unmarshal *epoch.SnapshotNodeActivity) {
+func compareActivityLog(t *testing.T, created, unmarshal *activitylog.SnapshotNodeActivity) {
 	require.Equal(t, len(created.NodesLog()), len(unmarshal.NodesLog()))
 	for nodeID, acceptedCount := range created.NodesLog() {
 		same := unmarshal.NodeActivity(nodeID) == acceptedCount

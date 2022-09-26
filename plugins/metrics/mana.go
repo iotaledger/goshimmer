@@ -6,8 +6,8 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/mana/manamodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 )
 
 // PledgeLog is a log of base mana 1 and 2 pledges.
@@ -162,7 +162,7 @@ func addPledge(event *mana.PledgedEvent) {
 }
 
 func measureMana() {
-	tmp, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAllManaMaps()
+	tmp, _ := deps.Protocol.Engine().CongestionControl.GetAllManaMaps()
 	accessLock.Lock()
 	defer accessLock.Unlock()
 	accessMap = tmp[manamodels.AccessMana]
@@ -180,13 +180,13 @@ func measureMana() {
 	var accessAvg, consensusAvg float64
 
 	for _, neighbor := range neighbors {
-		neighborAMana, _, _ := deps.Protocol.Instance().Engine.CongestionControl.GetAccessMana(neighbor.ID())
+		neighborAMana, _, _ := deps.Protocol.Engine().CongestionControl.GetAccessMana(neighbor.ID())
 		if neighborAMana > 0 {
 			accessCount++
 			accessSum += neighborAMana
 		}
 
-		neighborCMana, _, _ := deps.Protocol.Instance().Engine.CongestionControl.GetConsensusMana(neighbor.ID())
+		neighborCMana, _, _ := deps.Protocol.Engine().CongestionControl.GetConsensusMana(neighbor.ID())
 		if neighborCMana > 0 {
 			consensusCount++
 			consensusSum += neighborCMana

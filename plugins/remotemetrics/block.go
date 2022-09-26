@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/app/remotemetrics"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -12,7 +12,7 @@ import (
 )
 
 func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
-	if !deps.Protocol.Instance().IsSynced() {
+	if !deps.Protocol.Engine().IsSynced() {
 		return
 	}
 	var nodeID string
@@ -31,7 +31,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	record.IssuedTimestamp = block.IssuingTime()
 	record.IssuerID = issuerID.String()
 	// TODO: implement when mana is refactored
-	// record.AccessMana = deps.Protocol.Instance().Engine.CongestionControl.Scheduler.GetManaFromCache(issuerID)
+	// record.AccessMana = deps.Protocol.Engine().CongestionControl.Scheduler.GetManaFromCache(issuerID)
 	record.StrongEdgeCount = len(block.ParentsByType(models.StrongParentType))
 	if weakParentsCount := len(block.ParentsByType(models.WeakParentType)); weakParentsCount > 0 {
 		record.StrongEdgeCount = weakParentsCount
@@ -73,7 +73,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	// override block solidification data if block contains a transaction
 	if block.Payload().Type() == devnetvm.TransactionType {
 		transaction := block.Payload().(utxo.Transaction)
-		deps.Protocol.Instance().Engine.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transaction.ID().Base58()
 			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()
@@ -84,17 +84,17 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 }
 
 func onTransactionConfirmed(transactionID utxo.TransactionID) {
-	if !deps.Protocol.Instance().IsSynced() {
+	if !deps.Protocol.Engine().IsSynced() {
 		return
 	}
 
-	earliestAttachment := deps.Protocol.Instance().Engine.Tangle.GetEarliestAttachment(transactionID)
+	earliestAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(transactionID)
 
 	onBlockFinalized(earliestAttachment.ModelsBlock)
 }
 
 func onBlockFinalized(block *models.Block) {
-	if !deps.Protocol.Instance().IsSynced() {
+	if !deps.Protocol.Engine().IsSynced() {
 		return
 	}
 
@@ -133,7 +133,7 @@ func onBlockFinalized(block *models.Block) {
 
 	if block.Payload().Type() == devnetvm.TransactionType {
 		transaction := block.Payload().(utxo.Transaction)
-		deps.Protocol.Instance().Engine.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		deps.Protocol.Engine().Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transaction.ID().Base58()
 			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()
@@ -144,7 +144,7 @@ func onBlockFinalized(block *models.Block) {
 }
 
 func sendMissingBlockRecord(block *models.Block, recordType string) {
-	if !deps.Protocol.Instance().IsSynced() {
+	if !deps.Protocol.Engine().IsSynced() {
 		return
 	}
 

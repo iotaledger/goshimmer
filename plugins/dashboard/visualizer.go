@@ -11,9 +11,9 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -105,14 +105,14 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
-		defer deps.Protocol.Events.Instance.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
-		deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
-		defer deps.Protocol.Events.Instance.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
-		deps.Protocol.Events.Instance.TipManager.TipAdded.Attach(notifyNewTip)
-		defer deps.Protocol.Events.Instance.TipManager.TipAdded.Detach(notifyNewTip)
-		deps.Protocol.Events.Instance.TipManager.TipRemoved.Attach(notifyDeletedTip)
-		defer deps.Protocol.Events.Instance.TipManager.TipRemoved.Detach(notifyDeletedTip)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlkStored)
+		defer deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlkStored)
+		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(notifyNewBlkAccepted)
+		defer deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Detach(notifyNewBlkAccepted)
+		deps.Protocol.Events.Engine.TipManager.TipAdded.Attach(notifyNewTip)
+		defer deps.Protocol.Events.Engine.TipManager.TipAdded.Detach(notifyNewTip)
+		deps.Protocol.Events.Engine.TipManager.TipRemoved.Attach(notifyDeletedTip)
+		defer deps.Protocol.Events.Engine.TipManager.TipRemoved.Detach(notifyDeletedTip)
 		<-ctx.Done()
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()

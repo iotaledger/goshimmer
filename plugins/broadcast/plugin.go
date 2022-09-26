@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance"
-	"github.com/iotaledger/goshimmer/packages/protocol/instance/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
 
@@ -27,7 +27,7 @@ var (
 )
 
 type dependencies struct {
-	Instance *instance.Instance
+	Instance *engine.Engine
 }
 
 func init() {
