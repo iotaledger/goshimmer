@@ -164,18 +164,12 @@ func (t *TestFramework) AssertTipsRemoved(count uint32) {
 	assert.Equal(t.test, count, atomic.LoadUint32(&t.tipRemoved), "expected %d tips to be removed but got %d", count, atomic.LoadUint32(&t.tipRemoved))
 }
 
-func (t *TestFramework) AssertTips(actualTips scheduler.Blocks, expectedStateAliases ...string) {
-	actualTipsIDs := models.NewBlockIDs()
+func (t *TestFramework) AssertTips(actualTips, expectedTips models.BlockIDs) {
 
-	for it := actualTips.Iterator(); it.HasNext(); {
-		actualTipsIDs.Add(it.Next().ID())
-	}
-
-	assert.Equal(t.test, len(expectedStateAliases), actualTips.Size(), "expected %d tips but got %d", len(expectedStateAliases), actualTips.Size())
-	for _, expectedBlockAlias := range expectedStateAliases {
-		t.VirtualVotingTestFramework.AssertBlock(expectedBlockAlias, func(block *virtualvoting.Block) {
-			assert.True(t.test, actualTipsIDs.Contains(block.ID()), "block %s is not in the selected tips", block.ID())
-		})
+	assert.Equal(t.test, len(expectedTips), len(actualTips), "expected %d tips but got %d", len(actualTips), len(actualTips))
+	for expectedBlockID, _ := range expectedTips {
+		_, exists := actualTips[expectedBlockID]
+		assert.True(t.test, exists, "expected tip %s", expectedBlockID)
 	}
 }
 
