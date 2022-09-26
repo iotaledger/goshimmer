@@ -163,7 +163,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
 	// ISSUE Block7.2
-	tf.CreateBlock("Block7.2", models.WithStrongParents(tf.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("C").PublicKey()))
+	tf.CreateBlock("Block7.2", models.WithStrongParents(tf.BlockIDs("Block7.1")), models.WithLikedInsteadParents(tf.BlockIDs("Block6")), models.WithIssuer(tf.Identity("C").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*5)))
 	tf.IssueBlocks("Block7.2").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
@@ -294,7 +294,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	}))
 
 	// ISSUE Block16
-	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("C").PublicKey()))
+	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("C").PublicKey()), models.WithIssuingTime(time.Now().Add(time.Minute*6)))
 	tf.IssueBlocks("Block16").WaitUntilAllTasksProcessed()
 
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{

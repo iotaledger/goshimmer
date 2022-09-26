@@ -74,7 +74,6 @@ func main() {
 	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
 	serverStatusCommand := flag.NewFlagSet("server-status", flag.ExitOnError)
-	allowedPledgeIDCommand := flag.NewFlagSet("pledge-id", flag.ExitOnError)
 	pendingManaCommand := flag.NewFlagSet("pending-mana", flag.ExitOnError)
 
 	// switch logic according to provided sub command
@@ -109,8 +108,6 @@ func main() {
 		execSweepNFTOwnedNFTsCommand(sweepNFTOwnedNFTsCommand, wallet)
 	case "request-funds":
 		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
-	case "pledge-id":
-		execAllowedPledgeNodeIDsCommand(allowedPledgeIDCommand, wallet)
 	case "pending-mana":
 		execPendingMana(pendingManaCommand, wallet)
 	case "init":

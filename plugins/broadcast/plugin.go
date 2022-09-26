@@ -8,12 +8,10 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
-
 	"github.com/iotaledger/goshimmer/plugins/broadcast/server"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 const (
@@ -27,7 +25,7 @@ var (
 )
 
 type dependencies struct {
-	Instance *engine.Engine
+	Protocol *protocol.Protocol
 }
 
 func init() {
@@ -62,10 +60,10 @@ func run(_ *node.Plugin) {
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[BlkUpdater]", func(ctx context.Context) {
-		deps.Instance.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(notifyNewBlk)
 		<-ctx.Done()
 		Plugin.LogInfof("Stopping Broadcast...")
-		deps.Instance.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
+		deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Detach(notifyNewBlk)
 		Plugin.LogInfof("Stopping Broadcast... \tDone")
 	}, shutdown.PriorityBroadcast); err != nil {
 		Plugin.LogError("Failed to start as daemon: %s", err)
