@@ -255,6 +255,7 @@ func (i *Engine) loadSnapshot() {
 		diskutil.New(i.chainDirectory).Path("snapshot.bin"),
 		func(header *ledger.SnapshotHeader) {
 			i.GenesisCommitment = header.LatestECRecord
+			i.Clock.SetAcceptedTime(i.GenesisCommitment.Index().EndTime())
 
 			i.NotarizationManager.LoadECandEIs(header)
 
@@ -303,8 +304,6 @@ func (i *Engine) initEvictionManager() {
 	i.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		i.EvictionManager.EvictUntil(event.EI, i.SnapshotManager.SolidEntryPoints(event.EI))
 	}))
-
-	i.Clock.SetAcceptedTime(latestConfirmedIndex.EndTime())
 
 	i.Events.EvictionManager = i.EvictionManager.Events
 

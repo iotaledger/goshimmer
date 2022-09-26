@@ -44,7 +44,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+		if lastAcceptedBlock == nil || lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 			lastConfirmedBlock = block
 		}

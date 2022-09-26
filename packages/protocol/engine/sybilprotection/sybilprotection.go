@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 )
@@ -34,7 +36,10 @@ func (s *SybilProtection) TrackActiveValidators(block *blockdag.Block) {
 		// TODO: figure out the validator weight here
 		weight, _, err := s.validatorWeightRetriever(block.IssuerID())
 		if err != nil {
-			fmt.Println("error while retrieving weight", err)
+			if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
+				return
+			}
+			fmt.Println("TrackActiveValidators: error while retrieving weight", err)
 			return
 		}
 		activeValidator = validator.New(block.IssuerID(), validator.WithWeight(weight))
@@ -46,7 +51,7 @@ func (s *SybilProtection) TrackActiveValidators(block *blockdag.Block) {
 func (s *SybilProtection) AddValidator(issuerID identity.ID, activityTime time.Time) {
 	weight, _, err := s.validatorWeightRetriever(issuerID)
 	if err != nil {
-		fmt.Println("error while retrieving weight", err)
+		fmt.Println("AddValidator: error while retrieving weight", err)
 		return
 	}
 	s.activityTracker.Update(validator.New(issuerID, validator.WithWeight(weight)), activityTime)
