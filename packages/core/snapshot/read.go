@@ -52,11 +52,12 @@ func streamSnapshotDataFrom(
 
 	// read epochDiffs
 	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiffs, epochErr := readEpochDiffs(reader)
+		epochDiff, epochErr := readEpochDiff(reader)
 		if epochErr != nil {
-			return errors.Wrapf(epochErr, "failed to parse epochDiffs from bytes")
+			return errors.Wrapf(epochErr, "failed to parse epochDiff from bytes")
 		}
-		epochDiffsConsumer(epochDiffs)
+		epochDiff.SetIndex(ei)
+		epochDiffsConsumer(epochDiff)
 	}
 
 	activityLog, err := readActivityLog(reader)
@@ -166,21 +167,21 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.O
 	return
 }
 
-// readEpochDiffs consumes an EpochDiff of an epoch from the given reader.
-func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
+// readEpochDiff consumes an EpochDiff of an epoch from the given reader.
+func readEpochDiff(reader io.ReadSeeker) (epochDiff *ledger.EpochDiff, err error) {
 	spent := make([]*ledger.OutputWithMetadata, 0)
 	created := make([]*ledger.OutputWithMetadata, 0)
 
 	// read spent
 	var spentLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &spentLen); err != nil {
-		return nil, errors.Errorf("unable to read epochDiffs spent len: %w", err)
+		return nil, errors.Errorf("unable to read epochDiff spent len: %w", err)
 	}
 
 	for i := 0; i < int(spentLen); {
 		s, err := readOutputsWithMetadatas(reader)
 		if err != nil {
-			return nil, errors.Errorf("unable to read epochDiffs spent: %w", err)
+			return nil, errors.Errorf("unable to read epochDiff spent: %w", err)
 		}
 		spent = append(spent, s...)
 		i += len(s)
@@ -189,19 +190,19 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err err
 	// read created
 	var createdLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &createdLen); err != nil {
-		return nil, errors.Errorf("unable to read epochDiffs created len: %w", err)
+		return nil, errors.Errorf("unable to read epochDiff created len: %w", err)
 	}
 
 	for i := 0; i < int(createdLen); {
 		c, err := readOutputsWithMetadatas(reader)
 		if err != nil {
-			return nil, errors.Errorf("unable to read epochDiffs created: %w", err)
+			return nil, errors.Errorf("unable to read epochDiff created: %w", err)
 		}
 		created = append(created, c...)
 		i += len(c)
 	}
 
-	epochDiffs = ledger.NewEpochDiff(spent, created)
+	epochDiff = ledger.NewEpochDiff(spent, created)
 
 	return
 }

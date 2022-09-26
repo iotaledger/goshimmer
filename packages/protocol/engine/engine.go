@@ -96,11 +96,11 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
 		(*Engine).initSnapshotManager,
+		(*Engine).initCongestionControl,
+		(*Engine).initSybilProtection,
 		(*Engine).loadSnapshot,
 		(*Engine).initEvictionManager,
-		(*Engine).initCongestionControl,
 		(*Engine).initTipManager,
-		(*Engine).initSybilProtection,
 	)
 }
 
@@ -186,8 +186,10 @@ func (i *Engine) initNotarizationManager() {
 		i.Ledger,
 		i.Consensus,
 		notarization.NewEpochCommitmentFactory(i.DBManager.PermanentStorage(), i.optsSnapshotDepth),
+		// TODO: fill parameters properly
 		notarization.MinCommittableEpochAge(1*time.Minute),
 		notarization.BootstrapWindow(2*time.Minute),
+		// TODO: this is currently a constant in the mana tracker component, so this should probably be removed
 		notarization.ManaEpochDelay(2),
 	)
 
@@ -234,6 +236,20 @@ func (i *Engine) initSnapshotManager() {
 	}))
 }
 
+func (i *Engine) initCongestionControl() {
+	i.CongestionControl = congestioncontrol.New(i.Consensus.Gadget, i.Tangle, i.optsCongestionControlOptions...)
+
+	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
+
+	i.Events.CongestionControl = i.CongestionControl.Events
+}
+
+func (i *Engine) initSybilProtection() {
+	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana)
+
+	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
+}
+
 func (i *Engine) loadSnapshot() {
 	if err := snapshot.LoadSnapshot(
 		diskutil.New(i.chainDirectory).Path("snapshot.bin"),
@@ -241,6 +257,8 @@ func (i *Engine) loadSnapshot() {
 			i.GenesisCommitment = header.LatestECRecord
 
 			i.NotarizationManager.LoadECandEIs(header)
+
+			i.CongestionControl.Tracker.LoadSnapshotHeader(header)
 		},
 		i.SnapshotManager.LoadSolidEntryPoints,
 		func(outputsWithMetadata []*ledger.OutputWithMetadata) {
@@ -292,14 +310,6 @@ func (i *Engine) initEvictionManager() {
 
 }
 
-func (i *Engine) initCongestionControl() {
-	i.CongestionControl = congestioncontrol.New(i.Consensus.Gadget, i.Tangle, i.optsCongestionControlOptions...)
-
-	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
-
-	i.Events.CongestionControl = i.CongestionControl.Events
-}
-
 func (i *Engine) initTipManager() {
 	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.GenesisCommitment.Index().EndTime())
 
@@ -325,12 +335,6 @@ func (i *Engine) initTipManager() {
 	// }))
 
 	i.Events.TipManager = i.TipManager.Events
-}
-
-func (i *Engine) initSybilProtection() {
-	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana)
-
-	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }
 
 func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
