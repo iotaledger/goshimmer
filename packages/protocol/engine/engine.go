@@ -55,7 +55,7 @@ type Engine struct {
 
 	databaseVersion                database.Version
 	chainDirectory                 string
-	dbManager                      *database.Manager
+	DBManager                      *database.Manager
 	logger                         *logger.Logger
 	optsBootstrappedThreshold      time.Duration
 	optsSnapshotFile               string
@@ -114,7 +114,7 @@ func (i *Engine) IsSynced() (isBootstrapped bool) {
 func (i *Engine) initDatabaseManager() {
 	i.optsDatabaseManagerOptions = append(i.optsDatabaseManagerOptions, database.WithBaseDir(i.chainDirectory))
 
-	i.dbManager = database.NewManager(i.databaseVersion, i.optsDatabaseManagerOptions...)
+	i.DBManager = database.NewManager(i.databaseVersion, i.optsDatabaseManagerOptions...)
 }
 
 func (i *Engine) initLedger() {
@@ -154,7 +154,7 @@ func (i *Engine) initTSCManager() {
 }
 
 func (i *Engine) initBlockStorage() {
-	i.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](i.dbManager, kvstore.Realm{0x09})
+	i.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](i.DBManager, kvstore.Realm{0x09})
 
 	i.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		i.BlockStorage.Set(block.ID(), block.ModelsBlock)
@@ -171,7 +171,7 @@ func (i *Engine) initNotarizationManager() {
 		i.Tangle,
 		i.Ledger,
 		i.Consensus,
-		notarization.NewEpochCommitmentFactory(i.dbManager.PermanentStorage(), i.optsSnapshotDepth),
+		notarization.NewEpochCommitmentFactory(i.DBManager.PermanentStorage(), i.optsSnapshotDepth),
 		notarization.MinCommittableEpochAge(1*time.Minute),
 		notarization.BootstrapWindow(2*time.Minute),
 		notarization.ManaEpochDelay(2),
