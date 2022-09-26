@@ -22,7 +22,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 
 	// without any tip -> genesis
 	{
-		tf.AssertTips(tipManager.Tips(2), "Genesis")
+		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Genesis"))
 	}
 
 	// Block 1
@@ -31,7 +31,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
-		tf.AssertTips(tipManager.Tips(2), "Block1")
+		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block1"))
 		tf.AssertTipsAdded(1)
 		tf.AssertTipsRemoved(0)
 	}
@@ -42,7 +42,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 		tf.IssueBlocksAndSetAccepted("Block2").WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(2)
-		tf.AssertTips(tipManager.Tips(2), "Block1", "Block2")
+		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block1", "Block2"))
 		tf.AssertTipsAdded(2)
 		tf.AssertTipsRemoved(0)
 	}
@@ -53,7 +53,7 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 		tf.IssueBlocksAndSetAccepted("Block3").WaitUntilAllTasksProcessed()
 
 		tf.AssertTipCount(1)
-		tf.AssertTips(tipManager.Tips(2), "Block3")
+		tf.AssertTips(tipManager.Tips(2), tf.BlockIDs("Block3"))
 		tf.AssertTipsAdded(3)
 		tf.AssertTipsRemoved(2)
 	}
@@ -77,18 +77,18 @@ func TestTipManager_DataBlockTips(t *testing.T) {
 	// Tips(4) -> 4
 	{
 		parents := tipManager.Tips(4)
-		assert.Equal(t, parents.Size(), 4)
+		assert.Equal(t, 4, len(parents))
 	}
 
 	// Tips(8) -> 6
 	{
-		tf.AssertTips(tipManager.Tips(8), "Block3", "Block4", "Block5", "Block6", "Block7", "Block8")
+		tf.AssertTips(tipManager.Tips(8), tf.BlockIDs("Block3", "Block4", "Block5", "Block6", "Block7", "Block8"))
 	}
 
 	// Tips(0) -> 1
 	{
 		parents := tipManager.Tips(0)
-		assert.Equal(t, 1, parents.Size())
+		assert.Equal(t, 1, len(parents))
 	}
 }
 
