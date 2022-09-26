@@ -55,7 +55,7 @@ func configureVisualizer() {
 		case *models.Block:
 			sendVertex(x, task.Param(1).(bool))
 		case *scheduler.Block:
-			sendTipInfo(x, task.Param(2).(bool))
+			sendTipInfo(x, task.Param(1).(bool))
 		}
 
 		task.Return(nil)
