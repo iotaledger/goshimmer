@@ -1,4 +1,4 @@
-package snapshotcreator
+package creator
 
 import (
 	"time"

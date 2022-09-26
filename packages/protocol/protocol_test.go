@@ -11,16 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 )
 
 func TestProtocol(t *testing.T) {
 	log := logger.NewLogger(t.Name())
 	diskUtil := diskutil.New(t.TempDir())
 
-	require.NoError(t, snapshotcreator.CreateSnapshot(diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+	require.NoError(t, creator.CreateSnapshot(diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
 	}))
 
