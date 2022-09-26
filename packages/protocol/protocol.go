@@ -196,6 +196,10 @@ func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
 		return
 	}
+	if block.DetermineID() != nil {
+		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
+		return
+	}
 
 	p.IssueBlock(block, event.Neighbor)
 }
