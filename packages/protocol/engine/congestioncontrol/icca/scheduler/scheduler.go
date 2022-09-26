@@ -93,23 +93,13 @@ func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, acces
 
 func (s *Scheduler) setupEvents() {
 	// pass booked blocks to the scheduler
-	// s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
-
-	// TODO: this is just a quick fix
-	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(virtualVotingBlock *virtualvoting.Block) {
-		s.EvictionManager.RLock()
-		defer s.EvictionManager.RUnlock()
-
-		block, _ := s.getOrRegisterBlock(virtualVotingBlock)
-		s.Events.BlockScheduled.Trigger(block)
-	}))
+	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
 
 	s.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(s.HandleOrphanedBlock))
 
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
 	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
-
 }
 
 // Start starts the scheduler.
