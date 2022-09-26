@@ -248,6 +248,8 @@ func (i *Engine) loadSnapshot() {
 
 			i.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
 
+			i.CongestionControl.Tracker.LoadOutputsWithMetadata(outputsWithMetadata)
+
 			// TODO FILL INDEXER
 		},
 		func(epochDiffs *ledger.EpochDiff) {
@@ -257,9 +259,16 @@ func (i *Engine) loadSnapshot() {
 				panic(err)
 			}
 
+			i.CongestionControl.Tracker.LoadEpochDiff(epochDiffs)
 			// TODO FILL INDEXER
 		},
-		emptyActivityConsumer,
+		func(activityLogs activitylog.SnapshotEpochActivity) {
+			for epoch, activityLog := range activityLogs {
+				for issuerID, _ := range activityLog.NodesLog() {
+					i.SybilProtection.AddValidator(issuerID, epoch.EndTime())
+				}
+			}
+		},
 	); err != nil {
 		panic(err)
 	}
@@ -319,7 +328,7 @@ func (i *Engine) initTipManager() {
 }
 
 func (i *Engine) initSybilProtection() {
-	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime)
+	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana)
 
 	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }

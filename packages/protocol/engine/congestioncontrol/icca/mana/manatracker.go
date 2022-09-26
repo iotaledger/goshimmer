@@ -362,6 +362,47 @@ func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, er
 //	return
 // }
 
+func processOutputs(outputsWithMetadata []*ledger.OutputWithMetadata, baseVector *manamodels.ManaBaseVector, areCreated bool) {
+	for _, outputWithMetadata := range outputsWithMetadata {
+		devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+		balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+		if !exists {
+			continue
+		}
+		consensusManaPledgeID := outputWithMetadata.ConsensusManaPledgeID()
+		existingMana, _, err := baseVector.GetMana(consensusManaPledgeID)
+		if err != nil {
+			return
+		}
+		if areCreated {
+			baseVector.SetMana(consensusManaPledgeID, existingMana+balance)
+		} else {
+			baseVector[consensusManaPledgeID] -= float64(balance)
+		}
+	}
+
+	return
+}
+
+func (m *Tracker) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputWithMetadata) {
+	processOutputs(outputsWithMetadatas, m.baseManaVectors[manamodels.ConsensusMana], true)
+	processOutputs(outputsWithMetadatas, m.baseManaVectors[manamodels.AccessMana], true)
+
+}
+
+func (m *Tracker) LoadEpochDiff(diff *ledger.EpochDiff) {
+	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+
+	processOutputs(diff.Created(), m.baseManaVectors[manamodels.ConsensusMana], true)
+	processOutputs(diff.Created(), m.baseManaVectors[manamodels.AccessMana], true)
+	processOutputs(diff.Spent(), m.baseManaVectors[manamodels.ConsensusMana], false)
+	processOutputs(diff.Spent(), m.baseManaVectors[manamodels.AccessMana], false)
+
+	// Only the aMana will be loaded until the latest snapshot's epoch
+	processOutputs(diff.Created(), m.baseManaVectors[manamodels.AccessMana], true)
+	processOutputs(diff.Spent(), m.baseManaVectors[manamodels.AccessMana], false)
+
+}
 func (m *Tracker) cleanupManaVectors() {
 	for _, vecType := range []manamodels.Type{manamodels.AccessMana, manamodels.ConsensusMana} {
 		manaBaseVector := m.baseManaVectors[vecType]

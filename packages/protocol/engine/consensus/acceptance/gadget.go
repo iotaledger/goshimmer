@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -115,6 +116,7 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
+		fmt.Printf("voters: %v, voters weight %d, total weight %d, threshold %d\n", markerVoters, markerVoters.TotalWeight(), markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold)
 		if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
 			a.propagateAcceptance(marker)
 		}
@@ -123,10 +125,12 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 
 func (a *Gadget) setup() {
 	a.tangle.VirtualVoting.Events.SequenceTracker.VotersUpdated.Attach(event.NewClosure[*sequencetracker.VoterUpdatedEvent](func(evt *sequencetracker.VoterUpdatedEvent) {
+		fmt.Printf("sequence voters updated %+v\n", evt)
 		a.RefreshSequenceAcceptance(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}))
 
 	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoterEvent[utxo.TransactionID]](func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+		fmt.Printf("conflicts voters updated %+v\n", evt)
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 
