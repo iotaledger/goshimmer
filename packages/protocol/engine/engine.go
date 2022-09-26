@@ -78,6 +78,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 			Events:          NewEvents(),
 			ValidatorSet:    validator.NewSet(),
 			EvictionManager: eviction.NewManager[models.BlockID](),
+			Inbox:           inbox.New(),
 
 			chainDirectory:            chainDirectory,
 			logger:                    logger,
