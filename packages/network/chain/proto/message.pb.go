@@ -27,9 +27,8 @@ type Packet struct {
 
 	// Types that are assignable to Body:
 	//
-	//	*Packet_EpochCommitment
-	//	*Packet_EpochCommitmentRequest
-	//	*Packet_Negotiation
+	//	*Packet_Epochcommitment
+	//	*Packet_Epochcommitmentrequest
 	Body isPacket_Body `protobuf_oneof:"body"`
 }
 
@@ -72,23 +71,16 @@ func (m *Packet) GetBody() isPacket_Body {
 	return nil
 }
 
-func (x *Packet) GetEpochCommitment() *EpochCommitment {
-	if x, ok := x.GetBody().(*Packet_EpochCommitment); ok {
-		return x.EpochCommitment
+func (x *Packet) GetEpochcommitment() *Epochcommitment {
+	if x, ok := x.GetBody().(*Packet_Epochcommitment); ok {
+		return x.Epochcommitment
 	}
 	return nil
 }
 
-func (x *Packet) GetEpochCommitmentRequest() *EpochCommitmentRequest {
-	if x, ok := x.GetBody().(*Packet_EpochCommitmentRequest); ok {
-		return x.EpochCommitmentRequest
-	}
-	return nil
-}
-
-func (x *Packet) GetNegotiation() *Negotiation {
-	if x, ok := x.GetBody().(*Packet_Negotiation); ok {
-		return x.Negotiation
+func (x *Packet) GetEpochcommitmentrequest() *Epochcommitmentrequest {
+	if x, ok := x.GetBody().(*Packet_Epochcommitmentrequest); ok {
+		return x.Epochcommitmentrequest
 	}
 	return nil
 }
@@ -97,34 +89,28 @@ type isPacket_Body interface {
 	isPacket_Body()
 }
 
-type Packet_EpochCommitment struct {
-	EpochCommitment *EpochCommitment `protobuf:"bytes,1,opt,name=epochCommitment,proto3,oneof"`
+type Packet_Epochcommitment struct {
+	Epochcommitment *Epochcommitment `protobuf:"bytes,1,opt,name=epochcommitment,proto3,oneof"`
 }
 
-type Packet_EpochCommitmentRequest struct {
-	EpochCommitmentRequest *EpochCommitmentRequest `protobuf:"bytes,2,opt,name=epochCommitmentRequest,proto3,oneof"`
+type Packet_Epochcommitmentrequest struct {
+	Epochcommitmentrequest *Epochcommitmentrequest `protobuf:"bytes,2,opt,name=epochcommitmentrequest,proto3,oneof"`
 }
 
-type Packet_Negotiation struct {
-	Negotiation *Negotiation `protobuf:"bytes,3,opt,name=negotiation,proto3,oneof"`
-}
+func (*Packet_Epochcommitment) isPacket_Body() {}
 
-func (*Packet_EpochCommitment) isPacket_Body() {}
+func (*Packet_Epochcommitmentrequest) isPacket_Body() {}
 
-func (*Packet_EpochCommitmentRequest) isPacket_Body() {}
-
-func (*Packet_Negotiation) isPacket_Body() {}
-
-type EpochCommitment struct {
+type Epochcommitment struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Bytes []byte `protobuf:"bytes,1,opt,name=Bytes,proto3" json:"Bytes,omitempty"`
+	Bytes []byte `protobuf:"bytes,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
 }
 
-func (x *EpochCommitment) Reset() {
-	*x = EpochCommitment{}
+func (x *Epochcommitment) Reset() {
+	*x = Epochcommitment{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_packages_network_chain_proto_message_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -132,13 +118,13 @@ func (x *EpochCommitment) Reset() {
 	}
 }
 
-func (x *EpochCommitment) String() string {
+func (x *Epochcommitment) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EpochCommitment) ProtoMessage() {}
+func (*Epochcommitment) ProtoMessage() {}
 
-func (x *EpochCommitment) ProtoReflect() protoreflect.Message {
+func (x *Epochcommitment) ProtoReflect() protoreflect.Message {
 	mi := &file_packages_network_chain_proto_message_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -150,28 +136,28 @@ func (x *EpochCommitment) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use EpochCommitment.ProtoReflect.Descriptor instead.
-func (*EpochCommitment) Descriptor() ([]byte, []int) {
+// Deprecated: Use Epochcommitment.ProtoReflect.Descriptor instead.
+func (*Epochcommitment) Descriptor() ([]byte, []int) {
 	return file_packages_network_chain_proto_message_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *EpochCommitment) GetBytes() []byte {
+func (x *Epochcommitment) GetBytes() []byte {
 	if x != nil {
 		return x.Bytes
 	}
 	return nil
 }
 
-type EpochCommitmentRequest struct {
+type Epochcommitmentrequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Bytes []byte `protobuf:"bytes,1,opt,name=Bytes,proto3" json:"Bytes,omitempty"`
+	Bytes []byte `protobuf:"bytes,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
 }
 
-func (x *EpochCommitmentRequest) Reset() {
-	*x = EpochCommitmentRequest{}
+func (x *Epochcommitmentrequest) Reset() {
+	*x = Epochcommitmentrequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_packages_network_chain_proto_message_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -179,13 +165,13 @@ func (x *EpochCommitmentRequest) Reset() {
 	}
 }
 
-func (x *EpochCommitmentRequest) String() string {
+func (x *Epochcommitmentrequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EpochCommitmentRequest) ProtoMessage() {}
+func (*Epochcommitmentrequest) ProtoMessage() {}
 
-func (x *EpochCommitmentRequest) ProtoReflect() protoreflect.Message {
+func (x *Epochcommitmentrequest) ProtoReflect() protoreflect.Message {
 	mi := &file_packages_network_chain_proto_message_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -197,54 +183,16 @@ func (x *EpochCommitmentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use EpochCommitmentRequest.ProtoReflect.Descriptor instead.
-func (*EpochCommitmentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use Epochcommitmentrequest.ProtoReflect.Descriptor instead.
+func (*Epochcommitmentrequest) Descriptor() ([]byte, []int) {
 	return file_packages_network_chain_proto_message_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *EpochCommitmentRequest) GetBytes() []byte {
+func (x *Epochcommitmentrequest) GetBytes() []byte {
 	if x != nil {
 		return x.Bytes
 	}
 	return nil
-}
-
-type Negotiation struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *Negotiation) Reset() {
-	*x = Negotiation{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_packages_network_chain_proto_message_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Negotiation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Negotiation) ProtoMessage() {}
-
-func (x *Negotiation) ProtoReflect() protoreflect.Message {
-	mi := &file_packages_network_chain_proto_message_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Negotiation.ProtoReflect.Descriptor instead.
-func (*Negotiation) Descriptor() ([]byte, []int) {
-	return file_packages_network_chain_proto_message_proto_rawDescGZIP(), []int{3}
 }
 
 var File_packages_network_chain_proto_message_proto protoreflect.FileDescriptor
@@ -253,32 +201,28 @@ var file_packages_network_chain_proto_message_proto_rawDesc = []byte{
 	0x0a, 0x2a, 0x70, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x73, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f,
 	0x72, 0x6b, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x6d,
 	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x05, 0x63, 0x68,
-	0x61, 0x69, 0x6e, 0x22, 0xe5, 0x01, 0x0a, 0x06, 0x50, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x12, 0x42,
-	0x0a, 0x0f, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e,
+	0x61, 0x69, 0x6e, 0x22, 0xad, 0x01, 0x0a, 0x06, 0x70, 0x61, 0x63, 0x6b, 0x65, 0x74, 0x12, 0x42,
+	0x0a, 0x0f, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e,
 	0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2e,
-	0x45, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x48,
-	0x00, 0x52, 0x0f, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65,
-	0x6e, 0x74, 0x12, 0x57, 0x0a, 0x16, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69,
-	0x74, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2e, 0x45, 0x70, 0x6f, 0x63, 0x68,
-	0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x48, 0x00, 0x52, 0x16, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74,
-	0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x36, 0x0a, 0x0b, 0x6e,
-	0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x12, 0x2e, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2e, 0x4e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61,
-	0x74, 0x69, 0x6f, 0x6e, 0x48, 0x00, 0x52, 0x0b, 0x6e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x42, 0x06, 0x0a, 0x04, 0x62, 0x6f, 0x64, 0x79, 0x22, 0x27, 0x0a, 0x0f, 0x45,
-	0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x14,
-	0x0a, 0x05, 0x42, 0x79, 0x74, 0x65, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x42,
-	0x79, 0x74, 0x65, 0x73, 0x22, 0x2e, 0x0a, 0x16, 0x45, 0x70, 0x6f, 0x63, 0x68, 0x43, 0x6f, 0x6d,
-	0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14,
-	0x0a, 0x05, 0x42, 0x79, 0x74, 0x65, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x42,
-	0x79, 0x74, 0x65, 0x73, 0x22, 0x0d, 0x0a, 0x0b, 0x4e, 0x65, 0x67, 0x6f, 0x74, 0x69, 0x61, 0x74,
-	0x69, 0x6f, 0x6e, 0x42, 0x3e, 0x5a, 0x3c, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f,
-	0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x61, 0x6c, 0x65, 0x64, 0x67, 0x65, 0x72, 0x2f, 0x67, 0x6f, 0x73,
-	0x68, 0x69, 0x6d, 0x6d, 0x65, 0x72, 0x2f, 0x70, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x73, 0x2f,
-	0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b, 0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x48,
+	0x00, 0x52, 0x0f, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65,
+	0x6e, 0x74, 0x12, 0x57, 0x0a, 0x16, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69,
+	0x74, 0x6d, 0x65, 0x6e, 0x74, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2e, 0x65, 0x70, 0x6f, 0x63, 0x68,
+	0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x48, 0x00, 0x52, 0x16, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74,
+	0x6d, 0x65, 0x6e, 0x74, 0x72, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x42, 0x06, 0x0a, 0x04, 0x62,
+	0x6f, 0x64, 0x79, 0x22, 0x27, 0x0a, 0x0f, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d,
+	0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x62, 0x79, 0x74, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x62, 0x79, 0x74, 0x65, 0x73, 0x22, 0x2e, 0x0a, 0x16,
+	0x65, 0x70, 0x6f, 0x63, 0x68, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x6d, 0x65, 0x6e, 0x74, 0x72,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x62, 0x79, 0x74, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x62, 0x79, 0x74, 0x65, 0x73, 0x42, 0x3e, 0x5a, 0x3c,
+	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x69, 0x6f, 0x74, 0x61, 0x6c,
+	0x65, 0x64, 0x67, 0x65, 0x72, 0x2f, 0x67, 0x6f, 0x73, 0x68, 0x69, 0x6d, 0x6d, 0x65, 0x72, 0x2f,
+	0x70, 0x61, 0x63, 0x6b, 0x61, 0x67, 0x65, 0x73, 0x2f, 0x6e, 0x65, 0x74, 0x77, 0x6f, 0x72, 0x6b,
+	0x2f, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -293,22 +237,20 @@ func file_packages_network_chain_proto_message_proto_rawDescGZIP() []byte {
 	return file_packages_network_chain_proto_message_proto_rawDescData
 }
 
-var file_packages_network_chain_proto_message_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_packages_network_chain_proto_message_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_packages_network_chain_proto_message_proto_goTypes = []interface{}{
-	(*Packet)(nil),                 // 0: chain.Packet
-	(*EpochCommitment)(nil),        // 1: chain.EpochCommitment
-	(*EpochCommitmentRequest)(nil), // 2: chain.EpochCommitmentRequest
-	(*Negotiation)(nil),            // 3: chain.Negotiation
+	(*Packet)(nil),                 // 0: chain.packet
+	(*Epochcommitment)(nil),        // 1: chain.epochcommitment
+	(*Epochcommitmentrequest)(nil), // 2: chain.epochcommitmentrequest
 }
 var file_packages_network_chain_proto_message_proto_depIdxs = []int32{
-	1, // 0: chain.Packet.epochCommitment:type_name -> chain.EpochCommitment
-	2, // 1: chain.Packet.epochCommitmentRequest:type_name -> chain.EpochCommitmentRequest
-	3, // 2: chain.Packet.negotiation:type_name -> chain.Negotiation
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 0: chain.packet.epochcommitment:type_name -> chain.epochcommitment
+	2, // 1: chain.packet.epochcommitmentrequest:type_name -> chain.epochcommitmentrequest
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_packages_network_chain_proto_message_proto_init() }
@@ -330,7 +272,7 @@ func file_packages_network_chain_proto_message_proto_init() {
 			}
 		}
 		file_packages_network_chain_proto_message_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EpochCommitment); i {
+			switch v := v.(*Epochcommitment); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -342,19 +284,7 @@ func file_packages_network_chain_proto_message_proto_init() {
 			}
 		}
 		file_packages_network_chain_proto_message_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EpochCommitmentRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_packages_network_chain_proto_message_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Negotiation); i {
+			switch v := v.(*Epochcommitmentrequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -367,9 +297,8 @@ func file_packages_network_chain_proto_message_proto_init() {
 		}
 	}
 	file_packages_network_chain_proto_message_proto_msgTypes[0].OneofWrappers = []interface{}{
-		(*Packet_EpochCommitment)(nil),
-		(*Packet_EpochCommitmentRequest)(nil),
-		(*Packet_Negotiation)(nil),
+		(*Packet_Epochcommitment)(nil),
+		(*Packet_Epochcommitmentrequest)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -377,7 +306,7 @@ func file_packages_network_chain_proto_message_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_packages_network_chain_proto_message_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

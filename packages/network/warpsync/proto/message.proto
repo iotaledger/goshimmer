@@ -10,7 +10,6 @@ message Packet {
     EpochBlocksBatch epochBlocksBatch = 2;
     EpochBlocksEnd epochBlocksEnd = 3;
     EpochBlocksRequest epochBlocksRequest = 4;
-    Negotiation negotiation = 7;
   }
 }
 
@@ -38,5 +37,3 @@ message EpochBlocksRequest {
   int64 EI = 1;
   bytes EC = 2;
 }
-
-message Negotiation {}

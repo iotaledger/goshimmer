@@ -8,7 +8,6 @@ message Packet {
   oneof body {
     Block block = 1;
     BlockRequest blockRequest = 2;
-    Negotiation negotiation = 3;
   }
 }
 
@@ -19,5 +18,3 @@ message Block {
 message BlockRequest {
   bytes id = 1;
 }
-
-message Negotiation {}
