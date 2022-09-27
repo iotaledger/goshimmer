@@ -1,14 +1,11 @@
 package block
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/node"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
@@ -162,12 +159,8 @@ func GetBlockMetadata(c echo.Context) (err error) {
 	if !exists {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load BlockMetadata with %s", blockID)))
 	}
-	metadataEncoded, err := serix.DefaultAPI.MapEncode(context.Background(), blockMetadata)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Wrapf(err, "failed to serialize BlockMetadata with %s", blockID)))
-	}
 
-	return c.JSON(http.StatusOK, metadataEncoded)
+	return c.JSON(http.StatusOK, blockMetadata)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
