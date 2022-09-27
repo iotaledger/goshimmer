@@ -327,7 +327,7 @@ func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbo
 
 func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if cachedBlock, cachedBlockExists := i.Tangle.BlockDAG.Block(id); cachedBlockExists {
-		return cachedBlock.ModelsBlock, true
+		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
 
 	if id.Index() > i.EvictionManager.MaxEvictedEpoch() {

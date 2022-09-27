@@ -44,7 +44,6 @@ type GoShimmer struct {
 	AutoPeering
 	Protocol
 	Faucet
-	Consensus
 	Activity
 	Prometheus
 	Profiling
@@ -105,11 +104,6 @@ type Protocol struct {
 	Enabled bool
 
 	protocol.ParametersDefinition
-}
-
-// Consensus defines the parameters of the consensus plugin.
-type Consensus struct {
-	Enabled bool
 }
 
 // Activity defines the parameters of the activity plugin.
