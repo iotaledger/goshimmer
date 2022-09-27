@@ -109,7 +109,7 @@ func configure(_ *node.Plugin) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
-	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Attach(onTransactionAccepted)
+	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
 	log = logger.NewLogger(PluginName)
 }
 

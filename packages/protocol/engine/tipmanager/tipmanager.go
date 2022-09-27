@@ -33,7 +33,7 @@ type TipManager struct {
 	acceptanceGadget   acceptanceGadget
 	blockRetrieverFunc blockRetrieverFunc
 	timeRetrieverFunc  timeRetrieverFunc
-	genesisTime        time.Time
+	isBootstrappedFunc func() bool
 
 	tips *randommap.RandomMap[*scheduler.Block, *scheduler.Block]
 	// TODO: reintroduce TipsConflictTracker
@@ -43,7 +43,7 @@ type TipManager struct {
 	optsWidth                          int
 }
 
-func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, genesisTime time.Time, opts ...options.Option[TipManager]) *TipManager {
+func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, isBootstrappedFunc func() bool, opts ...options.Option[TipManager]) *TipManager {
 	return options.Apply(&TipManager{
 		Events: NewEvents(),
 
@@ -51,7 +51,7 @@ func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRet
 		acceptanceGadget:   gadget,
 		blockRetrieverFunc: blockRetriever,
 		timeRetrieverFunc:  timeRetriever,
-		genesisTime:        genesisTime,
+		isBootstrappedFunc: isBootstrappedFunc,
 
 		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
 		// TODO: reintroduce TipsConflictTracker
@@ -195,9 +195,9 @@ func (t *TipManager) TipCount() int {
 func (t *TipManager) isPastConeTimestampCorrect(block *scheduler.Block) (timestampValid bool) {
 	minSupportedTimestamp := t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold)
 
-	if t.timeRetrieverFunc() == t.genesisTime {
-		// if the genesis block is the last accepted block, then there is no point in performing tangle walk
-		// return true so that the network can start issuing blocks when the tangle starts
+	if !t.isBootstrappedFunc() {
+		// If the node is not bootstrapped we do not have a valid timestamp to compare against.
+		// In any case, a node should never perform tip selection if not bootstrapped (via issuer plugin).
 		return true
 	}
 

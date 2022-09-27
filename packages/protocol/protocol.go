@@ -58,35 +58,37 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		optsSnapshotFileName: "snapshot.bin",
 
 		Logger: log,
-	}, opts, func(p *Protocol) {
-		p.disk = diskutil.New(p.optsBaseDirectory)
-		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+	}, opts)
+}
 
-		if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFileName)); err != nil {
-			panic(err)
-		}
+func (p *Protocol) Run() {
+	p.disk = diskutil.New(p.optsBaseDirectory)
+	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-		if p.instantiateChains() == 0 {
-			panic("no chains found (please provide a snapshot file)")
-		}
+	if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFileName)); err != nil {
+		panic(err)
+	}
 
-		if err := p.activateMainChain(); err != nil {
-			panic(err)
-		}
+	if p.instantiateChains() == 0 {
+		panic("no chains found (please provide a snapshot file)")
+	}
 
-		p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+	if err := p.activateMainChain(); err != nil {
+		panic(err)
+	}
 
-		// setup solidification event
-		p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
-		p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
+	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
 
-		// setup gossip events
-		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
-		p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
-		p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-			p.network.SendBlock(block.ModelsBlock)
-		}))
-	})
+	// setup solidification event
+	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
+	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
+
+	// setup gossip events
+	p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
+	p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
+	p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.network.SendBlock(block.ModelsBlock)
+	}))
 }
 
 func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
@@ -186,6 +188,8 @@ func (p *Protocol) activateMainChain() (err error) {
 
 	p.activeInstance = mainInstance
 	p.Events.Engine.LinkTo(mainInstance.Events)
+
+	p.activeInstance.LoadSnapshot()
 
 	return
 }

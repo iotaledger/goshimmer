@@ -8,8 +8,6 @@ services:
   peer_master:
     build: *goshimmer_build
     stop_grace_period: 1m
-    environment:
-      - GENESIS_TIME
     command: >
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
@@ -28,6 +26,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockissuer.ignoreBootstrappedFlag=true
+      --protocol.genesisTime=${GENESIS_TIME}
     secrets:
       - goshimmer.config.json
     volumes:
@@ -69,8 +68,6 @@ services:
   peer_master2:
     build: *goshimmer_build
     stop_grace_period: 1m
-    environment:
-      - GENESIS_TIME
     command: >
       --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
       --node.overwriteStoredSeed=true
@@ -83,6 +80,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockissuer.ignoreBootstrappedFlag=true
+      --protocol.genesisTime=${GENESIS_TIME}
     secrets:
       - goshimmer.config.json
     volumes:
@@ -126,8 +124,6 @@ services:
   faucet:
     build: *goshimmer_build
     stop_grace_period: 1m
-    environment:
-      - GENESIS_TIME
     command: >
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
@@ -140,6 +136,7 @@ services:
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockissuer.ignoreBootstrappedFlag=true
+      --protocol.genesisTime=${GENESIS_TIME}
     secrets:
       - goshimmer.config.json
     volumes:

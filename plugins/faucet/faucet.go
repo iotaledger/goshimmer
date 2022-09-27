@@ -12,8 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 )
 
 type Faucet struct {
@@ -21,8 +24,8 @@ type Faucet struct {
 }
 
 // NewFaucet creates a new Faucet instance.
-func NewFaucet(faucetSeed *seed.Seed) (f *Faucet) {
-	connector := NewConnector(deps.Protocol, deps.Indexer)
+func NewFaucet(faucetSeed *seed.Seed, p *protocol.Protocol, issuer *blockissuer.BlockIssuer, indexer *indexer.Indexer) (f *Faucet) {
+	connector := NewConnector(p, issuer, indexer)
 
 	f = &Faucet{wallet.New(
 		wallet.GenericConnector(connector),
@@ -62,7 +65,7 @@ func (f *Faucet) handleFaucetRequest(p *faucet.Payload, ctx context.Context) (*d
 	_, err := f.SendFunds(
 		sendoptions.Sources(f.Seed().Address(0)),                                          // we only reuse the address at index 0 for the wallet
 		sendoptions.Destination(f.Seed().Address(1), uint64(Parameters.TokensPerRequest)), // we send the funds to address at index 1 so that we can be sure the correct output is sent to a requester
-		sendoptions.AccessManaPledgeID(deps.Local.ID().EncodeBase58()),
+		sendoptions.AccessManaPledgeID(identity.ID{}.EncodeBase58()),
 		sendoptions.ConsensusManaPledgeID(identity.ID{}.EncodeBase58()),
 		sendoptions.WaitForConfirmation(true),
 		sendoptions.Context(ctx),

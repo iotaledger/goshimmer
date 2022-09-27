@@ -39,6 +39,10 @@ type Events struct {
 	// TransactionInvalid is an event that gets triggered whenever a Transaction is found to be invalid.
 	TransactionInvalid *event.Linkable[*TransactionInvalidEvent, Events, *Events]
 
+	OutputCreated  *event.Linkable[utxo.OutputID, Events, *Events]
+	OutputSpent    *event.Linkable[utxo.OutputID, Events, *Events]
+	OutputRejected *event.Linkable[utxo.OutputID, Events, *Events]
+
 	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
 	Error *event.Linkable[error, Events, *Events]
 
@@ -58,6 +62,9 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		TransactionForked:            event.NewLinkable[*TransactionForkedEvent, Events, *Events](),
 		TransactionConflictIDUpdated: event.NewLinkable[*TransactionConflictIDUpdatedEvent, Events, *Events](),
 		TransactionInvalid:           event.NewLinkable[*TransactionInvalidEvent, Events, *Events](),
+		OutputCreated:                event.NewLinkable[utxo.OutputID, Events, *Events](),
+		OutputSpent:                  event.NewLinkable[utxo.OutputID, Events, *Events](),
+		OutputRejected:               event.NewLinkable[utxo.OutputID, Events, *Events](),
 		Error:                        event.NewLinkable[error, Events, *Events](),
 
 		ConflictDAG: conflictdag.NewEvents[utxo.TransactionID, utxo.OutputID](),

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -13,6 +12,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -46,9 +46,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local    *peer.Local
-	Protocol *protocol.Protocol
-	Indexer  *indexer.Indexer
+	Protocol    *protocol.Protocol
+	Indexer     *indexer.Indexer
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 func init() {
@@ -71,7 +71,7 @@ func newFaucet() *Faucet {
 		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
 	}
 
-	return NewFaucet(walletseed.NewSeed(seedBytes))
+	return NewFaucet(walletseed.NewSeed(seedBytes), deps.Protocol, deps.BlockIssuer, deps.Indexer)
 }
 
 func configure(_ *node.Plugin) {
