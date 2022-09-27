@@ -125,9 +125,9 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	return ledger
 }
 
-// LoadOutputsWithMetadata loads OutputWithMetadatas from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadatas []*OutputWithMetadata) {
-	for _, outputWithMetadata := range outputsWithMetadatas {
+// LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
+func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*OutputWithMetadata) {
+	for _, outputWithMetadata := range outputsWithMetadata {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
 		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
@@ -135,14 +135,18 @@ func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadatas []*OutputWithMetad
 
 		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
 		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
+
+		l.Events.OutputCreated.Trigger(outputWithMetadata.ID())
 	}
 }
 
-// LoadEpochDiffs loads EpochDiffs from a snapshot file to the storage.
+// LoadEpochDiff loads EpochDiff from a snapshot file to the storage.
 func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
 	for _, spent := range epochDiff.Spent() {
 		l.Storage.outputStorage.Delete(spent.ID().Bytes())
 		l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
+
+		l.Events.OutputSpent.Trigger(spent.ID())
 	}
 
 	for _, created := range epochDiff.Created() {
@@ -153,6 +157,8 @@ func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
 
 		l.Storage.outputStorage.Store(created.Output()).Release()
 		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+
+		l.Events.OutputCreated.Trigger(created.ID())
 	}
 
 	return nil
@@ -240,6 +246,12 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		})
 	}
 
+	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
+		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+			l.Events.OutputSpent.Trigger(it.Next())
+		}
+	})
+
 	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
 		TransactionID: txMetadata.ID(),
 	})
@@ -256,6 +268,7 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
 			outputMetadata.SetConfirmationState(confirmation.Rejected)
+			l.Events.OutputRejected.Trigger(outputMetadata.ID())
 		})
 	}
 
