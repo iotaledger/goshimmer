@@ -27,12 +27,6 @@ type ParametersDefinition struct {
 	}
 }
 
-// ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
-type ManaParametersDefinition struct {
-	// Number of epochs past the latest committable epoch for which the base mana vector becomes effective.
-	EpochDelay uint `default:"2" usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
-}
-
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
 	// MaxBufferSize defines the maximum buffer size (in number of blocks).
@@ -71,9 +65,6 @@ type DatabaseParametersDefinition struct {
 // Parameters contains the general configuration used by the blocklayer plugin.
 var Parameters = &ParametersDefinition{}
 
-// ManaParameters contains the mana configuration used by the blocklayer plugin.
-var ManaParameters = &ManaParametersDefinition{}
-
 // SchedulerParameters contains the scheduler configuration used by the blocklayer plugin.
 var SchedulerParameters = &SchedulerParametersDefinition{}
 
@@ -85,7 +76,6 @@ var DatabaseParameters = &DatabaseParametersDefinition{}
 
 func init() {
 	config.BindParameters(Parameters, "protocol")
-	config.BindParameters(ManaParameters, "mana")
 	config.BindParameters(SchedulerParameters, "scheduler")
 	config.BindParameters(NotarizationParameters, "notarization")
 	config.BindParameters(DatabaseParameters, "database")

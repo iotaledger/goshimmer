@@ -41,7 +41,7 @@ type Protocol struct {
 	optsSettingsFileName string
 	optsSnapshotFileName string
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
-	optsInstanceOptions []options.Option[engine.Engine]
+	optsEngineOptions []options.Option[engine.Engine]
 
 	*logger.Logger
 }
@@ -172,7 +172,7 @@ func (p *Protocol) instantiateChains() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger, p.optsEngineOptions...)
 	}
 
 	return len(p.instancesByChainID)
@@ -242,9 +242,9 @@ func WithSettingsFileName(settings string) options.Option[Protocol] {
 // 	}
 // }
 
-func WithInstanceOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsInstanceOptions = opts
+		n.optsEngineOptions = opts
 	}
 }
 

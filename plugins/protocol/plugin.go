@@ -13,11 +13,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -47,8 +46,7 @@ func init() {
 
 func provide(n network.Interface) (p *protocol.Protocol) {
 
-	// TODO:
-	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
+	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
 	if Parameters.GenesisTime > 0 {
 		epoch.GenesisTime = Parameters.GenesisTime
@@ -61,11 +59,10 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 		dbProvider = database.NewDB
 	}
 	p = protocol.New(n, Plugin.Logger(),
-		protocol.WithInstanceOptions(
+		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
@@ -88,6 +85,11 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
 				database.WithGranularity(DatabaseParameters.Granularity),
 			),
+			engine.WithLedgerOptions(
+				ledger.WithVM(new(devnetvm.VM)),
+				ledger.WithCacheTimeProvider(cacheTimeProvider),
+			),
+			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotFileName(Parameters.Snapshot.FileName),
@@ -98,21 +100,21 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 }
 
 func configureLogging(*node.Plugin) {
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		Plugin.LogInfof("Block %s attached", block.ID())
-	}))
-
-	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
-		Plugin.LogInfof("Block %s booked", block.ID())
-	}))
-
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-		Plugin.LogInfof("Block %s tracked", block.ID())
-	}))
-
-	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		Plugin.LogInfof("Block %s scheduled", block.ID())
-	}))
+	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// 	Plugin.LogInfof("Block %s attached", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	// 	Plugin.LogInfof("Block %s booked", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// 	Plugin.LogInfof("Block %s tracked", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	// 	Plugin.LogInfof("Block %s scheduled", block.ID())
+	// }))
 
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)

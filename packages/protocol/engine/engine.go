@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
@@ -29,8 +30,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -125,7 +124,7 @@ func (i *Engine) initDatabaseManager() {
 }
 
 func (i *Engine) initLedger() {
-	i.Ledger = ledger.New(i.optsLedgerOptions...)
+	i.Ledger = ledger.New(append(i.optsLedgerOptions, ledger.WithStore(i.DBManager.PermanentStorage()))...)
 
 	i.Events.Ledger = i.Ledger.Events
 }
@@ -185,11 +184,7 @@ func (i *Engine) initNotarizationManager() {
 		i.Ledger,
 		i.Consensus,
 		notarization.NewEpochCommitmentFactory(i.DBManager.PermanentStorage(), i.optsSnapshotDepth),
-		// TODO: fill parameters properly
-		notarization.MinCommittableEpochAge(1*time.Minute),
-		notarization.BootstrapWindow(2*time.Minute),
-		// TODO: this is currently a constant in the mana tracker component, so this should probably be removed
-		notarization.ManaEpochDelay(2),
+		append(i.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
 	// i.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(i.NotarizationManager.OnBlockAttached))
@@ -258,7 +253,7 @@ func (i *Engine) initEvictionManager() {
 }
 
 func (i *Engine) initTipManager() {
-	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.IsBootstrapped)
+	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.IsBootstrapped, i.optsTipManagerOptions...)
 
 	i.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
 
@@ -405,9 +400,21 @@ func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) option
 	}
 }
 
+func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
+	return func(i *Engine) {
+		i.optsLedgerOptions = opts
+	}
+}
+
 func WithNotarizationManagerOptions(opts ...notarization.ManagerOption) options.Option[Engine] {
 	return func(i *Engine) {
 		i.optsNotarizationManagerOptions = opts
+	}
+}
+
+func WithSnapshotDepth(depth int) options.Option[Engine] {
+	return func(i *Engine) {
+		i.optsSnapshotDepth = depth
 	}
 }
 

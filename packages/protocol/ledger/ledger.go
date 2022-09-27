@@ -325,8 +325,8 @@ func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
 
 // WithVM is an Option for the Ledger that allows to configure which VM is supposed to be used to process transactions.
 func WithVM(vm vm.VM) (option options.Option[Ledger]) {
-	return func(options *Ledger) {
-		options.optsVM = vm
+	return func(l *Ledger) {
+		l.optsVM = vm
 	}
 }
 
