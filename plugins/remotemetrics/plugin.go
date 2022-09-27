@@ -69,7 +69,7 @@ func configure(_ *node.Plugin) {
 		Plugin.LogInfof("%s is disabled; skipping %s\n", remotelog.Plugin.Name, Plugin.Name)
 		return
 	}
-	measureInitialConflictCounts()
+
 	configureSyncMetrics()
 	configureConflictConfirmationMetrics()
 	configureBlockFinalizedMetrics()
@@ -83,8 +83,11 @@ func run(_ *node.Plugin) {
 	if node.IsSkipped(remotelog.Plugin) {
 		return
 	}
+
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
+		measureInitialConflictCounts()
+
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)

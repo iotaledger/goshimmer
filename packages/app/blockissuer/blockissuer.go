@@ -42,10 +42,12 @@ type BlockIssuer struct {
 // New creates a new block issuer.
 func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opts ...options.Option[BlockIssuer]) *BlockIssuer {
 	return options.Apply(&BlockIssuer{
-		Events:            NewEvents(),
-		identity:          localIdentity,
-		protocol:          protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, protocol.Engine().NotarizationManager.LatestCommitableEpochIndex),
+		Events:   NewEvents(),
+		identity: localIdentity,
+		protocol: protocol,
+		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() (epoch.Index, error) {
+			return protocol.Engine().NotarizationManager.LatestCommitableEpochIndex()
+		}),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
@@ -87,7 +89,8 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return totalMana
 			},
 			i.identity.ID(),
-			append(i.optsRateSetterOptions, ratesetter.WithSchedulerRate(i.protocol.Engine().CongestionControl.Scheduler.Rate()))...)
+			i.optsRateSetterOptions...,
+		)
 	}, (*BlockIssuer).setupEvents)
 }
 

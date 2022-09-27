@@ -37,7 +37,7 @@ type dependencies struct {
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configureLogging)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configureLogging, run)
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -118,4 +118,8 @@ func configureLogging(*node.Plugin) {
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))
+}
+
+func run(*node.Plugin) {
+	deps.Protocol.Run()
 }
