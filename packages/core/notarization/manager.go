@@ -219,8 +219,9 @@ func (m *Manager) GetLatestEC() (ecRecord *chainmanager.Commitment, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
-	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	ecRecord = m.epochCommitmentFactory.loadECRecord(latestCommittableEpoch)
+	// TODO: remove as it's a quick fix
+	//latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	ecRecord = m.epochCommitmentFactory.loadECRecord(0)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
 	}
