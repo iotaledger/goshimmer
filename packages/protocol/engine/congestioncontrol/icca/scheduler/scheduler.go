@@ -584,11 +584,11 @@ func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 }
 
 func (s *Scheduler) getAccessMana(id identity.ID) int64 {
-	mana, exists := s.accessManaMapRetrieverFunc()[id]
-	if exists {
-		return mana
+	mana := s.accessManaMapRetrieverFunc()[id]
+	if mana == 0 {
+		return MinMana
 	}
-	return MinMana
+	return mana
 }
 
 func (s *Scheduler) evictEpoch(index epoch.Index) {
