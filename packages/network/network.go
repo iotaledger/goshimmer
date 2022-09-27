@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/interfaces"
 	"github.com/iotaledger/goshimmer/packages/network/chain"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
@@ -17,7 +18,7 @@ import (
 )
 
 type Network struct {
-	P2PManager *p2p.Manager
+	P2PManager interfaces.Network
 
 	Chain *chain.Protocol
 
@@ -26,7 +27,7 @@ type Network struct {
 	gossipProtocol   *gossip.Manager
 }
 
-func New(p2pManager *p2p.Manager, logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
+func New(p2pManager interfaces.Network, logger *logger.Logger, opts ...options.Option[Network]) (network *Network) {
 	network = options.Apply(&Network{
 		events:         NewEvents(),
 		P2PManager:     p2pManager,

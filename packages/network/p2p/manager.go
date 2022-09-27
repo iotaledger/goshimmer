@@ -170,10 +170,12 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 }
 
 // Send sends a message with the specific protocol to a set of neighbors.
-func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
-	neighbors := m.GetNeighborsByID(to)
-	if len(neighbors) == 0 {
+func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.ID) (receivers []identity.ID) {
+	var neighbors []*Neighbor
+	if len(to) == 0 {
 		neighbors = m.AllNeighbors()
+	} else {
+		neighbors = m.GetNeighborsByID(to)
 	}
 
 	for _, nbr := range neighbors {
@@ -187,8 +189,11 @@ func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.I
 			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
 			nbr.Close()
 		}
+
+		receivers = append(receivers, nbr.ID())
 	}
-	return neighbors
+
+	return
 }
 
 // AllNeighbors returns all the neighbors that are currently connected.
