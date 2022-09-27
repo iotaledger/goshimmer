@@ -98,7 +98,6 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initSnapshotManager,
 		(*Engine).initCongestionControl,
 		(*Engine).initSybilProtection,
-		(*Engine).loadSnapshot,
 		(*Engine).initEvictionManager,
 		(*Engine).initTipManager,
 	)
@@ -250,67 +249,16 @@ func (i *Engine) initSybilProtection() {
 	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }
 
-func (i *Engine) loadSnapshot() {
-	if err := snapshot.LoadSnapshot(
-		diskutil.New(i.chainDirectory).Path("snapshot.bin"),
-		func(header *ledger.SnapshotHeader) {
-			i.GenesisCommitment = header.LatestECRecord
-			i.Clock.SetAcceptedTime(i.GenesisCommitment.Index().EndTime())
-
-			i.NotarizationManager.LoadECandEIs(header)
-
-			i.CongestionControl.Tracker.LoadSnapshotHeader(header)
-		},
-		i.SnapshotManager.LoadSolidEntryPoints,
-		func(outputsWithMetadata []*ledger.OutputWithMetadata) {
-			i.NotarizationManager.LoadOutputsWithMetadata(outputsWithMetadata)
-
-			i.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
-
-			i.CongestionControl.Tracker.LoadOutputsWithMetadata(outputsWithMetadata)
-
-			// TODO FILL INDEXER
-		},
-		func(epochDiffs *ledger.EpochDiff) {
-			i.NotarizationManager.LoadEpochDiff(epochDiffs)
-
-			if err := i.Ledger.LoadEpochDiff(epochDiffs); err != nil {
-				panic(err)
-			}
-
-			i.CongestionControl.Tracker.LoadEpochDiff(epochDiffs)
-			// TODO FILL INDEXER
-		},
-		func(activityLogs activitylog.SnapshotEpochActivity) {
-			for epoch, activityLog := range activityLogs {
-				for issuerID, _ := range activityLog.NodesLog() {
-					i.SybilProtection.AddValidator(issuerID, epoch.EndTime())
-				}
-			}
-		},
-	); err != nil {
-		panic(err)
-	}
-}
-
 func (i *Engine) initEvictionManager() {
-	latestConfirmedIndex, err := i.NotarizationManager.LatestConfirmedEpochIndex()
-	if err != nil {
-		panic(err)
-	}
-
-	i.EvictionManager.EvictUntil(latestConfirmedIndex, i.SnapshotManager.SolidEntryPoints(latestConfirmedIndex))
-
 	i.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		i.EvictionManager.EvictUntil(event.EI, i.SnapshotManager.SolidEntryPoints(event.EI))
 	}))
 
 	i.Events.EvictionManager = i.EvictionManager.Events
-
 }
 
 func (i *Engine) initTipManager() {
-	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.GenesisCommitment.Index().EndTime())
+	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.IsBootstrapped)
 
 	i.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
 
@@ -334,6 +282,48 @@ func (i *Engine) initTipManager() {
 	// }))
 
 	i.Events.TipManager = i.TipManager.Events
+}
+
+func (i *Engine) LoadSnapshot() {
+	if err := snapshot.LoadSnapshot(
+		diskutil.New(i.chainDirectory).Path("snapshot.bin"),
+		func(header *ledger.SnapshotHeader) {
+			i.GenesisCommitment = header.LatestECRecord
+
+			i.NotarizationManager.LoadECandEIs(header)
+
+			i.CongestionControl.Tracker.LoadSnapshotHeader(header)
+		},
+		i.SnapshotManager.LoadSolidEntryPoints,
+		func(outputsWithMetadata []*ledger.OutputWithMetadata) {
+			i.NotarizationManager.LoadOutputsWithMetadata(outputsWithMetadata)
+
+			i.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
+
+			i.CongestionControl.Tracker.LoadOutputsWithMetadata(outputsWithMetadata)
+		},
+		func(epochDiffs *ledger.EpochDiff) {
+			i.NotarizationManager.LoadEpochDiff(epochDiffs)
+
+			if err := i.Ledger.LoadEpochDiff(epochDiffs); err != nil {
+				panic(err)
+			}
+
+			i.CongestionControl.Tracker.LoadEpochDiff(epochDiffs)
+		},
+		func(activityLogs activitylog.SnapshotEpochActivity) {
+			for epoch, activityLog := range activityLogs {
+				for issuerID, _ := range activityLog.NodesLog() {
+					i.SybilProtection.AddValidator(issuerID, epoch.EndTime())
+				}
+			}
+		},
+	); err != nil {
+		panic(err)
+	}
+
+	i.Clock.SetAcceptedTime(i.GenesisCommitment.Index().EndTime())
+	i.EvictionManager.EvictUntil(i.GenesisCommitment.Index(), i.SnapshotManager.SolidEntryPoints(i.GenesisCommitment.Index()))
 }
 
 func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
