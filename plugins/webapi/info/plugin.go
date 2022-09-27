@@ -73,7 +73,7 @@ func configure(_ *node.Plugin) {
 //			"AutoPeering",
 //			"Analysis",
 //			"WebAPIDataEndpoint",
-//			"BlockLayer",
+//			"Protocol",
 //			"CLI",
 //			"Database",
 //			"WebAPIAutoPeeringEndpoint",

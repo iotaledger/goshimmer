@@ -39,7 +39,7 @@ type Protocol struct {
 	instancesByChainID   map[commitment.ID]*engine.Engine
 	optsBaseDirectory    string
 	optsSettingsFileName string
-	optsSnapshotFileName string
+	optsSnapshotPath     string
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
 	optsEngineOptions []options.Option[engine.Engine]
 
@@ -55,7 +55,7 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		instancesByChainID:   make(map[commitment.ID]*engine.Engine),
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
-		optsSnapshotFileName: "snapshot.bin",
+		optsSnapshotPath:     "./snapshot.bin",
 
 		Logger: log,
 	}, opts)
@@ -65,7 +65,7 @@ func (p *Protocol) Run() {
 	p.disk = diskutil.New(p.optsBaseDirectory)
 	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
 
-	if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFileName)); err != nil {
+	if err := p.importSnapshot(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 
@@ -114,40 +114,38 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	return p.activeInstance
 }
 
-func (p *Protocol) importSnapshot(fileName string) (err error) {
+func (p *Protocol) importSnapshot(filePath string) (err error) {
 	var snapshotHeader *ledger.SnapshotHeader
 
-	if err = p.disk.WithFile(fileName, func(file *os.File) (err error) {
+	if err = p.disk.WithFile(filePath, func(file *os.File) (err error) {
 		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
 
 		return
 	}); err != nil {
 		if os.IsNotExist(err) {
-			p.Logger.Debugf("snapshot file '%s' does not exist", fileName)
+			p.Logger.Debugf("snapshot file '%s' does not exist", filePath)
 
 			return nil
 		}
 
-		return errors.Errorf("failed to read snapshot header from file '%s': %w", fileName, err)
+		return errors.Errorf("failed to read snapshot header from file '%s': %w", filePath, err)
 	}
 
 	chainID := snapshotHeader.LatestECRecord.ID()
 	chainDirectory := p.disk.Path(fmt.Sprintf("%x", chainID.Bytes()))
 
-	fmt.Println("creating chainDirectory", chainDirectory)
 	if !p.disk.Exists(chainDirectory) {
-		fmt.Println("chain directory does not exist", chainDirectory)
 		if err = p.disk.CreateDir(chainDirectory); err != nil {
 			return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
 		}
 	}
 
-	if p.disk.CopyFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
-		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
+	if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
+		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
 	}
 	// TODO: we can't move the file because it might be mounted through Docker
-	// if err = diskutil.ReplaceFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
-	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
+	// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
 	// }
 
 	p.settings.AddChain(chainID)
@@ -224,9 +222,9 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 	}
 }
 
-func WithSnapshotFileName(snapshot string) options.Option[Protocol] {
+func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsSnapshotFileName = snapshot
+		n.optsSnapshotPath = snapshot
 	}
 }
 

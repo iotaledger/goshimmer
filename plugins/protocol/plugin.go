@@ -92,8 +92,8 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
-		protocol.WithSnapshotFileName(Parameters.Snapshot.FileName),
-		protocol.WithSettingsFileName(Parameters.Settings.FileName),
+		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
+		protocol.WithSettingsFileName(DatabaseParameters.Settings.FileName),
 	)
 
 	return p

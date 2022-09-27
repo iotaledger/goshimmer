@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -90,6 +89,6 @@ func TestOrphanageTSC(t *testing.T) {
 	t.Logf("Sending %d data messages to make sure that all nodes share the same view", 150)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), 150, delayBetweenDataMessages)
 
-	tests.RequireBlocksAvailable(t, n.Peers(), blocksToConfirm, time.Minute, tests.Tick, confirmation.Accepted)
+	tests.RequireBlocksAvailable(t, n.Peers(), blocksToConfirm, time.Minute, tests.Tick, true)
 	tests.RequireBlocksOrphaned(t, partition1, blocksToOrphan, time.Minute, tests.Tick)
 }

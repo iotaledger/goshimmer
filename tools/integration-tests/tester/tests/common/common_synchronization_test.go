@@ -71,7 +71,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
 	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
 	// wait to assure that the new peer is actually out of sync when starting
-	time.Sleep(newPeer.Config().BlockLayer.TangleTimeWindow)
+	time.Sleep(newPeer.Config().Protocol.BootstrapWindow)
 	log.Println("Issuing blocks... done")
 
 	// 6. let it startup again
@@ -102,6 +102,7 @@ func TestCommonSynchronization(t *testing.T) {
 }
 
 func TestFirewall(t *testing.T) {
+	t.Skip("Test firewall when network layer is fully implemented")
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
@@ -109,7 +110,7 @@ func TestFirewall(t *testing.T) {
 		Snapshot:    tests.EqualSnapshotDetails,
 	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
-			cfg.Gossip.BlocksRateLimit.Limit = 50
+			//cfg..BlocksRateLimit.Limit = 50
 		}
 		return cfg
 	})
@@ -165,8 +166,8 @@ func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peer
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.BlockLayer.Snapshot.File = snapshotInfo.FilePath
+	conf.Protocol.Snapshot.Path = snapshotInfo.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
-	conf.BlockLayer.TangleTimeWindow = 30 * time.Second
+	conf.Protocol.BootstrapWindow = 30 * time.Second
 	return conf
 }
