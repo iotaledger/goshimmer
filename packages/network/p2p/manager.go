@@ -27,7 +27,7 @@ type ProtocolHandler struct {
 	PacketFactory      func() proto.Message
 	NegotiationSend    func(ps *PacketsStream) error
 	NegotiationReceive func(ps *PacketsStream) error
-	PacketHandler      func(*Neighbor, proto.Message) error
+	PacketHandler      func(identity.ID, proto.Message) error
 }
 
 func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
@@ -282,7 +282,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
 		}
-		if err := protocolHandler.PacketHandler(event.Neighbor, event.Packet); err != nil {
+		if err := protocolHandler.PacketHandler(event.Neighbor.ID(), event.Packet); err != nil {
 			nbr.Log.Debugw("Can't handle packet", "err", err)
 		}
 	}))

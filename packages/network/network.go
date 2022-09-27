@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/network/chain"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/network/warpsync"
@@ -17,6 +18,8 @@ import (
 
 type Network struct {
 	P2PManager *p2p.Manager
+
+	Chain *chain.Protocol
 
 	events           *Events
 	warpSyncProtocol *warpsync.Protocol

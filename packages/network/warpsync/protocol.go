@@ -56,10 +56,6 @@ func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 		submitTask(p.processEpochBlocksBatchPacket, packetBody, nbr)
 	case *wp.Packet_EpochBlocksEnd:
 		submitTask(p.processEpochBlocksEndPacket, packetBody, nbr)
-	case *wp.Packet_EpochCommitmentRequest:
-		submitTask(p.processEpochCommittmentRequestPacket, packetBody, nbr)
-	case *wp.Packet_EpochCommitment:
-		submitTask(p.processEpochCommitmentPacket, packetBody, nbr)
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}

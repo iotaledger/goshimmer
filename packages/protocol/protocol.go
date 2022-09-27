@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/network/chain"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -76,6 +77,14 @@ func New(networkInstance network.Interface, log *logger.Logger, opts ...options.
 		}
 
 		p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+
+		p.network.Chain().Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *chain.EpochCommitmentRequestReceivedEvent) {
+			// todo: get from storage
+
+			var commitment *commitment.Commitment
+
+			p.network.Chain().SendEpochCommitment(commitment)
+		}))
 
 		// setup solidification event
 		p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
