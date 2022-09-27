@@ -396,8 +396,7 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 					}
 				}
 
-				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
-				require.Equal(t, blockID, blk.ID)
+				require.Equal(t, blockID, blk.ID().Base58())
 				nodeMissing.Delete(blockID)
 				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
