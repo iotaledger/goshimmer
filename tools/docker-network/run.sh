@@ -37,7 +37,7 @@ then
 fi
 
 #export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
-export GENESIS_TIME=$(date -v-5m +%s)
+export GENESIS_TIME=$(date -v-5M +%s)
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
 docker-compose up
 
