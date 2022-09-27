@@ -11,6 +11,7 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
@@ -25,9 +26,10 @@ const PluginName = "WebAPIInfoEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server   *echo.Echo
-	Local    *peer.Local
-	Protocol *protocol.Protocol
+	Server      *echo.Echo
+	Local       *peer.Local
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 var (
@@ -158,11 +160,10 @@ func getInfo(c echo.Context) error {
 			Deficit:           deficit,
 			NodeQueueSizes:    issuerQueueSizes,
 		},
-		// TODO: finish when ratesetter is available
-		// RateSetter: jsonmodels.RateSetter{
-		//	Rate:     deps.Tangle.RateSetter.Rate(),
-		//	Size:     deps.Tangle.RateSetter.Size(),
-		//	Estimate: deps.Tangle.RateSetter.Estimate(),
-		// },
+		RateSetter: jsonmodels.RateSetter{
+			Rate:     deps.BlockIssuer.Rate(),
+			Size:     deps.BlockIssuer.Size(),
+			Estimate: deps.BlockIssuer.Estimate(),
+		},
 	})
 }
