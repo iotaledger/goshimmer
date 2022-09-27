@@ -4,6 +4,9 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
@@ -27,15 +30,15 @@ func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 	}
 	knownPeers := deps.Discovery.GetVerifiedPeers()
 	resp := make([]jsonmodels.OnlineIssuerStr, 0)
-	for _, knownPeer := range knownPeers {
-		manaValue, exists := manaMap[knownPeer.ID()]
+	for _, knownPeer := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
+		manaValue, exists := manaMap[knownPeer]
 		if !exists {
 			continue
 		}
 
 		resp = append(resp, jsonmodels.OnlineIssuerStr{
-			ShortID: knownPeer.ID().String(),
-			ID:      base58.Encode(knownPeer.ID().Bytes()),
+			ShortID: knownPeer.String(),
+			ID:      base58.Encode(knownPeer.Bytes()),
 			Mana:    manaValue,
 		})
 	}
