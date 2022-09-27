@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 
@@ -154,15 +157,15 @@ func sendManaMapOnline() {
 	}
 	accessPayload := &ManaNetworkListBlkData{ManaType: manamodels.AccessMana.String()}
 	var totalAccessMana int64
-	for _, knownPeer := range knownPeers {
-		manaValue, exists := manaMap[knownPeer.ID()]
+	for _, peerID := range append(lo.Map(knownPeers, func(p *peer.Peer) identity.ID { return p.ID() }), deps.Local.ID()) {
+		manaValue, exists := manaMap[peerID]
 		if !exists {
 			continue
 		}
 
 		accessPayload.Issuers = append(accessPayload.Issuers, manamodels.IssuerStr{
-			ShortIssuerID: knownPeer.ID().String(),
-			IssuerID:      base58.Encode(knownPeer.ID().Bytes()),
+			ShortIssuerID: peerID.String(),
+			IssuerID:      base58.Encode(peerID.Bytes()),
 			Mana:          manaValue,
 		})
 		totalAccessMana += manaValue
