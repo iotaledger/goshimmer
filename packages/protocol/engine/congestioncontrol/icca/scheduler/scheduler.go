@@ -189,7 +189,7 @@ func (s *Scheduler) TotalBlocksCount() int {
 }
 
 func (s *Scheduler) Quanta(issuerID identity.ID) *big.Rat {
-	return big.NewRat(int64(s.getAccessMana(issuerID)), int64(s.totalAccessManaRetrieveFunc()))
+	return big.NewRat(s.getAccessMana(issuerID), s.totalAccessManaRetrieveFunc())
 }
 
 func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
@@ -588,7 +588,7 @@ func (s *Scheduler) getAccessMana(id identity.ID) int64 {
 	if exists {
 		return mana
 	}
-	return 0.0
+	return MinMana
 }
 
 func (s *Scheduler) evictEpoch(index epoch.Index) {
