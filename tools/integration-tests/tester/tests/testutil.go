@@ -497,8 +497,9 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 			for color, balance := range balances {
 				addr, err := devnetvm.AddressFromBase58EncodedString(addrString)
 				require.NoErrorf(t, err, "invalid address string: %s", addrString)
-				require.Equalf(t, balance, Balance(t, node, addr, color),
-					"balance for color '%s' on address '%s' (node='%s') does not match", color, addr.Base58(), node)
+
+				actualBalance := Balance(t, node, addr, color)
+				require.Equalf(t, balance, actualBalance, "balance for color '%s' on address '%s' (node='%s') does not match, expected=%d, actual=%d", color, addr.Base58(), node, balance, actualBalance)
 			}
 		}
 	}
