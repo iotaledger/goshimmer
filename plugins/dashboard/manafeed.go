@@ -217,7 +217,7 @@ func sendManaRevoke(ev *mana.RevokedEvent) {
 
 // ManaValueBlkData contains mana values for a particular issuer.
 type ManaValueBlkData struct {
-	IssuerID  string `json:"issuerID"`
+	IssuerID  string `json:"nodeID"`
 	Access    int64  `json:"access"`
 	Consensus int64  `json:"consensus"`
 	Time      int64  `json:"time"`
@@ -227,7 +227,7 @@ type ManaValueBlkData struct {
 type ManaNetworkListBlkData struct {
 	ManaType  string                 `json:"manaType"`
 	TotalMana int64                  `json:"totalMana"`
-	Issuers   []manamodels.IssuerStr `json:"issuers"`
+	Issuers   []manamodels.IssuerStr `json:"nodes"`
 }
 
 // endregion

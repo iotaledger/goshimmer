@@ -106,7 +106,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 
 func (i *Engine) IsBootstrapped() (isBootstrapped bool) {
 	// TODO: add bootstrapped flag from notarization
-	return time.Since(i.Clock.RelativeConfirmedTime()) < i.optsBootstrappedThreshold
+	return time.Since(i.Clock.RelativeAcceptedTime()) < i.optsBootstrappedThreshold
 }
 
 func (i *Engine) IsSynced() (isBootstrapped bool) {

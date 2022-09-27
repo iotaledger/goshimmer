@@ -343,7 +343,7 @@ export class ManaStore {
     }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
-        if (leaderBoard === null || undefined) {
+        if (leaderBoard === null || leaderBoard == undefined) {
             return []
         }
         let feed = [];
