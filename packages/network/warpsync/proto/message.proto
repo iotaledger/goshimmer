@@ -39,5 +39,4 @@ message EpochBlocksRequest {
   bytes EC = 2;
 }
 
-
 message Negotiation {}

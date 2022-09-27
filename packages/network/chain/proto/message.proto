@@ -8,14 +8,16 @@ message Packet {
   oneof body {
     EpochCommitment epochCommitment = 1;
     EpochCommitmentRequest epochCommitmentRequest = 2;
+    Negotiation negotiation = 3;
   }
 }
 
 message EpochCommitment {
-bytes Bytes = 1;
+  bytes Bytes = 1;
 }
 
 message EpochCommitmentRequest {
-bytes Bytes = 1;
+  bytes Bytes = 1;
 }
 
+message Negotiation {}
