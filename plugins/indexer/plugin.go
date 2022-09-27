@@ -16,8 +16,7 @@ const PluginName = "Indexer"
 var (
 	Plugin *node.Plugin
 
-	deps       = new(dependencies)
-	pluginDeps = new(pluginDependencies)
+	deps = new(dependencies)
 )
 
 type dependencies struct {
@@ -26,15 +25,8 @@ type dependencies struct {
 	Protocol *protocol.Protocol
 }
 
-type pluginDependencies struct {
-	dig.In
-
-	Protocol *protocol.Protocol
-	Indexer  *indexer.Indexer
-}
-
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -45,13 +37,13 @@ func init() {
 func provide(deps dependencies) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
-	return indexer.New(func() *ledger.Ledger {
+	i = indexer.New(func() *ledger.Ledger {
 		return deps.Protocol.Engine().Ledger
 	})
-}
 
-func configure(*node.Plugin) {
-	deps.Protocol.Events.Engine.Ledger.OutputCreated.Attach(event.NewClosure(pluginDeps.Indexer.OnOutputCreated))
-	deps.Protocol.Events.Engine.Ledger.OutputSpent.Attach(event.NewClosure(pluginDeps.Indexer.OnOutputSpentRejected))
-	deps.Protocol.Events.Engine.Ledger.OutputRejected.Attach(event.NewClosure(pluginDeps.Indexer.OnOutputSpentRejected))
+	deps.Protocol.Events.Engine.Ledger.OutputCreated.Attach(event.NewClosure(i.OnOutputCreated))
+	deps.Protocol.Events.Engine.Ledger.OutputSpent.Attach(event.NewClosure(i.OnOutputSpentRejected))
+	deps.Protocol.Events.Engine.Ledger.OutputRejected.Attach(event.NewClosure(i.OnOutputSpentRejected))
+
+	return i
 }
