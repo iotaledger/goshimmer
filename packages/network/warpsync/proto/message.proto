@@ -10,8 +10,6 @@ message Packet {
     EpochBlocksBatch epochBlocksBatch = 2;
     EpochBlocksEnd epochBlocksEnd = 3;
     EpochBlocksRequest epochBlocksRequest = 4;
-    EpochCommitment epochCommitment = 5;
-    EpochCommitmentRequest epochCommitmentRequest = 6;
     Negotiation negotiation = 7;
   }
 }
