@@ -55,7 +55,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
 	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter.HitEvent) {
-		p := event.Peer
+		p := event.Source
 		rl := event.RateLimit
 		eventCalled.Inc()
 		assert.Equal(t, int32(expectedActivity), activityCount.Load())

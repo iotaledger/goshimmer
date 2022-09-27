@@ -31,10 +31,10 @@ type EpochCommitmentReceivedEvent struct {
 
 type EpochCommitmentRequestReceivedEvent struct {
 	CommitmentID commitment.ID
-	Neighbor     identity.ID
+	Source       identity.ID
 }
 
 type ErrorEvent struct {
-	Error    error
-	Neighbor identity.ID
+	Error  error
+	Source identity.ID
 }

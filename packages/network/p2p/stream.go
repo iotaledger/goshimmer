@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil"
+	pp "github.com/iotaledger/goshimmer/packages/network/p2p/proto"
 )
 
 const (
@@ -182,7 +183,7 @@ func (m *Manager) initiateStream(ctx context.Context, libp2pID libp2ppeer.ID, pr
 		return nil, err
 	}
 	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
-	if err := protocolHandler.NegotiationSend(ps); err != nil {
+	if err := ps.sendNegotiation(); err != nil {
 		err = errors.Wrap(err, "failed to send negotiation block")
 		err = errors.CombineErrors(err, stream.Close())
 		return nil, err
@@ -202,7 +203,7 @@ func (m *Manager) handleStream(stream network.Stream) {
 		return
 	}
 	ps := NewPacketsStream(stream, protocolHandler.PacketFactory)
-	if err := protocolHandler.NegotiationReceive(ps); err != nil {
+	if err := ps.receiveNegotiation(); err != nil {
 		m.log.Errorw("failed to receive negotiation message", "proto", protocolID, "err", err)
 		m.closeStream(stream)
 		return
@@ -350,6 +351,25 @@ func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 	}
 	ps.packetsRead.Inc()
 	return nil
+}
+
+func (ps *PacketsStream) sendNegotiation() error {
+	return errors.WithStack(ps.WritePacket(&pp.Packet{
+		Body: &pp.Packet_Negotiation{Negotiation: &pp.Negotiation{}},
+	}))
+}
+
+func (ps *PacketsStream) receiveNegotiation() (err error) {
+	packet := &pp.Packet{}
+	if err = ps.ReadPacket(packet); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if _, ok := packet.GetBody().(*pp.Packet_Negotiation); !ok {
+		err = errors.Newf("received packet isn't the negotiation packet; packet=%+v", packet)
+	}
+
+	return
 }
 
 func isDeadlineUnsupportedError(err error) bool {

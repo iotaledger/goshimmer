@@ -1,7 +1,8 @@
 package gossip
 
 import (
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/hive.go/core/identity"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -27,7 +28,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 // BlockReceivedEvent holds data about a block received event.
 type BlockReceivedEvent struct {
 	// The sender of the block.
-	Neighbor *p2p.Neighbor
+	Source identity.ID
 	// The raw block.
 	Data []byte
 }
@@ -35,7 +36,7 @@ type BlockReceivedEvent struct {
 // BlockReceivedEvent holds data about a block received event.
 type BlockRequestReceived struct {
 	// The sender of the block.
-	Neighbor *p2p.Neighbor
+	Source identity.ID
 	// The requested block id.
 	BlockID models.BlockID
 }

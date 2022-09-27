@@ -197,16 +197,16 @@ func (p *Protocol) activateMainChain() (err error) {
 func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 	block := new(models.Block)
 	if _, err := block.FromBytes(event.Data); err != nil {
-		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
+		p.Events.InvalidBlockReceived.Trigger(event.Source)
 		return
 	}
 
-	p.IssueBlock(block, event.Neighbor)
+	p.IssueBlock(block, event.Source)
 }
 
 func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
 	if block, exists := p.Engine().Block(event.BlockID); exists {
-		p.network.SendBlock(block, event.Neighbor.Peer)
+		p.network.SendBlock(block, event.Source.Peer)
 	}
 }
 
