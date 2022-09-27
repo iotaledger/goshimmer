@@ -3,7 +3,6 @@ package warpsync
 import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,29 +34,19 @@ func (p *Protocol) processEpochCommittmentRequestPacket(packetEpochRequest *wp.P
 }
 
 func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
-	ei := epoch.Index(packetEpochCommitment.EpochCommitment.GetEI())
-	rootsID := types.Identifier(packetEpochCommitment.EpochCommitment.GetECR())
-	prevID := commitment.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetPrevEC())
-
-	var ecRecord
-
-	ecRecord := commitment.New(ei, prevID, rootsID)
-
-	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ID().Base58())
-
-	p.Events.EpochCommitmentReceived.Trigger(&EpochCommitmentReceivedEvent{
+	event := EpochCommitmentReceivedEvent{
 		Neighbor: nbr,
-		ECRecord: ecRecord,
-	})
+	}
+
+	if _, err := event.ECRecord.FromBytes(packetEpochCommitment.EpochCommitment.GetBytes()); err == nil {
+		p.log.Debugw("received epoch commitment", "peer", nbr.Peer.ID(), "ID", event.ECRecord.ID())
+
+		p.Events.EpochCommitmentReceived.Trigger(&event)
+	}
 }
 
-func (p *Protocol) sendEpochCommitmentMessage(ei epoch.Index, ecr types.Identifier, prevEC commitment.ID, to ...identity.ID) {
-	committmentRes := &wp.EpochCommittment{
-		EI:     int64(ei),
-		ECR:    ecr.Bytes(),
-		PrevEC: lo.PanicOnErr(prevEC.Bytes()),
-	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: committmentRes}}
-
-	p.p2pManager.Send(packet, protocolID, to...)
+func (p *Protocol) sendEpochCommitmentMessage(commitment *commitment.Commitment, to ...identity.ID) {
+	p.p2pManager.Send(&wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: &wp.EpochCommitment{
+		Bytes: lo.PanicOnErr(commitment.Bytes()),
+	}}}, protocolID, to...)
 }

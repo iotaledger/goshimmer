@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/network/chain/proto";
+
+package chain;
+
+message Packet {
+  oneof body {
+    EpochCommitment epochCommitment = 1;
+    EpochCommitmentRequest epochCommitmentRequest = 2;
+  }
+}
+
+message EpochCommitment {
+bytes Bytes = 1;
+}
+
+message EpochCommitmentRequest {
+bytes Bytes = 1;
+}
+

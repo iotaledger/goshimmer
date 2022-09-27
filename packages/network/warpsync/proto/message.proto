@@ -41,12 +41,5 @@ message EpochBlocksRequest {
   bytes EC = 2;
 }
 
-message EpochCommitment {
-  bytes Bytes = 1;
-}
-
-message EpochCommitmentRequest {
-  bytes Bytes = 1;
-}
 
 message Negotiation {}

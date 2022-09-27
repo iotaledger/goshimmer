@@ -98,11 +98,11 @@ func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
 	}
 
 	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		if len(optSrc) > 0 {
-			targetInstance.ProcessBlockFromPeer(block, optSrc[0])
-		} else {
-			targetInstance.ProcessBlockFromPeer(block, nil)
+		if len(optSrc) == 0 {
+			optSrc = append(optSrc, nil)
 		}
+
+		targetInstance.ProcessBlockFromPeer(block, optSrc[0])
 	}
 }
 
