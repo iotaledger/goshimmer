@@ -220,7 +220,7 @@ func (m *Manager) GetLatestEC() (ecRecord *chainmanager.Commitment, err error) {
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
 	// TODO: remove as it's a quick fix
-	//latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	// latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
 	ecRecord = m.epochCommitmentFactory.loadECRecord(0)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
@@ -676,11 +676,12 @@ func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdate
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
-	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	if err != nil {
-		m.log.Errorf("could not obtain last committed epoch index: %v", err)
-		return nil, nil
-	}
+	// latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	// if err != nil {
+	// 	m.log.Errorf("could not obtain last committed epoch index: %v", err)
+	// 	return nil, nil
+	// }
+	latestCommittable := epoch.Index(0)
 
 	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
 	manaVectorUpdateEvents := make([]*mana.ManaVectorUpdateEvent, 0)
@@ -697,7 +698,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 			return nil, nil
 		}
 
-		if err = m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
+		if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return nil, nil
 		}
