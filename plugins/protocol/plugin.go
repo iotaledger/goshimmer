@@ -48,7 +48,6 @@ func init() {
 func provide(n network.Interface) (p *protocol.Protocol) {
 
 	// TODO:
-	//		tangleold.GenesisTime(genesisTime), -> set global variable
 	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
 
 	if Parameters.GenesisTime > 0 {

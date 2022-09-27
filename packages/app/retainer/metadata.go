@@ -227,7 +227,7 @@ func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], bloc
 func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 	blockMetadata.M.Accepted = block.IsAccepted()
-	blockMetadata.M.SchedulerTime = blockWithTime.Time
+	blockMetadata.M.AcceptedTime = blockWithTime.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
