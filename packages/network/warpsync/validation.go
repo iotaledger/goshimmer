@@ -1,7 +1,9 @@
 package warpsync
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -34,10 +36,12 @@ func (p *Protocol) processEpochCommittmentRequestPacket(packetEpochRequest *wp.P
 
 func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
 	ei := epoch.Index(packetEpochCommitment.EpochCommitment.GetEI())
-	ecr := commitment.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetECR())
-	prevEC := commitment.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetPrevEC())
+	rootsID := types.Identifier(packetEpochCommitment.EpochCommitment.GetECR())
+	prevID := commitment.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetPrevEC())
 
-	ecRecord := commitment.New(prevEC, ei, ecr)
+	var ecRecord
+
+	ecRecord := commitment.New(ei, prevID, rootsID)
 
 	p.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ecRecord.ID().Base58())
 
@@ -47,11 +51,11 @@ func (p *Protocol) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet
 	})
 }
 
-func (p *Protocol) sendEpochCommitmentMessage(ei epoch.Index, ecr commitment.RootsID, prevEC commitment.ID, to ...identity.ID) {
+func (p *Protocol) sendEpochCommitmentMessage(ei epoch.Index, ecr types.Identifier, prevEC commitment.ID, to ...identity.ID) {
 	committmentRes := &wp.EpochCommittment{
 		EI:     int64(ei),
 		ECR:    ecr.Bytes(),
-		PrevEC: prevEC.Bytes(),
+		PrevEC: lo.PanicOnErr(prevEC.Bytes()),
 	}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: committmentRes}}
 

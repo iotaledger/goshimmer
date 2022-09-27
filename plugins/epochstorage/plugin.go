@@ -12,7 +12,7 @@ package epochstorage
 // 	committableEpochsMutex sync.RWMutex
 // 	committableEpochs      = shrinkingmap.New[epoch.Index, *commitment.Commitment]()
 // 	epochVotersWeightMutex sync.RWMutex
-// 	epochVotersWeight      = shrinkingmap.New[epoch.Index, map[commitment.RootsID]map[identity.ID]float64]()
+// 	epochVotersWeight      = shrinkingmap.New[epoch.Index, map[types.Identifier]map[identity.ID]float64]()
 // 	epochVotersLatestVote  = shrinkingmap.New[identity.ID, *latestVote]()
 //
 // 	maxEpochContentsToKeep   = 100
@@ -25,7 +25,7 @@ package epochstorage
 //
 // type latestVote struct {
 // 	ei         epoch.Index
-// 	ecr        commitment.RootsID
+// 	ecr        types.Identifier
 // 	issuedTime time.Time
 // }
 //
@@ -239,14 +239,14 @@ package epochstorage
 // 	return
 // }
 //
-// func GetEpochVotersWeight(ei epoch.Index) (weights map[commitment.RootsID]map[identity.ID]float64) {
+// func GetEpochVotersWeight(ei epoch.Index) (weights map[types.Identifier]map[identity.ID]float64) {
 // 	epochVotersWeightMutex.RLock()
 // 	defer epochVotersWeightMutex.RUnlock()
 // 	if _, ok := epochVotersWeight.Get(ei); !ok {
 // 		return
 // 	}
 //
-// 	weights = make(map[commitment.RootsID]map[identity.ID]float64, epochVotersWeight.Size())
+// 	weights = make(map[types.Identifier]map[identity.ID]float64, epochVotersWeight.Size())
 // 	epochVoters, _ := epochVotersWeight.Get(ei)
 // 	for ecr, voterWeights := range epochVoters {
 // 		subDuplicate := make(map[identity.ID]float64, len(voterWeights))
@@ -367,7 +367,7 @@ package epochstorage
 // 	epochIndex := block.ECRecordEI()
 // 	ecr := block.ECR()
 // 	if _, ok := epochVotersWeight.Get(epochIndex); !ok {
-// 		epochVotersWeight.Set(epochIndex, make(map[commitment.RootsID]map[identity.ID]float64))
+// 		epochVotersWeight.Set(epochIndex, make(map[types.Identifier]map[identity.ID]float64))
 // 	}
 // 	epochVoters, _ := epochVotersWeight.Get(epochIndex)
 // 	if _, ok := epochVoters[ecr]; !ok {

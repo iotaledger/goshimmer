@@ -5,6 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/requester"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -14,9 +16,10 @@ import (
 // region Solidification ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type Solidification struct {
-	network       network.Interface
-	requester     *Requester
-	optsRequester []options.Option[Requester]
+	network             network.Interface
+	commitmentRequester *requester.Requester[commitment.ID]
+	blockRequester      *requester.Requester[models.BlockID]
+	optsRequester       []options.Option[requester.Requester[models.BlockID]]
 }
 
 func New(network network.Interface, log *logger.Logger, opts ...options.Option[Solidification]) (solidification *Solidification) {
@@ -24,31 +27,31 @@ func New(network network.Interface, log *logger.Logger, opts ...options.Option[S
 		network: network,
 	}, opts, func(s *Solidification) {
 		s.network = network
-		s.requester = NewRequester(eviction.NewManager[models.BlockID](), s.optsRequester...)
+		s.blockRequester = requester.NewRequester(eviction.NewManager[models.BlockID](), s.optsRequester...)
 
-		s.requester.Events.BlockRequested.Attach(event.NewClosure(func(blockID models.BlockID) {
+		s.blockRequester.Events.Request.Attach(event.NewClosure(func(blockID models.BlockID) {
 			s.network.RequestBlock(blockID)
 		}))
 	})
 }
 
 func (s *Solidification) RequestBlock(block *blockdag.Block) {
-	s.requester.StartRequest(block)
+	s.blockRequester.StartRequest(block.ID())
 }
 
 func (s *Solidification) CancelBlockRequest(block *blockdag.Block) {
-	s.requester.StopRequest(block)
+	s.blockRequester.StopRequest(block.ID())
 }
 
 func (s *Solidification) Shutdown() {
-	s.requester.Shutdown()
+	s.blockRequester.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithRequesterOptions(opts ...options.Option[Requester]) options.Option[Solidification] {
+func WithRequesterOptions(opts ...options.Option[requester.Requester[models.BlockID]]) options.Option[Solidification] {
 	return func(s *Solidification) {
 		s.optsRequester = opts
 	}

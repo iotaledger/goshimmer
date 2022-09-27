@@ -93,7 +93,7 @@ func (f *EpochCommitmentFactory) ManaRoot() []byte {
 }
 
 // ECRandRoots retrieves the epoch commitment root.
-func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr commitment.RootsID, roots *commitment.Roots, err error) {
+func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr types.Identifier, roots *commitment.Roots, err error) {
 	if roots, err = f.newEpochRoots(ei); err != nil {
 		return commitment.MerkleRoot{}, nil, errors.Wrap(err, "RootsID could not be created")
 	}

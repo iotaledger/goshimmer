@@ -1,4 +1,4 @@
-package solidification
+package requester
 
 import (
 	"time"
@@ -11,19 +11,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Requester ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Requester takes care of requesting blocks.
-type Requester struct {
-	Events *Events
+type Requester[T epoch.IndexedID] struct {
+	Events *Events[T]
 
-	evictionManager        *eviction.LockableManager[models.BlockID]
+	evictionManager        *eviction.LockableManager[T]
 	timedExecutor          *timed.Executor
-	scheduledRequests      *memstorage.EpochStorage[models.BlockID, *timed.ScheduledTask]
+	scheduledRequests      *memstorage.EpochStorage[T, *timed.ScheduledTask]
 	scheduledRequestsCount int
 
 	optsRetryInterval       time.Duration
@@ -32,37 +30,39 @@ type Requester struct {
 }
 
 // New creates a new block requester.
-func NewRequester(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[Requester]) *Requester {
-	return options.Apply(&Requester{
-		Events: NewEvents(),
+func NewRequester[T epoch.IndexedID](evictionManager *eviction.Manager[T], opts ...options.Option[Requester[T]]) *Requester[T] {
+	return options.Apply(&Requester[T]{
+		Events: NewEvents[T](),
 
 		evictionManager:   evictionManager.Lockable(),
 		timedExecutor:     timed.NewExecutor(1),
-		scheduledRequests: memstorage.NewEpochStorage[models.BlockID, *timed.ScheduledTask](),
+		scheduledRequests: memstorage.NewEpochStorage[T, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         10 * time.Second,
 		optsMaxRequestThreshold: 100,
-	}, opts, (*Requester).setup)
+	}, opts, func(r *Requester[T]) {
+		r.setup()
+	})
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (r *Requester) StartRequest(block *blockdag.Block) {
-	if id := block.ID(); r.addRequestToQueue(id) {
-		r.Events.RequestStarted.Trigger(id)
-		r.Events.BlockRequested.Trigger(id)
+func (r *Requester[T]) StartRequest(id T) {
+	if r.addRequestToQueue(id) {
+		r.Events.RequestQueued.Trigger(id)
+		r.Events.Request.Trigger(id)
 	}
 }
 
 // StopRequest stops requests for the given block to further happen.
-func (r *Requester) StopRequest(block *blockdag.Block) {
-	if id := block.ID(); r.stopRequest(id) {
+func (r *Requester[T]) StopRequest(id T) {
+	if r.stopRequest(id) {
 		r.Events.RequestStopped.Trigger(id)
 	}
 }
 
 // QueueSize returns the number of scheduled block requests.
-func (r *Requester) QueueSize() int {
+func (r *Requester[T]) QueueSize() int {
 	r.evictionManager.RLock()
 	defer r.evictionManager.RUnlock()
 
@@ -70,16 +70,16 @@ func (r *Requester) QueueSize() int {
 }
 
 // Shutdown shuts down the Requester.
-func (r *Requester) Shutdown() {
+func (r *Requester[T]) Shutdown() {
 	r.timedExecutor.Shutdown(timed.CancelPendingElements)
 }
 
 // setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (r *Requester) setup() {
+func (r *Requester[T]) setup() {
 	r.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(r.evictEpoch))
 }
 
-func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
+func (r *Requester[T]) addRequestToQueue(id T) (added bool) {
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -101,7 +101,7 @@ func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
 	return true
 }
 
-func (r *Requester) stopRequest(id models.BlockID) (stopped bool) {
+func (r *Requester[T]) stopRequest(id T) (stopped bool) {
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -124,8 +124,8 @@ func (r *Requester) stopRequest(id models.BlockID) (stopped bool) {
 	return true
 }
 
-func (r *Requester) reRequest(id models.BlockID, count int) {
-	r.Events.BlockRequested.Trigger(id)
+func (r *Requester[T]) reRequest(id T, count int) {
+	r.Events.Request.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	r.evictionManager.Lock()
@@ -157,11 +157,11 @@ func (r *Requester) reRequest(id models.BlockID, count int) {
 	}
 }
 
-func (r *Requester) createReRequest(blkID models.BlockID, count int) func() {
+func (r *Requester[T]) createReRequest(blkID T, count int) func() {
 	return func() { r.reRequest(blkID, count) }
 }
 
-func (r *Requester) evictEpoch(epochIndex epoch.Index) {
+func (r *Requester[T]) evictEpoch(epochIndex epoch.Index) {
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -176,23 +176,23 @@ func (r *Requester) evictEpoch(epochIndex epoch.Index) {
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // RetryInterval creates an option which sets the retry interval to the given value.
-func RetryInterval(interval time.Duration) options.Option[Requester] {
-	return func(requester *Requester) {
+func RetryInterval[T epoch.IndexedID](interval time.Duration) options.Option[Requester[T]] {
+	return func(requester *Requester[T]) {
 		requester.optsRetryInterval = interval
 	}
 }
 
 // RetryJitter creates an option which sets the retry jitter to the given value.
-func RetryJitter(retryJitter time.Duration) options.Option[Requester] {
-	return func(requester *Requester) {
+func RetryJitter[T epoch.IndexedID](retryJitter time.Duration) options.Option[Requester[T]] {
+	return func(requester *Requester[T]) {
 		requester.optsRetryJitter = retryJitter
 	}
 }
 
 // MaxRequestThreshold creates an option which defines how often the Requester should try to request blocks before
 // canceling the request.
-func MaxRequestThreshold(maxRequestThreshold int) options.Option[Requester] {
-	return func(requester *Requester) {
+func MaxRequestThreshold[T epoch.IndexedID](maxRequestThreshold int) options.Option[Requester[T]] {
+	return func(requester *Requester[T]) {
 		requester.optsMaxRequestThreshold = maxRequestThreshold
 	}
 }

@@ -51,6 +51,10 @@ func (i Index) Bytes() []byte {
 	return bytes
 }
 
+func (i Index) Length() int {
+	return 8
+}
+
 func (i Index) String() string {
 	return fmt.Sprintf("Index(%d)", i)
 }

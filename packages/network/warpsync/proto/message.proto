@@ -41,14 +41,12 @@ message EpochBlocksRequest {
   bytes EC = 2;
 }
 
-message EpochCommittment {
-  int64 EI = 1;
-  bytes prevEC = 2;
-  bytes ECR = 3;
+message EpochCommitment {
+  bytes BYTES = 1;
 }
 
-message EpochCommittmentRequest {
-  int64 EI = 1;
+message EpochCommitmentRequest {
+  bytes BYTES = 1;
 }
 
 message Negotiation {}

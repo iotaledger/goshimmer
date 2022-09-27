@@ -3,6 +3,7 @@ package commitment
 import (
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/model"
+	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -11,13 +12,13 @@ type Roots struct {
 }
 
 type roots struct {
-	TangleRoot        MerkleRoot `serix:"0"`
-	StateMutationRoot MerkleRoot `serix:"1"`
-	StateRoot         MerkleRoot `serix:"2"`
-	ManaRoot          MerkleRoot `serix:"3"`
+	TangleRoot        types.Identifier `serix:"0"`
+	StateMutationRoot types.Identifier `serix:"1"`
+	StateRoot         types.Identifier `serix:"2"`
+	ManaRoot          types.Identifier `serix:"3"`
 }
 
-func NewRoots(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) (newRoots *Roots) {
+func NewRoots(tangleRoot, stateMutationRoot, stateRoot, manaRoot types.Identifier) (newRoots *Roots) {
 	return model.NewImmutable[Roots](&roots{
 		TangleRoot:        tangleRoot,
 		StateMutationRoot: stateMutationRoot,
@@ -26,26 +27,26 @@ func NewRoots(tangleRoot, stateMutationRoot, stateRoot, manaRoot MerkleRoot) (ne
 	})
 }
 
-func (r *Roots) ID() (id RootsID) {
+func (r *Roots) ID() (id types.Identifier) {
 	branch1Hashed := blake2b.Sum256(byteutils.ConcatBytes(r.M.TangleRoot.Bytes(), r.M.StateMutationRoot.Bytes()))
 	branch2Hashed := blake2b.Sum256(byteutils.ConcatBytes(r.M.StateRoot.Bytes(), r.M.ManaRoot.Bytes()))
 	rootHashed := blake2b.Sum256(byteutils.ConcatBytes(branch1Hashed[:], branch2Hashed[:]))
 
-	return NewMerkleRoot(rootHashed[:])
+	return rootHashed
 }
 
-func (r *Roots) TangleRoot() (tangleRoot MerkleRoot) {
+func (r *Roots) TangleRoot() (tangleRoot types.Identifier) {
 	return r.M.TangleRoot
 }
 
-func (r *Roots) StateMutationRoot() (stateMutationRoot MerkleRoot) {
+func (r *Roots) StateMutationRoot() (stateMutationRoot types.Identifier) {
 	return r.M.StateMutationRoot
 }
 
-func (r *Roots) StateRoot() (stateRoot MerkleRoot) {
+func (r *Roots) StateRoot() (stateRoot types.Identifier) {
 	return r.M.StateRoot
 }
 
-func (r *Roots) ManaRoot() (manaRoot MerkleRoot) {
+func (r *Roots) ManaRoot() (manaRoot types.Identifier) {
 	return r.M.ManaRoot
 }

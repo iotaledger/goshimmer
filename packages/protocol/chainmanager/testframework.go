@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -22,7 +23,7 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	snapshotCommitment := commitment.New(commitment.ID{0}, 0, commitment.RootsID{0})
+	snapshotCommitment := commitment.New(commitment.ID{}, 0, types.Identifier{})
 
 	return options.Apply(&TestFramework{
 		Manager: NewManager(snapshotCommitment),
@@ -73,7 +74,7 @@ func (t *TestFramework) EI(alias string) (index epoch.Index) {
 	return t.commitment(alias).Index()
 }
 
-func (t *TestFramework) ECR(alias string) (ecr commitment.RootsID) {
+func (t *TestFramework) ECR(alias string) (ecr types.Identifier) {
 	return t.commitment(alias).RootsID()
 }
 
