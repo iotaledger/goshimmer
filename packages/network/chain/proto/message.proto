@@ -4,17 +4,17 @@ option go_package = "github.com/iotaledger/goshimmer/packages/network/chain/prot
 
 package chain;
 
-message packet {
+message Packet {
   oneof body {
-    epochcommitment epochcommitment = 1;
-    epochcommitmentrequest epochcommitmentrequest = 2;
+    EpochCommitment epochCommitment = 1;
+    EpochCommitmentRequest epochCommitmentRequest = 2;
   }
 }
 
-message epochcommitment {
+message EpochCommitment {
   bytes bytes = 1;
 }
 
-message epochcommitmentrequest {
+message EpochCommitmentRequest {
   bytes bytes = 1;
 }
