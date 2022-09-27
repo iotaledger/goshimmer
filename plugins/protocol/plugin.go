@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -48,8 +49,11 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 
 	// TODO:
 	//		tangleold.GenesisTime(genesisTime), -> set global variable
-	//		tangleold.SyncTimeWindow(Parameters.BootstrapWindow),
 	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
+
+	if Parameters.GenesisTime > 0 {
+		epoch.GenesisTime = Parameters.GenesisTime
+	}
 
 	var dbProvider database.DBProvider
 	if DatabaseParameters.InMemory {
@@ -65,6 +69,7 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
+			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithCongestionControlOptions(
 				congestioncontrol.WithSchedulerOptions(
 					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
