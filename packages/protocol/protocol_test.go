@@ -31,8 +31,11 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().ID(): 100,
 	}))
 
-	protocol1 := New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil1.Path()))
-	_ = New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil2.Path()))
+	protocol1 := New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
+	protocol2 := New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
+
+	protocol1.Run()
+	protocol2.Run()
 
 	tf := engine.NewTestFramework(t, engine.WithEngine(protocol1.activeInstance))
 	tf.Tangle.CreateBlock("A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))

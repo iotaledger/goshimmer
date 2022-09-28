@@ -56,7 +56,7 @@ func New(dispatcher network.Dispatcher, opts ...options.Option[Protocol]) (proto
 
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
-		optsSnapshotPath:     "snapshot.bin",
+		optsSnapshotPath:     "./snapshot.bin",
 	}, opts)
 
 }
@@ -80,6 +80,8 @@ func (p *Protocol) initSettings() {
 }
 
 func (p *Protocol) importSnapshot() {
+	fmt.Println(p.optsSnapshotPath)
+
 	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
@@ -164,8 +166,6 @@ func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 		return
 	}); err != nil {
 		if os.IsNotExist(err) {
-			p.Logger.Debugf("snapshot file '%s' does not exist", filePath)
-
 			return nil
 		}
 
