@@ -166,6 +166,7 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 
 	if cm.BlockDAG != nil {
 		b.M.Id = cm.BlockDAG.Block.ID()
+		b.SetID(cm.BlockDAG.Block.ID())
 		copyFromBlockDAGBlock(cm.BlockDAG, b)
 	}
 

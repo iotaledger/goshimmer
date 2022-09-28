@@ -71,6 +71,7 @@ func TestCommonSynchronization(t *testing.T) {
 	log.Printf("Issuing %d blocks and waiting until they have old tangle time...", numBlocks)
 	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numBlocks, ids)
 	// wait to assure that the new peer is actually out of sync when starting
+	log.Printf("Sleeping %s to make sure new peer is out of sync when starting...", newPeer.Config().Protocol.BootstrapWindow.String())
 	time.Sleep(newPeer.Config().Protocol.BootstrapWindow)
 	log.Println("Issuing blocks... done")
 

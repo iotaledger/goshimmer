@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -110,11 +111,21 @@ func getInfo(c echo.Context) error {
 
 	// get TangleTime
 	tm := deps.Protocol.Engine().Clock
-	// TODO: figure out where to take last accepted block from
+	lastAcceptedBlockID := models.EmptyBlockID
+	lastConfirmedBlockID := models.EmptyBlockID
+
+	if lastAcceptedBlock != nil {
+		lastAcceptedBlockID = lastAcceptedBlock.ID()
+	}
+	if lastConfirmedBlock != nil {
+		lastConfirmedBlockID = lastConfirmedBlock.ID()
+	}
+
 	tangleTime := jsonmodels.TangleTime{
 		Synced:           deps.Protocol.Engine().IsSynced(),
-		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
-		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
+		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
+		AcceptedBlockID:  lastAcceptedBlockID.Base58(),
+		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),

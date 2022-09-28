@@ -134,6 +134,7 @@ func Context(ctx context.Context, t *testing.T) (context.Context, context.Cancel
 // Synced returns whether node is synchronized.
 func Synced(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
+	fmt.Printf("%+v\n", info)
 	require.NoError(t, err)
 	return info.TangleTime.Synced
 }
@@ -459,11 +460,11 @@ func RequireBlocksEqual(t *testing.T, nodes []*framework.Node, blocksByID map[st
 			for blockID := range blocksByID {
 				resp, err := node.GetBlock(blockID)
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlock' failed", node, blockID)
-				require.Equal(t, resp.ID, blockID)
+				require.Equal(t, blockID, resp.ID)
 
 				respMetadata, err := node.GetBlockMetadata(blockID)
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
-				require.Equal(t, respMetadata.ID, blockID)
+				require.Equal(t, blockID, respMetadata.ID().Base58())
 
 				// check for general information
 				blkSent := blocksByID[blockID]
