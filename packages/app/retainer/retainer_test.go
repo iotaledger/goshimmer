@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -101,7 +102,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
 	block, exists := protocolTF.Protocol.Engine().CongestionControl.Block(b.ID())
 	assert.True(t, exists)
-	protocolTF.Protocol.Engine().EvictionManager.EvictUntil(b.ID().EpochIndex+1, nil)
+	protocolTF.Protocol.Engine().EvictionManager.EvictUntil(b.ID().EpochIndex+1, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tangleTF.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
