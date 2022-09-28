@@ -354,22 +354,11 @@ func (ps *PacketsStream) ReadPacket(message proto.Message) error {
 }
 
 func (ps *PacketsStream) sendNegotiation() error {
-	return errors.WithStack(ps.WritePacket(&pp.Packet{
-		Body: &pp.Packet_Negotiation{Negotiation: &pp.Negotiation{}},
-	}))
+	return errors.WithStack(ps.WritePacket(&pp.Negotiation{}))
 }
 
 func (ps *PacketsStream) receiveNegotiation() (err error) {
-	packet := &pp.Packet{}
-	if err = ps.ReadPacket(packet); err != nil {
-		return errors.WithStack(err)
-	}
-
-	if _, ok := packet.GetBody().(*pp.Packet_Negotiation); !ok {
-		err = errors.Newf("received packet isn't the negotiation packet; packet=%+v", packet)
-	}
-
-	return
+	return errors.WithStack(ps.ReadPacket(&pp.Negotiation{}))
 }
 
 func isDeadlineUnsupportedError(err error) bool {

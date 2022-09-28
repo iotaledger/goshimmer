@@ -220,7 +220,7 @@ func (m *Manager) processEpochBlocksRequestPacket(packetEpochRequest *wp.Packet_
 
 	m.log.Debugw("received epoch blocks request", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 
-	commitment := m.commitmentManager.Commitment(ec)
+	commitment, _ := m.commitmentManager.Commitment(ec)
 	if commitment == nil {
 		m.log.Debugw("epoch blocks request rejected: unknown commitment", "peer", nbr.Peer.ID(), "Index", ei, "ID", ec)
 		return

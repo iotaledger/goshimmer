@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/logger"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
@@ -310,8 +310,8 @@ func (i *Engine) initSybilProtection() {
 	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }
 
-func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
-	i.Inbox.ProcessReceivedBlock(block, neighbor)
+func (i *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
+	i.Inbox.ProcessReceivedBlock(block, source)
 }
 
 func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {

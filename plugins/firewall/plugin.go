@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 
 	"github.com/iotaledger/goshimmer/packages/app/firewall"
@@ -34,7 +33,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	GossipMgr *gossip.Manager
+	GossipMgr *gossipold.Manager
 	Server    *echo.Echo
 	Firewall  *firewall.Firewall
 	Protocol  *protocol.Protocol

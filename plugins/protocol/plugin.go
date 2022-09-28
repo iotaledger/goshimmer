@@ -6,7 +6,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
@@ -28,7 +28,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	Network network.Interface
+	Network *p2p.Manager
 }
 
 func init() {
@@ -46,6 +46,8 @@ func provide() (p *protocol.Protocol) {
 	//		tangleold.GenesisTime(genesisTime), -> set global variable
 	//		tangleold.SyncTimeWindow(Parameters.BootstrapWindow),
 	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
+
+	deps.Network.
 
 	var dbProvider database.DBProvider
 	if DatabaseParameters.InMemory {

@@ -1,6 +1,8 @@
 package commitment
 
 import (
+	"unsafe"
+
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -10,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
 
-const Size = blake2b.Size256 + blake2b.Size256 + 8
+const Size = unsafe.Sizeof(commitment{})
 
 type Commitment struct {
 	model.Immutable[Commitment, *Commitment, commitment] `serix:"0"`

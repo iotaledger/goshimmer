@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -29,11 +30,11 @@ import (
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	EI                epoch.Index
-	tangleRoot        commitment.MerkleRoot
-	stateMutationRoot commitment.MerkleRoot
-	stateRoot         commitment.MerkleRoot
-	manaRoot          commitment.MerkleRoot
-	activityRoot      commitment.MerkleRoot
+	tangleRoot        types.Identifier
+	stateMutationRoot types.Identifier
+	stateRoot         types.Identifier
+	manaRoot          types.Identifier
+	activityRoot      types.Identifier
 }
 
 // CommitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
@@ -42,6 +43,24 @@ type CommitmentTrees struct {
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
 	activityTree      *smt.SparseMerkleTree
+}
+
+func (c *CommitmentTrees) TangleRoot() (tangleRoot types.Identifier) {
+	copy(tangleRoot[:], c.tangleTree.Root())
+
+	return
+}
+
+func (c *CommitmentTrees) StateMutationRoot() (stateMutationRoot types.Identifier) {
+	copy(stateMutationRoot[:], c.stateMutationTree.Root())
+
+	return
+}
+
+func (c *CommitmentTrees) ActivityRoot() (activityRoot types.Identifier) {
+	copy(activityRoot[:], c.activityTree.Root())
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,19 +102,23 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *EpochC
 }
 
 // StateRoot returns the root of the state sparse merkle tree at the latest committed epoch.
-func (f *EpochCommitmentFactory) StateRoot() []byte {
-	return f.stateRootTree.Root()
+func (f *EpochCommitmentFactory) StateRoot() (stateRoot types.Identifier) {
+	copy(stateRoot[:], f.stateRootTree.Root())
+
+	return
 }
 
 // ManaRoot returns the root of the state sparse merkle tree at the latest committed epoch.
-func (f *EpochCommitmentFactory) ManaRoot() []byte {
-	return f.manaRootTree.Root()
+func (f *EpochCommitmentFactory) ManaRoot() (manaRoot types.Identifier) {
+	copy(manaRoot[:], f.manaRootTree.Root())
+
+	return
 }
 
 // ECRandRoots retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr types.Identifier, roots *commitment.Roots, err error) {
 	if roots, err = f.newEpochRoots(ei); err != nil {
-		return commitment.MerkleRoot{}, nil, errors.Wrap(err, "RootsID could not be created")
+		return types.Identifier{}, nil, errors.Wrap(err, "RootsID could not be created")
 	}
 
 	return roots.ID(), roots, nil
@@ -228,7 +251,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanage
 		return nil, ecrRecordErr
 	}
 
-	newCommitment := commitment.New(prevECRecord.ID(), ei, ecr)
+	newCommitment := commitment.New(ei, prevECRecord.ID(), ecr)
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *chainmanager.Commitment {
@@ -353,7 +376,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (roots *commitmen
 	}
 
 	// We advance the StateRootTree to the next epoch.
-	stateRootBytes, manaRootBytes, newStateRootsErr := f.newStateRoots(ei)
+	stateRoot, manaRoot, newStateRootsErr := f.newStateRoots(ei)
 	if newStateRootsErr != nil {
 		return nil, errors.Wrapf(newStateRootsErr, "cannot get state roots for epoch %d", ei)
 	}
@@ -368,10 +391,10 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (roots *commitmen
 	f.commitmentTrees.Delete(ei)
 
 	return commitment.NewRoots(
-		commitment.NewMerkleRoot(stateRootBytes),
-		commitment.NewMerkleRoot(manaRootBytes),
-		commitment.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
-		commitment.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
+		stateRoot,
+		manaRoot,
+		commitmentTrees.TangleRoot(),
+		commitmentTrees.StateMutationRoot(),
 	), nil
 }
 
@@ -407,7 +430,7 @@ func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentT
 	return
 }
 
-func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte, manaRoot []byte, err error) {
+func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot types.Identifier, manaRoot types.Identifier, err error) {
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spentOutputs, createdOutputs := f.loadDiffUTXOs(ei)
 
@@ -415,11 +438,11 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	for _, created := range createdOutputs {
 		err = insertLeaf(f.stateRootTree, created.ID().Bytes(), created.ID().Bytes())
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not insert the state leaf")
+			return types.Identifier{}, types.Identifier{}, errors.Wrap(err, "could not insert the state leaf")
 		}
 		err = f.updateManaLeaf(created, true)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not insert the mana leaf")
+			return types.Identifier{}, types.Identifier{}, errors.Wrap(err, "could not insert the mana leaf")
 		}
 	}
 
@@ -427,11 +450,11 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 	for _, spent := range spentOutputs {
 		err = removeLeaf(f.stateRootTree, spent.ID().Bytes())
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not remove state leaf")
+			return types.Identifier{}, types.Identifier{}, errors.Wrap(err, "could not remove state leaf")
 		}
 		err = f.updateManaLeaf(spent, false)
 		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not remove mana leaf")
+			return types.Identifier{}, types.Identifier{}, errors.Wrap(err, "could not remove mana leaf")
 		}
 	}
 

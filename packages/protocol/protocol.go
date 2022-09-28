@@ -7,16 +7,15 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/chain"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
@@ -30,11 +29,12 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network              network.Interface
+	network              network.Network
+	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	solidification       *solidification.Solidification
+	Requester            *solidification.Solidification
 	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*engine.Engine
@@ -47,71 +47,96 @@ type Protocol struct {
 	*logger.Logger
 }
 
-func New(networkInstance network.Interface, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
-	return options.Apply(&Protocol{
-		Events: NewEvents(),
+func New(networkInstance network.Network, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+	return options.Apply(
+		&Protocol{
+			Events: NewEvents(),
 
-		network:              networkInstance,
-		solidification:       solidification.New(networkInstance, log),
-		instancesByChainID:   make(map[commitment.ID]*engine.Engine),
-		optsBaseDirectory:    "",
-		optsSettingsFileName: "settings.bin",
-		optsSnapshotFileName: "snapshot.bin",
+			network:            networkInstance,
+			networkProtocol:    network.NewProtocol(networkInstance),
+			instancesByChainID: make(map[commitment.ID]*engine.Engine),
 
-		Logger: log,
-	}, opts, func(p *Protocol) {
-		fmt.Println(p.optsBaseDirectory)
-		p.disk = diskutil.New(p.optsBaseDirectory)
-		p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+			optsBaseDirectory:    "",
+			optsSettingsFileName: "settings.bin",
+			optsSnapshotFileName: "snapshot.bin",
+		}, opts,
+		(*Protocol).initDisk,
+		(*Protocol).initSettings,
+		(*Protocol).importSnapshot,
+		(*Protocol).initEngines,
+		func(p *Protocol) {
+			p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
 
-		if err := p.importSnapshot(p.disk.Path(p.optsSnapshotFileName)); err != nil {
-			panic(err)
-		}
+			// setup gossip events
+			p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+				if block, exists := p.Engine().Block(event.BlockID); exists {
+					p.networkProtocol.SendBlock(block, event.Source)
+				}
+			}))
 
-		if p.instantiateChains() == 0 {
-			panic("no chains found (please provide a snapshot file)")
-		}
+			p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
+				p.ProcessBlock(event.Block, event.Source)
+			}))
 
-		if err := p.activateMainChain(); err != nil {
-			panic(err)
-		}
+			p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
+				p.chainManager.ProcessCommitment(event.Commitment)
+			}))
 
-		p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+			p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
+				if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
+					p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
+				}
+			}))
 
-		p.network.Chain().Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *chain.EpochCommitmentRequestReceivedEvent) {
-			// todo: get from storage
+			p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+				p.networkProtocol.SendBlock(block.ModelsBlock)
+			}))
+		},
+		(*Protocol).initRequester,
+	)
 
-			var commitment *commitment.Commitment
-
-			p.network.Chain().SendEpochCommitment(commitment)
-		}))
-
-		// setup solidification event
-		p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
-		p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
-
-		// setup gossip events
-		p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
-		p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
-		p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-			p.network.SendBlock(block.ModelsBlock)
-		}))
-	})
 }
 
-func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
+func (p *Protocol) initDisk() {
+	p.disk = diskutil.New(p.optsBaseDirectory)
+}
+
+func (p *Protocol) initSettings() {
+	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+}
+
+func (p *Protocol) importSnapshot() {
+	if err := p.importSnapshotFile(p.disk.Path(p.optsSnapshotFileName)); err != nil {
+		panic(err)
+	}
+}
+
+func (p *Protocol) initEngines() {
+	if p.instantiateEngines() == 0 {
+		panic("no chains found (please provide a snapshot file)")
+	}
+
+	if err := p.activateMainEngine(); err != nil {
+		panic(err)
+	}
+}
+
+func (p *Protocol) initRequester() {
+	p.Requester = solidification.New(p.networkProtocol)
+
+	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(p.Requester.RequestCommitment))
+	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.Requester.RequestBlock))
+	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.Requester.CancelBlockRequest))
+}
+
+func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
 	if chain == nil {
-		// TODO: TRIGGER CHAIN SOLIDIFICATION?
 		return
 	}
 
 	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		if len(optSrc) == 0 {
-			optSrc = append(optSrc, nil)
-		}
-
-		targetInstance.ProcessBlockFromPeer(block, optSrc[0])
+		targetInstance.ProcessBlockFromPeer(block, src)
 	}
 }
 
@@ -122,7 +147,7 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	return p.activeInstance
 }
 
-func (p *Protocol) importSnapshot(fileName string) (err error) {
+func (p *Protocol) importSnapshotFile(fileName string) (err error) {
 	var snapshotHeader *ledger.SnapshotHeader
 
 	if err = p.disk.WithFile(fileName, func(file *os.File) (err error) {
@@ -140,7 +165,7 @@ func (p *Protocol) importSnapshot(fileName string) (err error) {
 	}
 
 	chainID := snapshotHeader.LatestECRecord.ID()
-	chainDirectory := p.disk.Path(fmt.Sprintf("%x", chainID.Bytes()))
+	chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
 
 	if !p.disk.Exists(chainDirectory) {
 		if err = p.disk.CreateDir(chainDirectory); err != nil {
@@ -170,17 +195,17 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 	return snapshotHeader, err
 }
 
-func (p *Protocol) instantiateChains() (chainCount int) {
+func (p *Protocol) instantiateEngines() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger)
 	}
 
 	return len(p.instancesByChainID)
 }
 
-func (p *Protocol) activateMainChain() (err error) {
+func (p *Protocol) activateMainEngine() (err error) {
 	chainID := p.settings.MainChainID()
 
 	mainInstance, exists := p.instancesByChainID[chainID]
@@ -192,22 +217,6 @@ func (p *Protocol) activateMainChain() (err error) {
 	p.Events.Engine.LinkTo(mainInstance.Events)
 
 	return
-}
-
-func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
-	block := new(models.Block)
-	if _, err := block.FromBytes(event.Data); err != nil {
-		p.Events.InvalidBlockReceived.Trigger(event.Source)
-		return
-	}
-
-	p.IssueBlock(block, event.Source)
-}
-
-func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
-	if block, exists := p.Engine().Block(event.BlockID); exists {
-		p.network.SendBlock(block, event.Source.Peer)
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

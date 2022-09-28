@@ -34,5 +34,5 @@ func init() {
 }
 
 func provide() network.Interface {
-	return network.New(deps.P2PManager, Plugin.Logger())
+	return network.NewProtocol(deps.P2PManager, Plugin.Logger())
 }

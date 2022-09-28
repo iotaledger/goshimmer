@@ -25,7 +25,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
 
-	manager.SnapshotCommitment = manager.Commitment(snapshot.ID(), true)
+	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 	manager.SnapshotCommitment.PublishCommitment(snapshot)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
@@ -35,16 +35,19 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 }
 
 func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *Chain, wasForked bool) {
-	chainCommitment := c.Commitment(commitment.ID(), true)
+	chainCommitment, _ := c.Commitment(commitment.ID(), true)
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.Chain(), false
 	}
 
-	if chain, wasForked = c.registerChild(chainCommitment.Commitment().PrevID(), chainCommitment); chain == nil {
-		// TODO: CHAIN SOLIDIFICATION
-		return
+	parentCommitment, commitmentCreated := c.Commitment(commitment.PrevID(), true)
+	if commitmentCreated {
+		c.Events.CommitmentMissing.Trigger(parentCommitment.ID())
 	}
 
+	if chain, wasForked = c.registerChild(parentCommitment, chainCommitment); chain == nil {
+		return
+	}
 	if wasForked {
 		c.Events.ForkDetected.Trigger(chain)
 	}
@@ -59,19 +62,19 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *C
 }
 
 func (c *Manager) Chain(ec commitment.ID) (chain *Chain) {
-	if commitment := c.Commitment(ec, false); commitment != nil {
+	if commitment, _ := c.Commitment(ec, false); commitment != nil {
 		return commitment.Chain()
 	}
 
 	return
 }
 
-func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment) {
+func (c *Manager) Commitment(id commitment.ID, createIfAbsent ...bool) (commitment *Commitment, created bool) {
 	c.Lock()
 	defer c.Unlock()
 
 	commitment, exists := c.commitmentsByID[id]
-	if !exists && len(createIfAbsent) >= 1 && createIfAbsent[0] {
+	if created = !exists && len(createIfAbsent) >= 1 && createIfAbsent[0]; created {
 		commitment = NewCommitment(id)
 		c.commitmentsByID[id] = commitment
 	}
@@ -99,11 +102,11 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	return
 }
 
-func (c *Manager) registerChild(parent commitment.ID, child *Commitment) (chain *Chain, wasForked bool) {
+func (c *Manager) registerChild(parent *Commitment, child *Commitment) (chain *Chain, wasForked bool) {
 	child.lockEntity()
 	defer child.unlockEntity()
 
-	if chain, wasForked = c.Commitment(parent, true).registerChild(child); chain != nil {
+	if chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
 	}

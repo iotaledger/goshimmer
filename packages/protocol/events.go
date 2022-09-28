@@ -2,13 +2,13 @@ package protocol
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 )
 
 type Events struct {
-	InvalidBlockReceived *event.Linkable[*p2p.Neighbor, Events, *Events]
+	InvalidBlockReceived *event.Linkable[identity.ID, Events, *Events]
 
 	Engine *engine.Events
 

@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics/net"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -40,8 +39,8 @@ type dependencies struct {
 	dig.In
 	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
 	Local                 *peer.Local
-	GossipMgr             *gossip.Manager `optional:"true"`
-	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
+	GossipMgr             *gossipold.Manager `optional:"true"`
+	AutoPeeringConnMetric *net.ConnMetric    `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {

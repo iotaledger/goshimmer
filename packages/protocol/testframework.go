@@ -3,23 +3,22 @@ package protocol
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/configuration"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Network  network.Interface
+	Network  network.Network
 	Protocol *Protocol
 
 	test *testing.T
@@ -61,20 +60,16 @@ func NewMockedNetwork() (newMockedNetwork *MockedNetwork) {
 	}
 }
 
-func (m *MockedNetwork) Events() *network.Events {
-	return m.events
+func (m *MockedNetwork) RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error) {
 }
 
-func (m *MockedNetwork) SendBlock(block *models.Block, peers ...*peer.Peer) {
-	// TODO implement me
-	panic("implement me")
+func (m *MockedNetwork) UnregisterProtocol(protocolID string) {
 }
 
-func (m *MockedNetwork) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
-	// TODO implement me
-	panic("implement me")
+func (m *MockedNetwork) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
+	return nil
 }
 
-var _ network.Interface = &MockedNetwork{}
+var _ network.Network = &MockedNetwork{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -23,7 +23,7 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	snapshotCommitment := commitment.New(commitment.ID{}, 0, types.Identifier{})
+	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{})
 
 	return options.Apply(&TestFramework{
 		Manager: NewManager(snapshotCommitment),
@@ -42,7 +42,7 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	prevCommitmentID, previousIndex := t.previousCommitmentID(prevAlias)
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
-	t.commitmentsByAlias[alias] = commitment.New(prevCommitmentID, previousIndex+1, randomECR)
+	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR)
 }
 
 func (t *TestFramework) ProcessCommitment(alias string) (chain *Chain, wasForked bool) {
