@@ -20,7 +20,7 @@ import (
 // After the network is merged, blocks issued in minority partition should be orphaned on nodes from that partition.
 // Blocks from majority partition should become available on all nodes.
 func TestOrphanageTSC(t *testing.T) {
-	const tscThreshold = 10 * time.Second
+	const tscThreshold = 30 * time.Second
 
 	snapshotInfo := tests.OrphanageSnapshotDetails
 
