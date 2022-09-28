@@ -258,7 +258,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 
 // SendDataBlock sends a data block on a given peer and returns the id and a DataBlockSent struct.
 func SendDataBlock(t *testing.T, node *framework.Node, data []byte, number int) (string, DataBlockSent) {
-	id, err := node.Data(data)
+	id, err := node.Data(data, 30*time.Second)
 	require.NoErrorf(t, err, "node=%s, 'Data' failed with error %s", node, err)
 
 	sent := DataBlockSent{
