@@ -29,7 +29,7 @@ import (
 type Protocol struct {
 	Events *Events
 
-	dispatcher           network.Dispatcher
+	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
@@ -47,7 +47,7 @@ type Protocol struct {
 	*logger.Logger
 }
 
-func New(dispatcher network.Dispatcher, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
@@ -111,7 +111,6 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		fmt.Println(block.ModelsBlock)
 		p.networkProtocol.SendBlock(block.ModelsBlock)
 	}))
 }

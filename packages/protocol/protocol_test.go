@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -20,6 +21,9 @@ func TestProtocol(t *testing.T) {
 
 	testNetwork := network.NewMockedNetwork()
 
+	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
+	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
+
 	diskUtil1 := diskutil.New(t.TempDir())
 	diskUtil2 := diskutil.New(t.TempDir())
 
@@ -31,14 +35,19 @@ func TestProtocol(t *testing.T) {
 		identity.GenerateIdentity().ID(): 100,
 	}))
 
-	protocol1 := New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
-	protocol2 := New(testNetwork.CreateDispatcher(), WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
+	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
+	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
 
 	protocol1.Run()
 	protocol2.Run()
 
-	tf := engine.NewTestFramework(t, engine.WithEngine(protocol1.activeInstance))
-	tf.Tangle.CreateBlock("A", models.WithStrongParents(tf.Tangle.BlockIDs("Genesis")))
-	tf.Tangle.IssueBlocks("A")
+	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.activeInstance))
+	_ = engine.NewTestFramework(t, engine.WithEngine(protocol2.activeInstance))
+
+	tf1.Tangle.CreateBlock("A", models.WithStrongParents(tf1.Tangle.BlockIDs("Genesis")))
+	tf1.Tangle.IssueBlocks("A")
+
+	time.Sleep(4 * time.Second)
+
 	event.Loop.WaitUntilAllTasksProcessed()
 }

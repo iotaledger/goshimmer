@@ -9,60 +9,65 @@ import (
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MockedNetwork struct {
-	dispatchers map[identity.ID]*MockedDispatcher
+	dispatchers map[identity.ID]*MockedEndpoint
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
 	return &MockedNetwork{
-		dispatchers: make(map[identity.ID]*MockedDispatcher),
+		dispatchers: make(map[identity.ID]*MockedEndpoint),
 	}
 }
 
-func (m *MockedNetwork) CreateDispatcher() (dispatcher *MockedDispatcher) {
-	id := identity.GenerateIdentity().ID()
-	m.dispatchers[id] = NewMockedDispatcher(id, m)
+func (m *MockedNetwork) Join(identity identity.ID) (endpoint *MockedEndpoint) {
+	endpoint = NewMockedEndpoint(identity, m)
 
-	return m.dispatchers[id]
+	m.dispatchers[identity] = endpoint
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MockedDispatcher /////////////////////////////////////////////////////////////////////////////////////////////
+// region MockedEndpoint ///////////////////////////////////////////////////////////////////////////////////////////////
 
-type MockedDispatcher struct {
+type MockedEndpoint struct {
 	id       identity.ID
 	network  *MockedNetwork
 	handlers map[string]func(identity.ID, proto.Message) error
 }
 
-func NewMockedDispatcher(id identity.ID, network *MockedNetwork) (newMockedNetwork *MockedDispatcher) {
-	return &MockedDispatcher{
+func NewMockedEndpoint(id identity.ID, network *MockedNetwork) (newMockedNetwork *MockedEndpoint) {
+	return &MockedEndpoint{
 		id:       id,
 		network:  network,
 		handlers: make(map[string]func(identity.ID, proto.Message) error),
 	}
 }
 
-func (m *MockedDispatcher) RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error) {
+func (m *MockedEndpoint) RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error) {
 	m.handlers[protocolID] = handler
 }
 
-func (m *MockedDispatcher) UnregisterProtocol(protocolID string) {
+func (m *MockedEndpoint) UnregisterProtocol(protocolID string) {
 	delete(m.handlers, protocolID)
 }
 
-func (m *MockedDispatcher) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
+func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
 	if len(to) == 0 {
 		to = lo.Keys(m.network.dispatchers)
 	}
 
 	for _, id := range to {
+		if id == m.id {
+			continue
+		}
+
 		m.network.dispatchers[id].handlers[protocolID](m.id, packet)
 	}
 
 	return nil
 }
 
-var _ Dispatcher = &MockedDispatcher{}
+var _ Endpoint = &MockedEndpoint{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

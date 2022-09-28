@@ -37,7 +37,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.GenerateIdentity().ID(): 100,
 		}))
 
-		t.Protocol = New(t.Network.CreateDispatcher(), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
+		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
 	})
 }
 

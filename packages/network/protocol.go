@@ -21,11 +21,11 @@ const (
 type Protocol struct {
 	Events *Events
 
-	network                   Dispatcher
+	network                   Endpoint
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 }
 
-func NewProtocol(network Dispatcher, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
@@ -95,6 +95,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
+	block.DetermineID()
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,
