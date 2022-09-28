@@ -134,7 +134,6 @@ func Context(ctx context.Context, t *testing.T) (context.Context, context.Cancel
 // Synced returns whether node is synchronized.
 func Synced(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
-	fmt.Printf("%+v\n", info)
 	require.NoError(t, err)
 	return info.TangleTime.Synced
 }
