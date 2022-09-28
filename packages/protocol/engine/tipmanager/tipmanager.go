@@ -165,7 +165,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 		if t.isPastConeTimestampCorrect(tip) {
 			parents.Add(tip.ID())
 		} else {
-			fmt.Printf("cannot select tip due to TSC condition %s, tip size %d\n", tip.String(), t.tips.Size())
+			fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().String(), t.tips.Size())
 		}
 	}
 

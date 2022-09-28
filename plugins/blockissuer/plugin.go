@@ -25,8 +25,6 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local       *peer.Local
-	Protocol    *protocol.Protocol
 	BlockIssuer *blockissuer.BlockIssuer
 }
 
@@ -46,8 +44,8 @@ func configure(_ *node.Plugin) {
 	}))
 }
 
-func createBlockIssuer(deps dependencies) *blockissuer.BlockIssuer {
-	return blockissuer.New(deps.Protocol, deps.Local.LocalIdentity(),
+func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockissuer.BlockIssuer {
+	return blockissuer.New(protocol, local.LocalIdentity(),
 		blockissuer.WithBlockFactoryOptions(
 			blockfactory.WithTipSelectionRetryInterval(Parameters.BlockFactory.TipSelectionRetryInterval),
 			blockfactory.WithTipSelectionTimeout(Parameters.BlockFactory.TipSelectionTimeout),
