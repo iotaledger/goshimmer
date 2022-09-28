@@ -5,7 +5,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type Network interface {
+type Dispatcher interface {
 	RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error)
 
 	UnregisterProtocol(protocolID string)

@@ -35,9 +35,13 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 }
 
 func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *Chain, wasForked bool) {
-	chainCommitment, _ := c.Commitment(commitment.ID(), true)
+	chainCommitment, created := c.Commitment(commitment.ID(), true)
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.Chain(), false
+	}
+
+	if !created {
+		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
 	}
 
 	parentCommitment, commitmentCreated := c.Commitment(commitment.PrevID(), true)

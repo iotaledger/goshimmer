@@ -1,4 +1,4 @@
-package solidification
+package requester
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -44,16 +44,21 @@ func (s *Solidification) RequestBlock(block *blockdag.Block) {
 	s.blockRequester.StartTicker(block.ID())
 }
 
-func (s *Solidification) RequestCommitment(id commitment.ID) {
-	s.commitmentRequester.StartTicker(id)
-}
-
 func (s *Solidification) CancelBlockRequest(block *blockdag.Block) {
 	s.blockRequester.StopTicker(block.ID())
 }
 
+func (s *Solidification) RequestCommitment(id commitment.ID) {
+	s.commitmentRequester.StartTicker(id)
+}
+
+func (s *Solidification) CancelCommitmentRequest(id commitment.ID) {
+	s.commitmentRequester.StopTicker(id)
+}
+
 func (s *Solidification) Shutdown() {
 	s.blockRequester.Shutdown()
+	s.commitmentRequester.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
+	"github.com/iotaledger/goshimmer/packages/protocol/requester"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,12 +29,12 @@ import (
 type Protocol struct {
 	Events *Events
 
-	network              network.Network
+	dispatcher           network.Dispatcher
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	Requester            *solidification.Solidification
+	Requester            *requester.Solidification
 	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*engine.Engine
@@ -47,13 +47,12 @@ type Protocol struct {
 	*logger.Logger
 }
 
-func New(networkInstance network.Network, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(dispatcher network.Dispatcher, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(
 		&Protocol{
 			Events: NewEvents(),
 
-			network:            networkInstance,
-			networkProtocol:    network.NewProtocol(networkInstance),
+			dispatcher:         dispatcher,
 			instancesByChainID: make(map[commitment.ID]*engine.Engine),
 
 			optsBaseDirectory:    "",
@@ -64,34 +63,8 @@ func New(networkInstance network.Network, log *logger.Logger, opts ...options.Op
 		(*Protocol).initSettings,
 		(*Protocol).importSnapshot,
 		(*Protocol).initEngines,
-		func(p *Protocol) {
-			p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
-
-			// setup gossip events
-			p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
-				if block, exists := p.Engine().Block(event.BlockID); exists {
-					p.networkProtocol.SendBlock(block, event.Source)
-				}
-			}))
-
-			p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
-				p.ProcessBlock(event.Block, event.Source)
-			}))
-
-			p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
-				p.chainManager.ProcessCommitment(event.Commitment)
-			}))
-
-			p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-				if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
-					p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
-				}
-			}))
-
-			p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-				p.networkProtocol.SendBlock(block.ModelsBlock)
-			}))
-		},
+		(*Protocol).initChainManager,
+		(*Protocol).initNetworkProtocol,
 		(*Protocol).initRequester,
 	)
 
@@ -111,6 +84,35 @@ func (p *Protocol) importSnapshot() {
 	}
 }
 
+func (p *Protocol) initNetworkProtocol() {
+	p.networkProtocol = network.NewProtocol(p.dispatcher)
+
+	p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+		if block, exists := p.Engine().Block(event.BlockID); exists {
+			p.networkProtocol.SendBlock(block, event.Source)
+		}
+	}))
+
+	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
+		p.ProcessBlock(event.Block, event.Source)
+	}))
+
+	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
+		p.chainManager.ProcessCommitment(event.Commitment)
+	}))
+
+	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
+		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
+			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
+		}
+	}))
+
+	p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		fmt.Println(block.ModelsBlock)
+		p.networkProtocol.SendBlock(block.ModelsBlock)
+	}))
+}
+
 func (p *Protocol) initEngines() {
 	if p.instantiateEngines() == 0 {
 		panic("no chains found (please provide a snapshot file)")
@@ -121,12 +123,17 @@ func (p *Protocol) initEngines() {
 	}
 }
 
-func (p *Protocol) initRequester() {
-	p.Requester = solidification.New(p.networkProtocol)
+func (p *Protocol) initChainManager() {
+	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+}
 
-	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(p.Requester.RequestCommitment))
+func (p *Protocol) initRequester() {
+	p.Requester = requester.New(p.networkProtocol)
+
 	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.Requester.RequestBlock))
 	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.Requester.CancelBlockRequest))
+	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(p.Requester.RequestCommitment))
+	p.chainManager.Events.MissingCommitmentReceived.Attach(event.NewClosure(p.Requester.CancelCommitmentRequest))
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {

@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -18,7 +17,7 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Network  network.Network
+	Network  *network.MockedNetwork
 	Protocol *Protocol
 
 	test *testing.T
@@ -28,7 +27,7 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	return options.Apply(&TestFramework{
-		Network: NewMockedNetwork(),
+		Network: network.NewMockedNetwork(),
 
 		test: test,
 	}, opts, func(t *TestFramework) {
@@ -38,38 +37,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.GenerateIdentity().ID(): 100,
 		}))
 
-		t.Protocol = New(t.Network, logger.NewLogger(test.Name()), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
+		t.Protocol = New(t.Network.CreateDispatcher(), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
 	})
 }
 
 func init() {
 	_ = logger.InitGlobalLogger(configuration.New())
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type MockedNetwork struct {
-	events *network.Events
-}
-
-func NewMockedNetwork() (newMockedNetwork *MockedNetwork) {
-	return &MockedNetwork{
-		events: network.NewEvents(),
-	}
-}
-
-func (m *MockedNetwork) RegisterProtocol(protocolID string, newMessage func() proto.Message, handler func(identity.ID, proto.Message) error) {
-}
-
-func (m *MockedNetwork) UnregisterProtocol(protocolID string) {
-}
-
-func (m *MockedNetwork) Send(packet proto.Message, protocolID string, to ...identity.ID) []identity.ID {
-	return nil
-}
-
-var _ network.Network = &MockedNetwork{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

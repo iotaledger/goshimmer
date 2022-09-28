@@ -21,11 +21,11 @@ const (
 type Protocol struct {
 	Events *Events
 
-	network                   Network
+	network                   Dispatcher
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 }
 
-func NewProtocol(network Network, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func NewProtocol(network Dispatcher, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
