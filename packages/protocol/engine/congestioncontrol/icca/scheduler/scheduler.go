@@ -100,7 +100,6 @@ func (s *Scheduler) setupEvents() {
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
 	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
-
 }
 
 // Start starts the scheduler.
@@ -190,7 +189,7 @@ func (s *Scheduler) TotalBlocksCount() int {
 }
 
 func (s *Scheduler) Quanta(issuerID identity.ID) *big.Rat {
-	return big.NewRat(int64(s.getAccessMana(issuerID)), int64(s.totalAccessManaRetrieveFunc()))
+	return big.NewRat(s.getAccessMana(issuerID), s.totalAccessManaRetrieveFunc())
 }
 
 func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
@@ -585,11 +584,11 @@ func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) 
 }
 
 func (s *Scheduler) getAccessMana(id identity.ID) int64 {
-	mana, exists := s.accessManaMapRetrieverFunc()[id]
-	if exists {
-		return mana
+	mana := s.accessManaMapRetrieverFunc()[id]
+	if mana == 0 {
+		return MinMana
 	}
-	return 0.0
+	return mana
 }
 
 func (s *Scheduler) evictEpoch(index epoch.Index) {

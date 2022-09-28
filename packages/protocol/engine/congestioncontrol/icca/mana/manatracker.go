@@ -3,16 +3,20 @@ package mana
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
+
+const EpochDelay = 2
 
 type Tracker struct {
 	ledger          *ledger.Ledger
@@ -20,6 +24,7 @@ type Tracker struct {
 
 	OnManaVectorToUpdateClosure *event.Closure[*ManaVectorUpdateEvent]
 	Events                      *Events
+	cManaTargetEpoch            epoch.Index
 }
 
 func NewTracker(ledgerInstance *ledger.Ledger, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
@@ -34,23 +39,23 @@ func NewTracker(ledgerInstance *ledger.Ledger, opts ...options.Option[Tracker]) 
 	}, (*Tracker).setupEvents)
 }
 
-func (m *Tracker) setupEvents() {
-	m.OnManaVectorToUpdateClosure = event.NewClosure(func(event *ManaVectorUpdateEvent) {
-		m.BookEpoch(event.Created, event.Spent)
+func (t *Tracker) setupEvents() {
+	t.OnManaVectorToUpdateClosure = event.NewClosure(func(event *ManaVectorUpdateEvent) {
+		t.BookEpoch(event.Created, event.Spent)
 	})
-	m.ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { m.onTransactionAccepted(event.TransactionID) }))
+	t.ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { t.onTransactionAccepted(event.TransactionID) }))
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
-func (m *Tracker) onTransactionAccepted(transactionID utxo.TransactionID) {
-	m.ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+func (t *Tracker) onTransactionAccepted(transactionID utxo.TransactionID) {
+	t.ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *manamodels.TxInfo
 
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := m.gatherInputInfos(devnetTransaction.Essence().Inputs())
+		totalAmount, inputInfos := t.gatherInputInfos(devnetTransaction.Essence().Inputs())
 
 		txInfo = &manamodels.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
@@ -64,17 +69,17 @@ func (m *Tracker) onTransactionAccepted(transactionID utxo.TransactionID) {
 		}
 
 		// bookTransaction in only access mana
-		m.BookTransaction(txInfo)
+		t.BookTransaction(txInfo)
 	})
 }
 
-func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, inputInfos []manamodels.InputInfo) {
+func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, inputInfos []manamodels.InputInfo) {
 	inputInfos = make([]manamodels.InputInfo, 0)
 	for _, input := range inputs {
 		var inputInfo manamodels.InputInfo
 
 		outputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		m.ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+		t.ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -84,7 +89,7 @@ func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, i
 			}
 
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			m.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
+			t.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
 				inputInfo.PledgeID = map[manamodels.Type]identity.ID{
 					manamodels.AccessMana:    metadata.AccessManaPledgeID(),
 					manamodels.ConsensusMana: metadata.ConsensusManaPledgeID(),
@@ -97,13 +102,13 @@ func (m *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, i
 }
 
 // BookTransaction books mana for a transaction.
-func (m *Tracker) BookTransaction(txInfo *manamodels.TxInfo) {
-	revokeEvents, pledgeEvents, updateEvents := m.bookTransaction(txInfo)
+func (t *Tracker) BookTransaction(txInfo *manamodels.TxInfo) {
+	revokeEvents, pledgeEvents, updateEvents := t.bookTransaction(txInfo)
 
-	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+	t.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
 }
-func (m *Tracker) bookTransaction(txInfo *manamodels.TxInfo) (revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
-	accessManaVector := m.baseManaVectors[manamodels.AccessMana]
+func (t *Tracker) bookTransaction(txInfo *manamodels.TxInfo) (revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
+	accessManaVector := t.baseManaVectors[manamodels.AccessMana]
 
 	accessManaVector.Lock()
 	defer accessManaVector.Unlock()
@@ -150,13 +155,13 @@ func (m *Tracker) bookTransaction(txInfo *manamodels.TxInfo) (revokeEvents []*Re
 }
 
 // BookEpoch takes care of the booking of consensus mana for the given committed epoch.
-func (m *Tracker) BookEpoch(created, spent []*ledger.OutputWithMetadata) {
-	revokeEvents, pledgeEvents, updateEvents := m.bookEpoch(created, spent)
-	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+func (t *Tracker) BookEpoch(created, spent []*ledger.OutputWithMetadata) {
+	revokeEvents, pledgeEvents, updateEvents := t.bookEpoch(created, spent)
+	t.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
 }
 
-func (m *Tracker) bookEpoch(created, spent []*ledger.OutputWithMetadata) (revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
-	consensusManaVector := m.baseManaVectors[manamodels.ConsensusMana]
+func (t *Tracker) bookEpoch(created, spent []*ledger.OutputWithMetadata) (revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
+	consensusManaVector := t.baseManaVectors[manamodels.ConsensusMana]
 	consensusManaVector.Lock()
 	defer consensusManaVector.Unlock()
 
@@ -213,53 +218,53 @@ func (m *Tracker) bookEpoch(created, spent []*ledger.OutputWithMetadata) (revoke
 	return revokeEvents, pledgeEvents, updateEvents
 }
 
-func (m *Tracker) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
+func (t *Tracker) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
 	// trigger the events once we released the lock on the mana vector
 	for _, ev := range revokeEvents {
-		m.Events.Revoked.Trigger(ev)
+		t.Events.Revoked.Trigger(ev)
 	}
 	for _, ev := range pledgeEvents {
-		m.Events.Pledged.Trigger(ev)
+		t.Events.Pledged.Trigger(ev)
 	}
 	for _, ev := range updateEvents {
-		m.Events.Updated.Trigger(ev)
+		t.Events.Updated.Trigger(ev)
 	}
 }
 
 // GetHighestManaIssuers returns the n highest type mana issuers in descending order.
 // It also updates the mana values for each issuer.
 // If n is zero, it returns all issuers.
-func (m *Tracker) GetHighestManaIssuers(manaType manamodels.Type, n uint) ([]manamodels.Issuer, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetHighestManaIssuers(manaType manamodels.Type, n uint) ([]manamodels.Issuer, time.Time, error) {
+	if !t.QueryAllowed() {
 		return []manamodels.Issuer{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	bmv := m.baseManaVectors[manaType]
+	bmv := t.baseManaVectors[manaType]
 	return bmv.GetHighestManaIssuers(n)
 }
 
 // GetHighestManaIssuersFraction returns the highest mana that own 'p' percent of total mana.
 // It also updates the mana values for each issuer.
 // If p is zero or greater than one, it returns all issuers.
-func (m *Tracker) GetHighestManaIssuersFraction(manaType manamodels.Type, p float64) ([]manamodels.Issuer, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetHighestManaIssuersFraction(manaType manamodels.Type, p float64) ([]manamodels.Issuer, time.Time, error) {
+	if !t.QueryAllowed() {
 		return []manamodels.Issuer{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	bmv := m.baseManaVectors[manaType]
+	bmv := t.baseManaVectors[manaType]
 	return bmv.GetHighestManaIssuersFraction(p)
 }
 
 // GetManaMap returns type mana perception of the issuer.
-func (m *Tracker) GetManaMap(manaType manamodels.Type) (manamodels.IssuerMap, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetManaMap(manaType manamodels.Type) (manamodels.IssuerMap, time.Time, error) {
+	if !t.QueryAllowed() {
 		return manamodels.IssuerMap{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	manaBaseVector := m.baseManaVectors[manaType]
+	manaBaseVector := t.baseManaVectors[manaType]
 	return manaBaseVector.GetManaMap()
 }
 
 // GetCMana is a wrapper for the approval weight.
-func (m *Tracker) GetCMana() map[identity.ID]int64 {
-	mana, _, err := m.GetManaMap(manamodels.ConsensusMana)
+func (t *Tracker) GetCMana() map[identity.ID]int64 {
+	mana, _, err := t.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		panic(err)
 	}
@@ -267,11 +272,11 @@ func (m *Tracker) GetCMana() map[identity.ID]int64 {
 }
 
 // GetTotalMana returns sum of mana of all issuers in the network.
-func (m *Tracker) GetTotalMana(manaType manamodels.Type) (int64, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetTotalMana(manaType manamodels.Type) (int64, time.Time, error) {
+	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	manaBaseVector := m.baseManaVectors[manaType]
+	manaBaseVector := t.baseManaVectors[manaType]
 	manaMap, updateTime, err := manaBaseVector.GetManaMap()
 	if err != nil {
 		return 0, time.Now(), err
@@ -285,20 +290,20 @@ func (m *Tracker) GetTotalMana(manaType manamodels.Type) (int64, time.Time, erro
 }
 
 // GetAccessMana returns the access mana of the issuer specified.
-func (m *Tracker) GetAccessMana(issuerID identity.ID) (int64, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetAccessMana(issuerID identity.ID) (int64, time.Time, error) {
+	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	accessManaVector := m.baseManaVectors[manamodels.AccessMana]
+	accessManaVector := t.baseManaVectors[manamodels.AccessMana]
 	return accessManaVector.GetMana(issuerID)
 }
 
 // GetConsensusMana returns the consensus mana of the issuer specified.
-func (m *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, error) {
+	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	consensusManaVector := m.baseManaVectors[manamodels.ConsensusMana]
+	consensusManaVector := t.baseManaVectors[manamodels.ConsensusMana]
 	return consensusManaVector.GetMana(issuerID)
 }
 
@@ -319,13 +324,13 @@ func (m *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, erro
 // }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other issuers.
-func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, error) {
-	if !m.QueryAllowed() {
+func (t *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, error) {
+	if !t.QueryAllowed() {
 		return make(map[manamodels.Type]manamodels.IssuerMap), manamodels.ErrQueryNotAllowed
 	}
 	res := make(map[manamodels.Type]manamodels.IssuerMap)
-	for manaType := range m.baseManaVectors {
-		res[manaType], _, _ = m.GetManaMap(manaType)
+	for manaType := range t.baseManaVectors {
+		res[manaType], _, _ = t.GetManaMap(manaType)
 	}
 	return res, nil
 }
@@ -362,21 +367,79 @@ func (m *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, er
 //	return
 // }
 
-func (m *Tracker) cleanupManaVectors() {
+func (t *Tracker) processOutputs(outputsWithMetadata []*ledger.OutputWithMetadata, manaType manamodels.Type, areCreated bool) {
+	for _, outputWithMetadata := range outputsWithMetadata {
+		devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
+		balance, exists := devnetOutput.Balances().Get(devnetvm.ColorIOTA)
+		// TODO: shouldn't it get all balances of all colored coins instead of only IOTA?
+		if !exists {
+			continue
+		}
+
+		baseVector := t.baseManaVectors[manaType]
+
+		var pledgeID identity.ID
+		switch manaType {
+		case manamodels.AccessMana:
+			pledgeID = outputWithMetadata.AccessManaPledgeID()
+		case manamodels.ConsensusMana:
+			pledgeID = outputWithMetadata.ConsensusManaPledgeID()
+		default:
+			panic("invalid mana type")
+		}
+
+		existingMana, _, err := baseVector.GetMana(pledgeID)
+		if !errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
+			continue
+		}
+		if areCreated {
+			existingMana += int64(balance)
+		} else {
+			existingMana -= int64(balance)
+		}
+		baseVector.SetMana(pledgeID, manamodels.NewManaBase(existingMana))
+	}
+}
+
+func (t *Tracker) LoadSnapshotHeader(header *ledger.SnapshotHeader) {
+	t.cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(EpochDelay)
+	if t.cManaTargetEpoch < 0 {
+		t.cManaTargetEpoch = 0
+	}
+}
+
+func (t *Tracker) LoadOutputsWithMetadata(outputsWithMetadata []*ledger.OutputWithMetadata) {
+	t.processOutputs(outputsWithMetadata, manamodels.ConsensusMana, true)
+	t.processOutputs(outputsWithMetadata, manamodels.AccessMana, true)
+}
+
+func (t *Tracker) LoadEpochDiff(diff *ledger.EpochDiff) {
+	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+	if diff.Index() <= t.cManaTargetEpoch {
+		t.processOutputs(diff.Created(), manamodels.ConsensusMana, true)
+		t.processOutputs(diff.Spent(), manamodels.ConsensusMana, false)
+	}
+
+	// Only the aMana will be loaded until the latest snapshot's epoch
+	t.processOutputs(diff.Created(), manamodels.AccessMana, true)
+	t.processOutputs(diff.Spent(), manamodels.AccessMana, false)
+}
+
+func (t *Tracker) cleanupManaVectors() {
 	for _, vecType := range []manamodels.Type{manamodels.AccessMana, manamodels.ConsensusMana} {
-		manaBaseVector := m.baseManaVectors[vecType]
+		manaBaseVector := t.baseManaVectors[vecType]
 		manaBaseVector.RemoveZeroIssuers()
 	}
 }
 
 // QueryAllowed returns if the mana plugin answers queries or not.
-func (m *Tracker) QueryAllowed() (allowed bool) {
+func (t *Tracker) QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
 	// return deps.Tangle.Bootstrapped() || debuggingEnabled\
 
 	// query allowed only when base mana vectors have been initialized
-	return len(m.baseManaVectors) > 0
+	return len(t.baseManaVectors) > 0
 }
 
 // AllowedPledge represents the issuers that mana is allowed to be pledged to.

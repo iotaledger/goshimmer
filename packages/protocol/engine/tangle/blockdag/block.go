@@ -1,8 +1,11 @@
 package blockdag
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -224,6 +227,37 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 	b.M = data.M
 
 	return true
+}
+
+func (b *Block) String() string {
+	builder := stringify.NewStructBuilder("BlockDAG.Block", stringify.NewStructField("id", b.ID()))
+
+	builder.AddField(stringify.NewStructField("Missing", b.missing))
+	builder.AddField(stringify.NewStructField("Solid", b.solid))
+	builder.AddField(stringify.NewStructField("Invalid", b.invalid))
+	builder.AddField(stringify.NewStructField("Orphaned", b.orphaned))
+
+	idx := 0
+	for blockID := range b.orphanedBlocksInPastCone {
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("orphanedBlockInPastCone-%d", idx), blockID.String()))
+		idx++
+	}
+
+	for index, child := range b.strongChildren {
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("strongChildren%d", index), child.ID().String()))
+	}
+
+	for index, child := range b.weakChildren {
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("weakChildren%d", index), child.ID().String()))
+	}
+
+	for index, child := range b.likedInsteadChildren {
+		builder.AddField(stringify.NewStructField(fmt.Sprintf("likedInsteadChildren%d", index), child.ID().String()))
+	}
+
+	builder.AddField(stringify.NewStructField("ModelsBlock", b.ModelsBlock))
+
+	return builder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

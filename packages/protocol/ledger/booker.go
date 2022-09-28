@@ -109,6 +109,8 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, conflictIDs *set.AdvancedSe
 		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.outputStorage.Store(output).Release()
 
+		b.ledger.Events.OutputCreated.Trigger(output.ID())
+
 		return nil
 	})
 }

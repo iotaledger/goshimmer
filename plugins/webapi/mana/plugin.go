@@ -16,7 +16,7 @@ const PluginName = "WebAPIManaEndpoint"
 type dependencies struct {
 	dig.In
 
-	Discovery *discover.Protocol
+	Discovery *discover.Protocol `optional:"true"`
 	Protocol  *protocol.Protocol
 	Server    *echo.Echo
 	Local     *peer.Local

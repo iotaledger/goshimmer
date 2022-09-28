@@ -60,9 +60,11 @@ func (s *Set) Add(validator *Validator) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.validators.Set(validator.ID(), validator)
+	if s.validators.Set(validator.ID(), validator) {
+		return
+	}
 
-	s.totalWeight += int64(validator.Weight())
+	s.totalWeight += validator.Weight()
 
 	if s.optTrackEvents {
 		validator.Events.WeightUpdated.Hook(event.NewClosure[*WeightUpdatedEvent](s.handleWeightUpdatedEvent))
@@ -75,7 +77,7 @@ func (s *Set) Delete(validator *Validator) {
 
 	s.validators.Delete(validator.ID())
 
-	s.totalWeight -= int64(validator.Weight())
+	s.totalWeight -= validator.Weight()
 
 	if s.optTrackEvents {
 		closure, exists := s.eventClosures.Get(validator.ID())

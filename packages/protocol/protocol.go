@@ -40,34 +40,35 @@ type Protocol struct {
 	instancesByChainID   map[commitment.ID]*engine.Engine
 	optsBaseDirectory    string
 	optsSettingsFileName string
-	optsSnapshotFileName string
+	optsSnapshotPath     string
 	// optsSolidificationOptions []options.Option[solidification.Solidification]
-	optsInstanceOptions []options.Option[engine.Engine]
+	optsEngineOptions []options.Option[engine.Engine]
 
 	*logger.Logger
 }
 
 func New(dispatcher network.Dispatcher, opts ...options.Option[Protocol]) (protocol *Protocol) {
-	return options.Apply(
-		&Protocol{
-			Events: NewEvents(),
+	return options.Apply(&Protocol{
+		Events: NewEvents(),
 
-			dispatcher:         dispatcher,
-			instancesByChainID: make(map[commitment.ID]*engine.Engine),
+		dispatcher:         dispatcher,
+		instancesByChainID: make(map[commitment.ID]*engine.Engine),
 
-			optsBaseDirectory:    "",
-			optsSettingsFileName: "settings.bin",
-			optsSnapshotFileName: "snapshot.bin",
-		}, opts,
-		(*Protocol).initDisk,
-		(*Protocol).initSettings,
-		(*Protocol).importSnapshot,
-		(*Protocol).initEngines,
-		(*Protocol).initChainManager,
-		(*Protocol).initNetworkProtocol,
-		(*Protocol).initRequester,
-	)
+		optsBaseDirectory:    "",
+		optsSettingsFileName: "settings.bin",
+		optsSnapshotPath:     "snapshot.bin",
+	}, opts)
 
+}
+
+func (p *Protocol) Run() {
+	p.initDisk()
+	p.initSettings()
+	p.importSnapshot()
+	p.initEngines()
+	p.initChainManager()
+	p.initNetworkProtocol()
+	p.initRequester()
 }
 
 func (p *Protocol) initDisk() {
@@ -79,7 +80,7 @@ func (p *Protocol) initSettings() {
 }
 
 func (p *Protocol) importSnapshot() {
-	if err := p.importSnapshotFile(p.disk.Path(p.optsSnapshotFileName)); err != nil {
+	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
 }
@@ -154,21 +155,21 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	return p.activeInstance
 }
 
-func (p *Protocol) importSnapshotFile(fileName string) (err error) {
+func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 	var snapshotHeader *ledger.SnapshotHeader
 
-	if err = p.disk.WithFile(fileName, func(file *os.File) (err error) {
+	if err = p.disk.WithFile(filePath, func(file *os.File) (err error) {
 		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
 
 		return
 	}); err != nil {
 		if os.IsNotExist(err) {
-			p.Logger.Debugf("snapshot file '%s' does not exist", fileName)
+			p.Logger.Debugf("snapshot file '%s' does not exist", filePath)
 
 			return nil
 		}
 
-		return errors.Errorf("failed to read snapshot header from file '%s': %w", fileName, err)
+		return errors.Errorf("failed to read snapshot header from file '%s': %w", filePath, err)
 	}
 
 	chainID := snapshotHeader.LatestECRecord.ID()
@@ -180,9 +181,13 @@ func (p *Protocol) importSnapshotFile(fileName string) (err error) {
 		}
 	}
 
-	if err = diskutil.ReplaceFile(fileName, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
-		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", fileName, chainDirectory, err)
+	if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
+		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
 	}
+	// TODO: we can't move the file because it might be mounted through Docker
+	// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
+	// }
 
 	p.settings.AddChain(chainID)
 	p.settings.SetMainChainID(chainID)
@@ -206,7 +211,7 @@ func (p *Protocol) instantiateEngines() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger, p.optsEngineOptions...)
 	}
 
 	return len(p.instancesByChainID)
@@ -223,6 +228,8 @@ func (p *Protocol) activateMainEngine() (err error) {
 	p.activeInstance = mainInstance
 	p.Events.Engine.LinkTo(mainInstance.Events)
 
+	p.activeInstance.Run()
+
 	return
 }
 
@@ -236,9 +243,9 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 	}
 }
 
-func WithSnapshotFileName(snapshot string) options.Option[Protocol] {
+func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsSnapshotFileName = snapshot
+		n.optsSnapshotPath = snapshot
 	}
 }
 
@@ -254,9 +261,9 @@ func WithSettingsFileName(settings string) options.Option[Protocol] {
 // 	}
 // }
 
-func WithInstanceOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
+func WithEngineOptions(opts ...options.Option[engine.Engine]) options.Option[Protocol] {
 	return func(n *Protocol) {
-		n.optsInstanceOptions = opts
+		n.optsEngineOptions = opts
 	}
 }
 

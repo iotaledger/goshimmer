@@ -20,10 +20,11 @@ type Connector struct {
 	indexer     *indexer.Indexer
 }
 
-func NewConnector(p *protocol.Protocol, indexer *indexer.Indexer) *Connector {
+func NewConnector(p *protocol.Protocol, blockIssuer *blockissuer.BlockIssuer, indexer *indexer.Indexer) *Connector {
 	return &Connector{
-		protocol: p,
-		indexer:  indexer,
+		blockIssuer: blockIssuer,
+		protocol:    p,
+		indexer:     indexer,
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -555,6 +556,7 @@ type EpochDiff struct {
 }
 
 type epochDiffModel struct {
+	Index   epoch.Index
 	Spent   []*OutputWithMetadata `serix:"0"`
 	Created []*OutputWithMetadata `serix:"1"`
 }
@@ -575,6 +577,14 @@ func (e *EpochDiff) Spent() []*OutputWithMetadata {
 // Created returns the outputs created for this epoch diff.
 func (e *EpochDiff) Created() []*OutputWithMetadata {
 	return e.M.Created
+}
+
+func (e *EpochDiff) Index() epoch.Index {
+	return e.M.Index
+}
+
+func (e *EpochDiff) SetIndex(index epoch.Index) {
+	e.M.Index = index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

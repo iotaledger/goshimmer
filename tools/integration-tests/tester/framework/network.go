@@ -396,7 +396,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	// create a peer conf from the network conf
 	conf := PeerConfig()
 	if networkConfig.StartSynced {
-		conf.BlockLayer.StartSynced = true
+		conf.BlockIssuer.IgnoreBootstrappedFlag = true
 	}
 	if networkConfig.Autopeering {
 		conf.AutoPeering.Enabled = true
@@ -407,7 +407,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.Activity {
 		conf.Activity.Enabled = true
 	}
-	conf.Snapshot.File = networkConfig.Snapshot.FilePath
+	conf.Snapshot.Path = networkConfig.Snapshot.FilePath
 
 	// the first peer is the peer master, it uses a special conf
 	if networkConfig.PeerMaster {

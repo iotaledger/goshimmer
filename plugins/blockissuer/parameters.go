@@ -33,5 +33,5 @@ type ParametersDefinition struct {
 var Parameters = &ParametersDefinition{}
 
 func init() {
-	config.BindParameters(Parameters, "blockissuer")
+	config.BindParameters(Parameters, "blockIssuer")
 }

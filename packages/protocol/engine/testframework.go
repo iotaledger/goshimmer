@@ -27,11 +27,9 @@ type TestFramework struct {
 	Acceptance *AcceptanceTestFramework
 }
 
-func init() {
-	_ = logger.InitGlobalLogger(configuration.New())
-}
-
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	_ = logger.InitGlobalLogger(configuration.New())
+
 	log := logger.NewLogger(test.Name())
 
 	return options.Apply(&TestFramework{

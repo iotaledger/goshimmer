@@ -18,19 +18,9 @@ type ParametersDefinition struct {
 	GenesisTime int64 `default:"0" usage:"resets the genesis time to the specified value, unix time in seconds"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
-		// FileName is the path to the snapshot file.
-		FileName string `default:"snapshot.bin" usage:"the file name of the snapshot file, relative to the database directory"`
+		// Path is the path to the snapshot file.
+		Path string `default:"./snapshot.bin" usage:"the path of the snapshot file"`
 	}
-	Settings struct {
-		// FileName is the path to the settings file.
-		FileName string `default:"settings.bin" usage:"the file name of the settings file, relative to the database directory"`
-	}
-}
-
-// ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
-type ManaParametersDefinition struct {
-	// Number of epochs past the latest committable epoch for which the base mana vector becomes effective.
-	EpochDelay uint `default:"2" usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
@@ -66,13 +56,14 @@ type DatabaseParametersDefinition struct {
 
 	// ForceCacheTime is a new global cache time in seconds for object storage.
 	ForceCacheTime time.Duration `default:"-1s" usage:"interval of time for which objects should remain in memory. Zero time means no caching, negative value means use defaults"`
+	Settings       struct {
+		// Path is the path to the settings file.
+		FileName string `default:"settings.bin" usage:"the file name of the settings file, relative to the database directory"`
+	}
 }
 
 // Parameters contains the general configuration used by the blocklayer plugin.
 var Parameters = &ParametersDefinition{}
-
-// ManaParameters contains the mana configuration used by the blocklayer plugin.
-var ManaParameters = &ManaParametersDefinition{}
 
 // SchedulerParameters contains the scheduler configuration used by the blocklayer plugin.
 var SchedulerParameters = &SchedulerParametersDefinition{}
@@ -85,7 +76,6 @@ var DatabaseParameters = &DatabaseParametersDefinition{}
 
 func init() {
 	config.BindParameters(Parameters, "protocol")
-	config.BindParameters(ManaParameters, "mana")
 	config.BindParameters(SchedulerParameters, "scheduler")
 	config.BindParameters(NotarizationParameters, "notarization")
 	config.BindParameters(DatabaseParameters, "database")

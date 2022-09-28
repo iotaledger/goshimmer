@@ -11,9 +11,11 @@ import (
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -25,9 +27,10 @@ const PluginName = "WebAPIInfoEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server   *echo.Echo
-	Local    *peer.Local
-	Protocol *protocol.Protocol
+	Server      *echo.Echo
+	Local       *peer.Local
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 var (
@@ -44,7 +47,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
+		if lastAcceptedBlock == nil || lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
 			lastConfirmedBlock = block
 		}
@@ -71,7 +74,7 @@ func configure(_ *node.Plugin) {
 //			"AutoPeering",
 //			"Analysis",
 //			"WebAPIDataEndpoint",
-//			"BlockLayer",
+//			"Protocol",
 //			"CLI",
 //			"Database",
 //			"WebAPIAutoPeeringEndpoint",
@@ -108,11 +111,21 @@ func getInfo(c echo.Context) error {
 
 	// get TangleTime
 	tm := deps.Protocol.Engine().Clock
-	// TODO: figure out where to take last accepted block from
+	lastAcceptedBlockID := models.EmptyBlockID
+	lastConfirmedBlockID := models.EmptyBlockID
+
+	if lastAcceptedBlock != nil {
+		lastAcceptedBlockID = lastAcceptedBlock.ID()
+	}
+	if lastConfirmedBlock != nil {
+		lastConfirmedBlockID = lastConfirmedBlock.ID()
+	}
+
 	tangleTime := jsonmodels.TangleTime{
 		Synced:           deps.Protocol.Engine().IsSynced(),
-		AcceptedBlockID:  lastAcceptedBlock.ID().String(),
-		ConfirmedBlockID: lastConfirmedBlock.ID().String(),
+		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
+		AcceptedBlockID:  lastAcceptedBlockID.Base58(),
+		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),
@@ -158,11 +171,10 @@ func getInfo(c echo.Context) error {
 			Deficit:           deficit,
 			NodeQueueSizes:    issuerQueueSizes,
 		},
-		// TODO: finish when ratesetter is available
-		// RateSetter: jsonmodels.RateSetter{
-		//	Rate:     deps.Tangle.RateSetter.Rate(),
-		//	Size:     deps.Tangle.RateSetter.Size(),
-		//	Estimate: deps.Tangle.RateSetter.Estimate(),
-		// },
+		RateSetter: jsonmodels.RateSetter{
+			Rate:     deps.BlockIssuer.Rate(),
+			Size:     deps.BlockIssuer.Size(),
+			Estimate: deps.BlockIssuer.Estimate(),
+		},
 	})
 }

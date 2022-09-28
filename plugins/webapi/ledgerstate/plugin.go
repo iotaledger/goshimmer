@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -40,9 +41,10 @@ const (
 type dependencies struct {
 	dig.In
 
-	Server   *echo.Echo
-	Protocol *protocol.Protocol
-	Indexer  *indexer.Indexer
+	Server      *echo.Echo
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
+	Indexer     *indexer.Indexer
 }
 
 var (
@@ -109,7 +111,7 @@ func configure(_ *node.Plugin) {
 			doubleSpendFilter.Remove(event.TransactionID)
 		})
 	}
-	deps.Protocol.Engine().Ledger.Events.TransactionAccepted.Attach(onTransactionAccepted)
+	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -553,18 +555,18 @@ func PostTransaction(c echo.Context) error {
 		time.Sleep(tx.Essence().Timestamp().Sub(time.Now()) + 1*time.Nanosecond)
 	}
 
-	// TODO: finish when issuing blocks is figured out
-	// issueTransaction := func() (*models.Block, error) {
-	//	return deps.Tangle.CreateBlock(tx)
-	// }
+	block, err := deps.BlockIssuer.CreateBlock(tx)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
+	//add tx to double spend doubleSpendFilter
+	FilterAdd(tx)
+	if err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(block, maxBookedAwaitTime); err != nil {
+		//if we failed to issue the transaction, we remove it
+		FilterRemove(tx.ID())
+		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
+	}
 
-	// add tx to double spend doubleSpendFilter
-	// FilterAdd(tx)
-	// if _, err := blocklayer.AwaitBlockToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
-	//	if we failed to issue the transaction, we remove it
-	// FilterRemove(tx.ID())
-	// return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
-	// }
 	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
 }
 

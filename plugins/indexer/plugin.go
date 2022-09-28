@@ -6,6 +6,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 )
 
@@ -33,8 +34,16 @@ func init() {
 	}))
 }
 
-func provide() (i *indexer.Indexer) {
+func provide(deps dependencies) (i *indexer.Indexer) {
 	// TODO: needs to consider switching of instance/ledger in the future
 	// TODO: load snapshot / attach to events from snapshot loading
-	return indexer.New(deps.Protocol.Engine().Ledger)
+	i = indexer.New(func() *ledger.Ledger {
+		return deps.Protocol.Engine().Ledger
+	})
+
+	deps.Protocol.Events.Engine.Ledger.OutputCreated.Attach(event.NewClosure(i.OnOutputCreated))
+	deps.Protocol.Events.Engine.Ledger.OutputSpent.Attach(event.NewClosure(i.OnOutputSpentRejected))
+	deps.Protocol.Events.Engine.Ledger.OutputRejected.Attach(event.NewClosure(i.OnOutputSpentRejected))
+
+	return i
 }

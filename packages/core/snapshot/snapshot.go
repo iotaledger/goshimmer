@@ -93,10 +93,10 @@ type UTXOStatesProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadat
 type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
 
 // EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
-type EpochDiffProducerFunc func() (epochDiffs *ledger.EpochDiff)
+type EpochDiffProducerFunc func() (epochDiff *ledger.EpochDiff)
 
 // EpochDiffsConsumerFunc is the type of function that consumes EpochDiff when loading a snapshot.
-type EpochDiffsConsumerFunc func(epochDiffs *ledger.EpochDiff)
+type EpochDiffsConsumerFunc func(epochDiff *ledger.EpochDiff)
 
 // ActivityLogProducerFunc is the type of function that produces ActivityLog when taking a snapshot.
 type ActivityLogProducerFunc func() (activityLogs activitylog.SnapshotEpochActivity)

@@ -88,7 +88,7 @@ func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex i
 // If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
 func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
 	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
-		conf.BlockLayer.Snapshot.File = snaphotInfo.FilePath
+		conf.Protocol.Snapshot.Path = snaphotInfo.FilePath
 		if isPeerMaster {
 			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
 			require.NoError(t, err)
@@ -191,7 +191,7 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 	}
 
 	// Make sure the block is available on the peer itself and has confirmation.State Pending.
-	RequireBlocksAvailable(t, []*framework.Node{node}, map[string]DataBlockSent{sent.id: sent}, Timeout, Tick, confirmation.Pending)
+	RequireBlocksAvailable(t, []*framework.Node{node}, map[string]DataBlockSent{sent.id: sent}, Timeout, Tick)
 
 	return resp.ID, sent
 }
@@ -368,7 +368,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
 // Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
-func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, confirmationState ...confirmation.State) {
+func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, accepted ...bool) {
 	missing := make(map[identity.ID]*set.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
 		missing[node.ID()] = set.NewAdvancedSet[string]()
@@ -389,15 +389,14 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 					continue
 				}
 				// retry, if the block has not yet reached the specified ConfirmationState
-				if len(confirmationState) > 0 {
-					if blk.ConfirmationState < confirmationState[0] {
-						log.Printf("node=%s, blockID=%s, expected ConfirmationState=%s, actual ConfirmationState=%s; ConfirmationState not reached", node, blockID, confirmationState[0], blk.ConfirmationState)
+				if len(accepted) > 0 && accepted[0] {
+					if !blk.M.Accepted {
+						log.Printf("node=%s, blockID=%s, expected Accepted=true, actual Accepted=%v; ConfirmationState not reached", node, blockID, blk.M.Accepted)
 						continue
 					}
 				}
 
-				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
-				require.Equal(t, blockID, blk.ID)
+				require.Equal(t, blockID, blk.ID().Base58())
 				nodeMissing.Delete(blockID)
 				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
@@ -436,8 +435,8 @@ func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[s
 				}
 
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
-				require.Equal(t, blockID, block.ID)
-				require.True(t, block.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
+				require.Equal(t, blockID, block.ID())
+				require.True(t, block.M.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
 				nodeMissing.Delete(blockID)
 				if nodeMissing.IsEmpty() {
 					delete(missing, node.ID())
@@ -460,11 +459,11 @@ func RequireBlocksEqual(t *testing.T, nodes []*framework.Node, blocksByID map[st
 			for blockID := range blocksByID {
 				resp, err := node.GetBlock(blockID)
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlock' failed", node, blockID)
-				require.Equal(t, resp.ID, blockID)
+				require.Equal(t, blockID, resp.ID)
 
 				respMetadata, err := node.GetBlockMetadata(blockID)
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'BlockMetadata' failed", node, blockID)
-				require.Equal(t, respMetadata.ID, blockID)
+				require.Equal(t, blockID, respMetadata.ID().Base58())
 
 				// check for general information
 				blkSent := blocksByID[blockID]
@@ -474,7 +473,7 @@ func RequireBlocksEqual(t *testing.T, nodes []*framework.Node, blocksByID map[st
 					require.Equalf(t, blkSent.data, resp.Payload, "blockID=%s, issuer=%s data not equal in %s.", blkSent.id, blkSent.issuerPublicKey, node)
 				}
 
-				if !respMetadata.Solid {
+				if !respMetadata.M.Solid {
 					log.Printf("blockID=%s, issuer=%s not solid yet on %s", blkSent.id, blkSent.issuerPublicKey, node)
 					return false
 				}
@@ -498,8 +497,9 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 			for color, balance := range balances {
 				addr, err := devnetvm.AddressFromBase58EncodedString(addrString)
 				require.NoErrorf(t, err, "invalid address string: %s", addrString)
-				require.Equalf(t, balance, Balance(t, node, addr, color),
-					"balance for color '%s' on address '%s' (node='%s') does not match", color, addr.Base58(), node)
+
+				actualBalance := Balance(t, node, addr, color)
+				require.Equalf(t, balance, actualBalance, "balance for color '%s' on address '%s' (node='%s') does not match, expected=%d, actual=%d", color, addr.Base58(), node, balance, actualBalance)
 			}
 		}
 	}
@@ -637,7 +637,7 @@ func AcceptedOnAllPeers(blkID string, peers []*framework.Node) bool {
 		if err != nil {
 			return false
 		}
-		if !metadata.ConfirmationState.IsAccepted() {
+		if !metadata.M.Accepted {
 			return false
 		}
 	}

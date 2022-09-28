@@ -49,6 +49,7 @@ type TangleTime struct {
 	CTT              int64  `json:"CTT"`
 	RCTT             int64  `json:"RCTT"`
 	Synced           bool   `json:"synced"`
+	Bootstrapped     bool   `json:"bootstrapped"`
 }
 
 // Mana contains the different mana values of the node.

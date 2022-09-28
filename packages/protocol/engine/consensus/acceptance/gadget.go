@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -127,6 +128,7 @@ func (a *Gadget) setup() {
 	}))
 
 	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoterEvent[utxo.TransactionID]](func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
+		fmt.Printf("conflicts voters updated %+v\n", evt)
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 

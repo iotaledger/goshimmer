@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
@@ -14,6 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -28,11 +31,12 @@ var (
 type dependencies struct {
 	dig.In
 
-	Network *p2p.Manager
+	Protocol *protocol.Protocol
+	Network  *p2p.Manager
 }
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configureLogging, run)
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(provide); err != nil {
 			Plugin.Panic(err)
@@ -40,14 +44,13 @@ func init() {
 	}))
 }
 
-func provide() (p *protocol.Protocol) {
+func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
-	// TODO:
-	//		tangleold.GenesisTime(genesisTime), -> set global variable
-	//		tangleold.SyncTimeWindow(Parameters.BootstrapWindow),
-	//		tangleold.CacheTimeProvider(database.CacheTimeProvider()),
+	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
-	deps.Network.
+	if Parameters.GenesisTime > 0 {
+		epoch.GenesisTime = Parameters.GenesisTime
+	}
 
 	var dbProvider database.DBProvider
 	if DatabaseParameters.InMemory {
@@ -55,15 +58,14 @@ func provide() (p *protocol.Protocol) {
 	} else {
 		dbProvider = database.NewDB
 	}
-
-	p = protocol.New(deps.Network, Plugin.Logger(),
-		protocol.WithInstanceOptions(
+	p = protocol.New(n,
+		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				notarization.ManaEpochDelay(ManaParameters.EpochDelay),
 				notarization.Log(Plugin.Logger()),
 			),
+			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithCongestionControlOptions(
 				congestioncontrol.WithSchedulerOptions(
 					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
@@ -83,11 +85,42 @@ func provide() (p *protocol.Protocol) {
 				database.WithMaxOpenDBs(DatabaseParameters.MaxOpenDBs),
 				database.WithGranularity(DatabaseParameters.Granularity),
 			),
+			engine.WithLedgerOptions(
+				ledger.WithVM(new(devnetvm.VM)),
+				ledger.WithCacheTimeProvider(cacheTimeProvider),
+			),
+			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
-		protocol.WithSnapshotFileName(Parameters.Snapshot.FileName),
-		protocol.WithSettingsFileName(Parameters.Settings.FileName),
+		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
+		protocol.WithSettingsFileName(DatabaseParameters.Settings.FileName),
 	)
 
 	return p
+}
+
+func configureLogging(*node.Plugin) {
+	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// 	Plugin.LogInfof("Block %s attached", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
+	// 	Plugin.LogInfof("Block %s booked", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	// 	Plugin.LogInfof("Block %s tracked", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	// 	Plugin.LogInfof("Block %s scheduled", block.ID())
+	// }))
+
+	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
+		Plugin.LogErrorf("Error in Engine: %s", err)
+	}))
+}
+
+func run(*node.Plugin) {
+	deps.Protocol.Run()
 }

@@ -93,40 +93,47 @@ type BlockMetadata struct {
 }
 
 type blockMetadataModel struct {
+	Id models.BlockID `serix:"0"`
+
 	// blockdag.Block
-	Missing                  bool            `serix:"0"`
-	Solid                    bool            `serix:"1"`
-	Invalid                  bool            `serix:"2"`
-	Orphaned                 bool            `serix:"3"`
-	OrphanedBlocksInPastCone models.BlockIDs `serix:"4"`
-	StrongChildren           models.BlockIDs `serix:"5"`
-	WeakChildren             models.BlockIDs `serix:"6"`
-	LikedInsteadChildren     models.BlockIDs `serix:"7"`
-	SolidTime                time.Time       `serix:"8"`
+	Missing                  bool            `serix:"1"`
+	Solid                    bool            `serix:"2"`
+	Invalid                  bool            `serix:"3"`
+	Orphaned                 bool            `serix:"4"`
+	OrphanedBlocksInPastCone models.BlockIDs `serix:"5"`
+	StrongChildren           models.BlockIDs `serix:"6"`
+	WeakChildren             models.BlockIDs `serix:"7"`
+	LikedInsteadChildren     models.BlockIDs `serix:"8"`
+	SolidTime                time.Time       `serix:"9"`
 
 	// booker.Block
-	Booked                bool                `serix:"9"`
-	StructureDetails      *structureDetails   `serix:"10"`
-	AddedConflictIDs      utxo.TransactionIDs `serix:"11"`
-	SubtractedConflictIDs utxo.TransactionIDs `serix:"12"`
+	Booked                bool                `serix:"10"`
+	StructureDetails      *structureDetails   `serix:"11"`
+	AddedConflictIDs      utxo.TransactionIDs `serix:"12"`
+	SubtractedConflictIDs utxo.TransactionIDs `serix:"13"`
 	// conflictIDs is a computed property at the time a block is booked.
-	ConflictIDs utxo.TransactionIDs `serix:"13"`
-	BookedTime  time.Time           `serix:"14"`
+	ConflictIDs utxo.TransactionIDs `serix:"14"`
+	BookedTime  time.Time           `serix:"15"`
 
 	// virtualvoting.Block
-	Tracked             bool      `serix:"15"`
-	SubjectivelyInvalid bool      `serix:"16"`
-	TrackedTime         time.Time `serix:"17"`
+	Tracked             bool      `serix:"16"`
+	SubjectivelyInvalid bool      `serix:"17"`
+	TrackedTime         time.Time `serix:"18"`
 
 	// scheduler.Block
-	Scheduled     bool      `serix:"18"`
-	Skipped       bool      `serix:"19"`
-	Dropped       bool      `serix:"20"`
-	SchedulerTime time.Time `serix:"21"`
+	Scheduled     bool      `serix:"19"`
+	Skipped       bool      `serix:"20"`
+	Dropped       bool      `serix:"21"`
+	SchedulerTime time.Time `serix:"22"`
 
 	// acceptance.Block
-	Accepted     bool      `serix:"22"`
-	AcceptedTime time.Time `serix:"23"`
+	Accepted     bool      `serix:"23"`
+	AcceptedTime time.Time `serix:"24"`
+}
+
+// NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
+func NewBlockMetadata() (b *BlockMetadata) {
+	return model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
 }
 
 func (b *BlockMetadata) Encode() ([]byte, error) {
@@ -135,6 +142,14 @@ func (b *BlockMetadata) Encode() ([]byte, error) {
 
 func (b *BlockMetadata) Decode(bytes []byte) (int, error) {
 	return serix.DefaultAPI.Decode(context.Background(), bytes, &b.M)
+}
+
+func (b *BlockMetadata) MarshalJSON() ([]byte, error) {
+	return serix.DefaultAPI.JSONEncode(context.Background(), b.M)
+}
+
+func (b *BlockMetadata) UnmarshalJSON(bytes []byte) error {
+	return serix.DefaultAPI.JSONDecode(context.Background(), bytes, &b.M)
 }
 
 func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
@@ -150,8 +165,9 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 	b = model.NewStorable[models.BlockID, BlockMetadata](&blockMetadataModel{})
 
 	if cm.BlockDAG != nil {
-		copyFromBlockDAGBlock(cm.BlockDAG, b)
+		b.M.Id = cm.BlockDAG.Block.ID()
 		b.SetID(cm.BlockDAG.Block.ID())
+		copyFromBlockDAGBlock(cm.BlockDAG, b)
 	}
 
 	if cm.Booker != nil {
@@ -227,7 +243,7 @@ func copyFromSchedulerBlock(blockWithTime *blockWithTime[*scheduler.Block], bloc
 func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 	blockMetadata.M.Accepted = block.IsAccepted()
-	blockMetadata.M.SchedulerTime = blockWithTime.Time
+	blockMetadata.M.AcceptedTime = blockWithTime.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

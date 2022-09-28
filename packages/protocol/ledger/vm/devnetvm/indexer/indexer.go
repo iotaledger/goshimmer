@@ -4,7 +4,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/core/cerrors"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
@@ -15,38 +14,34 @@ import (
 
 // region Indexer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Indexer is a component that indexes the Outputs of a ledger for easier lookups.
+// Indexer is a component that indexes the Outputs of a ledgerFunc for easier lookups.
 type Indexer struct {
 	// addressOutputMappingStorage is an object storage used to persist AddressOutputMapping objects.
 	addressOutputMappingStorage *objectstorage.ObjectStorage[*AddressOutputMapping]
 
-	// ledger contains the indexed Ledger.
-	ledger *ledger.Ledger
+	// ledgerFunc contains the indexed Ledger.
+	ledgerFunc func() *ledger.Ledger
 
 	// options is a dictionary for configuration parameters of the Indexer.
 	options *options
 }
 
 // New returns a new Indexer instance with the given options.
-func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
-	new = &Indexer{
-		ledger:  ledger,
-		options: newOptions(options...),
+func New(ledgerFunc func() *ledger.Ledger, options ...Option) (i *Indexer) {
+	i = &Indexer{
+		ledgerFunc: ledgerFunc,
+		options:    newOptions(options...),
 	}
 
-	new.addressOutputMappingStorage = objectstorage.NewStructStorage[AddressOutputMapping](
-		objectstorage.NewStoreWithRealm(new.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
-		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
+	i.addressOutputMappingStorage = objectstorage.NewStructStorage[AddressOutputMapping](
+		objectstorage.NewStoreWithRealm(i.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
+		i.options.cacheTimeProvider.CacheTime(i.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 		objectstorage.PartitionKey(devnetvm.AddressLength, utxo.OutputID{}.Length()),
 	)
 
-	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
-	ledger.Events.TransactionAccepted.Attach(event.NewClosure(new.onTransactionAccepted))
-	ledger.Events.TransactionRejected.Attach(event.NewClosure(new.onTransactionRejected))
-
-	return new
+	return i
 }
 
 // IndexOutput stores the AddressOutputMapping dependent on which type of output it is.
@@ -94,25 +89,17 @@ func (i *Indexer) Shutdown() {
 	i.addressOutputMappingStorage.Shutdown()
 }
 
-// onTransactionBooked adds Transaction outputs to the indexer upon booking.
-func (i *Indexer) onTransactionBooked(event *ledger.TransactionBookedEvent) {
-	_ = event.Outputs.ForEach(func(output utxo.Output) error {
-		i.IndexOutput(output.(devnetvm.Output))
-		return nil
+// OnOutputCreated adds Transaction outputs to the indexer upon booking.
+func (i *Indexer) OnOutputCreated(outputID utxo.OutputID) {
+	i.ledgerFunc().Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+		i.IndexOutput(o.(devnetvm.Output))
 	})
 }
 
-// onTransactionAccepted removes Transaction inputs from the indexer upon transaction acceptance.
-func (i *Indexer) onTransactionAccepted(event *ledger.TransactionAcceptedEvent) {
-	i.ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
-		i.removeOutputs(i.ledger.Utils.ResolveInputs(tx.Inputs()))
-	})
-}
-
-// onTransactionRejected removes Transaction outputs from the indexer upon transaction rejection.
-func (i *Indexer) onTransactionRejected(event *ledger.TransactionRejectedEvent) {
-	i.ledger.Storage.CachedTransactionMetadata(event.TransactionID).Consume(func(tm *ledger.TransactionMetadata) {
-		i.removeOutputs(tm.OutputIDs())
+// OnOutputSpentRejected removes Transaction inputs from the indexer upon transaction acceptance.
+func (i *Indexer) OnOutputSpentRejected(outputID utxo.OutputID) {
+	i.ledgerFunc().Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+		i.updateOutput(o.(devnetvm.Output), i.RemoveAddressOutputMapping)
 	})
 }
 
@@ -122,7 +109,7 @@ func (i *Indexer) updateOutput(output devnetvm.Output, updateOperation func(addr
 	case devnetvm.AliasOutputType:
 		castedOutput := output.(*devnetvm.AliasOutput)
 		// if it is an origin alias output, we don't have the AliasAddress from the parsed bytes.
-		// that happens in ledger output booking, so we calculate the alias address here
+		// that happens in ledgerFunc output booking, so we calculate the alias address here
 		updateOperation(castedOutput.GetAliasAddress(), output.ID())
 		updateOperation(castedOutput.GetStateAddress(), output.ID())
 		if !castedOutput.IsSelfGoverned() {
@@ -136,15 +123,6 @@ func (i *Indexer) updateOutput(output devnetvm.Output, updateOperation func(addr
 		updateOperation(output.Address(), output.ID())
 	default:
 		updateOperation(output.Address(), output.ID())
-	}
-}
-
-// removeOutputs removes outputs from the Indexer storage.
-func (i *Indexer) removeOutputs(ids utxo.OutputIDs) {
-	for it := ids.Iterator(); it.HasNext(); {
-		i.ledger.Storage.CachedOutput(it.Next()).Consume(func(o utxo.Output) {
-			i.updateOutput(o.(devnetvm.Output), i.RemoveAddressOutputMapping)
-		})
 	}
 }
 

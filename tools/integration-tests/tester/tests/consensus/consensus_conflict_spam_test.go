@@ -98,7 +98,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterConflict", blkID)
 	blockMetadata, err := peer1.GetBlockMetadata(blkID)
 	require.NoError(t, err)
-	require.Empty(t, blockMetadata.ConflictIDs)
+	require.Empty(t, blockMetadata.M.ConflictIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
