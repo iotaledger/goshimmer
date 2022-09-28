@@ -138,6 +138,13 @@ func Synced(t *testing.T, node *framework.Node) bool {
 	return info.TangleTime.Synced
 }
 
+// Bootstrapped returns whether node is bootstrapped.
+func Bootstrapped(t *testing.T, node *framework.Node) bool {
+	info, err := node.Info()
+	require.NoError(t, err)
+	return info.TangleTime.Bootstrapped
+}
+
 // Mana returns the mana reported by node.
 func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	info, err := node.Info()
@@ -435,7 +442,7 @@ func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[s
 				}
 
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
-				require.Equal(t, blockID, block.ID())
+				require.Equal(t, blockID, block.ID().Base58())
 				require.True(t, block.M.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
 				nodeMissing.Delete(blockID)
 				if nodeMissing.IsEmpty() {

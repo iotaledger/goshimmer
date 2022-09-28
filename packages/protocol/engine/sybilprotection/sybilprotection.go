@@ -56,3 +56,14 @@ func (s *SybilProtection) AddValidator(issuerID identity.ID, activityTime time.T
 	}
 	s.activityTracker.Update(validator.New(issuerID, validator.WithWeight(weight)), activityTime)
 }
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// WithActivityTrackerOptions sets the options to be passed to activity manager.
+func WithActivityTrackerOptions(activityTrackerOptions ...options.Option[activitytracker.ActivityTracker]) options.Option[SybilProtection] {
+	return func(a *SybilProtection) {
+		a.optsActivityTrackerOptions = activityTrackerOptions
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

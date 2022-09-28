@@ -25,8 +25,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local    *peer.Local
-	Protocol *protocol.Protocol
+	Local       *peer.Local
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 func init() {
@@ -40,6 +41,9 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	deps.BlockIssuer.Events.Error.Attach(event.NewClosure(func(err error) {
+		Plugin.LogErrorf("Error in BlockIssuer: %s", err)
+	}))
 }
 
 func createBlockIssuer(deps dependencies) *blockissuer.BlockIssuer {

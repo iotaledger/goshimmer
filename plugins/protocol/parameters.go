@@ -12,6 +12,8 @@ type ParametersDefinition struct {
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed blocks in its past cone will not be selected.
 	TimeSinceConfirmationThreshold time.Duration `default:"30s" usage:"Time Since Confirmation (TSC) threshold"`
+	// ValidatorActivityWindow is used to define period of inactivity after which validator is removed from the set of active validators.
+	ValidatorActivityWindow time.Duration `default:"30s" usage:"define period of inactivity after which validator is removed from the set of active validators"`
 	// BootstrapWindow defines the time window in which the node considers itself as synced according to TangleTime.
 	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to AcceptanceTime"`
 	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.

@@ -1,6 +1,7 @@
 package tipmanager
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -149,6 +150,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 
 	// only add genesis if no tips are available
 	if len(tips) == 0 {
+		fmt.Println("selecting genesis block because tip pool empty")
 		for i, it := 0, t.tangle.EvictionManager.RootBlocks().Iterator(); it.HasNext() && i < count; i++ {
 			blockID := it.Next()
 			if block, exists := t.blockRetrieverFunc(blockID); exists {
@@ -162,6 +164,8 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	for _, tip := range tips {
 		if t.isPastConeTimestampCorrect(tip) {
 			parents.Add(tip.ID())
+		} else {
+			fmt.Printf("cannot select tip due to TSC condition %s, tip size %d\n", tip.String(), t.tips.Size())
 		}
 	}
 

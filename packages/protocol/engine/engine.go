@@ -63,6 +63,7 @@ type Engine struct {
 	optsLedgerOptions              []options.Option[ledger.Ledger]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
+	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
 	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsNotarizationManagerOptions []notarization.ManagerOption
@@ -239,7 +240,7 @@ func (i *Engine) initCongestionControl() {
 }
 
 func (i *Engine) initSybilProtection() {
-	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana)
+	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana, i.optsSybilProtectionOptions...)
 
 	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }
@@ -367,6 +368,12 @@ func WithBootstrapThreshold(threshold time.Duration) options.Option[Engine] {
 func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTangleOptions = opts
+	}
+}
+
+func WithSybilProtectionOptions(opts ...options.Option[sybilprotection.SybilProtection]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsSybilProtectionOptions = opts
 	}
 }
 

@@ -2,6 +2,8 @@ package tsc
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -35,13 +37,14 @@ func TestOrphanageTSC(t *testing.T) {
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.TimeSinceConfirmationThreshold = tscThreshold
+			conf.ValidatorActivityWindow = 10 * time.Minute
 			return conf
 		}))
 
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	const delayBetweenDataMessages = 100 * time.Millisecond
+	const delayBetweenDataMessages = 500 * time.Millisecond
 
 	var (
 		node1 = n.Peers()[0]
@@ -53,9 +56,18 @@ func TestOrphanageTSC(t *testing.T) {
 	// merge partitions
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
+	log.Println("Waiting for nodes to become bootstrapped...")
+	require.Eventually(t, func() bool {
+		bootstrapped := true
+		for _, peer := range n.Peers() {
+			bootstrapped = bootstrapped && tests.Bootstrapped(t, peer)
+		}
 
-	t.Logf("Sending %d data blocks to the whole network", 50)
-	tests.SendDataBlocks(t, n.Peers(), 50)
+		return bootstrapped
+	}, tests.Timeout, tests.Tick)
+	log.Println("Waiting for nodes to become bootstrapped... done")
+	log.Printf("Sending %d data blocks to the whole network", 10)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), 10, delayBetweenDataMessages)
 
 	partition1 := []*framework.Node{node4}
 	partition2 := []*framework.Node{node2, node3, node1}
@@ -65,19 +77,19 @@ func TestOrphanageTSC(t *testing.T) {
 	require.NoError(t, err)
 
 	// check consensus mana
-	require.EqualValues(t, float64(snapshotInfo.PeersAmountsPledged[0]), tests.Mana(t, node1).Consensus)
-	t.Logf("node1 (%s): %f", node1.ID().String(), tests.Mana(t, node1).Consensus)
-	require.EqualValues(t, float64(snapshotInfo.PeersAmountsPledged[1]), tests.Mana(t, node2).Consensus)
-	t.Logf("node2 (%s): %f", node2.ID().String(), tests.Mana(t, node2).Consensus)
-	require.EqualValues(t, float64(snapshotInfo.PeersAmountsPledged[2]), tests.Mana(t, node3).Consensus)
-	t.Logf("node3 (%s): %f", node3.ID().String(), tests.Mana(t, node3).Consensus)
-	require.EqualValues(t, float64(snapshotInfo.PeersAmountsPledged[3]), tests.Mana(t, node4).Consensus)
-	t.Logf("node4 (%s): %f", node4.ID().String(), tests.Mana(t, node4).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
+	log.Printf("node1 (%s): %d", node1.ID().String(), tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
+	log.Printf("node2 (%s): %d", node2.ID().String(), tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[2], tests.Mana(t, node3).Consensus)
+	log.Printf("node3 (%s): %d", node3.ID().String(), tests.Mana(t, node3).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[3], tests.Mana(t, node4).Consensus)
+	log.Printf("node4 (%s): %d", node4.ID().String(), tests.Mana(t, node4).Consensus)
 
-	t.Logf("Sending %d data blocks on minority partition", 150)
-	blocksToOrphan := tests.SendDataBlocksWithDelay(t, partition1, 150, delayBetweenDataMessages)
-	t.Logf("Sending %d data blocks on majority partition", 50)
-	blocksToConfirm := tests.SendDataBlocks(t, partition2, 50)
+	log.Printf("Sending %d data blocks on minority partition", 30)
+	blocksToOrphan := tests.SendDataBlocksWithDelay(t, partition1, 30, delayBetweenDataMessages)
+	log.Printf("Sending %d data blocks on majority partition", 10)
+	blocksToConfirm := tests.SendDataBlocksWithDelay(t, partition2, 10, delayBetweenDataMessages)
 
 	// merge partitions
 	err = n.DoManualPeering(ctx)
@@ -86,8 +98,10 @@ func TestOrphanageTSC(t *testing.T) {
 	// sleep 10 seconds to make sure that TSC threshold is exceeded
 	time.Sleep(tscThreshold)
 
-	t.Logf("Sending %d data messages to make sure that all nodes share the same view", 150)
-	tests.SendDataBlocksWithDelay(t, n.Peers(), 150, delayBetweenDataMessages)
+	log.Printf("Sending %d data messages to make sure that all nodes share the same view", 30)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), 30, delayBetweenDataMessages)
+
+	fmt.Println(blocksToOrphan)
 
 	tests.RequireBlocksAvailable(t, n.Peers(), blocksToConfirm, time.Minute, tests.Tick, true)
 	tests.RequireBlocksOrphaned(t, partition1, blocksToOrphan, time.Minute, tests.Tick)
