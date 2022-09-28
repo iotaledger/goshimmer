@@ -279,7 +279,13 @@ func (i *Engine) initTipManager() {
 	i.Events.TipManager = i.TipManager.Events
 }
 
-func (i *Engine) LoadSnapshot() {
+func (i *Engine) Run() {
+	i.loadSnapshot()
+
+	i.CongestionControl.Scheduler.Start()
+}
+
+func (i *Engine) loadSnapshot() {
 	if err := snapshot.LoadSnapshot(
 		diskutil.New(i.chainDirectory).Path("snapshot.bin"),
 		func(header *ledger.SnapshotHeader) {

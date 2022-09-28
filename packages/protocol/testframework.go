@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -21,6 +22,8 @@ import (
 type TestFramework struct {
 	Network  network.Interface
 	Protocol *Protocol
+
+	Engine *engine.TestFramework
 
 	test *testing.T
 
@@ -37,11 +40,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		diskUtil := diskutil.New(test.TempDir())
 
-		require.NoError(test, creator.CreateSnapshot(diskUtil.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+		snapshotPath := diskUtil.Path("snapshot.bin")
+		require.NoError(test, creator.CreateSnapshot(snapshotPath, 100, make([]byte, 32, 32), map[identity.ID]uint64{
 			identity.GenerateIdentity().ID(): 100,
 		}))
 
-		t.Protocol = New(t.Network, logger.NewLogger(test.Name()), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
+		t.Protocol = New(t.Network, logger.NewLogger(test.Name()), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()), WithSnapshotPath(snapshotPath))...)
+		t.Engine = engine.NewTestFramework(test, engine.WithEngine(t.Protocol.Engine()))
+
+		t.Protocol.Run()
 	})
 }
 
@@ -65,12 +72,10 @@ func (m *MockedNetwork) Events() *network.Events {
 
 func (m *MockedNetwork) SendBlock(block *models.Block, peers ...*peer.Peer) {
 	// TODO implement me
-	panic("implement me")
 }
 
 func (m *MockedNetwork) RequestBlock(id models.BlockID, peers ...*peer.Peer) {
 	// TODO implement me
-	panic("implement me")
 }
 
 var _ network.Interface = &MockedNetwork{}

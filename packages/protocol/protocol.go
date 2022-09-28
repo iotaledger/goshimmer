@@ -187,7 +187,7 @@ func (p *Protocol) activateMainChain() (err error) {
 	p.activeInstance = mainInstance
 	p.Events.Engine.LinkTo(mainInstance.Events)
 
-	p.activeInstance.LoadSnapshot()
+	p.activeInstance.Run()
 
 	return
 }
