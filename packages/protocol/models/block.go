@@ -173,7 +173,7 @@ func (b *Block) IssuerID() (issuerID identity.ID) {
 	b.RUnlock()
 
 	b.Lock()
-	defer b.RUnlock()
+	defer b.Unlock()
 
 	issuerID = identity.NewID(b.IssuerPublicKey())
 	b.issuerID = &issuerID
