@@ -126,6 +126,10 @@ func configureLogging(*node.Plugin) {
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {
 		Plugin.LogErrorf("Error in Engine: %s", err)
 	}))
+
+	// deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
+	// 	fmt.Println("EpochCommittableEvent", e.EI)
+	// }))
 }
 
 func run(*node.Plugin) {

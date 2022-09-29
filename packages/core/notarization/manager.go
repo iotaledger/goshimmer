@@ -692,20 +692,20 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 
 		// reads the roots and store the ec
 		// rolls the state trees
-		ecRecord, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei)
-		if ecRecordErr != nil {
-			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
-			return nil, nil
-		}
-
-		if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
-			m.log.Errorf("could not set last committed epoch: %v", err)
-			return nil, nil
-		}
+		// ecRecord, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei)
+		// if ecRecordErr != nil {
+		// 	m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
+		// 	return nil, nil
+		// }
+		//
+		// if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
+		// 	m.log.Errorf("could not set last committed epoch: %v", err)
+		// 	return nil, nil
+		// }
 
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{
-			EI:       ei,
-			ECRecord: ecRecord,
+			EI: ei,
+			// ECRecord: ecRecord,
 		})
 		if manaVectorUpdateEvent := m.manaVectorUpdate(ei); manaVectorUpdateEvent != nil {
 			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)

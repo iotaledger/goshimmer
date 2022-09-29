@@ -17,7 +17,7 @@ services:
       --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
-      --protocol.snapshot.fileName=snapshot.bin
+      --protocol.snapshot.path=/app/db/snapshot.bin
       --node.peerDBDirectory=/app/peerdb
       --metrics.global=true
       --metrics.local=true
@@ -76,7 +76,7 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
-      --protocol.snapshot.fileName=snapshot.bin
+      --protocol.snapshot.path=/app/db/snapshot.bin
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
@@ -132,7 +132,7 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
-      --protocol.snapshot.fileName=snapshot.bin
+      --protocol.snapshot.path=/app/db/snapshot.bin
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
