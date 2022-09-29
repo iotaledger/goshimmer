@@ -435,10 +435,10 @@ loop:
 }
 
 func (s *Scheduler) schedule() *Block {
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	s.updateActiveIssuersList(s.accessManaMapRetrieverFunc())
 
