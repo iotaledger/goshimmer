@@ -13,24 +13,24 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,14 +41,14 @@ type Engine struct {
 	GenesisCommitment   *commitment.Commitment
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
 	Inbox               *inbox.Inbox
-	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
+	ManaTracker         *mana.Tracker
+	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.TSCManager
 	Clock               *clock.Clock
-	CongestionControl   *congestioncontrol.CongestionControl
 	TipManager          *tipmanager.TipManager
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -61,11 +61,12 @@ type Engine struct {
 	optsSnapshotFile               string
 	optsSnapshotDepth              int
 	optsLedgerOptions              []options.Option[ledger.Ledger]
+	optsManaTrackerOptions         []options.Option[mana.Tracker]
+	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
-	optsNotarizationManagerOptions []notarization.ManagerOption
 	optsCongestionControlOptions   []options.Option[congestioncontrol.CongestionControl]
 	optsTipManagerOptions          []options.Option[tipmanager.TipManager]
 }
@@ -88,6 +89,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initInbox,
 		(*Engine).initDatabaseManager,
 		(*Engine).initLedger,
+		(*Engine).initManaTracker,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
 		(*Engine).initClock,
@@ -127,6 +129,12 @@ func (i *Engine) initLedger() {
 	i.Ledger = ledger.New(append(i.optsLedgerOptions, ledger.WithStore(i.DBManager.PermanentStorage()))...)
 
 	i.Events.Ledger = i.Ledger.Events
+}
+
+func (i *Engine) initManaTracker() {
+	i.ManaTracker = mana.NewTracker(i.Ledger, i.optsManaTrackerOptions...)
+
+	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.ManaTracker.OnManaVectorToUpdateClosure)
 }
 
 func (i *Engine) initTangle() {
@@ -233,13 +241,11 @@ func (i *Engine) initSnapshotManager() {
 func (i *Engine) initCongestionControl() {
 	i.CongestionControl = congestioncontrol.New(i.Consensus.Gadget, i.Tangle, i.optsCongestionControlOptions...)
 
-	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.CongestionControl.Tracker.OnManaVectorToUpdateClosure)
-
 	i.Events.CongestionControl = i.CongestionControl.Events
 }
 
 func (i *Engine) initSybilProtection() {
-	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.CongestionControl.Tracker.GetConsensusMana)
+	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.ManaTracker.GetConsensusMana)
 
 	i.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(i.SybilProtection.TrackActiveValidators))
 }
@@ -412,7 +418,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Eng
 	}
 }
 
-func WithNotarizationManagerOptions(opts ...notarization.ManagerOption) options.Option[Engine] {
+func WithNotarizationManagerOptions(opts ...notarization2.ManagerOption) options.Option[Engine] {
 	return func(i *Engine) {
 		i.optsNotarizationManagerOptions = opts
 	}

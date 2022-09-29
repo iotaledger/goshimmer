@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -18,13 +17,13 @@ import (
 type Manager struct {
 	sync.RWMutex
 
-	notarizationMgr *notarization.Manager
+	notarizationMgr *notarizationold.Manager
 	seps            *shrinkingmap.ShrinkingMap[epoch.Index, map[models.BlockID]types.Empty]
 	snapshotDepth   int
 }
 
 // NewManager creates and returns a new snapshot manager.
-func NewManager(nmgr *notarization.Manager, depth int) (new *Manager) {
+func NewManager(nmgr *notarizationold.Manager, depth int) (new *Manager) {
 	new = &Manager{
 		notarizationMgr: nmgr,
 		seps:            shrinkingmap.New[epoch.Index, map[models.BlockID]types.Empty](),

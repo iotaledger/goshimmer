@@ -3,7 +3,7 @@ package tipmanager
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 )
 
 // Events represents events happening on the TipManager.

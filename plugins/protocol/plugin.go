@@ -6,17 +6,16 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -61,9 +60,9 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	p = protocol.New(n,
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
-				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
-				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				notarization.Log(Plugin.Logger()),
+				notarizationold.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				notarizationold.BootstrapWindow(NotarizationParameters.BootstrapWindow),
+				notarizationold.Log(Plugin.Logger()),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithCongestionControlOptions(

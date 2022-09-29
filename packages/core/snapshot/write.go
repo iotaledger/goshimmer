@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -121,7 +120,7 @@ func NewSolidEntryPointsProducer(fullEpochIndex, latestCommitableEpoch epoch.Ind
 }
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerFunc {
+func NewLedgerUTXOStatesProducer(nmgr *notarizationold.Manager) UTXOStatesProducerFunc {
 	prodChan := make(chan *ledger.OutputWithMetadata)
 	stopChan := make(chan struct{})
 	nmgr.SnapshotLedgerState(prodChan, stopChan)
@@ -138,7 +137,7 @@ func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerF
 }
 
 // NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
-func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
+func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nmgr *notarizationold.Manager) EpochDiffProducerFunc {
 	prodChan := make(chan *ledger.EpochDiff)
 	stopChan := make(chan struct{})
 	nmgr.SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch, prodChan, stopChan)
@@ -274,7 +273,7 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 }
 
 // NewActivityLogProducer returns an ActivityLogProducerFunc that provides activity log from weightProvider and notarization manager.
-func NewActivityLogProducer(notarizationMgr *notarization.Manager, epochDiffIndex epoch.Index) ActivityLogProducerFunc {
+func NewActivityLogProducer(notarizationMgr *notarizationold.Manager, epochDiffIndex epoch.Index) ActivityLogProducerFunc {
 	activityLog, err := notarizationMgr.SnapshotEpochActivity(epochDiffIndex)
 	if err != nil {
 		panic(err)

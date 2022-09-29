@@ -92,7 +92,7 @@ func (b ID) Alias() (alias string) {
 		return existingAlias
 	}
 
-	return fmt.Sprintf("%s, %d", b.Identifier, int(b.EpochIndex))
+	return fmt.Sprintf("%d::%s", int(b.EpochIndex), b.Identifier.Base58())
 }
 
 // RegisterAlias allows to register a human-readable alias for the ID which will be used as a replacement for the
@@ -129,7 +129,7 @@ func (b ID) Bytes() (serialized []byte, err error) {
 
 // String returns a human-readable version of the ID.
 func (b ID) String() (humanReadable string) {
-	return "ID(" + b.Alias() + ")"
+	return "commitment.ID(" + b.Alias() + ")"
 }
 
 // CompareTo does a lexicographical comparison to another blockID.

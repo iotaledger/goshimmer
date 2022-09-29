@@ -32,7 +32,7 @@ type EpochCommitmentStorage struct {
 	epochDiffStorages      *shrinkingmap.ShrinkingMap[epoch.Index, *epochDiffStorage]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
-	epochCommitmentStorageOptions *options
+	epochCommitmentStorageOptions *storageOptions
 
 	// shutdownOnce is used to ensure that the Shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
@@ -219,13 +219,13 @@ const (
 // WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
 // (the default option is to use a MapDB).
 func WithStore(store kvstore.KVStore) (option Option) {
-	return func(options *options) {
+	return func(options *storageOptions) {
 		options.store = store
 	}
 }
 
 // options is a container for all configurable parameters of the Indexer.
-type options struct {
+type storageOptions struct {
 	// store contains the KVStore that is used to persist data.
 	store kvstore.KVStore
 
@@ -237,8 +237,8 @@ type options struct {
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.
-func newOptions(option ...Option) (new *options) {
-	return (&options{
+func newOptions(option ...Option) (new *storageOptions) {
+	return (&storageOptions{
 		store:                    mapdb.NewMapDB(),
 		cacheTimeProvider:        database.NewCacheTimeProvider(0),
 		epochCommitmentCacheTime: 10 * time.Second,
@@ -246,7 +246,7 @@ func newOptions(option ...Option) (new *options) {
 }
 
 // apply modifies the options object by overriding the handed in options.
-func (o *options) apply(options ...Option) (self *options) {
+func (o *storageOptions) apply(options ...Option) (self *storageOptions) {
 	for _, option := range options {
 		option(o)
 	}
@@ -256,6 +256,6 @@ func (o *options) apply(options ...Option) (self *options) {
 
 // Option represents the return type of optional parameters that can be handed into the constructor of the EpochStateDiffStorage
 // to configure its behavior.
-type Option func(*options)
+type Option func(*storageOptions)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

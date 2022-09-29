@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -46,6 +46,8 @@ type Events struct {
 	// ActivityTreeRemoved is an event that gets triggered when nodeID is removed from activity tree.
 	ActivityTreeRemoved *event.Linkable[*ActivityTreeUpdatedEvent, Events, *Events]
 
+	Error *event.Linkable[error, Events, *Events]
+
 	event.LinkableCollection[Events, *Events]
 }
 
@@ -66,6 +68,7 @@ var NewEvents = event.LinkableConstructor(func() (self *Events) {
 		SyncRange:                   event.NewLinkable[*SyncRangeEvent, Events](),
 		ActivityTreeInserted:        event.NewLinkable[*ActivityTreeUpdatedEvent, Events](),
 		ActivityTreeRemoved:         event.NewLinkable[*ActivityTreeUpdatedEvent, Events](),
+		Error:                       event.NewLinkable[error, Events](),
 	}
 })
 

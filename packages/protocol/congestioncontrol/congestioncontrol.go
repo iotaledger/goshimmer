@@ -5,10 +5,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
 
@@ -26,7 +26,6 @@ func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, opts ...options.Optio
 		Events: NewEvents(),
 		Gadget: gadget,
 	}, opts, func(c *CongestionControl) {
-		c.Tracker = mana.NewTracker(tangle.Ledger)
 		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, func() map[identity.ID]int64 {
 			manaMap, _, err := c.Tracker.GetManaMap(manamodels.AccessMana)
 			if err != nil {

@@ -7,13 +7,15 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 )
 
 type Manager struct {
 	Events             *Events
 	SnapshotCommitment *Commitment
 
-	commitmentsByID map[commitment.ID]*Commitment
+	notarizationManagersByChainID map[ChainID]*notarization.Manager
+	commitmentsByID               map[commitment.ID]*Commitment
 
 	sync.Mutex
 }

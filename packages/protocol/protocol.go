@@ -17,8 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/requester"
@@ -27,21 +28,22 @@ import (
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Protocol struct {
-	Events *Events
+	Events            *Events
+	CongestionControl *congestioncontrol.CongestionControl
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	Requester            *requester.Solidification
+	Requester            *requester.Requester
 	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*engine.Engine
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
-	// optsSolidificationOptions []options.Option[solidification.Solidification]
+	// optsSolidificationOptions []options.Option[solidification.Requester]
 	optsEngineOptions []options.Option[engine.Engine]
 
 	*logger.Logger
@@ -57,14 +59,14 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
 		optsSnapshotPath:     "./snapshot.bin",
-	}, opts)
-
+	}, opts,
+		(*Protocol).initDisk,
+		(*Protocol).initSettings,
+		(*Protocol).importSnapshot,
+	)
 }
 
 func (p *Protocol) Run() {
-	p.initDisk()
-	p.initSettings()
-	p.importSnapshot()
 	p.initEngines()
 	p.initChainManager()
 	p.initNetworkProtocol()
@@ -80,8 +82,6 @@ func (p *Protocol) initSettings() {
 }
 
 func (p *Protocol) importSnapshot() {
-	fmt.Println(p.optsSnapshotPath)
-
 	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
@@ -254,7 +254,7 @@ func WithSettingsFileName(settings string) options.Option[Protocol] {
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
+// func WithSolidificationOptions(opts ...options.Option[solidification.Requester]) options.Option[Protocol] {
 // 	return func(n *Protocol) {
 // 		n.optsSolidificationOptions = opts
 // 	}
