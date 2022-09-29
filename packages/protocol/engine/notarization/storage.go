@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 

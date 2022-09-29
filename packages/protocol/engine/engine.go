@@ -12,11 +12,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"

@@ -5,13 +5,14 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -60,24 +61,12 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	p = protocol.New(n,
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
-				notarizationold.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
-				notarizationold.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				notarizationold.Log(Plugin.Logger()),
+				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
+				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
-			engine.WithCongestionControlOptions(
-				congestioncontrol.WithSchedulerOptions(
-					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
-					scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
-					scheduler.WithRate(SchedulerParameters.Rate),
-				),
-			),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-			),
-			engine.WithTipManagerOptions(
-				tipmanager.WithWidth(Parameters.TangleWidth),
-				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
 			engine.WithDatabaseManagerOptions(
 				database.WithDBProvider(dbProvider),
@@ -89,6 +78,17 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
 			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
+		),
+		protocol.WithTipManagerOptions(
+			tipmanager.WithWidth(Parameters.TangleWidth),
+			tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
+		),
+		protocol.WithCongestionControlOptions(
+			congestioncontrol.WithSchedulerOptions(
+				scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
+				scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
+				scheduler.WithRate(SchedulerParameters.Rate),
+			),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotPath(Parameters.Snapshot.Path),

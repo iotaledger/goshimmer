@@ -8,8 +8,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
 )
 
 // PluginName is the name of the spammer plugin.

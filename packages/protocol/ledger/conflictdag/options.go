@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/core/database"
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

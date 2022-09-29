@@ -43,7 +43,8 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 			return firstReturn(engine.ManaTracker.GetManaMap(manamodels.AccessMana))
 		}, func() (totalMana int64) {
 			return firstReturn(engine.ManaTracker.GetTotalMana(manamodels.AccessMana))
-		}, c.optsSchedulerOptions...)
+		}, c.optsSchedulerOptions...,
+	)
 
 	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
 	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
@@ -53,6 +54,9 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 }
 
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+
 	return c.scheduler.Block(id)
 }
 
