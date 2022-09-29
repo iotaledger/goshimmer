@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -229,6 +230,7 @@ func (i *Engine) initSnapshotManager() {
 	}))
 
 	i.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
+		fmt.Println(">>>>> EpochCommittableEvent", e.EI)
 		i.SnapshotManager.AdvanceSolidEntryPoints(e.EI)
 	}))
 }

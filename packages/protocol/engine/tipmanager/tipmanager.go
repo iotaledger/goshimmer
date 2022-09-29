@@ -165,7 +165,17 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 		if t.isPastConeTimestampCorrect(tip) {
 			parents.Add(tip.ID())
 		} else {
-			fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().String(), t.tips.Size())
+			fmt.Printf("cannot select tip due to TSC condition tip issuing time (%s), time (%s), min supported time (%s), block id (%s), tip pool size %d\n", tip.IssuingTime(), t.timeRetrieverFunc(), t.timeRetrieverFunc().Add(-t.optsTimeSinceConfirmationThreshold), tip.ID().Base58(), t.tips.Size())
+			fmt.Println(tip.IsScheduled(), "Orphaned", tip.IsOrphaned(), "accepted", t.acceptanceGadget.IsBlockAccepted(tip.ID()))
+			tip.ForEachParent(func(parent models.Parent) {
+				fmt.Println("parent block id", parent.ID.Base58())
+				if parentBlock, exists := t.blockRetrieverFunc(parent.ID); exists {
+					fmt.Println(parentBlock.IssuingTime(), parentBlock.IsScheduled())
+				}
+				if t.acceptanceGadget.IsBlockAccepted(parent.ID) {
+					fmt.Println("parent block accepted")
+				}
+			})
 		}
 	}
 
