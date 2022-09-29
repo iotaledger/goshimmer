@@ -27,6 +27,7 @@ services:
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
     secrets:
       - goshimmer.config.json
     volumes:
@@ -81,6 +82,7 @@ services:
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
     secrets:
       - goshimmer.config.json
     volumes:
@@ -137,6 +139,7 @@ services:
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
       --protocol.genesisTime=${GENESIS_TIME}
+      --profiling.bindAddress=0.0.0.0:6061
     secrets:
       - goshimmer.config.json
     volumes:
