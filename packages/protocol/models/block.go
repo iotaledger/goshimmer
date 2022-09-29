@@ -165,9 +165,15 @@ func (b *Block) IssuerPublicKey() ed25519.PublicKey {
 }
 
 func (b *Block) IssuerID() (issuerID identity.ID) {
+	b.RLock()
 	if b.issuerID != nil {
+		defer b.RUnlock()
 		return *b.issuerID
 	}
+	b.RUnlock()
+
+	b.Lock()
+	defer b.Unlock()
 
 	issuerID = identity.NewID(b.IssuerPublicKey())
 	b.issuerID = &issuerID

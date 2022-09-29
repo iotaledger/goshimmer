@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -111,8 +110,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataBlocks(t, n.Peers(), 50)
 
-	fmt.Println("txIds", txs1[0].ID().Base58(), " -- ", txs2[0].ID().Base58())
-	time.Sleep(30 * time.Minute)
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		tests.RequireConfirmationStateEqual(t, n.Peers(), tests.ExpectedTxsStates{
 			txs1[i].ID().Base58(): {
