@@ -170,6 +170,7 @@ func (b *Block) IssuerID() (issuerID identity.ID) {
 		defer b.RUnlock()
 		return *b.issuerID
 	}
+	b.RUnlock()
 
 	b.Lock()
 	defer b.RUnlock()
