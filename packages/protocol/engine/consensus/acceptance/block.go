@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,6 +39,12 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 	}
 
 	return
+}
+
+func NewRootBlock(blockID models.BlockID) *Block {
+	virtualVotingBlock := virtualvoting.NewRootBlock(blockID)
+
+	return NewBlock(virtualVotingBlock, WithAccepted(true))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

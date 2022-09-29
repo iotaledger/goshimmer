@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Block struct {
@@ -107,6 +108,16 @@ func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) 
 	defer b.Unlock()
 
 	b.structureDetails = structureDetails
+}
+
+func NewRootBlock(id models.BlockID) *Block {
+	blockDAGBlock := blockdag.NewRootBlock(id)
+
+	genesisStructureDetails := markers.NewStructureDetails()
+	genesisStructureDetails.SetIsPastMarker(true)
+	genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
+
+	return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails))
 }
 
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////

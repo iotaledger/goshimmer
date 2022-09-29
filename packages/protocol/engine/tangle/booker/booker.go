@@ -190,13 +190,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
-		blockDAGBlock, _ := b.BlockDAG.Block(id)
-
-		genesisStructureDetails := markers.NewStructureDetails()
-		genesisStructureDetails.SetIsPastMarker(true)
-		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
-
-		return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)

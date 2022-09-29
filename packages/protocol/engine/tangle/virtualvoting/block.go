@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +40,12 @@ func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
 	}
 
 	return
+}
+
+func NewRootBlock(id models.BlockID) *Block {
+	bookerBlock := booker.NewRootBlock(id)
+
+	return NewBlock(bookerBlock)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

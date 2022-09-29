@@ -137,9 +137,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionManager.IsRootBlock(id) {
-		virtualVotingBlock, _ := a.tangle.VirtualVoting.Block(id)
-
-		return NewBlock(virtualVotingBlock, WithAccepted(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -156,7 +154,11 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 		return
 	}
 
-	block, _ := a.getOrRegisterBlock(bookerBlock.ID())
+	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
+	if !blockExists {
+		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
+		return
+	}
 
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
@@ -168,8 +170,10 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 				continue
 			}
 
-			parentBlock, _ := a.getOrRegisterBlock(parentBlockID)
-			pastConeWalker.Push(parentBlock)
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			if parentExists {
+				pastConeWalker.Push(parentBlock)
+			}
 		}
 	}
 }

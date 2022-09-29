@@ -398,9 +398,7 @@ func (s *Scheduler) ready(block *Block) {
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.EvictionManager.IsRootBlock(id) {
-		tangleBlock, _ := s.Tangle.VirtualVoting.Block(id)
-
-		return NewBlock(tangleBlock, WithScheduled(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := s.blocks.Get(id.Index(), false)

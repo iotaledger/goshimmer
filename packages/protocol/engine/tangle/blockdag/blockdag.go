@@ -238,7 +238,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
 	if b.EvictionManager.IsRootBlock(id) {
-		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := b.memStorage.Get(id.EpochIndex, false)
