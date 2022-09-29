@@ -17,6 +17,7 @@ import (
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
+var latestCommittableEpoch = epoch.Index(0)
 
 // EpochCommitmentStorage is a Ledger component that bundles the storage related API.
 type EpochCommitmentStorage struct {
@@ -97,11 +98,14 @@ func (s *EpochCommitmentStorage) shutdown() {
 }
 
 func (s *EpochCommitmentStorage) setLatestCommittableEpochIndex(ei epoch.Index) error {
-	return s.setIndexFlag("latestCommittableEpochIndex", ei)
+	latestCommittableEpoch = ei
+	return nil
+	//return s.setIndexFlag("latestCommittableEpochIndex", ei)
 }
 
 func (s *EpochCommitmentStorage) latestCommittableEpochIndex() (ei epoch.Index, err error) {
-	return s.getIndexFlag("latestCommittableEpochIndex")
+	return latestCommittableEpoch, nil
+	//return s.getIndexFlag("latestCommittableEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) setLastConfirmedEpochIndex(ei epoch.Index) error {

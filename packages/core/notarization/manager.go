@@ -486,7 +486,7 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
-// OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
+// onAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
 func (m *Manager) onAcceptanceTimeUpdated(newTime time.Time) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
@@ -676,12 +676,11 @@ func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdate
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
-	// latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	// if err != nil {
-	// 	m.log.Errorf("could not obtain last committed epoch index: %v", err)
-	// 	return nil, nil
-	// }
-	latestCommittable := epoch.Index(0)
+	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	if err != nil {
+		m.log.Errorf("could not obtain last committed epoch index: %v", err)
+		return nil, nil
+	}
 
 	epochCommittableEvents := make([]*EpochCommittableEvent, 0)
 	manaVectorUpdateEvents := make([]*mana.ManaVectorUpdateEvent, 0)
@@ -697,11 +696,11 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 		// 	m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
 		// 	return nil, nil
 		// }
-		//
-		// if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
-		// 	m.log.Errorf("could not set last committed epoch: %v", err)
-		// 	return nil, nil
-		// }
+
+		if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
+			m.log.Errorf("could not set last committed epoch: %v", err)
+			return nil, nil
+		}
 
 		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittableEvent{
 			EI: ei,
