@@ -20,9 +20,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/requester"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/requester"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,6 +33,7 @@ import (
 type Protocol struct {
 	Events            *Events
 	CongestionControl *congestioncontrol.CongestionControl
+	TipManager        *tipmanager.TipManager
 
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
@@ -44,7 +48,9 @@ type Protocol struct {
 	optsSettingsFileName string
 	optsSnapshotPath     string
 	// optsSolidificationOptions []options.Option[solidification.Requester]
-	optsEngineOptions []options.Option[engine.Engine]
+	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
+	optsEngineOptions            []options.Option[engine.Engine]
+	optsTipManagerOptions        []options.Option[tipmanager.TipManager]
 
 	*logger.Logger
 }
@@ -62,6 +68,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	}, opts,
 		(*Protocol).initDisk,
 		(*Protocol).initSettings,
+		(*Protocol).initCongestionControl,
 		(*Protocol).importSnapshot,
 	)
 }
@@ -71,6 +78,7 @@ func (p *Protocol) Run() {
 	p.initChainManager()
 	p.initNetworkProtocol()
 	p.initRequester()
+	p.initTipManager()
 }
 
 func (p *Protocol) initDisk() {
@@ -79,6 +87,12 @@ func (p *Protocol) initDisk() {
 
 func (p *Protocol) initSettings() {
 	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+}
+
+func (p *Protocol) initCongestionControl() {
+	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
+
+	p.Events.CongestionControl = p.CongestionControl.Events
 }
 
 func (p *Protocol) importSnapshot() {
@@ -110,7 +124,7 @@ func (p *Protocol) initNetworkProtocol() {
 		}
 	}))
 
-	p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		p.networkProtocol.SendBlock(block.ModelsBlock)
 	}))
 }
@@ -132,10 +146,41 @@ func (p *Protocol) initChainManager() {
 func (p *Protocol) initRequester() {
 	p.Requester = requester.New(p.networkProtocol)
 
-	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.Requester.RequestBlock))
-	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.Requester.CancelBlockRequest))
+	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+		p.Requester.RequestBlock(block.ID())
+	}))
+	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		p.Requester.CancelBlockRequest(block.ID())
+	}))
 	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(p.Requester.RequestCommitment))
 	p.chainManager.Events.MissingCommitmentReceived.Attach(event.NewClosure(p.Requester.CancelCommitmentRequest))
+}
+
+func (p *Protocol) initTipManager() {
+	p.TipManager = tipmanager.New(p.Engine().Tangle, p.Engine().Consensus.Gadget, p.CongestionControl.Block, p.Engine().Clock.AcceptedTime, p.Engine().IsBootstrapped, p.optsTipManagerOptions...)
+
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
+
+	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		p.TipManager.RemoveStrongParents(block.ModelsBlock)
+	}))
+
+	p.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+			p.TipManager.DeleteTip(schedulerBlock)
+		}
+	}))
+
+	// TODO: enable once this event is implemented
+	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
+	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+	// 		return
+	// 	}
+	//
+	// 	t.addTip(block)
+	// }))
+
+	p.Events.TipManager = p.TipManager.Events
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
@@ -226,6 +271,7 @@ func (p *Protocol) activateMainEngine() (err error) {
 
 	p.activeInstance = mainInstance
 	p.Events.Engine.LinkTo(mainInstance.Events)
+	p.CongestionControl.LinkTo(mainInstance)
 
 	p.activeInstance.Run()
 
@@ -251,6 +297,18 @@ func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 func WithSettingsFileName(settings string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSettingsFileName = settings
+	}
+}
+
+func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Protocol] {
+	return func(e *Protocol) {
+		e.optsCongestionControlOptions = opts
+	}
+}
+
+func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsTipManagerOptions = opts
 	}
 }
 

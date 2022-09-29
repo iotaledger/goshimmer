@@ -1,54 +1,63 @@
 package congestioncontrol
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type CongestionControl struct {
 	Events *Events
-	Gadget *acceptance.Gadget
+
+	scheduler      *scheduler.Scheduler
+	schedulerMutex sync.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
-	*mana.Tracker
-	*scheduler.Scheduler
 }
 
-func New(gadget *acceptance.Gadget, tangle *tangle.Tangle, opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
+func New(opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
 	return options.Apply(&CongestionControl{
 		Events: NewEvents(),
-		Gadget: gadget,
-	}, opts, func(c *CongestionControl) {
-		c.Scheduler = scheduler.New(gadget.IsBlockAccepted, tangle, func() map[identity.ID]int64 {
-			manaMap, _, err := c.Tracker.GetManaMap(manamodels.AccessMana)
-			if err != nil {
-				return make(map[identity.ID]int64)
-			}
-			return manaMap
-		}, func() int64 {
-			totalMana, _, err := c.Tracker.GetTotalMana(manamodels.AccessMana)
-			if err != nil {
-				return 0
-			}
-			return totalMana
-		}, c.optsSchedulerOptions...)
-
-		c.Events.Scheduler = c.Scheduler.Events
-		c.Events.Tracker = c.Tracker.Events
-	}, (*CongestionControl).setupEvents)
+	}, opts)
 }
 
-func (c *CongestionControl) setupEvents() {
-	c.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
-		c.HandleAcceptedBlock(acceptedBlock.Block)
-	}))
+func (c *CongestionControl) LinkTo(engine *engine.Engine) {
+	c.schedulerMutex.Lock()
+	defer c.schedulerMutex.Unlock()
+
+	if c.scheduler != nil {
+		c.scheduler.Shutdown()
+	}
+
+	c.scheduler = scheduler.New(
+		engine.EvictionManager,
+		engine.Consensus.IsBlockAccepted,
+		func() (manaDistribution map[identity.ID]int64) {
+			return firstReturn(engine.ManaTracker.GetManaMap(manamodels.AccessMana))
+		}, func() (totalMana int64) {
+			return firstReturn(engine.ManaTracker.GetTotalMana(manamodels.AccessMana))
+		}, c.optsSchedulerOptions...)
+
+	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
+	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
+	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
+
+	c.Events.Scheduler.LinkTo(c.scheduler.Events)
+}
+
+func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
+	return c.scheduler.Block(id)
+}
+
+func firstReturn[A any](a A, b ...any) A {
+	return a
 }
 
 func WithSchedulerOptions(opts ...options.Option[scheduler.Scheduler]) options.Option[CongestionControl] {

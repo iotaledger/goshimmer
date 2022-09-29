@@ -40,6 +40,14 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 	}, opts)
 }
 
+func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+	return NewBlock(
+		models.NewEmptyBlock(id),
+		WithSolid(true),
+		WithMissing(false),
+	)
+}
+
 // IsMissing returns a flag that indicates if the underlying Block data hasn't been stored, yet.
 func (b *Block) IsMissing() (isMissing bool) {
 	b.RLock()

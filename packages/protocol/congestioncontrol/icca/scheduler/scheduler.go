@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -40,7 +40,6 @@ var ErrNotRunning = errors.New("scheduler stopped")
 // Scheduler is a Tangle component that takes care of scheduling the blocks that shall be booked.
 type Scheduler struct {
 	Events *Events
-	Tangle *tangle.Tangle
 
 	EvictionManager *eviction.LockableManager[models.BlockID]
 
@@ -66,11 +65,10 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionManager *eviction.Manager[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
-		Tangle:          tangle,
-		EvictionManager: tangle.EvictionManager.Lockable(),
+		EvictionManager: evictionManager.Lockable(),
 
 		isBlockAcceptedFunc:         isBlockAccepted,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
@@ -92,11 +90,6 @@ func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, acces
 }
 
 func (s *Scheduler) setupEvents() {
-	// pass booked blocks to the scheduler
-	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
-
-	s.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(s.HandleOrphanedBlock))
-
 	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
 	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
@@ -256,11 +249,11 @@ func (s *Scheduler) HandleOrphanedBlock(orphanedBlock *blockdag.Block) {
 	s.Events.BlockDropped.Trigger(block)
 }
 
-func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *virtualvoting.Block) {
+func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
-	block, _ := s.getOrRegisterBlock(acceptedBlock)
+	block, _ := s.getOrRegisterBlock(acceptedBlock.Block)
 
 	if block.IsScheduled() || block.IsDropped() || block.IsSkipped() {
 		return
@@ -396,9 +389,7 @@ func (s *Scheduler) ready(block *Block) {
 // block retrieves the Block with given id from the mem-storage.
 func (s *Scheduler) block(id models.BlockID) (block *Block, exists bool) {
 	if s.EvictionManager.IsRootBlock(id) {
-		tangleBlock, _ := s.Tangle.VirtualVoting.Block(id)
-
-		return NewBlock(tangleBlock, WithScheduled(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := s.blocks.Get(id.Index(), false)

@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
-	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -30,7 +29,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,7 +47,6 @@ type Engine struct {
 	Consensus           *consensus.Consensus
 	TSCManager          *tsc.TSCManager
 	Clock               *clock.Clock
-	TipManager          *tipmanager.TipManager
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
@@ -67,8 +64,6 @@ type Engine struct {
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
-	optsCongestionControlOptions   []options.Option[congestioncontrol.CongestionControl]
-	optsTipManagerOptions          []options.Option[tipmanager.TipManager]
 }
 
 func New(databaseVersion database.Version, chainDirectory string, logger *logger.Logger, opts ...options.Option[Engine]) (engine *Engine) {
@@ -89,18 +84,16 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initInbox,
 		(*Engine).initDatabaseManager,
 		(*Engine).initLedger,
-		(*Engine).initManaTracker,
 		(*Engine).initTangle,
 		(*Engine).initConsensus,
 		(*Engine).initClock,
 		(*Engine).initTSCManager,
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
+		(*Engine).initManaTracker,
 		(*Engine).initSnapshotManager,
-		(*Engine).initCongestionControl,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
-		(*Engine).initTipManager,
 	)
 }
 
@@ -129,12 +122,6 @@ func (i *Engine) initLedger() {
 	i.Ledger = ledger.New(append(i.optsLedgerOptions, ledger.WithStore(i.DBManager.PermanentStorage()))...)
 
 	i.Events.Ledger = i.Ledger.Events
-}
-
-func (i *Engine) initManaTracker() {
-	i.ManaTracker = mana.NewTracker(i.Ledger, i.optsManaTrackerOptions...)
-
-	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.ManaTracker.OnManaVectorToUpdateClosure)
 }
 
 func (i *Engine) initTangle() {
@@ -216,6 +203,12 @@ func (i *Engine) initNotarizationManager() {
 	i.Events.NotarizationManager = i.NotarizationManager.Events
 }
 
+func (i *Engine) initManaTracker() {
+	i.ManaTracker = mana.NewTracker(i.Ledger, i.optsManaTrackerOptions...)
+
+	i.NotarizationManager.Events.ManaVectorUpdate.Attach(i.ManaTracker.OnManaVectorToUpdateClosure)
+}
+
 func (i *Engine) initSnapshotManager() {
 	i.SnapshotManager = snapshot.NewManager(i.NotarizationManager, 5)
 
@@ -238,12 +231,6 @@ func (i *Engine) initSnapshotManager() {
 	}))
 }
 
-func (i *Engine) initCongestionControl() {
-	i.CongestionControl = congestioncontrol.New(i.Consensus.Gadget, i.Tangle, i.optsCongestionControlOptions...)
-
-	i.Events.CongestionControl = i.CongestionControl.Events
-}
-
 func (i *Engine) initSybilProtection() {
 	i.SybilProtection = sybilprotection.New(i.ValidatorSet, i.Clock.RelativeAcceptedTime, i.ManaTracker.GetConsensusMana)
 
@@ -258,37 +245,8 @@ func (i *Engine) initEvictionManager() {
 	i.Events.EvictionManager = i.EvictionManager.Events
 }
 
-func (i *Engine) initTipManager() {
-	i.TipManager = tipmanager.New(i.Tangle, i.Consensus.Gadget, i.CongestionControl.Scheduler.Block, i.Clock.AcceptedTime, i.IsBootstrapped, i.optsTipManagerOptions...)
-
-	i.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(i.TipManager.AddTip))
-
-	i.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		i.TipManager.RemoveStrongParents(block.ModelsBlock)
-	}))
-
-	i.Events.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
-		if schedulerBlock, exists := i.CongestionControl.Scheduler.Block(block.ID()); exists {
-			i.TipManager.DeleteTip(schedulerBlock)
-		}
-	}))
-
-	// TODO: enable once this event is implemented
-	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-	// 		return
-	// 	}
-	//
-	// 	t.addTip(block)
-	// }))
-
-	i.Events.TipManager = i.TipManager.Events
-}
-
 func (i *Engine) Run() {
 	i.loadSnapshot()
-
-	i.CongestionControl.Scheduler.Start()
 }
 
 func (i *Engine) loadSnapshot() {
@@ -299,7 +257,7 @@ func (i *Engine) loadSnapshot() {
 
 			i.NotarizationManager.LoadECandEIs(header)
 
-			i.CongestionControl.Tracker.LoadSnapshotHeader(header)
+			i.ManaTracker.LoadSnapshotHeader(header)
 		},
 		i.SnapshotManager.LoadSolidEntryPoints,
 		func(outputsWithMetadata []*ledger.OutputWithMetadata) {
@@ -307,7 +265,7 @@ func (i *Engine) loadSnapshot() {
 
 			i.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
 
-			i.CongestionControl.Tracker.LoadOutputsWithMetadata(outputsWithMetadata)
+			i.ManaTracker.LoadOutputsWithMetadata(outputsWithMetadata)
 		},
 		func(epochDiffs *ledger.EpochDiff) {
 			i.NotarizationManager.LoadEpochDiff(epochDiffs)
@@ -316,7 +274,7 @@ func (i *Engine) loadSnapshot() {
 				panic(err)
 			}
 
-			i.CongestionControl.Tracker.LoadEpochDiff(epochDiffs)
+			i.ManaTracker.LoadEpochDiff(epochDiffs)
 		},
 		func(activityLogs activitylog.SnapshotEpochActivity) {
 			for epoch, activityLog := range activityLogs {
@@ -382,21 +340,9 @@ func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.O
 	}
 }
 
-func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Engine] {
-	return func(e *Engine) {
-		e.optsCongestionControlOptions = opts
-	}
-}
-
 func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = opts
-	}
-}
-
-func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Engine] {
-	return func(p *Engine) {
-		p.optsTipManagerOptions = opts
 	}
 }
 
@@ -418,7 +364,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Eng
 	}
 }
 
-func WithNotarizationManagerOptions(opts ...notarization2.ManagerOption) options.Option[Engine] {
+func WithNotarizationManagerOptions(opts ...options.Option[notarization.Manager]) options.Option[Engine] {
 	return func(i *Engine) {
 		i.optsNotarizationManagerOptions = opts
 	}

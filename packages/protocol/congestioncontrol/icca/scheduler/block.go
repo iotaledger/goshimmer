@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,6 +23,15 @@ func NewBlock(virtualVotingBlock *virtualvoting.Block, opts ...options.Option[Bl
 	return options.Apply(&Block{
 		Block: virtualVotingBlock,
 	}, opts)
+}
+
+func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+	return NewBlock(
+		virtualvoting.NewRootBlock(id),
+		WithScheduled(true),
+		WithSkipped(false),
+		WithDiscarded(false),
+	)
 }
 
 func (b *Block) IsScheduled() bool {

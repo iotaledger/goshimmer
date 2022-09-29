@@ -75,7 +75,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.optsIsBlockAcceptedFunc, t.TangleTestFramework.Tangle, t.ManaMap, t.TotalMana, t.optsScheduler...)
+			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionManager.Manager, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
 
 	}, (*TestFramework).setupEvents)
@@ -86,9 +86,7 @@ type TangleTestFramework = tangle.TestFramework
 type GadgetTestFramework = acceptance.TestFramework
 
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(func(acceptedBlock *acceptance.Block) {
-		t.Scheduler.HandleAcceptedBlock(acceptedBlock.Block)
-	}))
+	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(t.Scheduler.HandleAcceptedBlock))
 
 	t.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		if debug.GetEnabled() {

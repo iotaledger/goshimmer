@@ -4,12 +4,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 )
 
 type Events struct {
 	Scheduler *scheduler.Events
-	Tracker   *mana.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -18,6 +16,5 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Scheduler: scheduler.NewEvents(),
-		Tracker:   mana.NewEvents(),
 	}
 })

@@ -62,7 +62,11 @@ func (m *MockedEndpoint) Send(packet proto.Message, protocolID string, to ...ide
 			continue
 		}
 
-		m.network.dispatchers[id].handlers[protocolID](m.id, packet)
+		if dispatcher, exists := m.network.dispatchers[id]; exists {
+			if protocolHandler, exists := dispatcher.handlers[protocolID]; exists {
+				protocolHandler(m.id, packet)
+			}
+		}
 	}
 
 	return nil

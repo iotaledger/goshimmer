@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +22,12 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	return options.Apply(&Block{
 		Block: bookerBlock,
 	}, opts)
+}
+
+func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+	return NewBlock(
+		booker.NewRootBlock(id),
+	)
 }
 
 func (b *Block) IsSubjectivelyInvalid() bool {
