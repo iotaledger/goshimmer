@@ -3,7 +3,6 @@ package commitment
 import (
 	"unsafe"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/types"
@@ -19,21 +18,23 @@ type Commitment struct {
 }
 
 type commitment struct {
-	Index   epoch.Index      `serix:"0"`
-	PrevID  ID               `serix:"1"`
-	RootsID types.Identifier `serix:"2"`
+	Index            epoch.Index      `serix:"0"`
+	PrevID           ID               `serix:"1"`
+	RootsID          types.Identifier `serix:"2"`
+	CumulativeWeight uint64           `serix:"3"`
 }
 
-func New(index epoch.Index, prevID ID, rootsID types.Identifier) (newCommitment *Commitment) {
+func New(index epoch.Index, prevID ID, rootsID types.Identifier, cumulativeWeight uint64) (newCommitment *Commitment) {
 	return model.NewImmutable[Commitment](&commitment{
-		Index:   index,
-		PrevID:  prevID,
-		RootsID: rootsID,
+		Index:            index,
+		PrevID:           prevID,
+		RootsID:          rootsID,
+		CumulativeWeight: cumulativeWeight,
 	})
 }
 
 func (c *Commitment) ID() (id ID) {
-	idBytes := blake2b.Sum256(byteutils.ConcatBytes(c.M.Index.Bytes(), lo.PanicOnErr(c.M.PrevID.Bytes()), c.M.RootsID.Bytes()))
+	idBytes := blake2b.Sum256(lo.PanicOnErr(c.Bytes()))
 
 	return NewID(c.M.Index, idBytes[:])
 }

@@ -3,6 +3,7 @@ package engine
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
@@ -24,6 +26,7 @@ type Events struct {
 	TipManager          *tipmanager.Events
 	EvictionManager     *eviction.Events
 	NotarizationManager *notarization.Events
+	BlockRequester      *eventticker.Events[models.BlockID]
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -41,5 +44,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		TipManager:          tipmanager.NewEvents(),
 		EvictionManager:     eviction.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),
+		BlockRequester:      eventticker.NewEvents[models.BlockID](),
 	}
 })

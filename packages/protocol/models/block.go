@@ -90,7 +90,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 		IssuingTime:     time.Now(),
 		SequenceNumber:  0,
 		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
-		EpochCommitment: commitment.New(0, commitment.ID{}, types.Identifier{}),
+		EpochCommitment: commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
 	})
 	blk.payload = defaultPayload
 

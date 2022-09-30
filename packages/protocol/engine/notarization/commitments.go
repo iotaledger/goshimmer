@@ -5,6 +5,7 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
@@ -25,51 +26,12 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// region Commitment types /////////////////////////////////////////////////////////////////////////////////////////////
-
-// CommitmentRoots contains roots of trees of an epoch.
-type CommitmentRoots struct {
-	EI                epoch.Index
-	tangleRoot        types.Identifier
-	stateMutationRoot types.Identifier
-	stateRoot         types.Identifier
-	manaRoot          types.Identifier
-	activityRoot      types.Identifier
-}
-
-// CommitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
-type CommitmentTrees struct {
-	EI                epoch.Index
-	tangleTree        *smt.SparseMerkleTree
-	stateMutationTree *smt.SparseMerkleTree
-	activityTree      *smt.SparseMerkleTree
-}
-
-func (c *CommitmentTrees) TangleRoot() (tangleRoot types.Identifier) {
-	copy(tangleRoot[:], c.tangleTree.Root())
-
-	return
-}
-
-func (c *CommitmentTrees) StateMutationRoot() (stateMutationRoot types.Identifier) {
-	copy(stateMutationRoot[:], c.stateMutationTree.Root())
-
-	return
-}
-
-func (c *CommitmentTrees) ActivityRoot() (activityRoot types.Identifier) {
-	copy(activityRoot[:], c.activityTree.Root())
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region EpochCommitmentFactory ///////////////////////////////////////////////////////////////////////////////////////
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
 type EpochCommitmentFactory struct {
-	commitmentTrees *shrinkingmap.ShrinkingMap[epoch.Index, *CommitmentTrees]
+	commitmentTrees       *shrinkingmap.ShrinkingMap[epoch.Index, *commitmentTrees]
+	acceptedBlocksByEpoch *shrinkingmap.ShrinkingMap[epoch.Index, map[identity.ID]*set.AdvancedSet[models.BlockID]]
 
 	storage *EpochCommitmentStorage
 
@@ -93,11 +55,12 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *EpochC
 	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
-		commitmentTrees: shrinkingmap.New[epoch.Index, *CommitmentTrees](),
-		storage:         epochCommitmentStorage,
-		snapshotDepth:   snapshotDepth,
-		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		commitmentTrees:       shrinkingmap.New[epoch.Index, *commitmentTrees](),
+		acceptedBlocksByEpoch: shrinkingmap.New[epoch.Index, map[identity.ID]*set.AdvancedSet[models.BlockID]](),
+		storage:               epochCommitmentStorage,
+		snapshotDepth:         snapshotDepth,
+		stateRootTree:         smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		manaRootTree:          smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 }
 
@@ -223,6 +186,7 @@ func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID ident
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
 	}
+
 	return insertLeaf(commitment.activityTree, nodeID.Bytes(), nodeID.Bytes())
 }
 
@@ -232,6 +196,7 @@ func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID ident
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting activity leaf")
 	}
+
 	return removeLeaf(commitment.activityTree, nodeID.Bytes())
 }
 
@@ -263,6 +228,34 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanage
 	})
 
 	return ecRecord, nil
+}
+
+func (f *EpochCommitmentFactory) addAcceptedBlock(id identity.ID, blockID models.BlockID) {
+	acceptedBlocks, exists := f.acceptedBlocksByEpoch.Get(blockID.Index())
+	if !exists {
+		acceptedBlocks = make(map[identity.ID]*set.AdvancedSet[models.BlockID])
+		f.acceptedBlocksByEpoch.Set(blockID.Index(), acceptedBlocks)
+	}
+
+	acceptedBlocksByIssuerID, exists := acceptedBlocks[id]
+	if !exists {
+		acceptedBlocksByIssuerID = set.NewAdvancedSet[models.BlockID]()
+		acceptedBlocks[id] = acceptedBlocksByIssuerID
+	}
+
+	if acceptedBlocksByIssuerID.Size() == 0 && acceptedBlocksByIssuerID.Add(blockID) {
+		// TODO: TRIGGER ACTIVITY LEAF ADDED
+	}
+}
+
+func (f *EpochCommitmentFactory) removeAcceptedBlock(id identity.ID, blockID models.BlockID) {
+	if acceptedBlocks, exists := f.acceptedBlocksByEpoch.Get(blockID.Index()); exists {
+		if blocksByID, exists := acceptedBlocks[id]; exists {
+			if blocksByID.Delete(blockID) && blocksByID.Size() == 0 {
+				// TODO: TRIGGER ACTIVITY LEAF REMOVED
+			}
+		}
+	}
 }
 
 func (f *EpochCommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *chainmanager.Commitment) {
@@ -347,7 +340,7 @@ func (f *EpochCommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWit
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentTrees {
+func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *commitmentTrees {
 	// Volatile storage for small trees
 	db, _ := database.NewMemDB("")
 	blockIDStore := db.NewStore()
@@ -357,7 +350,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 	activityValueStore := db.NewStore()
 	activityIDStore := db.NewStore()
 
-	commitmentTrees := &CommitmentTrees{
+	commitmentTrees := &commitmentTrees{
 		EI:                ei,
 		tangleTree:        smt.NewSparseMerkleTree(blockIDStore, blockValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
@@ -389,12 +382,14 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (roots *commitmen
 
 	// We are never going to use this epoch's commitment trees again.
 	f.commitmentTrees.Delete(ei)
+	f.acceptedBlocksByEpoch.Delete(ei)
 
 	return commitment.NewRoots(
 		stateRoot,
 		manaRoot,
 		commitmentTrees.TangleRoot(),
 		commitmentTrees.StateMutationRoot(),
+		commitmentTrees.ActivityRoot(),
 	), nil
 }
 
@@ -414,7 +409,7 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 	return
 }
 
-func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *CommitmentTrees, err error) {
+func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *commitmentTrees, err error) {
 	lastCommittedEpoch, lastCommittedEpochErr := f.storage.latestCommittableEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
@@ -463,27 +458,54 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot types.
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region Commitment types /////////////////////////////////////////////////////////////////////////////////////////////
+
+// commitmentTrees is a compressed form of all the information (blocks and confirmed value payloads) of an epoch.
+type commitmentTrees struct {
+	EI                epoch.Index
+	tangleTree        *smt.SparseMerkleTree
+	stateMutationTree *smt.SparseMerkleTree
+	activityTree      *smt.SparseMerkleTree
+}
+
+func (c *commitmentTrees) TangleRoot() (tangleRoot types.Identifier) {
+	copy(tangleRoot[:], c.tangleTree.Root())
+
+	return
+}
+
+func (c *commitmentTrees) StateMutationRoot() (stateMutationRoot types.Identifier) {
+	copy(stateMutationRoot[:], c.stateMutationTree.Root())
+
+	return
+}
+
+func (c *commitmentTrees) ActivityRoot() (activityRoot types.Identifier) {
+	copy(activityRoot[:], c.activityTree.Root())
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region extra functions //////////////////////////////////////////////////////////////////////////////////////////////
 
 // insertLeaf inserts the outputID to the provided sparse merkle tree.
-func insertLeaf(tree *smt.SparseMerkleTree, keyBytes, valueBytes []byte) error {
-	_, err := tree.Update(keyBytes, valueBytes)
-	if err != nil {
-		return errors.Wrap(err, "could not insert leaf to the tree")
+func insertLeaf(tree *smt.SparseMerkleTree, keyBytes, valueBytes []byte) (err error) {
+	if _, err = tree.Update(keyBytes, valueBytes); err != nil {
+		err = errors.Errorf("could not insert leaf to the tree: %w", err)
 	}
-	return nil
+
+	return
 }
 
 // removeLeaf inserts the outputID to the provided sparse merkle tree.
-func removeLeaf(tree *smt.SparseMerkleTree, leaf []byte) error {
-	exists, _ := tree.Has(leaf)
-	if exists {
-		_, err := tree.Delete(leaf)
-		if err != nil {
-			return errors.Wrap(err, "could not delete leaf from the tree")
-		}
+func removeLeaf(tree *smt.SparseMerkleTree, leaf []byte) (err error) {
+	if _, err = tree.Delete(leaf); err != nil {
+		err = errors.Wrap(err, "could not delete leaf from the tree")
 	}
-	return nil
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

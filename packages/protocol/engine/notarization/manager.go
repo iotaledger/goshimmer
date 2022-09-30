@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -257,6 +256,14 @@ func (m *Manager) OnBlockAccepted(block *acceptance.Block) {
 	m.updateEpochsBootstrapped(ei)
 
 	m.Events.TangleTreeInserted.Trigger(&TangleTreeUpdatedEvent{EI: ei, BlockID: block.ID()})
+
+	nodeID := identity.NewID(block.IssuerPublicKey())
+	if err = m.epochCommitmentFactory.insertActivityLeaf(ei, nodeID); err != nil {
+		m.Events.Error.Trigger(err)
+		return
+	}
+
+	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
 }
 
 // OnBlockAttached is a handler fo Block stored event that updates the activity log and triggers warpsyncing.
@@ -276,21 +283,8 @@ func (m *Manager) OnBlockAttached(block *blockdag.Block) {
 		m.Events.Error.Trigger(err)
 		return
 	}
+
 	m.Events.ActivityTreeInserted.Trigger(&ActivityTreeUpdatedEvent{EI: ei, NodeID: nodeID})
-
-	blockEI := block.Commitment().Index()
-	latestCommittableEI := lo.PanicOnErr(m.epochCommitmentFactory.storage.latestCommittableEpochIndex())
-	epochDeltaSeconds := time.Duration(int64(blockEI-latestCommittableEI)*epoch.Duration) * time.Second
-
-	// If we are too far behind, we will warpsync
-	if epochDeltaSeconds > m.optsBootstrapWindow {
-		m.Events.SyncRange.Trigger(&SyncRangeEvent{
-			StartEI:   latestCommittableEI,
-			EndEI:     blockEI,
-			StartEC:   m.epochCommitmentFactory.loadECRecord(latestCommittableEI).ID(),
-			EndPrevEC: block.Commitment().PrevID(),
-		})
-	}
 }
 
 // OnBlockOrphaned is the handler for block orphaned event.

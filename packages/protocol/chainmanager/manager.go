@@ -4,23 +4,32 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/core/eventticker"
+	"github.com/iotaledger/goshimmer/packages/core/eviction"
 )
 
 type Manager struct {
-	Events             *Events
-	SnapshotCommitment *Commitment
+	Events              *Events
+	SnapshotCommitment  *Commitment
+	EvictionManager     *eviction.Manager[commitment.ID]
+	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
 	commitmentsByID map[commitment.ID]*Commitment
+
+	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
 
 	sync.Mutex
 }
 
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
-		Events: NewEvents(),
+		Events:          NewEvents(),
+		EvictionManager: eviction.NewManager[commitment.ID](),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}
@@ -29,15 +38,19 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager.SnapshotCommitment.PublishCommitment(snapshot)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
+	manager.CommitmentRequester = eventticker.New(manager.EvictionManager, manager.optsCommitmentRequester...)
+	manager.Events.CommitmentMissing.Attach(event.NewClosure(manager.CommitmentRequester.StartTicker))
+	manager.Events.MissingCommitmentReceived.Attach(event.NewClosure(manager.CommitmentRequester.StopTicker))
+
 	manager.commitmentsByID[manager.SnapshotCommitment.ID()] = manager.SnapshotCommitment
 
 	return
 }
 
-func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *Chain, wasForked bool) {
+func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	chainCommitment, created := c.Commitment(commitment.ID(), true)
 	if !chainCommitment.PublishCommitment(commitment) {
-		return chainCommitment.Chain(), false
+		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
 	}
 
 	if !created {
@@ -49,7 +62,7 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *C
 		c.Events.CommitmentMissing.Trigger(parentCommitment.ID())
 	}
 
-	if chain, wasForked = c.registerChild(parentCommitment, chainCommitment); chain == nil {
+	if isSolid, chain, wasForked = c.registerChild(parentCommitment, chainCommitment); chain == nil {
 		return
 	}
 	if wasForked {
@@ -59,6 +72,14 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (chain *C
 	if children := chainCommitment.Children(); len(children) != 0 {
 		for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
 			childWalker.PushAll(c.propagateChainToFirstChild(childWalker.Next(), chain)...)
+		}
+	}
+
+	if isSolid {
+		if children := chainCommitment.Children(); len(children) != 0 {
+			for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
+				childWalker.PushAll(c.propagateSolidity(childWalker.Next())...)
+			}
 		}
 	}
 
@@ -106,13 +127,14 @@ func (c *Manager) Commitments(id commitment.ID, amount int) (commitments []*Comm
 	return
 }
 
-func (c *Manager) registerChild(parent *Commitment, child *Commitment) (chain *Chain, wasForked bool) {
+func (c *Manager) registerChild(parent *Commitment, child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	child.lockEntity()
 	defer child.unlockEntity()
 
-	if chain, wasForked = parent.registerChild(child); chain != nil {
+	if isSolid, chain, wasForked = parent.registerChild(child); chain != nil {
 		chain.addCommitment(child)
 		child.publishChain(chain)
+		child.solid = isSolid
 	}
 
 	return
@@ -134,4 +156,17 @@ func (c *Manager) propagateChainToFirstChild(child *Commitment, chain *Chain) (c
 	}
 
 	return children[:1]
+}
+
+func (c *Manager) propagateSolidity(child *Commitment) (childrenToUpdate []*Commitment) {
+	child.lockEntity()
+	defer child.unlockEntity()
+
+	if child.SetSolid(true) {
+		child.Chain().SetLastSolidIndex(child.Commitment().Index())
+
+		childrenToUpdate = child.Children()
+	}
+
+	return
 }

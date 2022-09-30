@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/requester"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -40,7 +39,6 @@ type Protocol struct {
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	Requester            *requester.Requester
 	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*engine.Engine
@@ -77,7 +75,6 @@ func (p *Protocol) Run() {
 	p.initEngines()
 	p.initChainManager()
 	p.initNetworkProtocol()
-	p.initRequester()
 	p.initTipManager()
 }
 
@@ -127,6 +124,14 @@ func (p *Protocol) initNetworkProtocol() {
 	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		p.networkProtocol.SendBlock(block.ModelsBlock)
 	}))
+
+	p.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+		p.networkProtocol.RequestBlock(blockID)
+	}))
+
+	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
+		p.networkProtocol.RequestCommitment(commitmentID)
+	}))
 }
 
 func (p *Protocol) initEngines() {
@@ -143,20 +148,8 @@ func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
 }
 
-func (p *Protocol) initRequester() {
-	p.Requester = requester.New(p.networkProtocol)
-
-	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		p.Requester.RequestBlock(block.ID())
-	}))
-	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		p.Requester.CancelBlockRequest(block.ID())
-	}))
-	p.chainManager.Events.CommitmentMissing.Attach(event.NewClosure(p.Requester.RequestCommitment))
-	p.chainManager.Events.MissingCommitmentReceived.Attach(event.NewClosure(p.Requester.CancelCommitmentRequest))
-}
-
 func (p *Protocol) initTipManager() {
+	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
 	p.TipManager = tipmanager.New(p.Engine().Tangle, p.Engine().Consensus.Gadget, p.CongestionControl.Block, p.Engine().Clock.AcceptedTime, p.Engine().IsBootstrapped, p.optsTipManagerOptions...)
 
 	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
@@ -184,8 +177,8 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	if chain == nil {
+	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	if !isSolid {
 		return
 	}
 
