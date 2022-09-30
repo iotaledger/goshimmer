@@ -48,6 +48,19 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 	validateDeserialized(t, meta, metaDeserialized)
 }
 
+func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
+	meta := createBlockMetadata()
+	meta.M.StructureDetails = nil
+	out, err := serix.DefaultAPI.JSONEncode(context.Background(), meta.M)
+	require.NoError(t, err)
+	printPrettyJSON(t, out)
+
+	metaDeserialized := newBlockMetadata(nil)
+	err = serix.DefaultAPI.JSONDecode(context.Background(), out, &metaDeserialized.M)
+	assert.NoError(t, err)
+	validateDeserialized(t, meta, metaDeserialized)
+}
+
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	protocolTF := protocol.NewTestFramework(t)
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
