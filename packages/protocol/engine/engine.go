@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -230,7 +229,7 @@ func (i *Engine) initSnapshotManager() {
 	}))
 
 	i.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
-		fmt.Println(">>>>> EpochCommittableEvent", e.EI)
+		i.logger.Infof(">>>>> EpochCommittableEvent %s", e.EI.String())
 		i.SnapshotManager.AdvanceSolidEntryPoints(e.EI)
 	}))
 }
@@ -340,7 +339,7 @@ func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbo
 
 func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 	if i.EvictionManager.IsRootBlock(id) {
-		return nil, false
+		return i.BlockStorage.Get(id)
 	}
 
 	if cachedBlock, cachedBlockExists := i.Tangle.BlockDAG.Block(id); cachedBlockExists {
