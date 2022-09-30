@@ -35,10 +35,10 @@ func TestProtocol(t *testing.T) {
 	protocol1.Run()
 
 	commitments := make(map[string]*commitment.Commitment)
-	commitments["0"] = commitment.New(0, commitment.ID{}, types.Identifier{})
-	commitments["1"] = commitment.New(1, commitments["0"].ID(), types.Identifier{1})
-	commitments["2"] = commitment.New(2, commitments["1"].ID(), types.Identifier{2})
-	commitments["3"] = commitment.New(3, commitments["2"].ID(), types.Identifier{3})
+	commitments["0"] = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
+	commitments["1"] = commitment.New(1, commitments["0"].ID(), types.Identifier{1}, 0)
+	commitments["2"] = commitment.New(2, commitments["1"].ID(), types.Identifier{2}, 0)
+	commitments["3"] = commitment.New(3, commitments["2"].ID(), types.Identifier{3}, 0)
 
 	protocol1.networkProtocol.Events.EpochCommitmentReceived.Trigger(&network.EpochCommitmentReceivedEvent{
 		Commitment: commitments["1"],

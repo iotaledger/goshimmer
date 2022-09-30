@@ -216,7 +216,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanage
 		return nil, ecrRecordErr
 	}
 
-	newCommitment := commitment.New(ei, prevECRecord.ID(), ecr)
+	newCommitment := commitment.New(ei, prevECRecord.ID(), ecr, 0) // TODO: REPLACE CUMULATIVE WEIGHT
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *chainmanager.Commitment {

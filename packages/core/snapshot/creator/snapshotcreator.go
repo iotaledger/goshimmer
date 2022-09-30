@@ -35,7 +35,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}),
+			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}, genesisTokenAmount),
 		}
 
 		return
@@ -133,7 +133,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}),
+			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}, genesisTokenAmount),
 		}
 
 		return
