@@ -93,11 +93,18 @@ func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, acces
 
 func (s *Scheduler) setupEvents() {
 	// pass booked blocks to the scheduler
-	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
+	//s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(s.AddBlock))
+	s.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+		registerBlock, err := s.getOrRegisterBlock(block)
+		if err != nil {
+			panic(err)
+		}
+		s.Events.BlockScheduled.Trigger(registerBlock)
+	}))
 
-	s.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(s.HandleOrphanedBlock))
+	//s.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(s.HandleOrphanedBlock))
 
-	s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
+	//s.Events.BlockScheduled.Hook(event.NewClosure(s.UpdateChildren))
 
 	s.EvictionManager.Events.EpochEvicted.Attach(event.NewClosure(s.evictEpoch))
 }
