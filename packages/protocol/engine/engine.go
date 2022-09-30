@@ -138,7 +138,7 @@ func (i *Engine) initTangle() {
 
 	i.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := i.Tangle.Attach(block); err != nil {
-			i.Events.Error.Trigger(errors.Errorf("failed to attach block with %s: %w", block.ID(), err))
+			i.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
 		}
 	}))
 

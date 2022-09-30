@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -338,7 +337,6 @@ func (s *Scheduler) isReady(block *Block) (ready bool) {
 	ready = true
 	block.ForEachParent(func(parent models.Parent) {
 		if parentBlock, parentExists := s.block(parent.ID); !parentExists || !s.isEligible(parentBlock) {
-			fmt.Printf("block %s not ready because parent %s is not eligible", block.ID(), parent.ID)
 			ready = false
 			return
 		}
