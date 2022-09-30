@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/gossip"
@@ -25,6 +28,7 @@ import (
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
+var gossipCounter = atomic.NewInt32(0)
 
 type Protocol struct {
 	Events *Events
@@ -202,12 +206,16 @@ func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
 		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
 		return
 	}
-
+	if block.ID().Index() < epoch.IndexFromTime(time.Now())-5 {
+		fmt.Println("Received an old block", block.ID(), block.IssuingTime(), "issuer id", block.IssuerID(), "neighbor", event.Neighbor.Peer.ID())
+		fmt.Println("gossiping threads", gossipCounter.Load())
+	}
 	p.IssueBlock(block, event.Neighbor)
 }
 
 func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
 	if block, exists := p.Engine().Block(event.BlockID); exists {
+		p.Logger.Infof("send requester block %s", event.BlockID)
 		p.network.SendBlock(block, event.Neighbor.Peer)
 	}
 }

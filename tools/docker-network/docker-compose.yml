@@ -17,7 +17,8 @@ services:
       --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
-      --protocol.snapshot.path=/app/db/snapshot.bin
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
       --node.peerDBDirectory=/app/peerdb
       --metrics.global=true
       --metrics.local=true
@@ -31,9 +32,9 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./docker-network.snapshot:/app/db/snapshot.bin
-#      - db:/app/db
-#      - peerdb:/app/peerdb
+      - ./docker-network.snapshot:/app/snapshot.bin
+    #      - db:/app/db
+    #      - peerdb:/app/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -45,27 +46,27 @@ services:
     networks:
       - goshimmer
 
-#  peer_replica:
-#    image: docker-network_peer_master:latest
-#    stop_grace_period: 1m
-#    environment:
-#      - GENESIS_TIME
-#    command: >
-#      --config=/run/secrets/goshimmer.config.json
-#      --database.directory=/app/mainnetdb
-#      --node.peerDBDirectory=/app/peerdb
-#      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",spammer
-#      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
-#      --node.disablePlugins=portcheck,clock,Firewall
-#    deploy:
-#      replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
-#    secrets:
-#      - goshimmer.config.json
-#      - goshimmer.block.snapshot.bin
-#    networks:
-#      - goshimmer
-#    depends_on:
-#      - peer_master
+  #  peer_replica:
+  #    image: docker-network_peer_master:latest
+  #    stop_grace_period: 1m
+  #    environment:
+  #      - GENESIS_TIME
+  #    command: >
+  #      --config=/run/secrets/goshimmer.config.json
+  #      --database.directory=/app/mainnetdb
+  #      --node.peerDBDirectory=/app/peerdb
+  #      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",spammer
+  #      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+  #      --node.disablePlugins=portcheck,clock,Firewall
+  #    deploy:
+  #      replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
+  #    secrets:
+  #      - goshimmer.config.json
+  #      - goshimmer.block.snapshot.bin
+  #    networks:
+  #      - goshimmer
+  #    depends_on:
+  #      - peer_master
   peer_master2:
     build: *goshimmer_build
     stop_grace_period: 1m
@@ -77,7 +78,8 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --node.peerDBDirectory=/app/peerdb
       --database.directory=/app/db
-      --protocol.snapshot.path=/app/db/snapshot.bin
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
@@ -86,7 +88,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./docker-network.snapshot:/app/db/snapshot.bin
+      - ./docker-network.snapshot:/app/snapshot.bin
     ports:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
@@ -95,33 +97,33 @@ services:
       - goshimmer
     depends_on:
       - peer_master
-#  peer_nomana:
-#    image: docker-network_peer_master:latest
-#    stop_grace_period: 1m
-#    environment:
-#      - GENESIS_TIME
-#    command: >
-#      --config=/run/secrets/goshimmer.config.json
-#      --database.directory=/app/mainnetdb
-#      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
-#      --node.overwriteStoredSeed=true
-#      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
-#      --blockLayer.snapshot.genesisNode=
-#      --node.disablePlugins=portcheck,clock,Firewall
-#      --prometheus.bindAddress=0.0.0.0:9311
-#      --prometheus.processMetrics=false
-#    secrets:
-#      - goshimmer.config.json
-#      - goshimmer.block.snapshot.bin
-#    ports:
-#      - "8040:8080/tcp" # web API
-#      - "8041:8081/tcp" # dashboard
-#      - "6041:6061/tcp" # pprof
-#    networks:
-#      - goshimmer
-#    depends_on:
-#      - peer_master
-#      - faucet
+  #  peer_nomana:
+  #    image: docker-network_peer_master:latest
+  #    stop_grace_period: 1m
+  #    environment:
+  #      - GENESIS_TIME
+  #    command: >
+  #      --config=/run/secrets/goshimmer.config.json
+  #      --database.directory=/app/mainnetdb
+  #      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
+  #      --node.overwriteStoredSeed=true
+  #      --blockLayer.snapshot.file=/run/secrets/goshimmer.block.snapshot.bin
+  #      --blockLayer.snapshot.genesisNode=
+  #      --node.disablePlugins=portcheck,clock,Firewall
+  #      --prometheus.bindAddress=0.0.0.0:9311
+  #      --prometheus.processMetrics=false
+  #    secrets:
+  #      - goshimmer.config.json
+  #      - goshimmer.block.snapshot.bin
+  #    ports:
+  #      - "8040:8080/tcp" # web API
+  #      - "8041:8081/tcp" # dashboard
+  #      - "6041:6061/tcp" # pprof
+  #    networks:
+  #      - goshimmer
+  #    depends_on:
+  #      - peer_master
+  #      - faucet
 
   faucet:
     build: *goshimmer_build
@@ -134,7 +136,8 @@ services:
       --node.disablePlugins=portcheck,Firewall,ManaInitializer
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/db
-      --protocol.snapshot.path=/app/db/snapshot.bin
+      --protocol.snapshot.path=./snapshot.bin
+      --blockIssuer.rateSetter.enable=false
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --blockIssuer.ignoreBootstrappedFlag=true
@@ -143,7 +146,7 @@ services:
     secrets:
       - goshimmer.config.json
     volumes:
-      - ./docker-network.snapshot:/app/db/snapshot.bin
+      - ./docker-network.snapshot:/app/snapshot.bin
     ports:
       - "8090:8080/tcp" # web API
       - "8051:8061/tcp" # dags visualizer
@@ -154,39 +157,39 @@ services:
     depends_on:
       - peer_master
 
-#  prometheus:
-#    image: prom/prometheus:latest
-#    profiles:
-#      - grafana
-#    ports:
-#      - "9090:9090"
-#    command:
-#      - --config.file=/run/secrets/prometheus.yml
-#    secrets:
-#      - prometheus.yml
-#    networks:
-#      - goshimmer
-#    depends_on:
-#      - peer_master
-#  grafana:
-#    image: grafana/grafana:latest
-#    profiles:
-#      - grafana
-#    environment:
-#      # path to provisioning definitions can only be defined as
-#      # environment variables for grafana within docker
-#      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
-#      - GF_ALERTING_ENABLED=true
-#      - GF_UNIFIED_ALERTING_ENABLED=false
-#    networks:
-#      - goshimmer
-#    ports:
-#      - "3000:3000"
-#    user: "104"
-#    volumes:
-#      - grafana-data-volume:/var/lib/grafana
-#      - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
-#      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+  prometheus:
+    image: prom/prometheus:latest
+    profiles:
+      - grafana
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/run/secrets/prometheus.yml
+    secrets:
+      - prometheus.yml
+    networks:
+      - goshimmer
+    depends_on:
+      - peer_master
+  grafana:
+    image: grafana/grafana:latest
+    profiles:
+      - grafana
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
+    networks:
+      - goshimmer
+    ports:
+      - "3000:3000"
+    user: "104"
+    volumes:
+      - grafana-data-volume:/var/lib/grafana
+      - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 # Create our own network
 networks:

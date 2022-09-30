@@ -1,6 +1,8 @@
 package solidification
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -27,6 +29,7 @@ func New(network network.Interface, log *logger.Logger, opts ...options.Option[S
 		s.requester = NewRequester(eviction.NewManager[models.BlockID](), s.optsRequester...)
 
 		s.requester.Events.BlockRequested.Attach(event.NewClosure(func(blockID models.BlockID) {
+			fmt.Println("request block", blockID, s.requester.QueueSize())
 			s.network.RequestBlock(blockID)
 		}))
 	})
@@ -37,6 +40,7 @@ func (s *Solidification) RequestBlock(block *blockdag.Block) {
 }
 
 func (s *Solidification) CancelBlockRequest(block *blockdag.Block) {
+	fmt.Println("missing block cancel", block.ID())
 	s.requester.StopRequest(block)
 }
 

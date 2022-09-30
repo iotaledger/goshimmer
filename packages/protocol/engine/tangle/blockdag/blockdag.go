@@ -105,7 +105,7 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statusChanged bool) {
 	b.orphanageMutex.Lock(block.ID())
 	defer b.orphanageMutex.Unlock(block.ID())
-
+	fmt.Println("orphan block", block.ID())
 	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
 		panic("tried to unorphan a block that still has orphaned parents")
 	}
@@ -190,7 +190,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
 	if b.EvictionManager.IsTooOld(data.ID()) {
-		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
+		return nil, false, errors.Errorf("block data with %s is too old (issued at: %s)", data.ID(), data.IssuingTime())
 	}
 
 	storedBlock, storedBlockExists := b.block(data.ID())

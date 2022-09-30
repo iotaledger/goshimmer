@@ -1,6 +1,7 @@
 package solidification
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto"
@@ -42,7 +43,7 @@ func NewRequester(evictionManager *eviction.Manager[models.BlockID], opts ...opt
 
 		optsRetryInterval:       10 * time.Second,
 		optsRetryJitter:         10 * time.Second,
-		optsMaxRequestThreshold: 100,
+		optsMaxRequestThreshold: 3,
 	}, opts, (*Requester).setup)
 }
 
@@ -82,7 +83,6 @@ func (r *Requester) setup() {
 func (r *Requester) addRequestToQueue(id models.BlockID) (added bool) {
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
-
 	if r.evictionManager.IsTooOld(id) {
 		return false
 	}
@@ -164,7 +164,7 @@ func (r *Requester) createReRequest(blkID models.BlockID, count int) func() {
 func (r *Requester) evictEpoch(epochIndex epoch.Index) {
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
-
+	fmt.Println("print requester queue", epochIndex)
 	if requestStorage := r.scheduledRequests.Get(epochIndex); requestStorage != nil {
 		r.scheduledRequests.EvictEpoch(epochIndex)
 		r.scheduledRequestsCount -= requestStorage.Size()
