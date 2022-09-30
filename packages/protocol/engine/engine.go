@@ -339,6 +339,10 @@ func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbo
 }
 
 func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
+	if i.EvictionManager.IsRootBlock(id) {
+		return nil, false
+	}
+
 	if cachedBlock, cachedBlockExists := i.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
@@ -349,8 +353,6 @@ func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 
 	return i.BlockStorage.Get(id)
 }
-
-func emptyActivityConsumer(logs activitylog.SnapshotEpochActivity) {}
 
 func onlyIfBootstrapped[E any](engine *Engine, handler func(event E)) *event.Closure[E] {
 	return event.NewClosure(func(event E) {
