@@ -181,7 +181,7 @@ func (e *Engine) initNotarizationManager() {
 		e.Tangle,
 		e.Ledger,
 		e.Consensus,
-		notarization.NewEpochCommitmentFactory(e.DBManager.PermanentStorage(), e.optsSnapshotDepth),
+		notarization.NewCommitmentFactory(e.DBManager.PermanentStorage(), e.optsSnapshotDepth),
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 

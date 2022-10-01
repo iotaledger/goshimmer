@@ -37,7 +37,7 @@ type Manager struct {
 	tangle                      *tangle.Tangle
 	ledger                      *ledger.Ledger
 	consensus                   *consensus.Consensus
-	epochCommitmentFactory      *EpochCommitmentFactory
+	epochCommitmentFactory      *CommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	bootstrapMutex              sync.RWMutex
 	pendingConflictsCounters    *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
@@ -49,7 +49,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusInstance *consensus.Consensus, epochCommitmentFactory *EpochCommitmentFactory, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusInstance *consensus.Consensus, epochCommitmentFactory *CommitmentFactory, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		clock:                    c,
 		tangle:                   t,

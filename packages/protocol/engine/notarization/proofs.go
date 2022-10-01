@@ -50,12 +50,12 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	return proof, nil
 }
 
-func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
+func (f *CommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
 	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))
 }
 
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
-func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
+func (f *CommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root, exists := f.commitmentTrees.Get(ei)
 	if !exists {
@@ -70,7 +70,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.Outpu
 }
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
-func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
+func (f *CommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -86,7 +86,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 }
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
+func (f *CommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -102,13 +102,13 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.
 }
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
-func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
+func (f *CommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
 	key, _ := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
 
 // VerifyStateMutationRoot verify the provided merkle proof against the state mutation root.
-func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
+func (f *CommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
 	key := transactionID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }

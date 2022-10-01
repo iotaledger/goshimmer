@@ -30,7 +30,7 @@ package notarization
 // 		tf.Protocol.Engine().Tangle,
 // 		tf.Protocol.Engine().Ledger,
 // 		tf.Protocol.Engine().Consensus,
-// 		notarization.NewEpochCommitmentFactory(tf.Protocol.Engine().DBManager.PermanentStorage(), 1),
+// 		notarization.NewCommitmentFactory(tf.Protocol.Engine().DBManager.PermanentStorage(), 1),
 // 	))
 // }
 //
@@ -1105,7 +1105,7 @@ package notarization
 // 	testTangle.ConfirmationOracle = sfg
 //
 // 	// set up notarization manager
-// 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 0)
+// 	ecFactory := NewCommitmentFactory(testTangle.Options.Store, testTangle, 0)
 // 	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), Log(logger.NewExampleLogger("test")))
 //
 // 	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
