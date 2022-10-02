@@ -98,12 +98,12 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*ledger.OutputW
 
 	for _, outputWithMetadata := range outputsWithMetadatas {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := insertLeaf(m.epochCommitmentFactory.stateRootTree, outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes())
-		if err != nil {
+
+		if _, err := m.epochCommitmentFactory.stateRootTree.Update(outputWithMetadata.ID().Bytes(), outputWithMetadata.ID().Bytes()); err != nil {
 			m.Events.Error.Trigger(err)
 		}
-		err = m.epochCommitmentFactory.updateManaLeaf(outputWithMetadata, true)
-		if err != nil {
+
+		if err := m.epochCommitmentFactory.updateManaLeaf(outputWithMetadata, true); err != nil {
 			m.Events.Error.Trigger(err)
 		}
 	}
