@@ -58,6 +58,8 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
 
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
+
+	c.scheduler.Start()
 }
 
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {

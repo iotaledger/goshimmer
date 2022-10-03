@@ -177,16 +177,14 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	fmt.Println("process block inside", block.ID())
-	//// TODO: this is wrong
-	//isSolid, chain, _ := p.chainManager.ProcessCommitment(p.Engine().GenesisCommitment)
-	//if !isSolid {
+	// // TODO: this is wrong
+	// isSolid, chain, _ := p.chainManager.ProcessCommitment(p.Engine().GenesisCommitment)
+	// if !isSolid {
 	//	fmt.Println("commitment not solid", block.ID())
 	//	return
-	//}
+	// }
 
 	if targetInstance, exists := p.instancesByChainID[p.Engine().GenesisCommitment.ID()]; exists {
-		fmt.Println("process block from peer", block.ID())
 		targetInstance.ProcessBlockFromPeer(block, src)
 	}
 }
