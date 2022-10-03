@@ -155,7 +155,7 @@ func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
-	schedulerBlock, _ := t.Scheduler.getOrRegisterBlock(blk)
+	schedulerBlock, _ := t.Scheduler.GetOrRegisterBlock(blk)
 
 	return schedulerBlock
 }

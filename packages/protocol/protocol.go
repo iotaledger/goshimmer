@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -102,6 +104,7 @@ func (p *Protocol) initNetworkProtocol() {
 	p.networkProtocol = network.NewProtocol(p.dispatcher)
 
 	p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+		fmt.Println("send requester block ", event.BlockID)
 		if block, exists := p.Engine().Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}
@@ -183,7 +186,9 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	//	fmt.Println("commitment not solid", block.ID())
 	//	return
 	// }
-
+	if block.ID().EpochIndex < epoch.IndexFromTime(time.Now())-5 {
+		fmt.Println("Received an old block", block.ID(), block.IssuingTime(), "issuer id", block.IssuerID(), "neighbor", src)
+	}
 	if targetInstance, exists := p.instancesByChainID[p.Engine().GenesisCommitment.ID()]; exists {
 		targetInstance.ProcessBlockFromPeer(block, src)
 	}

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -98,6 +99,7 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 		(*Engine).initSnapshotManager,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
+		(*Engine).initBlockRequester,
 	)
 }
 
@@ -260,6 +262,7 @@ func (e *Engine) initBlockRequester() {
 		e.BlockRequester.StartTicker(block.ID())
 	}))
 	e.Events.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println("missing block stored", block.ID())
 		e.BlockRequester.StopTicker(block.ID())
 	}))
 

@@ -110,19 +110,19 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
 func configureLogging(*node.Plugin) {
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		Plugin.LogInfof("Block %s attached", block.ID())
+		Plugin.LogDebugf("Block %s attached", block.ID())
 	}))
 
 	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(event.NewClosure(func(block *booker.Block) {
-		Plugin.LogInfof("Block %s booked", block.ID())
+		Plugin.LogDebugf("Block %s booked", block.ID())
 	}))
 
 	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-		Plugin.LogInfof("Block %s tracked", block.ID())
+		Plugin.LogDebugf("Block %s tracked", block.ID())
 	}))
 
 	deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		Plugin.LogInfof("Block %s scheduled", block.ID())
+		Plugin.LogDebugf("Block %s scheduled", block.ID())
 	}))
 
 	deps.Protocol.Events.Engine.Error.Attach(event.NewClosure(func(err error) {

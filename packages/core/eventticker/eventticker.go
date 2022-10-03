@@ -1,6 +1,7 @@
 package eventticker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto"
@@ -39,7 +40,7 @@ func New[T epoch.IndexedID](evictionManager *eviction.Manager[T], opts ...option
 		scheduledTickers: memstorage.NewEpochStorage[T, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
-		optsRetryJitter:         10 * time.Second,
+		optsRetryJitter:         5 * time.Second,
 		optsMaxRequestThreshold: 100,
 	}, opts, func(r *EventTicker[T]) {
 		r.setup()
@@ -47,6 +48,8 @@ func New[T epoch.IndexedID](evictionManager *eviction.Manager[T], opts ...option
 }
 
 func (r *EventTicker[T]) StartTicker(id T) {
+	fmt.Println("request block", id)
+
 	if r.addTickerToQueue(id) {
 		r.Events.TickerStarted.Trigger(id)
 		r.Events.Tick.Trigger(id)
@@ -54,6 +57,7 @@ func (r *EventTicker[T]) StartTicker(id T) {
 }
 
 func (r *EventTicker[T]) StopTicker(id T) {
+	fmt.Println("stop requesting block", id)
 	if r.stopTicker(id) {
 		r.Events.TickerStopped.Trigger(id)
 	}
@@ -102,15 +106,18 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 
 	storage := r.scheduledTickers.Get(id.Index())
 	if storage == nil {
+		fmt.Println("storage does not exist for ", id)
 		return false
 	}
 
 	timer, exists := storage.Get(id)
 
 	if !exists {
+		fmt.Println("timer does not exist for ", id)
+
 		return false
 	}
-
+	fmt.Println("cancel request for ", id)
 	timer.Cancel()
 	storage.Delete(id)
 
@@ -120,6 +127,7 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 }
 
 func (r *EventTicker[T]) reSchedule(id T, count int) {
+	fmt.Println("re-request block", id)
 	r.Events.Tick.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -153,7 +161,11 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 }
 
 func (r *EventTicker[T]) createReScheduler(blkID T, count int) func() {
-	return func() { r.reSchedule(blkID, count) }
+	return func() {
+		if !r.evictionManager.IsTooOld(blkID) {
+			r.reSchedule(blkID, count)
+		}
+	}
 }
 
 func (r *EventTicker[T]) evictEpoch(epochIndex epoch.Index) {
@@ -162,6 +174,7 @@ func (r *EventTicker[T]) evictEpoch(epochIndex epoch.Index) {
 
 	if requestStorage := r.scheduledTickers.Get(epochIndex); requestStorage != nil {
 		r.scheduledTickers.EvictEpoch(epochIndex)
+		// TODO: cancel all tasks from an epoch
 		r.scheduledTickerCount -= requestStorage.Size()
 	}
 }
