@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -29,6 +30,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -187,23 +190,23 @@ func (e *Engine) initNotarizationManager() {
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
-	// i.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(i.NotarizationManager.OnBlockAttached))
-	// i.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockAccepted))
-	// i.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockOrphaned))
-	// i.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionAccepted))
-	// i.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionInclusionUpdated))
-	// i.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-	// 	i.NotarizationManager.OnConflictAccepted(event.ID)
-	// }))
-	// i.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-	// 	i.NotarizationManager.OnConflictCreated(event.ID)
-	// }))
-	// i.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-	// 	i.NotarizationManager.OnConflictRejected(event.ID)
-	// }))
-	// i.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(i, func(event *clock.TimeUpdate) {
-	// 	i.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
-	// }))
+	e.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(e.NotarizationManager.OnBlockAttached))
+	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockAccepted))
+	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockOrphaned))
+	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionAccepted))
+	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionInclusionUpdated))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+		e.NotarizationManager.OnConflictAccepted(event.ID)
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.OnConflictCreated(event.ID)
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+		e.NotarizationManager.OnConflictRejected(event.ID)
+	}))
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
+		e.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
+	}))
 
 	e.Events.NotarizationManager = e.NotarizationManager.Events
 }
@@ -234,7 +237,7 @@ func (e *Engine) initSnapshotManager() {
 	}))
 
 	e.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		e.logger.Infof(">>>>> EpochCommittableEvent %s", event.EI.String())
+		fmt.Println(">>>>> EpochCommittableEvent", event.EI)
 		e.SnapshotManager.AdvanceSolidEntryPoints(event.EI)
 	}))
 }
@@ -381,38 +384,38 @@ func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Optio
 }
 
 func WithSnapshotFile(snapshotFile string) options.Option[Engine] {
-	return func(p *Engine) {
-		p.optsSnapshotFile = snapshotFile
+	return func(e *Engine) {
+		e.optsSnapshotFile = snapshotFile
 	}
 }
 
 func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsDatabaseManagerOptions = opts
+	return func(e *Engine) {
+		e.optsDatabaseManagerOptions = opts
 	}
 }
 
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsLedgerOptions = opts
+	return func(e *Engine) {
+		e.optsLedgerOptions = opts
 	}
 }
 
 func WithNotarizationManagerOptions(opts ...options.Option[notarization.Manager]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsNotarizationManagerOptions = opts
+	return func(e *Engine) {
+		e.optsNotarizationManagerOptions = opts
 	}
 }
 
 func WithSnapshotDepth(depth int) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsSnapshotDepth = depth
+	return func(e *Engine) {
+		e.optsSnapshotDepth = depth
 	}
 }
 
 func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.BlockID]]) options.Option[Engine] {
-	return func(s *Engine) {
-		s.optsBlockRequester = opts
+	return func(e *Engine) {
+		e.optsBlockRequester = opts
 	}
 }
 
