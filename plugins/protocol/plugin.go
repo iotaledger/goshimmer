@@ -15,12 +15,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markermanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
@@ -65,6 +69,13 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	}
 	p = protocol.New(n,
 		protocol.WithEngineOptions(
+			engine.WithTangleOptions(
+				tangle.WithBookerOptions(
+					booker.WithMarkerManagerOptions(
+						markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(5)),
+					),
+				),
+			),
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
@@ -90,7 +101,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 			),
 		),
 		protocol.WithTipManagerOptions(
-			tipmanager.WithWidth(Parameters.TangleWidth),
+			tipmanager.WithWidth(50),
 			tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 		),
 		protocol.WithCongestionControlOptions(
