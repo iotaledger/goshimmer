@@ -24,6 +24,12 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	}, opts)
 }
 
+func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+	return NewBlock(
+		booker.NewRootBlock(id),
+	)
+}
+
 func (b *Block) IsSubjectivelyInvalid() bool {
 	b.RLock()
 	defer b.RUnlock()

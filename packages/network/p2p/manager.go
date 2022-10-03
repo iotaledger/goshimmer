@@ -24,10 +24,8 @@ type connectPeerConfig struct {
 
 // ProtocolHandler holds callbacks to handle a protocol.
 type ProtocolHandler struct {
-	PacketFactory      func() proto.Message
-	NegotiationSend    func(ps *PacketsStream) error
-	NegotiationReceive func(ps *PacketsStream) error
-	PacketHandler      func(*Neighbor, proto.Message) error
+	PacketFactory func() proto.Message
+	PacketHandler func(identity.ID, proto.Message) error
 }
 
 func buildConnectPeerConfig(opts []ConnectPeerOption) *connectPeerConfig {
@@ -109,21 +107,24 @@ func (m *Manager) NeighborGroupEvents(group NeighborsGroup) *NeighborGroupEvents
 }
 
 // RegisterProtocol registers a new protocol.
-func (m *Manager) RegisterProtocol(protocolID protocol.ID, protocolHandler *ProtocolHandler) {
+func (m *Manager) RegisterProtocol(protocolID string, factory func() proto.Message, handler func(identity.ID, proto.Message) error) {
 	m.registeredProtocolsMutex.Lock()
 	defer m.registeredProtocolsMutex.Unlock()
 
-	m.registeredProtocols[protocolID] = protocolHandler
-	m.libp2pHost.SetStreamHandler(protocolID, m.handleStream)
+	m.registeredProtocols[protocol.ID(protocolID)] = &ProtocolHandler{
+		PacketFactory: factory,
+		PacketHandler: handler,
+	}
+	m.libp2pHost.SetStreamHandler(protocol.ID(protocolID), m.handleStream)
 }
 
 // UnregisterProtocol unregisters a protocol.
-func (m *Manager) UnregisterProtocol(protocolID protocol.ID) {
+func (m *Manager) UnregisterProtocol(protocolID string) {
 	m.registeredProtocolsMutex.Lock()
 	defer m.registeredProtocolsMutex.Unlock()
 
-	m.libp2pHost.RemoveStreamHandler(protocolID)
-	delete(m.registeredProtocols, protocolID)
+	m.libp2pHost.RemoveStreamHandler(protocol.ID(protocolID))
+	delete(m.registeredProtocols, protocol.ID(protocolID))
 }
 
 // GetP2PHost returns the libp2p host.
@@ -169,14 +170,16 @@ func (m *Manager) DropNeighbor(id identity.ID, group NeighborsGroup) error {
 }
 
 // Send sends a message with the specific protocol to a set of neighbors.
-func (m *Manager) Send(packet proto.Message, protocolID protocol.ID, to ...identity.ID) []*Neighbor {
-	neighbors := m.GetNeighborsByID(to)
-	if len(neighbors) == 0 {
+func (m *Manager) Send(packet proto.Message, protocolID string, to ...identity.ID) (receivers []identity.ID) {
+	var neighbors []*Neighbor
+	if len(to) == 0 {
 		neighbors = m.AllNeighbors()
+	} else {
+		neighbors = m.GetNeighborsByID(to)
 	}
 
 	for _, nbr := range neighbors {
-		stream := nbr.GetStream(protocolID)
+		stream := nbr.GetStream(protocol.ID(protocolID))
 		if stream == nil {
 			m.log.Warnw("send error, no stream for protocol", "peer-id", nbr.ID(), "protocol", protocolID)
 			nbr.Close()
@@ -186,8 +189,11 @@ func (m *Manager) Send(packet proto.Message, protocolID protocol.ID, to ...ident
 			m.log.Warnw("send error", "peer-id", nbr.ID(), "err", err)
 			nbr.Close()
 		}
+
+		receivers = append(receivers, nbr.ID())
 	}
-	return neighbors
+
+	return
 }
 
 // AllNeighbors returns all the neighbors that are currently connected.
@@ -282,7 +288,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", event.Protocol, "err", err)
 		}
-		if err := protocolHandler.PacketHandler(event.Neighbor, event.Packet); err != nil {
+		if err := protocolHandler.PacketHandler(event.Neighbor.ID(), event.Packet); err != nil {
 			nbr.Log.Debugw("Can't handle packet", "err", err)
 		}
 	}))

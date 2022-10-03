@@ -10,9 +10,6 @@ message Packet {
     EpochBlocksBatch epochBlocksBatch = 2;
     EpochBlocksEnd epochBlocksEnd = 3;
     EpochBlocksRequest epochBlocksRequest = 4;
-    EpochCommittment epochCommitment = 5;
-    EpochCommittmentRequest epochCommitmentRequest = 6;
-    Negotiation negotiation = 7;
   }
 }
 
@@ -40,15 +37,3 @@ message EpochBlocksRequest {
   int64 EI = 1;
   bytes EC = 2;
 }
-
-message EpochCommittment {
-  int64 EI = 1;
-  bytes prevEC = 2;
-  bytes ECR = 3;
-}
-
-message EpochCommittmentRequest {
-  int64 EI = 1;
-}
-
-message Negotiation {}

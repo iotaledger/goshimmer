@@ -5,11 +5,12 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
-	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/database"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
@@ -19,9 +20,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -36,8 +39,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Network  network.Interface
 	Protocol *protocol.Protocol
+	Network  *p2p.Manager
 }
 
 func init() {
@@ -49,7 +52,7 @@ func init() {
 	}))
 }
 
-func provide(n network.Interface) (p *protocol.Protocol) {
+func provide(n *p2p.Manager) (p *protocol.Protocol) {
 
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
@@ -63,27 +66,15 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 	} else {
 		dbProvider = database.NewDB
 	}
-	p = protocol.New(n, Plugin.Logger(),
+	p = protocol.New(n,
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
 				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
-				notarization.Log(Plugin.Logger()),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
-			engine.WithCongestionControlOptions(
-				congestioncontrol.WithSchedulerOptions(
-					scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
-					scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
-					scheduler.WithRate(SchedulerParameters.Rate),
-				),
-			),
 			engine.WithTSCManagerOptions(
 				tsc.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
-			),
-			engine.WithTipManagerOptions(
-				tipmanager.WithWidth(Parameters.TangleWidth),
-				tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 			),
 			engine.WithDatabaseManagerOptions(
 				database.WithDBProvider(dbProvider),
@@ -99,6 +90,17 @@ func provide(n network.Interface) (p *protocol.Protocol) {
 				sybilprotection.WithActivityTrackerOptions(
 					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),
 				),
+			),
+		),
+		protocol.WithTipManagerOptions(
+			tipmanager.WithWidth(Parameters.TangleWidth),
+			tipmanager.WithTimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
+		),
+		protocol.WithCongestionControlOptions(
+			congestioncontrol.WithSchedulerOptions(
+				scheduler.WithMaxBufferSize(SchedulerParameters.MaxBufferSize),
+				scheduler.WithAcceptedBlockScheduleThreshold(SchedulerParameters.ConfirmedBlockThreshold),
+				scheduler.WithRate(SchedulerParameters.Rate),
 			),
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),

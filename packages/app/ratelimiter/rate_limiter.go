@@ -6,7 +6,7 @@ import (
 
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/paulbellamy/ratecounter"
 	"go.uber.org/atomic"
@@ -64,18 +64,18 @@ type limiterRecord struct {
 }
 
 // Count counts a new activity of the peer towards its rate limit.
-func (prl *PeerRateLimiter) Count(p *peer.Peer) {
-	if err := prl.doCount(p); err != nil {
+func (prl *PeerRateLimiter) Count(id identity.ID) {
+	if err := prl.doCount(id); err != nil {
 		prl.log.Warnw("Rate limiter failed to count peer activity",
-			"peerId", p.ID())
+			"peerId", id)
 	}
 }
 
 // ExtendLimit extends the activity limit of the peer.
-func (prl *PeerRateLimiter) ExtendLimit(p *peer.Peer, val int) {
-	if err := prl.doExtendLimit(p, val); err != nil {
+func (prl *PeerRateLimiter) ExtendLimit(id identity.ID, val int) {
+	if err := prl.doExtendLimit(id, val); err != nil {
 		prl.log.Warnw("Rate limiter failed to extend peer activity limit",
-			"peerId", p.ID())
+			"peerId", id)
 	}
 }
 
@@ -91,8 +91,8 @@ func (prl *PeerRateLimiter) Close() {
 	}
 }
 
-func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
-	peerRecord, err := prl.getPeerRecord(p)
+func (prl *PeerRateLimiter) doCount(id identity.ID) error {
+	peerRecord, err := prl.getPeerRecord(id)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -101,8 +101,8 @@ func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
 	if int(peerRecord.activityCounter.Rate()) > limit {
 		if !peerRecord.limitHitReported.Swap(true) {
 			prl.log.Infow("Peer hit the activity limit, notifying subscribers to take action",
-				"limit", limit, "interval", prl.interval, "peerId", p.ID())
-			prl.Events.Hit.Trigger(&HitEvent{p, &RateLimit{Limit: limit, Interval: prl.interval}})
+				"limit", limit, "interval", prl.interval, "peerId", id)
+			prl.Events.Hit.Trigger(&HitEvent{id, &RateLimit{Limit: limit, Interval: prl.interval}})
 		}
 	} else {
 		peerRecord.limitHitReported.Store(false)
@@ -110,8 +110,8 @@ func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
 	return nil
 }
 
-func (prl *PeerRateLimiter) doExtendLimit(p *peer.Peer, val int) error {
-	peerRecord, err := prl.getPeerRecord(p)
+func (prl *PeerRateLimiter) doExtendLimit(id identity.ID, val int) error {
+	peerRecord, err := prl.getPeerRecord(id)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -119,8 +119,8 @@ func (prl *PeerRateLimiter) doExtendLimit(p *peer.Peer, val int) error {
 	return nil
 }
 
-func (prl *PeerRateLimiter) getPeerRecord(p *peer.Peer) (*limiterRecord, error) {
-	peerKey := p.ID().EncodeBase58()
+func (prl *PeerRateLimiter) getPeerRecord(id identity.ID) (*limiterRecord, error) {
+	peerKey := id.EncodeBase58()
 	nbrRecordI, err := prl.peersRecords.Get(peerKey)
 	if err != nil {
 		return nil, errors.WithStack(err)

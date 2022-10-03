@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
@@ -34,7 +35,7 @@ func CreateSnapshot(snapshotFileName string, genesisTokenAmount uint64, genesisS
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
+			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}, genesisTokenAmount),
 		}
 
 		return
@@ -132,7 +133,7 @@ func CreateSnapshotForIntegrationTest(snapshotFileName string, genesisTokenAmoun
 		header = &ledger.SnapshotHeader{
 			FullEpochIndex: 0,
 			DiffEpochIndex: 0,
-			LatestECRecord: commitment.New(commitment.MerkleRoot{}, 0, commitment.MerkleRoot{}),
+			LatestECRecord: commitment.New(0, commitment.ID{}, types.Identifier{}, genesisTokenAmount),
 		}
 
 		return

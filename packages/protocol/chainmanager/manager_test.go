@@ -90,11 +90,11 @@ func TestManager(t *testing.T) {
 		commitments, err := tf.Manager.Commitments(tf.EC("4*"), 5)
 		require.NoError(t, err)
 		require.EqualValues(t, []*Commitment{
-			tf.Manager.Commitment(tf.EC("4*")),
-			tf.Manager.Commitment(tf.EC("3")),
-			tf.Manager.Commitment(tf.EC("2")),
-			tf.Manager.Commitment(tf.EC("1")),
-			tf.Manager.Commitment(tf.EC("Genesis")),
+			firstReturn(tf.Manager.Commitment(tf.EC("4*"))),
+			firstReturn(tf.Manager.Commitment(tf.EC("3"))),
+			firstReturn(tf.Manager.Commitment(tf.EC("2"))),
+			firstReturn(tf.Manager.Commitment(tf.EC("1"))),
+			firstReturn(tf.Manager.Commitment(tf.EC("Genesis"))),
 		}, commitments)
 	}
 
@@ -105,6 +105,10 @@ func TestManager(t *testing.T) {
 	}
 
 	{
-		require.Nil(t, tf.Manager.Chain(commitment.ID{255, 255}))
+		require.Nil(t, tf.Manager.Chain(commitment.NewID(1, []byte{255, 255})))
 	}
+}
+
+func firstReturn[A any](a A, b ...any) A {
+	return a
 }

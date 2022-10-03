@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
@@ -22,7 +23,7 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	snapshotCommitment := commitment.New(commitment.ID{0}, 0, commitment.RootsID{0})
+	snapshotCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 
 	return options.Apply(&TestFramework{
 		Manager: NewManager(snapshotCommitment),
@@ -41,11 +42,10 @@ func (t *TestFramework) CreateCommitment(alias string, prevAlias string) {
 	prevCommitmentID, previousIndex := t.previousCommitmentID(prevAlias)
 	randomECR := blake2b.Sum256([]byte(alias + prevAlias))
 
-	t.commitmentsByAlias[alias] = commitment.New(prevCommitmentID, previousIndex+1, randomECR)
+	t.commitmentsByAlias[alias] = commitment.New(previousIndex+1, prevCommitmentID, randomECR, 0)
 }
 
-func (t *TestFramework) ProcessCommitment(alias string) (chain *Chain, wasForked bool) {
-
+func (t *TestFramework) ProcessCommitment(alias string) (isSolid bool, chain *Chain, wasForked bool) {
 	return t.Manager.ProcessCommitment(t.commitment(alias))
 }
 
@@ -73,7 +73,7 @@ func (t *TestFramework) EI(alias string) (index epoch.Index) {
 	return t.commitment(alias).Index()
 }
 
-func (t *TestFramework) ECR(alias string) (ecr commitment.RootsID) {
+func (t *TestFramework) ECR(alias string) (ecr types.Identifier) {
 	return t.commitment(alias).RootsID()
 }
 

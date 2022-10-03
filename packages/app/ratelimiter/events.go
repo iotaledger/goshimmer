@@ -1,8 +1,8 @@
 package ratelimiter
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 type Events struct {
@@ -16,6 +16,6 @@ func newEvents() (new *Events) {
 }
 
 type HitEvent struct {
-	Peer      *peer.Peer
+	Source    identity.ID
 	RateLimit *RateLimit
 }

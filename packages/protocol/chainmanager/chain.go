@@ -13,6 +13,7 @@ type Chain struct {
 
 	latestCommittableEpoch epoch.Index
 	commitmentsByIndex     map[epoch.Index]*Commitment
+	lastSolidIndex         epoch.Index
 
 	sync.RWMutex
 }
@@ -25,6 +26,31 @@ func NewChain(forkingPoint *Commitment) (fork *Chain) {
 			forkingPoint.Commitment().Index(): forkingPoint,
 		},
 	}
+}
+
+func (c *Chain) LastSolidIndex() (lastSolidIndex epoch.Index) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.lastSolidIndex
+}
+
+func (c *Chain) IsSolid() (isSolid bool) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.ForkingPoint.IsSolid()
+}
+
+func (c *Chain) SetLastSolidIndex(lastSolidIndex epoch.Index) (updated bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	if updated = c.lastSolidIndex < lastSolidIndex; updated {
+		c.lastSolidIndex = lastSolidIndex
+	}
+
+	return
 }
 
 func (c *Chain) BlocksCount(index epoch.Index) (blocksCount int) {

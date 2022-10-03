@@ -11,6 +11,7 @@ import (
 type Commitment struct {
 	model.Storable[commitment.ID, Commitment, *Commitment, commitmentModel] `serix:"0"`
 
+	solid       bool
 	children    []*Commitment
 	chain       *Chain
 	entityMutex *syncutils.StarvingMutex
@@ -72,6 +73,24 @@ func (c *Commitment) Chain() (chain *Chain) {
 	return c.chain
 }
 
+func (c *Commitment) IsSolid() (isSolid bool) {
+	c.RLock()
+	defer c.RUnlock()
+
+	return c.solid
+}
+
+func (c *Commitment) SetSolid(solid bool) (updated bool) {
+	c.Lock()
+	defer c.Unlock()
+
+	if updated = c.solid != solid; updated {
+		c.solid = solid
+	}
+
+	return
+}
+
 func (c *Commitment) PublishCommitment(commitment *commitment.Commitment) (published bool) {
 	c.Lock()
 	defer c.Unlock()
@@ -102,15 +121,15 @@ func (c *Commitment) unlockEntity() {
 	c.entityMutex.Unlock()
 }
 
-func (c *Commitment) registerChild(child *Commitment) (chain *Chain, wasForked bool) {
+func (c *Commitment) registerChild(child *Commitment) (isSolid bool, chain *Chain, wasForked bool) {
 	c.Lock()
 	defer c.Unlock()
 
 	if c.children = append(c.children, child); len(c.children) > 1 {
-		return NewChain(child), true
+		return c.solid, NewChain(child), true
 	}
 
-	return c.chain, false
+	return c.solid, c.chain, false
 }
 
 func (c *Commitment) publishChain(chain *Chain) (wasPublished bool) {

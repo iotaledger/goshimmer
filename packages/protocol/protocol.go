@@ -4,110 +4,186 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
-	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/goshimmer/packages/protocol/solidification"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
-var gossipCounter = atomic.NewInt32(0)
 
 type Protocol struct {
-	Events *Events
+	Events            *Events
+	CongestionControl *congestioncontrol.CongestionControl
+	TipManager        *tipmanager.TipManager
 
-	network              network.Interface
+	dispatcher           network.Endpoint
+	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	settings             *Settings
 	chainManager         *chainmanager.Manager
-	solidification       *solidification.Solidification
 	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
 	instancesByChainID   map[commitment.ID]*engine.Engine
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
-	// optsSolidificationOptions []options.Option[solidification.Solidification]
-	optsEngineOptions []options.Option[engine.Engine]
+	// optsSolidificationOptions []options.Option[solidification.Requester]
+	optsCongestionControlOptions []options.Option[congestioncontrol.CongestionControl]
+	optsEngineOptions            []options.Option[engine.Engine]
+	optsTipManagerOptions        []options.Option[tipmanager.TipManager]
 
 	*logger.Logger
 }
 
-func New(networkInstance network.Interface, log *logger.Logger, opts ...options.Option[Protocol]) (protocol *Protocol) {
+func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protocol *Protocol) {
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
-		network:              networkInstance,
-		solidification:       solidification.New(networkInstance, log),
-		instancesByChainID:   make(map[commitment.ID]*engine.Engine),
+		dispatcher:         dispatcher,
+		instancesByChainID: make(map[commitment.ID]*engine.Engine),
+
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
 		optsSnapshotPath:     "./snapshot.bin",
-
-		Logger: log,
-	}, opts)
+	}, opts,
+		(*Protocol).initDisk,
+		(*Protocol).initSettings,
+		(*Protocol).initCongestionControl,
+		(*Protocol).importSnapshot,
+	)
 }
 
 func (p *Protocol) Run() {
+	p.initEngines()
+	p.initChainManager()
+	p.initNetworkProtocol()
+	p.initTipManager()
+}
+
+func (p *Protocol) initDisk() {
 	p.disk = diskutil.New(p.optsBaseDirectory)
+}
+
+func (p *Protocol) initSettings() {
 	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+}
 
-	if err := p.importSnapshot(p.optsSnapshotPath); err != nil {
+func (p *Protocol) initCongestionControl() {
+	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
+
+	p.Events.CongestionControl = p.CongestionControl.Events
+}
+
+func (p *Protocol) importSnapshot() {
+	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
 		panic(err)
 	}
+}
 
-	if p.instantiateChains() == 0 {
-		panic("no chains found (please provide a snapshot file)")
-	}
+func (p *Protocol) initNetworkProtocol() {
+	p.networkProtocol = network.NewProtocol(p.dispatcher)
 
-	if err := p.activateMainChain(); err != nil {
-		panic(err)
-	}
+	p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
+		if block, exists := p.Engine().Block(event.BlockID); exists {
+			p.networkProtocol.SendBlock(block, event.Source)
+		}
+	}))
 
-	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+	p.networkProtocol.Events.BlockReceived.Attach(event.NewClosure(func(event *network.BlockReceivedEvent) {
+		p.ProcessBlock(event.Block, event.Source)
+	}))
 
-	// setup solidification event
-	p.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(p.solidification.RequestBlock))
-	p.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(p.solidification.CancelBlockRequest))
+	p.networkProtocol.Events.EpochCommitmentReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentReceivedEvent) {
+		p.chainManager.ProcessCommitment(event.Commitment)
+	}))
 
-	// setup gossip events
-	p.network.Events().Gossip.BlockRequestReceived.Attach(event.NewClosure(p.processBlockRequest))
-	p.network.Events().Gossip.BlockReceived.Attach(event.NewClosure(p.dispatchReceivedBlock))
-	p.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
-		p.network.SendBlock(block.ModelsBlock)
+	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
+		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
+			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
+		}
+	}))
+
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.networkProtocol.SendBlock(block.ModelsBlock)
+	}))
+
+	p.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+		p.networkProtocol.RequestBlock(blockID)
+	}))
+
+	p.chainManager.CommitmentRequester.Events.Tick.Attach(event.NewClosure(func(commitmentID commitment.ID) {
+		p.networkProtocol.RequestCommitment(commitmentID)
 	}))
 }
 
-func (p *Protocol) IssueBlock(block *models.Block, optSrc ...*p2p.Neighbor) {
-	chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	if chain == nil {
-		// TODO: TRIGGER CHAIN SOLIDIFICATION?
+func (p *Protocol) initEngines() {
+	if p.instantiateEngines() == 0 {
+		panic("no chains found (please provide a snapshot file)")
+	}
+
+	if err := p.activateMainEngine(); err != nil {
+		panic(err)
+	}
+}
+
+func (p *Protocol) initChainManager() {
+	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+}
+
+func (p *Protocol) initTipManager() {
+	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
+	p.TipManager = tipmanager.New(p.Engine().Tangle, p.Engine().Consensus.Gadget, p.CongestionControl.Block, p.Engine().Clock.AcceptedTime, p.Engine().IsBootstrapped, p.optsTipManagerOptions...)
+
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
+
+	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		p.TipManager.RemoveStrongParents(block.ModelsBlock)
+	}))
+
+	p.Events.Engine.Tangle.BlockDAG.BlockOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+			p.TipManager.DeleteTip(schedulerBlock)
+		}
+	}))
+
+	// TODO: enable once this event is implemented
+	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
+	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+	// 		return
+	// 	}
+	//
+	// 	t.addTip(block)
+	// }))
+
+	p.Events.TipManager = p.TipManager.Events
+}
+
+func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
+	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	if !isSolid {
 		return
 	}
 
 	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		if len(optSrc) > 0 {
-			targetInstance.ProcessBlockFromPeer(block, optSrc[0])
-		} else {
-			targetInstance.ProcessBlockFromPeer(block, nil)
-		}
+		targetInstance.ProcessBlockFromPeer(block, src)
 	}
 }
 
@@ -118,7 +194,7 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	return p.activeInstance
 }
 
-func (p *Protocol) importSnapshot(filePath string) (err error) {
+func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 	var snapshotHeader *ledger.SnapshotHeader
 
 	if err = p.disk.WithFile(filePath, func(file *os.File) (err error) {
@@ -127,8 +203,6 @@ func (p *Protocol) importSnapshot(filePath string) (err error) {
 		return
 	}); err != nil {
 		if os.IsNotExist(err) {
-			p.Logger.Debugf("snapshot file '%s' does not exist", filePath)
-
 			return nil
 		}
 
@@ -136,7 +210,7 @@ func (p *Protocol) importSnapshot(filePath string) (err error) {
 	}
 
 	chainID := snapshotHeader.LatestECRecord.ID()
-	chainDirectory := p.disk.Path(fmt.Sprintf("%x", chainID.Bytes()))
+	chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
 
 	if !p.disk.Exists(chainDirectory) {
 		if err = p.disk.CreateDir(chainDirectory); err != nil {
@@ -170,17 +244,17 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 	return snapshotHeader, err
 }
 
-func (p *Protocol) instantiateChains() (chainCount int) {
+func (p *Protocol) instantiateEngines() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", chainID.Bytes())), p.Logger, p.optsEngineOptions...)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger, p.optsEngineOptions...)
 	}
 
 	return len(p.instancesByChainID)
 }
 
-func (p *Protocol) activateMainChain() (err error) {
+func (p *Protocol) activateMainEngine() (err error) {
 	chainID := p.settings.MainChainID()
 
 	mainInstance, exists := p.instancesByChainID[chainID]
@@ -190,34 +264,11 @@ func (p *Protocol) activateMainChain() (err error) {
 
 	p.activeInstance = mainInstance
 	p.Events.Engine.LinkTo(mainInstance.Events)
+	p.CongestionControl.LinkTo(mainInstance)
 
 	p.activeInstance.Run()
 
 	return
-}
-
-func (p *Protocol) dispatchReceivedBlock(event *gossip.BlockReceivedEvent) {
-	block := new(models.Block)
-	if _, err := block.FromBytes(event.Data); err != nil {
-		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
-		return
-	}
-	if block.DetermineID() != nil {
-		p.Events.InvalidBlockReceived.Trigger(event.Neighbor)
-		return
-	}
-	if block.ID().Index() < epoch.IndexFromTime(time.Now())-5 {
-		fmt.Println("Received an old block", block.ID(), block.IssuingTime(), "issuer id", block.IssuerID(), "neighbor", event.Neighbor.Peer.ID())
-		fmt.Println("gossiping threads", gossipCounter.Load())
-	}
-	p.IssueBlock(block, event.Neighbor)
-}
-
-func (p *Protocol) processBlockRequest(event *gossip.BlockRequestReceived) {
-	if block, exists := p.Engine().Block(event.BlockID); exists {
-		p.Logger.Infof("send requester block %s", event.BlockID)
-		p.network.SendBlock(block, event.Neighbor.Peer)
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -242,7 +293,19 @@ func WithSettingsFileName(settings string) options.Option[Protocol] {
 	}
 }
 
-// func WithSolidificationOptions(opts ...options.Option[solidification.Solidification]) options.Option[Protocol] {
+func WithCongestionControlOptions(opts ...options.Option[congestioncontrol.CongestionControl]) options.Option[Protocol] {
+	return func(e *Protocol) {
+		e.optsCongestionControlOptions = opts
+	}
+}
+
+func WithTipManagerOptions(opts ...options.Option[tipmanager.TipManager]) options.Option[Protocol] {
+	return func(p *Protocol) {
+		p.optsTipManagerOptions = opts
+	}
+}
+
+// func WithSolidificationOptions(opts ...options.Option[solidification.Requester]) options.Option[Protocol] {
 // 	return func(n *Protocol) {
 // 		n.optsSolidificationOptions = opts
 // 	}

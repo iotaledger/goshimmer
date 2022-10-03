@@ -13,12 +13,13 @@ func TestSettings(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "setting.bin")
 
 	settings := NewSettings(filePath)
-	require.Equal(t, commitment.EmptyMerkleRoot, settings.MainChainID())
+	require.Equal(t, commitment.ID{}, settings.MainChainID())
 
-	settings.SetMainChainID([32]byte{1})
-	require.Equal(t, commitment.MerkleRoot{1}, settings.MainChainID())
+	mainChainID := commitment.NewID(1, []byte{1, 2, 3})
+	settings.SetMainChainID(mainChainID)
+	require.Equal(t, mainChainID, settings.MainChainID())
 	settings.Persist()
 
 	restoredSettings := NewSettings(filePath)
-	require.Equal(t, commitment.MerkleRoot{1}, restoredSettings.MainChainID())
+	require.Equal(t, mainChainID, restoredSettings.MainChainID())
 }

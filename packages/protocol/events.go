@@ -2,21 +2,27 @@ package protocol
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
 type Events struct {
-	InvalidBlockReceived *event.Linkable[*p2p.Neighbor, Events, *Events]
+	InvalidBlockReceived *event.Linkable[identity.ID, Events, *Events]
 
-	Engine *engine.Events
+	Engine            *engine.Events
+	CongestionControl *congestioncontrol.Events
+	TipManager        *tipmanager.Events
 
 	event.LinkableCollection[Events, *Events]
 }
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
-		Engine: engine.NewEvents(),
+		Engine:            engine.NewEvents(),
+		CongestionControl: congestioncontrol.NewEvents(),
+		TipManager:        tipmanager.NewEvents(),
 	}
 })

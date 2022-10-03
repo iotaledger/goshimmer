@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 
-	"github.com/iotaledger/goshimmer/packages/network/gossip"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 
 	"github.com/iotaledger/goshimmer/packages/app/firewall"
@@ -34,7 +33,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	GossipMgr *gossip.Manager
+	GossipMgr *gossipold.Manager
 	Server    *echo.Echo
 	Firewall  *firewall.Firewall
 	Protocol  *protocol.Protocol
@@ -82,7 +81,7 @@ func start(ctx context.Context) {
 			if !deps.Protocol.Engine().IsBootstrapped() {
 				return
 			}
-			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
+			deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
 				Reason: "Blocks rate limit hit",
 				Info: map[string]interface{}{
 					"rateLimit": event.RateLimit,
@@ -94,7 +93,7 @@ func start(ctx context.Context) {
 	}
 	if mrrl := deps.GossipMgr.BlockRequestsRateLimiter(); mrrl != nil {
 		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
-			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
+			deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
 				Reason: "Block requests rate limit hit",
 				Info: map[string]interface{}{
 					"rateLimit": event.RateLimit,

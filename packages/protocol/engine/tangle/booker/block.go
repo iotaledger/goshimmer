@@ -78,6 +78,13 @@ func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *B
 	}, opts)
 }
 
+func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+	return NewBlock(
+		blockdag.NewRootBlock(id),
+		WithBooked(true),
+	)
+}
+
 func (b *Block) IsBooked() (isBooked bool) {
 	b.RLock()
 	defer b.RUnlock()

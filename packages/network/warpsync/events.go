@@ -2,6 +2,7 @@ package warpsync
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -59,7 +60,7 @@ type EpochBlocksEndEvent struct {
 	Neighbor          *p2p.Neighbor
 	EI                epoch.Index
 	EC                commitment.ID
-	StateMutationRoot commitment.MerkleRoot
-	StateRoot         commitment.MerkleRoot
-	ManaRoot          commitment.MerkleRoot
+	StateMutationRoot types.Identifier
+	StateRoot         types.Identifier
+	ManaRoot          types.Identifier
 }
