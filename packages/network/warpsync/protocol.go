@@ -3,6 +3,7 @@ package warpsync
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"google.golang.org/protobuf/proto"
 
@@ -31,12 +32,10 @@ func New(p2pManager *p2p.Manager, parser *parser.Parser, log *logger.Logger) (ne
 		log:        log,
 	}
 
-	new.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
-		PacketFactory:      warpSyncPacketFactory,
-		NegotiationSend:    sendNegotiationMessage,
-		NegotiationReceive: receiveNegotiationMessage,
-		PacketHandler:      new.handlePacket,
-	})
+	new.p2pManager.RegisterProtocol(protocolID,
+		warpSyncPacketFactory,
+		new.handlePacket,
+	)
 
 	return
 }
@@ -45,7 +44,12 @@ func (p *Protocol) Stop() {
 	p.p2pManager.UnregisterProtocol(protocolID)
 }
 
-func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
+func (p *Protocol) handlePacket(id identity.ID, packet proto.Message) error {
+	nbr, err := p.p2pManager.GetNeighbor(id)
+	if err != nil {
+		return err
+	}
+
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
@@ -65,26 +69,6 @@ func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 
 func warpSyncPacketFactory() proto.Message {
 	return &wp.Packet{}
-}
-
-func sendNegotiationMessage(ps *p2p.PacketsStream) error {
-	packet := &wp.Packet{Body: &wp.Packet_Negotiation{Negotiation: &wp.Negotiation{}}}
-	return errors.WithStack(ps.WritePacket(packet))
-}
-
-func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
-	packet := &wp.Packet{}
-	if err := ps.ReadPacket(packet); err != nil {
-		return errors.WithStack(err)
-	}
-	packetBody := packet.GetBody()
-	if _, ok := packetBody.(*wp.Packet_Negotiation); !ok {
-		return errors.Newf(
-			"received packet isn't the negotiation packet; packet=%+v, packetBody=%T-%+v",
-			packet, packetBody, packetBody,
-		)
-	}
-	return nil
 }
 
 func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) {

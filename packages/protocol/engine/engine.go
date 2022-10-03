@@ -211,6 +211,8 @@ func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
 
 	e.NotarizationManager.Events.ManaVectorUpdate.Attach(e.ManaTracker.OnManaVectorToUpdateClosure)
+
+	e.Events.ManaTracker = e.ManaTracker.Events
 }
 
 func (e *Engine) initSnapshotManager() {

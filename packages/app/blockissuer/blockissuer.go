@@ -1,6 +1,7 @@
 package blockissuer
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -55,7 +56,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
-				return i.protocol.Engine().TipManager.Tips(countParents)
+				return i.protocol.TipManager.Tips(countParents)
 			},
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
@@ -75,14 +76,14 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		i.RateSetter = ratesetter.New(
 			i.protocol,
 			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Engine().CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
+				manaMap, _, err := i.protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
 				if err != nil {
 					return make(map[identity.ID]int64)
 				}
 				return manaMap
 			},
 			func() int64 {
-				totalMana, _, err := i.protocol.Engine().CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
+				totalMana, _, err := i.protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
 				if err != nil {
 					return 0
 				}
@@ -96,6 +97,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 
 func (f *BlockIssuer) setupEvents() {
 	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
+		fmt.Println("process block", block.ID())
 		f.protocol.ProcessBlock(block, f.identity.ID())
 	}))
 }
@@ -188,8 +190,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
 

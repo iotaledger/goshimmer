@@ -33,6 +33,6 @@ func init() {
 	}))
 }
 
-func provide() network.Interface {
-	return network.NewProtocol(deps.P2PManager, Plugin.Logger())
+func provide() *network.Protocol {
+	return network.NewProtocol(deps.P2PManager)
 }

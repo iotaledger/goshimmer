@@ -73,9 +73,9 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setSchedulerBlock(block)
 	})
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
 	r.protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())

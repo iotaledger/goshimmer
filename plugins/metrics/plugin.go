@@ -158,7 +158,7 @@ func registerLocalMetrics() {
 		missingBlockCountDB.Dec()
 	}))
 
-	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -185,7 +185,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerDropped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -195,7 +195,7 @@ func registerLocalMetrics() {
 		sumTimesSinceIssued[SchedulerDropped] += time.Since(block.IssuingTime())
 	}))
 
-	deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
+	deps.Protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(event.NewClosure(func(block *scheduler.Block) {
 		increasePerComponentCounter(SchedulerSkipped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
@@ -284,7 +284,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	deps.Protocol.Events.Engine.CongestionControl.Tracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
+	deps.Protocol.Events.Engine.ManaTracker.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
 

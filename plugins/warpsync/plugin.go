@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/solidification/warpsync"
+	"github.com/iotaledger/goshimmer/packages/protocol/requester/warpsync"
 )
 
 // PluginName is the name of the warpsync plugin.

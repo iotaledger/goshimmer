@@ -132,8 +132,8 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Engine().CongestionControl.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Engine().CongestionControl.GetConsensusMana(deps.Local.ID())
+	accessMana, tAccess, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Engine().ManaTracker.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -142,10 +142,10 @@ func getInfo(c echo.Context) error {
 	}
 
 	issuerQueueSizes := make(map[string]int)
-	for issuerID, size := range deps.Protocol.Engine().CongestionControl.Scheduler.IssuerQueueSizes() {
+	for issuerID, size := range deps.Protocol.CongestionControl.Scheduler().IssuerQueueSizes() {
 		issuerQueueSizes[issuerID.String()] = size
 	}
-	scheduler := deps.Protocol.Engine().CongestionControl.Scheduler
+	scheduler := deps.Protocol.CongestionControl.Scheduler()
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{

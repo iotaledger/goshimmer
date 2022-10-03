@@ -38,7 +38,7 @@ func configure(_ *node.Plugin) {
 }
 
 func getSchedulerInfo(c echo.Context) error {
-	scheduler := deps.Protocol.Engine().CongestionControl.Scheduler
+	scheduler := deps.Protocol.CongestionControl.Scheduler()
 	nodeQueueSizes := make(map[string]int)
 	for nodeID, size := range scheduler.IssuerQueueSizes() {
 		nodeQueueSizes[nodeID.String()] = size

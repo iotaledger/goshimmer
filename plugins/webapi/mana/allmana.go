@@ -12,7 +12,7 @@ import (
 
 // getAllManaHandler handles the request.
 func getAllManaHandler(c echo.Context) error {
-	access, tAccess, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manamodels.AccessMana)
+	access, tAccess, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetAllManaResponse{
 			Error: err.Error(),
@@ -22,7 +22,7 @@ func getAllManaHandler(c echo.Context) error {
 	sort.Slice(accessList, func(i, j int) bool {
 		return accessList[i].Mana > accessList[j].Mana
 	})
-	consensus, tConsensus, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manamodels.ConsensusMana)
+	consensus, tConsensus, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetAllManaResponse{
 			Error: err.Error(),

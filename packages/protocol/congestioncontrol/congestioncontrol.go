@@ -28,6 +28,13 @@ func New(opts ...options.Option[CongestionControl]) (congestionControl *Congesti
 	}, opts)
 }
 
+func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+
+	return c.scheduler
+}
+
 func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.schedulerMutex.Lock()
 	defer c.schedulerMutex.Unlock()
