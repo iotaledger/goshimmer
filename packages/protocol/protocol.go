@@ -104,7 +104,6 @@ func (p *Protocol) initNetworkProtocol() {
 	p.networkProtocol = network.NewProtocol(p.dispatcher)
 
 	p.networkProtocol.Events.BlockRequestReceived.Attach(event.NewClosure(func(event *network.BlockRequestReceivedEvent) {
-		fmt.Println("send requester block ", event.BlockID)
 		if block, exists := p.Engine().Block(event.BlockID); exists {
 			p.networkProtocol.SendBlock(block, event.Source)
 		}

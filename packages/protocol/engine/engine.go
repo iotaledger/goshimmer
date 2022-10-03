@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -257,12 +256,13 @@ func (e *Engine) initEvictionManager() {
 func (e *Engine) initBlockRequester() {
 	e.BlockRequester = eventticker.New(e.EvictionManager, e.optsBlockRequester...)
 
-	e.Events.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
+	// where we try to delete the request again before it is created. Thus, continuing to request forever.
+	e.Events.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
 		// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
 		e.BlockRequester.StartTicker(block.ID())
 	}))
 	e.Events.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println("missing block stored", block.ID())
 		e.BlockRequester.StopTicker(block.ID())
 	}))
 

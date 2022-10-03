@@ -1,7 +1,6 @@
 package eventticker
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto"
@@ -48,8 +47,6 @@ func New[T epoch.IndexedID](evictionManager *eviction.Manager[T], opts ...option
 }
 
 func (r *EventTicker[T]) StartTicker(id T) {
-	fmt.Println("request block", id)
-
 	if r.addTickerToQueue(id) {
 		r.Events.TickerStarted.Trigger(id)
 		r.Events.Tick.Trigger(id)
@@ -57,7 +54,6 @@ func (r *EventTicker[T]) StartTicker(id T) {
 }
 
 func (r *EventTicker[T]) StopTicker(id T) {
-	fmt.Println("stop requesting block", id)
 	if r.stopTicker(id) {
 		r.Events.TickerStopped.Trigger(id)
 	}
@@ -79,6 +75,7 @@ func (r *EventTicker[T]) setup() {
 }
 
 func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
+	// TODO: RLock enough?
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -101,23 +98,20 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 }
 
 func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
+	// TODO: RLock enough?
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
 	storage := r.scheduledTickers.Get(id.Index())
 	if storage == nil {
-		fmt.Println("storage does not exist for ", id)
 		return false
 	}
 
 	timer, exists := storage.Get(id)
 
 	if !exists {
-		fmt.Println("timer does not exist for ", id)
-
 		return false
 	}
-	fmt.Println("cancel request for ", id)
 	timer.Cancel()
 	storage.Delete(id)
 
@@ -127,7 +121,6 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 }
 
 func (r *EventTicker[T]) reSchedule(id T, count int) {
-	fmt.Println("re-request block", id)
 	r.Events.Tick.Trigger(id)
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -162,9 +155,7 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 
 func (r *EventTicker[T]) createReScheduler(blkID T, count int) func() {
 	return func() {
-		if !r.evictionManager.IsTooOld(blkID) {
-			r.reSchedule(blkID, count)
-		}
+		r.reSchedule(blkID, count)
 	}
 }
 
