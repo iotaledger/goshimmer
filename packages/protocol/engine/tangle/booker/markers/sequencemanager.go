@@ -37,8 +37,6 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 		},
 	}, opts)
 
-	m.sequences.Set(0, NewSequence(0, NewMarkers()))
-
 	return m
 }
 
@@ -52,7 +50,7 @@ func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 	inheritedStructureDetails.SetPastMarkers(s.normalizeMarkers(inheritedStructureDetails.PastMarkers()))
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
-		inheritedStructureDetails.SetPastMarkers(NewMarkers(NewMarker(0, 0)))
+		inheritedStructureDetails.SetPastMarkers(NewMarkers(s.createSequence(NewMarkers())))
 	}
 
 	assignedMarker, sequenceExtended := s.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
@@ -195,19 +193,23 @@ func (s *SequenceManager) createSequenceIfNecessary(structureDetails *StructureD
 	if structureDetails.PastMarkerGap() < s.optsMaxPastMarkerDistance {
 		return
 	}
+	return true, s.createSequence(structureDetails.PastMarkers())
+}
 
+// createSequenceIfNecessary is an internal utility function that creates a new Sequence
+func (s *SequenceManager) createSequence(referencedMarkers *Markers) (firstMarker Marker) {
 	s.sequenceIDCounterMutex.Lock()
+	newSequence := NewSequence(s.sequenceIDCounter, referencedMarkers)
 	s.sequenceIDCounter++
-	newSequence := NewSequence(s.sequenceIDCounter, structureDetails.PastMarkers())
 	s.sequenceIDCounterMutex.Unlock()
 
 	s.sequences.Set(newSequence.ID(), newSequence)
 
 	firstMarker = NewMarker(newSequence.ID(), newSequence.LowestIndex())
 
-	s.registerReferencingMarker(structureDetails.PastMarkers(), firstMarker)
+	s.registerReferencingMarker(referencedMarkers, firstMarker)
 
-	return true, firstMarker
+	return firstMarker
 }
 
 // laterMarkersReferenceEarlierMarkers is an internal utility function that returns true if the later Markers reference

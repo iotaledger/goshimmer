@@ -284,6 +284,10 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	parentsConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		if b.evictionManager.IsRootBlock(parentBlockID) {
+			return true
+		}
+
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
 			// This should never happen.
