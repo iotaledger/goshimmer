@@ -12,6 +12,7 @@ import (
 // Block represents a Block annotated with OTV related metadata.
 type Block struct {
 	accepted bool
+	queued   bool
 
 	*virtualvoting.Block
 }
@@ -41,6 +42,24 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 	return
 }
 
+func (b *Block) IsQueued() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.queued
+}
+
+func (b *Block) SetQueued() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.queued; wasUpdated {
+		b.queued = true
+	}
+
+	return
+}
+
 func NewRootBlock(blockID models.BlockID) *Block {
 	virtualVotingBlock := virtualvoting.NewRootBlock(blockID)
 
@@ -54,6 +73,12 @@ func NewRootBlock(blockID models.BlockID) *Block {
 func WithAccepted(accepted bool) options.Option[Block] {
 	return func(b *Block) {
 		b.accepted = accepted
+	}
+}
+
+func WithQueued(queued bool) options.Option[Block] {
+	return func(b *Block) {
+		b.queued = queued
 	}
 }
 

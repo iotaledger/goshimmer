@@ -155,7 +155,7 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 	}
 
 	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
-	if !blockExists {
+	if !blockExists || block.IsAccepted() {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
 	}
@@ -163,6 +163,10 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
+		if !walkerBlock.SetQueued() {
+			continue
+		}
+
 		a.acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
