@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -54,14 +53,14 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 		}, c.optsSchedulerOptions...,
 	)
 
-	//engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
-	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-		registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
-		if err != nil {
-			panic(err)
-		}
-		c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
-	}))
+	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
+	//engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
+	//}))
 	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
 	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
 
