@@ -5,10 +5,14 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/types"
+
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/objectstorage"
+	"github.com/iotaledger/hive.go/core/kvstore"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -17,22 +21,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/objectstorage"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"golang.org/x/crypto/blake2b"
 )
 
 // region CommitmentFactory ///////////////////////////////////////////////////////////////////////////////////////
 
 // CommitmentFactory manages epoch commitmentTrees.
 type CommitmentFactory struct {
-	commitmentTrees       *shrinkingmap.ShrinkingMap[epoch.Index, *commitmentTrees]
-	acceptedBlocksByEpoch *shrinkingmap.ShrinkingMap[epoch.Index, map[identity.ID]*set.AdvancedSet[models.BlockID]]
-
 	storage *EpochCommitmentStorage
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
@@ -55,8 +49,6 @@ func NewCommitmentFactory(store kvstore.KVStore, snapshotDepth int) *CommitmentF
 	manaRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, prefixManaTreeValues)
 
 	return &CommitmentFactory{
-		commitmentTrees:       shrinkingmap.New[epoch.Index, *commitmentTrees](),
-		acceptedBlocksByEpoch: shrinkingmap.New[epoch.Index, map[identity.ID]*set.AdvancedSet[models.BlockID]](),
 		storage:               epochCommitmentStorage,
 		snapshotDepth:         snapshotDepth,
 		stateRootTree:         smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
@@ -76,15 +68,6 @@ func (f *CommitmentFactory) ManaRoot() (manaRoot types.Identifier) {
 	copy(manaRoot[:], f.manaRootTree.Root())
 
 	return
-}
-
-// ECRandRoots retrieves the epoch commitment root.
-func (f *CommitmentFactory) ECRandRoots(ei epoch.Index) (ecr types.Identifier, roots *commitment.Roots, err error) {
-	if roots, err = f.newEpochRoots(ei); err != nil {
-		return types.Identifier{}, nil, errors.Wrap(err, "RootsID could not be created")
-	}
-
-	return roots.ID(), roots, nil
 }
 
 // removeStateLeaf removes the output ID from the ledger sparse merkle tree.
@@ -135,90 +118,29 @@ func (f *CommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.OutputWith
 	return lo.Return2(f.manaRootTree.Update(accountBytes, encodedBalanceBytes))
 }
 
-// insertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
-func (f *CommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while inserting state mutation leaf")
-	}
-
-	return lo.Return2(commitment.stateMutationTree.Update(txID.Bytes(), txID.Bytes()))
-}
-
-// removeStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
-func (f *CommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
-	}
-	return lo.Return2(commitment.stateMutationTree.Delete(txID.Bytes()))
-}
-
-// hasStateMutationLeaf returns if the leaf is part of the state mutation sparse merkle tree.
-func (f *CommitmentFactory) hasStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) (has bool, err error) {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return false, errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
-	}
-	return commitment.stateMutationTree.Has(txID.Bytes())
-}
-
-// insertTangleLeaf inserts blk to the Tangle sparse merkle tree.
-func (f *CommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID models.BlockID) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while inserting tangle leaf")
-	}
-	return lo.Return2(commitment.tangleTree.Update(lo.PanicOnErr(blkID.Bytes()), lo.PanicOnErr(blkID.Bytes())))
-}
-
-// removeTangleLeaf removes the block ID from the Tangle sparse merkle tree.
-func (f *CommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID models.BlockID) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
-	}
-
-	return lo.Return2(commitment.tangleTree.Delete(lo.PanicOnErr(blkID.Bytes())))
-}
-
-// insertActivityLeaf inserts nodeID to the Activity sparse merkle tree.
-func (f *CommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID, acceptedInc ...uint64) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
-	}
-
-	return lo.Return2(commitment.activityTree.Update(nodeID.Bytes(), nodeID.Bytes()))
-}
-
-// removeActivityLeaf removes the nodeID from the Activity sparse merkle tree.
-func (f *CommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
-	commitment, err := f.getCommitmentTrees(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting activity leaf")
-	}
-
-	return lo.Return2(commitment.activityTree.Delete(nodeID.Bytes()))
-}
 
 // ecRecord retrieves the epoch commitment.
-func (f *CommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanager.Commitment, err error) {
+func (f *CommitmentFactory) createCommitment(ei epoch.Index) (ecRecord *chainmanager.Commitment, err error) {
 	ecRecord = f.loadECRecord(ei)
 	if ecRecord != nil {
 		return ecRecord, nil
 	}
 	// We never committed this epoch before, create and roll to a new epoch.
-	ecr, roots, ecrErr := f.ECRandRoots(ei)
+	// TODO: what if a node restarts and we have incomplete tr1ees?
+	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
+	if commitmentTreesErr != nil {
+		return nil, errors.Wrapf(commitmentTreesErr, "cannot get commitment tree for epoch %d", ei)
+	}
+	roots, ecrErr := f.ECRandRoots(ei, commitmentTrees)
 	if ecrErr != nil {
 		return nil, ecrErr
 	}
-	prevECRecord, ecrRecordErr := f.ecRecord(ei - 1)
+	prevECRecord, ecrRecordErr := f.createCommitment(ei - 1)
 	if ecrRecordErr != nil {
 		return nil, ecrRecordErr
 	}
 
-	newCommitment := commitment.New(ei, prevECRecord.ID(), ecr, 0) // TODO: REPLACE CUMULATIVE WEIGHT
+	newCommitment := commitment.New(ei, prevECRecord.ID(), roots.ID(), 0) // TODO: REPLACE CUMULATIVE WEIGHT
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, func(ei epoch.Index) *chainmanager.Commitment {
@@ -232,33 +154,7 @@ func (f *CommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *chainmanager.Com
 	return ecRecord, nil
 }
 
-func (f *CommitmentFactory) addAcceptedBlock(id identity.ID, blockID models.BlockID) {
-	acceptedBlocks, exists := f.acceptedBlocksByEpoch.Get(blockID.Index())
-	if !exists {
-		acceptedBlocks = make(map[identity.ID]*set.AdvancedSet[models.BlockID])
-		f.acceptedBlocksByEpoch.Set(blockID.Index(), acceptedBlocks)
-	}
 
-	acceptedBlocksByIssuerID, exists := acceptedBlocks[id]
-	if !exists {
-		acceptedBlocksByIssuerID = set.NewAdvancedSet[models.BlockID]()
-		acceptedBlocks[id] = acceptedBlocksByIssuerID
-	}
-
-	if acceptedBlocksByIssuerID.Size() == 0 && acceptedBlocksByIssuerID.Add(blockID) {
-		// TODO: TRIGGER ACTIVITY LEAF ADDED
-	}
-}
-
-func (f *CommitmentFactory) removeAcceptedBlock(id identity.ID, blockID models.BlockID) {
-	if acceptedBlocks, exists := f.acceptedBlocksByEpoch.Get(blockID.Index()); exists {
-		if blocksByID, exists := acceptedBlocks[id]; exists {
-			if blocksByID.Delete(blockID) && blocksByID.Size() == 0 {
-				// TODO: TRIGGER ACTIVITY LEAF REMOVED
-			}
-		}
-	}
-}
 
 func (f *CommitmentFactory) loadECRecord(ei epoch.Index) (ecRecord *chainmanager.Commitment) {
 	f.storage.CachedECRecord(ei).Consume(func(record *chainmanager.Commitment) {
@@ -341,35 +237,8 @@ func (f *CommitmentFactory) loadLedgerState(consumer func(*ledger.OutputWithMeta
 	return
 }
 
-// NewCommitment returns an empty commitment for the epoch.
-func (f *CommitmentFactory) newCommitmentTrees(ei epoch.Index) *commitmentTrees {
-	// Volatile storage for small trees
-	db, _ := database.NewMemDB("")
-	blockIDStore := db.NewStore()
-	blockValueStore := db.NewStore()
-	stateMutationIDStore := db.NewStore()
-	stateMutationValueStore := db.NewStore()
-	activityValueStore := db.NewStore()
-	activityIDStore := db.NewStore()
-
-	commitmentTrees := &commitmentTrees{
-		EI:                ei,
-		tangleTree:        smt.NewSparseMerkleTree(blockIDStore, blockValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		activityTree:      smt.NewSparseMerkleTree(activityIDStore, activityValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-	}
-
-	return commitmentTrees
-}
-
-// newEpochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
-func (f *CommitmentFactory) newEpochRoots(ei epoch.Index) (roots *commitment.Roots, commitmentTreesErr error) {
-	// TODO: what if a node restarts and we have incomplete trees?
-	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
-	if commitmentTreesErr != nil {
-		return nil, errors.Wrapf(commitmentTreesErr, "cannot get commitment tree for epoch %d", ei)
-	}
-
+// ECRandRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
+func (f *CommitmentFactory) ECRandRoots(ei epoch.Index, commitmentTrees *commitmentTrees) (roots *commitment.Roots, commitmentTreesErr error) {
 	// We advance the StateRootTree to the next epoch.
 	stateRoot, manaRoot, newStateRootsErr := f.newStateRoots(ei)
 	if newStateRootsErr != nil {
@@ -381,10 +250,6 @@ func (f *CommitmentFactory) newEpochRoots(ei epoch.Index) (roots *commitment.Roo
 	if epochToCommit > 0 {
 		f.commitLedgerState(epochToCommit)
 	}
-
-	// We are never going to use this epoch's commitment trees again.
-	f.commitmentTrees.Delete(ei)
-	f.acceptedBlocksByEpoch.Delete(ei)
 
 	return commitment.NewRoots(
 		stateRoot,
@@ -408,22 +273,6 @@ func (f *CommitmentFactory) commitLedgerState(ei epoch.Index) {
 
 	f.storage.dropEpochDiffStorage(ei)
 
-	return
-}
-
-func (f *CommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentTrees *commitmentTrees, err error) {
-	lastCommittedEpoch, lastCommittedEpochErr := f.storage.latestCommittableEpochIndex()
-	if lastCommittedEpochErr != nil {
-		return nil, errors.Wrap(lastCommittedEpochErr, "cannot get last committed epoch")
-	}
-	if ei <= lastCommittedEpoch {
-		return nil, errors.Errorf("cannot get commitment trees for epoch %d, because it is already committed", ei)
-	}
-	commitmentTrees, ok := f.commitmentTrees.Get(ei)
-	if !ok {
-		commitmentTrees = f.newCommitmentTrees(ei)
-		f.commitmentTrees.Set(ei, commitmentTrees)
-	}
 	return
 }
 
@@ -466,6 +315,15 @@ type commitmentTrees struct {
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
 	activityTree      *smt.SparseMerkleTree
+}
+
+func newCommitmentTrees(ei epoch.Index) *commitmentTrees {
+	return &commitmentTrees{
+		EI:                ei,
+		tangleTree:        smt.NewSparseMerkleTree(mapdb.NewMapDB(), mapdb.NewMapDB(), lo.PanicOnErr(blake2b.New256(nil))),
+		stateMutationTree: smt.NewSparseMerkleTree(mapdb.NewMapDB(), mapdb.NewMapDB(), lo.PanicOnErr(blake2b.New256(nil))),
+		activityTree:      smt.NewSparseMerkleTree(mapdb.NewMapDB(), mapdb.NewMapDB(), lo.PanicOnErr(blake2b.New256(nil))),
+	}
 }
 
 func (c *commitmentTrees) TangleRoot() (tangleRoot types.Identifier) {

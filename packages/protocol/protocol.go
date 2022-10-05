@@ -248,7 +248,7 @@ func (p *Protocol) instantiateEngines() (chainCount int) {
 	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
 		chainID := chains.Next()
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.Logger, p.optsEngineOptions...)
+		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.optsEngineOptions...)
 	}
 
 	return len(p.instancesByChainID)

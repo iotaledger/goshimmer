@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -55,7 +54,6 @@ type Engine struct {
 	databaseVersion                database.Version
 	chainDirectory                 string
 	DBManager                      *database.Manager
-	logger                         *logger.Logger
 	optsBootstrappedThreshold      time.Duration
 	optsSnapshotFile               string
 	optsSnapshotDepth              int
@@ -69,7 +67,7 @@ type Engine struct {
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
-func New(databaseVersion database.Version, chainDirectory string, logger *logger.Logger, opts ...options.Option[Engine]) (engine *Engine) {
+func New(databaseVersion database.Version, chainDirectory string, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
 			databaseVersion: databaseVersion,
@@ -79,7 +77,6 @@ func New(databaseVersion database.Version, chainDirectory string, logger *logger
 			EvictionManager: eviction.NewManager[models.BlockID](),
 
 			chainDirectory:            chainDirectory,
-			logger:                    logger,
 			optsBootstrappedThreshold: 10 * time.Second,
 			optsSnapshotFile:          "snapshot.bin",
 			optsSnapshotDepth:         5,

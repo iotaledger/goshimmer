@@ -30,7 +30,7 @@ func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentPro
 	}
 	t := block.IssuingTime()
 	ei = epoch.IndexFromTime(t)
-	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
+	proof, err := m.commitmentFactory.ProofTangleRoot(ei, blockID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	m.ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		ei = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
-	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
+	proof, err := m.commitmentFactory.ProofStateMutationRoot(ei, transactionID)
 	if err != nil {
 		return nil, err
 	}

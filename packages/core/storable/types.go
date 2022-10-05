@@ -13,3 +13,10 @@ type StructConstraint[A any, B Pointer[A]] interface {
 type Pointer[A any] interface {
 	*A
 }
+
+type serializable[A any] interface {
+	*A
+
+	Bytes() ([]byte, error)
+	FromBytes([]byte) (int, error)
+}
