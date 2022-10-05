@@ -28,9 +28,8 @@ func TestManager(t *testing.T) {
 		newBlock("blk17", "blk7", "blk16"),
 		newBlock("blk18", "blk7", "blk13", "blk14"),
 		newBlock("blk19", "blk7", "blk13", "blk14"),
-		newBlock("blk20", "blk7", "blk13", "blk14", "blk11"),
+		newBlock("blk20", "blk19"),
 		newBlock("blk21", "blk20"),
-		newBlock("blk22", "blk21"),
 	}
 
 	blockDB := makeBlockDB(testBlocks...)
@@ -55,78 +54,88 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:    0,
 			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(1, 2),
+				NewMarker(2, 7),
 			),
 		},
 		"blk2": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 0),
+				NewMarker(1, 1),
 			),
 			PastMarkersGap:    0,
 			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(0, 2),
+				NewMarker(2, 7),
 			),
 		},
 		"blk3": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(0, 3),
+				NewMarker(2, 7),
 			),
 		},
 		"blk4": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 5),
-				NewMarker(2, 6),
-				NewMarker(3, 5),
+				NewMarker(0, 8),
+				NewMarker(2, 7),
 			),
 		},
 		"blk5": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 1),
+				NewMarker(0, 2),
 			),
-			PastMarkersGap:     1,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 1),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
 		},
 		"blk6": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(0, 3),
 			),
-			PastMarkersGap:     1,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 2),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
 		},
 		"blk7": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
+				NewMarker(1, 4),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 5),
 				NewMarker(2, 7),
-				NewMarker(3, 5),
 			),
 		},
 		"blk8": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
@@ -134,7 +143,7 @@ func TestManager(t *testing.T) {
 		},
 		"blk9": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
@@ -142,7 +151,7 @@ func TestManager(t *testing.T) {
 		},
 		"blk10": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
@@ -150,138 +159,123 @@ func TestManager(t *testing.T) {
 		},
 		"blk11": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
-			),
-			PastMarkersGap:     2,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk12": {
-			PastMarkers: NewMarkers(
-				NewMarker(1, 3),
+				NewMarker(0, 4),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(2, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
+		},
+		"blk12": {
+			PastMarkers: NewMarkers(
 				NewMarker(0, 5),
-				NewMarker(3, 5),
+			),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 2),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk13": {
 			PastMarkers: NewMarkers(
-				NewMarker(1, 4),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(0, 5),
-				NewMarker(2, 5),
-				NewMarker(3, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk14": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 3),
+				NewMarker(0, 4),
 			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
-			),
+			PastMarkersGap:    1,
+			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(0, 5),
-				NewMarker(1, 5),
-				NewMarker(3, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk15": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 5),
+				NewMarker(0, 7),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(1, 4),
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 9),
+			),
 		},
 		"blk16": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 6),
+				NewMarker(0, 8),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 3),
-				NewMarker(1, 4),
+				NewMarker(1, 3),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 9),
+			),
 		},
 		"blk17": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(1, 4),
+				NewMarker(0, 8),
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
 		"blk18": {
 			PastMarkers: NewMarkers(
-				NewMarker(1, 5),
-			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(2, 3),
-			),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk19": {
-			PastMarkers: NewMarkers(
-				NewMarker(0, 5),
-			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
 				NewMarker(1, 4),
-				NewMarker(2, 3),
-			),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk20": {
-			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"blk21": {
+		"blk19": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
 				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
+			),
+			PastMarkersGap:     1,
+			ReferencedMarkers:  NewMarkers(),
+			ReferencingMarkers: NewMarkers(),
+		},
+		"blk20": {
+			PastMarkers: NewMarkers(
+				NewMarker(1, 4),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"blk22": {
+		"blk21": {
 			PastMarkers: NewMarkers(
-				NewMarker(3, 5),
+				NewMarker(2, 7),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
 				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
