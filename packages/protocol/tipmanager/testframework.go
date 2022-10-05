@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
@@ -50,6 +51,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
 		optsGenesisTime: time.Now().Add(-5 * time.Hour),
 	}, opts, func(t *TestFramework) {
+		epoch.GenesisTime = t.optsGenesisTime.Unix()
+
 		t.TestFramework = tangle.NewTestFramework(
 			test,
 			tangle.WithTangleOptions(t.optsTangleOptions...),
@@ -62,6 +65,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.TipManager == nil {
 			t.TipManager = New(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, func() bool { return true }, t.optsTipManagerOptions...)
 		}
+		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)))
 
 	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
 }
@@ -152,7 +156,7 @@ func (t *TestFramework) AssertIsPastConeTimestampCorrect(blockAlias string, expe
 	if !exists {
 		panic(fmt.Sprintf("block with %s not found", blockAlias))
 	}
-	actual := t.TipManager.isPastConeTimestampCorrect(block)
+	actual := t.TipManager.isPastConeTimestampCorrect(block.Block.Block)
 	assert.Equal(t.test, expected, actual, "isPastConeTimestampCorrect: %s should be %t but is %t", blockAlias, expected, actual)
 }
 

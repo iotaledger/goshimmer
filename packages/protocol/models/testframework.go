@@ -46,6 +46,15 @@ func (t *TestFramework) CreateBlock(alias string, opts ...options.Option[Block])
 	return
 }
 
+// SetBlock set a Block with the given alias.
+func (t *TestFramework) SetBlock(alias string, block *Block) {
+	block.ID().RegisterAlias(alias)
+
+	t.blocksByAlias[alias] = block
+
+	return
+}
+
 // Block retrieves the Blocks that is associated with the given alias.
 func (t *TestFramework) Block(alias string) (block *Block) {
 	block, ok := t.blocksByAlias[alias]

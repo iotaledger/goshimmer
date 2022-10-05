@@ -255,6 +255,10 @@ func (m *MockAcceptanceGadget) IsMarkerAccepted(marker markers.Marker) (accepted
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
+	if marker.Index() == 0 {
+		return true
+	}
+
 	if m.AcceptedMarkers == nil || m.AcceptedMarkers.Size() == 0 {
 		return false
 	}
@@ -273,7 +277,7 @@ func (m *MockAcceptanceGadget) FirstUnacceptedIndex(sequenceID markers.SequenceI
 	if exists {
 		return acceptedIndex + 1
 	}
-	return 0
+	return 1
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

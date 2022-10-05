@@ -78,8 +78,8 @@ func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *B
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID) *Block {
-	blockDAGBlock := blockdag.NewRootBlock(id)
+func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) *Block {
+	blockDAGBlock := blockdag.NewRootBlock(id, opts...)
 
 	genesisStructureDetails := markers.NewStructureDetails()
 	genesisStructureDetails.SetIsPastMarker(true)
