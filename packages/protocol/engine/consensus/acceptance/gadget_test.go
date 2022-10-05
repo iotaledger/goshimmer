@@ -498,15 +498,11 @@ func TestGadget_update_reorg(t *testing.T) {
 	}
 
 	tf.CreateBlock("Block4", models.WithStrongParents(tf.BlockIDs("Block2")), models.WithIssuer(tf.Identity("A").PublicKey()))
-	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("A").PublicKey()))
-
-	tf.IssueBlocks("Block4", "Block5").WaitUntilAllTasksProcessed()
-
+	tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
-			"Block2": false,
+			"Block2": true,
 			"Block4": false,
-			"Block5": false,
 		}))
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
@@ -516,15 +512,13 @@ func TestGadget_update_reorg(t *testing.T) {
 		tf.AssertReorgs(0)
 	}
 
-	tf.CreateBlock("Block6", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
-	tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
-
+	tf.CreateBlock("Block5", models.WithStrongParents(tf.BlockIDs("Block4")), models.WithIssuer(tf.Identity("B").PublicKey()))
+	tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 	{
 		tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 			"Block2": true,
 			"Block4": true,
-			"Block5": true,
-			"Block6": false,
+			"Block5": false,
 		}))
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
