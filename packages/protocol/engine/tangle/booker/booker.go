@@ -141,6 +141,12 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
+	if marker.Index() == 0 {
+		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.evictionManager.MaxEvictedEpoch().EndTime()))
+		rootBlock.StructureDetails().SetPastMarkers(markers.NewMarkers(marker))
+
+		return rootBlock, true
+	}
 
 	return b.markerManager.BlockFromMarker(marker)
 }

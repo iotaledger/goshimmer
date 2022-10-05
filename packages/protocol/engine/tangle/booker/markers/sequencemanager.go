@@ -42,7 +42,8 @@ func NewSequenceManager(opts ...options.Option[SequenceManager]) (m *SequenceMan
 
 // InheritStructureDetails takes the StructureDetails of the referenced parents and returns new StructureDetails for the
 // block that was just added to the DAG. It automatically creates a new Sequence and Index if necessary and returns an
-// additional flag that indicates if a new Sequence was created.
+// additional flag that indicates if a new Sequence was created. When attaching to one of the root blocks, a new
+// sequence is always created and the block is assigned Index(1), while Index(0) is a root index.
 // InheritStructureDetails inherits the structure details of the given parent StructureDetails.
 func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*StructureDetails) (inheritedStructureDetails *StructureDetails, newSequenceCreated bool) {
 	inheritedStructureDetails = s.mergeParentStructureDetails(referencedStructureDetails)
@@ -51,10 +52,11 @@ func (s *SequenceManager) InheritStructureDetails(referencedStructureDetails []*
 
 	if inheritedStructureDetails.PastMarkers().Size() == 0 {
 		inheritedStructureDetails.SetPastMarkers(NewMarkers(s.createSequence(NewMarkers())))
+		newSequenceCreated = true
 	}
 
 	assignedMarker, sequenceExtended := s.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers())
-	if !sequenceExtended {
+	if !sequenceExtended && !newSequenceCreated {
 		newSequenceCreated, assignedMarker = s.createSequenceIfNecessary(inheritedStructureDetails)
 	}
 
@@ -177,7 +179,6 @@ func (s *SequenceManager) extendHighestAvailableSequence(referencedPastMarkers *
 		if newIndex, remainingReferencedPastMarkers, sequenceExtended := sequence.TryExtend(referencedPastMarkers, s.optsIncreaseIndexCallback); sequenceExtended {
 			extended = sequenceExtended
 			marker = NewMarker(sequenceID, newIndex)
-
 			s.registerReferencingMarker(remainingReferencedPastMarkers, marker)
 		}
 
@@ -204,7 +205,6 @@ func (s *SequenceManager) createSequence(referencedMarkers *Markers) (firstMarke
 	s.sequenceIDCounterMutex.Unlock()
 
 	s.sequences.Set(newSequence.ID(), newSequence)
-
 	firstMarker = NewMarker(newSequence.ID(), newSequence.LowestIndex())
 
 	s.registerReferencingMarker(referencedMarkers, firstMarker)

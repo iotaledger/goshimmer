@@ -76,6 +76,10 @@ func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 }
 
 func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
+	if marker.Index() == 0 {
+		return true
+	}
+
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(marker.SequenceID())
 	return exists && lastAcceptedIndex >= marker.Index()
 }
@@ -83,7 +87,7 @@ func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
-		return 0
+		return 1
 	}
 
 	return lastAcceptedIndex + 1
