@@ -83,10 +83,11 @@ func (i *Slice[A, B]) Get(index int) (entry B, err error) {
 		return entry, errors.Errorf("failed to read entry: %w", err)
 	}
 
-	entry = new(A)
-	if _, err = entry.FromBytes(entryBytes); err != nil {
+	var newEntry B = new(A)
+	if _, err = newEntry.FromBytes(entryBytes); err != nil {
 		return entry, errors.Errorf("failed to deserialize entry: %w", err)
 	}
+	entry = newEntry
 
 	return
 }
