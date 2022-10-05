@@ -179,7 +179,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"Block3": markers.NewMarkers(markers.NewMarker(1, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -196,7 +196,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"Block4": markers.NewMarkers(markers.NewMarker(1, 2)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block4": {tf.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
@@ -214,7 +214,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
+			"Block5": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block5": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -230,7 +230,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6": markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Block6": markers.NewMarkers(markers.NewMarker(1, 4)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -248,7 +248,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6.3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 3)),
+			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 5)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -266,7 +266,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6.6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 4)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -284,7 +284,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+			"Block7": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(0, 1)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -305,7 +305,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7.3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 3), markers.NewMarker(0, 1)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -323,7 +323,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7.6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 4)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
