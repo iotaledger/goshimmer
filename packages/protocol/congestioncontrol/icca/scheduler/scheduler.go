@@ -65,7 +65,7 @@ type Scheduler struct {
 }
 
 // New returns a new Scheduler.
-func New(evictionManager *eviction.Manager[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
+func New(evictionManager *eviction.State[models.BlockID], isBlockAccepted func(models.BlockID) bool, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, opts ...options.Option[Scheduler]) *Scheduler {
 	return options.Apply(&Scheduler{
 		Events:          NewEvents(),
 		EvictionManager: evictionManager.Lockable(),

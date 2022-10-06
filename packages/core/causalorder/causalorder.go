@@ -52,7 +52,7 @@ type CausalOrder[ID epoch.IndexedID, Entity OrderedEntity[ID]] struct {
 }
 
 // New returns a new CausalOrderer instance with the given parameters.
-func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction.Manager[ID],
+func New[ID epoch.IndexedID, Entity OrderedEntity[ID]](evictionManager *eviction.State[ID],
 	entityProvider func(id ID) (entity Entity, exists bool),
 	isOrdered func(entity Entity) (isOrdered bool),
 	orderedCallback func(entity Entity) (err error),

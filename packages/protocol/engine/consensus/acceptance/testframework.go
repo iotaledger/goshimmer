@@ -36,7 +36,7 @@ type TestFramework struct {
 	optsGadgetOptions   []options.Option[Gadget]
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.Manager[models.BlockID]
+	optsEvictionManager *eviction.State[models.BlockID]
 	optsValidatorSet    *validator.Set
 	optsTangle          *tangle.Tangle
 	optsTangleOptions   []options.Option[tangle.Tangle]
@@ -55,7 +55,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 				}
 
 				if t.optsEvictionManager == nil {
-					t.optsEvictionManager = eviction.NewManager[models.BlockID]()
+					t.optsEvictionManager = eviction.NewState[models.BlockID]()
 				}
 
 				if t.optsValidatorSet == nil {
@@ -192,7 +192,7 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.optsEvictionManager = evictionManager
 	}

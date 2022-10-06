@@ -16,7 +16,7 @@ import (
 type Manager struct {
 	Events              *Events
 	SnapshotCommitment  *Commitment
-	EvictionManager     *eviction.Manager[commitment.ID]
+	EvictionManager     *eviction.State[commitment.ID]
 	CommitmentRequester *eventticker.EventTicker[commitment.ID]
 
 	commitmentsByID map[commitment.ID]*Commitment
@@ -29,7 +29,7 @@ type Manager struct {
 func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 	manager = &Manager{
 		Events:          NewEvents(),
-		EvictionManager: eviction.NewManager[commitment.ID](),
+		EvictionManager: eviction.NewState[commitment.ID](),
 
 		commitmentsByID: make(map[commitment.ID]*Commitment),
 	}

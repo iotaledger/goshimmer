@@ -37,7 +37,7 @@ type BlockDAG struct {
 }
 
 // New is the constructor for the BlockDAG and creates a new BlockDAG instance.
-func New(evictionManager *eviction.Manager[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
+func New(evictionManager *eviction.State[models.BlockID], opts ...options.Option[BlockDAG]) (newBlockDAG *BlockDAG) {
 	return options.Apply(&BlockDAG{
 		Events:          NewEvents(),
 		EvictionManager: evictionManager.Lockable(),

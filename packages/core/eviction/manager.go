@@ -10,7 +10,7 @@ import (
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type Manager[ID epoch.IndexedID] struct {
+type State[ID epoch.IndexedID] struct {
 	Events *Events
 
 	maxEvictedEpoch epoch.Index
@@ -19,10 +19,10 @@ type Manager[ID epoch.IndexedID] struct {
 	sync.RWMutex
 }
 
-func NewManager[ID epoch.IndexedID]() (newManager *Manager[ID]) {
+func NewState[ID epoch.IndexedID]() (newManager *State[ID]) {
 	var emptyID ID
 
-	return &Manager[ID]{
+	return &State[ID]{
 		Events:          NewEvents(),
 		rootBlocks:      set.NewAdvancedSet[ID](emptyID),
 		maxEvictedEpoch: 0,
@@ -31,13 +31,13 @@ func NewManager[ID epoch.IndexedID]() (newManager *Manager[ID]) {
 
 // Lockable returns a lockable version of the Manager that contains an additional mutex used to synchronize the eviction
 // process inside the components.
-func (m *Manager[ID]) Lockable() (newLockableManager *LockableManager[ID]) {
+func (m *State[ID]) Lockable() (newLockableManager *LockableManager[ID]) {
 	return &LockableManager[ID]{
-		Manager: m,
+		State: m,
 	}
 }
 
-func (m *Manager[ID]) EvictUntil(epochIndex epoch.Index, rootBlocks *set.AdvancedSet[ID]) {
+func (m *State[ID]) EvictUntil(epochIndex epoch.Index, rootBlocks *set.AdvancedSet[ID]) {
 	previousEvicted := m.setEvictedEpochAndUpdateRootBlocks(epochIndex, rootBlocks)
 
 	for currentIndex := previousEvicted + 1; currentIndex <= epochIndex; currentIndex++ {
@@ -46,40 +46,40 @@ func (m *Manager[ID]) EvictUntil(epochIndex epoch.Index, rootBlocks *set.Advance
 }
 
 // IsTooOld checks if the Block associated with the given id is too old (in a pruned epoch).
-func (m *Manager[ID]) IsTooOld(id ID) (isTooOld bool) {
+func (m *State[ID]) IsTooOld(id ID) (isTooOld bool) {
 	m.RLock()
 	defer m.RUnlock()
 
 	return id.Index() <= m.maxEvictedEpoch && !m.isRootBlock(id)
 }
 
-func (m *Manager[ID]) IsRootBlock(id ID) (isRootBlock bool) {
+func (m *State[ID]) IsRootBlock(id ID) (isRootBlock bool) {
 	m.RLock()
 	defer m.RUnlock()
 
 	return m.isRootBlock(id)
 }
 
-func (m *Manager[ID]) RootBlocks() (rootBlocks *set.AdvancedSet[ID]) {
+func (m *State[ID]) RootBlocks() (rootBlocks *set.AdvancedSet[ID]) {
 	m.RLock()
 	defer m.RUnlock()
 
 	return m.rootBlocks.Clone()
 }
 
-func (m *Manager[ID]) MaxEvictedEpoch() epoch.Index {
+func (m *State[ID]) MaxEvictedEpoch() epoch.Index {
 	m.RLock()
 	defer m.RUnlock()
 
 	return m.maxEvictedEpoch
 }
 
-func (m *Manager[ID]) isRootBlock(id ID) (isRootBlock bool) {
+func (m *State[ID]) isRootBlock(id ID) (isRootBlock bool) {
 	return m.rootBlocks.Has(id)
 }
 
 // setEvictedEpochAndUpdateRootBlocks atomically increases maxEvictedEpoch and updates the root blocks for the epoch.
-func (m *Manager[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index, rootBlocks *set.AdvancedSet[ID]) (old epoch.Index) {
+func (m *State[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index, rootBlocks *set.AdvancedSet[ID]) (old epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -101,7 +101,7 @@ func (m *Manager[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index, root
 // process in the individual components.
 type LockableManager[ID epoch.IndexedID] struct {
 	// Manager is the underlying Manager.
-	*Manager[ID]
+	*State[ID]
 
 	// RWMutex is the mutex that is used to synchronize the eviction process.
 	sync.RWMutex

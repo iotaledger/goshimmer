@@ -58,7 +58,7 @@ func New(blockDAG *blockdag.BlockDAG, ledger *ledger.Ledger, opts ...options.Opt
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.bookingOrder = causalorder.New(
-			blockDAG.EvictionManager.Manager,
+			blockDAG.EvictionManager.State,
 			b.Block,
 			(*Block).IsBooked,
 			b.book,

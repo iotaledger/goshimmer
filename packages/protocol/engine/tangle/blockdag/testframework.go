@@ -24,7 +24,7 @@ type TestFramework struct {
 	BlockDAG *BlockDAG
 
 	test                *testing.T
-	evictionManager     *eviction.Manager[models.BlockID]
+	evictionManager     *eviction.State[models.BlockID]
 	solidBlocks         int32
 	missingBlocks       int32
 	invalidBlocks       int32
@@ -45,7 +45,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 	}, opts, func(t *TestFramework) {
 		if t.BlockDAG == nil {
 			if t.evictionManager == nil {
-				t.evictionManager = eviction.NewManager[models.BlockID]()
+				t.evictionManager = eviction.NewState[models.BlockID]()
 			}
 
 			t.BlockDAG = New(t.evictionManager, t.optsBlockDAG...)
@@ -222,7 +222,7 @@ type ModelsTestFramework = models.TestFramework
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEvictionManager(evictionManager *eviction.Manager[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
 		t.evictionManager = evictionManager
 	}

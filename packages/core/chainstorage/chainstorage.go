@@ -6,22 +6,39 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 )
 
 type ChainStorage struct {
-	Events *Events
+	Events       *Events
+	BlockStorage *BlockStorage
 
 	settings    *settings
 	commitments *storable.Slice[commitment.Commitment, *commitment.Commitment]
 	database    *database.Manager
 }
 
-func NewChainStorage(folder string) (c *ChainStorage) {
-	return &ChainStorage{
-		settings: &settings{},
+func NewChainStorage(folder string) (chainManager *ChainStorage, err error) {
+	chainManager = &ChainStorage{
+		Events: NewEvents(),
 	}
+	chainManager.BlockStorage = &BlockStorage{chainManager}
+
+	chainManager.settings = storable.InitStruct(&settings{
+		LatestCommittableEpoch: 0,
+		LatestAcceptedEpoch:    0,
+		LatestConfirmedEpoch:   0,
+	}, diskutil.New(folder).Path("settings.bin"))
+
+	if chainManager.commitments, err = storable.NewSlice[commitment.Commitment](diskutil.New(folder).Path("commitments.bin")); err != nil {
+		return nil, errors.Errorf("failed to create commitments database: %w", err)
+	}
+
+	chainManager.database = database.NewManager(1, database.WithBaseDir(folder), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
+
+	return chainManager, nil
 }
 
 func (c *ChainStorage) LatestCommittableEpoch() (latestCommittableEpoch epoch.Index) {
@@ -89,33 +106,56 @@ func (c *ChainStorage) Commitment(index epoch.Index) (commitment *commitment.Com
 
 func (c *ChainStorage) SetCommitment(index epoch.Index, commitment *commitment.Commitment) {
 	if err := c.commitments.Set(int(index), commitment); err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to set commitment for epoch %d: %w", index, err))
+		c.Events.Error.Trigger(errors.Errorf("failed to store commitment for epoch %d: %w", index, err))
 	}
 }
 
 func (c *ChainStorage) LedgerstateStorage() (ledgerstateStorage kvstore.KVStore) {
-	ledgerstateStorage, err := c.database.PermanentStorage().WithRealm([]byte("ledgerstate"))
-	if err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to get ledgerstate storage: %w", err))
-	}
-
-	return ledgerstateStorage
+	return c.permanentStorage(LedgerStateStorage)
 }
 
-func (c *ChainStorage) StateRootStorage() (stateRootStorage kvstore.KVStore) {
-	stateRootStorage, err := c.database.PermanentStorage().WithRealm([]byte("stateRoot"))
-	if err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to get state root storage: %w", err))
-	}
-
-	return stateRootStorage
+func (c *ChainStorage) StateTreeStorage() (stateTreeStorage kvstore.KVStore) {
+	return c.permanentStorage(StateTreeStorage)
 }
 
-func (c *ChainStorage) ManaRootStorage() (manaRootStorage kvstore.KVStore) {
-	manaRootStorage, err := c.database.PermanentStorage().WithRealm([]byte("manaRoot"))
+func (c *ChainStorage) ManaTreeStorage() (manaTreeStorage kvstore.KVStore) {
+	return c.permanentStorage(ManaTreeStorage)
+}
+
+func (c *ChainStorage) CommitmentRootsStorage(index epoch.Index) kvstore.KVStore {
+	return c.bucketedStorage(index, CommitmentRootsStorage)
+}
+
+func (c *ChainStorage) MutationTreesStorage(index epoch.Index) kvstore.KVStore {
+	return c.bucketedStorage(index, MutationTreesStorage)
+}
+
+func (c *ChainStorage) LedgerDiffStorage(index epoch.Index) kvstore.KVStore {
+	return c.bucketedStorage(index, LedgerDiffStorage)
+}
+
+func (c *ChainStorage) SolidEntryPointsStorage(index epoch.Index) kvstore.KVStore {
+	return c.bucketedStorage(index, SolidEntryPointsStorage)
+}
+
+func (c *ChainStorage) ActivityLogStorage(index epoch.Index) kvstore.KVStore {
+	return c.bucketedStorage(index, ActivityLogStorage)
+}
+
+func (c *ChainStorage) Shutdown() {
+	c.database.Shutdown()
+	c.commitments.Close()
+}
+
+func (c *ChainStorage) permanentStorage(storageType Type) (storage kvstore.KVStore) {
+	storage, err := c.database.PermanentStorage().WithRealm([]byte{byte(storageType)})
 	if err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to get mana root storage: %w", err))
+		c.Events.Error.Trigger(errors.Errorf("failed to get state storage of type %s: %w", storageType, err))
 	}
 
-	return manaRootStorage
+	return storage
+}
+
+func (c *ChainStorage) bucketedStorage(index epoch.Index, storageType Type) (storage kvstore.KVStore) {
+	return c.database.Get(index, []byte{byte(storageType)})
 }

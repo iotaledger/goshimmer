@@ -30,7 +30,7 @@ type EventTicker[T epoch.IndexedID] struct {
 }
 
 // New creates a new block requester.
-func New[T epoch.IndexedID](evictionManager *eviction.Manager[T], opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
+func New[T epoch.IndexedID](evictionManager *eviction.State[T], opts ...options.Option[EventTicker[T]]) *EventTicker[T] {
 	return options.Apply(&EventTicker[T]{
 		Events: NewEvents[T](),
 
