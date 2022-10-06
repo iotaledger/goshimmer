@@ -18,6 +18,7 @@ import (
 
 func TestReferenceProvider_References1(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
+	tf.Protocol.Run()
 
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
 
@@ -42,6 +43,8 @@ func TestReferenceProvider_References1(t *testing.T) {
 
 func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
+	tf.Protocol.Run()
+
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
 
 	tangleTF.CreateIdentity("V1", validator.WithWeight(10))
@@ -97,6 +100,8 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 // Tests if weak references are properly constructed from consumed outputs.
 func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tf := protocol.NewTestFramework(t)
+	tf.Protocol.Run()
+
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(tf.Protocol.Engine().Tangle))
 
 	tangleTF.CreateBlock("Block1", models.WithPayload(tangleTF.CreateTransaction("TX1", 3, "Genesis")))
