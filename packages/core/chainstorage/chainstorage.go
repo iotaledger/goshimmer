@@ -11,6 +11,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 )
 
+func init() {
+	// SAMPLE API
+
+	// chainStorage.Commitments.Store(*commitment.Commitment)
+	// chainStorage.Commitments.Get(index epoch.Index)
+	// chainStorage.Commitments.Delete(index epoch.Index)
+
+	// chainStorage.LedgerState.Store(utxo.Output)
+	// chainStorage.LedgerState.Get(utxo.OutputID)
+	// chainStorage.LedgerState.Delete(utxo.OutputID)
+
+	// chainStorage.ManaStateTree // kvstore.KVStore
+	// chainStorage.LedgerStateTree // kvstore.KVStore
+
+	// chainStorage.Blocks.Store(*models.Block)
+	// chainStorage.Blocks.Get(models.BlockID)
+	// chainStorage.Blocks.Delete(models.BlockID)
+
+	// chainStorage.LedgerDiff(index) // kvstore.KVStore
+}
+
 type ChainStorage struct {
 	Events       *Events
 	BlockStorage *BlockStorage
