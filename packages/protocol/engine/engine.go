@@ -172,7 +172,7 @@ func (e *Engine) initTSCManager() {
 func (e *Engine) initBlockStorage() {
 	e.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](e.DBManager, kvstore.Realm{0x09})
 
-	e.Events.Consensus.Acceptance.EpochClosed.Attach(event.NewClosure(func(storage *memstorage.Storage[models.BlockID, *acceptance.Block]) {
+	e.Events.Consensus.Acceptance.EpochClosed.Hook(event.NewClosure(func(storage *memstorage.Storage[models.BlockID, *acceptance.Block]) {
 		storage.ForEach(func(blockID models.BlockID, block *acceptance.Block) bool {
 			if block.IsAccepted() && !block.IsOrphaned() {
 				e.BlockStorage.Set(block.ID(), block.ModelsBlock)
