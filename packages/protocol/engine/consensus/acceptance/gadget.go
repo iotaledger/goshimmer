@@ -190,6 +190,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 	if a.evictionManager.IsTooOld(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
+
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsExplicitlyOrphaned() {
@@ -216,6 +217,11 @@ func (a *Gadget) evictEpoch(index epoch.Index) {
 	defer a.evictionManager.Unlock()
 
 	a.acceptanceOrder.EvictEpoch(index)
+
+	storage := a.blocks.Get(index, false)
+	if storage != nil {
+		a.Events.EpochClosed.Trigger(storage)
+	}
 	a.blocks.EvictEpoch(index)
 }
 

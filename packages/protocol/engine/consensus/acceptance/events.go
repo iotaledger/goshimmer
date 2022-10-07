@@ -3,11 +3,14 @@ package acceptance
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type Events struct {
 	BlockAccepted *event.Linkable[*Block, Events, *Events]
+	EpochClosed   *event.Linkable[*memstorage.Storage[models.BlockID, *Block], Events, *Events]
 	Reorg         *event.Linkable[utxo.TransactionID, Events, *Events]
 	Error         *event.Linkable[error, Events, *Events]
 
@@ -18,6 +21,7 @@ type Events struct {
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		BlockAccepted: event.NewLinkable[*Block, Events, *Events](),
+		EpochClosed:   event.NewLinkable[*memstorage.Storage[models.BlockID, *Block], Events, *Events](),
 		Reorg:         event.NewLinkable[utxo.TransactionID, Events, *Events](),
 		Error:         event.NewLinkable[error, Events, *Events](),
 	}

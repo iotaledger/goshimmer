@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -171,8 +172,13 @@ func (e *Engine) initTSCManager() {
 func (e *Engine) initBlockStorage() {
 	e.BlockStorage = database.NewPersistentEpochStorage[models.BlockID, models.Block](e.DBManager, kvstore.Realm{0x09})
 
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		e.BlockStorage.Set(block.ID(), block.ModelsBlock)
+	e.Events.Consensus.Acceptance.EpochClosed.Attach(event.NewClosure(func(storage *memstorage.Storage[models.BlockID, *acceptance.Block]) {
+		storage.ForEach(func(blockID models.BlockID, block *acceptance.Block) bool {
+			if block.IsAccepted() && !block.IsOrphaned() {
+				e.BlockStorage.Set(block.ID(), block.ModelsBlock)
+			}
+			return true
+		})
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
