@@ -27,6 +27,9 @@ type Events struct {
 	// BlockUnorphaned is triggered when a Block is no longer orphaned.
 	BlockUnorphaned *event.Linkable[*Block, Events, *Events]
 
+	// AllChildrenOrphaned is triggered when all children of a Block become orphaned.
+	AllChildrenOrphaned *event.Linkable[*Block, Events, *Events]
+
 	event.LinkableCollection[Events, *Events]
 }
 
@@ -37,6 +40,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		BlockSolid:           event.NewLinkable[*Block, Events, *Events](),
 		BlockMissing:         event.NewLinkable[*Block, Events, *Events](),
 		MissingBlockAttached: event.NewLinkable[*Block, Events, *Events](),
+		AllChildrenOrphaned:  event.NewLinkable[*Block, Events, *Events](),
 		BlockInvalid:         event.NewLinkable[*BlockInvalidEvent, Events, *Events](),
 		BlockOrphaned:        event.NewLinkable[*Block, Events, *Events](),
 		BlockUnorphaned:      event.NewLinkable[*Block, Events, *Events](),

@@ -105,9 +105,8 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statusChanged bool) {
 	b.orphanageMutex.Lock(block.ID())
 	defer b.orphanageMutex.Unlock(block.ID())
-	fmt.Println("orphan block", block.ID())
 	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
-		panic("tried to unorphan a block that still has orphaned parents")
+		panic(fmt.Sprintf("tried to unorphan a block %s that still has orphaned parents %s", block.ID(), block.OrphanedBlocksInPastCone().String()))
 	}
 
 	updateEvent, updateFunc := b.orphanageUpdaters(orphaned)
@@ -118,6 +117,7 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statu
 
 	if statusChanged {
 		updateEvent.Trigger(block)
+		b.checkStrongParents(block)
 	}
 
 	b.propagateOrphanageUpdate(block.Children(), models.NewBlockIDs(block.ID()), updateEvent, updateFunc)
@@ -306,10 +306,40 @@ func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks mode
 
 		if statusChanged {
 			updateEvent.Trigger(currentBlock)
+			b.checkStrongParents(currentBlock)
 		}
 
 		return currentBlock.Children()
 	})
+}
+
+func (b *BlockDAG) checkStrongParents(block *Block) {
+	if !block.IsOrphaned() {
+		return
+	}
+
+	for parentID := range block.ParentsByType(models.StrongParentType) {
+		if b.EvictionManager.IsRootBlock(parentID) {
+			continue
+		}
+		parent, parentExists := b.block(parentID)
+		if !parentExists {
+			continue
+		}
+		if !parent.IsOrphaned() && areAllChildrenOrphaned(parent) {
+			fmt.Println("all children orphaned")
+			b.Events.AllChildrenOrphaned.Trigger(parent)
+		}
+	}
+}
+
+func areAllChildrenOrphaned(block *Block) (allChildrenOrphaned bool) {
+	for _, childBlock := range block.StrongChildren() {
+		if !childBlock.IsOrphaned() {
+			return false
+		}
+	}
+	return true
 }
 
 // checkReference checks if the reference between the child and its parent is valid.

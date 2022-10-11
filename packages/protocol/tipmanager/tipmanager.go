@@ -105,6 +105,10 @@ func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 // checkMonotonicity returns true if the block has any accepted or scheduled child.
 func (t *TipManager) checkMonotonicity(block *scheduler.Block) (anyScheduledOrAccepted bool) {
 	for _, child := range block.Children() {
+		if child.IsOrphaned() {
+			continue
+		}
+
 		if t.acceptanceGadget.IsBlockAccepted(child.ID()) {
 			return true
 		}

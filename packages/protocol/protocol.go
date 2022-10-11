@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -166,14 +164,19 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
-	// TODO: enable once this event is implemented
-	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-	// 		return
-	// 	}
-	//
-	// 	t.addTip(block)
-	// }))
+	p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
+
+	p.Events.Engine.Tangle.BlockDAG.AllChildrenOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		schedulerBlock, exists := p.CongestionControl.Scheduler().Block(block.ID())
+		if exists {
+			fmt.Println("Add tip because all children orphaned", block.ID())
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
 
 	p.Events.TipManager = p.TipManager.Events
 }
@@ -185,9 +188,6 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 	//	fmt.Println("commitment not solid", block.ID())
 	//	return
 	// }
-	if block.ID().EpochIndex < epoch.IndexFromTime(time.Now())-5 {
-		fmt.Println("Received an old block", block.ID(), block.IssuingTime(), "issuer id", block.IssuerID(), "neighbor", src)
-	}
 	if targetInstance, exists := p.instancesByChainID[p.Engine().GenesisCommitment.ID()]; exists {
 		targetInstance.ProcessBlockFromPeer(block, src)
 	}
