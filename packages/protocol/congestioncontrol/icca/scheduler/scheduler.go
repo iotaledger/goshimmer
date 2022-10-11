@@ -373,8 +373,9 @@ func (s *Scheduler) submit(block *Block) error {
 
 func (s *Scheduler) markAsDropped(droppedBlocks []*Block) {
 	for _, droppedBlock := range droppedBlocks {
-		droppedBlock.SetDropped()
-		s.Events.BlockDropped.Trigger(droppedBlock)
+		if droppedBlock.SetDropped() {
+			s.Events.BlockDropped.Trigger(droppedBlock)
+		}
 	}
 }
 
@@ -470,7 +471,7 @@ func (s *Scheduler) schedule() *Block {
 }
 
 func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
-	rounds = new(big.Rat).SetInt64(math.MaxInt64)
+	rounds = new(big.Rat).SetFloat64(math.MaxFloat64)
 
 	for q := start; ; {
 		block := q.Front()
