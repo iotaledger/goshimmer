@@ -16,12 +16,12 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	TSCManager     *TSCManager
+	Manager        *Manager
 	mockAcceptance *acceptance.MockAcceptanceGadget
 
 	test *testing.T
 
-	optsTSCManager          []options.Option[TSCManager]
+	optsTSCManager          []options.Option[Manager]
 	optsTangle              []options.Option[tangle.Tangle]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
 	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
@@ -45,11 +45,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
 		}
 
-		if t.TSCManager == nil {
-			t.TSCManager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsTSCManager...)
+		if t.Manager == nil {
+			t.Manager = New(t.optsIsBlockAcceptedFunc, t.TestFramework.Tangle, t.optsTSCManager...)
 		}
 
-		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(t.TSCManager.AddBlock))
+		t.TestFramework.Tangle.Booker.Events.BlockBooked.Attach(event.NewClosure(t.Manager.AddBlock))
 	})
 }
 
@@ -65,7 +65,7 @@ func (t *TestFramework) AssertExplicitlyOrphaned(expectedState map[string]bool) 
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTSCManagerOptions(opts ...options.Option[TSCManager]) options.Option[TestFramework] {
+func WithTSCManagerOptions(opts ...options.Option[Manager]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsTSCManager = opts
 	}

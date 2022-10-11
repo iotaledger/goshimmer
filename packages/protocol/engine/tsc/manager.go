@@ -2,6 +2,7 @@ package tsc
 
 import (
 	"container/heap"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,10 +16,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-// region TSCManager /////////////////////////////////////////////////////////////////////////////////////////////
+// region Manager /////////////////////////////////////////////////////////////////////////////////////////////
 
-// TSCManager is a manager that tracks orphaned blocks.
-type TSCManager struct {
+// Manager is a manager that tracks orphaned blocks.
+type Manager struct {
 	unconfirmedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
 	tangle            *tangle.Tangle
 	isBlockAccepted   func(models.BlockID) bool
@@ -28,23 +29,23 @@ type TSCManager struct {
 	sync.Mutex
 }
 
-// New returns a new instance of TSCManager.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, opts ...options.Option[TSCManager]) *TSCManager {
-	return options.Apply(&TSCManager{
+// New returns a new instance of Manager.
+func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, opts ...options.Option[Manager]) *Manager {
+	return options.Apply(&Manager{
 		isBlockAccepted:                    isBlockAccepted,
 		tangle:                             tangle,
 		optsTimeSinceConfirmationThreshold: time.Minute,
 	}, opts)
 }
 
-func (o *TSCManager) HandleTimeUpdate(newTime time.Time) {
+func (o *Manager) HandleTimeUpdate(newTime time.Time) {
 	o.Lock()
 	defer o.Unlock()
 
 	o.orphanBeforeTSC(newTime.Add(-o.optsTimeSinceConfirmationThreshold))
 }
 
-func (o *TSCManager) AddBlock(block *booker.Block) {
+func (o *Manager) AddBlock(block *booker.Block) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -52,7 +53,7 @@ func (o *TSCManager) AddBlock(block *booker.Block) {
 }
 
 // orphanBeforeTSC removes all elements with key time earlier than the given time. If a block is not accepted by this time, it becomes orphaned.
-func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
+func (o *Manager) orphanBeforeTSC(minAllowedTime time.Time) {
 	unconfirmedBlocksCount := o.unconfirmedBlocks.Len()
 	for i := 0; i < unconfirmedBlocksCount; i++ {
 		if minAllowedTime.Before(time.Time(o.unconfirmedBlocks[0].Key)) {
@@ -62,6 +63,7 @@ func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
 		blockToOrphan := o.unconfirmedBlocks[0].Value
 		heap.Pop(&o.unconfirmedBlocks)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
+			fmt.Println("orphan block due to TSC", blockToOrphan.ID())
 			o.tangle.SetOrphaned(blockToOrphan, true)
 		}
 	}
@@ -71,8 +73,8 @@ func (o *TSCManager) orphanBeforeTSC(minAllowedTime time.Time) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[TSCManager] {
-	return func(o *TSCManager) {
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[Manager] {
+	return func(o *Manager) {
 		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }

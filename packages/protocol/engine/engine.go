@@ -51,7 +51,7 @@ type Engine struct {
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
-	TSCManager          *tsc.TSCManager
+	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -69,7 +69,7 @@ type Engine struct {
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
 	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
-	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
+	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
@@ -383,7 +383,7 @@ func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.O
 	}
 }
 
-func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Option[Engine] {
+func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = opts
 	}
