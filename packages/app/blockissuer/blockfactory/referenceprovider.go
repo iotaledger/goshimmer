@@ -124,7 +124,9 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 
 	var err error
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs); err != nil {
-		engineInstance.Tangle.BlockDAG.SetOrphaned(block.Block, true)
+		if !engineInstance.Consensus.IsBlockAccepted(blockID) {
+			engineInstance.Tangle.BlockDAG.SetOrphaned(block.Block, true)
+		}
 		return nil, false
 	}
 
