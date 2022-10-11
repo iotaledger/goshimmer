@@ -1,8 +1,24 @@
+global:
+  scrape_interval: 5s
+
 scrape_configs:
     - job_name: analysis_server
-      scrape_interval: 5s
       static_configs:
       - targets:
       {% for host in groups['supports'] + groups['goshimmers']%}
         - {{ host }}:9311
+      {% endfor %}
+
+    - job_name: node
+      static_configs:
+      - targets:
+      {% for host in groups['supports'] + groups['goshimmers'] + groups['metrics']%}
+        - {{ host }}:9100
+      {% endfor %}
+
+    - job_name: cadvisor
+      static_configs:
+      - targets:
+      {% for host in groups['supports'] + groups['goshimmers'] + groups['metrics']%}
+        - {{ host }}:9200
       {% endfor %}

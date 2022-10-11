@@ -1,0 +1,19 @@
+- name: Create exporter directory
+  file:
+    path: /opt/exporter
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose.yml
+  copy:
+    src: docker-compose.yml
+    dest: /opt/exporter/docker-compose.yml
+    mode: '0755'
+
+- name: Run exporters
+  community.general.docker_compose:
+    project_src: /opt/exporter/
+    timeout: 180
+    state: present
+    pull: yes
+
