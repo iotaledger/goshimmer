@@ -386,7 +386,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 func (b *Booker) strongChildren(block *Block) []*Block {
 	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(blockDAGChild.ID())
+		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}
