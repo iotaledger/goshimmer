@@ -20,5 +20,5 @@ scrape_configs:
       static_configs:
       - targets:
       {% for host in groups['supports'] + groups['goshimmers'] + groups['metrics']%}
-        - {{ host }}:9200
+        - {{ host }}:9111
       {% endfor %}
