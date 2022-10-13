@@ -23,7 +23,7 @@ var ErrNotFound = errors.New("not found")
 // ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
-//go:embed frontend/build frontend/src/assets
+//go:embed all:frontend/build all:frontend/src/assets
 var staticFS embed.FS
 
 // holds analysis dashboard assets
