@@ -24,7 +24,7 @@ var ErrNotFound = errors.New("not found")
 // ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
-//go:embed all:frontend/build all:frontend/build/static
+//go:embed frontend/build frontend/build/static
 var staticFS embed.FS
 
 const (
