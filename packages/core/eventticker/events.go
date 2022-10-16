@@ -9,16 +9,16 @@ import (
 // Events represents events happening on a EventTicker.
 type Events[T epoch.IndexedID] struct {
 	// Request is an event that is triggered when the requester wants to request the given entity.
-	Tick *event.Linkable[T, Events[T], *Events[T]]
+	Tick *event.Linkable[T]
 
 	// RequestQueued is an event that is triggered when a new request is started.
-	TickerStarted *event.Linkable[T, Events[T], *Events[T]]
+	TickerStarted *event.Linkable[T]
 
 	// RequestStopped is an event that is triggered when a request is stopped.
-	TickerStopped *event.Linkable[T, Events[T], *Events[T]]
+	TickerStopped *event.Linkable[T]
 
 	// RequestFailed is an event that is triggered when a request is stopped after too many attempts.
-	TickerFailed *event.Linkable[T, Events[T], *Events[T]]
+	TickerFailed *event.Linkable[T]
 
 	event.LinkableCollection[Events[T], *Events[T]]
 }
@@ -27,10 +27,10 @@ type Events[T epoch.IndexedID] struct {
 func NewEvents[T epoch.IndexedID](linkedEvents ...*Events[T]) (newEvents *Events[T]) {
 	return event.LinkableConstructor(func() *Events[T] {
 		return &Events[T]{
-			Tick:          event.NewLinkable[T, Events[T], *Events[T]](),
-			TickerStarted: event.NewLinkable[T, Events[T], *Events[T]](),
-			TickerStopped: event.NewLinkable[T, Events[T], *Events[T]](),
-			TickerFailed:  event.NewLinkable[T, Events[T], *Events[T]](),
+			Tick:          event.NewLinkable[T](),
+			TickerStarted: event.NewLinkable[T](),
+			TickerStopped: event.NewLinkable[T](),
+			TickerFailed:  event.NewLinkable[T](),
 		}
 	})(linkedEvents...)
 }

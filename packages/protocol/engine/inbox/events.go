@@ -7,13 +7,13 @@ import (
 )
 
 type Events struct {
-	BlockReceived *event.Linkable[*models.Block, Events, *Events]
+	BlockReceived *event.Linkable[*models.Block]
 
 	event.LinkableCollection[Events, *Events]
 }
 
 var NewEvents = event.LinkableConstructor(func() *Events {
 	return &Events{
-		BlockReceived: event.NewLinkable[*models.Block, Events, *Events](),
+		BlockReceived: event.NewLinkable[*models.Block](),
 	}
 })
