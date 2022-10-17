@@ -264,7 +264,7 @@ func (b *Block) Size() int {
 	defer b.RUnlock()
 
 	if b.size == nil {
-		panic(fmt.Sprintf("size is not set for %v", b))
+		panic(fmt.Sprintf("size is not set for %s", b.ID()))
 	}
 
 	return *b.size
