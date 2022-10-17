@@ -43,3 +43,4 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     spammer: true
+    genesisTime: $(date -d "$date -5 minutes" +%s)

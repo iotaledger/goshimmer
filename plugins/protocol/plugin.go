@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
@@ -51,6 +53,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
 	if Parameters.GenesisTime > 0 {
+		fmt.Println(">>>>> Using genesis time:", Parameters.GenesisTime)
 		epoch.GenesisTime = Parameters.GenesisTime
 	}
 
