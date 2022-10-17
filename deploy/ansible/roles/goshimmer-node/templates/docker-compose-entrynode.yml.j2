@@ -7,8 +7,7 @@ services:
     container_name: entrynode
     restart: unless-stopped
     volumes:
-      - "./db:/app/db"
-      - "./peerdb:/app/peerdb"
+      - "./db:/db"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       - "0.0.0.0:6060:6060/tcp"
