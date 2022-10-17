@@ -36,6 +36,7 @@ func NewManager(snapshot *commitment.Commitment) (manager *Manager) {
 
 	manager.SnapshotCommitment, _ = manager.Commitment(snapshot.ID(), true)
 	manager.SnapshotCommitment.PublishCommitment(snapshot)
+	manager.SnapshotCommitment.SetSolid(true)
 	manager.SnapshotCommitment.publishChain(NewChain(manager.SnapshotCommitment))
 
 	manager.CommitmentRequester = eventticker.New(manager.EvictionManager, manager.optsCommitmentRequester...)
@@ -77,7 +78,7 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 
 	if isSolid {
 		if children := chainCommitment.Children(); len(children) != 0 {
-			for childWalker := walker.New[*Commitment]().Push(children[0]); childWalker.HasNext(); {
+			for childWalker := walker.New[*Commitment]().PushAll(children...); childWalker.HasNext(); {
 				childWalker.PushAll(c.propagateSolidity(childWalker.Next())...)
 			}
 		}
