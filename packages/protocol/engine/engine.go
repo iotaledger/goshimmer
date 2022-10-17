@@ -52,7 +52,6 @@ type Engine struct {
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
 
-	DBManager                      *database.Manager
 	optsBootstrappedThreshold      time.Duration
 	optsEntryPointsDepth           int
 	optsSnapshotFile               string
@@ -123,7 +122,7 @@ func (e *Engine) initInbox() {
 }
 
 func (e *Engine) initLedger() {
-	e.Ledger = ledger.New(append(e.optsLedgerOptions, ledger.WithStore(e.DBManager.PermanentStorage()))...)
+	e.Ledger = ledger.New(e.ChainStorage, e.optsLedgerOptions...)
 
 	e.Events.Ledger = e.Ledger.Events
 }
@@ -180,7 +179,7 @@ func (e *Engine) initNotarizationManager() {
 		e.Tangle,
 		e.Ledger,
 		e.Consensus,
-		notarization.NewCommitmentFactory(e.DBManager.PermanentStorage(), e.optsSnapshotDepth),
+		notarization.NewCommitmentFactory(e., e.optsSnapshotDepth),
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
@@ -274,7 +273,10 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return nil, false
 	}
 
-	return e.ChainStorage.BlockStorage.Get(id)
+	block, err := e.ChainStorage.BlockStorage.Get(id)
+	exists = block != nil && err == nil
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

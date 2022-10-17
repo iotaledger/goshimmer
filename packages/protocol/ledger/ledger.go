@@ -7,11 +7,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -25,6 +24,9 @@ import (
 type Ledger struct {
 	// Events is a dictionary for Ledger related events.
 	Events *Events
+
+	// ChainStorage is used to access storage for the ledger state.
+	ChainStorage *chainstorage.ChainStorage
 
 	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
@@ -46,9 +48,6 @@ type Ledger struct {
 
 	// optsVM contains the virtual machine that is used to execute Transactions.
 	optsVM vm.VM
-
-	// optsStore contains the KVStore that is used to persist data.
-	optsStore kvstore.KVStore
 
 	// optsCacheTimeProvider contains the CacheTimeProvider that overrides the local cache times.
 	optsCacheTimeProvider *database.CacheTimeProvider
@@ -79,10 +78,11 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
-		Events:                          NewEvents(),
-		optsStore:                       mapdb.NewMapDB(),
+		Events:       NewEvents(),
+		ChainStorage: chainStorage,
+
 		optsCacheTimeProvider:           database.NewCacheTimeProvider(0),
 		optsVM:                          NewMockedVM(),
 		optsTransactionCacheTime:        10 * time.Second,
@@ -94,13 +94,13 @@ func New(opts ...options.Option[Ledger]) (ledger *Ledger) {
 	}, opts)
 
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(ledger.optsStore),
+		conflictdag.WithStore(chainStorage.LedgerstateStorage()),
 		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
 	}, ledger.optConflictDAG...)...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
-	ledger.Storage = newStorage(ledger)
+	ledger.Storage = newStorage(ledger, chainStorage.LedgerstateStorage())
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
@@ -327,14 +327,6 @@ func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
 func WithVM(vm vm.VM) (option options.Option[Ledger]) {
 	return func(l *Ledger) {
 		l.optsVM = vm
-	}
-}
-
-// WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
-// (the default option is to use a MapDB).
-func WithStore(store kvstore.KVStore) (option options.Option[Ledger]) {
-	return func(options *Ledger) {
-		options.optsStore = store
 	}
 }
 

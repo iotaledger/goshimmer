@@ -41,7 +41,7 @@ type ChainStorage struct {
 	database    *database.Manager
 }
 
-func NewChainStorage(folder string) (chainManager *ChainStorage, err error) {
+func NewChainStorage(folder string, databaseVersion database.Version) (chainManager *ChainStorage, err error) {
 	chainManager = &ChainStorage{
 		Events: NewEvents(),
 	}
@@ -57,7 +57,7 @@ func NewChainStorage(folder string) (chainManager *ChainStorage, err error) {
 		return nil, errors.Errorf("failed to create commitments database: %w", err)
 	}
 
-	chainManager.database = database.NewManager(1, database.WithBaseDir(folder), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
+	chainManager.database = database.NewManager(databaseVersion, database.WithBaseDir(folder), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
 
 	return chainManager, nil
 }

@@ -45,7 +45,6 @@ func init() {
 }
 
 func provide(n *p2p.Manager) (p *protocol.Protocol) {
-
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
 	if Parameters.GenesisTime > 0 {

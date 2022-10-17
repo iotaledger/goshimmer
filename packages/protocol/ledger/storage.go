@@ -5,11 +5,13 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/cerrors"
 	"github.com/iotaledger/hive.go/core/generics/dataflow"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/objectstorage"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
@@ -45,34 +47,34 @@ type Storage struct {
 }
 
 // newStorage returns a new storage instance for the given Ledger.
-func newStorage(ledger *Ledger) (storage *Storage) {
+func newStorage(ledger *Ledger, baseStore kvstore.KVStore) (storage *Storage) {
 	storage = &Storage{
 		transactionStorage: objectstorage.NewInterfaceStorage[utxo.Transaction](
-			objectstorage.NewStoreWithRealm(ledger.optsStore, database.PrefixLedger, PrefixTransactionStorage),
+			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionStorage})),
 			transactionFactory(ledger.optsVM),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsTransactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		transactionMetadataStorage: objectstorage.NewStructStorage[TransactionMetadata](
-			objectstorage.NewStoreWithRealm(ledger.optsStore, database.PrefixLedger, PrefixTransactionMetadataStorage),
+			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optTransactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		outputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
-			objectstorage.NewStoreWithRealm(ledger.optsStore, database.PrefixLedger, PrefixOutputStorage),
+			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputStorage})),
 			outputFactory(ledger.optsVM),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		outputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
-			objectstorage.NewStoreWithRealm(ledger.optsStore, database.PrefixLedger, PrefixOutputMetadataStorage),
+			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsOutputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		consumerStorage: objectstorage.NewStructStorage[Consumer](
-			objectstorage.NewStoreWithRealm(ledger.optsStore, database.PrefixLedger, PrefixConsumerStorage),
+			lo.PanicOnErr(baseStore.WithExtendedRealm([]byte{database.PrefixLedger, PrefixConsumerStorage})),
 			ledger.optsCacheTimeProvider.CacheTime(ledger.optsConsumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.PartitionKey(new(Consumer).KeyPartitions()...),

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/kvstore/mapdb"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
@@ -22,10 +23,6 @@ import (
 type EpochCommitmentStorage struct {
 	// Base store for all other storages, prefixed by the package
 	baseStore kvstore.KVStore
-
-	ledgerstateStorage *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
-
-	ecRecordStorage *objectstorage.ObjectStorage[*chainmanager.Commitment]
 
 	// Delta storages
 	epochDiffStoragesMutex sync.Mutex
@@ -50,13 +47,6 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	}
 
 	new.baseStore = new.epochCommitmentStorageOptions.store
-
-	new.ledgerstateStorage = objectstorage.NewStructStorage[ledger.OutputWithMetadata](
-		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixLedgerState),
-		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
-		objectstorage.LeakDetectionEnabled(false),
-		objectstorage.StoreOnCreation(true),
-	)
 
 	new.ecRecordStorage = objectstorage.NewStructStorage[chainmanager.Commitment](
 		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, prefixECRecord),

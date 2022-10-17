@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -27,6 +28,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
+const (
+	mainBaseDir      = "main"
+	candidateBaseDir = "candidate"
+)
+
 // region Protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Protocol struct {
@@ -37,11 +43,12 @@ type Protocol struct {
 	dispatcher           network.Endpoint
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
-	settings             *Settings
 	chainManager         *chainmanager.Manager
-	activeInstance       *engine.Engine
 	activeInstanceMutex  sync.RWMutex
-	instancesByChainID   map[commitment.ID]*engine.Engine
+	engine               *engine.Engine
+	candidateEngine      *engine.Engine
+	storage              *chainstorage.ChainStorage
+	candidateStorage     *chainstorage.ChainStorage
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
@@ -57,8 +64,7 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	return options.Apply(&Protocol{
 		Events: NewEvents(),
 
-		dispatcher:         dispatcher,
-		instancesByChainID: make(map[commitment.ID]*engine.Engine),
+		dispatcher: dispatcher,
 
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
@@ -66,14 +72,14 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 	}, opts,
 		(*Protocol).initDisk,
 		(*Protocol).initSettings,
+		(*Protocol).initMainChainStorage,
 		(*Protocol).initCongestionControl,
 		(*Protocol).importSnapshot,
 	)
 }
 
 func (p *Protocol) Run() {
-	p.initEngines()
-	p.initChainManager()
+	p.initMainEngine()
 	p.initNetworkProtocol()
 	p.initTipManager()
 }
@@ -134,14 +140,15 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 }
 
-func (p *Protocol) initEngines() {
-	if p.instantiateEngines() == 0 {
-		panic("no chains found (please provide a snapshot file)")
-	}
-
-	if err := p.activateMainEngine(); err != nil {
+func (p *Protocol) initMainEngine() {
+	mainStorage, err := chainstorage.NewChainStorage(p.disk.Path(mainBaseDir), DatabaseVersion)
+	if err != nil {
 		panic(err)
 	}
+
+	p.storage = mainStorage
+	p.engine = engine.New(p.storage, p.optsEngineOptions...)
+	p.activateEngine(p.engine)
 }
 
 func (p *Protocol) initChainManager() {
@@ -191,7 +198,7 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	p.activeInstanceMutex.RLock()
 	defer p.activeInstanceMutex.RUnlock()
 
-	return p.activeInstance
+	return p.engine
 }
 
 func (p *Protocol) importSnapshotFile(filePath string) (err error) {
@@ -226,6 +233,7 @@ func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
 	// }
 
+	// TODO: load snapshot into main ChainStorage
 	p.settings.AddChain(chainID)
 	p.settings.SetMainChainID(chainID)
 	p.settings.Persist()
@@ -244,30 +252,13 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 	return snapshotHeader, err
 }
 
-func (p *Protocol) instantiateEngines() (chainCount int) {
-	for chains := p.settings.Chains().Iterator(); chains.HasNext(); {
-		chainID := chains.Next()
+func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
+	p.Events.Engine.LinkTo(engine.Events)
+	p.CongestionControl.LinkTo(engine)
+	// TODO: we need to trash the TipManager and replace with a new engine
+	// p.TipManager.LinkTo(p.mainEngine)
 
-		p.instancesByChainID[chainID] = engine.New(DatabaseVersion, p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes()))), p.optsEngineOptions...)
-	}
-
-	return len(p.instancesByChainID)
-}
-
-func (p *Protocol) activateMainEngine() (err error) {
-	chainID := p.settings.MainChainID()
-
-	mainInstance, exists := p.instancesByChainID[chainID]
-	if !exists {
-		return errors.Errorf("instance for chain '%s' does not exist", chainID)
-	}
-
-	p.activeInstance = mainInstance
-	p.Events.Engine.LinkTo(mainInstance.Events)
-	p.CongestionControl.LinkTo(mainInstance)
-
-	p.activeInstance.Run()
-
+	engine.Run()
 	return
 }
 
