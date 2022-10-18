@@ -43,4 +43,4 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     spammer: true
-    genesisTime: {{ ansible_date_time.epoch }}
+    genesisTime: "{{ ansible_date_time.epoch }}"
