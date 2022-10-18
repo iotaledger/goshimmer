@@ -53,7 +53,7 @@ func (m *mutationFactory) addAcceptedBlock(id identity.ID, blockID models.BlockI
 	}
 
 	if acceptedBlocksByIssuerID.Size() == 0 && acceptedBlocksByIssuerID.Add(blockID) {
-		// TODO: TRIGGER ACTIVITY LEAF ADDED
+		m.insertActivityLeaf(blockID.Index(), id)
 	}
 }
 
@@ -61,6 +61,7 @@ func (m *mutationFactory) removeAcceptedBlock(id identity.ID, blockID models.Blo
 	if acceptedBlocks, exists := m.acceptedBlocksByIssuer.Get(blockID.Index()); exists {
 		if blocksByID, exists := acceptedBlocks[id]; exists {
 			if blocksByID.Delete(blockID) && blocksByID.Size() == 0 {
+				m.removeActivityLeaf(blockID.Index(), id)
 				// TODO: TRIGGER ACTIVITY LEAF REMOVED
 			}
 		}
@@ -127,7 +128,7 @@ func (m *mutationFactory) removeTangleLeaf(ei epoch.Index, blkID models.BlockID)
 }
 
 // insertActivityLeaf inserts nodeID to the Activity sparse merkle tree.
-func (m *mutationFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID, acceptedInc ...uint64) error {
+func (m *mutationFactory) insertActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
 	commitment, err := m.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while inserting activity leaf")
