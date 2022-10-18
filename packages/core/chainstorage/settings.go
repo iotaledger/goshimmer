@@ -13,9 +13,9 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settings struct {
-	LatestCommittableEpoch epoch.Index `serix:"0"`
-	LatestAcceptedEpoch    epoch.Index `serix:"1"`
-	LatestConfirmedEpoch   epoch.Index `serix:"2"`
+	LatestCommittedEpoch epoch.Index `serix:"0"`
+	LatestAcceptedEpoch  epoch.Index `serix:"1"`
+	LatestConfirmedEpoch epoch.Index `serix:"2"`
 
 	storable.Struct[settings, *settings]
 

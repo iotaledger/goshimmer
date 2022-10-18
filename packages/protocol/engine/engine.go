@@ -227,7 +227,7 @@ func (e *Engine) initSnapshotManager() {
 		})
 	}))
 
-	e.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
 		e.EntryPointsManager.EvictSolidEntryPoints(event.EI)
 	}))
 }
@@ -239,7 +239,7 @@ func (e *Engine) initSybilProtection() {
 }
 
 func (e *Engine) initEvictionManager() {
-	e.NotarizationManager.Events.EpochCommittable.Attach(event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
 		e.EvictionState.EvictUntil(event.EI, e.EntryPointsManager.SolidEntryPoints(event.EI))
 	}))
 

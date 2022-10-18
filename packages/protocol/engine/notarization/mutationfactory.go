@@ -15,40 +15,46 @@ import (
 )
 
 type mutationFactory struct {
-	acceptedBlockByEpoch           *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
-	acceptedTransactionsByEpoch    *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
-	activeNodesByEpoch             *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
+	tangleTreeByEpoch              *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
+	mutationTreeByEpoch            *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
+	activityTreeByEpoch            *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
 	acceptedBlocksByEpochAndIssuer *memstorage.EpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]]
 	lastCommittedEpochIndex        epoch.Index
 }
 
 func newMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *mutationFactory) {
 	return &mutationFactory{
-		acceptedBlockByEpoch:           memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
-		acceptedTransactionsByEpoch:    memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
-		activeNodesByEpoch:             memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
+		tangleTreeByEpoch:              memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
+		mutationTreeByEpoch:            memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
+		activityTreeByEpoch:            memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
 		acceptedBlocksByEpochAndIssuer: memstorage.NewEpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]](),
 		lastCommittedEpochIndex:        lastCommittedEpoch,
 	}
 }
 
 func (m *mutationFactory) commit(ei epoch.Index) (tangleRoot, stateMutationRoot, activityRoot types.Identifier) {
-	return lo.Return1(m.acceptedBlockByEpoch.RetrieveOrCreate(ei, func() *ads.Set[models.BlockID] { return ads.NewSet[models.BlockID](mapdb.NewMapDB()) })).Root(),
-		lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] { return ads.NewSet[utxo.TransactionID](mapdb.NewMapDB()) })).Root(),
-		lo.Return1(m.activeNodesByEpoch.RetrieveOrCreate(ei, func() *ads.Set[identity.ID] { return ads.NewSet[identity.ID](mapdb.NewMapDB()) })).Root()
+	return lo.Return1(m.tangleTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[models.BlockID] { return ads.NewSet[models.BlockID](mapdb.NewMapDB()) })).Root(),
+		lo.Return1(m.mutationTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] { return ads.NewSet[utxo.TransactionID](mapdb.NewMapDB()) })).Root(),
+		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[identity.ID] { return ads.NewSet[identity.ID](mapdb.NewMapDB()) })).Root()
 }
 
 func (m *mutationFactory) addAcceptedBlock(id identity.ID, blockID models.BlockID) {
+	// Adds the block issuer as active.
 	acceptedBlocksByIssuerID, created := m.acceptedBlocksByEpochAndIssuer.Get(blockID.Index(), true).RetrieveOrCreate(id, func() *set.AdvancedSet[models.BlockID] {
 		return set.NewAdvancedSet[models.BlockID]()
 	})
 	if created {
-		lo.Return1(m.activeNodesByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[identity.ID] {
+		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[identity.ID] {
 			return ads.NewSet[identity.ID](mapdb.NewMapDB())
 		})).Add(id)
 	}
 
 	acceptedBlocksByIssuerID.Add(blockID)
+
+	// Add to TangleRoot
+	lo.Return1(m.tangleTreeByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[models.BlockID] {
+		return ads.NewSet[models.BlockID](mapdb.NewMapDB())
+	})).Add(blockID)
 }
 
 func (m *mutationFactory) removeAcceptedBlock(id identity.ID, blockID models.BlockID) {
@@ -62,31 +68,35 @@ func (m *mutationFactory) removeAcceptedBlock(id identity.ID, blockID models.Blo
 		return
 	}
 
+	// Remove the block issuer as active if no blocks left in the map.
 	if acceptedBlocks.Delete(blockID) && acceptedBlocks.IsEmpty() {
-		if activeNodesForEpoch, exists := m.activeNodesByEpoch.Get(blockID.Index()); exists {
+		if activeNodesForEpoch, exists := m.activityTreeByEpoch.Get(blockID.Index()); exists {
 			activeNodesForEpoch.Delete(id)
 		}
+	}
+
+	// Remove from TangleRoot
+	if tangleTree, exists := m.tangleTreeByEpoch.Get(blockID.Index()); exists {
+		tangleTree.Delete(blockID)
 	}
 }
 
 func (m *mutationFactory) addAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	acceptedTransactions, _ := m.acceptedTransactionsByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] {
+	acceptedTransactions, _ := m.mutationTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] {
 		return ads.NewSet[utxo.TransactionID](mapdb.NewMapDB())
 	})
 	acceptedTransactions.Add(txID)
 }
 
 func (m *mutationFactory) removeAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	acceptedTransactions, exists := m.acceptedTransactionsByEpoch.Get(ei)
-	if !exists {
-		return
+	if acceptedTransactions, exists := m.mutationTreeByEpoch.Get(ei); exists {
+		acceptedTransactions.Delete(txID)
 	}
-	acceptedTransactions.Delete(txID)
 }
 
 func (m *mutationFactory) evict(ei epoch.Index) {
-	m.acceptedBlockByEpoch.Delete(ei)
-	m.acceptedTransactionsByEpoch.Delete(ei)
-	m.activeNodesByEpoch.Delete(ei)
+	m.tangleTreeByEpoch.Delete(ei)
+	m.mutationTreeByEpoch.Delete(ei)
+	m.activityTreeByEpoch.Delete(ei)
 	m.acceptedBlocksByEpochAndIssuer.EvictEpoch(ei)
 }

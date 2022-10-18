@@ -288,5 +288,5 @@ func registerLocalMetrics() {
 		addPledge(ev)
 	}))
 
-	deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(onEpochCommitted)
+	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(onEpochCommitted)
 }

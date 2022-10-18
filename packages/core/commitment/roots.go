@@ -14,18 +14,18 @@ type Roots struct {
 type roots struct {
 	TangleRoot        types.Identifier `serix:"0"`
 	StateMutationRoot types.Identifier `serix:"1"`
+	ActivityRoot      types.Identifier `serix:"4"`
 	StateRoot         types.Identifier `serix:"2"`
 	ManaRoot          types.Identifier `serix:"3"`
-	ActivityRoot      types.Identifier `serix:"4"`
 }
 
-func NewRoots(tangleRoot, stateMutationRoot, stateRoot, manaRoot, activityRoot types.Identifier) (newRoots *Roots) {
+func NewRoots(tangleRoot, stateMutationRoot, activityRoot, stateRoot, manaRoot types.Identifier) (newRoots *Roots) {
 	return model.NewImmutable[Roots](&roots{
 		TangleRoot:        tangleRoot,
 		StateMutationRoot: stateMutationRoot,
+		ActivityRoot:      activityRoot,
 		StateRoot:         stateRoot,
 		ManaRoot:          manaRoot,
-		ActivityRoot:      activityRoot,
 	})
 }
 

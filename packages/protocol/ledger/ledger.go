@@ -253,7 +253,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	})
 
 	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
-		TransactionID: txMetadata.ID(),
+		TransactionMetadata: txMetadata,
 	})
 
 	return true

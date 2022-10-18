@@ -15,7 +15,7 @@ var (
 	lastCommittedEpochMutex sync.RWMutex
 )
 
-var onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+var onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittedEvent) {
 	lastCommittedEpochMutex.Lock()
 	defer lastCommittedEpochMutex.Unlock()
 	lastCommittedEpoch = event.ECRecord

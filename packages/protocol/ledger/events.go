@@ -121,8 +121,8 @@ type TransactionInclusionUpdatedEvent struct {
 // TransactionAcceptedEvent is a container that acts as a dictionary for the TransactionAccepted event related
 // parameters.
 type TransactionAcceptedEvent struct {
-	// TransactionID contains the identifier of the confirmed Transaction.
-	TransactionID utxo.TransactionID
+	// TransactionMetadata contains the metadata of the confirmed Transaction.
+	TransactionMetadata *TransactionMetadata
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

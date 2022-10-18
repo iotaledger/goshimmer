@@ -48,9 +48,9 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 	chainManager.BlockStorage = &BlockStorage{chainManager}
 
 	chainManager.settings = storable.InitStruct(&settings{
-		LatestCommittableEpoch: 0,
-		LatestAcceptedEpoch:    0,
-		LatestConfirmedEpoch:   0,
+		LatestCommittedEpoch: 0,
+		LatestAcceptedEpoch:  0,
+		LatestConfirmedEpoch: 0,
 	}, diskutil.New(folder).Path("settings.bin"))
 
 	if chainManager.commitments, err = storable.NewSlice[commitment.Commitment](diskutil.New(folder).Path("commitments.bin")); err != nil {
@@ -62,21 +62,21 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 	return chainManager, nil
 }
 
-func (c *ChainStorage) LatestCommittableEpoch() (latestCommittableEpoch epoch.Index) {
+func (c *ChainStorage) LatestCommittedEpoch() (latestCommittedEpoch epoch.Index) {
 	c.settings.RLock()
 	defer c.settings.RUnlock()
 
-	return c.settings.LatestCommittableEpoch
+	return c.settings.LatestCommittedEpoch
 }
 
-func (c *ChainStorage) SetLatestCommittableEpoch(latestCommittableEpoch epoch.Index) {
+func (c *ChainStorage) SetLatestCommittedEpoch(latestCommittedEpoch epoch.Index) {
 	c.settings.Lock()
 	defer c.settings.Unlock()
 
-	c.settings.LatestCommittableEpoch = latestCommittableEpoch
+	c.settings.LatestCommittedEpoch = latestCommittedEpoch
 
 	if err := c.settings.ToFile(); err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to persist latest committable epoch: %w", err))
+		c.Events.Error.Trigger(errors.Errorf("failed to persist latest committed epoch: %w", err))
 	}
 }
 

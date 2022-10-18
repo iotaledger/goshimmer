@@ -24,8 +24,8 @@ type EventMock struct {
 	test           *testing.T
 
 	attached []struct {
-		*event.Event[*EpochCommittableEvent]
-		*event.Closure[*EpochCommittableEvent]
+		*event.Event[*EpochCommittedEvent]
+		*event.Closure[*EpochCommittedEvent]
 	}
 }
 
@@ -36,7 +36,7 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 	}
 
 	// attach all events
-	notarizationManager.Events.EpochCommittable.Hook(event.NewClosure(e.EpochCommittable))
+	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommittable))
 	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
 
 	return e
@@ -78,7 +78,7 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 }
 
 // EpochCommittable is the mocked EpochCommittable event.
-func (e *EventMock) EpochCommittable(event *EpochCommittableEvent) {
+func (e *EventMock) EpochCommittable(event *EpochCommittedEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
