@@ -10,7 +10,7 @@ import (
 )
 
 type Events struct {
-	InvalidBlockReceived *event.Linkable[identity.ID, Events, *Events]
+	InvalidBlockReceived *event.Linkable[identity.ID]
 
 	Engine            *engine.Events
 	CongestionControl *congestioncontrol.Events

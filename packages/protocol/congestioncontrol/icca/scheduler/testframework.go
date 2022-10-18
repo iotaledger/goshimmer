@@ -42,7 +42,7 @@ type TestFramework struct {
 	optsValidatorSet        *validator.Set
 	optsEvictionManager     *eviction.State[models.BlockID]
 	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]
+	optsBlockAcceptedEvent  *event.Linkable[*acceptance.Block]
 	*TangleTestFramework
 }
 
@@ -235,7 +235,7 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Tes
 	}
 }
 
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block, acceptance.Events, *acceptance.Events]) options.Option[TestFramework] {
+func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block]) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}

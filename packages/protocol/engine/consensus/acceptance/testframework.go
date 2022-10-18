@@ -210,7 +210,7 @@ func WithValidatorSet(validatorSet *validator.Set) options.Option[TestFramework]
 
 // MockAcceptanceGadget mocks ConfirmationOracle marking all blocks as confirmed.
 type MockAcceptanceGadget struct {
-	BlockAcceptedEvent *event.Linkable[*Block, Events, *Events]
+	BlockAcceptedEvent *event.Linkable[*Block]
 	AcceptedBlocks     models.BlockIDs
 	AcceptedMarkers    *markers.Markers
 
@@ -219,7 +219,7 @@ type MockAcceptanceGadget struct {
 
 func NewMockAcceptanceGadget() *MockAcceptanceGadget {
 	return &MockAcceptanceGadget{
-		BlockAcceptedEvent: event.NewLinkable[*Block, Events, *Events](),
+		BlockAcceptedEvent: event.NewLinkable[*Block](),
 		AcceptedBlocks:     models.NewBlockIDs(),
 		AcceptedMarkers:    markers.NewMarkers(),
 	}
