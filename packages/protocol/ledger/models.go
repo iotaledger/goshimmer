@@ -12,6 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -651,6 +652,12 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 	defer o.RUnlock()
 
 	return o.M.Output
+}
+
+// TODO: don't make the ledger depend on devnetvm
+// IOTABalance returns the IOTA balance of the Output.
+func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
+	return o.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 }
 
 // SetOutput sets the Output field.

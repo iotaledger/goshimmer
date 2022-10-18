@@ -60,17 +60,6 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	return new
 }
 
-// CachedECRecord retrieves cached ECRecord of the given Index. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentCallback ...func(ei epoch.Index) *chainmanager.Commitment) (cachedEpochDiff *objectstorage.CachedObject[*chainmanager.Commitment]) {
-	if len(computeIfAbsentCallback) >= 1 {
-		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *chainmanager.Commitment {
-			return computeIfAbsentCallback[0](ei)
-		})
-	}
-
-	return s.ecRecordStorage.Load(ei.Bytes())
-}
-
 // shutdown shuts down the KVStore used to persist data.
 func (s *EpochCommitmentStorage) shutdown() {
 	s.shutdownOnce.Do(func() {
