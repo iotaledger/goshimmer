@@ -260,11 +260,14 @@ func (b *Block) DetermineIDFromBytes(buf []byte) {
 
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	if b.size == nil {
-		panic(fmt.Sprintf("size is not set for %s", b.ID()))
+		fmt.Println(">>>> block size is nil", b.ID(), b.ID().Base58())
+		l := len(lo.PanicOnErr(b.Bytes()))
+		b.size = &l
+		// panic(fmt.Sprintf("size is not set for %s", b.ID()))
 	}
 
 	return *b.size
