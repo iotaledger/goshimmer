@@ -43,4 +43,4 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     spammer: true
-#    genesisTime: $(date -d "$date -5 minutes" +%s)
+    genesisTime: {{ ansible_date_time.epoch }}
