@@ -88,6 +88,11 @@ func (m *mutationFactory) addAcceptedTransaction(ei epoch.Index, txID utxo.Trans
 	acceptedTransactions.Add(txID)
 }
 
+func (m *mutationFactory) hasAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) (has bool) {
+	acceptedTransactions, exists := m.mutationTreeByEpoch.Get(ei)
+	return exists && acceptedTransactions.Has(txID)
+}
+
 func (m *mutationFactory) removeAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
 	if acceptedTransactions, exists := m.mutationTreeByEpoch.Get(ei); exists {
 		acceptedTransactions.Delete(txID)

@@ -96,9 +96,9 @@ func (f *commitmentFactory) AddAcceptedTransaction(txMeta *ledger.TransactionMet
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
-func (f *commitmentFactory) UpdateAcceptedTransaction(event *ledger.TransactionInclusionUpdatedEvent) {
-	f.epochCommitmentFactoryMutex.Lock()
-	defer f.epochCommitmentFactoryMutex.Unlock()
+func (f *commitmentFactory) UpdateAcceptedTransaction(event *ledger.TransactionInclusionUpdatedEvent) (err error) {
+	f.Lock()
+	defer f.Unlock()
 
 	oldEpoch := epoch.IndexFromTime(event.PreviousInclusionTime)
 	newEpoch := epoch.IndexFromTime(event.InclusionTime)
@@ -107,34 +107,16 @@ func (f *commitmentFactory) UpdateAcceptedTransaction(event *ledger.TransactionI
 		return
 	}
 
-	if f.isEpochAlreadyCommitted(oldEpoch) || f.isEpochAlreadyCommitted(newEpoch) {
-		f.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
-		return
+	if oldEpoch <= f.latestCommitment.Index() || newEpoch <= f.latestCommitment.Index() {
+		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
 	}
 
-	txID := event.TransactionID
-
-	has, err := f.isTransactionInEpoch(event.TransactionID, oldEpoch)
-	if err != nil {
-		f.Events.Error.Trigger(err)
-		return
-	}
-	if !has {
-		return
+	if f.mutationFactory.hasAcceptedTransaction(oldEpoch, event.TransactionID) {
+		f.mutationFactory.removeAcceptedTransaction(oldEpoch, event.TransactionID)
+		f.mutationFactory.addAcceptedTransaction(newEpoch, event.TransactionID)
 	}
 
-	var spent, created []*ledger.OutputWithMetadata
-	f.ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-		spent, created = f.resolveOutputs(tx)
-	})
-
-	if err := f.removeTransactionFromEpoch(txID, oldEpoch, spent, created); err != nil {
-		f.Events.Error.Trigger(err)
-	}
-
-	if err := f.includeTransactionInEpoch(txID, newEpoch, spent, created); err != nil {
-		f.Events.Error.Trigger(err)
-	}
+	return
 }
 
 /*

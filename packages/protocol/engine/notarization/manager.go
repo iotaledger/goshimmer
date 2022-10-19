@@ -7,17 +7,14 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
@@ -70,7 +67,6 @@ func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusIns
 func (m *Manager) initCommitmentFactory() {
 	m.commitmentFactory = newCommitmentFactory(m.genesisCommitment, m.chainStorage)
 }
-
 
 // OnConflictAccepted is the handler for conflict confirmed event.
 func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
@@ -190,10 +186,6 @@ func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
 	count, _ := m.pendingConflictsCounters.Get(ei)
 	count++
 	m.pendingConflictsCounters.Set(ei, count)
-}
-
-func (m *Manager) isTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index) (has bool, err error) {
-	return m.commitmentFactory.hasStateMutationLeaf(ei, txID)
 }
 
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.

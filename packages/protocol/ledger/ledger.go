@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/database"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
@@ -143,8 +145,8 @@ func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*OutputWithMetada
 // LoadEpochDiff loads EpochDiff from a snapshot file to the storage.
 func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
 	for _, spent := range epochDiff.Spent() {
-		l.Storage.outputStorage.Delete(spent.ID().Bytes())
-		l.Storage.outputMetadataStorage.Delete(spent.ID().Bytes())
+		l.Storage.outputStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
+		l.Storage.outputMetadataStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
 
 		l.Events.OutputSpent.Trigger(spent.ID())
 	}
@@ -252,11 +254,33 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		}
 	})
 
+	l.storeEpochDiff(txMetadata)
+
 	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
 		TransactionMetadata: txMetadata,
 	})
 
 	return true
+}
+
+func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
+	/*
+		1) check inputs against epochdiff mapped outputs -> mark them as spent in storage
+			-> remove them from the map
+		2) create new outputs and add them to map & epochdiff storage
+		3)
+	*/
+
+	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
+	diffStorage := l.ChainStorage.LedgerDiffStorage(txEpoch)
+	diffStorage
+	diffStorage.Store(txMeta)
+
+	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+			input := it.Next()
+		}
+	})
 }
 
 // triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.
