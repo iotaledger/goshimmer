@@ -258,9 +258,6 @@ func (b *Block) DetermineIDFromBytes(buf []byte) {
 }
 
 func (b *Block) SetSize(size int) {
-	b.Lock()
-	defer b.Unlock()
-
 	b.size = &size
 }
 
