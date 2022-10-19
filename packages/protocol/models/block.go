@@ -99,14 +99,10 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 }
 
 func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) {
-	newBlock = model.NewStorable[BlockID, Block](&block{})
-	newBlock.SetID(id)
-	// TODO: remove after debugging
-	// var size int
-	// newBlock.size = &size
-	newBlock.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
-
-	return options.Apply(newBlock, opts)
+	return options.Apply(model.NewStorable[BlockID, Block](&block{}), opts, func(b *Block) {
+		b.SetID(id)
+		b.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
+	})
 }
 
 // VerifySignature verifies the Signature of the block.
@@ -261,23 +257,21 @@ func (b *Block) DetermineIDFromBytes(buf []byte) {
 	b.size = &l
 }
 
+func (b *Block) SetSize(size int) {
+	b.Lock()
+	defer b.Unlock()
+
+	b.size = &size
+}
+
 // Size returns the block size in bytes.
 func (b *Block) Size() int {
 	b.RLock()
+	defer b.RUnlock()
 
 	if b.size == nil {
-		b.RUnlock()
-		fmt.Println(">>>> block size is nil", b.ID(), b.ID().Base58())
-		l := len(lo.PanicOnErr(b.Bytes()))
-
-		b.Lock()
-		defer b.Unlock()
-		b.size = &l
-		// panic(fmt.Sprintf("size is not set for %s", b.ID()))
-		return *b.size
+		panic(fmt.Sprintf("size is not set for %s", b.ID()))
 	}
-
-	defer b.RUnlock()
 
 	return *b.size
 }
