@@ -17,9 +17,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
@@ -53,7 +55,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
 	if Parameters.GenesisTime > 0 {
-		fmt.Println(">>>>> Using genesis time:", Parameters.GenesisTime)
 		epoch.GenesisTime = Parameters.GenesisTime
 	}
 
@@ -136,6 +137,18 @@ func configureLogging(*node.Plugin) {
 	// deps.Protocol.Events.Engine.NotarizationManager.EpochCommittable.Attach(event.NewClosure(func(e *notarization.EpochCommittableEvent) {
 	// 	fmt.Println("EpochCommittableEvent", e.EI)
 	// }))
+
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println(">>>>>>> BlockMissing", block.ID())
+	}))
+
+	deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+		fmt.Println(">>>>>>> MissingBlockAttached", block.ID())
+	}))
+	deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+		fmt.Println(">>>>>>> BlockRequesterTick", blockID)
+	}))
+
 }
 
 func run(*node.Plugin) {
