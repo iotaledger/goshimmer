@@ -160,6 +160,7 @@ func (b *BlockDAG) checkTimestampMonotonicity(block *Block) error {
 }
 
 func (b *BlockDAG) markInvalid(block *Block, reason error) {
+	fmt.Println("markInvalid by solidifier (causal order)", block.ID().Base58(), reason)
 	b.SetInvalid(block, reason)
 }
 

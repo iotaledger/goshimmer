@@ -57,7 +57,7 @@ func (a *ActivityTracker) Update(activeValidator *validator.Validator, activityT
 		return
 	}
 
-	fmt.Printf("Update activity %s: %s - last activity: %s - starting task in: %s\n", activeValidator.ID(), activityTime, issuerLastActivity, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()))
+	fmt.Printf("Update activity %s: %s - last activity: %s - executing task in: %s, window: %s, RAT: %s\n", activeValidator.ID(), activityTime, issuerLastActivity, activityTime.Add(a.optsActivityWindow).Sub(a.timeRetrieverFunc()), a.optsActivityWindow, a.timeRetrieverFunc())
 
 	a.lastActiveMap.Set(activeValidator.ID(), activityTime)
 	a.validatorSet.Add(activeValidator)
