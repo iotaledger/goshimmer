@@ -16,10 +16,10 @@ docker pull alpine/socat:1.7.4.3-r0
 echo "Run integration tests"
 
 for name in $TEST_NAMES; do
-  TEST_NAME=$name docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+  TEST_NAME=$name docker compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
   docker logs tester &>logs/"$name"_tester.log
 done
 
 echo "Clean up"
-docker-compose -f tester/docker-compose.yml down
+docker compose -f tester/docker-compose.yml down
 docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)
