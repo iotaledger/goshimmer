@@ -225,7 +225,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 		return
 	}
 
-	parentBlock, _ := b.memStorage.Get(parent.ID.EpochIndex, true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
+	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
 		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
 
 		b.Events.BlockMissing.Trigger(newBlock)

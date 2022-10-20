@@ -1,5 +1,7 @@
 eval "$GOSHIMMER_SEEDS"
 
+env | base64
+
 ARGS=("$@")
 ansible-playbook -u root -i deploy/ansible/hosts/"${1}" --extra-vars \
   "ANALYSISSENTRY_01_ENTRYNODE_SEED=$ANALYSISSENTRY_01_ENTRYNODE_SEED
@@ -26,5 +28,6 @@ goshimmerDockerImage=$GOSHIMMER_DOCKER_IMAGE
 goshimmerDockerTag=$GOSHIMMER_DOCKER_TAG
 snapshotterBucket=$SNAPSHOTTER_BUCKET
 snapshotterAccessKey=$SNAPSHOTTER_ACCESS_KEY
+GENESIS_TIME=$(date +%s)
 snapshotterSecretKey=$SNAPSHOTTER_SECRET_KEY" \
   ${ARGS[@]:2} deploy/ansible/"${2:-deploy.yml}"
