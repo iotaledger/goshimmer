@@ -8,8 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 )
 
 const (
@@ -37,7 +35,7 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 
 	// attach all events
 	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommittable))
-	notarizationManager.Events.ManaVectorUpdate.Hook(event.NewClosure(e.ManaVectorUpdate))
+	//notarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaVectorUpdate))
 
 	return e
 }
@@ -83,8 +81,10 @@ func (e *EventMock) EpochCommittable(event *EpochCommittedEvent) {
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
+/*
 // ManaVectorUpdate is the mocked ManaVectorUpdate event.
 func (e *EventMock) ManaVectorUpdate(event *mana.ManaVectorUpdateEvent) {
 	e.Called(event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
+*/

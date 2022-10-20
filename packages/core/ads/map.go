@@ -9,11 +9,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-type Map[K, V constraints.Serializable, VPtr constraints.Marshalable[V]] struct {
+type Map[K, V constraints.Serializable, VPtr constraints.MarshalablePtr[V]] struct {
 	tree *smt.SparseMerkleTree
 }
 
-func NewMap[K, V constraints.Serializable, VPtr constraints.Marshalable[V]](store kvstore.KVStore) *Map[K, V, VPtr] {
+func NewMap[K, V constraints.Serializable, VPtr constraints.MarshalablePtr[V]](store kvstore.KVStore) *Map[K, V, VPtr] {
 	return &Map[K, V, VPtr]{
 		tree: smt.NewSparseMerkleTree(
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),

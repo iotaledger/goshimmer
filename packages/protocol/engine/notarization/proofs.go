@@ -1,5 +1,6 @@
 package notarization
 
+/*
 import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
@@ -114,3 +115,5 @@ func (f *commitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, trans
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+*/

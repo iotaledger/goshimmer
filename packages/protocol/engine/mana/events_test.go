@@ -1,5 +1,7 @@
 package mana
 
+/*
+
 import (
 	"testing"
 	"time"
@@ -95,3 +97,5 @@ func newUpdateEvent() *UpdatedEvent {
 		ManaType: manamodels.ConsensusMana,
 	}
 }
+
+*/

@@ -3,6 +3,7 @@ package manamodels
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/mr-tron/base58"
@@ -40,6 +41,6 @@ func IDFromPubKey(pubKey string) (iID identity.ID, err error) {
 		return
 	}
 
-	copy(iID[:], _identity.ID().Bytes())
+	copy(iID[:], lo.PanicOnErr(_identity.ID().Bytes()))
 	return
 }

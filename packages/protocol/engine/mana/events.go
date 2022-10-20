@@ -5,13 +5,14 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/stringify"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -62,9 +63,9 @@ type ManaVectorUpdateEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
 	// Spent are outputs that is spent in a transaction.
-	Spent []*ledger.OutputWithMetadata
+	Spent []*chainstorage.OutputWithMetadata
 	// Created are the outputs created in a transaction.
-	Created []*ledger.OutputWithMetadata
+	Created []*chainstorage.OutputWithMetadata
 }
 
 // PledgedEvent is the struct that is passed along with triggering a Pledged event.
@@ -101,7 +102,7 @@ func (p *PledgedEvent) String() string {
 	return stringify.Struct("PledgeEvent",
 		stringify.NewStructField("type", p.ManaType.String()),
 		stringify.NewStructField("shortIssuerID", p.IssuerID.String()),
-		stringify.NewStructField("fullIssuerID", base58.Encode(p.IssuerID.Bytes())),
+		stringify.NewStructField("fullIssuerID", base58.Encode(lo.PanicOnErr(p.IssuerID.Bytes()))),
 		stringify.NewStructField("time", p.Time.String()),
 		stringify.NewStructField("amount", p.Amount),
 		stringify.NewStructField("txID", p.TransactionID),
@@ -195,7 +196,7 @@ func (r *RevokedEvent) String() string {
 	return stringify.Struct("RevokedEvent",
 		stringify.NewStructField("type", r.ManaType.String()),
 		stringify.NewStructField("shortIssuerID", r.IssuerID.String()),
-		stringify.NewStructField("fullIssuerID", base58.Encode(r.IssuerID.Bytes())),
+		stringify.NewStructField("fullIssuerID", base58.Encode(lo.PanicOnErr(r.IssuerID.Bytes()))),
 		stringify.NewStructField("time", r.Time.String()),
 		stringify.NewStructField("amount", r.Amount),
 		stringify.NewStructField("txID", r.TransactionID),
@@ -268,7 +269,7 @@ func (u *UpdatedEvent) String() string {
 	return stringify.Struct("UpdatedEvent",
 		stringify.NewStructField("type", u.ManaType.String()),
 		stringify.NewStructField("shortIssuerID", u.IssuerID.String()),
-		stringify.NewStructField("fullIssuerID", base58.Encode(u.IssuerID.Bytes())),
+		stringify.NewStructField("fullIssuerID", base58.Encode(lo.PanicOnErr(u.IssuerID.Bytes()))),
 		stringify.NewStructField("oldBaseMana", u.OldMana),
 		stringify.NewStructField("newBaseMana", u.NewMana),
 	)

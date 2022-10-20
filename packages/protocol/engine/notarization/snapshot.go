@@ -1,5 +1,7 @@
 package notarization
 
+/*
+
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
@@ -158,3 +160,5 @@ func (m *Manager) SnapshotEpochActivity(epochDiffIndex epoch.Index) (epochActivi
 	// epochActivity = m.tangle.WeightProvider.SnapshotEpochActivity(epochDiffIndex)
 	return
 }
+
+*/

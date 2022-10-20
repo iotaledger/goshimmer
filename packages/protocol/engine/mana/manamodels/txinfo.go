@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/iotaledger/hive.go/core/stringify"
@@ -151,7 +152,7 @@ func (t *TxSnapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err 
 func (t *TxSnapshot) Bytes() (serialized []byte) {
 	return marshalutil.New().
 		WriteFloat64(t.Value).
-		Write(t.TxID).
+		WriteBytes(lo.PanicOnErr(t.TxID.Bytes())).
 		WriteTime(t.Timestamp).
 		Bytes()
 }

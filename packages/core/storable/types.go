@@ -22,15 +22,15 @@ type serializable[A any] interface {
 	FromBytes([]byte) (int, error)
 }
 
-type SerializableUint64 uint64
+type SerializableInt64 int64
 
-func (s SerializableUint64) Bytes() (data []byte, err error) {
+func (s SerializableInt64) Bytes() (data []byte, err error) {
 	data = make([]byte, 8)
 	binary.PutUvarint(data, uint64(s))
 	return
 }
 
-func (s *SerializableUint64) FromBytes(data []byte) (consumedBytes int, err error) {
-	*s = SerializableUint64(uint64(binary.LittleEndian.Uint64(data)))
+func (s *SerializableInt64) FromBytes(data []byte) (consumedBytes int, err error) {
+	*s = SerializableInt64(binary.LittleEndian.Uint64(data))
 	return 8, nil
 }

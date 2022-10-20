@@ -6,18 +6,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // Events is a container that acts as a dictionary for the existing events of a notarization manager.
 type Events struct {
 	// EpochCommitted is an event that gets triggered whenever an epoch commitment is committable.
-	EpochCommitted *event.Linkable[*EpochCommittedEvent]
+	EpochCommitted          *event.Linkable[*EpochCommittedEvent]
+	ConsensusWeightsUpdated *event.Linkable[*ConsensusWeightsUpdatedEvent]
 
 	Error *event.Linkable[error]
 
@@ -32,38 +28,6 @@ var NewEvents = event.LinkableConstructor(func() (self *Events) {
 	}
 })
 
-// TangleTreeUpdatedEvent is a container that acts as a dictionary for the TangleTree inserted/removed event related parameters.
-type TangleTreeUpdatedEvent struct {
-	// EI is the index of the block.
-	EI epoch.Index
-	// BlockID is the blockID that inserted/removed to/from the tangle smt.
-	BlockID models.BlockID
-}
-
-// BootstrappedEvent is an event that gets triggered when a notarization manager has the last committable epoch relatively close to current epoch.
-type BootstrappedEvent struct {
-	// EI is the index of the last commitable epoch
-	EI epoch.Index
-}
-
-// StateMutationTreeUpdatedEvent is a container that acts as a dictionary for the State mutation tree inserted/removed event related parameters.
-type StateMutationTreeUpdatedEvent struct {
-	// EI is the index of the transaction.
-	EI epoch.Index
-	// TransactionID is the transaction ID that inserted/removed to/from the state mutation smt.
-	TransactionID utxo.TransactionID
-}
-
-// UTXOUpdatedEvent is a container that acts as a dictionary for the UTXO update event related parameters.
-type UTXOUpdatedEvent struct {
-	// EI is the index of updated UTXO.
-	EI epoch.Index
-	// Spent are outputs that is spent in a transaction.
-	Spent []*ledger.OutputWithMetadata
-	// Created are the outputs created in a transaction.
-	Created []*ledger.OutputWithMetadata
-}
-
 // EpochCommittedEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
 type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
@@ -72,32 +36,24 @@ type EpochCommittedEvent struct {
 	Commitment *commitment.Commitment
 }
 
-// EpochConfirmedEvent is a container that acts as a dictionary for the EpochConfirmed event related parameters.
-type EpochConfirmedEvent struct {
+// ConsensusWeightsUpdatedEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
+type ConsensusWeightsUpdatedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
+
+	AmountAndDiffByIdentity map[identity.ID]*ConsensusWeightUpdate
 }
 
-// CompetingCommitmentDetectedEvent is a container that acts as a dictionary for the CompetingCommitmentDetectedEvent event related parameters.
-type CompetingCommitmentDetectedEvent struct {
-	// Block is the block that contains the competing commitment.
-	Block *models.Block
+// ConsensusWeightUpdate is a container that acts as a dictionary for consensus weight update.
+type ConsensusWeightUpdate struct {
+	OldAmount int64
+	Diff      int64
 }
 
-// SyncRangeEvent is a container that acts as a dictionary for the SyncRange event related parameters.
-type SyncRangeEvent struct {
-	StartEI   epoch.Index
-	EndEI     epoch.Index
-	StartEC   commitment.ID
-	EndPrevEC commitment.ID
-}
-
-// ActivityTreeUpdatedEvent is a container that acts as a dictionary for the ActivityTree inserted/removed event related parameters.
-type ActivityTreeUpdatedEvent struct {
-	// EI is the index of the epoch.
-	EI epoch.Index
-	// NodeID is the issuer nodeID.
-	NodeID identity.ID
+func newConsesusWeightUpdate(oldAmount int64) *ConsensusWeightUpdate {
+	return &ConsensusWeightUpdate{
+		OldAmount: oldAmount,
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

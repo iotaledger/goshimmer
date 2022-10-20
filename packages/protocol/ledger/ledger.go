@@ -181,8 +181,12 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
-			l.triggerAcceptedEvent(txMetadata)
+		if l.ConflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
+			l.rollbackTransactionInEpochDiff(txMetadata, previousInclusionTime, inclusionTime)
+
+			if previousInclusionTime.IsZero() {
+				l.triggerAcceptedEvent(txMetadata)
+			}
 		}
 	})
 }
@@ -262,6 +266,26 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	})
 
 	return true
+}
+
+func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
+	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
+	newEpoch := epoch.IndexFromTime(inclusionTime)
+
+	if oldEpoch == 0 || oldEpoch == newEpoch {
+		return
+	}
+
+	if oldEpoch <= l.ChainStorage.LatestCommittedEpoch() || newEpoch <= l.ChainStorage.LatestCommittedEpoch() {
+		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
+		return
+	}
+
+	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		l.ChainStorage.DiffStorage.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
+	})
+
+	l.ChainStorage.DiffStorage.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
 }
 
 func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {

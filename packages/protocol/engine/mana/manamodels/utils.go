@@ -1,6 +1,7 @@
 package manamodels
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 )
@@ -24,7 +25,7 @@ type IssuerStr struct {
 func (n Issuer) ToIssuerStr() IssuerStr {
 	return IssuerStr{
 		ShortIssuerID: n.ID.String(),
-		IssuerID:      base58.Encode(n.ID.Bytes()),
+		IssuerID:      base58.Encode(lo.PanicOnErr(n.ID.Bytes())),
 		Mana:          n.Mana,
 	}
 }
@@ -41,7 +42,7 @@ func (n IssuerMap) ToIssuerStrList() []IssuerStr {
 	for ID, val := range n {
 		list = append(list, IssuerStr{
 			ShortIssuerID: ID.String(),
-			IssuerID:      base58.Encode(ID.Bytes()),
+			IssuerID:      base58.Encode(lo.PanicOnErr(ID.Bytes())),
 			Mana:          val,
 		})
 	}

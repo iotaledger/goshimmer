@@ -74,6 +74,26 @@ func (d *DiffStorage) DeleteCreated(index epoch.Index, outputID utxo.OutputID) (
 	return d.delete(store, outputID)
 }
 
+func (d *DiffStorage) DeleteSpentOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
+	for it := outputIDs.Iterator(); it.HasNext(); {
+		if err = d.DeleteSpent(index, it.Next()); err != nil {
+			return
+		}
+	}
+
+	return nil
+}
+
+func (d *DiffStorage) DeleteCreatedOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
+	for it := outputIDs.Iterator(); it.HasNext(); {
+		if err = d.DeleteCreated(index, it.Next()); err != nil {
+			return
+		}
+	}
+
+	return nil
+}
+
 func (d *DiffStorage) StreamSpent(index epoch.Index, callback func(*OutputWithMetadata)) (err error) {
 	store, err := d.SpentStorage(index)
 	if err != nil {

@@ -24,8 +24,10 @@ import (
 
 // commitmentFactory manages epoch commitmentTrees.
 type commitmentFactory struct {
+	Events *Events
+
 	stateTree *ads.Set[utxo.OutputID]
-	manaTree  *ads.Map[identity.ID, storable.SerializableUint64, *storable.SerializableUint64]
+	manaTree  *ads.Map[identity.ID, storable.SerializableInt64, *storable.SerializableInt64]
 
 	mutationFactory *mutationFactory
 
@@ -37,10 +39,11 @@ type commitmentFactory struct {
 
 func newCommitmentFactory(genesisCommitment *commitment.Commitment, chainStorage *chainstorage.ChainStorage) *commitmentFactory {
 	return &commitmentFactory{
+		Events:           NewEvents(),
 		latestCommitment: genesisCommitment,
 		mutationFactory:  newMutationFactory(genesisCommitment.Index()),
 		stateTree:        ads.NewSet[utxo.OutputID](chainStorage.StateTreeStorage()),
-		manaTree:         ads.NewMap[identity.ID, storable.SerializableUint64, *storable.SerializableUint64](chainStorage.ManaTreeStorage()),
+		manaTree:         ads.NewMap[identity.ID, storable.SerializableInt64](chainStorage.ManaTreeStorage()),
 	}
 }
 
@@ -96,7 +99,7 @@ func (f *commitmentFactory) AddAcceptedTransaction(txMeta *ledger.TransactionMet
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
-func (f *commitmentFactory) UpdateAcceptedTransaction(event *ledger.TransactionInclusionUpdatedEvent) (err error) {
+func (f *commitmentFactory) UpdateTransactionInclusionTime(event *ledger.TransactionInclusionUpdatedEvent) (err error) {
 	f.Lock()
 	defer f.Unlock()
 
@@ -119,9 +122,7 @@ func (f *commitmentFactory) UpdateAcceptedTransaction(event *ledger.TransactionI
 	return
 }
 
-/*
-TODO: We need OnTransactionOrphaned event
-*/
+// TODO: We need OnTransactionOrphaned event
 func (f *commitmentFactory) RemoveAcceptedTransaction(tx utxo.Transaction) {
 	/*
 		spent, created := f.resolveOutputs(tx)
@@ -136,7 +137,7 @@ func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, creat
 	}
 
 	tangleRoot, stateMutationRoot, activityRoot := f.mutationFactory.commit(ei)
-	stateRoot, manaRoot := f.advanceStateRoots(spentOutputs, createdOutputs)
+	stateRoot, manaRoot := f.advanceStateRoots(ei, spentOutputs, createdOutputs)
 
 	// TODO: obtain and commit to cumulative weight
 	newCommitment = commitment.New(ei, f.latestCommitment.ID(), commitment.NewRoots(tangleRoot, stateMutationRoot, activityRoot, stateRoot, manaRoot).ID(), 0)
@@ -146,15 +147,26 @@ func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, creat
 	return
 }
 
-func (f *commitmentFactory) advanceStateRoots(spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (stateRoot, manaRoot types.Identifier) {
+func (f *commitmentFactory) advanceStateRoots(ei epoch.Index, spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (stateRoot, manaRoot types.Identifier) {
+	manaUpdates := make(map[identity.ID]*ConsensusWeightUpdate)
+
 	// Insert  created UTXOs into the state tree.
 	for _, created := range createdOutputs {
 		f.stateTree.Add(created.ID())
 
-		if iotaBalance, exists := created.IOTABalance(); exists {
-			pledgeID := created.ConsensusManaPledgeID()
-			f.manaTree.Set(pledgeID, lo.Return1(f.manaTree.Get(pledgeID))+storable.SerializableUint64(iotaBalance))
+		iotaBalance, exists := created.IOTABalance()
+		if !exists {
+			continue
 		}
+
+		pledgeID := created.ConsensusManaPledgeID()
+		manaUpdate, exists := manaUpdates[pledgeID]
+		if !exists {
+			manaUpdate = newConsesusWeightUpdate(int64(lo.Return1(f.manaTree.Get(pledgeID))))
+			manaUpdates[pledgeID] = manaUpdate
+		}
+
+		manaUpdate.Diff += int64(iotaBalance)
 	}
 
 	// Remove spent UTXOs from the state tree.
@@ -166,15 +178,30 @@ func (f *commitmentFactory) advanceStateRoots(spentOutputs, createdOutputs []*ch
 			continue
 		}
 
-		spentPledge := spent.ConsensusManaPledgeID()
-		weight := lo.Return1(f.manaTree.Get(spentPledge)) - storable.SerializableUint64(iotaBalance)
-		if weight <= 0 {
-			f.manaTree.Delete(spentPledge)
+		pledgeID := spent.ConsensusManaPledgeID()
+		manaUpdate, exists := manaUpdates[pledgeID]
+		if !exists {
+			manaUpdate = newConsesusWeightUpdate(int64(lo.Return1(f.manaTree.Get(pledgeID))))
+			manaUpdates[pledgeID] = manaUpdate
+		}
+
+		manaUpdate.Diff -= int64(iotaBalance)
+	}
+
+	for id, manaUpdate := range manaUpdates {
+		newAmount := manaUpdate.OldAmount + manaUpdate.Diff
+		if newAmount <= 0 {
+			f.manaTree.Delete(id)
 			continue
 		}
 
-		f.manaTree.Set(spentPledge, weight)
+		f.manaTree.Set(id, storable.SerializableInt64(newAmount))
 	}
+
+	f.Events.ConsensusWeightsUpdated.Trigger(&ConsensusWeightsUpdatedEvent{
+		EI:                      ei,
+		AmountAndDiffByIdentity: manaUpdates,
+	})
 
 	return f.stateTree.Root(), f.manaTree.Root()
 }

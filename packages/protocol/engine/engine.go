@@ -179,7 +179,8 @@ func (e *Engine) initNotarizationManager() {
 		e.Tangle,
 		e.Ledger,
 		e.Consensus,
-		notarization.NewCommitmentFactory(e., e.optsSnapshotDepth),
+		e.ChainStorage,
+		e.GenesisCommitment,
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
@@ -207,7 +208,10 @@ func (e *Engine) initNotarizationManager() {
 func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
 
-	e.NotarizationManager.Events.ManaVectorUpdate.Attach(e.ManaTracker.OnManaVectorToUpdateClosure)
+	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
+		e.ManaTracker.OnTransactionAccepted(event.TransactionMetadata.ID())
+	}))
 }
 
 func (e *Engine) initSnapshotManager() {
