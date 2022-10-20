@@ -48,7 +48,7 @@ services:
     networks:
       - goshimmer
   peer_replica:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     environment:
       - BLOCKLAYER_GENESISTIME
@@ -70,7 +70,7 @@ services:
     depends_on:
       - peer_master
   peer_master2:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     environment:
       - BLOCKLAYER_GENESISTIME
@@ -98,7 +98,7 @@ services:
     depends_on:
       - peer_master
   peer_nomana:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     environment:
       - BLOCKLAYER_GENESISTIME
@@ -125,7 +125,7 @@ services:
       - peer_master
       - faucet
   faucet:
-    image: docker-network_peer_master:latest
+    image: docker-network-peer_master:latest
     stop_grace_period: 1m
     environment:
       - BLOCKLAYER_GENESISTIME
