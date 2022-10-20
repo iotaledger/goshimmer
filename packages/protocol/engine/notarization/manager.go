@@ -168,11 +168,7 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 		currentATT = issuingTime[0]
 	}
 
-	diff := currentATT.Sub(t)
-	if diff < m.optsMinCommittableEpochAge {
-		return false
-	}
-	return true
+	return currentATT.Sub(t) >= m.optsMinCommittableEpochAge
 }
 
 func (m *Manager) getConflictEI(conflictID utxo.TransactionID) epoch.Index {
