@@ -124,8 +124,8 @@ func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCom
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and triggers the events.
 func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
-	epochCommittableEvents, manaVectorUpdateEvents := m.onAcceptanceTimeUpdated(newTime)
-	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
+	epochCommittedEvents, manaVectorUpdateEvents := m.onAcceptanceTimeUpdated(newTime)
+	m.triggerEpochEvents(epochCommittedEvents, manaVectorUpdateEvents)
 }
 
 // OnAcceptanceTimeUpdated is the handler for time updated event and returns events to be triggered.
@@ -230,7 +230,7 @@ func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
 	return ei <= m.chainStorage.LatestCommittedEpoch()
 }
 
-func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
+func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata, createdOutputsWithMetadata []*chainstorage.OutputWithMetadata) {
 	spentOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	createdOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	var spentOutputIDs utxo.OutputIDs
@@ -275,36 +275,33 @@ func (m *Manager) manaVectorUpdate(ei epoch.Index) (event *mana.ManaVectorUpdate
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*EpochCommittedEvent, []*mana.ManaVectorUpdateEvent) {
-	// latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	// if err != nil {
-	// 	m.Events.Error.Trigger(errors.Errorf("could not obtain last committed epoch index: %v", err))
-	// 	return nil, nil
-	// }
-	latestCommittable := epoch.Index(0)
-
-	epochCommittableEvents := make([]*EpochCommittedEvent, 0)
+	epochCommittedEvents := make([]*EpochCommittedEvent, 0)
 	manaVectorUpdateEvents := make([]*mana.ManaVectorUpdateEvent, 0)
-	for ei := latestCommittable + 1; ei <= currentEpoch; ei++ {
+	for ei := m.chainStorage.LatestCommittedEpoch() + 1; ei <= currentEpoch; ei++ {
 		if !m.isCommittable(ei) {
 			break
 		}
 
-		// reads the roots and store the ec
-		// rolls the state trees
-		ecRecord, ecRecordErr := m.commitmentFactory.createCommitment(ei)
-		if ecRecordErr != nil {
-			m.Events.Error.Trigger(errors.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr))
+		spentOutputsWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)
+		m.chainStorage.DiffStorage.StreamSpent(ei, func(outputWithMetadata *chainstorage.OutputWithMetadata) {
+			spentOutputsWithMetadata = append(spentOutputsWithMetadata, outputWithMetadata)
+		})
+		createdOutputsWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)
+		m.chainStorage.DiffStorage.StreamCreated(ei, func(outputWithMetadata *chainstorage.OutputWithMetadata) {
+			spentOutputsWithMetadata = append(createdOutputsWithMetadata, outputWithMetadata)
+		})
+
+		newCommitment, newCommitmentErr := m.commitmentFactory.createCommitment(ei, spentOutputsWithMetadata, createdOutputsWithMetadata)
+		if newCommitmentErr != nil {
+			m.Events.Error.Trigger(errors.Errorf("could not update commitments for epoch %d: %v", ei, newCommitmentErr))
 			return nil, nil
 		}
 
-		if err := m.commitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
-			m.Events.Error.Trigger(errors.Errorf("could not set last committed epoch: %v", err))
-			return nil, nil
-		}
+		m.chainStorage.SetLatestCommittedEpoch(ei)
 
-		epochCommittableEvents = append(epochCommittableEvents, &EpochCommittedEvent{
-			EI:       ei,
-			ECRecord: ecRecord,
+		epochCommittedEvents = append(epochCommittedEvents, &EpochCommittedEvent{
+			EI:         ei,
+			Commitment: newCommitment,
 		})
 		if manaVectorUpdateEvent := m.manaVectorUpdate(ei); manaVectorUpdateEvent != nil {
 			manaVectorUpdateEvents = append(manaVectorUpdateEvents, manaVectorUpdateEvent)
@@ -313,7 +310,7 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 		// We do not need to track pending conflicts for a committed epoch anymore.
 		m.pendingConflictsCounters.Delete(ei)
 	}
-	return epochCommittableEvents, manaVectorUpdateEvents
+	return epochCommittedEvents, manaVectorUpdateEvents
 }
 
 func (m *Manager) triggerEpochEvents(epochCommittableEvents []*EpochCommittedEvent, manaVectorUpdateEvents []*mana.ManaVectorUpdateEvent) {

@@ -130,7 +130,7 @@ func (f *commitmentFactory) RemoveAcceptedTransaction(tx utxo.Transaction) {
 	*/
 }
 
-func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, createdOutputs []*ledger.OutputWithMetadata) (newCommitment *commitment.Commitment, err error) {
+func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (newCommitment *commitment.Commitment, err error) {
 	if ei != f.latestCommitment.Index()+1 {
 		return nil, errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", ei, f.latestCommitment.Index())
 	}
@@ -146,7 +146,7 @@ func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, creat
 	return
 }
 
-func (f *commitmentFactory) advanceStateRoots(spentOutputs, createdOutputs []*ledger.OutputWithMetadata) (stateRoot, manaRoot types.Identifier) {
+func (f *commitmentFactory) advanceStateRoots(spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (stateRoot, manaRoot types.Identifier) {
 	// Insert  created UTXOs into the state tree.
 	for _, created := range createdOutputs {
 		f.stateTree.Add(created.ID())

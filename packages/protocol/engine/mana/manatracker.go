@@ -43,7 +43,7 @@ func (t *Tracker) setupEvents() {
 	t.OnManaVectorToUpdateClosure = event.NewClosure(func(event *ManaVectorUpdateEvent) {
 		t.BookEpoch(event.Created, event.Spent)
 	})
-	t.ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { t.onTransactionAccepted(event.TransactionID) }))
+	t.ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) { t.onTransactionAccepted(event.TransactionMetadata.ID()) }))
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 

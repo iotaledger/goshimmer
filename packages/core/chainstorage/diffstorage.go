@@ -16,142 +16,142 @@ import (
 )
 
 const (
-	SpentType byte = iota
-	CreatedType
+	spentType byte = iota
+	createdType
 )
 
 type DiffStorage struct {
 	chainStorage *ChainStorage
 }
 
-func (d *DiffStorage) StoreSpent(outputWithMetadata *OutputWithMetadata) {
-	store, err := d.Storage(outputWithMetadata.Index()).WithExtendedRealm([]byte{SpentType})
+func (d *DiffStorage) StoreSpent(outputWithMetadata *OutputWithMetadata) (err error) {
+	store, err := d.SpentStorage(outputWithMetadata.Index())
 	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
+		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
-
-	outputWithMetadataBytes := lo.PanicOnErr(outputWithMetadata.Bytes())
-	if err := store.Set(outputWithMetadataBytes, outputWithMetadataBytes); err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store spent output with metadata %s: %w", outputWithMetadata.ID(), err))
-	}
+	return d.store(store, outputWithMetadata)
 }
 
-func (d *DiffStorage) StoreCreated(outputWithMetadata *OutputWithMetadata) {
-	store, err := d.Storage(outputWithMetadata.Index()).WithExtendedRealm([]byte{CreatedType})
+func (d *DiffStorage) StoreCreated(outputWithMetadata *OutputWithMetadata) (err error) {
+	store, err := d.CreatedStorage(outputWithMetadata.Index())
 	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
+		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
-
-	outputWithMetadataBytes := lo.PanicOnErr(outputWithMetadata.Bytes())
-	if err := store.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), outputWithMetadataBytes); err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store created output with metadata %s: %w", outputWithMetadata.ID(), err))
-	}
+	return d.store(store, outputWithMetadata)
 }
 
 func (d *DiffStorage) GetSpent(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{SpentType})
+	store, err := d.SpentStorage(index)
 	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
+		return nil, errors.Errorf("failed to extend realm for storage: %w", err)
 	}
-	outputWithMetadataBytes, err := store.Get(lo.PanicOnErr(outputID.Bytes()))
-	if err != nil {
-		if errors.Is(err, kvstore.ErrKeyNotFound) {
-			return nil, nil
-		}
-
-		return nil, errors.Errorf("failed to get block %s: %w", outputID, err)
-	}
-
-	outputWithMetadata = new(OutputWithMetadata)
-	if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
-		return nil, errors.Errorf("failed to parse output with metadata %s: %w", outputID, err)
-	}
-	outputWithMetadata.SetID(outputID)
-
-	return
+	return d.get(store, outputID)
 }
 
 func (d *DiffStorage) GetCreated(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{CreatedType})
+	store, err := d.CreatedStorage(index)
 	if err != nil {
 		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
 	}
-	outputWithMetadataBytes, err := store.Get(lo.PanicOnErr(outputID.Bytes()))
+	return d.get(store, outputID)
+}
+
+func (d *DiffStorage) DeleteSpent(index epoch.Index, outputID utxo.OutputID) (err error) {
+	store, err := d.SpentStorage(index)
 	if err != nil {
-		if errors.Is(err, kvstore.ErrKeyNotFound) {
-			return nil, nil
-		}
-
-		return nil, errors.Errorf("failed to get block %s: %w", outputID, err)
+		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
 	}
 
-	outputWithMetadata = new(OutputWithMetadata)
-	if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
-		return nil, errors.Errorf("failed to parse output with metadata %s: %w", outputID, err)
+	return d.delete(store, outputID)
+}
+
+func (d *DiffStorage) DeleteCreated(index epoch.Index, outputID utxo.OutputID) (err error) {
+	store, err := d.CreatedStorage(index)
+	if err != nil {
+		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
 	}
-	outputWithMetadata.SetID(outputID)
+
+	return d.delete(store, outputID)
+}
+
+func (d *DiffStorage) StreamSpent(index epoch.Index, callback func(*OutputWithMetadata)) (err error) {
+	store, err := d.SpentStorage(index)
+	if err != nil {
+		return errors.Errorf("failed to extend realm for storage: %w", err)
+	}
+
+	d.stream(store, callback)
 
 	return
 }
 
-func (d *DiffStorage) DeleteSpent(index epoch.Index, outputID utxo.OutputID) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{SpentType})
+func (d *DiffStorage) StreamCreated(index epoch.Index, callback func(*OutputWithMetadata)) (err error) {
+	store, err := d.CreatedStorage(index)
 	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
+		return errors.Errorf("failed to extend realm for storage: %w", err)
 	}
 
-	if err := store.Delete(lo.PanicOnErr(outputID.Bytes())); err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete spent output %s: %w", outputID, err))
-	}
-}
+	d.stream(store, callback)
 
-func (d *DiffStorage) DeleteCreated(index epoch.Index, outputID utxo.OutputID) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{CreatedType})
-	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
-	}
-
-	if err := store.Delete(lo.PanicOnErr(outputID.Bytes())); err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete created output %s: %w", outputID, err))
-	}
-}
-
-func (d *DiffStorage) StreamSpent(index epoch.Index, callback func(*OutputWithMetadata)) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{SpentType})
-	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
-	}
-
-	store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
-		outputID := new(utxo.OutputID)
-		outputID.FromBytes(idBytes)
-		outputWithMetadata := new(OutputWithMetadata)
-		outputWithMetadata.FromBytes(outputWithMetadataBytes)
-		outputWithMetadata.SetID(*outputID)
-		callback(outputWithMetadata)
-		return true
-	})
-}
-
-func (d *DiffStorage) StreamCreated(index epoch.Index, callback func(*OutputWithMetadata)) {
-	store, err := d.Storage(index).WithExtendedRealm([]byte{CreatedType})
-	if err != nil {
-		d.chainStorage.Events.Error.Trigger(errors.Errorf("failed to extend realm for storage: %w", err))
-	}
-
-	store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
-		outputID := new(utxo.OutputID)
-		outputID.FromBytes(idBytes)
-		outputWithMetadata := new(OutputWithMetadata)
-		outputWithMetadata.FromBytes(outputWithMetadataBytes)
-		outputWithMetadata.SetID(*outputID)
-		callback(outputWithMetadata)
-		return true
-	})
+	return
 }
 
 func (d *DiffStorage) Storage(index epoch.Index) (storage kvstore.KVStore) {
 	return d.chainStorage.bucketedStorage(index, LedgerDiffStorage)
+}
+
+func (d *DiffStorage) SpentStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
+	return d.Storage(index).WithExtendedRealm([]byte{spentType})
+}
+
+func (d *DiffStorage) CreatedStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
+	return d.Storage(index).WithExtendedRealm([]byte{createdType})
+}
+
+func (d *DiffStorage) store(store kvstore.KVStore, outputWithMetadata *OutputWithMetadata) (err error) {
+	outputWithMetadataBytes := lo.PanicOnErr(outputWithMetadata.Bytes())
+	if err := store.Set(lo.PanicOnErr(outputWithMetadata.ID().Bytes()), outputWithMetadataBytes); err != nil {
+		return errors.Errorf("failed to store output with metadata %s: %w", outputWithMetadata.ID(), err)
+	}
+	return
+}
+
+func (d *DiffStorage) get(store kvstore.KVStore, outputID utxo.OutputID) (outputWithMetadata *OutputWithMetadata, err error) {
+	outputWithMetadataBytes, err := store.Get(lo.PanicOnErr(outputID.Bytes()))
+	if err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return nil, nil
+		}
+
+		return nil, errors.Errorf("failed to get block %s: %w", outputID, err)
+	}
+
+	outputWithMetadata = new(OutputWithMetadata)
+	if _, err = outputWithMetadata.FromBytes(outputWithMetadataBytes); err != nil {
+		return nil, errors.Errorf("failed to parse output with metadata %s: %w", outputID, err)
+	}
+	outputWithMetadata.SetID(outputID)
+
+	return
+}
+
+func (d *DiffStorage) stream(store kvstore.KVStore, callback func(*OutputWithMetadata)) {
+	store.Iterate([]byte{}, func(idBytes kvstore.Key, outputWithMetadataBytes kvstore.Value) bool {
+		outputID := new(utxo.OutputID)
+		outputID.FromBytes(idBytes)
+		outputWithMetadata := new(OutputWithMetadata)
+		outputWithMetadata.FromBytes(outputWithMetadataBytes)
+		outputWithMetadata.SetID(*outputID)
+		callback(outputWithMetadata)
+		return true
+	})
+}
+
+func (d *DiffStorage) delete(store kvstore.KVStore, outputID utxo.OutputID) (err error) {
+	if err := store.Delete(lo.PanicOnErr(outputID.Bytes())); err != nil {
+		return errors.Errorf("failed to delete output %s: %w", outputID, err)
+	}
+	return
 }
 
 // region OutputWithMetadata ///////////////////////////////////////////////////////////////////////////////////////////
@@ -216,6 +216,7 @@ func (o *OutputWithMetadata) FromBytes(data []byte) (consumedBytes int, err erro
 func (o *OutputWithMetadata) Index() epoch.Index {
 	o.RLock()
 	defer o.RUnlock()
+
 	return o.M.Index
 }
 
@@ -230,6 +231,9 @@ func (o *OutputWithMetadata) Output() (output utxo.Output) {
 // TODO: don't make the ledger depend on devnetvm
 // IOTABalance returns the IOTA balance of the Output.
 func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
+	o.RLock()
+	defer o.RUnlock()
+
 	return o.Output().(devnetvm.Output).Balances().Get(devnetvm.ColorIOTA)
 }
 
@@ -240,8 +244,6 @@ func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
 
 	o.M.Output = output
 	o.SetModified()
-
-	return
 }
 
 // CreationTime returns the CreationTime field.

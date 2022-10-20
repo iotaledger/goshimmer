@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
@@ -128,7 +129,7 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]
 }
 
 // LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*OutputWithMetadata) {
+func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadata {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
@@ -254,7 +255,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 		}
 	})
 
-	l.storeEpochDiff(txMetadata)
+	l.storeTransactionInEpochDiff(txMetadata)
 
 	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
 		TransactionMetadata: txMetadata,
@@ -264,23 +265,41 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 }
 
 func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
-	/*
-		1) check inputs against epochdiff mapped outputs -> mark them as spent in storage
-			-> remove them from the map
-		2) create new outputs and add them to map & epochdiff storage
-		3)
-	*/
-
 	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
-	diffStorage := l.ChainStorage.LedgerDiffStorage(txEpoch)
-	diffStorage
-	diffStorage.Store(txMeta)
-
 	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		// Mark every input as a spent output in the epoch diff
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-			input := it.Next()
+			inputID := it.Next()
+			l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
+				l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
+					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.DiffStorage.StoreSpent); err != nil {
+						l.Events.Error.Trigger(errors.Errorf("could not store spent output in diff: %w", err))
+					}
+				})
+			})
+		}
+
+		// Mark every output as created output in the epoch diff
+		for it := txMeta.OutputIDs().Iterator(); it.HasNext(); {
+			outputID := it.Next()
+			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
+					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.DiffStorage.StoreCreated); err != nil {
+						l.Events.Error.Trigger(errors.Errorf("could not store created output in diff: %w", err))
+					}
+				})
+			})
 		}
 	})
+}
+
+func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*chainstorage.OutputWithMetadata) error) (err error) {
+	outputWithMetadata := chainstorage.NewOutputWithMetadata(
+		txEpoch, outputID, output, outputMetadata.CreationTime(),
+		outputMetadata.ConsensusManaPledgeID(),
+		outputMetadata.AccessManaPledgeID(),
+	)
+	return storeFunc(outputWithMetadata)
 }
 
 // triggerRejectedEvent triggers the TransactionRejected event if the Transaction was rejected.

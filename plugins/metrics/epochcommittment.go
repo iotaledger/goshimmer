@@ -18,7 +18,7 @@ var (
 var onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittedEvent) {
 	lastCommittedEpochMutex.Lock()
 	defer lastCommittedEpochMutex.Unlock()
-	lastCommittedEpoch = event.ECRecord
+	lastCommittedEpoch = event.Commitment
 })
 
 // LastCommittedEpoch returns the last committed epoch.

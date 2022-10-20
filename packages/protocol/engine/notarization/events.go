@@ -68,8 +68,8 @@ type UTXOUpdatedEvent struct {
 type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
-	// ECRecord is the ec root of committable epoch.
-	ECRecord *chainmanager.Commitment
+	// Commitment is the ec root of committable epoch.
+	Commitment *commitment.Commitment
 }
 
 // EpochConfirmedEvent is a container that acts as a dictionary for the EpochConfirmed event related parameters.

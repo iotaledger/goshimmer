@@ -35,6 +35,7 @@ func init() {
 type ChainStorage struct {
 	Events       *Events
 	BlockStorage *BlockStorage
+	DiffStorage  *DiffStorage
 
 	settings    *settings
 	commitments *storable.Slice[commitment.Commitment, *commitment.Commitment]
@@ -46,6 +47,7 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 		Events: NewEvents(),
 	}
 	chainManager.BlockStorage = &BlockStorage{chainManager}
+	chainManager.DiffStorage = &DiffStorage{chainManager}
 
 	chainManager.settings = storable.InitStruct(&settings{
 		LatestCommittedEpoch: 0,
@@ -149,10 +151,6 @@ func (c *ChainStorage) CommitmentRootsStorage(index epoch.Index) kvstore.KVStore
 
 func (c *ChainStorage) MutationTreesStorage(index epoch.Index) kvstore.KVStore {
 	return c.bucketedStorage(index, MutationTreesStorage)
-}
-
-func (c *ChainStorage) LedgerDiffStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, LedgerDiffStorage)
 }
 
 func (c *ChainStorage) SolidEntryPointsStorage(index epoch.Index) kvstore.KVStore {
