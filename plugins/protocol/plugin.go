@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
@@ -17,11 +15,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/activitytracker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
@@ -138,16 +134,16 @@ func configureLogging(*node.Plugin) {
 	// 	fmt.Println("EpochCommittableEvent", e.EI)
 	// }))
 
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println(">>>>>>> BlockMissing", block.ID())
-	}))
-
-	deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
-		fmt.Println(">>>>>>> MissingBlockAttached", block.ID())
-	}))
-	deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
-		fmt.Println(">>>>>>> BlockRequesterTick", blockID)
-	}))
+	// deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// 	fmt.Println(">>>>>>> BlockMissing", block.ID())
+	// }))
+	//
+	// deps.Protocol.Events.Engine.Tangle.BlockDAG.MissingBlockAttached.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// 	fmt.Println(">>>>>>> MissingBlockAttached", block.ID())
+	// }))
+	// deps.Protocol.Events.Engine.BlockRequester.Tick.Attach(event.NewClosure(func(blockID models.BlockID) {
+	// 	fmt.Println(">>>>>>> BlockRequesterTick", blockID)
+	// }))
 
 }
 

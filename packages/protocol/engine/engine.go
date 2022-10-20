@@ -137,11 +137,9 @@ func (e *Engine) initTangle() {
 	e.Tangle = tangle.New(e.Ledger, e.EvictionManager, e.ValidatorSet, e.optsTangleOptions...)
 
 	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
-		_, wasAttached, err := e.Tangle.Attach(block)
-		if err != nil {
+		if _, _, err := e.Tangle.Attach(block); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
 		}
-		fmt.Println("Attaching Block to Tangle", wasAttached, block.IssuerID(), block.ID())
 	}))
 
 	e.Events.Tangle = e.Tangle.Events

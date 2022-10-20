@@ -1,8 +1,6 @@
 package network
 
 import (
-	"fmt"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/bytesfilter"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -84,6 +82,10 @@ func (p *Protocol) handlePacket(nbr identity.ID, packet proto.Message) (err erro
 }
 
 func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
+	if !p.duplicateBlockBytesFilter.Add(blockData) {
+		return
+	}
+
 	block := new(models.Block)
 	if _, err := block.FromBytes(blockData); err != nil {
 		p.Events.Error.Trigger(&ErrorEvent{
@@ -94,12 +96,6 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 		return
 	}
 	block.DetermineIDFromBytes(blockData)
-
-	// TODO: move this above the block deserialization (only here for debug reasons)
-	if !p.duplicateBlockBytesFilter.Add(blockData) {
-		fmt.Println("received duplicate block", block.ID())
-		return
-	}
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,
