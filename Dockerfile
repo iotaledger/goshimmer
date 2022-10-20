@@ -5,8 +5,8 @@
 ARG REMOTE_DEBUGGING=0
 
 ############################
-# golang 1.18-bullseye multi-arch
-FROM golang:1.18.1-bullseye AS build
+# golang 1.19-bullseye multi-arch
+FROM golang:1.19-bullseye AS build
 
 ARG RUN_TEST=0
 ARG BUILD_TAGS=rocksdb
