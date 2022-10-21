@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/serix"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 )
@@ -13,9 +14,10 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settings struct {
-	LatestCommittedEpoch epoch.Index `serix:"0"`
-	LatestAcceptedEpoch  epoch.Index `serix:"1"`
-	LatestConfirmedEpoch epoch.Index `serix:"2"`
+	LatestCommittedEpoch epoch.Index   `serix:"0"`
+	LatestAcceptedEpoch  epoch.Index   `serix:"1"`
+	LatestConfirmedEpoch epoch.Index   `serix:"2"`
+	Chain                commitment.ID `serix:"3"`
 
 	storable.Struct[settings, *settings]
 

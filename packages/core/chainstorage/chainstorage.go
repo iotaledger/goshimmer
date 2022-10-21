@@ -161,6 +161,14 @@ func (c *ChainStorage) ActivityLogStorage(index epoch.Index) kvstore.KVStore {
 	return c.bucketedStorage(index, ActivityLogStorage)
 }
 
+func (c *ChainStorage) Chain() commitment.ID {
+	return c.settings.Chain
+}
+
+func (c *ChainStorage) SetChain(chain commitment.ID) {
+	c.settings.Chain = chain
+}
+
 func (c *ChainStorage) Shutdown() {
 	c.database.Shutdown()
 	c.commitments.Close()

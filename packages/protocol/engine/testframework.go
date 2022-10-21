@@ -5,14 +5,17 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TangleTestFramework = tangle.TestFramework
-type AcceptanceTestFramework = acceptance.TestFramework
+type (
+	TangleTestFramework     = tangle.TestFramework
+	AcceptanceTestFramework = acceptance.TestFramework
+)
 
 type TestFramework struct {
 	Engine *Engine
@@ -26,11 +29,12 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
+	chainStorage, _ := chainstorage.NewChainStorage(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Engine == nil {
-			t.Engine = New(0, test.TempDir(), t.optsEngineOptions...)
+			t.Engine = New(chainStorage, t.optsEngineOptions...)
 		}
 
 		t.Tangle = tangle.NewTestFramework(test, tangle.WithTangle(t.Engine.Tangle))

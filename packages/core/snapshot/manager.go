@@ -1,5 +1,7 @@
 package snapshot
 
+/*
+
 import (
 	"sync"
 
@@ -54,7 +56,9 @@ func (m *Manager) CreateSnapshot(snapshotFileName string) (header *ledger.Snapsh
 
 	return
 }
+*/
 
+/*
 // snapshotSolidEntryPoints snapshots seps within given epochs.
 func (m *Manager) snapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, prodChan chan *SolidEntryPoints, stopChan chan struct{}) {
 	go func() {
@@ -78,3 +82,4 @@ func (m *Manager) snapshotSolidEntryPoints(lastConfirmedEpoch, latestCommitableE
 
 	return
 }
+*/

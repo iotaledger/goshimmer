@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 
@@ -137,7 +138,7 @@ func init() {
 }
 
 func readSnapshotFromFile(filePath string) (err error) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
+	outputWithMetadataConsumer := func(outputWithMetadatas []*chainstorage.OutputWithMetadata) {
 		fmt.Println(outputWithMetadatas)
 	}
 	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {

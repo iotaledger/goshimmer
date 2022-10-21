@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // getPercentileHandler handles the request.
@@ -25,7 +26,7 @@ func getPercentileHandler(c echo.Context) error {
 		ID = deps.Local.ID()
 	}
 
-	access, tAccess, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manamodels.AccessMana)
+	access, tAccess, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -37,7 +38,7 @@ func getPercentileHandler(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
-	consensus, tConsensus, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manamodels.ConsensusMana)
+	consensus, tConsensus, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manamodels.ConsensusMana)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
@@ -51,7 +52,7 @@ func getPercentileHandler(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, jsonmodels.GetPercentileResponse{
 		ShortIssuerID:      ID.String(),
-		IssuerID:           base58.Encode(ID.Bytes()),
+		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessPercentile,
 		AccessTimestamp:    tAccess.Unix(),
 		Consensus:          consensusPercentile,

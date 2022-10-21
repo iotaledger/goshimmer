@@ -304,7 +304,7 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 	o.Lock()
 	defer o.Unlock()
 
-	if o.M.CreationTime == creationTime {
+	if o.M.CreationTime.Equal(creationTime) {
 		return false
 	}
 

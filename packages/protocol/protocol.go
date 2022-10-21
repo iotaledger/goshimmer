@@ -49,6 +49,8 @@ type Protocol struct {
 	candidateEngine      *engine.Engine
 	storage              *chainstorage.ChainStorage
 	candidateStorage     *chainstorage.ChainStorage
+	mainChain            commitment.ID
+	candidateChain       commitment.ID
 	optsBaseDirectory    string
 	optsSettingsFileName string
 	optsSnapshotPath     string
@@ -68,10 +70,8 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 
 		optsBaseDirectory:    "",
 		optsSettingsFileName: "settings.bin",
-		optsSnapshotPath:     "./snapshot.bin",
 	}, opts,
 		(*Protocol).initDisk,
-		(*Protocol).initSettings,
 		(*Protocol).initMainChainStorage,
 		(*Protocol).initCongestionControl,
 		(*Protocol).importSnapshot,
@@ -88,8 +88,8 @@ func (p *Protocol) initDisk() {
 	p.disk = diskutil.New(p.optsBaseDirectory)
 }
 
-func (p *Protocol) initSettings() {
-	p.settings = NewSettings(p.disk.Path(p.optsSettingsFileName))
+func (p *Protocol) initMainChainStorage() {
+	p.storage = lo.PanicOnErr(chainstorage.NewChainStorage(p.disk.Path(mainBaseDir), DatabaseVersion))
 }
 
 func (p *Protocol) initCongestionControl() {
@@ -157,7 +157,7 @@ func (p *Protocol) initChainManager() {
 
 func (p *Protocol) initTipManager() {
 	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
-	p.TipManager = tipmanager.New(p.Engine().Tangle, p.Engine().Consensus.Gadget, p.CongestionControl.Block, p.Engine().Clock.AcceptedTime, p.Engine().IsBootstrapped, p.optsTipManagerOptions...)
+	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
 
 	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
 
@@ -189,8 +189,14 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 		return
 	}
 
-	if targetInstance, exists := p.instancesByChainID[chain.ForkingPoint.ID()]; exists {
-		targetInstance.ProcessBlockFromPeer(block, src)
+	if mainChain := p.storage.Chain(); chain.ForkingPoint.ID() == mainChain {
+		p.Engine().ProcessBlockFromPeer(block, src)
+	}
+
+	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
+		if candidateChain := candidateStorage.Chain(); chain.ForkingPoint.ID() == candidateChain {
+			candidateEngine.ProcessBlockFromPeer(block, src)
+		}
 	}
 }
 
@@ -199,6 +205,20 @@ func (p *Protocol) Engine() (instance *engine.Engine) {
 	defer p.activeInstanceMutex.RUnlock()
 
 	return p.engine
+}
+
+func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
+	p.activeInstanceMutex.RLock()
+	defer p.activeInstanceMutex.RUnlock()
+
+	return p.candidateEngine
+}
+
+func (p *Protocol) CandidateStorage() (chainstorage *chainstorage.ChainStorage) {
+	p.activeInstanceMutex.RLock()
+	defer p.activeInstanceMutex.RUnlock()
+
+	return p.candidateStorage
 }
 
 func (p *Protocol) importSnapshotFile(filePath string) (err error) {
@@ -234,9 +254,7 @@ func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 	// }
 
 	// TODO: load snapshot into main ChainStorage
-	p.settings.AddChain(chainID)
-	p.settings.SetMainChainID(chainID)
-	p.settings.Persist()
+	p.storage.SetChain(chainID)
 
 	return
 }
@@ -253,12 +271,11 @@ func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledg
 }
 
 func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
+	p.TipManager.Reset()
+	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)
-	// TODO: we need to trash the TipManager and replace with a new engine
-	// p.TipManager.LinkTo(p.mainEngine)
 
-	engine.Run()
 	return
 }
 
@@ -275,12 +292,6 @@ func WithBaseDirectory(baseDirectory string) options.Option[Protocol] {
 func WithSnapshotPath(snapshot string) options.Option[Protocol] {
 	return func(n *Protocol) {
 		n.optsSnapshotPath = snapshot
-	}
-}
-
-func WithSettingsFileName(settings string) options.Option[Protocol] {
-	return func(n *Protocol) {
-		n.optsSettingsFileName = settings
 	}
 }
 

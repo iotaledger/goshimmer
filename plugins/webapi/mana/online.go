@@ -24,7 +24,7 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
-	manaMap, t, err := deps.Protocol.Engine().CongestionControl.GetManaMap(manaType)
+	manaMap, t, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manaType)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, jsonmodels.GetOnlineResponse{Error: err.Error()})
 	}
@@ -38,7 +38,7 @@ func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 
 		resp = append(resp, jsonmodels.OnlineIssuerStr{
 			ShortID: knownPeer.String(),
-			ID:      base58.Encode(knownPeer.Bytes()),
+			ID:      base58.Encode(lo.PanicOnErr(knownPeer.Bytes())),
 			Mana:    manaValue,
 		})
 	}

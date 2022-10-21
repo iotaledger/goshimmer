@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -132,8 +133,8 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Engine().CongestionControl.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Engine().CongestionControl.GetConsensusMana(deps.Local.ID())
+	accessMana, tAccess, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(deps.Local.ID())
+	consensusMana, tConsensus, _ := deps.Protocol.Engine().ManaTracker.GetConsensusMana(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
 		AccessTimestamp:    tAccess,
@@ -142,17 +143,17 @@ func getInfo(c echo.Context) error {
 	}
 
 	issuerQueueSizes := make(map[string]int)
-	for issuerID, size := range deps.Protocol.Engine().CongestionControl.Scheduler.IssuerQueueSizes() {
+	for issuerID, size := range deps.Protocol.CongestionControl.Scheduler().IssuerQueueSizes() {
 		issuerQueueSizes[issuerID.String()] = size
 	}
-	scheduler := deps.Protocol.Engine().CongestionControl.Scheduler
+	scheduler := deps.Protocol.CongestionControl.Scheduler()
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:               banner.AppVersion,
 		NetworkVersion:        discovery.Parameters.NetworkVersion,
 		TangleTime:            tangleTime,
-		IdentityID:            base58.Encode(deps.Local.Identity.ID().Bytes()),
+		IdentityID:            base58.Encode(lo.PanicOnErr(deps.Local.Identity.ID().Bytes())),
 		IdentityIDShort:       deps.Local.Identity.ID().String(),
 		PublicKey:             deps.Local.PublicKey().String(),
 		BlockRequestQueueSize: int(metrics.BlockRequestQueueSize()),

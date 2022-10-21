@@ -392,7 +392,7 @@ func measurePerComponentCounter() {
 }
 
 func measureBlockTips() {
-	blockTips.Store(uint64(deps.Protocol.Engine().TipManager.TipCount()))
+	blockTips.Store(uint64(deps.Protocol.TipManager.TipCount()))
 }
 
 // increases the received BPS counter

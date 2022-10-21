@@ -1,17 +1,14 @@
 package snapshot
 
+/*
+
 import (
-	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/core/serix"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 )
 
@@ -24,8 +21,8 @@ func streamSnapshotDataTo(
 	sepsProd SolidEntryPointsProducerFunc,
 	outputProd UTXOStatesProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc,
-	activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
-
+	activityLogProd ActivityLogProducerFunc,
+) (*ledger.SnapshotHeader, error) {
 	writeFunc := func(name string, value any) error {
 		return writeFunc(writeSeeker, name, value)
 	}
@@ -51,7 +48,7 @@ func streamSnapshotDataTo(
 	// write outputWithMetadata
 	var outputWithMetadataCounter uint64
 	var outputChunkCounter int
-	chunksOutputWithMetadata := make([]*ledger.OutputWithMetadata, 0)
+	chunksOutputWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)
 	for {
 		output := outputProd()
 		if output == nil {
@@ -72,7 +69,7 @@ func streamSnapshotDataTo(
 			if err != nil {
 				return nil, err
 			}
-			chunksOutputWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+			chunksOutputWithMetadata = make([]*chainstorage.OutputWithMetadata, 0)
 			outputChunkCounter = 0
 		}
 	}
@@ -122,11 +119,11 @@ func NewSolidEntryPointsProducer(fullEpochIndex, latestCommitableEpoch epoch.Ind
 
 // NewLedgerUTXOStatesProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerFunc {
-	prodChan := make(chan *ledger.OutputWithMetadata)
+	prodChan := make(chan *chainstorage.OutputWithMetadata)
 	stopChan := make(chan struct{})
 	nmgr.SnapshotLedgerState(prodChan, stopChan)
 
-	return func() *ledger.OutputWithMetadata {
+	return func() *chainstorage.OutputWithMetadata {
 		select {
 		case obj := <-prodChan:
 			return obj
@@ -284,7 +281,7 @@ func NewActivityLogProducer(notarizationMgr *notarization.Manager, epochDiffInde
 	}
 }
 
-func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*ledger.OutputWithMetadata) error {
+func writeOutputsWithMetadatas(writeSeeker io.WriteSeeker, outputsChunks []*chainstorage.OutputWithMetadata) error {
 	if len(outputsChunks) == 0 {
 		return nil
 	}
@@ -347,3 +344,4 @@ func writeFunc(writeSeeker io.WriteSeeker, variableName string, value any) error
 
 	return nil
 }
+*/

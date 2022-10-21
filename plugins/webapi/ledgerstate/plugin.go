@@ -108,7 +108,7 @@ func configure(_ *node.Plugin) {
 	if filterEnabled {
 		doubleSpendFilter = Filter()
 		onTransactionAccepted = event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-			doubleSpendFilter.Remove(event.TransactionID)
+			doubleSpendFilter.Remove(event.TransactionMetadata.ID())
 		})
 	}
 	deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(onTransactionAccepted)

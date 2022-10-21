@@ -88,36 +88,36 @@ func newStorage(ledger *Ledger, baseStore kvstore.KVStore) (storage *Storage) {
 // can be used to dynamically initialize a non-existing Transaction.
 func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) utxo.Transaction) (cachedTransaction *objectstorage.CachedObject[utxo.Transaction]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) utxo.Transaction {
+		return s.transactionStorage.ComputeIfAbsent(lo.PanicOnErr(transactionID.Bytes()), func(key []byte) utxo.Transaction {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
 
-	return s.transactionStorage.Load(transactionID.Bytes())
+	return s.transactionStorage.Load(lo.PanicOnErr(transactionID.Bytes()))
 }
 
 // CachedTransactionMetadata retrieves the CachedObject representing the named TransactionMetadata. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing TransactionMetadata.
 func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *TransactionMetadata {
+		return s.transactionMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(transactionID.Bytes()), func(key []byte) *TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
 
-	return s.transactionMetadataStorage.Load(transactionID.Bytes())
+	return s.transactionMetadataStorage.Load(lo.PanicOnErr(transactionID.Bytes()))
 }
 
 // CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Output.
 func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) utxo.Output {
+		return s.outputStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) utxo.Output {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputStorage.Load(outputID.Bytes())
+	return s.outputStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
@@ -134,12 +134,12 @@ func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objects
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing OutputMetadata.
 func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputMetadataStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) *OutputMetadata {
+		return s.outputMetadataStorage.ComputeIfAbsent(lo.PanicOnErr(outputID.Bytes()), func(key []byte) *OutputMetadata {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputMetadataStorage.Load(outputID.Bytes())
+	return s.outputMetadataStorage.Load(lo.PanicOnErr(outputID.Bytes()))
 }
 
 // CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
@@ -156,12 +156,12 @@ func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 // be used to dynamically initialize a non-existing Consumer.
 func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *objectstorage.CachedObject[*Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
+		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(lo.PanicOnErr(outputID.Bytes()), lo.PanicOnErr(txID.Bytes())), func(key []byte) *Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
 		})
 	}
 
-	return s.consumerStorage.Load(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()))
+	return s.consumerStorage.Load(byteutils.ConcatBytes(lo.PanicOnErr(outputID.Bytes()), lo.PanicOnErr(txID.Bytes())))
 }
 
 // CachedConsumers retrieves the CachedObjects containing the named Consumers.
@@ -170,7 +170,7 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 	s.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
-	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(lo.PanicOnErr(outputID.Bytes())))
 
 	return
 }
@@ -255,7 +255,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
 			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
 				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-					s.consumerStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), currentTxID.Bytes()))
+					s.consumerStorage.Delete(byteutils.ConcatBytes(lo.PanicOnErr(it.Next().Bytes()), lo.PanicOnErr(currentTxID.Bytes())))
 				}
 
 				tx.Delete()
@@ -263,7 +263,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 
 			createdOutputIDs := txMetadata.OutputIDs()
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
-				outputIDBytes := it.Next().Bytes()
+				outputIDBytes := lo.PanicOnErr(it.Next().Bytes())
 
 				s.outputStorage.Delete(outputIDBytes)
 				s.outputMetadataStorage.Delete(outputIDBytes)

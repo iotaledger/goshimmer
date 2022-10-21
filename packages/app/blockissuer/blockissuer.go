@@ -45,8 +45,8 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:   NewEvents(),
 		identity: localIdentity,
 		protocol: protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() (epoch.Index, error) {
-			return protocol.Engine().NotarizationManager.LatestCommitableEpochIndex()
+		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() epoch.Index {
+			return protocol.Engine().ChainStorage.LatestCommittedEpoch()
 		}),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(
@@ -55,34 +55,34 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
-				return i.protocol.Engine().TipManager.Tips(countParents)
+				return i.protocol.TipManager.Tips(countParents)
 			},
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
-				latestCommitment, err := i.protocol.Engine().NotarizationManager.GetLatestEC()
+				latestCommitment := i.protocol.Engine().NotarizationManager.LatestCommitment()
 				if err != nil {
 					return nil, 0, err
 				}
-				confirmedEpochIndex, err := i.protocol.Engine().NotarizationManager.LatestConfirmedEpochIndex()
+				confirmedEpochIndex := i.protocol.Engine().ChainStorage.LatestConfirmedEpoch()
 				if err != nil {
 					return nil, 0, err
 				}
 
-				return latestCommitment.Commitment(), confirmedEpochIndex, nil
+				return latestCommitment, confirmedEpochIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
 
 		i.RateSetter = ratesetter.New(
 			i.protocol,
 			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Engine().CongestionControl.Tracker.GetManaMap(manamodels.AccessMana)
+				manaMap, _, err := i.protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
 				if err != nil {
 					return make(map[identity.ID]int64)
 				}
 				return manaMap
 			},
 			func() int64 {
-				totalMana, _, err := i.protocol.Engine().CongestionControl.Tracker.GetTotalMana(manamodels.AccessMana)
+				totalMana, _, err := i.protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
 				if err != nil {
 					return 0
 				}
@@ -156,7 +156,6 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	defer f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
-
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
@@ -188,11 +187,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
-
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
@@ -212,6 +210,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
+
 func WithRateSetterOptions(rateSetterOptions ...options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsRateSetterOptions = rateSetterOptions

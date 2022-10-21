@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -23,8 +24,8 @@ func streamSnapshotDataFrom(
 	sepsConsumer SolidEntryPointsConsumerFunc,
 	outputConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
-	activityLogConsumer ActivityLogConsumerFunc) error {
-
+	activityLogConsumer ActivityLogConsumerFunc,
+) error {
 	header, err := ReadSnapshotHeader(reader)
 	if err != nil {
 		return errors.Wrap(err, "failed to stream snapshot header from snapshot")
@@ -142,7 +143,7 @@ func readSolidEntryPoints(reader io.ReadSeeker) (seps *SolidEntryPoints, err err
 }
 
 // readOutputsWithMetadatas consumes less or equal chunkSize of OutputWithMetadatas from the given reader.
-func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.OutputWithMetadata, err error) {
+func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*chainstorage.OutputWithMetadata, err error) {
 	var outputsLen int64
 	if err := binary.Read(reader, binary.LittleEndian, &outputsLen); err != nil {
 		return nil, errors.Errorf("unable to read outputsWithMetadata bytes len: %w", err)
@@ -153,7 +154,7 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.O
 		return nil, errors.Errorf("unable to read outputsWithMetadata: %w", err)
 	}
 
-	outputMetadatas = make([]*ledger.OutputWithMetadata, 0)
+	outputMetadatas = make([]*chainstorage.OutputWithMetadata, 0)
 	_, err = serix.DefaultAPI.Decode(context.Background(), outputsBytes, &outputMetadatas, serix.WithValidation())
 	if err != nil {
 		return nil, err
@@ -169,8 +170,8 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.O
 
 // readEpochDiff consumes an EpochDiff of an epoch from the given reader.
 func readEpochDiff(reader io.ReadSeeker) (epochDiff *ledger.EpochDiff, err error) {
-	spent := make([]*ledger.OutputWithMetadata, 0)
-	created := make([]*ledger.OutputWithMetadata, 0)
+	spent := make([]*chainstorage.OutputWithMetadata, 0)
+	created := make([]*chainstorage.OutputWithMetadata, 0)
 
 	// read spent
 	var spentLen int64

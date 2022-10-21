@@ -1,5 +1,7 @@
 package prometheus
 
+/*
+
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -35,3 +37,4 @@ func collectWorkerpoolMetrics() {
 		name,
 	).Set(float64(load))
 }
+*/

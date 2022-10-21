@@ -3,11 +3,12 @@ package warpsync
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/parser"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/network"
 	wp "github.com/iotaledger/goshimmer/packages/network/warpsync/proto"
 )
 
@@ -18,44 +19,39 @@ const (
 type Protocol struct {
 	Events *Events
 
-	p2pManager *p2p.Manager
-	parser     *parser.Parser
-	log        *logger.Logger
+	networkEndpoint network.Endpoint
+	parser          *parser.Parser
+	log             *logger.Logger
 }
 
-func New(p2pManager *p2p.Manager, parser *parser.Parser, log *logger.Logger) (new *Protocol) {
+func New(networkEndpoing network.Endpoint, parser *parser.Parser, log *logger.Logger) (new *Protocol) {
 	new = &Protocol{
-		Events:     NewEvents(),
-		p2pManager: p2pManager,
-		parser:     parser,
-		log:        log,
+		Events:          NewEvents(),
+		networkEndpoint: networkEndpoing,
+		parser:          parser,
+		log:             log,
 	}
 
-	new.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{
-		PacketFactory:      warpSyncPacketFactory,
-		NegotiationSend:    sendNegotiationMessage,
-		NegotiationReceive: receiveNegotiationMessage,
-		PacketHandler:      new.handlePacket,
-	})
+	new.networkEndpoint.RegisterProtocol(protocolID, warpSyncPacketFactory, new.handlePacket)
 
 	return
 }
 
 func (p *Protocol) Stop() {
-	p.p2pManager.UnregisterProtocol(protocolID)
+	p.networkEndpoint.UnregisterProtocol(protocolID)
 }
 
-func (p *Protocol) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
+func (p *Protocol) handlePacket(id identity.ID, packet proto.Message) error {
 	wpPacket := packet.(*wp.Packet)
 	switch packetBody := wpPacket.GetBody().(type) {
 	case *wp.Packet_EpochBlocksRequest:
-		submitTask(p.processEpochBlocksRequestPacket, packetBody, nbr)
+		submitTask(p.processEpochBlocksRequestPacket, packetBody, id)
 	case *wp.Packet_EpochBlocksStart:
-		submitTask(p.processEpochBlocksStartPacket, packetBody, nbr)
+		submitTask(p.processEpochBlocksStartPacket, packetBody, id)
 	case *wp.Packet_EpochBlocksBatch:
-		submitTask(p.processEpochBlocksBatchPacket, packetBody, nbr)
+		submitTask(p.processEpochBlocksBatchPacket, packetBody, id)
 	case *wp.Packet_EpochBlocksEnd:
-		submitTask(p.processEpochBlocksEndPacket, packetBody, nbr)
+		submitTask(p.processEpochBlocksEndPacket, packetBody, id)
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}
@@ -67,26 +63,6 @@ func warpSyncPacketFactory() proto.Message {
 	return &wp.Packet{}
 }
 
-func sendNegotiationMessage(ps *p2p.PacketsStream) error {
-	packet := &wp.Packet{Body: &wp.Packet_Negotiation{Negotiation: &wp.Negotiation{}}}
-	return errors.WithStack(ps.WritePacket(packet))
-}
-
-func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
-	packet := &wp.Packet{}
-	if err := ps.ReadPacket(packet); err != nil {
-		return errors.WithStack(err)
-	}
-	packetBody := packet.GetBody()
-	if _, ok := packetBody.(*wp.Packet_Negotiation); !ok {
-		return errors.Newf(
-			"received packet isn't the negotiation packet; packet=%+v, packetBody=%T-%+v",
-			packet, packetBody, packetBody,
-		)
-	}
-	return nil
-}
-
-func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) {
-	event.Loop.Submit(func() { packetProcessor(packet, nbr) })
+func submitTask[P any](packetProcessor func(packet P, id identity.ID), packet P, id identity.ID) {
+	event.Loop.Submit(func() { packetProcessor(packet, id) })
 }

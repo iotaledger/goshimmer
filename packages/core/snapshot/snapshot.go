@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 
 	"github.com/iotaledger/goshimmer/packages/core/activitylog"
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -27,7 +28,7 @@ func init() {
 	typeSet := new(serix.TypeSettings)
 	ts := typeSet.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32)
 
-	err := serix.DefaultAPI.RegisterTypeSettings([]*ledger.OutputWithMetadata{}, ts)
+	err := serix.DefaultAPI.RegisterTypeSettings([]*chainstorage.OutputWithMetadata{}, ts)
 	if err != nil {
 		panic(fmt.Errorf("error registering OutputWithMetadata slice type settings: %w", err))
 	}
@@ -43,6 +44,8 @@ func init() {
 	}
 }
 
+/*
+
 // CreateSnapshot creates a snapshot file to the given file path.
 func CreateSnapshot(
 	filePath string,
@@ -50,7 +53,8 @@ func CreateSnapshot(
 	sepsProd SolidEntryPointsProducerFunc,
 	utxoStatesProd UTXOStatesProducerFunc,
 	epochDiffsProd EpochDiffProducerFunc,
-	activityLogProd ActivityLogProducerFunc) (*ledger.SnapshotHeader, error) {
+	activityLogProd ActivityLogProducerFunc,
+) (*ledger.SnapshotHeader, error) {
 	f, err := os.Create(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create snapshot file: %s", err)
@@ -64,6 +68,7 @@ func CreateSnapshot(
 
 	return header, err
 }
+*/
 
 // LoadSnapshot loads a snapshot file from the given file path. Contents in a snapshot file
 // will not be written to a snapshot struct in case blowing up the memory, they should be proccessed in
@@ -73,8 +78,8 @@ func LoadSnapshot(filePath string,
 	sepsConsumer SolidEntryPointsConsumerFunc,
 	outputWithMetadataConsumer UTXOStatesConsumerFunc,
 	epochDiffsConsumer EpochDiffsConsumerFunc,
-	activityLogConsumer ActivityLogConsumerFunc) (err error) {
-
+	activityLogConsumer ActivityLogConsumerFunc,
+) (err error) {
 	f, err := os.Open(filePath)
 	defer f.Close()
 	if err != nil {
@@ -87,10 +92,10 @@ func LoadSnapshot(filePath string,
 }
 
 // UTXOStatesProducerFunc is the type of function that produces OutputWithMetadatas when taking a snapshot.
-type UTXOStatesProducerFunc func() (outputWithMetadata *ledger.OutputWithMetadata)
+type UTXOStatesProducerFunc func() (outputWithMetadata *chainstorage.OutputWithMetadata)
 
 // UTXOStatesConsumerFunc is the type of function that consumes OutputWithMetadatas when loading a snapshot.
-type UTXOStatesConsumerFunc func(outputWithMetadatas []*ledger.OutputWithMetadata)
+type UTXOStatesConsumerFunc func(outputWithMetadatas []*chainstorage.OutputWithMetadata)
 
 // EpochDiffProducerFunc is the type of function that produces EpochDiff when taking a snapshot.
 type EpochDiffProducerFunc func() (epochDiff *ledger.EpochDiff)

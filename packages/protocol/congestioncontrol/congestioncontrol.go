@@ -53,6 +53,13 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 }
 
+func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+
+	return c.scheduler
+}
+
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
 	c.schedulerMutex.RLock()
 	defer c.schedulerMutex.RUnlock()

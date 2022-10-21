@@ -390,7 +390,7 @@ func (wallet *Wallet) CreateAsset(asset Asset, waitForConfirmation ...bool) (ass
 	for _, output := range tx.Essence().Outputs() {
 		output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			if color == devnetvm.ColorMint {
-				digest := blake2b.Sum256(output.ID().Bytes())
+				digest := blake2b.Sum256(lo.PanicOnErr(output.ID().Bytes()))
 				assetColor, _, err = devnetvm.ColorFromBytes(digest[:])
 			}
 			return true

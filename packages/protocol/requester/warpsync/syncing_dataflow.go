@@ -16,18 +16,16 @@ import (
 
 // syncingFlowParams is a container for parameters to be used in the warpsyncing of an epoch.
 type syncingFlowParams struct {
-	ctx               context.Context
-	targetEpoch       epoch.Index
-	targetEC          commitment.ID
-	targetPrevEC      commitment.ID
-	epochChannels     *epochChannels
-	neighbor          *p2p.Neighbor
-	tangleTree        *smt.SparseMerkleTree
-	epochBlocksLeft   int64
-	epochBlocks       map[models.BlockID]*models.Block
-	stateMutationRoot commitment.MerkleRoot
-	stateRoot         commitment.MerkleRoot
-	manaRoot          commitment.MerkleRoot
+	ctx             context.Context
+	targetEpoch     epoch.Index
+	targetEC        commitment.ID
+	targetPrevEC    commitment.ID
+	epochChannels   *epochChannels
+	neighbor        *p2p.Neighbor
+	tangleTree      *smt.SparseMerkleTree
+	epochBlocksLeft int64
+	epochBlocks     map[models.BlockID]*models.Block
+	roots           *commitment.Roots
 }
 
 func (m *Manager) epochStartCommand(params *syncingFlowParams, next dataflow.Next[*syncingFlowParams]) (err error) {
@@ -94,9 +92,7 @@ func (m *Manager) epochEndCommand(params *syncingFlowParams, next dataflow.Next[
 			return errors.Wrap(err, "received invalid epoch end")
 		}
 
-		params.stateMutationRoot = epochEnd.stateMutationRoot
-		params.stateRoot = epochEnd.stateRoot
-		params.manaRoot = epochEnd.manaRoot
+		params.roots = epochEnd.roots
 
 		m.log.Debugw("read epoch end", "Index", params.targetEpoch)
 	case <-params.ctx.Done():

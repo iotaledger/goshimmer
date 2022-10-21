@@ -1,4 +1,5 @@
 package tipmanager
+/*
 
 import (
 	"fmt"
@@ -60,7 +61,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		t.optsClock.SetAcceptedTime(t.optsGenesisTime)
 
 		if t.TipManager == nil {
-			t.TipManager = New(t.TestFramework.Tangle, t.mockAcceptance, t.mockSchedulerBlock, t.optsClock.AcceptedTime, func() bool { return true }, t.optsTipManagerOptions...)
+			t.TipManager = New(t.mockSchedulerBlock, t.optsTipManagerOptions...)
+			// TODO: need to activate it with an engine t.TipManager.Activate()
 		}
 
 	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
@@ -200,3 +202,5 @@ func WithClock(c *clock.Clock) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+*/

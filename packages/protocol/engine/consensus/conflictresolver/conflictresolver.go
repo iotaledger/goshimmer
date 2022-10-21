@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
@@ -135,7 +136,7 @@ func (o *ConflictResolver) forEachConnectedConflictingConflictInDescendingOrder(
 		conflictI := conflictsOrderedByWeight[i]
 		conflictJ := conflictsOrderedByWeight[j]
 
-		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(conflictI.Bytes(), conflictJ.Bytes()) > 0))
+		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
 	})
 
 	for _, orderedConflictID := range conflictsOrderedByWeight {

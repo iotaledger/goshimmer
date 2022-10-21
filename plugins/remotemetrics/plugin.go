@@ -148,7 +148,7 @@ func configureBlockFinalizedMetrics() {
 		return
 	} else if Parameters.MetricsLevel == Info {
 		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-			onTransactionConfirmed(event.TransactionID)
+			onTransactionConfirmed(event.TransactionMetadata.ID())
 		}))
 	} else {
 		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
@@ -161,14 +161,14 @@ func configureBlockScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	} else {
-		deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockScheduled")
 		}))
-		deps.Protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
+		deps.Protocol.CongestionControl.Events.Scheduler.BlockDropped.Attach(event.NewClosure(func(block *scheduler.Block) {
 			sendBlockSchedulerRecord(block, "blockDiscarded")
 		}))
 	}

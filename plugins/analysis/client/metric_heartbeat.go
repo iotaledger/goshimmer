@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/shirou/gopsutil/cpu"
 
@@ -31,7 +32,7 @@ func createMetricHeartbeat() *packet.MetricHeartbeat {
 	// get own ID
 	nodeID := make([]byte, len(identity.ID{}))
 	if deps.Local != nil {
-		copy(nodeID, deps.Local.ID().Bytes())
+		copy(nodeID, lo.PanicOnErr(deps.Local.ID().Bytes()))
 	}
 
 	return &packet.MetricHeartbeat{

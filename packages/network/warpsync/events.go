@@ -2,11 +2,10 @@ package warpsync
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -31,36 +30,34 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochCommitmentReceivedEvent struct {
-	Neighbor *p2p.Neighbor
+	ID       identity.ID
 	ECRecord *commitment.Commitment
 }
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlocksRequestReceivedEvent struct {
-	Neighbor *p2p.Neighbor
-	EI       epoch.Index
-	EC       commitment.ID
+	ID identity.ID
+	EI epoch.Index
+	EC commitment.ID
 }
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlocksStartEvent struct {
-	Neighbor *p2p.Neighbor
-	EI       epoch.Index
+	ID identity.ID
+	EI epoch.Index
 }
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlockEvent struct {
-	Neighbor *p2p.Neighbor
-	EI       epoch.Index
-	Block    *models.Block
+	ID    identity.ID
+	EI    epoch.Index
+	Block *models.Block
 }
 
 // BlockReceivedEvent holds data about a block received event.
 type EpochBlocksEndEvent struct {
-	Neighbor          *p2p.Neighbor
+	ID                identity.ID
 	EI                epoch.Index
 	EC                commitment.ID
-	StateMutationRoot types.Identifier
-	StateRoot         types.Identifier
-	ManaRoot          types.Identifier
+	Roots *commitment.Roots
 }

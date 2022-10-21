@@ -91,7 +91,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
-		protocol.WithSettingsFileName(DatabaseParameters.Settings.FileName),
 	)
 
 	return p

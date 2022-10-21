@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
@@ -29,12 +30,13 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+	chainStorage, _ := chainstorage.NewChainStorage(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {
 		if t.Tangle == nil {
 			if t.optsLedger == nil {
-				t.optsLedger = ledger.New(t.optsLedgerOptions...)
+				t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
 			}
 
 			if t.optsEvictionManager == nil {

@@ -26,7 +26,7 @@ func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
-	highestNodes, t, err := deps.Protocol.Engine().CongestionControl.GetHighestManaIssuers(manaType, uint(number))
+	highestNodes, t, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manaType, uint(number))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}

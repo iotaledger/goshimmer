@@ -1,23 +1,9 @@
 package firewall
 
+
+/*
 import (
-	"context"
-
-	"github.com/labstack/echo"
-	"go.uber.org/dig"
-
-	"github.com/iotaledger/hive.go/core/autopeering/selection"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
-
-	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-
-	"github.com/iotaledger/goshimmer/packages/network/p2p"
-
-	"github.com/iotaledger/goshimmer/packages/app/firewall"
-	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -109,3 +95,5 @@ func start(ctx context.Context) {
 
 	Plugin.LogInfo("Stopping " + PluginName + " ...")
 }
+
+*/

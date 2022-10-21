@@ -15,7 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+
+	//"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -34,12 +35,12 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events              *Events
-	ChainStorage        *chainstorage.ChainStorage
-	Ledger              *ledger.Ledger
-	GenesisCommitment   *commitment.Commitment
-	Inbox               *inbox.Inbox
-	SnapshotManager     *snapshot.Manager
+	Events            *Events
+	ChainStorage      *chainstorage.ChainStorage
+	Ledger            *ledger.Ledger
+	GenesisCommitment *commitment.Commitment
+	Inbox             *inbox.Inbox
+	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
 	EntryPointsManager  *EntryPointsManager
 	BlockRequester      *eventticker.EventTicker[models.BlockID]
@@ -91,7 +92,7 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
-		(*Engine).initSnapshotManager,
+		//(*Engine).initSnapshotManager,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
 	)
@@ -214,6 +215,7 @@ func (e *Engine) initManaTracker() {
 	}))
 }
 
+/*
 func (e *Engine) initSnapshotManager() {
 	e.SnapshotManager = snapshot.NewManager(e.NotarizationManager, 5)
 
@@ -235,6 +237,7 @@ func (e *Engine) initSnapshotManager() {
 		e.EntryPointsManager.EvictSolidEntryPoints(event.EI)
 	}))
 }
+*/
 
 func (e *Engine) initSybilProtection() {
 	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana)

@@ -8,7 +8,7 @@ import (
 )
 
 func obtainSchedulerStats(timestamp time.Time) {
-	scheduler := deps.Protocol.Engine().CongestionControl.Scheduler
+	scheduler := deps.Protocol.CongestionControl.Scheduler()
 	queueMap, aManaNormalizedMap := prepQueueMaps(scheduler)
 
 	var myID string
