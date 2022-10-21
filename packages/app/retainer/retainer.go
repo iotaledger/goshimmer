@@ -3,7 +3,6 @@ package retainer
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/kvstore"
@@ -22,7 +21,7 @@ import (
 
 type Retainer struct {
 	cachedMetadata *memstorage.EpochStorage[models.BlockID, *cachedMetadata]
-	blockStorage   *database.PersistentEpochStorage[models.BlockID, *BlockMetadata]
+	blockStorage   *database.PersistentEpochStorage[models.BlockID, BlockMetadata, *models.BlockID, *BlockMetadata]
 
 	protocol     *protocol.Protocol
 	evictionLock sync.RWMutex
@@ -36,7 +35,7 @@ func NewRetainer(protocol *protocol.Protocol, dbManager *database.Manager, opts 
 		protocol:       protocol,
 		optsRealm:      []byte("retainer"),
 	}, opts, (*Retainer).setupEvents, func(r *Retainer) {
-		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, *BlockMetadata](dbManager, r.optsRealm)
+		r.blockStorage = database.NewPersistentEpochStorage[models.BlockID, BlockMetadata](dbManager, r.optsRealm)
 	})
 }
 
@@ -74,9 +73,9 @@ func (r *Retainer) setupEvents() {
 		cm := r.createOrGetCachedMetadata(block.ID())
 		cm.setSchedulerBlock(block)
 	})
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
-	r.protocol.Events.Engine.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockDropped.Attach(congestionControlClosure)
+	r.protocol.Events.CongestionControl.Scheduler.BlockSkipped.Attach(congestionControlClosure)
 
 	r.protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		cm := r.createOrGetCachedMetadata(block.ID())
