@@ -150,9 +150,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 				return
 			}
 
-			b.Events.ConflictAccepted.Trigger(&ConflictAcceptedEvent[ConflictID]{
-				ID: conflict.ID(),
-			})
+			b.Events.ConflictAccepted.Trigger(conflict.ID())
 
 			confirmationWalker.PushAll(conflict.Parents().Slice()...)
 
@@ -169,9 +167,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetConflictAccepted(con
 				return
 			}
 
-			b.Events.ConflictRejected.Trigger(&ConflictRejectedEvent[ConflictID]{
-				ID: conflict.ID(),
-			})
+			b.Events.ConflictRejected.Trigger(conflict.ID())
 
 			b.Storage.CachedChildConflicts(conflict.ID()).Consume(func(childConflict *ChildConflict[ConflictID]) {
 				rejectionWalker.Push(childConflict.ChildConflictID())

@@ -18,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -92,16 +91,16 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.reorgCount), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	t.ConflictDAG().Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT ACCEPTED: %s", event.ID)
+			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	}))
 
-	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+	t.ConflictDAG().Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
-			t.test.Logf("CONFLICT REJECTED: %s", event.ID)
+			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
 
 		atomic.AddUint32(&(t.conflictsRejected), 1)

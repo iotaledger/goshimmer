@@ -231,11 +231,10 @@ func registerLocalMetrics() {
 		orphanedBlocks.Inc()
 	}))
 
-	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+	deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
 		activeConflictsMutex.Lock()
 		defer activeConflictsMutex.Unlock()
 
-		conflictID := event.ID
 		if _, exists := activeConflicts[conflictID]; !exists {
 			return
 		}

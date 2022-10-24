@@ -33,9 +33,10 @@ func init() {
 }
 
 type ChainStorage struct {
-	Events       *Events
-	BlockStorage *BlockStorage
-	DiffStorage  *DiffStorage
+	Events                  *Events
+	BlockStorage            *BlockStorage
+	DiffStorage             *DiffStorage
+	SolidEntryPointsStorage *SolidEntryPointsStorage
 
 	settings    *settings
 	commitments *storable.Slice[commitment.Commitment, *commitment.Commitment]
@@ -48,6 +49,7 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 	}
 	chainManager.BlockStorage = &BlockStorage{chainManager}
 	chainManager.DiffStorage = &DiffStorage{chainManager}
+	chainManager.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainManager}
 
 	chainManager.settings = storable.InitStruct(&settings{
 		LatestCommittedEpoch: 0,
@@ -134,31 +136,27 @@ func (c *ChainStorage) SetCommitment(index epoch.Index, commitment *commitment.C
 }
 
 func (c *ChainStorage) LedgerstateStorage() (ledgerstateStorage kvstore.KVStore) {
-	return c.permanentStorage(LedgerStateStorage)
+	return c.permanentStorage(LedgerStateStorageType)
 }
 
 func (c *ChainStorage) StateTreeStorage() (stateTreeStorage kvstore.KVStore) {
-	return c.permanentStorage(StateTreeStorage)
+	return c.permanentStorage(StateTreeStorageType)
 }
 
 func (c *ChainStorage) ManaTreeStorage() (manaTreeStorage kvstore.KVStore) {
-	return c.permanentStorage(ManaTreeStorage)
+	return c.permanentStorage(ManaTreeStorageType)
 }
 
 func (c *ChainStorage) CommitmentRootsStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, CommitmentRootsStorage)
+	return c.bucketedStorage(index, CommitmentRootsStorageType)
 }
 
 func (c *ChainStorage) MutationTreesStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, MutationTreesStorage)
-}
-
-func (c *ChainStorage) SolidEntryPointsStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, SolidEntryPointsStorage)
+	return c.bucketedStorage(index, MutationTreesStorageType)
 }
 
 func (c *ChainStorage) ActivityLogStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, ActivityLogStorage)
+	return c.bucketedStorage(index, ActivityLogStorageType)
 }
 
 func (c *ChainStorage) Chain() commitment.ID {

@@ -26,6 +26,7 @@ type Events struct {
 	EvictionManager     *eviction.Events
 	NotarizationManager *notarization.Events
 	BlockRequester      *eventticker.Events[models.BlockID]
+	ManaTracker         *mana.Events
 
 	event.LinkableCollection[Events, *Events]
 }

@@ -14,13 +14,13 @@ type BlockStorage struct {
 }
 
 func (b *BlockStorage) Store(block *models.Block) {
-	if err := b.chainStorage.bucketedStorage(block.ID().Index(), BlockStorageType).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
+	if err := b.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
 		b.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store block %s: %w", block.ID, err))
 	}
 }
 
 func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err error) {
-	blockBytes, err := b.chainStorage.bucketedStorage(blockID.Index(), BlockStorageType).Get(lo.PanicOnErr(blockID.Bytes()))
+	blockBytes, err := b.Storage(blockID.Index()).Get(lo.PanicOnErr(blockID.Bytes()))
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
 			return nil, nil
@@ -39,7 +39,7 @@ func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err err
 }
 
 func (b *BlockStorage) Delete(blockID models.BlockID) {
-	if err := b.chainStorage.bucketedStorage(blockID.Index(), BlockStorageType).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
+	if err := b.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
 		b.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete block %s: %w", blockID, err))
 	}
 }

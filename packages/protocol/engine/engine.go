@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -16,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 
 	//"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -191,20 +189,31 @@ func (e *Engine) initNotarizationManager() {
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
-	e.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(e.NotarizationManager.OnBlockAttached))
-	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockAccepted))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnBlockOrphaned))
-	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionAccepted))
-	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnTransactionInclusionUpdated))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		e.NotarizationManager.OnConflictAccepted(event.ID)
+	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
+		if err := e.NotarizationManager.AddAcceptedBlock(block); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
+		}
 	}))
+	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
+		if err := e.NotarizationManager.RemoveAcceptedBlock(block); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
+		}
+	}))
+	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(txMeta *ledger.TransactionMetadata) {
+		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
+		}
+	}))
+	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionInclusionUpdatedEvent) {
+		if err := e.NotarizationManager.UpdateTransactionInclusionTime(event); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
+		}
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictAccepted))
 	e.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		e.NotarizationManager.OnConflictCreated(event.ID)
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-		e.NotarizationManager.OnConflictRejected(event.ID)
-	}))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictRejected))
 	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
 		e.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
 	}))
@@ -216,9 +225,7 @@ func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
 
 	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		e.ManaTracker.OnTransactionAccepted(event.TransactionMetadata.ID())
-	}))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
 
 	e.Events.ManaTracker = e.ManaTracker.Events
 }
@@ -282,8 +289,11 @@ func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 }
 
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
-	if e.EvictionManager.IsRootBlock(id) {
-		return e.BlockStorage.Get(id)
+	var err error
+	if e.EvictionState.IsRootBlock(id) {
+		block, err = e.ChainStorage.BlockStorage.Get(id)
+		exists = block != nil && err == nil
+		return
 	}
 
 	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
@@ -294,10 +304,19 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return nil, false
 	}
 
-	block, err := e.ChainStorage.BlockStorage.Get(id)
+	block, err = e.ChainStorage.BlockStorage.Get(id)
 	exists = block != nil && err == nil
 
 	return
+}
+
+func onlyIfBootstrapped[E any](engine *Engine, handler func(event E)) *event.Closure[E] {
+	return event.NewClosure(func(event E) {
+		if !engine.IsBootstrapped() {
+			return
+		}
+		handler(event)
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

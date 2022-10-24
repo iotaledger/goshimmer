@@ -67,8 +67,8 @@ func (t *Tracker) OnConsensusWeightsUpdated(event *notarization.ConsensusWeights
 	}
 }
 
-func (t *Tracker) OnTransactionAccepted(transactionID utxo.TransactionID) {
-	t.ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+func (t *Tracker) OnTransactionAccepted(txMeta *ledger.TransactionMetadata) {
+	t.ledger.Storage.CachedTransaction(txMeta.ID()).Consume(func(transaction utxo.Transaction) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
@@ -77,7 +77,7 @@ func (t *Tracker) OnTransactionAccepted(transactionID utxo.TransactionID) {
 		// only book AccessMana
 		t.bookAccessMana(&manamodels.TxInfo{
 			TimeStamp:     devnetTransaction.Essence().Timestamp(),
-			TransactionID: transactionID,
+			TransactionID: txMeta.ID(),
 			TotalBalance:  totalAmount,
 			PledgeID: map[manamodels.Type]identity.ID{
 				manamodels.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
@@ -122,7 +122,6 @@ func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, i
 	}
 	return totalAmount, inputInfos
 }
-
 
 func (t *Tracker) bookTransaction(txInfo *manamodels.TxInfo) (revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
 	accessManaVector := t.baseManaVectors[manamodels.AccessMana]
