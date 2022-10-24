@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -15,8 +16,8 @@ import (
 )
 
 type mutationFactory struct {
-	tangleTreeByEpoch              *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
-	mutationTreeByEpoch            *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
+	acceptedBlocksByEpoch          *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
+	acceptedTransactionsByEpoch    *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
 	activityTreeByEpoch            *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
 	acceptedBlocksByEpochAndIssuer *memstorage.EpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]]
 	lastCommittedEpochIndex        epoch.Index
@@ -24,8 +25,8 @@ type mutationFactory struct {
 
 func newMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *mutationFactory) {
 	return &mutationFactory{
-		tangleTreeByEpoch:              memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
-		mutationTreeByEpoch:            memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
+		acceptedBlocksByEpoch:          memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
+		acceptedTransactionsByEpoch:    memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		activityTreeByEpoch:            memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
 		acceptedBlocksByEpochAndIssuer: memstorage.NewEpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]](),
 		lastCommittedEpochIndex:        lastCommittedEpoch,
@@ -33,9 +34,9 @@ func newMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *mut
 }
 
 func (m *mutationFactory) commit(ei epoch.Index) (tangleRoot, stateMutationRoot, activityRoot types.Identifier) {
-	return lo.Return1(m.tangleTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[models.BlockID] { return ads.NewSet[models.BlockID](mapdb.NewMapDB()) })).Root(),
-		lo.Return1(m.mutationTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] { return ads.NewSet[utxo.TransactionID](mapdb.NewMapDB()) })).Root(),
-		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[identity.ID] { return ads.NewSet[identity.ID](mapdb.NewMapDB()) })).Root()
+	return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(ei, newADSSet[models.BlockID])).Root(),
+		lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(ei, newADSSet[utxo.TransactionID])).Root(),
+		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(ei, newADSSet[identity.ID])).Root()
 }
 
 func (m *mutationFactory) addAcceptedBlock(id identity.ID, blockID models.BlockID) {
@@ -44,15 +45,13 @@ func (m *mutationFactory) addAcceptedBlock(id identity.ID, blockID models.BlockI
 		return set.NewAdvancedSet[models.BlockID]()
 	})
 	if created {
-		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[identity.ID] {
-			return ads.NewSet[identity.ID](mapdb.NewMapDB())
-		})).Add(id)
+		lo.Return1(m.activityTreeByEpoch.RetrieveOrCreate(blockID.Index(), newADSSet[identity.ID])).Add(id)
 	}
 
 	acceptedBlocksByIssuerID.Add(blockID)
 
 	// Add to TangleRoot
-	lo.Return1(m.tangleTreeByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[models.BlockID] {
+	lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(blockID.Index(), func() *ads.Set[models.BlockID] {
 		return ads.NewSet[models.BlockID](mapdb.NewMapDB())
 	})).Add(blockID)
 }
@@ -76,32 +75,36 @@ func (m *mutationFactory) removeAcceptedBlock(id identity.ID, blockID models.Blo
 	}
 
 	// Remove from TangleRoot
-	if tangleTree, exists := m.tangleTreeByEpoch.Get(blockID.Index()); exists {
+	if tangleTree, exists := m.acceptedBlocksByEpoch.Get(blockID.Index()); exists {
 		tangleTree.Delete(blockID)
 	}
 }
 
 func (m *mutationFactory) addAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	acceptedTransactions, _ := m.mutationTreeByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] {
+	acceptedTransactions, _ := m.acceptedTransactionsByEpoch.RetrieveOrCreate(ei, func() *ads.Set[utxo.TransactionID] {
 		return ads.NewSet[utxo.TransactionID](mapdb.NewMapDB())
 	})
 	acceptedTransactions.Add(txID)
 }
 
 func (m *mutationFactory) hasAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) (has bool) {
-	acceptedTransactions, exists := m.mutationTreeByEpoch.Get(ei)
+	acceptedTransactions, exists := m.acceptedTransactionsByEpoch.Get(ei)
 	return exists && acceptedTransactions.Has(txID)
 }
 
 func (m *mutationFactory) removeAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	if acceptedTransactions, exists := m.mutationTreeByEpoch.Get(ei); exists {
+	if acceptedTransactions, exists := m.acceptedTransactionsByEpoch.Get(ei); exists {
 		acceptedTransactions.Delete(txID)
 	}
 }
 
 func (m *mutationFactory) evict(ei epoch.Index) {
-	m.tangleTreeByEpoch.Delete(ei)
-	m.mutationTreeByEpoch.Delete(ei)
+	m.acceptedBlocksByEpoch.Delete(ei)
+	m.acceptedTransactionsByEpoch.Delete(ei)
 	m.activityTreeByEpoch.Delete(ei)
 	m.acceptedBlocksByEpochAndIssuer.EvictEpoch(ei)
+}
+
+func newADSSet[A constraints.Serializable]() *ads.Set[A] {
+	return ads.NewSet[A](mapdb.NewMapDB())
 }
