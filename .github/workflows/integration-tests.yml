@@ -301,9 +301,9 @@ jobs:
           path: tools/integration-tests/logs
 
   orphanage:
-    name: orphanage
+    name: tsc
     env:
-      TEST_NAME: orphanage
+      TEST_NAME: tsc
     runs-on: ubuntu-latest
     steps:
 

@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -11,6 +12,7 @@ import (
 // Block represents a Block annotated with OTV related metadata.
 type Block struct {
 	accepted bool
+	queued   bool
 
 	*virtualvoting.Block
 }
@@ -40,6 +42,30 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 	return
 }
 
+func (b *Block) IsQueued() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.queued
+}
+
+func (b *Block) SetQueued() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.queued; wasUpdated {
+		b.queued = true
+	}
+
+	return
+}
+
+func NewRootBlock(blockID models.BlockID) *Block {
+	virtualVotingBlock := virtualvoting.NewRootBlock(blockID)
+
+	return NewBlock(virtualVotingBlock, WithAccepted(true))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -47,6 +73,12 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 func WithAccepted(accepted bool) options.Option[Block] {
 	return func(b *Block) {
 		b.accepted = accepted
+	}
+}
+
+func WithQueued(queued bool) options.Option[Block] {
+	return func(b *Block) {
+		b.queued = queued
 	}
 }
 

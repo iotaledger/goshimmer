@@ -109,13 +109,9 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-		ledger.propagateAcceptanceToIncludedTransactions(event.ID)
-	}))
+	ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(ledger.propagateAcceptanceToIncludedTransactions))
 
-	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-		ledger.propagatedRejectionToTransactions(event.ID)
-	}))
+	ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(ledger.propagatedRejectionToTransactions))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -261,9 +257,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 
 	l.storeTransactionInEpochDiff(txMetadata)
 
-	l.Events.TransactionAccepted.Trigger(&TransactionAcceptedEvent{
-		TransactionMetadata: txMetadata,
-	})
+	l.Events.TransactionAccepted.Trigger(txMetadata)
 
 	return true
 }
@@ -339,9 +333,7 @@ func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggere
 		})
 	}
 
-	l.Events.TransactionRejected.Trigger(&TransactionRejectedEvent{
-		TransactionID: txMetadata.ID(),
-	})
+	l.Events.TransactionRejected.Trigger(txMetadata)
 
 	return true
 }

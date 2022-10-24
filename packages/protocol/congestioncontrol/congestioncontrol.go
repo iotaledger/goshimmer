@@ -47,10 +47,19 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	)
 
 	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
+	//engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
+	//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
+	//	if err != nil {
+	//		panic(err)
+	//	}
+	//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
+	//}))
 	engine.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(c.scheduler.HandleOrphanedBlock))
 	engine.Consensus.Events.Acceptance.BlockAccepted.Attach(event.NewClosure(c.scheduler.HandleAcceptedBlock))
 
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
+
+	c.scheduler.Start()
 }
 
 func (c *CongestionControl) Scheduler() *scheduler.Scheduler {

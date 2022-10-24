@@ -86,6 +86,9 @@ func TestCommonSynchronization(t *testing.T) {
 	// the node should not be in sync as all the block are outside its sync time window
 	require.False(t, tests.Synced(t, newPeer))
 
+	// TODO: startup of a node is not yet supported. Therefore, the rest of this test is skipped.
+	return
+
 	// 7. issue some blocks on old peers so that new peer can sync again
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
 	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
@@ -111,7 +114,7 @@ func TestFirewall(t *testing.T) {
 		Snapshot:    tests.EqualSnapshotDetails,
 	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
-			//cfg..BlocksRateLimit.Limit = 50
+			// cfg..BlocksRateLimit.Limit = 50
 		}
 		return cfg
 	})
@@ -157,9 +160,9 @@ func TestConfirmBlock(t *testing.T) {
 
 	// Send a block and wait for it to be confirmed.
 	peers := n.Peers()
-	blkID, _ := tests.SendDataBlock(t, peers[0], []byte("Test"), 0)
+	blockID, _ := tests.SendDataBlock(t, peers[0], []byte("Test"), 0)
 
-	tests.TryConfirmBlock(t, peers[:], blkID, 30*time.Second, 100*time.Millisecond)
+	tests.TryAcceptBlock(t, peers, blockID, 30*time.Second, 100*time.Millisecond)
 }
 
 func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {

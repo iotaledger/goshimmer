@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,14 +48,28 @@ func TestRetainer_BlockMetadata_JSON(t *testing.T) {
 	validateDeserialized(t, meta, metaDeserialized)
 }
 
+func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
+	meta := createBlockMetadata()
+	meta.M.StructureDetails = nil
+	out, err := serix.DefaultAPI.JSONEncode(context.Background(), meta.M)
+	require.NoError(t, err)
+	printPrettyJSON(t, out)
+
+	metaDeserialized := newBlockMetadata(nil)
+	err = serix.DefaultAPI.JSONDecode(context.Background(), out, &metaDeserialized.M)
+	assert.NoError(t, err)
+	validateDeserialized(t, meta, metaDeserialized)
+}
+
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	protocolTF := protocol.NewTestFramework(t)
+	protocolTF.Protocol.Run()
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
 
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 	b := tangleTF.CreateBlock("A")
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.Engine().CongestionControl.Block(b.ID())
+	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
 	meta, exists := retainer.BlockMetadata(block.ID())
 	assert.True(t, exists)
@@ -93,15 +108,16 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	epoch.GenesisTime = time.Now().Add(-5 * time.Minute).Unix()
 
 	protocolTF := protocol.NewTestFramework(t)
+	protocolTF.Protocol.Run()
 	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
 
 	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
 
 	b := tangleTF.CreateBlock("A")
 	tangleTF.IssueBlocks("A").WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.Engine().CongestionControl.Block(b.ID())
+	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
 	assert.True(t, exists)
-	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex+1, nil)
+	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex+1, set.NewAdvancedSet[models.BlockID](models.EmptyBlockID))
 	tangleTF.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
 
 	meta, exists := retainer.BlockMetadata(block.ID())

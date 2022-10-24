@@ -19,7 +19,7 @@ func handleRequest(c echo.Context) error {
 	switch request.Cmd {
 	case "start":
 		if request.Rate == 0 {
-			log.Infof("Requesting invalid spamming at rate 0 mps. Setting it to 1 mps")
+			log.Infof("Requesting invalid spamming at rate 0 BPS. Setting it to 1 BPS")
 			request.Rate = 1
 		}
 
@@ -33,10 +33,10 @@ func handleRequest(c echo.Context) error {
 
 		var timeUnit time.Duration
 		switch request.Unit {
-		case "mpm":
+		case "BPM":
 			timeUnit = time.Minute
 		default:
-			request.Unit = "mps"
+			request.Unit = "BPS"
 			timeUnit = time.Second
 		}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +20,7 @@ import (
 func TestFactory_IssuePayload(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 
-	ecRecord := commitment.New([32]byte{90, 111}, 10, [32]byte{123, 255})
+	ecRecord := commitment.New(1, commitment.NewID(1, []byte{90, 111}), types.NewIdentifier([]byte{123, 255}), 1)
 	confirmedEpochIndex := epoch.Index(25)
 	commitmentFunc := func() (*commitment.Commitment, epoch.Index, error) {
 		return ecRecord, confirmedEpochIndex, nil

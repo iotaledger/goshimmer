@@ -5,10 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 )
@@ -95,12 +97,11 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued block
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-				// TODO: uncomment when interface to issue blocks is known
-				//if errors.Is(err, ErrNotBootstrapped) {
-				//	s.log.Info("Stopped spamming blocks because node lost sync")
-				//	s.signalShutdown()
-				//	return
-				//}
+				if errors.Is(err, blockissuer.ErrNotBootstraped) {
+					s.log.Info("Stopped spamming blocks because node lost sync")
+					s.signalShutdown()
+					return
+				}
 				if err != nil {
 					s.log.Warnf("could not issue spam payload: %s", err)
 				}

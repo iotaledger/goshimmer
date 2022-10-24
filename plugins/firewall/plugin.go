@@ -4,6 +4,13 @@ package firewall
 /*
 import (
 	"github.com/iotaledger/hive.go/core/node"
+
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+
+	"github.com/iotaledger/goshimmer/packages/app/firewall"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -19,10 +26,10 @@ var (
 type dependencies struct {
 	dig.In
 
-	GossipMgr *gossipold.Manager
-	Server    *echo.Echo
-	Firewall  *firewall.Firewall
-	Protocol  *protocol.Protocol
+	//GossipMgr *gossipold.Manager
+	Server   *echo.Echo
+	Firewall *firewall.Firewall
+	Protocol *protocol.Protocol
 }
 
 type firewallDeps struct {
@@ -62,33 +69,33 @@ func run(plugin *node.Plugin) {
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
-	if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
-		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
-			if !deps.Protocol.Engine().IsBootstrapped() {
-				return
-			}
-			deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
-				Reason: "Blocks rate limit hit",
-				Info: map[string]interface{}{
-					"rateLimit": event.RateLimit,
-				},
-			})
-		})
-		mrl.Events.Hit.Attach(mrlClosure)
-		defer mrl.Events.Hit.Detach(mrlClosure)
-	}
-	if mrrl := deps.GossipMgr.BlockRequestsRateLimiter(); mrrl != nil {
-		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
-			deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
-				Reason: "Block requests rate limit hit",
-				Info: map[string]interface{}{
-					"rateLimit": event.RateLimit,
-				},
-			})
-		})
-		mrrl.Events.Hit.Attach(mrlClosure)
-		defer mrrl.Events.Hit.Detach(mrlClosure)
-	}
+	//if mrl := deps.GossipMgr.BlocksRateLimiter(); mrl != nil {
+	//	mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+	//		if !deps.Protocol.Engine().IsBootstrapped() {
+	//			return
+	//		}
+	//		deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
+	//			Reason: "Blocks rate limit hit",
+	//			Info: map[string]interface{}{
+	//				"rateLimit": event.RateLimit,
+	//			},
+	//		})
+	//	})
+	//	mrl.Events.Hit.Attach(mrlClosure)
+	//	defer mrl.Events.Hit.Detach(mrlClosure)
+	//}
+	//if mrrl := deps.GossipMgr.BlockRequestsRateLimiter(); mrrl != nil {
+	//	mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+	//		deps.Firewall.HandleFaultyPeer(event.Source.ID(), &firewall.FaultinessDetails{
+	//			Reason: "Block requests rate limit hit",
+	//			Info: map[string]interface{}{
+	//				"rateLimit": event.RateLimit,
+	//			},
+	//		})
+	//	})
+	//	mrrl.Events.Hit.Attach(mrlClosure)
+	//	defer mrrl.Events.Hit.Detach(mrlClosure)
+	//}
 	Plugin.LogInfof("%s started", PluginName)
 
 	<-ctx.Done()

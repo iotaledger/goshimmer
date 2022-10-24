@@ -58,20 +58,17 @@ services:
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000
      {% endif %}
-      --pow.numThreads=8
-      --pow.timeout=60s
-     {% if powDifficulty|default(None) %}
-      --pow.difficulty={{ powDifficulty }}
-     {% endif %}
       --logger.level={{ logLevel }}
       --logger.outputPaths=stdout
       --logger.disableEvents=false
       --logger.remotelog.serverAddress={{ remoteLoggerHost }}:5213
       --remotemetrics.metricsLevel=0
-     {% if faucet|default(false) %}
-      --blockLayer.startSynced=false
-     {% else %}
-      --blockLayer.startSynced=true
-     {% endif %}
-      --blockLayer.tangleTimeWindow=10m
-      --blockLayer.snapshot.genesisNode={{ bootstrapNodePubKey }}
+      {% if faucet|default(false) %}
+      --blockIssuer.ignoreBootstrappedFlag=false
+      {% else %}
+      --blockIssuer.ignoreBootstrappedFlag=true
+      {% endif %}
+      --protocol.bootstrapWindow=20s
+      {% if genesisTime|default(None) %}
+      --protocol.genesisTime={{ genesisTime }}
+      {% endif %}

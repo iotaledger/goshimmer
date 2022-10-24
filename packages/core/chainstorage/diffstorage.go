@@ -117,7 +117,7 @@ func (d *DiffStorage) StreamCreated(index epoch.Index, callback func(*OutputWith
 }
 
 func (d *DiffStorage) Storage(index epoch.Index) (storage kvstore.KVStore) {
-	return d.chainStorage.bucketedStorage(index, LedgerDiffStorage)
+	return d.chainStorage.bucketedStorage(index, LedgerDiffStorageType)
 }
 
 func (d *DiffStorage) SpentStorage(index epoch.Index) (storage kvstore.KVStore, err error) {

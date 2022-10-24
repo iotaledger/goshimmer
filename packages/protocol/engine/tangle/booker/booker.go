@@ -141,6 +141,12 @@ func (b *Booker) Sequence(id markers.SequenceID) (sequence *markers.Sequence, ex
 func (b *Booker) BlockFromMarker(marker markers.Marker) (block *Block, exists bool) {
 	b.evictionManager.RLock()
 	defer b.evictionManager.RUnlock()
+	if marker.Index() == 0 {
+		rootBlock := NewRootBlock(models.EmptyBlockID, models.WithIssuingTime(b.evictionManager.MaxEvictedEpoch().EndTime()))
+		rootBlock.StructureDetails().SetPastMarkers(markers.NewMarkers(marker))
+
+		return rootBlock, true
+	}
 
 	return b.markerManager.BlockFromMarker(marker)
 }
@@ -190,13 +196,7 @@ func (b *Booker) isPayloadSolid(block *Block) (isPayloadSolid bool, err error) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *Block, exists bool) {
 	if b.evictionManager.IsRootBlock(id) {
-		blockDAGBlock, _ := b.BlockDAG.Block(id)
-
-		genesisStructureDetails := markers.NewStructureDetails()
-		genesisStructureDetails.SetIsPastMarker(true)
-		genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
-
-		return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := b.blocks.Get(id.Index(), false)
@@ -290,6 +290,10 @@ func (b *Booker) collectStrongParentsBookingDetails(block *Block) (parentsStruct
 	parentsConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		if b.evictionManager.IsRootBlock(parentBlockID) {
+			return true
+		}
+
 		parentBlock, exists := b.Block(parentBlockID)
 		if !exists {
 			// This should never happen.
@@ -382,7 +386,7 @@ func (b *Booker) blockBookingDetails(block *Block) (pastMarkersConflictIDs, bloc
 
 func (b *Booker) strongChildren(block *Block) []*Block {
 	return lo.Filter(lo.Map(block.StrongChildren(), func(blockDAGChild *blockdag.Block) (bookerChild *Block) {
-		bookerChild, exists := b.Block(blockDAGChild.ID())
+		bookerChild, exists := b.block(blockDAGChild.ID())
 		if !exists {
 			return nil
 		}

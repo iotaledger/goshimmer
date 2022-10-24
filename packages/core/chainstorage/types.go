@@ -3,13 +3,13 @@ package chainstorage
 type Type byte
 
 const (
-	LedgerStateStorage Type = iota
-	StateTreeStorage
-	ManaTreeStorage
-	CommitmentRootsStorage
-	MutationTreesStorage
+	LedgerStateStorageType Type = iota
+	StateTreeStorageType
+	ManaTreeStorageType
+	CommitmentRootsStorageType
+	MutationTreesStorageType
 	BlockStorageType
-	LedgerDiffStorage
-	SolidEntryPointsStorage
-	ActivityLogStorage
+	LedgerDiffStorageType
+	SolidEntryPointsStorageType
+	ActivityLogStorageType
 )

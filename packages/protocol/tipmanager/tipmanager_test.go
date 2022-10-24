@@ -105,7 +105,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("Genesis", true)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
-	tf.AssertIsPastConeTimestampCorrect("0/0_2", true)
+	tf.AssertIsPastConeTimestampCorrect("7/1_2", true)
 
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
 
@@ -156,7 +156,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.AssertIsPastConeTimestampCorrect("Genesis", true)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
-	tf.AssertIsPastConeTimestampCorrect("0/0_2", true)
+	tf.AssertIsPastConeTimestampCorrect("7/1_2", true)
 
 	acceptedBlockIDsAliases := []string{"Marker-0/1", "0/1-preTSCSeq1_0", "0/1-preTSCSeq1_1", "0/1-preTSCSeq1_2", "0/1-postTSCSeq1_0", "0/1-postTSCSeq1_1", "0/1-postTSCSeq1_2", "0/1-postTSCSeq1_3", "0/1-postTSCSeq1_4", "0/1-postTSCSeq1_5", "Marker-1/2", "0/1-preTSCSeq2_0", "0/1-preTSCSeq2_1", "0/1-preTSCSeq2_2", "0/1-postTSCSeq2_0", "0/1-postTSCSeq2_1", "0/1-postTSCSeq2_2", "0/1-postTSCSeq2_3", "0/1-postTSCSeq2_4", "0/1-postTSCSeq2_5", "Marker-2/2", "2/2_0", "2/2_1", "2/2_2", "2/2_3", "2/2_4", "Marker-2/3"}
 	acceptedMarkers := []markers.Marker{markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3)}
@@ -164,6 +164,11 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
 
+	// Even without any confirmations, it should be possible to attach to genesis.
+	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
+
+	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
+	tf.AssertIsPastConeTimestampCorrect("7/1_2", false)
 	// case #1
 	tf.AssertIsPastConeTimestampCorrect("0/3_4", false)
 	// case #2
@@ -244,16 +249,6 @@ func createTestTangleTSC(tf *TestFramework) {
 		}))
 	}
 
-	// SEQUENCE 0 (without markers)
-	{
-		_ = issueBlocks(tf, "0/0", 3, []string{"Genesis"}, time.Minute)
-
-		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"0/0_0": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"0/0_1": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"0/0_2": markers.NewMarkers(markers.NewMarker(0, 0)),
-		}))
-	}
 	// SEQUENCE 1
 	{
 		tf.PreventNewMarkers(true)
@@ -447,6 +442,17 @@ func createTestTangleTSC(tf *TestFramework) {
 			"6/2_2":             markers.NewMarkers(markers.NewMarker(6, 2)),
 			"6/2_3":             markers.NewMarkers(markers.NewMarker(6, 2)),
 			"6/2_4":             markers.NewMarkers(markers.NewMarker(6, 2)),
+		}))
+	}
+
+	// SEQUENCE 7 (without markers)
+	{
+		_ = issueBlocks(tf, "7/1", 3, []string{"Genesis"}, 0)
+
+		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
+			"7/1_0": markers.NewMarkers(markers.NewMarker(7, 1)),
+			"7/1_1": markers.NewMarkers(markers.NewMarker(7, 2)),
+			"7/1_2": markers.NewMarkers(markers.NewMarker(7, 3)),
 		}))
 	}
 }

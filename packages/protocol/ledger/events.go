@@ -25,10 +25,10 @@ type Events struct {
 	TransactionInclusionUpdated *event.Linkable[*TransactionInclusionUpdatedEvent]
 
 	// TransactionAccepted is an event that gets triggered whenever a Transaction is confirmed.
-	TransactionAccepted *event.Linkable[*TransactionAcceptedEvent]
+	TransactionAccepted *event.Linkable[*TransactionMetadata]
 
 	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
-	TransactionRejected *event.Linkable[*TransactionRejectedEvent]
+	TransactionRejected *event.Linkable[*TransactionMetadata]
 
 	// TransactionForked is an event that gets triggered whenever a Transaction is forked.
 	TransactionForked *event.Linkable[*TransactionForkedEvent]
@@ -57,8 +57,8 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		TransactionStored:            event.NewLinkable[*TransactionStoredEvent](),
 		TransactionBooked:            event.NewLinkable[*TransactionBookedEvent](),
 		TransactionInclusionUpdated:  event.NewLinkable[*TransactionInclusionUpdatedEvent](),
-		TransactionAccepted:          event.NewLinkable[*TransactionAcceptedEvent](),
-		TransactionRejected:          event.NewLinkable[*TransactionRejectedEvent](),
+		TransactionAccepted:          event.NewLinkable[*TransactionMetadata](),
+		TransactionRejected:          event.NewLinkable[*TransactionMetadata](),
 		TransactionForked:            event.NewLinkable[*TransactionForkedEvent](),
 		TransactionConflictIDUpdated: event.NewLinkable[*TransactionConflictIDUpdatedEvent](),
 		TransactionInvalid:           event.NewLinkable[*TransactionInvalidEvent](),
@@ -112,28 +112,6 @@ type TransactionInclusionUpdatedEvent struct {
 
 	// PreviousInclusionTime contains the InclusionTime before it was updated.
 	PreviousInclusionTime time.Time
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionAcceptedEvent /////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionAcceptedEvent is a container that acts as a dictionary for the TransactionAccepted event related
-// parameters.
-type TransactionAcceptedEvent struct {
-	// TransactionMetadata contains the metadata of the confirmed Transaction.
-	TransactionMetadata *TransactionMetadata
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionRejectedEvent /////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionRejectedEvent is a container that acts as a dictionary for the TransactionRejected event related
-// parameters.
-type TransactionRejectedEvent struct {
-	// TransactionID contains the identifier of the rejected Transaction.
-	TransactionID utxo.TransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

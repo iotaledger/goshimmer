@@ -108,7 +108,7 @@ type blockMetadataModel struct {
 
 	// booker.Block
 	Booked                bool                `serix:"10"`
-	StructureDetails      *structureDetails   `serix:"11"`
+	StructureDetails      *structureDetails   `serix:"11,optional"`
 	AddedConflictIDs      utxo.TransactionIDs `serix:"12"`
 	SubtractedConflictIDs utxo.TransactionIDs `serix:"13"`
 	// conflictIDs is a computed property at the time a block is booked.

@@ -29,6 +29,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tsc"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -48,7 +50,7 @@ type Engine struct {
 	NotarizationManager *notarization.Manager
 	Tangle              *tangle.Tangle
 	Consensus           *consensus.Consensus
-	TSCManager          *tsc.TSCManager
+	TSCManager          *tsc.Manager
 	Clock               *clock.Clock
 	SybilProtection     *sybilprotection.SybilProtection
 	ValidatorSet        *validator.Set
@@ -62,7 +64,8 @@ type Engine struct {
 	optsNotarizationManagerOptions []options.Option[notarization.Manager]
 	optsTangleOptions              []options.Option[tangle.Tangle]
 	optsConsensusOptions           []options.Option[consensus.Consensus]
-	optsTSCManagerOptions          []options.Option[tsc.TSCManager]
+	optsSybilProtectionOptions     []options.Option[sybilprotection.SybilProtection]
+	optsTSCManagerOptions          []options.Option[tsc.Manager]
 	optsDatabaseManagerOptions     []options.Option[database.Manager]
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
@@ -95,6 +98,7 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 		//(*Engine).initSnapshotManager,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
+		(*Engine).initBlockRequester,
 	)
 }
 
@@ -133,7 +137,7 @@ func (e *Engine) initTangle() {
 
 	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
-			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s: %w", block.ID(), err))
+			e.Events.Error.Trigger(errors.Errorf("failed to attach block with %s (issuerID: %s): %w", block.ID(), block.IssuerID(), err))
 		}
 	}))
 
@@ -185,23 +189,34 @@ func (e *Engine) initNotarizationManager() {
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
-	// i.Tangle.Events.BlockDAG.BlockAttached.Attach(event.NewClosure(i.NotarizationManager.OnBlockAttached))
-	// i.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockAccepted))
-	// i.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnBlockOrphaned))
-	// i.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionAccepted))
-	// i.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(i, i.NotarizationManager.OnTransactionInclusionUpdated))
-	// i.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-	// 	i.NotarizationManager.OnConflictAccepted(event.ID)
-	// }))
-	// i.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-	// 	i.NotarizationManager.OnConflictCreated(event.ID)
-	// }))
-	// i.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(i, func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-	// 	i.NotarizationManager.OnConflictRejected(event.ID)
-	// }))
-	// i.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(i, func(event *clock.TimeUpdate) {
-	// 	i.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
-	// }))
+	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
+		if err := e.NotarizationManager.AddAcceptedBlock(block); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
+		}
+	}))
+	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
+		if err := e.NotarizationManager.RemoveAcceptedBlock(block); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
+		}
+	}))
+	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(txMeta *ledger.TransactionMetadata) {
+		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
+		}
+	}))
+	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionInclusionUpdatedEvent) {
+		if err := e.NotarizationManager.UpdateTransactionInclusionTime(event); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
+		}
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictAccepted))
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.OnConflictCreated(event.ID)
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictRejected))
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
+		e.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
+	}))
 
 	e.Events.NotarizationManager = e.NotarizationManager.Events
 }
@@ -210,9 +225,9 @@ func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
 
 	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionAcceptedEvent) {
-		e.ManaTracker.OnTransactionAccepted(event.TransactionMetadata.ID())
-	}))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
+
+	e.Events.ManaTracker = e.ManaTracker.Events
 }
 
 /*
@@ -240,7 +255,7 @@ func (e *Engine) initSnapshotManager() {
 */
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana)
+	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana, e.optsSybilProtectionOptions...)
 
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
 }
@@ -256,7 +271,9 @@ func (e *Engine) initEvictionManager() {
 func (e *Engine) initBlockRequester() {
 	e.BlockRequester = eventticker.New(e.EvictionState, e.optsBlockRequester...)
 
-	e.Events.Tangle.BlockDAG.BlockMissing.Attach(event.NewClosure(func(block *blockdag.Block) {
+	// We need to hook to make sure that the request is created before the block arrives to avoid a race condition
+	// where we try to delete the request again before it is created. Thus, continuing to request forever.
+	e.Events.Tangle.BlockDAG.BlockMissing.Hook(event.NewClosure(func(block *blockdag.Block) {
 		// TODO: ONLY START REQUESTING WHEN NOT IN WARPSYNC RANGE (or just not attach outside)?
 		e.BlockRequester.StartTicker(block.ID())
 	}))
@@ -272,6 +289,13 @@ func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 }
 
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
+	var err error
+	if e.EvictionState.IsRootBlock(id) {
+		block, err = e.ChainStorage.BlockStorage.Get(id)
+		exists = block != nil && err == nil
+		return
+	}
+
 	if cachedBlock, cachedBlockExists := e.Tangle.BlockDAG.Block(id); cachedBlockExists {
 		return cachedBlock.ModelsBlock, !cachedBlock.IsMissing()
 	}
@@ -280,10 +304,19 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return nil, false
 	}
 
-	block, err := e.ChainStorage.BlockStorage.Get(id)
+	block, err = e.ChainStorage.BlockStorage.Get(id)
 	exists = block != nil && err == nil
 
 	return
+}
+
+func onlyIfBootstrapped[E any](engine *Engine, handler func(event E)) *event.Closure[E] {
+	return event.NewClosure(func(event E) {
+		if !engine.IsBootstrapped() {
+			return
+		}
+		handler(event)
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -302,6 +335,12 @@ func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[Eng
 	}
 }
 
+func WithSybilProtectionOptions(opts ...options.Option[sybilprotection.SybilProtection]) options.Option[Engine] {
+	return func(e *Engine) {
+		e.optsSybilProtectionOptions = opts
+	}
+}
+
 func WithConsensusOptions(opts ...options.Option[consensus.Consensus]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsConsensusOptions = opts
@@ -314,45 +353,45 @@ func WithEntryPointsDepth(entryPointsDepth int) options.Option[Engine] {
 	}
 }
 
-func WithTSCManagerOptions(opts ...options.Option[tsc.TSCManager]) options.Option[Engine] {
+func WithTSCManagerOptions(opts ...options.Option[tsc.Manager]) options.Option[Engine] {
 	return func(e *Engine) {
 		e.optsTSCManagerOptions = opts
 	}
 }
 
 func WithSnapshotFile(snapshotFile string) options.Option[Engine] {
-	return func(p *Engine) {
-		p.optsSnapshotFile = snapshotFile
+	return func(e *Engine) {
+		e.optsSnapshotFile = snapshotFile
 	}
 }
 
 func WithDatabaseManagerOptions(opts ...options.Option[database.Manager]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsDatabaseManagerOptions = opts
+	return func(e *Engine) {
+		e.optsDatabaseManagerOptions = opts
 	}
 }
 
 func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsLedgerOptions = opts
+	return func(e *Engine) {
+		e.optsLedgerOptions = opts
 	}
 }
 
 func WithNotarizationManagerOptions(opts ...options.Option[notarization.Manager]) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsNotarizationManagerOptions = opts
+	return func(e *Engine) {
+		e.optsNotarizationManagerOptions = opts
 	}
 }
 
 func WithSnapshotDepth(depth int) options.Option[Engine] {
-	return func(i *Engine) {
-		i.optsSnapshotDepth = depth
+	return func(e *Engine) {
+		e.optsSnapshotDepth = depth
 	}
 }
 
 func WithRequesterOptions(opts ...options.Option[eventticker.EventTicker[models.BlockID]]) options.Option[Engine] {
-	return func(s *Engine) {
-		s.optsBlockRequester = opts
+	return func(e *Engine) {
+		e.optsBlockRequester = opts
 	}
 }
 

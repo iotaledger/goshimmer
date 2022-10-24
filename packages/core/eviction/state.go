@@ -24,7 +24,7 @@ func NewState[ID epoch.IndexedID]() (newManager *State[ID]) {
 
 	return &State[ID]{
 		Events:          NewEvents(),
-		rootBlocks:      set.NewAdvancedSet[ID](emptyID),
+		rootBlocks:      set.NewAdvancedSet(emptyID),
 		maxEvictedEpoch: 0,
 	}
 }

@@ -1,7 +1,6 @@
 package acceptance
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -77,6 +76,10 @@ func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 }
 
 func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
+	if marker.Index() == 0 {
+		return true
+	}
+
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(marker.SequenceID())
 	return exists && lastAcceptedIndex >= marker.Index()
 }
@@ -84,7 +87,7 @@ func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacceptedIndex markers.Index) {
 	lastAcceptedIndex, exists := a.lastAcceptedMarker.Get(sequenceID)
 	if !exists {
-		return 0
+		return 1
 	}
 
 	return lastAcceptedIndex + 1
@@ -128,7 +131,6 @@ func (a *Gadget) setup() {
 	}))
 
 	a.tangle.VirtualVoting.Events.ConflictTracker.VoterAdded.Attach(event.NewClosure[*conflicttracker.VoterEvent[utxo.TransactionID]](func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		fmt.Printf("conflicts voters updated %+v\n", evt)
 		a.RefreshConflictAcceptance(evt.ConflictID)
 	}))
 
@@ -139,9 +141,7 @@ func (a *Gadget) setup() {
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	if a.evictionManager.IsRootBlock(id) {
-		virtualVotingBlock, _ := a.tangle.VirtualVoting.Block(id)
-
-		return NewBlock(virtualVotingBlock, WithAccepted(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := a.blocks.Get(id.Index(), false)
@@ -158,11 +158,19 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 		return
 	}
 
-	block, _ := a.getOrRegisterBlock(bookerBlock.ID())
+	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
+	if !blockExists || block.IsAccepted() {
+		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
+		return
+	}
 
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
+		if !walkerBlock.SetQueued() {
+			continue
+		}
+
 		a.acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
@@ -170,8 +178,10 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 				continue
 			}
 
-			parentBlock, _ := a.getOrRegisterBlock(parentBlockID)
-			pastConeWalker.Push(parentBlock)
+			parentBlock, parentExists := a.getOrRegisterBlock(parentBlockID)
+			if parentExists {
+				pastConeWalker.Push(parentBlock)
+			}
 		}
 	}
 }
@@ -180,6 +190,7 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 	if a.evictionManager.IsTooOld(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
+
 	if block.SetAccepted() {
 		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
 		if block.IsExplicitlyOrphaned() {
@@ -202,11 +213,15 @@ func (a *Gadget) acceptanceFailed(block *Block, err error) {
 }
 
 func (a *Gadget) evictEpoch(index epoch.Index) {
-	a.acceptanceOrder.EvictEpoch(index)
-
 	a.evictionManager.Lock()
 	defer a.evictionManager.Unlock()
 
+	a.acceptanceOrder.EvictEpoch(index)
+
+	storage := a.blocks.Get(index, false)
+	if storage != nil {
+		a.Events.EpochClosed.Trigger(storage)
+	}
 	a.blocks.EvictEpoch(index)
 }
 

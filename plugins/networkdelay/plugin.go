@@ -32,9 +32,6 @@ var (
 	myID            string
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
-
-	// clockEnabled defines if the clock plugin is enabled.
-	clockEnabled bool
 )
 
 type dependencies struct {
@@ -44,7 +41,6 @@ type dependencies struct {
 	Local        *peer.Local
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
 	Server       *echo.Echo
-	ClockPlugin  *node.Plugin `name:"clock"`
 }
 
 // App gets the plugin instance.
@@ -80,8 +76,6 @@ func configure(plugin *node.Plugin) {
 
 	// subscribe to block-layer
 	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onReceiveBlockFromBlockLayer))
-
-	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
 
 func onReceiveBlockFromBlockLayer(block *virtualvoting.Block) {
@@ -122,7 +116,6 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		SentTime:    networkDelayObject.SentTime(),
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.SentTime(),
-		Clock:       clockEnabled,
 		Synced:      deps.Protocol.Engine().IsSynced(),
 		Type:        remoteLogType,
 	}
@@ -136,7 +129,6 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		SentTime:    0,
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
-		Clock:       clockEnabled,
 		Synced:      deps.Protocol.Engine().IsSynced(),
 		Type:        remoteLogType,
 	}
@@ -149,7 +141,6 @@ type networkDelay struct {
 	SentTime    int64  `json:"sentTime"`
 	ReceiveTime int64  `json:"receiveTime"`
 	Delta       int64  `json:"delta"`
-	Clock       bool   `json:"clock"`
 	Synced      bool   `json:"sync"`
 	Type        string `json:"type"`
 }

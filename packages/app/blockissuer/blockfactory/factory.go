@@ -59,7 +59,7 @@ func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models
 		strongParentsCount = strongParentsCountOpt[0]
 	}
 
-	block, err := f.issuePayload(p, references, strongParentsCount)
+	block, err := f.createBlockWithPayload(p, references, strongParentsCount)
 	if err != nil {
 		return nil, err
 	}
@@ -68,10 +68,10 @@ func (f *Factory) CreateBlockWithReferences(p payload.Payload, references models
 	return block, nil
 }
 
-// issuePayload create a new block. If there are any supplied references, it uses them. Otherwise, uses tip selection.
+// createBlockWithPayload create a new block. If there are any supplied references, it uses them. Otherwise, uses tip selection.
 // It also triggers the BlockConstructed event once it's done, which is for example used by the plugins to listen for
 // blocks that shall be attached to the tangle.
-func (f *Factory) issuePayload(p payload.Payload, references models.ParentBlockIDs, strongParentsCount int) (*models.Block, error) {
+func (f *Factory) createBlockWithPayload(p payload.Payload, references models.ParentBlockIDs, strongParentsCount int) (*models.Block, error) {
 	payloadBytes, err := p.Bytes()
 	if err != nil {
 		return nil, errors.Errorf("could not serialize payload: %w", err)

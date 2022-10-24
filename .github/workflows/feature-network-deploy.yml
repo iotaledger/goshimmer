@@ -6,10 +6,6 @@ on:
         description: 'Custom snapshot URL:'
         required: false
         default: ""
-      powDifficulty:
-        description: 'PoW difficulty (default: 0):'
-        required: false
-        default: ""
       remoteDebugging:
         description: 'Enable debugger (0/1):'
         required: true
@@ -83,7 +79,6 @@ jobs:
           COMMIT_SHA: '${{ github.sha }}'
           GOSHIMMER_DOCKER_IMAGE: 'iotaledgertesting/goshimmer'
           GOSHIMMER_DOCKER_TAG: 'feature'
-          POW_DIFFICULTY: '${{github.event.inputs.powDifficulty}}'
           SLACK_NOTIFICATION_WEBHOOK: '${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))

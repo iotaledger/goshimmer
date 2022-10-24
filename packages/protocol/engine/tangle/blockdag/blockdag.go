@@ -105,9 +105,8 @@ func (b *BlockDAG) SetInvalid(block *Block, reason error) (wasUpdated bool) {
 func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statusChanged bool) {
 	b.orphanageMutex.Lock(block.ID())
 	defer b.orphanageMutex.Unlock(block.ID())
-
 	if !orphaned && !block.OrphanedBlocksInPastCone().Empty() {
-		panic("tried to unorphan a block that still has orphaned parents")
+		panic(fmt.Sprintf("tried to unorphan a block %s that still has orphaned parents %s", block.ID(), block.OrphanedBlocksInPastCone().String()))
 	}
 
 	updateEvent, updateFunc := b.orphanageUpdaters(orphaned)
@@ -118,6 +117,7 @@ func (b *BlockDAG) SetOrphaned(block *Block, orphaned bool) (updated bool, statu
 
 	if statusChanged {
 		updateEvent.Trigger(block)
+		b.checkStrongParents(block)
 	}
 
 	b.propagateOrphanageUpdate(block.Children(), models.NewBlockIDs(block.ID()), updateEvent, updateFunc)
@@ -190,7 +190,7 @@ func (b *BlockDAG) attach(data *models.Block) (block *Block, wasAttached bool, e
 // canAttach determines if the Block can be attached (does not exist and addresses a recent epoch).
 func (b *BlockDAG) canAttach(data *models.Block) (block *Block, canAttach bool, err error) {
 	if b.EvictionManager.IsTooOld(data.ID()) {
-		return nil, false, errors.Errorf("block data with %s is too old", data.ID())
+		return nil, false, errors.Errorf("block data with %s is too old (issued at: %s)", data.ID(), data.IssuingTime())
 	}
 
 	storedBlock, storedBlockExists := b.block(data.ID())
@@ -224,7 +224,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 		return
 	}
 
-	parentBlock, _ := b.memStorage.Get(parent.ID.EpochIndex, true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
+	parentBlock, _ := b.memStorage.Get(parent.ID.Index(), true).RetrieveOrCreate(parent.ID, func() (newBlock *Block) {
 		newBlock = NewBlock(models.NewEmptyBlock(parent.ID), WithMissing(true))
 
 		b.Events.BlockMissing.Trigger(newBlock)
@@ -238,7 +238,7 @@ func (b *BlockDAG) registerChild(child *Block, parent models.Parent) {
 // block retrieves the Block with given id from the mem-storage.
 func (b *BlockDAG) block(id models.BlockID) (block *Block, exists bool) {
 	if b.EvictionManager.IsRootBlock(id) {
-		return NewBlock(models.NewEmptyBlock(id), WithSolid(true)), true
+		return NewRootBlock(id), true
 	}
 
 	storage := b.memStorage.Get(id.EpochIndex, false)
@@ -306,10 +306,40 @@ func (b *BlockDAG) propagateOrphanageUpdate(blocks []*Block, orphanedBlocks mode
 
 		if statusChanged {
 			updateEvent.Trigger(currentBlock)
+			b.checkStrongParents(currentBlock)
 		}
 
 		return currentBlock.Children()
 	})
+}
+
+func (b *BlockDAG) checkStrongParents(block *Block) {
+	if !block.IsOrphaned() {
+		return
+	}
+
+	for parentID := range block.ParentsByType(models.StrongParentType) {
+		if b.EvictionManager.IsRootBlock(parentID) {
+			continue
+		}
+		parent, parentExists := b.block(parentID)
+		if !parentExists {
+			continue
+		}
+		if !parent.IsOrphaned() && areAllChildrenOrphaned(parent) {
+			fmt.Println("all children orphaned")
+			b.Events.AllChildrenOrphaned.Trigger(parent)
+		}
+	}
+}
+
+func areAllChildrenOrphaned(block *Block) (allChildrenOrphaned bool) {
+	for _, childBlock := range block.StrongChildren() {
+		if !childBlock.IsOrphaned() {
+			return false
+		}
+	}
+	return true
 }
 
 // checkReference checks if the reference between the child and its parent is valid.

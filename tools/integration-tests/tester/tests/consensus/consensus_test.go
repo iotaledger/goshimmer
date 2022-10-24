@@ -20,11 +20,13 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
 
-// TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
+// TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend in a partition.
+// We set the TSC and MinEpochCommittableAge threshold so that nodes do not commit and blocks are not orphaned due to TSC.
+// TODO: update the description to fit the test
 // We spawn a network of 2 nodes containing 40% and 20% of consensus mana respectively,
 // let them both issue conflicting transactions, and assert that the transaction
-// issued by the 40% node gains a high ConfirmationState while the other one gets "none" ConfirmationState over time as the 20% consensus mana
-// node puts its weight to the 40% issued tx making it reach 60% AW and hence high ConfirmationState.
+// issued by the 40% node will be accepted while the other one gets rejected over time as the 20% consensus mana
+// node puts its weight to the 40% issued tx making it reach
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
 	const (
@@ -45,6 +47,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
+			conf.ValidatorActivityWindow = 10 * time.Minute
+			conf.Protocol.TimeSinceConfirmationThreshold = 10 * time.Minute
+			conf.Notarization.MinEpochCommittableAge = conf.Protocol.TimeSinceConfirmationThreshold * 2
 			return conf
 		}))
 
@@ -52,7 +57,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	const delayBetweenDataBlocks = 100 * time.Millisecond
-	dataBlocksAmount := len(n.Peers()) * 3
+	dataBlocksAmount := len(n.Peers()) * 10
 
 	var (
 		node1 = n.Peers()[0]

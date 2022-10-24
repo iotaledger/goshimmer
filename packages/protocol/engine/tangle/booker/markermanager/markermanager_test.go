@@ -90,11 +90,9 @@ func Test_PruneSequences(t *testing.T) {
 			structureDetails.SetPastMarkerGap(100)
 
 			if expectedSequenceID == 0 {
-				continue
+				structureDetails.SetPastMarkers(markers.NewMarkers())
 			} else if expectedSequenceID == 1 {
-				structureDetails.SetPastMarkers(markers.NewMarkers(
-					markers.NewMarker(markers.SequenceID(0), 1),
-				))
+				structureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 1)))
 			} else {
 				structureDetails.SetPastMarkers(markers.NewMarkers(
 					markers.NewMarker(expectedSequenceID-1, 1),
@@ -102,7 +100,10 @@ func Test_PruneSequences(t *testing.T) {
 				))
 			}
 
-			newStructureDetails, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails})
+			newStructureDetailsTmp, created := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{structureDetails})
+
+			// create another marker within the same sequence, so that in the next iteration a new sequence will be created
+			newStructureDetails, _ := markerManager.SequenceManager.InheritStructureDetails([]*markers.StructureDetails{newStructureDetailsTmp})
 
 			assert.True(t, created, "expected to create a new sequence with sequence ID %d", expectedSequenceID)
 			assert.True(t, newStructureDetails.IsPastMarker(), "expected the new sequence details to be past marker")

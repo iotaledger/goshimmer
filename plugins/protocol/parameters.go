@@ -12,6 +12,8 @@ type ParametersDefinition struct {
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed blocks in its past cone will not be selected.
 	TimeSinceConfirmationThreshold time.Duration `default:"30s" usage:"Time Since Confirmation (TSC) threshold"`
+	// ValidatorActivityWindow is used to define period of inactivity after which validator is removed from the set of active validators.
+	ValidatorActivityWindow time.Duration `default:"30s" usage:"define period of inactivity after which validator is removed from the set of active validators"`
 	// BootstrapWindow defines the time window in which the node considers itself as synced according to TangleTime.
 	BootstrapWindow time.Duration `default:"20s" usage:"the time window in which the node considers itself as bootstrapped according to AcceptanceTime"`
 	// GenesisTime resets the genesis time to the specified value, Unix time in seconds.
@@ -26,9 +28,9 @@ type ParametersDefinition struct {
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
 	// MaxBufferSize defines the maximum buffer size (in number of blocks).
-	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of blocks)"` // 300 blocks
+	MaxBufferSize int `default:"10000" usage:"maximum buffer size (in number of blocks)"` // 300 blocks
 	// Rate defines the frequency to schedule a block.
-	Rate time.Duration `default:"34ms" usage:"block scheduling interval [time duration string]"` // 29.4 blocks per second
+	Rate time.Duration `default:"1ms" usage:"block scheduling interval [time duration string]"` // 1000 blocks per second
 	// ConfirmedBlockThreshold time threshold after which confirmed blocks are not scheduled [time duration string]
 	ConfirmedBlockThreshold time.Duration `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }

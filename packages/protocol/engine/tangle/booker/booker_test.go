@@ -131,7 +131,10 @@ func TestScenario_3(t *testing.T) {
 func TestScenario_4(t *testing.T) {
 	tf := NewTestFramework(t, WithBookerOptions(WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *Block](markers.WithMaxPastMarkerDistance(3)))))
 
-	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX0", 4, "Genesis")))
+	tf.CreateBlock("BaseBlock", models.WithStrongParents(tf.BlockIDs("Genesis")))
+	tf.IssueBlocks("BaseBlock").WaitUntilAllTasksProcessed()
+
+	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("BaseBlock")), models.WithPayload(tf.CreateTransaction("TX0", 4, "Genesis")))
 	tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
 
 	markersMap := make(map[string]*markers.Markers)
@@ -144,8 +147,8 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block0": markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1": markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block0": markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block1": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block0": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -163,7 +166,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block2": markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block2": markers.NewMarkers(markers.NewMarker(0, 4)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block2": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -175,11 +178,11 @@ func TestScenario_4(t *testing.T) {
 
 	// ISSUE Block3
 	{
-		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX0.1")))
+		tf.CreateBlock("Block3", models.WithStrongParents(tf.BlockIDs("BaseBlock")), models.WithPayload(tf.CreateTransaction("TX3", 1, "TX0.1")))
 		tf.IssueBlocks("Block3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block3": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"Block3": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block3": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -196,7 +199,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"Block4": markers.NewMarkers(markers.NewMarker(0, 1)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block4": {tf.TransactionIDs("TX4"), utxo.NewTransactionIDs()},
@@ -214,7 +217,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block5": markers.NewMarkers(markers.NewMarker(1, 1)),
+			"Block5": markers.NewMarkers(markers.NewMarker(1, 2)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block5": {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -230,7 +233,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6": markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Block6": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -248,7 +251,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6.3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 3)),
+			"Block6.3": markers.NewMarkers(markers.NewMarker(1, 4)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -266,7 +269,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block6.6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Block6.6": markers.NewMarkers(markers.NewMarker(1, 3)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -284,7 +287,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+			"Block7": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -305,7 +308,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7.3").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(0, 1)),
+			"Block7.3": markers.NewMarkers(markers.NewMarker(1, 2), markers.NewMarker(0, 2)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -323,7 +326,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block7.6").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Block7.6": markers.NewMarkers(markers.NewMarker(2, 3)),
 		}))
 
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
@@ -341,7 +344,7 @@ func TestScenario_4(t *testing.T) {
 		tf.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block8": markers.NewMarkers(markers.NewMarker(0, 4)),
+			"Block8": markers.NewMarkers(markers.NewMarker(0, 5)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block3": {tf.TransactionIDs("TX3"), utxo.NewTransactionIDs()},
@@ -365,9 +368,10 @@ func TestScenario_4(t *testing.T) {
 
 func TestFutureConePropagation(t *testing.T) {
 	tf := NewTestFramework(t)
+	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
-	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
+	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
 	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.CreateTransaction("TX2", 1, "TX1.0")))
 	tf.CreateBlock("Block2*", models.WithStrongParents(tf.BlockIDs("Block1")), models.WithPayload(tf.CreateTransaction("TX2*", 1, "TX1.0")))
 
@@ -387,6 +391,7 @@ func TestFutureConePropagation(t *testing.T) {
 	conflictIDs := make(map[string]utxo.TransactionIDs)
 
 	{
+		tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
@@ -395,15 +400,16 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.IssueBlocks("Block7", "Block8", "Block9").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block1":  markers.NewMarkers(markers.NewMarker(0, 1)),
-			"Block1*": markers.NewMarkers(markers.NewMarker(0, 0)),
-			"Block2":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block3":  markers.NewMarkers(markers.NewMarker(0, 3)),
-			"Block5":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block6":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block7":  markers.NewMarkers(markers.NewMarker(0, 2)),
-			"Block8":  markers.NewMarkers(markers.NewMarker(0, 4)),
-			"Block9":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Block1":  markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block1*": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Block2":  markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block3":  markers.NewMarkers(markers.NewMarker(0, 4)),
+			"Block5":  markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block6":  markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block7":  markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Block8":  markers.NewMarkers(markers.NewMarker(0, 5)),
+			"Block9":  markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
@@ -434,7 +440,7 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.IssueBlocks("Block2*").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block2*": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Block2*": markers.NewMarkers(markers.NewMarker(0, 2)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block2*": {tf.TransactionIDs("TX2*"), utxo.NewTransactionIDs()},
@@ -458,7 +464,7 @@ func TestFutureConePropagation(t *testing.T) {
 		tf.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
 		tf.CheckMarkers(lo.MergeMaps(markersMap, map[string]*markers.Markers{
-			"Block4": markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Block4": markers.NewMarkers(markers.NewMarker(0, 3)),
 		}))
 		tf.checkBlockMetadataDiffConflictIDs(lo.MergeMaps(metadataDiffConflictIDs, map[string][]utxo.TransactionIDs{
 			"Block4": {tf.TransactionIDs("TX1*"), tf.TransactionIDs("TX1", "TX2")},
@@ -471,22 +477,26 @@ func TestFutureConePropagation(t *testing.T) {
 
 func TestWeakParent(t *testing.T) {
 	tf := NewTestFramework(t)
+	tf.CreateBlock("Block0", models.WithStrongParents(tf.BlockIDs("Genesis")))
 
-	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
-	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
-	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithWeakParents(tf.BlockIDs("Block1")))
+	tf.CreateBlock("Block1", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1", 1, "Genesis")))
+	tf.CreateBlock("Block1*", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithPayload(tf.CreateTransaction("TX1*", 1, "Genesis")))
+	tf.CreateBlock("Block2", models.WithStrongParents(tf.BlockIDs("Block0")), models.WithWeakParents(tf.BlockIDs("Block1")))
 
 	{
+		tf.IssueBlocks("Block0").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block1").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block1*").WaitUntilAllTasksProcessed()
 		tf.IssueBlocks("Block2").WaitUntilAllTasksProcessed()
 
 		tf.checkBlockMetadataDiffConflictIDs(map[string][]utxo.TransactionIDs{
+			"Block0":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1":  {utxo.NewTransactionIDs(), utxo.NewTransactionIDs()},
 			"Block1*": {tf.TransactionIDs("TX1*"), utxo.NewTransactionIDs()},
 			"Block2":  {tf.TransactionIDs("TX1"), utxo.NewTransactionIDs()},
 		})
 		tf.checkConflictIDs(map[string]utxo.TransactionIDs{
+			"Block0":  tf.TransactionIDs(),
 			"Block1":  tf.TransactionIDs("TX1"),
 			"Block1*": tf.TransactionIDs("TX1*"),
 			"Block2":  tf.TransactionIDs("TX1"),

@@ -174,13 +174,13 @@ func onConflictCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionI
 	conflicts.addConflict(b)
 }
 
-func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
+func onConflictAccepted(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(event.ID)
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", conflictID)
 		return
 	}
 
@@ -200,13 +200,13 @@ func onConflictAccepted(event *conflictdag.ConflictAcceptedEvent[utxo.Transactio
 	}
 }
 
-func onConflictRejected(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
+func onConflictRejected(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(event.ID)
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
-		log.Warnf("conflict %s did not yet exist", event.ID)
+		log.Warnf("conflict %s did not yet exist", conflictID)
 		return
 	}
 
