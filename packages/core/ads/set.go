@@ -31,6 +31,10 @@ func NewSet[K constraints.Serializable](store kvstore.KVStore) *Set[K] {
 
 // Root returns the root of the state sparse merkle tree at the latest committed epoch.
 func (s *Set[K]) Root() (root types.Identifier) {
+	if s == nil {
+		return types.Identifier{}
+	}
+
 	copy(root[:], s.tree.Root())
 
 	return
@@ -38,22 +42,36 @@ func (s *Set[K]) Root() (root types.Identifier) {
 
 // Add adds the output to unspent outputs set.
 func (s *Set[K]) Add(key K) {
+	if s == nil {
+		panic("cannot add to nil set")
+	}
+
 	if _, err := s.tree.Update(lo.PanicOnErr(key.Bytes()), []byte{nonEmptyLeaf}); err != nil {
 		panic(err)
 	}
 }
 
 // Delete removes the output ID from the ledger sparse merkle tree.
-func (s *Set[K]) Delete(key K) {
+func (s *Set[K]) Delete(key K) (deleted bool) {
+	if s == nil {
+		return
+	}
+
 	keyBytes := lo.PanicOnErr(key.Bytes())
-	if exists, _ := s.tree.Has(keyBytes); exists {
+	if deleted, _ = s.tree.Has(keyBytes); deleted {
 		if _, err := s.tree.Delete(keyBytes); err != nil {
 			panic(err)
 		}
 	}
+
+	return
 }
 
 // Has returns true if the key is in the set.
 func (s *Set[K]) Has(key K) (has bool) {
+	if s == nil {
+		return false
+	}
+
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(key.Bytes())))
 }
