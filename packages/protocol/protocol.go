@@ -171,14 +171,19 @@ func (p *Protocol) initTipManager() {
 		}
 	}))
 
-	// TODO: enable once this event is implemented
-	// t.tangle.TipManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Block) {
-	// 	if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
-	// 		return
-	// 	}
-	//
-	// 	t.addTip(block)
-	// }))
+	p.Events.Engine.Tangle.BlockDAG.BlockUnorphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		if schedulerBlock, exists := p.CongestionControl.Block(block.ID()); exists {
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
+
+	p.Events.Engine.Tangle.BlockDAG.AllChildrenOrphaned.Hook(event.NewClosure(func(block *blockdag.Block) {
+		schedulerBlock, exists := p.CongestionControl.Scheduler().Block(block.ID())
+		if exists {
+			fmt.Println("Add tip because all children orphaned", block.ID())
+			p.TipManager.AddTip(schedulerBlock)
+		}
+	}))
 
 	p.Events.TipManager = p.TipManager.Events
 }

@@ -28,9 +28,8 @@ func TestManager(t *testing.T) {
 		newBlock("blk17", "blk7", "blk16"),
 		newBlock("blk18", "blk7", "blk13", "blk14"),
 		newBlock("blk19", "blk7", "blk13", "blk14"),
-		newBlock("blk20", "blk7", "blk13", "blk14", "blk11"),
+		newBlock("blk20", "blk19"),
 		newBlock("blk21", "blk20"),
-		newBlock("blk22", "blk21"),
 	}
 
 	blockDB := makeBlockDB(testBlocks...)
@@ -55,78 +54,88 @@ func TestManager(t *testing.T) {
 			PastMarkersGap:    0,
 			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(1, 2),
+				NewMarker(2, 7),
 			),
 		},
 		"blk2": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 0),
+				NewMarker(1, 1),
 			),
 			PastMarkersGap:    0,
 			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(0, 2),
+				NewMarker(2, 7),
 			),
 		},
 		"blk3": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 3),
-				NewMarker(2, 3),
-				NewMarker(3, 5),
+				NewMarker(0, 3),
+				NewMarker(2, 7),
 			),
 		},
 		"blk4": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 5),
-				NewMarker(2, 6),
-				NewMarker(3, 5),
+				NewMarker(0, 8),
+				NewMarker(2, 7),
 			),
 		},
 		"blk5": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 1),
+				NewMarker(0, 2),
 			),
-			PastMarkersGap:     1,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 1),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
 		},
 		"blk6": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(0, 3),
 			),
-			PastMarkersGap:     1,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 2),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
 		},
 		"blk7": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
+				NewMarker(1, 4),
 			),
-			PastMarkersGap:    0,
-			ReferencedMarkers: NewMarkers(),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(0, 1),
+			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(1, 5),
 				NewMarker(2, 7),
-				NewMarker(3, 5),
 			),
 		},
 		"blk8": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
@@ -134,7 +143,7 @@ func TestManager(t *testing.T) {
 		},
 		"blk9": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
@@ -142,7 +151,7 @@ func TestManager(t *testing.T) {
 		},
 		"blk10": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 3),
+				NewMarker(1, 3),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
@@ -150,138 +159,123 @@ func TestManager(t *testing.T) {
 		},
 		"blk11": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 2),
-			),
-			PastMarkersGap:     2,
-			ReferencedMarkers:  NewMarkers(),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk12": {
-			PastMarkers: NewMarkers(
-				NewMarker(1, 3),
+				NewMarker(0, 4),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(2, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
+			),
+		},
+		"blk12": {
+			PastMarkers: NewMarkers(
 				NewMarker(0, 5),
-				NewMarker(3, 5),
+			),
+			PastMarkersGap: 0,
+			ReferencedMarkers: NewMarkers(
+				NewMarker(1, 2),
+			),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk13": {
 			PastMarkers: NewMarkers(
-				NewMarker(1, 4),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(0, 5),
-				NewMarker(2, 5),
-				NewMarker(3, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk14": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 3),
+				NewMarker(0, 4),
 			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 2),
-			),
+			PastMarkersGap:    1,
+			ReferencedMarkers: NewMarkers(),
 			ReferencingMarkers: NewMarkers(
-				NewMarker(0, 5),
-				NewMarker(1, 5),
-				NewMarker(3, 5),
+				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 		},
 		"blk15": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 5),
+				NewMarker(0, 7),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(1, 4),
-				NewMarker(0, 2),
+				NewMarker(1, 2),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 9),
+			),
 		},
 		"blk16": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 6),
+				NewMarker(0, 8),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 3),
-				NewMarker(1, 4),
+				NewMarker(1, 3),
 			),
-			ReferencingMarkers: NewMarkers(),
+			ReferencingMarkers: NewMarkers(
+				NewMarker(1, 9),
+			),
 		},
 		"blk17": {
 			PastMarkers: NewMarkers(
-				NewMarker(2, 7),
+				NewMarker(1, 9),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(1, 4),
+				NewMarker(0, 8),
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
 		"blk18": {
 			PastMarkers: NewMarkers(
-				NewMarker(1, 5),
-			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(2, 3),
-			),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk19": {
-			PastMarkers: NewMarkers(
-				NewMarker(0, 5),
-			),
-			PastMarkersGap: 0,
-			ReferencedMarkers: NewMarkers(
 				NewMarker(1, 4),
-				NewMarker(2, 3),
-			),
-			ReferencingMarkers: NewMarkers(),
-		},
-		"blk20": {
-			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
-				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap:     1,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"blk21": {
+		"blk19": {
 			PastMarkers: NewMarkers(
-				NewMarker(0, 4),
 				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
+			),
+			PastMarkersGap:     1,
+			ReferencedMarkers:  NewMarkers(),
+			ReferencingMarkers: NewMarkers(),
+		},
+		"blk20": {
+			PastMarkers: NewMarkers(
+				NewMarker(1, 4),
+				NewMarker(0, 6),
 			),
 			PastMarkersGap:     2,
 			ReferencedMarkers:  NewMarkers(),
 			ReferencingMarkers: NewMarkers(),
 		},
-		"blk22": {
+		"blk21": {
 			PastMarkers: NewMarkers(
-				NewMarker(3, 5),
+				NewMarker(2, 7),
 			),
 			PastMarkersGap: 0,
 			ReferencedMarkers: NewMarkers(
-				NewMarker(0, 4),
 				NewMarker(1, 4),
-				NewMarker(2, 3),
+				NewMarker(0, 6),
 			),
 			ReferencingMarkers: NewMarkers(),
 		},
@@ -309,34 +303,34 @@ func TestManagerConvergence(t *testing.T) {
 	assert.True(t, structureDetails1.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
 
 	structureDetails2, _ := tf.SequenceManager().InheritStructureDetails(nil)
-	assert.True(t, structureDetails2.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
+	assert.True(t, structureDetails2.PastMarkers().Equals(NewMarkers(NewMarker(1, 1))))
 
 	structureDetails3, _ := tf.SequenceManager().InheritStructureDetails(nil)
-	assert.True(t, structureDetails3.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
+	assert.True(t, structureDetails3.PastMarkers().Equals(NewMarkers(NewMarker(2, 1))))
 
 	structureDetails4, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2})
-	assert.True(t, structureDetails4.PastMarkers().Equals(NewMarkers(NewMarker(0, 2))))
+	assert.True(t, structureDetails4.PastMarkers().Equals(NewMarkers(NewMarker(1, 2))))
 
 	structureDetails5, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails3})
-	assert.True(t, structureDetails5.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
+	assert.True(t, structureDetails5.PastMarkers().Equals(NewMarkers(NewMarker(2, 2))))
 
 	structureDetails6, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails1, structureDetails2, structureDetails3})
-	assert.True(t, structureDetails6.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
+	assert.True(t, structureDetails6.PastMarkers().Equals(NewMarkers(NewMarker(0, 2))))
 
 	structureDetails7, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails2, structureDetails3})
-	assert.True(t, structureDetails7.PastMarkers().Equals(NewMarkers(NewMarker(0, 0))))
+	assert.True(t, structureDetails7.PastMarkers().Equals(NewMarkers(NewMarker(1, 1), NewMarker(2, 1))))
 
 	structureDetails8, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails4, structureDetails5})
-	assert.True(t, structureDetails8.PastMarkers().Equals(NewMarkers(NewMarker(0, 3))))
+	assert.True(t, structureDetails8.PastMarkers().Equals(NewMarkers(NewMarker(2, 3))))
 
 	structureDetails9, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails5, structureDetails6})
-	assert.True(t, structureDetails9.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
+	assert.True(t, structureDetails9.PastMarkers().Equals(NewMarkers(NewMarker(0, 3))))
 
 	structureDetails10, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails6, structureDetails7})
-	assert.True(t, structureDetails10.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
+	assert.True(t, structureDetails10.PastMarkers().Equals(NewMarkers(NewMarker(0, 2), NewMarker(1, 1), NewMarker(2, 1))))
 
 	structureDetails11, _ := tf.SequenceManager().InheritStructureDetails([]*StructureDetails{structureDetails9, structureDetails10})
-	assert.True(t, structureDetails11.PastMarkers().Equals(NewMarkers(NewMarker(0, 1))))
+	assert.True(t, structureDetails11.PastMarkers().Equals(NewMarkers(NewMarker(0, 4))))
 }
 
 func inheritPastMarkers(block *block, manager *SequenceManager, blockDB map[string]*block) {

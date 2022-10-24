@@ -26,10 +26,10 @@ func TestOrphanageManager_orphanBeforeTSC(t *testing.T) {
 		alias := fmt.Sprintf("blk-%d", i)
 		block := blockdag.NewBlock(tf.CreateBlock(alias, models.WithStrongParents(tf.BlockIDs("Genesis")), models.WithIssuingTime(now.Add(time.Duration(i)*time.Second))), blockdag.WithSolid(true))
 		blocks = append(blocks, block)
-		heap.Push(&tf.TSCManager.unconfirmedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Key: timed.HeapKey(block.IssuingTime()), Value: block})
+		heap.Push(&tf.Manager.unconfirmedBlocks, &generalheap.HeapElement[timed.HeapKey, *blockdag.Block]{Key: timed.HeapKey(block.IssuingTime()), Value: block})
 	}
 
-	tf.TSCManager.orphanBeforeTSC(now.Add(time.Duration(10) * time.Second))
+	tf.Manager.orphanBeforeTSC(now.Add(time.Duration(10) * time.Second))
 	tf.AssertOrphanedCount(11, "%d blocks should be orphaned", 1)
 }
 
@@ -53,11 +53,11 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		tf.Block("0/1-postTSC_0").ID(): types.Void,
 	})
 
-	assert.Equal(t, 27, tf.TSCManager.unconfirmedBlocks.Len())
+	assert.Equal(t, 27, tf.Manager.unconfirmedBlocks.Len())
 
 	for blockID := range tf.mockAcceptance.AcceptedBlocks {
 		virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
-		tf.TSCManager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
+		tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 	}
 
 	tf.BlockDAGTestFramework.WaitUntilAllTasksProcessed()
@@ -80,7 +80,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 		"0/1-postTSCSeq1_3": false,
 		"0/1-postTSCSeq1_4": false,
 	})
-	assert.Equal(t, 6, tf.TSCManager.unconfirmedBlocks.Len())
+	assert.Equal(t, 6, tf.Manager.unconfirmedBlocks.Len())
 
 	// Mark orphaned blocks as accepted and make sure that they get unorphaned.
 	{
@@ -122,7 +122,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 
 		for _, blockID := range newAcceptedBlocksInOrder {
 			virtualVotingBlock, _ := tf.VirtualVoting.Block(blockID)
-			tf.TSCManager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
+			tf.Manager.HandleTimeUpdate(virtualVotingBlock.IssuingTime())
 			tf.BlockDAG.SetOrphaned(virtualVotingBlock.Block.Block, false)
 		}
 
@@ -146,7 +146,7 @@ func TestOrphanageManager_HandleTimeUpdate(t *testing.T) {
 			"0/1-postTSCSeq1_3": false,
 			"0/1-postTSCSeq1_4": false,
 		})
-		assert.Equal(t, 6, tf.TSCManager.unconfirmedBlocks.Len())
+		assert.Equal(t, 6, tf.Manager.unconfirmedBlocks.Len())
 	}
 }
 

@@ -2,6 +2,7 @@ package client
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 )
@@ -11,10 +12,14 @@ const (
 )
 
 // Data sends the given data (payload) by creating a block in the backend.
-func (api *GoShimmerAPI) Data(data []byte) (string, error) {
+func (api *GoShimmerAPI) Data(data []byte, maxWait ...time.Duration) (string, error) {
 	res := &jsonmodels.DataResponse{}
-	if err := api.do(http.MethodPost, routeData,
-		&jsonmodels.DataRequest{Data: data}, res); err != nil {
+	dataRequest := &jsonmodels.DataRequest{Data: data}
+	if len(maxWait) > 0 {
+		dataRequest = &jsonmodels.DataRequest{Data: data, MaxEstimate: maxWait[0].Milliseconds()}
+
+	}
+	if err := api.do(http.MethodPost, routeData, dataRequest, res); err != nil {
 		return "", err
 	}
 

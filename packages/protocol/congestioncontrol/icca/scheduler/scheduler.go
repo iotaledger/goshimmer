@@ -219,7 +219,7 @@ func (s *Scheduler) AddBlock(sourceBlock *virtualvoting.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
-	block, _ := s.getOrRegisterBlock(sourceBlock)
+	block, _ := s.GetOrRegisterBlock(sourceBlock)
 
 	if block.IsOrphaned() {
 		if block.SetDropped() {
@@ -253,7 +253,7 @@ func (s *Scheduler) HandleAcceptedBlock(acceptedBlock *acceptance.Block) {
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
 
-	block, _ := s.getOrRegisterBlock(acceptedBlock.Block)
+	block, _ := s.GetOrRegisterBlock(acceptedBlock.Block)
 
 	if block.IsScheduled() || block.IsDropped() || block.IsSkipped() {
 		return
@@ -373,8 +373,9 @@ func (s *Scheduler) submit(block *Block) error {
 
 func (s *Scheduler) markAsDropped(droppedBlocks []*Block) {
 	for _, droppedBlock := range droppedBlocks {
-		droppedBlock.SetDropped()
-		s.Events.BlockDropped.Trigger(droppedBlock)
+		if droppedBlock.SetDropped() {
+			s.Events.BlockDropped.Trigger(droppedBlock)
+		}
 	}
 }
 
@@ -424,10 +425,10 @@ loop:
 }
 
 func (s *Scheduler) schedule() *Block {
-	s.bufferMutex.Lock()
-	defer s.bufferMutex.Unlock()
 	s.EvictionManager.RLock()
 	defer s.EvictionManager.RUnlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	s.updateActiveIssuersList(s.accessManaMapRetrieverFunc())
 
@@ -470,7 +471,7 @@ func (s *Scheduler) schedule() *Block {
 }
 
 func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulingIssuer *IssuerQueue) {
-	rounds = new(big.Rat).SetInt64(math.MaxInt64)
+	rounds = new(big.Rat).SetFloat64(math.MaxFloat64)
 
 	for q := start; ; {
 		block := q.Front()
@@ -556,7 +557,7 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 	s.deficits.Set(issuerID, minRat(deficit, MaxDeficit))
 }
 
-func (s *Scheduler) getOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
+func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
 	if s.EvictionManager.IsTooOld(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
 	}

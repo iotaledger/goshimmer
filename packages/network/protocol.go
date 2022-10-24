@@ -95,7 +95,7 @@ func (p *Protocol) onBlock(blockData []byte, id identity.ID) {
 
 		return
 	}
-	block.DetermineID()
+	block.DetermineIDFromBytes(blockData)
 
 	p.Events.BlockReceived.Trigger(&BlockReceivedEvent{
 		Block:  block,

@@ -138,6 +138,13 @@ func Synced(t *testing.T, node *framework.Node) bool {
 	return info.TangleTime.Synced
 }
 
+// Bootstrapped returns whether node is bootstrapped.
+func Bootstrapped(t *testing.T, node *framework.Node) bool {
+	info, err := node.Info()
+	require.NoError(t, err)
+	return info.TangleTime.Bootstrapped
+}
+
 // Mana returns the mana reported by node.
 func Mana(t *testing.T, node *framework.Node) jsonmodels.Mana {
 	info, err := node.Info()
@@ -251,7 +258,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 
 // SendDataBlock sends a data block on a given peer and returns the id and a DataBlockSent struct.
 func SendDataBlock(t *testing.T, node *framework.Node, data []byte, number int) (string, DataBlockSent) {
-	id, err := node.Data(data)
+	id, err := node.Data(data, 30*time.Second)
 	require.NoErrorf(t, err, "node=%s, 'Data' failed with error %s", node, err)
 
 	sent := DataBlockSent{
@@ -388,6 +395,8 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 					log.Printf("node=%s, blockID=%s; block not found", node, blockID)
 					continue
 				}
+				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
+
 				// retry, if the block has not yet reached the specified ConfirmationState
 				if len(accepted) > 0 && accepted[0] {
 					if !blk.M.Accepted {
@@ -435,7 +444,7 @@ func RequireBlocksOrphaned(t *testing.T, nodes []*framework.Node, blockIDs map[s
 				}
 
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
-				require.Equal(t, blockID, block.ID())
+				require.Equal(t, blockID, block.ID().Base58())
 				require.True(t, block.M.Orphaned, "node=%s, blockID=%s, not marked as orphaned", node, blockID)
 				nodeMissing.Delete(blockID)
 				if nodeMissing.IsEmpty() {
@@ -631,9 +640,9 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 }
 
 // AcceptedOnAllPeers checks if the blk is accepted on all supplied peers.
-func AcceptedOnAllPeers(blkID string, peers []*framework.Node) bool {
+func AcceptedOnAllPeers(blockID string, peers []*framework.Node) bool {
 	for _, peer := range peers {
-		metadata, err := peer.GetBlockMetadata(blkID)
+		metadata, err := peer.GetBlockMetadata(blockID)
 		if err != nil {
 			return false
 		}
@@ -644,10 +653,10 @@ func AcceptedOnAllPeers(blkID string, peers []*framework.Node) bool {
 	return true
 }
 
-// TryConfirmBlock tries to confirm the block on all the peers provided within the time limit provided.
-func TryConfirmBlock(t *testing.T, peers []*framework.Node, blkID string, waitFor time.Duration, tick time.Duration) {
-	log.Printf("waiting for blk %s to become confirmed...", blkID)
-	defer log.Printf("waiting for blk %s to become confirmed... done", blkID)
+// TryAcceptBlock tries to accept the block on all the peers provided within the time limit provided.
+func TryAcceptBlock(t *testing.T, peers []*framework.Node, blockID string, waitFor time.Duration, tick time.Duration) {
+	log.Printf("waiting for blk %s to become accepted...", blockID)
+	defer log.Printf("waiting for blk %s to become accepted... done", blockID)
 
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
@@ -657,17 +666,17 @@ func TryConfirmBlock(t *testing.T, peers []*framework.Node, blkID string, waitFo
 	for {
 		select {
 		case <-timer.C:
-			log.Printf("failed to confirm blk %s within the time limit", blkID)
+			log.Printf("failed to confirm block %s within the time limit", blockID)
 			t.FailNow()
 		case <-ticker.C:
-			// Issue a new block on each peer to make blk confirmed.
+			// Issue a new block on each peer to make block confirmed.
 			for i, peer := range peers {
 				id, _ := SendDataBlock(t, peer, []byte("test"), i)
 				log.Printf("send block %s on node %s", id, peer.ID())
 			}
 
-			if AcceptedOnAllPeers(blkID, peers) {
-				log.Printf("blk %s is confirmed on all peers", blkID)
+			if AcceptedOnAllPeers(blockID, peers) {
+				log.Printf("block %s is accepted on all peers", blockID)
 				return
 			}
 		}

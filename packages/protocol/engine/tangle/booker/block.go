@@ -78,11 +78,14 @@ func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *B
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID) (rootBlock *Block) {
-	return NewBlock(
-		blockdag.NewRootBlock(id),
-		WithBooked(true),
-	)
+func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) *Block {
+	blockDAGBlock := blockdag.NewRootBlock(id, opts...)
+
+	genesisStructureDetails := markers.NewStructureDetails()
+	genesisStructureDetails.SetIsPastMarker(true)
+	genesisStructureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 0)))
+
+	return NewBlock(blockDAGBlock, WithBooked(true), WithStructureDetails(genesisStructureDetails))
 }
 
 func (b *Block) IsBooked() (isBooked bool) {

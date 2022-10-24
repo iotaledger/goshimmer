@@ -39,7 +39,7 @@ func New[T epoch.IndexedID](evictionManager *eviction.State[T], opts ...options.
 		scheduledTickers: memstorage.NewEpochStorage[T, *timed.ScheduledTask](),
 
 		optsRetryInterval:       10 * time.Second,
-		optsRetryJitter:         10 * time.Second,
+		optsRetryJitter:         5 * time.Second,
 		optsMaxRequestThreshold: 100,
 	}, opts, func(r *EventTicker[T]) {
 		r.setup()
@@ -75,6 +75,7 @@ func (r *EventTicker[T]) setup() {
 }
 
 func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
+	// TODO: RLock enough?
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -97,6 +98,7 @@ func (r *EventTicker[T]) addTickerToQueue(id T) (added bool) {
 }
 
 func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
+	// TODO: RLock enough?
 	r.evictionManager.Lock()
 	defer r.evictionManager.Unlock()
 
@@ -110,7 +112,6 @@ func (r *EventTicker[T]) stopTicker(id T) (stopped bool) {
 	if !exists {
 		return false
 	}
-
 	timer.Cancel()
 	storage.Delete(id)
 
@@ -153,7 +154,9 @@ func (r *EventTicker[T]) reSchedule(id T, count int) {
 }
 
 func (r *EventTicker[T]) createReScheduler(blkID T, count int) func() {
-	return func() { r.reSchedule(blkID, count) }
+	return func() {
+		r.reSchedule(blkID, count)
+	}
 }
 
 func (r *EventTicker[T]) evictEpoch(epochIndex epoch.Index) {
@@ -162,6 +165,7 @@ func (r *EventTicker[T]) evictEpoch(epochIndex epoch.Index) {
 
 	if requestStorage := r.scheduledTickers.Get(epochIndex); requestStorage != nil {
 		r.scheduledTickers.EvictEpoch(epochIndex)
+		// TODO: cancel all tasks from an epoch
 		r.scheduledTickerCount -= requestStorage.Size()
 	}
 }

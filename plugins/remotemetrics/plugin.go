@@ -56,7 +56,6 @@ type dependencies struct {
 	Local        *peer.Local
 	Protocol     *protocol.Protocol
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
-	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
 
 func init() {

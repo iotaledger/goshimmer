@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEFAULT_TEST_NAMES='autopeering common consensus value faucet mana orphanage'
+DEFAULT_TEST_NAMES='autopeering common consensus value faucet mana tsc'
 TEST_NAMES=${1:-$DEFAULT_TEST_NAMES}
 
 export DOCKER_BUILDKIT=1

@@ -74,7 +74,7 @@ type Sequence struct {
 // NewSequence creates a new Sequence from the given details.
 func NewSequence(id SequenceID, referencedMarkers *Markers) (s *Sequence) {
 	initialIndex := referencedMarkers.HighestIndex() + 1
-	if id == 0 {
+	if referencedMarkers.Size() == 0 {
 		initialIndex--
 	}
 

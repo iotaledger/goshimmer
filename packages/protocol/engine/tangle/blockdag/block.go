@@ -40,9 +40,9 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
 	return NewBlock(
-		models.NewEmptyBlock(id),
+		models.NewEmptyBlock(id, opts...),
 		WithSolid(true),
 		WithMissing(false),
 	)
@@ -233,6 +233,7 @@ func (b *Block) update(data *models.Block) (wasPublished bool) {
 
 	b.missing = false
 	b.M = data.M
+	b.SetSize(data.Size())
 
 	return true
 }

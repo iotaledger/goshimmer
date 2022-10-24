@@ -24,9 +24,9 @@ func NewBlock(bookerBlock *booker.Block, opts ...options.Option[Block]) (newBloc
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID) (rootBlock *Block) {
+func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
 	return NewBlock(
-		booker.NewRootBlock(id),
+		booker.NewRootBlock(id, opts...),
 	)
 }
 

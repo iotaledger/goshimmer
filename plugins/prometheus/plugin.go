@@ -37,20 +37,13 @@ var (
 
 type dependencies struct {
 	dig.In
-	AutopeeringPlugin *node.Plugin `name:"autopeering" optional:"true"`
-	Local             *peer.Local
-	// GossipMgr             *gossipold.Manager `optional:"true"`
+	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
+	Local                 *peer.Local
 	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-
-	/*
-		if Parameters.WorkerpoolMetrics {
-			registerWorkerpoolMetrics()
-		}
-	*/
 
 	if Parameters.GoMetrics {
 		registry.MustRegister(prometheus.NewGoCollector())

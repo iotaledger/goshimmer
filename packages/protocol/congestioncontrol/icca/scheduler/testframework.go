@@ -87,6 +87,8 @@ type GadgetTestFramework = acceptance.TestFramework
 
 func (t *TestFramework) setupEvents() {
 	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(t.Scheduler.HandleAcceptedBlock))
+	t.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(t.Scheduler.AddBlock))
+	t.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(t.Scheduler.HandleOrphanedBlock))
 
 	t.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
 		if debug.GetEnabled() {
@@ -155,7 +157,7 @@ func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
-	schedulerBlock, _ := t.Scheduler.getOrRegisterBlock(blk)
+	schedulerBlock, _ := t.Scheduler.GetOrRegisterBlock(blk)
 
 	return schedulerBlock
 }

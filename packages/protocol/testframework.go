@@ -28,6 +28,8 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
+	_ = logger.InitGlobalLogger(configuration.New())
+
 	return options.Apply(&TestFramework{
 		Network: network.NewMockedNetwork(),
 
@@ -39,12 +41,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 			identity.GenerateIdentity().ID(): 100,
 		}))
 
-		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithBaseDirectory(diskUtil.Path()))...)
+		t.Protocol = New(t.Network.Join(identity.GenerateIdentity().ID()), append(t.optsProtocolOptions, WithSnapshotPath(diskUtil.Path("snapshot.bin")), WithBaseDirectory(diskUtil.Path()))...)
 	})
-}
-
-func init() {
-	_ = logger.InitGlobalLogger(configuration.New())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
