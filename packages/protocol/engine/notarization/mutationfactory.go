@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/ads"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
@@ -67,12 +68,26 @@ func (m *MutationFactory) RemoveAcceptedBlock(block *models.Block) (err error) {
 	return
 }
 
-func (m *MutationFactory) AddAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	m.acceptedTransactions(ei, true).Add(txID)
+func (m *MutationFactory) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
+	if epochIndex <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	}
+
+	m.acceptedTransactions(epochIndex, true).Add(metadata.ID())
+
+	return
 }
 
-func (m *MutationFactory) RemoveAcceptedTransaction(ei epoch.Index, txID utxo.TransactionID) {
-	m.acceptedTransactions(ei, false).Delete(txID)
+func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
+	if epochIndex <= m.latestCommittedIndex {
+		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
+	}
+
+	m.acceptedTransactions(epochIndex, false).Delete(metadata.ID())
+
+	return
 }
 
 func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {

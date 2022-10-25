@@ -53,21 +53,6 @@ func (f *commitmentFactory) LatestCommitment() (commitment *commitment.Commitmen
 	return f.latestCommitment
 }
 
-// OnTransactionAccepted is the handler for transaction accepted event.
-func (f *commitmentFactory) AddAcceptedTransaction(txMeta *ledger.TransactionMetadata) (err error) {
-	f.Lock()
-	defer f.Unlock()
-
-	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
-	if txEpoch <= f.latestCommitment.Index() {
-		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", txMeta.ID(), txMeta.InclusionTime(), txEpoch)
-	}
-
-	f.MutationFactory.AddAcceptedTransaction(txEpoch, txMeta.ID())
-
-	return
-}
-
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (f *commitmentFactory) UpdateTransactionInclusionTime(event *ledger.TransactionInclusionUpdatedEvent) (err error) {
 	f.Lock()
@@ -84,19 +69,10 @@ func (f *commitmentFactory) UpdateTransactionInclusionTime(event *ledger.Transac
 		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
 	}
 
-	f.MutationFactory.RemoveAcceptedTransaction(oldEpoch, event.TransactionID)
-	f.MutationFactory.AddAcceptedTransaction(newEpoch, event.TransactionID)
+	f.acceptedTransactions(oldEpoch, false).Delete(event.TransactionID)
+	f.acceptedTransactions(newEpoch, true).Add(event.TransactionID)
 
 	return
-}
-
-// TODO: We need OnTransactionOrphaned event
-func (f *commitmentFactory) RemoveAcceptedTransaction(tx utxo.Transaction) {
-	/*
-		spent, created := f.resolveOutputs(tx)
-		f.commitmentFactory.deleteDiffUTXOs(ei, created, spent)
-		f.Events.UTXOTreeRemoved.Trigger(&UTXOUpdatedEvent{EI: ei, Spent: spent, Created: created})
-	*/
 }
 
 func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (newCommitment *commitment.Commitment, err error) {
