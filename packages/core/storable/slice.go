@@ -1,6 +1,5 @@
 package storable
 
-
 import (
 	"context"
 	"io"
@@ -8,13 +7,14 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/serix"
 )
 
 const SliceOffsetAuto = ^int(0)
 
-type Slice[A any, B serializable[A]] struct {
+type Slice[A any, B constraints.MarshalablePtr[A]] struct {
 	fileHandle  *os.File
 	startOffset int
 	entrySize   int
@@ -22,9 +22,9 @@ type Slice[A any, B serializable[A]] struct {
 	sync.RWMutex
 }
 
-func NewSlice[A any, B serializable[A]](fileName string, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
+func NewSlice[A any, B constraints.MarshalablePtr[A]](fileName string, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
 	return options.Apply(new(Slice[A, B]), opts, func(i *Slice[A, B]) {
-		if i.fileHandle, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0666); err != nil {
+		if i.fileHandle, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0o666); err != nil {
 			err = errors.Errorf("failed to open file: %w", err)
 			return
 		}
@@ -65,7 +65,7 @@ func (i *Slice[A, B]) Set(index int, entry B) (err error) {
 		return errors.Errorf("index %d is out of bounds", index)
 	}
 
-	if _, err = i.fileHandle.WriteAt(serializedEntry, int64(8 + relativeIndex * i.entrySize)); err != nil {
+	if _, err = i.fileHandle.WriteAt(serializedEntry, int64(8+relativeIndex*i.entrySize)); err != nil {
 		return errors.Errorf("failed to write entry: %w", err)
 	}
 
@@ -79,7 +79,7 @@ func (i *Slice[A, B]) Get(index int) (entry B, err error) {
 	}
 
 	entryBytes := make([]byte, i.entrySize)
-	if _, err = i.fileHandle.ReadAt(entryBytes, int64(8 + relativeIndex * i.entrySize)); err != nil {
+	if _, err = i.fileHandle.ReadAt(entryBytes, int64(8+relativeIndex*i.entrySize)); err != nil {
 		return entry, errors.Errorf("failed to read entry: %w", err)
 	}
 
@@ -98,7 +98,7 @@ func (i *Slice[A, B]) Close() (err error) {
 
 func (i *Slice[A, B]) readHeader() (err error) {
 	startOffsetBytes := make([]byte, 8)
-	if _, err = i.fileHandle.ReadAt(startOffsetBytes, 0); err !=  nil {
+	if _, err = i.fileHandle.ReadAt(startOffsetBytes, 0); err != nil {
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -133,16 +133,16 @@ func (i *Slice[A, B]) writeHeader() (err error) {
 		return errors.Errorf("failed to encode entrySize: %w", err)
 	}
 
-	if _, err = i.fileHandle.WriteAt(startOffsetBytes, 0); err !=  nil {
+	if _, err = i.fileHandle.WriteAt(startOffsetBytes, 0); err != nil {
 		return errors.Errorf("failed to write startOffset: %w", err)
-	} else if _, err = i.fileHandle.WriteAt(entrySizeBytes, 8); err !=  nil {
+	} else if _, err = i.fileHandle.WriteAt(entrySizeBytes, 8); err != nil {
 		return errors.Errorf("failed to write entrySize: %w", err)
 	}
 
 	return i.fileHandle.Sync()
 }
 
-func WithOffset[A any, B serializable[A]](offset int) options.Option[Slice[A, B]] {
+func WithOffset[A any, B constraints.MarshalablePtr[A]](offset int) options.Option[Slice[A, B]] {
 	return func(s *Slice[A, B]) {
 		s.startOffset = offset
 	}

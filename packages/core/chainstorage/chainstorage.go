@@ -37,10 +37,11 @@ type ChainStorage struct {
 	BlockStorage            *BlockStorage
 	DiffStorage             *DiffStorage
 	SolidEntryPointsStorage *SolidEntryPointsStorage
+	ActivityLogStorage      *ActivityLogStorage
+	Settings                *Settings
+	Commitments             *storable.Slice[commitment.Commitment, *commitment.Commitment]
 
-	settings    *settings
-	commitments *storable.Slice[commitment.Commitment, *commitment.Commitment]
-	database    *database.Manager
+	database *database.Manager
 }
 
 func NewChainStorage(folder string, databaseVersion database.Version) (chainManager *ChainStorage, err error) {
@@ -50,14 +51,15 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 	chainManager.BlockStorage = &BlockStorage{chainManager}
 	chainManager.DiffStorage = &DiffStorage{chainManager}
 	chainManager.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainManager}
+	chainManager.ActivityLogStorage = &ActivityLogStorage{chainManager}
 
-	chainManager.settings = storable.InitStruct(&settings{
+	chainManager.Settings = storable.InitStruct(&Settings{
 		LatestCommittedEpoch: 0,
 		LatestAcceptedEpoch:  0,
 		LatestConfirmedEpoch: 0,
 	}, diskutil.New(folder).Path("settings.bin"))
 
-	if chainManager.commitments, err = storable.NewSlice[commitment.Commitment](diskutil.New(folder).Path("commitments.bin")); err != nil {
+	if chainManager.Commitments, err = storable.NewSlice[commitment.Commitment](diskutil.New(folder).Path("commitments.bin")); err != nil {
 		return nil, errors.Errorf("failed to create commitments database: %w", err)
 	}
 
@@ -67,61 +69,61 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 }
 
 func (c *ChainStorage) LatestCommittedEpoch() (latestCommittedEpoch epoch.Index) {
-	c.settings.RLock()
-	defer c.settings.RUnlock()
+	c.Settings.RLock()
+	defer c.Settings.RUnlock()
 
-	return c.settings.LatestCommittedEpoch
+	return c.Settings.LatestCommittedEpoch
 }
 
 func (c *ChainStorage) SetLatestCommittedEpoch(latestCommittedEpoch epoch.Index) {
-	c.settings.Lock()
-	defer c.settings.Unlock()
+	c.Settings.Lock()
+	defer c.Settings.Unlock()
 
-	c.settings.LatestCommittedEpoch = latestCommittedEpoch
+	c.Settings.LatestCommittedEpoch = latestCommittedEpoch
 
-	if err := c.settings.ToFile(); err != nil {
+	if err := c.Settings.ToFile(); err != nil {
 		c.Events.Error.Trigger(errors.Errorf("failed to persist latest committed epoch: %w", err))
 	}
 }
 
 func (c *ChainStorage) LatestAcceptedEpoch() (latestAcceptedEpoch epoch.Index) {
-	c.settings.RLock()
-	defer c.settings.RUnlock()
+	c.Settings.RLock()
+	defer c.Settings.RUnlock()
 
-	return c.settings.LatestAcceptedEpoch
+	return c.Settings.LatestAcceptedEpoch
 }
 
 func (c *ChainStorage) SetLatestAcceptedEpoch(latestAcceptedEpoch epoch.Index) {
-	c.settings.Lock()
-	defer c.settings.Unlock()
+	c.Settings.Lock()
+	defer c.Settings.Unlock()
 
-	c.settings.LatestAcceptedEpoch = latestAcceptedEpoch
+	c.Settings.LatestAcceptedEpoch = latestAcceptedEpoch
 
-	if err := c.settings.ToFile(); err != nil {
+	if err := c.Settings.ToFile(); err != nil {
 		c.Events.Error.Trigger(errors.Errorf("failed to persist latest accepted epoch: %w", err))
 	}
 }
 
 func (c *ChainStorage) LatestConfirmedEpoch() (latestConfirmedEpoch epoch.Index) {
-	c.settings.RLock()
-	defer c.settings.RUnlock()
+	c.Settings.RLock()
+	defer c.Settings.RUnlock()
 
-	return c.settings.LatestConfirmedEpoch
+	return c.Settings.LatestConfirmedEpoch
 }
 
 func (c *ChainStorage) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) {
-	c.settings.Lock()
-	defer c.settings.Unlock()
+	c.Settings.Lock()
+	defer c.Settings.Unlock()
 
-	c.settings.LatestConfirmedEpoch = latestConfirmedEpoch
+	c.Settings.LatestConfirmedEpoch = latestConfirmedEpoch
 
-	if err := c.settings.ToFile(); err != nil {
+	if err := c.Settings.ToFile(); err != nil {
 		c.Events.Error.Trigger(errors.Errorf("failed to persist latest confirmed epoch: %w", err))
 	}
 }
 
 func (c *ChainStorage) Commitment(index epoch.Index) (commitment *commitment.Commitment) {
-	commitment, err := c.commitments.Get(int(index))
+	commitment, err := c.Commitments.Get(int(index))
 	if err != nil {
 		c.Events.Error.Trigger(errors.Errorf("failed to get commitment for epoch %d: %w", index, err))
 	}
@@ -130,7 +132,7 @@ func (c *ChainStorage) Commitment(index epoch.Index) (commitment *commitment.Com
 }
 
 func (c *ChainStorage) SetCommitment(index epoch.Index, commitment *commitment.Commitment) {
-	if err := c.commitments.Set(int(index), commitment); err != nil {
+	if err := c.Commitments.Set(int(index), commitment); err != nil {
 		c.Events.Error.Trigger(errors.Errorf("failed to store commitment for epoch %d: %w", index, err))
 	}
 }
@@ -151,25 +153,17 @@ func (c *ChainStorage) CommitmentRootsStorage(index epoch.Index) kvstore.KVStore
 	return c.bucketedStorage(index, CommitmentRootsStorageType)
 }
 
-func (c *ChainStorage) MutationTreesStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, MutationTreesStorageType)
-}
-
-func (c *ChainStorage) ActivityLogStorage(index epoch.Index) kvstore.KVStore {
-	return c.bucketedStorage(index, ActivityLogStorageType)
-}
-
 func (c *ChainStorage) Chain() commitment.ID {
-	return c.settings.Chain
+	return c.Settings.Chain
 }
 
 func (c *ChainStorage) SetChain(chain commitment.ID) {
-	c.settings.Chain = chain
+	c.Settings.Chain = chain
 }
 
 func (c *ChainStorage) Shutdown() {
 	c.database.Shutdown()
-	c.commitments.Close()
+	c.Commitments.Close()
 }
 
 func (c *ChainStorage) permanentStorage(storageType Type) (storage kvstore.KVStore) {

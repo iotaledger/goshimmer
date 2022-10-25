@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -37,22 +36,6 @@ func (e *EntryPointsManager) SolidEntryPoints(index epoch.Index) (entryPoints *s
 	}
 
 	return
-}
-
-// LoadSolidEntryPoints add solid entry points to storage.
-func (e *EntryPointsManager) LoadSolidEntryPoints(seps *snapshot.SolidEntryPoints) {
-	if seps == nil {
-		return
-	}
-
-	e.Lock()
-	defer e.Unlock()
-
-	sep := make(map[models.BlockID]types.Empty)
-	for _, b := range seps.Seps {
-		sep[b] = types.Void
-	}
-	e.entryPoints.Set(seps.EI, sep)
 }
 
 // EvictSolidEntryPoints remove seps of old epoch when confirmed epoch advanced.

@@ -222,7 +222,7 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
+	e.ManaTracker = mana.NewTracker(e.Ledger, e.ChainStorage, e.optsManaTrackerOptions...)
 
 	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))

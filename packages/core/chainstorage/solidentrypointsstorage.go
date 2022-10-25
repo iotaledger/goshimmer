@@ -3,6 +3,7 @@ package chainstorage
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,6 +36,14 @@ func (s *SolidEntryPointsStorage) Get(blockID models.BlockID) (block *models.Blo
 	}
 	block.SetID(blockID)
 
+	return
+}
+
+func (s *SolidEntryPointsStorage) GetAll(index epoch.Index) (rootBlocks *set.AdvancedSet[*models.Block]) {
+	rootBlocks = set.NewAdvancedSet[*models.Block]()
+	s.Stream(index, func(block *models.Block) {
+		rootBlocks.Add(block)
+	})
 	return
 }
 

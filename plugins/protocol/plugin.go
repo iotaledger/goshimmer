@@ -78,7 +78,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithVM(new(devnetvm.VM)),
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
-			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
+			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 			engine.WithSybilProtectionOptions(
 				sybilprotection.WithActivityTrackerOptions(
 					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),

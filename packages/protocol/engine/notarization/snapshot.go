@@ -9,6 +9,10 @@ func (m *Manager) LoadOutputsWithMetadata(outputsWithMetadatas []*chainstorage.O
 	m.advanceStateRoots(0, []*chainstorage.OutputWithMetadata{}, outputsWithMetadatas)
 }
 
-func (m *Manager) RollbackOutputs(spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) {
-	m.advanceStateRoots(0, createdOutputs, spentOutputs)
+func (m *Manager) RollbackOutputs(outputsWithMetadata []*chainstorage.OutputWithMetadata, areCreated bool) {
+	if areCreated {
+		m.advanceStateRoots(0, outputsWithMetadata, []*chainstorage.OutputWithMetadata{})
+	} else {
+		m.advanceStateRoots(0, []*chainstorage.OutputWithMetadata{}, outputsWithMetadata)
+	}
 }
