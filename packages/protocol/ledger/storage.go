@@ -175,13 +175,11 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 	return
 }
 
-func (s *Storage) ForEachOutputID(callback func(utxo.OutputID)) {
+func (s *Storage) ForEachOutputID(callback func(utxo.OutputID) bool) {
 	s.outputStorage.ForEach(func(key []byte, _ *objectstorage.CachedObject[utxo.Output]) bool {
 		outputID := new(utxo.OutputID)
 		outputID.FromBytes(key)
-		callback(*outputID)
-
-		return true
+		return callback(*outputID)
 	})
 }
 
