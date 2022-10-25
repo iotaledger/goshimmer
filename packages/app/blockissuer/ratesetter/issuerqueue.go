@@ -16,6 +16,7 @@ import (
 type IssuerQueue struct {
 	inbox generalheap.Heap[timed.HeapKey, *models.Block]
 	size  atomic.Int64
+	work  atomic.Int64
 }
 
 // NewIssuerQueue returns a new IssuerQueue.
@@ -23,7 +24,7 @@ func NewIssuerQueue() *IssuerQueue {
 	return &IssuerQueue{}
 }
 
-// Size returns the total size of the blocks in the queue.
+// Size returns the total number of blocks in the queue.
 // This function is thread-safe.
 func (q *IssuerQueue) Size() int {
 	if q == nil {
@@ -32,9 +33,20 @@ func (q *IssuerQueue) Size() int {
 	return int(q.size.Load())
 }
 
+// Work returns the total bytes of all blocks in the queue.
+// This function is thread-safe.
+func (q *IssuerQueue) Work() int {
+	if q == nil {
+		return 0
+	}
+	return int(q.work.Load())
+}
+
 // Enqueue adds block to the queue.
 func (q *IssuerQueue) Enqueue(block *models.Block) bool {
 	heap.Push(&q.inbox, &generalheap.HeapElement[timed.HeapKey, *models.Block]{Value: block, Key: timed.HeapKey(block.IssuingTime())})
+	q.size.Inc()
+	q.work.Add(int64(block.Size()))
 	return true
 }
 
@@ -58,6 +70,7 @@ func (q *IssuerQueue) Front() *models.Block {
 func (q *IssuerQueue) PopFront() *models.Block {
 	blk := heap.Pop(&q.inbox).(*generalheap.HeapElement[timed.HeapKey, *models.Block]).Value
 	q.size.Dec()
+	q.work.Sub(int64(blk.Size()))
 	return blk
 }
 

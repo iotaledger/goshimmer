@@ -58,7 +58,7 @@
   },
   "node": {
     "disablePlugins": "portcheck",
-    "enablePlugins": []
+    "enablePlugins": "Spammer"
   },
   "pow": {
     "difficulty": 2,

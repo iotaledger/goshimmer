@@ -554,6 +554,14 @@ func (s *Scheduler) updateDeficit(issuerID identity.ID, d *big.Rat) {
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
 	s.deficits.Set(issuerID, minRat(deficit, MaxDeficit))
+	// TODO: add local identity to scheduler to create deficit update event trigger.
+	/*
+		if issuerID ==  {
+			deficitFloat, _ := deficit.Float64()
+			excessDeficit := deficitFloat - float64(s.buffer.NodeQueue(nodeID).Size())
+			s.Events.OwnDeficitUpdated.Trigger(excessDeficit)
+		}
+	*/
 }
 
 func (s *Scheduler) GetOrRegisterBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {

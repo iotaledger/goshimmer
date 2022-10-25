@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -29,12 +28,12 @@ type BlockIssuer struct {
 	Events *Events
 
 	*blockfactory.Factory
-	*ratesetter.RateSetter
+	ratesetter.RateSetter
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
 
-	optsRateSetterOptions      []options.Option[ratesetter.RateSetter]
+	optsRateSetterMode         ratesetter.RateSetterModeType
 	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
 	optsIgnoreBootstrappedFlag bool
 }
@@ -42,7 +41,7 @@ type BlockIssuer struct {
 // New creates a new block issuer.
 func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opts ...options.Option[BlockIssuer]) *BlockIssuer {
 	return options.Apply(&BlockIssuer{
-		Events:   NewEvents(),
+		Events:   newEvents(),
 		identity: localIdentity,
 		protocol: protocol,
 		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() (epoch.Index, error) {
@@ -71,68 +70,51 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 				return latestCommitment.Commitment(), confirmedEpochIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
-
-		i.RateSetter = ratesetter.New(
-			i.protocol,
-			func() map[identity.ID]int64 {
-				manaMap, _, err := i.protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
-				if err != nil {
-					return make(map[identity.ID]int64)
-				}
-				return manaMap
-			},
-			func() int64 {
-				totalMana, _, err := i.protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
-				if err != nil {
-					return 0
-				}
-				return totalMana
-			},
-			i.identity.ID(),
-			i.optsRateSetterOptions...,
-		)
 	}, (*BlockIssuer).setupEvents)
 }
 
-func (f *BlockIssuer) setupEvents() {
-	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
-		f.protocol.ProcessBlock(block, f.identity.ID())
+func (i *BlockIssuer) setupEvents() {
+	i.RateSetter.Events().BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
+		i.protocol.ProcessBlock(block, i.identity.ID())
+	}))
+	i.Factory.Events.BlockConstructed.Attach(event.NewClosure(func(block *models.Block) {
+		i.RateSetter.Events().BlockIssued.Trigger(block) // blocks immediately issued rather than added to issuing queue
 	}))
 }
 
 // IssuePayload creates a new block including sequence number and tip selection and returns it.
-func (f *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
+func (i *BlockIssuer) IssuePayload(p payload.Payload, parentsCount ...int) (block *models.Block, err error) {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
-	block, err = f.Factory.CreateBlock(p, parentsCount...)
+	block, err = i.Factory.CreateBlock(p, parentsCount...)
 	if err != nil {
-		f.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
+		i.Events.Error.Trigger(errors.Errorf("block could not be created: %w", err))
 		return block, err
 	}
 
-	return block, f.RateSetter.IssueBlock(block)
+	return block, i.RateSetter.IssueBlock(block)
 }
 
 // IssuePayloadWithReferences creates a new block with the references submit.
-func (f *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (block *models.Block, err error) {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
+func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references models.ParentBlockIDs, strongParentsCountOpt ...int) (block *models.Block, err error) {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return nil, ErrNotBootstraped
 	}
 
-	block, err = f.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
+	block, err = i.Factory.CreateBlockWithReferences(p, references, strongParentsCountOpt...)
 	if err != nil {
-		f.Events.Error.Trigger(errors.Errorf("block with references could not be created: %w", err))
+		i.Events.Error.Trigger(errors.Errorf("block with references could not be created: %w", err))
 		return nil, err
 	}
 
-	return block, f.RateSetter.IssueBlock(block)
+	return block, i.RateSetter.IssueBlock(block)
 }
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
-func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, maxAwait time.Duration) error {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, maxAwait time.Duration) error {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -152,10 +134,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
-	defer f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
+	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
-	err := f.RateSetter.IssueBlock(block)
+	err := i.RateSetter.IssueBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
@@ -170,8 +152,8 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 }
 
 // IssueBlockAndAwaitBlockToBeIssued awaits maxAwait for the given block to get issued.
-func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
-	if !f.optsIgnoreBootstrappedFlag && !f.protocol.Engine().IsBootstrapped() {
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, maxAwait time.Duration) error {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
 		return ErrNotBootstraped
 	}
 
@@ -188,10 +170,10 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 		case <-exit:
 		}
 	})
-	f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
+	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
-	err := f.RateSetter.IssueBlock(block)
+	err := i.RateSetter.IssueBlock(block)
 
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
@@ -212,9 +194,14 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
-func WithRateSetterOptions(rateSetterOptions ...options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
+func WithRateSetterMode(rateSetterMode ratesetter.RateSetterModeType) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
-		issuer.optsRateSetterOptions = rateSetterOptions
+		issuer.optsRateSetterMode = rateSetterMode
+	}
+}
+func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer] {
+	return func(issuer *BlockIssuer) {
+		issuer.RateSetter = rateSetter
 	}
 }
 

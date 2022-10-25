@@ -2,6 +2,7 @@ package ratesetter
 
 import (
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -32,6 +34,38 @@ const (
 	Wmin = 5
 )
 
+const (
+	// The rate setter can be in one of three modes: aimd, deficit or disabled.
+	AIMDMode RateSetterModeType = iota
+	DeficitMode
+	DisabledMode
+)
+
+type RateSetterModeType int8
+
+func ParseRateSetterMode(s string) RateSetterModeType {
+	switch strings.ToLower(s) {
+	case "aimd":
+		return AIMDMode
+	case "disabled":
+		return DisabledMode
+	default:
+		return DeficitMode
+	}
+}
+
+func (m RateSetterModeType) String() string {
+	switch m {
+	case AIMDMode:
+		return "aimd"
+	case DisabledMode:
+		return "disabled"
+	default:
+		return "deficit"
+	}
+
+}
+
 var (
 	// ErrInvalidIssuer is returned when an invalid block is passed to the rate setter.
 	ErrInvalidIssuer = errors.New("block not issued by local node")
@@ -39,11 +73,204 @@ var (
 	ErrStopped = errors.New("rate setter stopped")
 )
 
-// region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region RateSetter interface ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// RateSetter is a Tangle component that takes care of congestion control of local node.
-type RateSetter struct {
-	Events                      *Events
+type RateSetter interface {
+	// shutdown
+	Shutdown()
+	// web API
+	Rate() float64
+	Estimate() time.Duration
+	Size() int
+	Events() *Events
+	// block issuer
+	IssueBlock(*models.Block) error
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DeficitRateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+type DeficitRateSetter struct {
+	events                      *Events
+	protocol                    *protocol.Protocol
+	self                        identity.ID
+	totalAccessManaRetrieveFunc func() int64
+	accessManaMapRetrieverFunc  func() map[identity.ID]int64
+
+	issuingQueue   *IssuerQueue
+	issueChan      chan *models.Block
+	deficitChan    chan float64
+	excessDeficit  *atomic.Float64
+	ownRate        *atomic.Float64
+	maxRate        float64
+	shutdownSignal chan struct{}
+	shutdownOnce   sync.Once
+	initOnce       sync.Once
+	schedulerRate  time.Duration
+}
+
+func NewDeficit(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[DeficitRateSetter]) *DeficitRateSetter {
+
+	accessManaMapRetrieverFunc := func() map[identity.ID]int64 {
+		manaMap, _, err := protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
+		if err != nil {
+			return make(map[identity.ID]int64)
+		}
+		return manaMap
+	}
+	totalAccessManaRetrieveFunc := func() int64 {
+		totalMana, _, err := protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
+		if err != nil {
+			return 0
+		}
+		return totalMana
+	}
+	return options.Apply(&DeficitRateSetter{
+		events:                      newEvents(),
+		protocol:                    protocol,
+		self:                        selfIdentity,
+		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
+		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
+		issuingQueue:                NewIssuerQueue(),
+		deficitChan:                 make(chan float64),
+		issueChan:                   make(chan *models.Block),
+		excessDeficit:               atomic.NewFloat64(0),
+		ownRate:                     atomic.NewFloat64(0),
+		shutdownSignal:              make(chan struct{}),
+		schedulerRate:               protocol.CongestionControl.Scheduler().Rate(),
+	}, opts, func(r *DeficitRateSetter) {
+		go r.issuerLoop()
+	})
+
+}
+
+// shutdown
+func (r *DeficitRateSetter) Shutdown() {
+	r.shutdownOnce.Do(func() {
+		close(r.shutdownSignal)
+	})
+}
+func (r *DeficitRateSetter) Rate() float64 {
+	return r.ownRate.Load()
+}
+func (r *DeficitRateSetter) Estimate() time.Duration {
+	return time.Duration(lo.Max(0.0, (float64(r.work())-r.excessDeficit.Load())/r.ownRate.Load()))
+}
+
+func (r *DeficitRateSetter) work() int {
+	return r.issuingQueue.Work()
+}
+
+func (r *DeficitRateSetter) Size() int {
+	return r.issuingQueue.Size()
+}
+
+func (r *DeficitRateSetter) Events() *Events {
+	return r.events
+}
+
+func (r *DeficitRateSetter) IssueBlock(block *models.Block) error {
+	if identity.NewID(block.IssuerPublicKey()) != r.self {
+		return ErrInvalidIssuer
+	}
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.initializeRate()
+	})
+
+	select {
+	case r.issueChan <- block:
+		return nil
+	case <-r.shutdownSignal:
+		return ErrStopped
+	}
+}
+func (r *DeficitRateSetter) initializeRate() {
+	ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
+	totalMana := float64(r.totalAccessManaRetrieveFunc())
+	r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 1))
+}
+
+func (r *DeficitRateSetter) issuerLoop() {
+	var (
+		nextBlockSize  = 0.0
+		lastDeficit    = 0.0
+		lastUpdateTime = float64(time.Now().Nanosecond()) / 1000000000
+	)
+loop:
+	for {
+		select {
+		// if own deficit changes, check if we can issue something
+		case excessDeficit := <-r.deficitChan:
+			r.excessDeficit.Store(excessDeficit)
+			if nextBlockSize > 0 && (excessDeficit >= nextBlockSize || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0) {
+				blk := r.issuingQueue.PopFront()
+				r.events.BlockIssued.Trigger(blk)
+				if next := r.issuingQueue.Front(); next != nil {
+					nextBlockSize = 0.0
+				} else {
+					nextBlockSize = float64(next.Size())
+				}
+			}
+			// update the deficit growth rate estimate
+			currentTime := float64(time.Now().Nanosecond()) / 1000000000
+			if excessDeficit > lastDeficit {
+				r.ownRate.Store((excessDeficit - lastDeficit) / (currentTime - lastUpdateTime))
+			}
+			lastDeficit = excessDeficit
+			lastUpdateTime = currentTime
+
+		// if new block arrives, add it to the issuing queue
+		case blk := <-r.issueChan:
+			// if issuing queue is empty and we have enough deficit, issue this immediately
+			if r.excessDeficit.Load() >= float64(blk.Size()) || r.protocol.CongestionControl.Scheduler().ReadyBlocksCount() == 0 {
+				if r.Size() == 0 {
+					r.events.BlockIssued.Trigger(blk)
+					break
+				}
+				issueBlk := r.issuingQueue.PopFront()
+				r.events.BlockIssued.Trigger(issueBlk)
+			}
+			// if issuing queue is full, discard this
+			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
+				// drop tail
+				r.events.BlockDiscarded.Trigger(blk)
+				break
+			}
+			// add to queue
+			r.issuingQueue.Enqueue(blk)
+
+			if next := r.issuingQueue.Front(); next != nil {
+				nextBlockSize = 0.0
+			} else {
+				nextBlockSize = float64(next.Size())
+			}
+
+		// on close, exit the loop
+		case <-r.shutdownSignal:
+			break loop
+		}
+	}
+
+}
+func (r *DeficitRateSetter) setupEvents() {
+
+	// TODO: update deficit-based rate setting if own deficit is modified
+	/*
+		r.protocol.CongestionControl.Scheduler().Events.OwnDeficitUpdated.Attach(event.NewClosure(func(event *OwnDeficitUpdatedEvent) {
+			r.deficitChan <- event.Deficit
+		}))
+	*/
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region AIMDRateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// AIMDRateSetter sets the issue rate of the block issuer using an AIMD-based algorithm.
+type AIMDRateSetter struct {
+	events                      *Events
 	protocol                    *protocol.Protocol
 	self                        identity.ID
 	totalAccessManaRetrieveFunc func() int64
@@ -59,38 +286,53 @@ type RateSetter struct {
 	shutdownOnce        sync.Once
 	initOnce            sync.Once
 
-	optsEnabled       bool
 	optsInitialRate   float64
 	optsPause         time.Duration
 	optsSchedulerRate time.Duration
 }
 
-// New returns a new RateSetter.
-func New(protocol *protocol.Protocol, accessManaMapRetrieverFunc func() map[identity.ID]int64, totalAccessManaRetrieveFunc func() int64, selfIdentity identity.ID, opts ...options.Option[RateSetter]) *RateSetter {
-	return options.Apply(&RateSetter{
-		Events: newEvents(),
+// New returns a new AIMDRateSetter.
+func NewAIMD(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.Option[AIMDRateSetter]) *AIMDRateSetter {
 
+	accessManaMapRetrieverFunc := func() map[identity.ID]int64 {
+		manaMap, _, err := protocol.Engine().ManaTracker.GetManaMap(manamodels.AccessMana)
+		if err != nil {
+			return make(map[identity.ID]int64)
+		}
+		return manaMap
+	}
+	totalAccessManaRetrieveFunc := func() int64 {
+		totalMana, _, err := protocol.Engine().ManaTracker.GetTotalMana(manamodels.AccessMana)
+		if err != nil {
+			return 0
+		}
+		return totalMana
+	}
+	return options.Apply(&AIMDRateSetter{
+		events:                      newEvents(),
 		protocol:                    protocol,
 		self:                        selfIdentity,
 		accessManaMapRetrieverFunc:  accessManaMapRetrieverFunc,
 		totalAccessManaRetrieveFunc: totalAccessManaRetrieveFunc,
-
-		issuingQueue:   NewIssuerQueue(),
-		issueChan:      make(chan *models.Block),
-		ownRate:        atomic.NewFloat64(0),
-		shutdownSignal: make(chan struct{}),
-	}, opts, func(r *RateSetter) {
+		issuingQueue:                NewIssuerQueue(),
+		issueChan:                   make(chan *models.Block),
+		ownRate:                     atomic.NewFloat64(0),
+		shutdownSignal:              make(chan struct{}),
+	}, opts, func(r *AIMDRateSetter) {
 		r.initialPauseUpdates = uint(r.optsPause / r.optsSchedulerRate)
 		r.maxRate = float64(time.Second / r.optsSchedulerRate)
-	}, func(r *RateSetter) {
-		if r.optsEnabled {
-			go r.issuerLoop()
-		}
-	})
+	}, func(r *AIMDRateSetter) {
+		go r.issuerLoop()
+	}, (*AIMDRateSetter).setupEvents)
+
+}
+
+func (r *AIMDRateSetter) Events() *Events {
+	return r.events
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
-func (r *RateSetter) setupEvents() {
+func (r *AIMDRateSetter) setupEvents() {
 	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(_ *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
@@ -103,18 +345,14 @@ func (r *RateSetter) setupEvents() {
 }
 
 // IssueBlock submits a block to the local issuing queue.
-func (r *RateSetter) IssueBlock(block *models.Block) error {
-	if !r.optsEnabled {
-		r.Events.BlockIssued.Trigger(block)
-		return nil
-	}
+func (r *AIMDRateSetter) IssueBlock(block *models.Block) error {
 
 	if identity.NewID(block.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
 	r.initOnce.Do(func() {
 		// initialize mana vectors in cache here when mana vectors are already loaded
-		r.initializeInitialRate()
+		r.initializeRate()
 	})
 
 	select {
@@ -126,27 +364,27 @@ func (r *RateSetter) IssueBlock(block *models.Block) error {
 }
 
 // Shutdown shuts down the RateSetter.
-func (r *RateSetter) Shutdown() {
+func (r *AIMDRateSetter) Shutdown() {
 	r.shutdownOnce.Do(func() {
 		close(r.shutdownSignal)
 	})
 }
 
 // Rate returns the rate of the rate setter.
-func (r *RateSetter) Rate() float64 {
+func (r *AIMDRateSetter) Rate() float64 {
 	return r.ownRate.Load()
 }
 
 // Size returns the size of the issuing queue.
-func (r *RateSetter) Size() int {
+func (r *AIMDRateSetter) Size() int {
 	return r.issuingQueue.Size()
 }
 
 // Estimate estimates the issuing time of new block.
-func (r *RateSetter) Estimate() time.Duration {
+func (r *AIMDRateSetter) Estimate() time.Duration {
 	r.initOnce.Do(func() {
 		// initialize mana vectors in cache here when mana vectors are already loaded
-		r.initializeInitialRate()
+		r.initializeRate()
 	})
 
 	var pauseUpdate time.Duration
@@ -158,7 +396,7 @@ func (r *RateSetter) Estimate() time.Duration {
 }
 
 // rateSetting updates the rate ownRate at which blocks can be issued by the node.
-func (r *RateSetter) rateSetting() {
+func (r *AIMDRateSetter) rateSetting() {
 	// Return access mana or MinMana to allow zero mana nodes issue.
 	ownMana := float64(lo.Max(r.accessManaMapRetrieverFunc()[r.self], scheduler.MinMana))
 	maxManaValue := float64(lo.Max(append(lo.Values(r.accessManaMapRetrieverFunc()), scheduler.MinMana)...))
@@ -176,7 +414,7 @@ func (r *RateSetter) rateSetting() {
 	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
 
-func (r *RateSetter) issuerLoop() {
+func (r *AIMDRateSetter) issuerLoop() {
 	var (
 		issueTimer    = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		timerStopped  = false
@@ -195,7 +433,7 @@ loop:
 			}
 
 			block := r.issuingQueue.PopFront()
-			r.Events.BlockIssued.Trigger(block)
+			r.events.BlockIssued.Trigger(block)
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -206,7 +444,7 @@ loop:
 		// add a new block to the local issuer queue
 		case block := <-r.issueChan:
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
-				r.Events.BlockDiscarded.Trigger(block)
+				r.events.BlockDiscarded.Trigger(block)
 				continue
 			}
 			// add to queue
@@ -229,16 +467,16 @@ loop:
 
 	// discard all remaining blocks at shutdown
 	for r.issuingQueue.Size() > 0 {
-		r.Events.BlockDiscarded.Trigger(r.issuingQueue.PopFront())
+		r.events.BlockDiscarded.Trigger(r.issuingQueue.PopFront())
 	}
 }
 
-func (r *RateSetter) issueInterval() time.Duration {
+func (r *AIMDRateSetter) issueInterval() time.Duration {
 	wait := time.Duration(math.Ceil(float64(1) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
-func (r *RateSetter) initializeInitialRate() {
+func (r *AIMDRateSetter) initializeRate() {
 	if r.optsInitialRate > 0.0 {
 		r.ownRate.Store(r.optsInitialRate)
 	} else {
@@ -250,28 +488,57 @@ func (r *RateSetter) initializeInitialRate() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region DisabledRateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func WithEnabled(enabled bool) options.Option[RateSetter] {
-	return func(rateSetter *RateSetter) {
-		rateSetter.optsEnabled = enabled
+type DisabledRateSetter struct {
+	events       *Events
+	protocol     *protocol.Protocol
+	self         identity.ID
+	issuingQueue *IssuerQueue
+}
+
+func NewDisabled(protocol *protocol.Protocol, selfIdentity identity.ID) *DisabledRateSetter {
+	return &DisabledRateSetter{
+		events:   newEvents(),
+		protocol: protocol,
+		self:     selfIdentity,
 	}
 }
 
-func WithInitialRate(initialRate float64) options.Option[RateSetter] {
-	return func(rateSetter *RateSetter) {
+func (r *DisabledRateSetter) Shutdown() {
+	// shutdown?
+}
+
+func (r *DisabledRateSetter) Rate() float64 {
+	return 0
+}
+func (r *DisabledRateSetter) Estimate() time.Duration {
+	return time.Duration(0)
+}
+func (r *DisabledRateSetter) Size() int {
+	return r.issuingQueue.Size()
+}
+func (r *DisabledRateSetter) Events() *Events {
+	return r.events
+}
+
+func (r *DisabledRateSetter) IssueBlock(block *models.Block) error {
+	r.events.BlockIssued.Trigger(block)
+	return nil
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithInitialRate(initialRate float64) options.Option[AIMDRateSetter] {
+	return func(rateSetter *AIMDRateSetter) {
 		rateSetter.optsInitialRate = initialRate
 	}
 }
 
-func WithSchedulerRate(schedulerRate time.Duration) options.Option[RateSetter] {
-	return func(rateSetter *RateSetter) {
-		rateSetter.optsSchedulerRate = schedulerRate
-	}
-}
-
-func WithPause(pause time.Duration) options.Option[RateSetter] {
-	return func(rateSetter *RateSetter) {
+func WithPause(pause time.Duration) options.Option[AIMDRateSetter] {
+	return func(rateSetter *AIMDRateSetter) {
 		rateSetter.optsPause = pause
 	}
 }

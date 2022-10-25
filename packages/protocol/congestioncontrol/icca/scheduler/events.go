@@ -14,17 +14,20 @@ type Events struct {
 	BlockDropped *event.Linkable[*Block, Events, *Events]
 	// BlockSkipped is triggered when a block is confirmed before it's scheduled, and is skipped by the scheduler.
 	BlockSkipped *event.Linkable[*Block, Events, *Events]
-	Error        *event.Linkable[error, Events, *Events]
+	// OwnDeficitUpdated is triggered when a node's own deficit is updated by its own scheduler.
+	OwnDeficitUpdated *event.Linkable[float64, Events, *Events]
+	Error             *event.Linkable[error, Events, *Events]
 
 	event.LinkableCollection[Events, *Events]
 }
 
 var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
-		BlockScheduled: event.NewLinkable[*Block, Events, *Events](),
-		BlockDropped:   event.NewLinkable[*Block, Events, *Events](),
-		BlockSkipped:   event.NewLinkable[*Block, Events, *Events](),
-		Error:          event.NewLinkable[error, Events, *Events](),
+		BlockScheduled:    event.NewLinkable[*Block, Events, *Events](),
+		BlockDropped:      event.NewLinkable[*Block, Events, *Events](),
+		BlockSkipped:      event.NewLinkable[*Block, Events, *Events](),
+		OwnDeficitUpdated: event.NewLinkable[float64, Events, *Events](),
+		Error:             event.NewLinkable[error, Events, *Events](),
 	}
 })
 
