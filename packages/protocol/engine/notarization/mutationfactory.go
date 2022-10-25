@@ -18,17 +18,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
+// MutationFactory is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
 type MutationFactory struct {
-	acceptedBlocksByEpoch       *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
-	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
-	activeValidatorsByEpoch     *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
-	issuerBlocksByEpoch         *memstorage.EpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]]
+	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
+	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
+	// acceptedTransactionsByEpoch stores the accepted transactions per epoch.
+	acceptedTransactionsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[utxo.TransactionID]]
+
+	// activeValidatorsByEpoch stores the active validators per epoch.
+	activeValidatorsByEpoch *memstorage.Storage[epoch.Index, *ads.Set[identity.ID]]
+
+	// issuerBlocksByEpoch stores the blocks issued by a validator per epoch.
+	issuerBlocksByEpoch *memstorage.EpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]]
+
+	// latestCommittedIndex stores the index of the latest committed epoch.
 	latestCommittedIndex epoch.Index
 
 	sync.Mutex
 }
 
+// NewMutationFactory creates a new mutation factory.
 func NewMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *MutationFactory) {
 	return &MutationFactory{
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
@@ -102,22 +112,37 @@ func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.Transaction
 	return
 }
 
-func (m *MutationFactory) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {
+// UpdateTransactionInclusion moves a transaction from a later epoch to the given epoch.
+func (m *MutationFactory) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
-	acceptedBlocks = m.acceptedBlocks(index)
-	acceptedTransactions = m.acceptedTransactions(index)
-	activeValidators = m.activeValidators(index)
+	if newEpoch >= oldEpoch {
+		return
+	}
 
-	m.acceptedBlocksByEpoch.Delete(index)
-	m.acceptedTransactionsByEpoch.Delete(index)
-	m.activeValidatorsByEpoch.Delete(index)
-	m.issuerBlocksByEpoch.EvictEpoch(index)
+	if oldEpoch <= m.latestCommittedIndex || newEpoch <= m.latestCommittedIndex {
+		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
+	}
 
-	m.latestCommittedIndex = index
+	m.acceptedTransactions(oldEpoch, false).Delete(txID)
+	m.acceptedTransactions(newEpoch, true).Add(txID)
 
 	return
+}
+
+// Commit evicts the given epoch and returns the corresponding mutation sets.
+func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {
+	m.Lock()
+	defer m.Unlock()
+
+	if index <= m.latestCommittedIndex {
+		panic("cannot commit epoch that is already committed")
+	}
+
+	defer m.evict(index)
+
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index)
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -172,6 +197,17 @@ func (m *MutationFactory) removeBlockByIssuer(blockID models.BlockID, issuer ide
 	m.activeValidators(blockID.Index()).Delete(issuer)
 }
 
+// evict removes all data for epochs that are older than the given epoch.
+func (m *MutationFactory) evict(index epoch.Index) {
+	for i := m.latestCommittedIndex; i < index; i++ {
+		m.acceptedBlocksByEpoch.Delete(index)
+		m.acceptedTransactionsByEpoch.Delete(index)
+		m.activeValidatorsByEpoch.Delete(index)
+		m.issuerBlocksByEpoch.EvictEpoch(index)
+	}
+}
+
+// newSet is a generic constructor for a new ads.Set.
 func newSet[A constraints.Serializable]() *ads.Set[A] {
 	return ads.NewSet[A](mapdb.NewMapDB())
 }

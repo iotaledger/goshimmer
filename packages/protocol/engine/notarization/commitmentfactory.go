@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
@@ -53,34 +52,12 @@ func (f *commitmentFactory) LatestCommitment() (commitment *commitment.Commitmen
 	return f.latestCommitment
 }
 
-// OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
-func (f *commitmentFactory) UpdateTransactionInclusionTime(event *ledger.TransactionInclusionUpdatedEvent) (err error) {
-	f.Lock()
-	defer f.Unlock()
-
-	oldEpoch := epoch.IndexFromTime(event.PreviousInclusionTime)
-	newEpoch := epoch.IndexFromTime(event.InclusionTime)
-
-	if oldEpoch == 0 || oldEpoch == newEpoch {
-		return
-	}
-
-	if oldEpoch <= f.latestCommitment.Index() || newEpoch <= f.latestCommitment.Index() {
-		return errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch)
-	}
-
-	f.acceptedTransactions(oldEpoch, false).Delete(event.TransactionID)
-	f.acceptedTransactions(newEpoch, true).Add(event.TransactionID)
-
-	return
-}
-
 func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, createdOutputs []*chainstorage.OutputWithMetadata) (newCommitment *commitment.Commitment, err error) {
 	if ei != f.latestCommitment.Index()+1 {
 		return nil, errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", ei, f.latestCommitment.Index())
 	}
 
-	acceptedBlocks, acceptedTransactions, activeValidators := f.MutationFactory.Evict(ei)
+	acceptedBlocks, acceptedTransactions, activeValidators := f.MutationFactory.Commit(ei)
 	stateRoot, manaRoot := f.advanceStateRoots(ei, spentOutputs, createdOutputs)
 
 	// TODO: obtain and commit to cumulative weight
@@ -149,73 +126,5 @@ func (f *commitmentFactory) advanceStateRoots(ei epoch.Index, spentOutputs, crea
 
 	return f.stateTree.Root(), f.manaTree.Root()
 }
-
-/*
-// storeDiffUTXOs stores the diff UTXOs occurred on an epoch without removing UTXOs created and spent in the span of a
-// single epoch. This is because, as UTXOs can be stored out-of-order, we cannot reliably remove intermediate UTXOs
-// before an epoch is committable.
-func (f *CommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) {
-	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
-
-	for _, spentOutputWithMetadata := range spent {
-		cachedObj, stored := epochDiffStorage.spent.StoreIfAbsent(spentOutputWithMetadata)
-		if !stored {
-			continue
-		}
-		cachedObj.Release()
-	}
-
-	for _, createdOutputWithMetadata := range created {
-		cachedObj, stored := epochDiffStorage.created.StoreIfAbsent(createdOutputWithMetadata)
-		if !stored {
-			continue
-		}
-		cachedObj.Release()
-	}
-}
-
-func (f *CommitmentFactory) deleteDiffUTXOs(ei epoch.Index, spent, created []*ledger.OutputWithMetadata) {
-	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
-
-	for _, spentOutputWithMetadata := range spent {
-		epochDiffStorage.spent.Delete(spentOutputWithMetadata.ID().Bytes())
-	}
-
-	for _, createdOutputWithMetadata := range created {
-		epochDiffStorage.created.Delete(createdOutputWithMetadata.ID().Bytes())
-	}
-}
-
-// loadDiffUTXOs loads the diff UTXOs occurred on an epoch by removing UTXOs created and spent in the span of the same epoch,
-// as by the time we load a diff we assume the epoch is being committed and cannot be altered anymore.
-func (f *CommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent, created []*ledger.OutputWithMetadata) {
-	f.chainStorage
-	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
-
-	spent = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			// We remove spent and created UTXOs happened in the same epoch, as we assume that by the time we
-			// load the epoch diff, the epoch is being committed and cannot be altered anymore.
-			if epochDiffStorage.created.DeleteIfPresent(outputWithMetadata.ID().Bytes()) {
-				epochDiffStorage.spent.Delete(outputWithMetadata.ID().Bytes())
-				return
-			}
-			spent = append(spent, outputWithMetadata)
-		})
-		return true
-	})
-
-	created = make([]*ledger.OutputWithMetadata, 0)
-	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
-			created = append(created, outputWithMetadata)
-		})
-		return true
-	})
-
-	return
-}
-*/
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
