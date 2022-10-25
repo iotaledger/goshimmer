@@ -26,7 +26,7 @@ type MutationFactory struct {
 
 	latestCommittedIndex epoch.Index
 
-	sync.RWMutex
+	sync.Mutex
 }
 
 func NewMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *MutationFactory) {
@@ -35,9 +35,12 @@ func NewMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *Mut
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
 		issuerBlocksByEpoch:         memstorage.NewEpochStorage[identity.ID, *set.AdvancedSet[models.BlockID]](),
+
+		latestCommittedIndex: lastCommittedEpoch,
 	}
 }
 
+// AddAcceptedBlock adds the given block to the set of accepted blocks.
 func (m *MutationFactory) AddAcceptedBlock(block *models.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -53,6 +56,7 @@ func (m *MutationFactory) AddAcceptedBlock(block *models.Block) (err error) {
 	return
 }
 
+// RemoveAcceptedBlock removes the given block from the set of accepted blocks.
 func (m *MutationFactory) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
@@ -68,7 +72,11 @@ func (m *MutationFactory) RemoveAcceptedBlock(block *models.Block) (err error) {
 	return
 }
 
+// AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
 func (m *MutationFactory) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+	m.Lock()
+	defer m.Unlock()
+
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
@@ -79,7 +87,11 @@ func (m *MutationFactory) AddAcceptedTransaction(metadata *ledger.TransactionMet
 	return
 }
 
+// RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
 func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+	m.Lock()
+	defer m.Unlock()
+
 	epochIndex := epoch.IndexFromTime(metadata.InclusionTime())
 	if epochIndex <= m.latestCommittedIndex {
 		return errors.Errorf("transaction %s accepted with issuing time %s in already committed epoch %d", metadata.ID(), metadata.InclusionTime(), epochIndex)
@@ -90,36 +102,52 @@ func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.Transaction
 	return
 }
 
-func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {
-	defer m.evict(index)
+func (m *MutationFactory) Evict(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {
+	m.Lock()
+	defer m.Unlock()
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index)
+	acceptedBlocks = m.acceptedBlocks(index)
+	acceptedTransactions = m.acceptedTransactions(index)
+	activeValidators = m.activeValidators(index)
+
+	m.acceptedBlocksByEpoch.Delete(index)
+	m.acceptedTransactionsByEpoch.Delete(index)
+	m.activeValidatorsByEpoch.Delete(index)
+	m.issuerBlocksByEpoch.EvictEpoch(index)
+
+	m.latestCommittedIndex = index
+
+	return
 }
 
+// acceptedBlocks returns the set of accepted blocks for the given epoch.
 func (m *MutationFactory) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newADSSet[models.BlockID]))
+		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newSet[models.BlockID]))
 	}
 
 	return lo.Return1(m.acceptedBlocksByEpoch.Get(index))
 }
 
+// acceptedTransactions returns the set of accepted transactions for the given epoch.
 func (m *MutationFactory) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(index, newADSSet[utxo.TransactionID]))
+		return lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(index, newSet[utxo.TransactionID]))
 	}
 
 	return lo.Return1(m.acceptedTransactionsByEpoch.Get(index))
 }
 
+// activeValidators returns the set of active validators for the given epoch.
 func (m *MutationFactory) activeValidators(index epoch.Index, createIfMissing ...bool) *ads.Set[identity.ID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
-		return lo.Return1(m.activeValidatorsByEpoch.RetrieveOrCreate(index, newADSSet[identity.ID]))
+		return lo.Return1(m.activeValidatorsByEpoch.RetrieveOrCreate(index, newSet[identity.ID]))
 	}
 
 	return lo.Return1(m.activeValidatorsByEpoch.Get(index))
 }
 
+// addBlockByIssuer adds the given block to the set of blocks issued by the given issuer.
 func (m *MutationFactory) addBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
 	blocksByIssuer, isNewIssuer := m.issuerBlocksByEpoch.Get(blockID.Index(), true).RetrieveOrCreate(issuer, func() *set.AdvancedSet[models.BlockID] { return set.NewAdvancedSet[models.BlockID]() })
 	if isNewIssuer {
@@ -129,6 +157,7 @@ func (m *MutationFactory) addBlockByIssuer(blockID models.BlockID, issuer identi
 	blocksByIssuer.Add(blockID)
 }
 
+// removeBlockByIssuer removes the given block from the set of blocks issued by the given issuer.
 func (m *MutationFactory) removeBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
 	epochBlocks := m.issuerBlocksByEpoch.Get(blockID.Index())
 	if epochBlocks == nil {
@@ -143,13 +172,6 @@ func (m *MutationFactory) removeBlockByIssuer(blockID models.BlockID, issuer ide
 	m.activeValidators(blockID.Index()).Delete(issuer)
 }
 
-func (m *MutationFactory) evict(index epoch.Index) {
-	m.acceptedBlocksByEpoch.Delete(index)
-	m.acceptedTransactionsByEpoch.Delete(index)
-	m.activeValidatorsByEpoch.Delete(index)
-	m.issuerBlocksByEpoch.EvictEpoch(index)
-}
-
-func newADSSet[A constraints.Serializable]() *ads.Set[A] {
+func newSet[A constraints.Serializable]() *ads.Set[A] {
 	return ads.NewSet[A](mapdb.NewMapDB())
 }
