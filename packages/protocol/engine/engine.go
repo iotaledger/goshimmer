@@ -190,12 +190,12 @@ func (e *Engine) initNotarizationManager() {
 	)
 
 	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
-		if err := e.NotarizationManager.AddAcceptedBlock(block); err != nil {
+		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}
 	}))
 	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
-		if err := e.NotarizationManager.RemoveAcceptedBlock(block); err != nil {
+		if err := e.NotarizationManager.RemoveAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
 		}
 	}))
