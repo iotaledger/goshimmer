@@ -6,10 +6,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/identity"
 )
+
+func (t *Tracker) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
+	t.processOutputs(outputsWithMetadata, manamodels.ConsensusMana, true)
+	t.processOutputs(outputsWithMetadata, manamodels.AccessMana, true)
+}
+
+func (t *Tracker) RollbackOutputs(index epoch.Index, outputsWithMetadata []*chainstorage.OutputWithMetadata, areCreated bool) {
+	t.processOutputs(outputsWithMetadata, manamodels.ConsensusMana, !areCreated)
+	if index > t.chainStorage.LatestCommittedEpoch() {
+		t.processOutputs(outputsWithMetadata, manamodels.AccessMana, !areCreated)
+	}
+}
 
 func (t *Tracker) processOutputs(outputsWithMetadata []*chainstorage.OutputWithMetadata, manaType manamodels.Type, areCreated bool) {
 	for _, outputWithMetadata := range outputsWithMetadata {
@@ -43,28 +54,4 @@ func (t *Tracker) processOutputs(outputsWithMetadata []*chainstorage.OutputWithM
 		}
 		baseVector.SetMana(pledgeID, manamodels.NewManaBase(existingMana))
 	}
-}
-
-func (t *Tracker) LoadSnapshotHeader(header *ledger.SnapshotHeader) {
-	t.cManaTargetEpoch = header.DiffEpochIndex - epoch.Index(EpochDelay)
-	if t.cManaTargetEpoch < 0 {
-		t.cManaTargetEpoch = 0
-	}
-}
-
-func (t *Tracker) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
-	t.processOutputs(outputsWithMetadata, manamodels.ConsensusMana, true)
-	t.processOutputs(outputsWithMetadata, manamodels.AccessMana, true)
-}
-
-func (t *Tracker) LoadEpochDiff(diff *ledger.EpochDiff) {
-	// We fix the cMana vector a few epochs in the past with respect of the latest epoch in the snapshot.
-	if diff.Index() <= t.cManaTargetEpoch {
-		t.processOutputs(diff.Created(), manamodels.ConsensusMana, true)
-		t.processOutputs(diff.Spent(), manamodels.ConsensusMana, false)
-	}
-
-	// Only the aMana will be loaded until the latest snapshot's epoch
-	t.processOutputs(diff.Created(), manamodels.AccessMana, true)
-	t.processOutputs(diff.Spent(), manamodels.AccessMana, false)
 }

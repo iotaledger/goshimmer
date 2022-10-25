@@ -15,13 +15,6 @@ type StructConstraint[A any, B constraints.Ptr[A]] interface {
 	Bytes() ([]byte, error)
 }
 
-type serializable[A any] interface {
-	*A
-
-	Bytes() ([]byte, error)
-	FromBytes([]byte) (int, error)
-}
-
 type SerializableInt64 int64
 
 func (s SerializableInt64) Bytes() (data []byte, err error) {

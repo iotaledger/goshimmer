@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/core/logger"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -23,7 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
@@ -44,7 +43,7 @@ type Protocol struct {
 	networkProtocol      *network.Protocol
 	disk                 *diskutil.DiskUtil
 	chainManager         *chainmanager.Manager
-	activeInstanceMutex  sync.RWMutex
+	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
 	storage              *chainstorage.ChainStorage
@@ -72,14 +71,15 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		optsSettingsFileName: "settings.bin",
 	}, opts,
 		(*Protocol).initDisk,
-		(*Protocol).initMainChainStorage,
 		(*Protocol).initCongestionControl,
+		(*Protocol).initMainChainStorage,
+		(*Protocol).initMainEngine,
 		(*Protocol).importSnapshot,
 	)
 }
 
 func (p *Protocol) Run() {
-	p.initMainEngine()
+	p.activateEngine(p.engine)
 	p.initNetworkProtocol()
 	p.initTipManager()
 }
@@ -141,14 +141,7 @@ func (p *Protocol) initNetworkProtocol() {
 }
 
 func (p *Protocol) initMainEngine() {
-	mainStorage, err := chainstorage.NewChainStorage(p.disk.Path(mainBaseDir), DatabaseVersion)
-	if err != nil {
-		panic(err)
-	}
-
-	p.storage = mainStorage
 	p.engine = engine.New(p.storage, p.optsEngineOptions...)
-	p.activateEngine(p.engine)
 }
 
 func (p *Protocol) initChainManager() {
@@ -206,73 +199,60 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 }
 
 func (p *Protocol) Engine() (instance *engine.Engine) {
-	p.activeInstanceMutex.RLock()
-	defer p.activeInstanceMutex.RUnlock()
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
 
 	return p.engine
 }
 
 func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
-	p.activeInstanceMutex.RLock()
-	defer p.activeInstanceMutex.RUnlock()
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
 
 	return p.candidateEngine
 }
 
 func (p *Protocol) CandidateStorage() (chainstorage *chainstorage.ChainStorage) {
-	p.activeInstanceMutex.RLock()
-	defer p.activeInstanceMutex.RUnlock()
+	p.activeEngineMutex.RLock()
+	defer p.activeEngineMutex.RUnlock()
 
 	return p.candidateStorage
 }
 
 func (p *Protocol) importSnapshotFile(filePath string) (err error) {
-	var snapshotHeader *ledger.SnapshotHeader
-
-	if err = p.disk.WithFile(filePath, func(file *os.File) (err error) {
-		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
-
-		return
+	if err = p.disk.WithFile(filePath, func(fileHandle *os.File) {
+		snapshot.ReadSnapshot(fileHandle, p.Engine())
 	}); err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 
-		return errors.Errorf("failed to read snapshot header from file '%s': %w", filePath, err)
+		return errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err)
 	}
 
-	chainID := snapshotHeader.LatestECRecord.ID()
-	chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
+	/*
+		chainID := snapshotHeader.LatestECRecord.ID()
+		chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
 
-	if !p.disk.Exists(chainDirectory) {
-		if err = p.disk.CreateDir(chainDirectory); err != nil {
-			return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
+		if !p.disk.Exists(chainDirectory) {
+			if err = p.disk.CreateDir(chainDirectory); err != nil {
+				return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
+			}
 		}
-	}
 
-	if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
-		return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-	}
-	// TODO: we can't move the file because it might be mounted through Docker
-	// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
-	// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-	// }
+		if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
+			return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
+		}
+		// TODO: we can't move the file because it might be mounted through Docker
+		// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
+		// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
+		// }
 
-	// TODO: load snapshot into main ChainStorage
-	p.storage.SetChain(chainID)
+		// TODO: load snapshot into main ChainStorage
+		p.storage.SetChain(chainID)
+	*/
 
 	return
-}
-
-func (p *Protocol) readSnapshotHeader(snapshotFile string) (snapshotHeader *ledger.SnapshotHeader, err error) {
-	if err = p.disk.WithFile(snapshotFile, func(file *os.File) (err error) {
-		snapshotHeader, err = snapshot.ReadSnapshotHeader(file)
-		return
-	}); err != nil {
-		err = errors.Errorf("failed to read snapshot header from file '%s': %w", snapshotFile, err)
-	}
-
-	return snapshotHeader, err
 }
 
 func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {

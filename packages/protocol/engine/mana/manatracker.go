@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
+	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
@@ -16,16 +17,18 @@ const EpochDelay = 2
 
 type Tracker struct {
 	ledger          *ledger.Ledger
+	chainStorage    *chainstorage.ChainStorage
 	baseManaVectors map[manamodels.Type]*manamodels.ManaBaseVector
 
 	Events           *Events
 	cManaTargetEpoch epoch.Index
 }
 
-func NewTracker(ledgerInstance *ledger.Ledger, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
+func NewTracker(l *ledger.Ledger, chainStorage *chainstorage.ChainStorage, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
 	return options.Apply(&Tracker{
 		Events:          NewEvents(),
-		ledger:          ledgerInstance,
+		ledger:          l,
+		chainStorage:    chainStorage,
 		baseManaVectors: make(map[manamodels.Type]*manamodels.ManaBaseVector),
 	}, opts, func(m *Tracker) {
 		m.baseManaVectors[manamodels.AccessMana] = manamodels.NewManaBaseVector(manamodels.AccessMana)

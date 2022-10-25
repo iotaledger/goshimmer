@@ -175,6 +175,14 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 	return
 }
 
+func (s *Storage) ForEachOutputID(callback func(utxo.OutputID) bool) {
+	s.outputStorage.ForEach(func(key []byte, _ *objectstorage.CachedObject[utxo.Output]) bool {
+		outputID := new(utxo.OutputID)
+		outputID.FromBytes(key)
+		return callback(*outputID)
+	})
+}
+
 // Prune resets the database and deletes all entities.
 func (s *Storage) Prune() (err error) {
 	for _, storagePrune := range []func() error{

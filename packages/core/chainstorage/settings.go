@@ -13,25 +13,22 @@ import (
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type settings struct {
+type Settings struct {
 	LatestCommittedEpoch epoch.Index   `serix:"0"`
 	LatestAcceptedEpoch  epoch.Index   `serix:"1"`
 	LatestConfirmedEpoch epoch.Index   `serix:"2"`
 	Chain                commitment.ID `serix:"3"`
 
-	storable.Struct[settings, *settings]
-
-	rwMutex
+	storable.Struct[Settings, *Settings]
+	sync.RWMutex
 }
 
-func (s *settings) FromBytes(bytes []byte) (int, error) {
+func (s *Settings) FromBytes(bytes []byte) (int, error) {
 	return serix.DefaultAPI.Decode(context.Background(), bytes, s)
 }
 
-func (s *settings) Bytes() ([]byte, error) {
-	return serix.DefaultAPI.Encode(context.Background(), *s)
+func (s Settings) Bytes() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), s)
 }
-
-type rwMutex = sync.RWMutex
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

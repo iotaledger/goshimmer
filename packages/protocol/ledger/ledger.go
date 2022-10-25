@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/walker"
 	"github.com/iotaledger/hive.go/core/syncutils"
@@ -124,45 +123,6 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]
 	return ledger
 }
 
-// LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
-	for _, outputWithMetadata := range outputsWithMetadata {
-		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
-		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
-		newOutputMetadata.SetConsensusManaPledgeID(outputWithMetadata.ConsensusManaPledgeID())
-		newOutputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		l.Storage.outputStorage.Store(outputWithMetadata.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(newOutputMetadata).Release()
-
-		l.Events.OutputCreated.Trigger(outputWithMetadata.ID())
-	}
-}
-
-// LoadEpochDiff loads EpochDiff from a snapshot file to the storage.
-func (l *Ledger) LoadEpochDiff(epochDiff *EpochDiff) error {
-	for _, spent := range epochDiff.Spent() {
-		l.Storage.outputStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
-		l.Storage.outputMetadataStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
-
-		l.Events.OutputSpent.Trigger(spent.ID())
-	}
-
-	for _, created := range epochDiff.Created() {
-		outputMetadata := NewOutputMetadata(created.ID())
-		outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())
-		outputMetadata.SetConsensusManaPledgeID(created.ConsensusManaPledgeID())
-		outputMetadata.SetConfirmationState(confirmation.Confirmed)
-
-		l.Storage.outputStorage.Store(created.Output()).Release()
-		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-
-		l.Events.OutputCreated.Trigger(created.ID())
-	}
-
-	return nil
-}
-
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
 func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
 	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
@@ -251,7 +211,10 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 
 	l.Storage.CachedTransaction(txMetadata.ID()).Consume(func(tx utxo.Transaction) {
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-			l.Events.OutputSpent.Trigger(it.Next())
+			inputID := it.Next()
+			l.Events.OutputSpent.Trigger(inputID)
+			// TODO: inputs should be marked as deleted or spent
+			// l.Storage.outputStorage.Delete(lo.PanicOnErr(inputID.Bytes()))
 		}
 	})
 
@@ -260,26 +223,6 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 	l.Events.TransactionAccepted.Trigger(txMetadata)
 
 	return true
-}
-
-func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
-	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
-	newEpoch := epoch.IndexFromTime(inclusionTime)
-
-	if oldEpoch == 0 || oldEpoch == newEpoch {
-		return
-	}
-
-	if oldEpoch <= l.ChainStorage.LatestCommittedEpoch() || newEpoch <= l.ChainStorage.LatestCommittedEpoch() {
-		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
-		return
-	}
-
-	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		l.ChainStorage.DiffStorage.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
-	})
-
-	l.ChainStorage.DiffStorage.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
 }
 
 func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
@@ -309,6 +252,26 @@ func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 			})
 		}
 	})
+}
+
+func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, previousInclusionTime, inclusionTime time.Time) {
+	oldEpoch := epoch.IndexFromTime(previousInclusionTime)
+	newEpoch := epoch.IndexFromTime(inclusionTime)
+
+	if oldEpoch == 0 || oldEpoch == newEpoch {
+		return
+	}
+
+	if oldEpoch <= l.ChainStorage.LatestCommittedEpoch() || newEpoch <= l.ChainStorage.LatestCommittedEpoch() {
+		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
+		return
+	}
+
+	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
+		l.ChainStorage.DiffStorage.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
+	})
+
+	l.ChainStorage.DiffStorage.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
 }
 
 func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*chainstorage.OutputWithMetadata) error) (err error) {

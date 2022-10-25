@@ -79,7 +79,8 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 			EvictionState:      eviction.NewState[models.BlockID](),
 			EntryPointsManager: NewEntryPointsManager(),
 
-			ChainStorage: chainStorage,
+			ChainStorage:      chainStorage,
+			GenesisCommitment: &commitment.Commitment{},
 
 			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -95,7 +96,6 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 		(*Engine).initBlockStorage,
 		(*Engine).initNotarizationManager,
 		(*Engine).initManaTracker,
-		//(*Engine).initSnapshotManager,
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
 		(*Engine).initBlockRequester,
@@ -222,37 +222,13 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.optsManaTrackerOptions...)
+	e.ManaTracker = mana.NewTracker(e.Ledger, e.ChainStorage, e.optsManaTrackerOptions...)
 
 	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
 
 	e.Events.ManaTracker = e.ManaTracker.Events
 }
-
-/*
-func (e *Engine) initSnapshotManager() {
-	e.SnapshotManager = snapshot.NewManager(e.NotarizationManager, 5)
-
-	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.EntryPointsManager.RemoveSolidEntryPoint(block.ModelsBlock)
-	}))
-
-	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		block.ForEachParentByType(models.StrongParentType, func(parent models.BlockID) bool {
-			if parent.EpochIndex < block.ID().EpochIndex {
-				e.EntryPointsManager.InsertSolidEntryPoint(parent)
-			}
-
-			return true
-		})
-	}))
-
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
-		e.EntryPointsManager.EvictSolidEntryPoints(event.EI)
-	}))
-}
-*/
 
 func (e *Engine) initSybilProtection() {
 	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana, e.optsSybilProtectionOptions...)
