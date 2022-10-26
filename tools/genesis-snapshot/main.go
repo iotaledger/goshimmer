@@ -171,14 +171,14 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 
 	fmt.Println("--- ActivityLog ---")
 	e.ChainStorage.ActivityLogStorage.Stream(0, func(id identity.ID) {
-		fmt.Printf("%+v\n", id)
+		fmt.Printf("%d: %+v\n", 0, id)
 	})
 
 	fmt.Println("--- Diffs ---")
 	e.ChainStorage.DiffStorage.StreamSpent(0, func(owm *chainstorage.OutputWithMetadata) {
-		fmt.Printf("%+v\n", owm)
+		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 	e.ChainStorage.DiffStorage.StreamCreated(0, func(owm *chainstorage.OutputWithMetadata) {
-		fmt.Printf("%+v\n", owm)
+		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 }

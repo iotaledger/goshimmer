@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -55,9 +56,12 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
 
 		for i := uint32(0); i < numEpochs; i++ {
-			ProcessChunks(NewChunkedReader[chainstorage.ActivityEntry](fileHandle), func(chunk []*chainstorage.ActivityEntry) {
-				for _, activityEntry := range chunk {
-					engine.ChainStorage.ActivityLogStorage.Store(activityEntry)
+			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
+				for _, id := range chunk {
+					engine.ChainStorage.ActivityLogStorage.Store(&chainstorage.ActivityEntry{
+						Index: epoch.Index(i),
+						ID:    *id,
+					})
 				}
 			})
 		}

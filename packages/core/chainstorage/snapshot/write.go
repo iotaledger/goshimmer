@@ -118,7 +118,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Activity Log
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-startEpoch))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-startEpoch+1))
 
 		for epochIndex := startEpoch; epochIndex <= snapshotEpoch; epochIndex++ {
 			// Activity Log count
