@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/iotaledger/hive.go/core/ioutils"
 	"github.com/natefinch/atomic"
 )
 
@@ -19,7 +20,10 @@ type DiskUtil struct {
 	basePath string
 }
 
-func New(basePath string) (newDiskUtil *DiskUtil) {
+func New(basePath string, createIfAbsent ...bool) (newDiskUtil *DiskUtil) {
+	if len(createIfAbsent) > 0 && createIfAbsent[0] {
+		ioutils.CreateDirectory(basePath, 0o755)
+	}
 	return &DiskUtil{
 		basePath: basePath,
 	}
@@ -55,14 +59,6 @@ func (d *DiskUtil) Exists(path string) (exists bool) {
 	}
 
 	return true
-}
-
-func (d *DiskUtil) CreateDir(directoryPath string, perm ...os.FileMode) (err error) {
-	if len(perm) > 0 {
-		return os.MkdirAll(directoryPath, perm[0])
-	}
-
-	return os.MkdirAll(directoryPath, 0o755)
 }
 
 func (d *DiskUtil) WriteFile(path string, data []byte) (err error) {

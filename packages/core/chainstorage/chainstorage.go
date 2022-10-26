@@ -53,13 +53,14 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainMana
 	chainManager.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainManager}
 	chainManager.ActivityLogStorage = &ActivityLogStorage{chainManager}
 
+	dbDiskUtil := diskutil.New(folder, true)
 	chainManager.Settings = storable.InitStruct(&Settings{
 		LatestCommittedEpoch: 0,
 		LatestAcceptedEpoch:  0,
 		LatestConfirmedEpoch: 0,
-	}, diskutil.New(folder).Path("settings.bin"))
+	}, dbDiskUtil.Path("settings.bin"))
 
-	if chainManager.Commitments, err = storable.NewSlice[commitment.Commitment](diskutil.New(folder).Path("commitments.bin")); err != nil {
+	if chainManager.Commitments, err = storable.NewSlice[commitment.Commitment](dbDiskUtil.Path("commitments.bin")); err != nil {
 		return nil, errors.Errorf("failed to create commitments database: %w", err)
 	}
 
