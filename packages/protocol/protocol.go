@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -123,7 +124,7 @@ func (p *Protocol) initNetworkProtocol() {
 	}))
 
 	p.networkProtocol.Events.EpochCommitmentRequestReceived.Attach(event.NewClosure(func(event *network.EpochCommitmentRequestReceivedEvent) {
-		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil {
+		if commitment, _ := p.chainManager.Commitment(event.CommitmentID); commitment != nil && commitment.Commitment() != nil {
 			p.networkProtocol.SendEpochCommitment(commitment.Commitment(), event.Source)
 		}
 	}))
@@ -146,7 +147,11 @@ func (p *Protocol) initMainEngine() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().GenesisCommitment)
+	p.chainManager = chainmanager.NewManager(p.Engine().SnapshotCommitment)
+
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
+		p.chainManager.ProcessCommitment(event.Commitment)
+	}))
 }
 
 func (p *Protocol) initTipManager() {
@@ -185,13 +190,11 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
-	fmt.Println(">> ProcessBlock", block.ID(), src)
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
-	fmt.Println(">> ProcessCommitment", isSolid, chain)
+	fmt.Println(">> ProcessBlock", block, isSolid, chain)
 	if !isSolid {
 		return
 	}
-	fmt.Println(">> IsSolid!")
 
 	fmt.Println(">> checkchain", p.storage.Chain(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Chain(); chain.ForkingPoint.ID() == mainChain {

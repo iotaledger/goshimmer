@@ -53,7 +53,7 @@ func (c *Manager) ProcessCommitment(commitment *commitment.Commitment) (isSolid 
 	if !chainCommitment.PublishCommitment(commitment) {
 		return chainCommitment.IsSolid(), chainCommitment.Chain(), false
 	}
-
+	
 	if !created {
 		c.Events.MissingCommitmentReceived.Trigger(chainCommitment.ID())
 	}

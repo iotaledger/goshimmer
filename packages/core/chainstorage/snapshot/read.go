@@ -35,8 +35,8 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		})
 	}
 
-	engine.GenesisCommitment = lo.PanicOnErr(engine.ChainStorage.Commitments.Get(int(engine.ChainStorage.LatestCommittedEpoch())))
-	engine.ChainStorage.SetChain(engine.GenesisCommitment.ID())
+	engine.SnapshotCommitment = lo.PanicOnErr(engine.ChainStorage.Commitments.Get(int(engine.ChainStorage.LatestCommittedEpoch())))
+	engine.ChainStorage.SetChain(engine.SnapshotCommitment.ID())
 
 	// Ledgerstate
 	{

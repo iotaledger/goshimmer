@@ -38,11 +38,11 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events            *Events
-	ChainStorage      *chainstorage.ChainStorage
-	Ledger            *ledger.Ledger
-	GenesisCommitment *commitment.Commitment
-	Inbox             *inbox.Inbox
+	Events             *Events
+	ChainStorage       *chainstorage.ChainStorage
+	Ledger             *ledger.Ledger
+	SnapshotCommitment *commitment.Commitment
+	Inbox              *inbox.Inbox
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
 	EntryPointsManager  *EntryPointsManager
@@ -80,8 +80,8 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 			EvictionState:      eviction.NewState[models.BlockID](),
 			EntryPointsManager: NewEntryPointsManager(),
 
-			ChainStorage:      chainStorage,
-			GenesisCommitment: new(commitment.Commitment),
+			ChainStorage:       chainStorage,
+			SnapshotCommitment: new(commitment.Commitment),
 
 			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -186,7 +186,7 @@ func (e *Engine) initNotarizationManager() {
 		e.Ledger,
 		e.Consensus,
 		e.ChainStorage,
-		e.GenesisCommitment,
+		e.SnapshotCommitment,
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
@@ -262,7 +262,7 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
-	fmt.Println(">> MainEngine ProcessBlock")
+	fmt.Println(">> MainEngin ProcessBlock")
 	e.Inbox.ProcessReceivedBlock(block, source)
 }
 

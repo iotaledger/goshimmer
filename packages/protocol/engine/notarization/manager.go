@@ -31,7 +31,7 @@ type Manager struct {
 	ledger                   *ledger.Ledger
 	consensus                *consensus.Consensus
 	chainStorage             *chainstorage.ChainStorage
-	genesisCommitment        *commitment.Commitment
+	snapshotCommitment       *commitment.Commitment
 	bootstrapMutex           sync.RWMutex
 	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 
@@ -43,14 +43,14 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusInstance *consensus.Consensus, chainStorage *chainstorage.ChainStorage, genesisCommitment *commitment.Commitment, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusInstance *consensus.Consensus, chainStorage *chainstorage.ChainStorage, snapshotCommitment *commitment.Commitment, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		clock:                    c,
 		tangle:                   t,
 		ledger:                   l,
 		consensus:                consensusInstance,
 		chainStorage:             chainStorage,
-		genesisCommitment:        genesisCommitment,
+		snapshotCommitment:       snapshotCommitment,
 		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
 
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
@@ -60,7 +60,7 @@ func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusIns
 }
 
 func (m *Manager) initCommitmentFactory() {
-	m.commitmentFactory = newCommitmentFactory(m.genesisCommitment, m.chainStorage)
+	m.commitmentFactory = newCommitmentFactory(m.snapshotCommitment, m.chainStorage)
 }
 
 // OnConflictAccepted is the handler for conflict confirmed event.

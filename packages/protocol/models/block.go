@@ -291,6 +291,7 @@ func (b *Block) String() string {
 	builder.AddField(stringify.NewStructField("SequenceNumber", b.SequenceNumber()))
 	builder.AddField(stringify.NewStructField("Payload", b.Payload()))
 	builder.AddField(stringify.NewStructField("Nonce", b.Nonce()))
+	builder.AddField(stringify.NewStructField("Commitment", b.Commitment()))
 	builder.AddField(stringify.NewStructField("Signature", b.Signature()))
 	return builder.String()
 }
