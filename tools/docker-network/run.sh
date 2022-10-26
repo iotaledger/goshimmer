@@ -16,7 +16,7 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer"
 # Allow docker compose to build and cache an image
-docker-compose build
+docker compose build
 
 # check exit code of builder
 if [ $? -ne 0 ]
@@ -39,7 +39,7 @@ fi
 #export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
 export GENESIS_TIME=$(date -v-5M +%s)
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
-docker-compose up
+docker compose up
 
 echo "Clean up docker resources"
-docker-compose down -v
+docker compose down -v

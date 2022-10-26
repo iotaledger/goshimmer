@@ -46,7 +46,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
@@ -94,7 +94,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
@@ -142,7 +142,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
@@ -190,7 +190,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
@@ -238,7 +238,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
@@ -286,7 +286,7 @@ jobs:
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
-          docker-compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
+          docker compose -f tools/integration-tests/tester/docker-compose.ci.yml up --abort-on-container-exit --exit-code-from tester
 
       - name: Create logs from tester
         if: always()
