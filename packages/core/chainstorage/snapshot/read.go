@@ -43,6 +43,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 	{
 		ProcessChunks(NewChunkedReader[models.Block](fileHandle), func(chunk []*models.Block) {
 			for _, block := range chunk {
+				block.DetermineID()
 				engine.ChainStorage.SolidEntryPointsStorage.Store(block)
 			}
 		})
@@ -99,7 +100,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 }
 
 func ProcessChunks[A any, B constraints.MarshalablePtr[A]](chunkedReader *ChunkedReader[A, B], chunkConsumers ...func([]B)) {
-	for {
+	for !chunkedReader.IsFinished() {
 		chunk, err := chunkedReader.ReadChunk()
 		if err != nil {
 			if err == io.EOF {

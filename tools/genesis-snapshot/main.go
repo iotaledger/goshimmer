@@ -149,16 +149,16 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	snapshot.ReadSnapshot(fileHandle, e)
 
 	fmt.Println("--- Settings ---")
-	fmt.Println("%#v", e.ChainStorage.Settings)
+	fmt.Printf("%+v\n", e.ChainStorage.Settings)
 
 	fmt.Println("--- Commitments ---")
-	fmt.Println("%#v", lo.PanicOnErr(e.ChainStorage.Commitments.Get(0)))
+	fmt.Printf("%+v\n", lo.PanicOnErr(e.ChainStorage.Commitments.Get(0)))
 
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
 		e.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 			e.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
-				fmt.Println("%#v\n%#v", o, m)
+				fmt.Printf("%+v\n%#v\n", o, m)
 			})
 		})
 		return true
@@ -166,19 +166,19 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 
 	fmt.Println("--- SEPs ---")
 	e.ChainStorage.SolidEntryPointsStorage.Stream(0, func(b *models.Block) {
-		fmt.Println("%#v", b)
+		fmt.Printf("%+v\n", b)
 	})
 
 	fmt.Println("--- ActivityLog ---")
 	e.ChainStorage.ActivityLogStorage.Stream(0, func(id identity.ID) {
-		fmt.Println("%#v", id)
+		fmt.Printf("%+v\n", id)
 	})
 
 	fmt.Println("--- Diffs ---")
 	e.ChainStorage.DiffStorage.StreamSpent(0, func(owm *chainstorage.OutputWithMetadata) {
-		fmt.Println("%#v", owm)
+		fmt.Printf("%+v\n", owm)
 	})
 	e.ChainStorage.DiffStorage.StreamCreated(0, func(owm *chainstorage.OutputWithMetadata) {
-		fmt.Println("%#v", owm)
+		fmt.Printf("%+v\n", owm)
 	})
 }

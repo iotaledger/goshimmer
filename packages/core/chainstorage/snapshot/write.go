@@ -18,7 +18,7 @@ import (
 )
 
 func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
-	fileHandle, err := os.Open(filePath)
+	fileHandle, err := os.Create(filePath)
 	defer fileHandle.Close()
 
 	if err != nil {
@@ -38,7 +38,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Committments
 	{
 		// Commitments count, we dump all commitments from Genesis
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch+1))
 		// Commitment size
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&commitment.Commitment{}).Bytes()))))
 		for epochIndex := epoch.Index(0); epochIndex <= snapshotEpoch; epochIndex++ {
@@ -54,7 +54,8 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		var dummyOutput utxo.Output
 		engine.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
 			engine.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if outputMetadata.ConfirmationState() == confirmation.Accepted && !outputMetadata.IsSpent() {
+				if (outputMetadata.ConfirmationState() == confirmation.Accepted || outputMetadata.ConfirmationState() == confirmation.Confirmed) &&
+					!outputMetadata.IsSpent() {
 					outputCount++
 				}
 			})
@@ -135,7 +136,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		// Number of epochs
 		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-startEpoch))
 
-		for epochIndex := snapshotEpoch; epochIndex >= startEpoch; epochIndex++ {
+		for epochIndex := snapshotEpoch; epochIndex >= startEpoch; epochIndex-- {
 			// Epoch Index
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 

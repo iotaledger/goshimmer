@@ -219,7 +219,8 @@ func NewOutputWithMetadata(index epoch.Index, outputID utxo.OutputID, output utx
 // FromObjectStorage creates an OutputWithMetadata from sequences of key and bytes.
 func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 	err := o.Storable.FromObjectStorage(key, value)
-	o.M.Output.SetID(o.ID())
+	o.M.Output.SetID(o.M.OutputID)
+	o.SetID(o.M.OutputID)
 
 	return err
 }
@@ -227,7 +228,8 @@ func (o *OutputWithMetadata) FromObjectStorage(key, value []byte) error {
 // FromBytes unmarshals an OutputWithMetadata from a sequence of bytes.
 func (o *OutputWithMetadata) FromBytes(data []byte) (consumedBytes int, err error) {
 	consumedBytes, err = o.Storable.FromBytes(data)
-	o.M.Output.SetID(o.ID())
+	o.M.Output.SetID(o.M.OutputID)
+	o.SetID(o.M.OutputID)
 
 	return
 }

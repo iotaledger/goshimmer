@@ -45,7 +45,7 @@ func (c *ChunkedReader[A, B]) readObjCount() {
 func (c *ChunkedReader[A, B]) ReadChunk() (chunk []B, err error) {
 	chunk = make([]B, 0)
 
-	if c.consumedCounter == c.objCount {
+	if c.IsFinished() {
 		return nil, errors.Errorf("tried to read more than the declared objects")
 	}
 
@@ -65,6 +65,10 @@ func (c *ChunkedReader[A, B]) ReadChunk() (chunk []B, err error) {
 	}
 
 	return
+}
+
+func (c *ChunkedReader[A, B]) IsFinished() bool {
+	return c.consumedCounter == c.objCount
 }
 
 func (c *ChunkedReader[A, B]) ConsumedCounter() uint32 {
