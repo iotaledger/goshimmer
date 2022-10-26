@@ -36,8 +36,12 @@ then
   PROFILES+=("grafana")
 fi
 
-#export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
-export GENESIS_TIME=$(date -v-5M +%s)
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
+else
+  export GENESIS_TIME=$(date -v-5M +%s)
+fi
+
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})
 docker-compose up
 
