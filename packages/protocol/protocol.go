@@ -74,6 +74,8 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		(*Protocol).initCongestionControl,
 		(*Protocol).initMainChainStorage,
 		(*Protocol).initMainEngine,
+		(*Protocol).initChainManager,
+		(*Protocol).initTipManager,
 		(*Protocol).importSnapshot,
 	)
 }
@@ -81,7 +83,6 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 func (p *Protocol) Run() {
 	p.activateEngine(p.engine)
 	p.initNetworkProtocol()
-	p.initTipManager()
 }
 
 func (p *Protocol) initDisk() {
@@ -152,7 +153,9 @@ func (p *Protocol) initTipManager() {
 	// TODO: SWITCH ENGINE SIMILAR TO REQUESTER
 	p.TipManager = tipmanager.New(p.CongestionControl.Block, p.optsTipManagerOptions...)
 
-	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(p.TipManager.AddTip))
+	p.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+		p.TipManager.AddTip(block)
+	}))
 
 	p.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
@@ -182,11 +185,15 @@ func (p *Protocol) initTipManager() {
 }
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
+	fmt.Println(">> ProcessBlock", block.ID(), src)
 	isSolid, chain, _ := p.chainManager.ProcessCommitment(block.Commitment())
+	fmt.Println(">> ProcessCommitment", isSolid, chain)
 	if !isSolid {
 		return
 	}
+	fmt.Println(">> IsSolid!")
 
+	fmt.Println(">> checkchain", p.storage.Chain(), chain.ForkingPoint.ID())
 	if mainChain := p.storage.Chain(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 	}
@@ -230,33 +237,10 @@ func (p *Protocol) importSnapshotFile(filePath string) (err error) {
 		return errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err)
 	}
 
-	/*
-		chainID := snapshotHeader.LatestECRecord.ID()
-		chainDirectory := p.disk.Path(fmt.Sprintf("%x", lo.PanicOnErr(chainID.Bytes())))
-
-		if !p.disk.Exists(chainDirectory) {
-			if err = p.disk.CreateDir(chainDirectory); err != nil {
-				return errors.Errorf("failed to create chain directory '%s': %w", chainDirectory, err)
-			}
-		}
-
-		if p.disk.CopyFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")) != nil {
-			return errors.Errorf("failed to copy snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-		}
-		// TODO: we can't move the file because it might be mounted through Docker
-		// if err = diskutil.ReplaceFile(filePath, diskutil.New(chainDirectory).Path("snapshot.bin")); err != nil {
-		// 	return errors.Errorf("failed to move snapshot file '%s' to chain directory '%s': %w", filePath, chainDirectory, err)
-		// }
-
-		// TODO: load snapshot into main ChainStorage
-		p.storage.SetChain(chainID)
-	*/
-
 	return
 }
 
 func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {
-	p.TipManager.Reset()
 	p.TipManager.ActivateEngine(engine)
 	p.Events.Engine.LinkTo(engine.Events)
 	p.CongestionControl.LinkTo(engine)

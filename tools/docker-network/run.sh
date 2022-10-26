@@ -12,6 +12,12 @@ fi
 REPLICAS=${1:-1}
 GRAFANA=${2:-0}
 
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
+else
+  export GENESIS_TIME=$(date -v-5M +%s)
+fi
+
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer"
@@ -34,12 +40,6 @@ PROFILES=()
 if [ $GRAFANA -ne 0 ]
 then
   PROFILES+=("grafana")
-fi
-
-if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-  export GENESIS_TIME=$(date -d "$date -5 minutes" +%s)
-else
-  export GENESIS_TIME=$(date -v-5M +%s)
 fi
 
 export COMPOSE_PROFILES=$(join , ${PROFILES[@]})

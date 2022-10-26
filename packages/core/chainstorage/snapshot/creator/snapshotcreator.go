@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
@@ -30,6 +31,7 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 	now := time.Now()
 
 	e.ChainStorage.Commitments.Set(0, &commitment.Commitment{})
+	e.ChainStorage.SetChain(lo.PanicOnErr(e.ChainStorage.Commitments.Get(0)).ID())
 
 	// prepare outputsWithMetadata
 	outputsWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)

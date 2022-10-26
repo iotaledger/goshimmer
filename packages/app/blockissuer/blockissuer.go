@@ -95,7 +95,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (f *BlockIssuer) setupEvents() {
-	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
+	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(block *models.Block) {
 		f.protocol.ProcessBlock(block, f.identity.ID())
 	}))
 }

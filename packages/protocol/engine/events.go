@@ -44,5 +44,6 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		EvictionManager:     eviction.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),
 		BlockRequester:      eventticker.NewEvents[models.BlockID](),
+		ManaTracker:         mana.NewEvents(),
 	}
 })

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/core/generics/constraints"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
@@ -33,6 +34,9 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			}
 		})
 	}
+
+	engine.GenesisCommitment = lo.PanicOnErr(engine.ChainStorage.Commitments.Get(int(engine.ChainStorage.LatestCommittedEpoch())))
+	engine.ChainStorage.SetChain(engine.GenesisCommitment.ID())
 
 	// Ledgerstate
 	{

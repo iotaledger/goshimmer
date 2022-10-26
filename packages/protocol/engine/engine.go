@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -80,7 +81,7 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 			EntryPointsManager: NewEntryPointsManager(),
 
 			ChainStorage:      chainStorage,
-			GenesisCommitment: &commitment.Commitment{},
+			GenesisCommitment: new(commitment.Commitment),
 
 			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,
@@ -261,6 +262,7 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
+	fmt.Println(">> MainEngine ProcessBlock")
 	e.Inbox.ProcessReceivedBlock(block, source)
 }
 
