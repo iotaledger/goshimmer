@@ -160,7 +160,7 @@ func (e *Engine) initClock() {
 }
 
 func (e *Engine) initTSCManager() {
-	e.TSCManager = tsc.New(e.Consensus.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
+	e.TSCManager = tsc.New(e.Consensus.AcceptanceGadget.IsBlockAccepted, e.Tangle, e.optsTSCManagerOptions...)
 
 	e.Events.Tangle.Booker.BlockBooked.Attach(event.NewClosure(e.TSCManager.AddBlock))
 
@@ -190,7 +190,7 @@ func (e *Engine) initNotarizationManager() {
 		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
 	)
 
-	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
+	e.Consensus.AcceptanceGadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}

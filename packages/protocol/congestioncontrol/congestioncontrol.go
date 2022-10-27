@@ -38,7 +38,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
-		engine.Consensus.IsBlockAccepted,
+		engine.Consensus.AcceptanceGadget.IsBlockAccepted,
 		func() (manaDistribution map[identity.ID]int64) {
 			return firstReturn(engine.ManaTracker.GetManaMap(manamodels.AccessMana))
 		}, func() (totalMana int64) {

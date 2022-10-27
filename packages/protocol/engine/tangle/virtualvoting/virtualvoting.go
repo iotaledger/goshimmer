@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/core/votes/commitmenttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -22,10 +23,11 @@ type VirtualVoting struct {
 	Events       *Events
 	ValidatorSet *validator.Set
 
-	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
-	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
-	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
-	evictionManager *eviction.LockableManager[models.BlockID]
+	blocks            *memstorage.EpochStorage[models.BlockID, *Block]
+	conflictTracker   *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
+	sequenceTracker   *sequencetracker.SequenceTracker[BlockVotePower]
+	commitmentTracker *commitmenttracker.CommitmentTracker
+	evictionManager   *eviction.LockableManager[models.BlockID]
 
 	*booker.Booker
 }
@@ -39,12 +41,18 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
 		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
+			//TODO: is this correct?
+			return 0
+		})
+		o.commitmentTracker = commitmenttracker.NewCommitmentTracker(validatorSet, func() epoch.Index {
+			//TODO: we need the confirmed epoch index here
 			return 0
 		})
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
 		o.Events.SequenceTracker = o.sequenceTracker.Events
+		o.Events.CommitmentTracker = o.commitmentTracker.Events
 	}, (*VirtualVoting).setupEvents)
 }
 
@@ -68,6 +76,14 @@ func (o *VirtualVoting) MarkerVoters(marker markers.Marker) (voters *validator.S
 	defer o.evictionManager.RUnlock()
 
 	return o.sequenceTracker.Voters(marker)
+}
+
+// EpochVoters retrieves Validators supporting an epoch index.
+func (o *VirtualVoting) EpochVoters(epochIndex epoch.Index) (voters *validator.Set) {
+	o.evictionManager.RLock()
+	defer o.evictionManager.RUnlock()
+
+	return o.commitmentTracker.Voters(epochIndex)
 }
 
 // ConflictVoters retrieves Validators voting for a given conflict.
@@ -109,6 +125,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	}
 
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
+	o.commitmentTracker.TrackVotes(block.ID().Index(), block.IssuerID(), commitmenttracker.CommitmentVotePower{Index: block.ID().Index()})
 
 	return true
 }
@@ -132,6 +149,8 @@ func (o *VirtualVoting) block(id models.BlockID) (block *Block, exists bool) {
 func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 	o.evictionManager.Lock()
 	defer o.evictionManager.Unlock()
+
+	//TODO: add sequencetracker and conflicttracker eviction
 
 	o.blocks.EvictEpoch(epochIndex)
 }

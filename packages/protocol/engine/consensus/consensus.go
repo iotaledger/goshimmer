@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochconfirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
@@ -14,21 +15,25 @@ import (
 type Consensus struct {
 	Events *Events
 
-	*acceptance.Gadget
+	AcceptanceGadget        *acceptance.Gadget
+	EpochConfirmationGadget *epochconfirmation.Gadget
 	*conflictresolver.ConflictResolver
 
-	optsAcceptanceGadget []options.Option[acceptance.Gadget]
+	optsAcceptanceGadget        []options.Option[acceptance.Gadget]
+	optsEpochConfirmationGadget []options.Option[epochconfirmation.Gadget]
 }
 
 func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
-		c.Gadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+		c.AcceptanceGadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+		c.EpochConfirmationGadget = epochconfirmation.New(tangle, c.optsEpochConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})
 
 		c.Events = NewEvents()
-		c.Events.Acceptance = c.Gadget.Events
+		c.Events.Acceptance = c.AcceptanceGadget.Events
+		c.Events.EpochConfirmation = c.EpochConfirmationGadget.Events
 	})
 }
 
@@ -39,6 +44,12 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
 func WithAcceptanceGadgetOptions(opts ...options.Option[acceptance.Gadget]) options.Option[Consensus] {
 	return func(c *Consensus) {
 		c.optsAcceptanceGadget = opts
+	}
+}
+
+func WithEpochConfirmationGadgetOptions(opts ...options.Option[epochconfirmation.Gadget]) options.Option[Consensus] {
+	return func(c *Consensus) {
+		c.optsEpochConfirmationGadget = opts
 	}
 }
 
