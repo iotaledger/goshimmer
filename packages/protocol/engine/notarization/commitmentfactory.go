@@ -57,7 +57,10 @@ func (f *commitmentFactory) createCommitment(ei epoch.Index, spentOutputs, creat
 		return nil, errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", ei, f.latestCommitment.Index())
 	}
 
-	acceptedBlocks, acceptedTransactions, activeValidators := f.MutationFactory.Commit(ei)
+	acceptedBlocks, acceptedTransactions, activeValidators, err := f.MutationFactory.Commit(ei)
+	if err != nil {
+		return nil, errors.Errorf("failed to commit mutations: %w", err)
+	}
 	stateRoot, manaRoot := f.advanceStateRoots(ei, spentOutputs, createdOutputs)
 
 	// TODO: obtain and commit to cumulative weight

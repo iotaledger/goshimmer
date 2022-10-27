@@ -16,11 +16,13 @@ const (
 )
 
 type Set[K constraints.Serializable] struct {
-	tree *smt.SparseMerkleTree
+	store kvstore.KVStore
+	tree  *smt.SparseMerkleTree
 }
 
 func NewSet[K constraints.Serializable](store kvstore.KVStore) *Set[K] {
 	return &Set[K]{
+		store: store,
 		tree: smt.NewSparseMerkleTree(
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{keyStorePrefix})),
 			lo.PanicOnErr(store.WithExtendedRealm([]byte{valueStorePrefix})),
@@ -74,4 +76,14 @@ func (s *Set[K]) Has(key K) (has bool) {
 	}
 
 	return lo.PanicOnErr(s.tree.Has(lo.PanicOnErr(key.Bytes())))
+}
+
+// Size returns the number of elements in the set.
+func (s *Set[K]) Size() (size int) {
+	s.store.Iterate([]byte{valueStorePrefix}, func(key, value []byte) bool {
+		size++
+		return true
+	})
+
+	return
 }

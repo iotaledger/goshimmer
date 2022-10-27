@@ -132,17 +132,17 @@ func (m *MutationFactory) UpdateTransactionInclusion(txID utxo.TransactionID, ol
 }
 
 // Commit evicts the given epoch and returns the corresponding mutation sets.
-func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID]) {
+func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], err error) {
 	m.Lock()
 	defer m.Unlock()
 
 	if index <= m.latestCommittedIndex {
-		panic("cannot commit epoch that is already committed")
+		return nil, nil, nil, errors.Errorf("cannot commit epoch %d: already committed", index)
 	}
 
 	defer m.evict(index)
 
-	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index)
+	return m.acceptedBlocks(index), m.acceptedTransactions(index), m.activeValidators(index), nil
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
@@ -205,6 +205,8 @@ func (m *MutationFactory) evict(index epoch.Index) {
 		m.activeValidatorsByEpoch.Delete(index)
 		m.issuerBlocksByEpoch.EvictEpoch(index)
 	}
+
+	m.latestCommittedIndex = index
 }
 
 // newSet is a generic constructor for a new ads.Set.
