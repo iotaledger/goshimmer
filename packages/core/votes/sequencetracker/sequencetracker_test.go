@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/core/debug"
+	"github.com/iotaledger/hive.go/core/generics/constraints"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
@@ -123,7 +125,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 	voter := validator.New(identity.ID{})
 
 	{
-		latestMarkerVotes := NewLatestMarkerVotes[votes.MockedVotePower](voter)
+		latestMarkerVotes := latestvotes.NewLatestVotes[markers.Index, votes.MockedVotePower](voter)
 		latestMarkerVotes.Store(1, votes.MockedVotePower{8})
 		validateLatestMarkerVotes(t, latestMarkerVotes, map[markers.Index]votes.MockedVotePower{
 			1: {8},
@@ -154,7 +156,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 	}
 
 	{
-		latestMarkerVotes := NewLatestMarkerVotes[votes.MockedVotePower](voter)
+		latestMarkerVotes := latestvotes.NewLatestVotes[markers.Index, votes.MockedVotePower](voter)
 		latestMarkerVotes.Store(3, votes.MockedVotePower{7})
 		latestMarkerVotes.Store(2, votes.MockedVotePower{10})
 		latestMarkerVotes.Store(4, votes.MockedVotePower{9})
@@ -168,8 +170,8 @@ func TestLatestMarkerVotes(t *testing.T) {
 	}
 }
 
-func validateLatestMarkerVotes[VotePowerType votes.VotePower[VotePowerType]](t *testing.T, votes *LatestMarkerVotes[VotePowerType], expectedVotes map[markers.Index]VotePowerType) {
-	votes.t.ForEach(func(node *thresholdmap.Element[markers.Index, VotePowerType]) bool {
+func validateLatestMarkerVotes[VotePowerType constraints.Comparable[VotePowerType]](t *testing.T, votes *latestvotes.LatestVotes[markers.Index, VotePowerType], expectedVotes map[markers.Index]VotePowerType) {
+	votes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePowerType]) bool {
 		index := node.Key()
 		votePower := node.Value()
 
