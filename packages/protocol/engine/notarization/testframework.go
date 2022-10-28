@@ -17,7 +17,7 @@ import (
 )
 
 type TestFramework struct {
-	MutationFactory *MutationFactory
+	MutationFactory *EpochMutations
 
 	test               *testing.T
 	transactionsByID   map[string]*ledger.TransactionMetadata
@@ -30,7 +30,7 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T) *TestFramework {
 	return &TestFramework{
-		MutationFactory: NewMutationFactory(0),
+		MutationFactory: NewEpochMutations(0),
 
 		test:               test,
 		transactionsByID:   make(map[string]*ledger.TransactionMetadata),

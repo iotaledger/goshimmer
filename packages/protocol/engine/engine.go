@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 
-	//"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	// "github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -180,15 +180,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(
-		e.Clock,
-		e.Tangle,
-		e.Ledger,
-		e.Consensus,
-		e.ChainStorage,
-		e.SnapshotCommitment,
-		append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...,
-	)
+	e.NotarizationManager = notarization.NewManager(e.ChainStorage, append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...)
 
 	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -200,6 +192,7 @@ func (e *Engine) initNotarizationManager() {
 			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
 		}
 	}))
+
 	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(txMeta *ledger.TransactionMetadata) {
 		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
@@ -210,13 +203,20 @@ func (e *Engine) initNotarizationManager() {
 			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
 		}
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictAccepted))
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		e.NotarizationManager.OnConflictCreated(event.ID)
+	// TODO: add transaction orphaned event
+
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Attach(onlyIfBootstrapped(e, e.NotarizationManager.OnConflictRejected))
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(onlyIfBootstrapped(e, func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}))
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(onlyIfBootstrapped(e, func(conflictID utxo.TransactionID) {
+		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
+	}))
+
 	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
-		e.NotarizationManager.OnAcceptanceTimeUpdated(event.NewTime)
+		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 
 	e.Events.NotarizationManager = e.NotarizationManager.Events

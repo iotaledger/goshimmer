@@ -1,7 +1,6 @@
 package mana
 
 import (
-	"sort"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -52,8 +51,6 @@ type Event interface {
 	Type() byte
 	// ToJSONSerializable returns a struct that can be serialized into JSON object.
 	ToJSONSerializable() interface{}
-	// ToPersistable returns an event that can be persisted.
-	ToPersistable() *manamodels.PersistableEvent
 	// String returns a human readable version of the event.
 	String() string
 }
@@ -121,32 +118,6 @@ func (p *PledgedEvent) ToPersistable() *manamodels.PersistableEvent {
 	}
 }
 
-// FromPersistableEvent parses a persistable event to a regular event.
-func FromPersistableEvent(p *manamodels.PersistableEvent) (Event, error) {
-	if p.Type == EventTypePledge {
-		pledgeEvent := &PledgedEvent{
-			IssuerID:      p.IssuerID,
-			Amount:        p.Amount,
-			Time:          p.Time,
-			ManaType:      p.ManaType,
-			TransactionID: p.TransactionID,
-		}
-		return pledgeEvent, nil
-	}
-	if p.Type == EventTypeRevoke {
-		revokeEvent := &RevokedEvent{
-			IssuerID:      p.IssuerID,
-			Amount:        p.Amount,
-			Time:          p.Time,
-			ManaType:      p.ManaType,
-			TransactionID: p.TransactionID,
-			InputID:       p.InputID,
-		}
-		return revokeEvent, nil
-	}
-	return nil, manamodels.ErrUnknownManaEvent
-}
-
 // Type returns the type of the event.
 func (p *PledgedEvent) Type() byte {
 	return EventTypePledge
@@ -163,7 +134,6 @@ var _ Event = &PledgedEvent{}
 type RevokedEvent struct {
 	IssuerID      identity.ID
 	Amount        int64
-	Time          time.Time
 	ManaType      manamodels.Type // shall only be consensus for now
 	TransactionID utxo.TransactionID
 	InputID       utxo.OutputID
@@ -173,7 +143,6 @@ type RevokedEvent struct {
 type RevokedEventJSON struct {
 	ManaType string `json:"manaType"`
 	IssuerID string `json:"issuerID"`
-	Time     int64  `json:"time"`
 	TxID     string `json:"txID"`
 	Amount   int64  `json:"amount"`
 	InputID  string `json:"inputID"`
@@ -184,7 +153,6 @@ func (r *RevokedEvent) ToJSONSerializable() interface{} {
 	return &RevokedEventJSON{
 		ManaType: r.ManaType.String(),
 		IssuerID: r.IssuerID.String(),
-		Time:     r.Time.Unix(),
 		TxID:     r.TransactionID.Base58(),
 		Amount:   r.Amount,
 		InputID:  r.InputID.Base58(),
@@ -197,7 +165,6 @@ func (r *RevokedEvent) String() string {
 		stringify.NewStructField("type", r.ManaType.String()),
 		stringify.NewStructField("shortIssuerID", r.IssuerID.String()),
 		stringify.NewStructField("fullIssuerID", base58.Encode(lo.PanicOnErr(r.IssuerID.Bytes()))),
-		stringify.NewStructField("time", r.Time.String()),
 		stringify.NewStructField("amount", r.Amount),
 		stringify.NewStructField("txID", r.TransactionID),
 		stringify.NewStructField("inputID", r.InputID),
@@ -210,7 +177,6 @@ func (r *RevokedEvent) ToPersistable() *manamodels.PersistableEvent {
 		Type:          r.Type(),
 		IssuerID:      r.IssuerID,
 		Amount:        r.Amount,
-		Time:          r.Time,
 		ManaType:      r.ManaType,
 		TransactionID: r.TransactionID,
 		InputID:       r.InputID,
@@ -220,11 +186,6 @@ func (r *RevokedEvent) ToPersistable() *manamodels.PersistableEvent {
 // Type returns the type of the event.
 func (r *RevokedEvent) Type() byte {
 	return EventTypeRevoke
-}
-
-// Timestamp returns time the event was fired.
-func (r *RevokedEvent) Timestamp() time.Time {
-	return r.Time
 }
 
 var _ Event = &RevokedEvent{}
@@ -275,48 +236,9 @@ func (u *UpdatedEvent) String() string {
 	)
 }
 
-// ToPersistable converts the event to a persistable event.
-func (u *UpdatedEvent) ToPersistable() *manamodels.PersistableEvent {
-	panic("cannot persist update event")
-}
-
 // Type returns the type of the event.
 func (u *UpdatedEvent) Type() byte {
 	return EventTypeUpdate
 }
 
 var _ Event = &UpdatedEvent{}
-
-// EventSlice is a slice of events.
-type EventSlice []Event
-
-// Sort sorts a slice of events ASC by their timestamp with preference for RevokedEvent.
-func (e EventSlice) Sort() {
-	sort.Slice(e, func(i, j int) bool {
-		var timeI, timeJ time.Time
-		var typeI, _ byte
-		switch e[i].Type() {
-		case EventTypePledge:
-			timeI = e[i].(*PledgedEvent).Time
-			typeI = EventTypePledge
-		case EventTypeRevoke:
-			timeI = e[i].(*RevokedEvent).Time
-			typeI = EventTypeRevoke
-		}
-
-		switch e[j].Type() {
-		case EventTypePledge:
-			timeJ = e[j].(*PledgedEvent).Time
-			_ = EventTypePledge
-		case EventTypeRevoke:
-			timeJ = e[j].(*RevokedEvent).Time
-			_ = EventTypeRevoke
-		}
-
-		if !timeI.Equal(timeJ) {
-			return timeI.Before(timeJ)
-		}
-
-		return typeI == EventTypeRevoke
-	})
-}
