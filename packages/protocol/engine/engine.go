@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -17,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 
-	// "github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -262,7 +260,6 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
-	fmt.Println(">> MainEngin ProcessBlock")
 	e.Inbox.ProcessReceivedBlock(block, source)
 }
 
