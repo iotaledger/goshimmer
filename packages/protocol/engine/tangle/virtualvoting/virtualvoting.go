@@ -105,7 +105,7 @@ func (o *VirtualVoting) setupEvents() {
 	o.Booker.Events.MarkerConflictAdded.Hook(event.NewClosure(func(event *booker.MarkerConflictAddedEvent) {
 		o.processForkedMarker(event.Marker, event.ConflictID, event.ParentConflictIDs)
 	}))
-
+	o.Booker.Events.SequenceEvicted.Attach(event.NewClosure(o.evictSequence))
 	o.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(o.evictEpoch))
 }
 
@@ -150,9 +150,16 @@ func (o *VirtualVoting) evictEpoch(epochIndex epoch.Index) {
 	o.evictionManager.Lock()
 	defer o.evictionManager.Unlock()
 
-	//TODO: add sequencetracker and conflicttracker eviction
+	//TODO: add conflicttracker eviction
 
 	o.blocks.EvictEpoch(epochIndex)
+}
+
+func (o *VirtualVoting) evictSequence(sequenceID markers.SequenceID) {
+	o.evictionManager.Lock()
+	defer o.evictionManager.Unlock()
+
+	o.sequenceTracker.EvictSequence(sequenceID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

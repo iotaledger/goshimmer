@@ -139,3 +139,7 @@ func (s *SequenceTracker[VotePowerType]) addVoteToMarker(marker markers.Marker, 
 		return true
 	})
 }
+
+func (s *SequenceTracker[VotePowerType]) EvictSequence(sequenceID markers.SequenceID) {
+	s.votes.Delete(sequenceID)
+}
