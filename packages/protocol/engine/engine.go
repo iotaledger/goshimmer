@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 
 	// "github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
@@ -121,6 +122,22 @@ func (e *Engine) Evict(index epoch.Index) {
 	e.EvictionState.EvictUntil(index, solidEntryPoints)
 }
 
+func (e *Engine) LastConfirmedEpoch() epoch.Index {
+	if e.Consensus == nil {
+		return 0
+	}
+
+	return e.Consensus.EpochConfirmationGadget.LastConfirmedEpoch()
+}
+
+func (e *Engine) FirstUnacceptedMarker(sequenceID markers.SequenceID) markers.Index {
+	if e.Consensus == nil {
+		return 1
+	}
+
+	return e.Consensus.AcceptanceGadget.FirstUnacceptedIndex(sequenceID)
+}
+
 func (e *Engine) initInbox() {
 	e.Inbox = inbox.New()
 
@@ -134,7 +151,7 @@ func (e *Engine) initLedger() {
 }
 
 func (e *Engine) initTangle() {
-	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.optsTangleOptions...)
+	e.Tangle = tangle.New(e.Ledger, e.EvictionState, e.ValidatorSet, e.LastConfirmedEpoch, e.FirstUnacceptedMarker, e.optsTangleOptions...)
 
 	e.Events.Inbox.BlockReceived.Attach(event.NewClosure(func(block *models.Block) {
 		if _, _, err := e.Tangle.Attach(block); err != nil {
@@ -146,14 +163,22 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.ChainStorage.LatestConfirmedEpoch(), e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
+
+	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		e.ChainStorage.SetLatestConfirmedEpoch(epochIndex)
+	}))
 }
 
 func (e *Engine) initClock() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
+	}))
+
+	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
+		e.Clock.SetConfirmedTime(epochIndex.EndTime())
 	}))
 
 	e.Events.Clock = e.Clock.Events

@@ -3,6 +3,7 @@ package consensus
 import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/epochconfirmation"
@@ -23,10 +24,10 @@ type Consensus struct {
 	optsEpochConfirmationGadget []options.Option[epochconfirmation.Gadget]
 }
 
-func New(tangle *tangle.Tangle, opts ...options.Option[Consensus]) *Consensus {
+func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
 		c.AcceptanceGadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
-		c.EpochConfirmationGadget = epochconfirmation.New(tangle, c.optsEpochConfirmationGadget...)
+		c.EpochConfirmationGadget = epochconfirmation.New(tangle, lastConfirmedEpoch, c.optsEpochConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()
 		})

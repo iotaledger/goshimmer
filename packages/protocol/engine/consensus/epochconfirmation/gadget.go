@@ -24,8 +24,10 @@ type Gadget struct {
 	sync.RWMutex
 }
 
-func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
+		lastConfirmedEpoch: lastConfirmedEpoch,
+
 		optsEpochConfirmationThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
@@ -61,12 +63,6 @@ func (g *Gadget) refreshEpochConfirmation(previousLatestEpochIndex epoch.Index, 
 }
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithLastConfirmedEpoch(index epoch.Index) options.Option[Gadget] {
-	return func(gadget *Gadget) {
-		gadget.lastConfirmedEpoch = index
-	}
-}
 
 func WithEpochConfirmationThreshold(acceptanceThreshold float64) options.Option[Gadget] {
 	return func(gadget *Gadget) {

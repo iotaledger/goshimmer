@@ -29,8 +29,8 @@ type VirtualVoting struct {
 	epochTracker    *epochtracker.EpochTracker
 	evictionManager *eviction.LockableManager[models.BlockID]
 
-	sequenceCutoffCallback func(markers.SequenceID) markers.Index
-	epochCutoffCallback    func() markers.Index
+	optsSequenceCutoffCallback func(markers.SequenceID) markers.Index
+	optsEpochCutoffCallback    func() epoch.Index
 
 	*booker.Booker
 }
@@ -41,16 +41,16 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
 		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
 		Booker:          booker,
+		optsSequenceCutoffCallback: func(sequenceID markers.SequenceID) markers.Index {
+			return 1
+		},
+		optsEpochCutoffCallback: func() epoch.Index {
+			return 0
+		},
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)
-		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, func(sequenceID markers.SequenceID) markers.Index {
-			//TODO: is this correct?
-			return 0
-		})
-		o.epochTracker = epochtracker.NewEpochTracker(validatorSet, func() epoch.Index {
-			//TODO: we need the confirmed epoch index here
-			return 0
-		})
+		o.sequenceTracker = sequencetracker.NewSequenceTracker[BlockVotePower](validatorSet, o.Booker.Sequence, o.optsSequenceCutoffCallback)
+		o.epochTracker = epochtracker.NewEpochTracker(validatorSet, o.optsEpochCutoffCallback)
 
 		o.Events = NewEvents()
 		o.Events.ConflictTracker = o.conflictTracker.Events
@@ -179,6 +179,22 @@ func (o *VirtualVoting) processForkedBlock(block *booker.Block, forkedConflictID
 func (o *VirtualVoting) processForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
 	for voterID, votePower := range o.sequenceTracker.VotersWithPower(marker) {
 		o.conflictTracker.AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func WithEpochCutoffCallback(epochCutoffCallback func() epoch.Index) options.Option[VirtualVoting] {
+	return func(virtualVoting *VirtualVoting) {
+		virtualVoting.optsEpochCutoffCallback = epochCutoffCallback
+	}
+}
+
+func WithSequenceCutoffCallback(sequenceCutoffCallback func(id markers.SequenceID) markers.Index) options.Option[VirtualVoting] {
+	return func(virtualVoting *VirtualVoting) {
+		virtualVoting.optsSequenceCutoffCallback = sequenceCutoffCallback
 	}
 }
 
