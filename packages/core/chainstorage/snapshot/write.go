@@ -5,6 +5,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types/confirmation"
+
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -12,9 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
 )
 
 func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
@@ -25,8 +26,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		panic(err)
 	}
 
-	snapshotEpoch := engine.ChainStorage.LatestCommittedEpoch()
-	startEpoch := snapshotEpoch - epoch.Index(depth)
+	snapshotEpoch := engine.ChainStorage.LatestCommitment().Index()
 
 	// Settings
 	{

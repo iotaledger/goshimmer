@@ -227,6 +227,7 @@ func (l *Ledger) triggerAcceptedEvent(txMetadata *TransactionMetadata) (triggere
 
 func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 	txEpoch := epoch.IndexFromTime(txMeta.InclusionTime())
+
 	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
 		// Mark every input as a spent output in the epoch diff
 		for it := l.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
@@ -251,6 +252,10 @@ func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 				})
 			})
 		}
+
+		if txEpoch > l.ChainStorage.LatestStateMutationEpoch() {
+			l.ChainStorage.SetLatestStateMutationEpoch(txEpoch)
+		}
 	})
 }
 
@@ -262,7 +267,7 @@ func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, pre
 		return
 	}
 
-	if oldEpoch <= l.ChainStorage.LatestCommittedEpoch() || newEpoch <= l.ChainStorage.LatestCommittedEpoch() {
+	if oldEpoch <= l.ChainStorage.LatestCommitment().Index() || newEpoch <= l.ChainStorage.LatestCommitment().Index() {
 		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
 		return
 	}

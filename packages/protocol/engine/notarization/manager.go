@@ -5,17 +5,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
 const (
@@ -24,225 +20,135 @@ const (
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Manager is the notarization manager.
 type Manager struct {
-	clock                    *clock.Clock
-	tangle                   *tangle.Tangle
-	ledger                   *ledger.Ledger
-	consensus                *consensus.Consensus
-	chainStorage             *chainstorage.ChainStorage
-	snapshotCommitment       *commitment.Commitment
-	bootstrapMutex           sync.RWMutex
-	pendingConflictsCounters *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
+	Events *Events
+	*EpochMutations
 
+	storage                    *chainstorage.ChainStorage
+	pendingConflictsCounters   *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
+	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
-	optsBootstrapWindow        time.Duration
-	optsManaEpochDelay         uint
 
-	*commitmentFactory
+	sync.RWMutex
 }
 
-// NewManager creates and returns a new notarization manager.
-func NewManager(c *clock.Clock, t *tangle.Tangle, l *ledger.Ledger, consensusInstance *consensus.Consensus, chainStorage *chainstorage.ChainStorage, snapshotCommitment *commitment.Commitment, opts ...options.Option[Manager]) (new *Manager) {
+func NewManager(storage *chainstorage.ChainStorage, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
-		clock:                    c,
-		tangle:                   t,
-		ledger:                   l,
-		consensus:                consensusInstance,
-		chainStorage:             chainStorage,
-		snapshotCommitment:       snapshotCommitment,
-		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
+		Events:         NewEvents(),
+		EpochMutations: NewEpochMutations(storage.LatestCommitment().Index()),
 
+		storage:                    storage,
+		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
 		optsMinCommittableEpochAge: defaultMinEpochCommittableAge,
-	}, opts,
-		(*Manager).initCommitmentFactory,
-	)
+	}, opts)
 }
 
-func (m *Manager) initCommitmentFactory() {
-	m.commitmentFactory = newCommitmentFactory(m.snapshotCommitment, m.chainStorage)
-}
-
-// OnConflictAccepted is the handler for conflict confirmed event.
-func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
+func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	ei := m.getConflictEI(conflictID)
-
-	if m.isEpochAlreadyCommitted(ei) {
-		m.Events.Error.Trigger(errors.Errorf("conflict confirmed in already committed epoch %d", ei))
+	if index <= m.storage.LatestCommitment().Index() {
 		return
 	}
 
-	m.decreasePendingConflictCounter(ei)
+	m.pendingConflictsCounters.Set(index, lo.Return1(m.pendingConflictsCounters.Get(index))+1)
 }
 
-// OnConflictCreated is the handler for conflict created event.
-func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
+func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	ei := m.getConflictEI(conflictID)
-
-	if m.isEpochAlreadyCommitted(ei) {
-		m.Events.Error.Trigger(errors.Errorf("conflict created in already committed epoch %d", ei))
-		return
-	}
-	m.increasePendingConflictCounter(ei)
-}
-
-// OnConflictRejected is the handler for conflict created event.
-func (m *Manager) OnConflictRejected(conflictID utxo.TransactionID) {
-	m.Lock()
-	defer m.Unlock()
-
-	ei := m.getConflictEI(conflictID)
-
-	if m.isEpochAlreadyCommitted(ei) {
-		m.Events.Error.Trigger(errors.Errorf("conflict rejected in already committed epoch %d", ei))
+	if index <= m.storage.LatestCommitment().Index() {
 		return
 	}
 
-	m.decreasePendingConflictCounter(ei)
+	if newCounter := lo.Return1(m.pendingConflictsCounters.Get(index)) - 1; newCounter != 0 {
+		m.pendingConflictsCounters.Set(index, newCounter)
+	} else {
+		m.pendingConflictsCounters.Delete(index)
+
+		m.tryCommitEpoch(index)
+	}
 }
 
-// OnAcceptanceTimeUpdated is the handler for time updated event and triggers the events.
-func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
+func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 	m.Lock()
 	defer m.Unlock()
 
-	if newTimeEpoch := epoch.IndexFromTime(newTime); newTimeEpoch > m.chainStorage.LatestCommittedEpoch() {
-		m.moveLatestCommittableEpoch(newTimeEpoch)
+	m.acceptanceTime = acceptanceTime
+
+	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.LatestCommitment().Index() {
+		m.tryCommitEpoch(index)
 	}
 }
 
-// PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
-func (m *Manager) PendingConflictsCountAll() (pendingConflicts map[epoch.Index]uint64) {
-	m.RLock()
-	defer m.RUnlock()
-
-	pendingConflicts = make(map[epoch.Index]uint64, m.pendingConflictsCounters.Size())
-	m.pendingConflictsCounters.ForEach(func(k epoch.Index, v uint64) bool {
-		pendingConflicts[k] = v
-		return true
-	})
-	return pendingConflicts
-}
-
-func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) {
-	count, _ := m.pendingConflictsCounters.Get(ei)
-	count--
-	m.pendingConflictsCounters.Set(ei, count)
-	if count == 0 {
-		m.moveLatestCommittableEpoch(ei)
+func (m *Manager) tryCommitEpoch(index epoch.Index) {
+	for i := m.storage.LatestCommitment().Index() + 1; i <= index; i++ {
+		if !m.isCommittable(i) || !m.createCommitment(i) {
+			return
+		}
 	}
 }
 
-func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
-	count, _ := m.pendingConflictsCounters.Get(ei)
-	count++
-	m.pendingConflictsCounters.Set(ei, count)
+func (m *Manager) isCommittable(ei epoch.Index) (isCommittable bool) {
+	return m.acceptanceTime.Sub(ei.EndTime()) >= m.optsMinCommittableEpochAge && m.hasNoPendingConflicts(ei)
 }
 
-// isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) isCommittable(ei epoch.Index) bool {
-	return m.isOldEnough(ei) && m.allPastConflictsAreResolved(ei)
-}
-
-func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved bool) {
-	latestCommittedEpoch := m.chainStorage.LatestCommittedEpoch()
-
-	for index := latestCommittedEpoch; index <= ei; index++ {
+func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
+	for index := m.storage.LatestCommitment().Index(); index <= ei; index++ {
 		if count, _ := m.pendingConflictsCounters.Get(index); count != 0 {
 			return false
 		}
 	}
+
 	return true
 }
 
-func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnough bool) {
-	t := ei.EndTime()
-	currentATT := m.clock.AcceptedTime()
-	if len(issuingTime) > 0 && issuingTime[0].After(currentATT) {
-		currentATT = issuingTime[0]
+func (m *Manager) createCommitment(index epoch.Index) (success bool) {
+	latestCommitment := m.storage.LatestCommitment()
+	if index != latestCommitment.Index()+1 {
+		m.Events.Error.Trigger(errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", index, latestCommitment.Index()))
+
+		return false
 	}
 
-	return currentATT.Sub(t) >= m.optsMinCommittableEpochAge
-}
+	acceptedBlocks, acceptedTransactions, activeValidators, err := m.EpochMutations.Commit(index)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
 
-func (m *Manager) getConflictEI(conflictID utxo.TransactionID) epoch.Index {
-	earliestAttachment := m.tangle.GetEarliestAttachment(conflictID)
-	return epoch.IndexFromTime(earliestAttachment.IssuingTime())
-}
-
-func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
-	return ei <= m.chainStorage.LatestCommittedEpoch()
-}
-
-func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
-	for ei := m.chainStorage.LatestCommittedEpoch() + 1; ei <= currentEpoch; ei++ {
-		if !m.isCommittable(ei) {
-			break
-		}
-
-		// TODO: compact diffstorage
-		spentOutputsWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)
-		m.chainStorage.DiffStorage.StreamSpent(ei, func(outputWithMetadata *chainstorage.OutputWithMetadata) {
-			spentOutputsWithMetadata = append(spentOutputsWithMetadata, outputWithMetadata)
-		})
-		createdOutputsWithMetadata := make([]*chainstorage.OutputWithMetadata, 0)
-		m.chainStorage.DiffStorage.StreamCreated(ei, func(outputWithMetadata *chainstorage.OutputWithMetadata) {
-			spentOutputsWithMetadata = append(createdOutputsWithMetadata, outputWithMetadata)
-		})
-
-		newCommitment, newCommitmentErr := m.commitmentFactory.createCommitment(ei, spentOutputsWithMetadata, createdOutputsWithMetadata)
-		if newCommitmentErr != nil {
-			m.Events.Error.Trigger(errors.Errorf("could not update commitments for epoch %d: %v", ei, newCommitmentErr))
-			return
-		}
-
-		m.chainStorage.SetLatestCommittedEpoch(ei)
-
-		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{
-			EI:         ei,
-			Commitment: newCommitment,
-		})
-
-		// We do not need to track pending conflicts for a committed epoch anymore.
-		m.pendingConflictsCounters.Delete(ei)
+		return false
 	}
+	stateRoot, manaRoot := m.storage.State.Apply(m.storage.DiffStorage.StateDiff(index))
+
+	// TODO: obtain and commit to cumulative weight
+	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)
+
+	m.storage.SetLatestCommitment(newCommitment)
+
+	m.pendingConflictsCounters.Delete(index)
+
+	// TODO: FIX UPDATES
+	m.Events.ConsensusWeightsUpdated.Trigger(&ConsensusWeightsUpdatedEvent{
+		EI:                      index,
+		AmountAndDiffByIdentity: nil,
+	})
+
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{
+		EI:         index,
+		Commitment: newCommitment,
+	})
+
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ManagerOption represents the return type of the optional config parameters of the notarization manager.
-type ManagerOption func(options *ManagerOptions)
-
-// ManagerOptions is a container of all the config parameters of the notarization manager.
-type ManagerOptions struct{}
-
-// ManaEpochDelay specifies how many epochs the consensus mana booking is delayed with respect to the latest committable
-// epoch.
-func ManaEpochDelay(manaEpochDelay uint) options.Option[Manager] {
-	return func(manager *Manager) {
-		manager.optsManaEpochDelay = manaEpochDelay
-	}
-}
-
 // MinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
 func MinCommittableEpochAge(d time.Duration) options.Option[Manager] {
 	return func(manager *Manager) {
 		manager.optsMinCommittableEpochAge = d
-	}
-}
-
-// BootstrapWindow specifies when the notarization manager is considered to be bootstrapped.
-func BootstrapWindow(d time.Duration) options.Option[Manager] {
-	return func(manager *Manager) {
-		manager.optsBootstrapWindow = d
 	}
 }
 

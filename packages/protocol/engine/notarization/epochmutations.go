@@ -18,8 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-// MutationFactory is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
-type MutationFactory struct {
+// EpochMutations is an in-memory data structure that enables the collection of mutations for uncommitted epochs.
+type EpochMutations struct {
 	// acceptedBlocksByEpoch stores the accepted blocks per epoch.
 	acceptedBlocksByEpoch *memstorage.Storage[epoch.Index, *ads.Set[models.BlockID]]
 
@@ -38,9 +38,9 @@ type MutationFactory struct {
 	sync.Mutex
 }
 
-// NewMutationFactory creates a new mutation factory.
-func NewMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *MutationFactory) {
-	return &MutationFactory{
+// NewEpochMutations creates a new EpochMutations instance.
+func NewEpochMutations(lastCommittedEpoch epoch.Index) (newMutationFactory *EpochMutations) {
+	return &EpochMutations{
 		acceptedBlocksByEpoch:       memstorage.New[epoch.Index, *ads.Set[models.BlockID]](),
 		acceptedTransactionsByEpoch: memstorage.New[epoch.Index, *ads.Set[utxo.TransactionID]](),
 		activeValidatorsByEpoch:     memstorage.New[epoch.Index, *ads.Set[identity.ID]](),
@@ -51,7 +51,7 @@ func NewMutationFactory(lastCommittedEpoch epoch.Index) (newMutationFactory *Mut
 }
 
 // AddAcceptedBlock adds the given block to the set of accepted blocks.
-func (m *MutationFactory) AddAcceptedBlock(block *models.Block) (err error) {
+func (m *EpochMutations) AddAcceptedBlock(block *models.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -67,7 +67,7 @@ func (m *MutationFactory) AddAcceptedBlock(block *models.Block) (err error) {
 }
 
 // RemoveAcceptedBlock removes the given block from the set of accepted blocks.
-func (m *MutationFactory) RemoveAcceptedBlock(block *models.Block) (err error) {
+func (m *EpochMutations) RemoveAcceptedBlock(block *models.Block) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -83,7 +83,7 @@ func (m *MutationFactory) RemoveAcceptedBlock(block *models.Block) (err error) {
 }
 
 // AddAcceptedTransaction adds the given transaction to the set of accepted transactions.
-func (m *MutationFactory) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+func (m *EpochMutations) AddAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -98,7 +98,7 @@ func (m *MutationFactory) AddAcceptedTransaction(metadata *ledger.TransactionMet
 }
 
 // RemoveAcceptedTransaction removes the given transaction from the set of accepted transactions.
-func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
+func (m *EpochMutations) RemoveAcceptedTransaction(metadata *ledger.TransactionMetadata) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -113,7 +113,7 @@ func (m *MutationFactory) RemoveAcceptedTransaction(metadata *ledger.Transaction
 }
 
 // UpdateTransactionInclusion moves a transaction from a later epoch to the given epoch.
-func (m *MutationFactory) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
+func (m *EpochMutations) UpdateTransactionInclusion(txID utxo.TransactionID, oldEpoch, newEpoch epoch.Index) (err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -132,7 +132,7 @@ func (m *MutationFactory) UpdateTransactionInclusion(txID utxo.TransactionID, ol
 }
 
 // Commit evicts the given epoch and returns the corresponding mutation sets.
-func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], err error) {
+func (m *EpochMutations) Commit(index epoch.Index) (acceptedBlocks *ads.Set[models.BlockID], acceptedTransactions *ads.Set[utxo.TransactionID], activeValidators *ads.Set[identity.ID], err error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -146,7 +146,7 @@ func (m *MutationFactory) Commit(index epoch.Index) (acceptedBlocks *ads.Set[mod
 }
 
 // acceptedBlocks returns the set of accepted blocks for the given epoch.
-func (m *MutationFactory) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID] {
+func (m *EpochMutations) acceptedBlocks(index epoch.Index, createIfMissing ...bool) *ads.Set[models.BlockID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
 		return lo.Return1(m.acceptedBlocksByEpoch.RetrieveOrCreate(index, newSet[models.BlockID]))
 	}
@@ -155,7 +155,7 @@ func (m *MutationFactory) acceptedBlocks(index epoch.Index, createIfMissing ...b
 }
 
 // acceptedTransactions returns the set of accepted transactions for the given epoch.
-func (m *MutationFactory) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID] {
+func (m *EpochMutations) acceptedTransactions(index epoch.Index, createIfMissing ...bool) *ads.Set[utxo.TransactionID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
 		return lo.Return1(m.acceptedTransactionsByEpoch.RetrieveOrCreate(index, newSet[utxo.TransactionID]))
 	}
@@ -164,7 +164,7 @@ func (m *MutationFactory) acceptedTransactions(index epoch.Index, createIfMissin
 }
 
 // activeValidators returns the set of active validators for the given epoch.
-func (m *MutationFactory) activeValidators(index epoch.Index, createIfMissing ...bool) *ads.Set[identity.ID] {
+func (m *EpochMutations) activeValidators(index epoch.Index, createIfMissing ...bool) *ads.Set[identity.ID] {
 	if len(createIfMissing) > 0 && createIfMissing[0] {
 		return lo.Return1(m.activeValidatorsByEpoch.RetrieveOrCreate(index, newSet[identity.ID]))
 	}
@@ -173,7 +173,7 @@ func (m *MutationFactory) activeValidators(index epoch.Index, createIfMissing ..
 }
 
 // addBlockByIssuer adds the given block to the set of blocks issued by the given issuer.
-func (m *MutationFactory) addBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
+func (m *EpochMutations) addBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
 	blocksByIssuer, isNewIssuer := m.issuerBlocksByEpoch.Get(blockID.Index(), true).RetrieveOrCreate(issuer, func() *set.AdvancedSet[models.BlockID] { return set.NewAdvancedSet[models.BlockID]() })
 	if isNewIssuer {
 		m.activeValidators(blockID.Index(), true).Add(issuer)
@@ -183,7 +183,7 @@ func (m *MutationFactory) addBlockByIssuer(blockID models.BlockID, issuer identi
 }
 
 // removeBlockByIssuer removes the given block from the set of blocks issued by the given issuer.
-func (m *MutationFactory) removeBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
+func (m *EpochMutations) removeBlockByIssuer(blockID models.BlockID, issuer identity.ID) {
 	epochBlocks := m.issuerBlocksByEpoch.Get(blockID.Index())
 	if epochBlocks == nil {
 		return
@@ -198,7 +198,7 @@ func (m *MutationFactory) removeBlockByIssuer(blockID models.BlockID, issuer ide
 }
 
 // evict removes all data for epochs that are older than the given epoch.
-func (m *MutationFactory) evict(index epoch.Index) {
+func (m *EpochMutations) evict(index epoch.Index) {
 	for i := m.latestCommittedIndex; i < index; i++ {
 		m.acceptedBlocksByEpoch.Delete(index)
 		m.acceptedTransactionsByEpoch.Delete(index)

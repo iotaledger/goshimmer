@@ -3,11 +3,12 @@ package mana
 import (
 	"errors"
 
+	"github.com/iotaledger/hive.go/core/identity"
+
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/core/identity"
 )
 
 func (t *Tracker) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
@@ -17,9 +18,7 @@ func (t *Tracker) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.Ou
 
 func (t *Tracker) RollbackOutputs(index epoch.Index, outputsWithMetadata []*chainstorage.OutputWithMetadata, areCreated bool) {
 	t.processOutputs(outputsWithMetadata, manamodels.ConsensusMana, !areCreated)
-	if index > t.chainStorage.LatestCommittedEpoch() {
-		t.processOutputs(outputsWithMetadata, manamodels.AccessMana, !areCreated)
-	}
+	t.processOutputs(outputsWithMetadata, manamodels.AccessMana, !areCreated)
 }
 
 func (t *Tracker) processOutputs(outputsWithMetadata []*chainstorage.OutputWithMetadata, manaType manamodels.Type, areCreated bool) {

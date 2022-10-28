@@ -20,7 +20,7 @@ func Test(t *testing.T) {
 
 	chainStorage, err := NewChainStorage(storageDirectory, 1)
 	require.NoError(t, err)
-	chainStorage.SetLatestAcceptedEpoch(10)
+	chainStorage.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 	chainStorage.SetCommitment(0, genesisCommitment)
 	chainStorage.SetCommitment(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
@@ -34,7 +34,7 @@ func Test(t *testing.T) {
 	chainStorage, err = NewChainStorage(storageDirectory, 1)
 	require.NoError(t, err)
 	fmt.Println(chainStorage.Commitment(0), chainStorage.Commitment(1))
-	require.Equal(t, epoch.Index(10), chainStorage.LatestAcceptedEpoch())
+	require.Equal(t, epoch.Index(10), chainStorage.LatestStateMutationEpoch())
 
 	fmt.Println(chainStorage.BlockStorage.Get(emptyBlock.ID()))
 

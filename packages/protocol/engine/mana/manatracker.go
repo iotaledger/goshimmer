@@ -37,8 +37,6 @@ func NewTracker(l *ledger.Ledger, chainStorage *chainstorage.ChainStorage, opts 
 }
 
 func (t *Tracker) OnConsensusWeightsUpdated(event *notarization.ConsensusWeightsUpdatedEvent) {
-	creationTime := event.EI.EndTime()
-
 	t.applyUpdatesToConsensusVector(event.AmountAndDiffByIdentity)
 
 	for id, manaUpdate := range event.AmountAndDiffByIdentity {
@@ -49,14 +47,12 @@ func (t *Tracker) OnConsensusWeightsUpdated(event *notarization.ConsensusWeights
 			t.Events.Pledged.Trigger(&PledgedEvent{
 				IssuerID: id,
 				Amount:   manaUpdate.OldAmount + manaUpdate.Diff,
-				Time:     creationTime,
 				ManaType: manamodels.ConsensusMana,
 			})
 		case manaUpdate.Diff < 0:
 			t.Events.Revoked.Trigger(&RevokedEvent{
 				IssuerID: id,
 				Amount:   manaUpdate.OldAmount + manaUpdate.Diff,
-				Time:     creationTime,
 				ManaType: manamodels.ConsensusMana,
 			})
 		}

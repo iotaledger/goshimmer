@@ -2,7 +2,6 @@ package notarization
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -35,26 +34,6 @@ type EpochCommittedEvent struct {
 	EI epoch.Index
 	// Commitment is the ec root of committable epoch.
 	Commitment *commitment.Commitment
-}
-
-// ConsensusWeightsUpdatedEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.
-type ConsensusWeightsUpdatedEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.Index
-
-	AmountAndDiffByIdentity map[identity.ID]*ConsensusWeightUpdate
-}
-
-// ConsensusWeightUpdate is a container that acts as a dictionary for consensus weight update.
-type ConsensusWeightUpdate struct {
-	OldAmount int64
-	Diff      int64
-}
-
-func newConsesusWeightUpdate(oldAmount int64) *ConsensusWeightUpdate {
-	return &ConsensusWeightUpdate{
-		OldAmount: oldAmount,
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

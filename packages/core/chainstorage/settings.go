@@ -14,10 +14,10 @@ import (
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Settings struct {
-	LatestCommittedEpoch epoch.Index   `serix:"0"`
-	LatestAcceptedEpoch  epoch.Index   `serix:"1"`
-	LatestConfirmedEpoch epoch.Index   `serix:"2"`
-	Chain                commitment.ID `serix:"3"`
+	LatestCommitment         *commitment.Commitment `serix:"0"`
+	LatestStateMutationEpoch epoch.Index            `serix:"1"`
+	LatestConfirmedEpoch     epoch.Index            `serix:"2"`
+	Chain                    commitment.ID          `serix:"3"`
 
 	storable.Struct[Settings, *Settings]
 	sync.RWMutex

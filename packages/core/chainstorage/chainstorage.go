@@ -3,6 +3,7 @@ package chainstorage
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/types"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
@@ -34,6 +35,7 @@ func init() {
 
 type ChainStorage struct {
 	Events                  *Events
+	State                   *State
 	BlockStorage            *BlockStorage
 	DiffStorage             *DiffStorage
 	SolidEntryPointsStorage *SolidEntryPointsStorage
@@ -44,64 +46,65 @@ type ChainStorage struct {
 	database *database.Manager
 }
 
-func NewChainStorage(folder string, databaseVersion database.Version) (chainManager *ChainStorage, err error) {
-	chainManager = &ChainStorage{
+func NewChainStorage(folder string, databaseVersion database.Version) (chainStorage *ChainStorage, err error) {
+	chainStorage = &ChainStorage{
 		Events: NewEvents(),
 	}
-	chainManager.BlockStorage = &BlockStorage{chainManager}
-	chainManager.DiffStorage = &DiffStorage{chainManager}
-	chainManager.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainManager}
-	chainManager.ActivityLogStorage = &ActivityLogStorage{chainManager}
+	chainStorage.State = New(chainStorage.permanentStorage(StateTreeStorageType), chainStorage.permanentStorage(ManaTreeStorageType))
+	chainStorage.BlockStorage = &BlockStorage{chainStorage}
+	chainStorage.DiffStorage = &DiffStorage{chainStorage}
+	chainStorage.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainStorage}
+	chainStorage.ActivityLogStorage = &ActivityLogStorage{chainStorage}
 
 	dbDiskUtil := diskutil.New(folder, true)
-	chainManager.Settings = storable.InitStruct(&Settings{
-		LatestCommittedEpoch: 0,
-		LatestAcceptedEpoch:  0,
-		LatestConfirmedEpoch: 0,
+	chainStorage.Settings = storable.InitStruct(&Settings{
+		LatestCommitment:         commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
+		LatestStateMutationEpoch: 0,
+		LatestConfirmedEpoch:     0,
 	}, dbDiskUtil.Path("settings.bin"))
 
-	if chainManager.Commitments, err = storable.NewSlice[commitment.Commitment](dbDiskUtil.Path("commitments.bin")); err != nil {
+	if chainStorage.Commitments, err = storable.NewSlice[commitment.Commitment](dbDiskUtil.Path("commitments.bin")); err != nil {
 		return nil, errors.Errorf("failed to create commitments database: %w", err)
 	}
 
-	chainManager.database = database.NewManager(databaseVersion, database.WithBaseDir(folder), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
+	chainStorage.database = database.NewManager(databaseVersion, database.WithBaseDir(folder), database.WithGranularity(1), database.WithDBProvider(database.NewDB))
 
-	return chainManager, nil
+	return chainStorage, nil
 }
 
-func (c *ChainStorage) LatestCommittedEpoch() (latestCommittedEpoch epoch.Index) {
+func (c *ChainStorage) LatestCommitment() (latestCommitment *commitment.Commitment) {
 	c.Settings.RLock()
 	defer c.Settings.RUnlock()
 
-	return c.Settings.LatestCommittedEpoch
+	return c.Settings.LatestCommitment
 }
 
-func (c *ChainStorage) SetLatestCommittedEpoch(latestCommittedEpoch epoch.Index) {
+func (c *ChainStorage) SetLatestCommitment(latestCommitment *commitment.Commitment) {
 	c.Settings.Lock()
 	defer c.Settings.Unlock()
 
-	c.Settings.LatestCommittedEpoch = latestCommittedEpoch
+	c.Settings.LatestCommitment = latestCommitment
 
 	if err := c.Settings.ToFile(); err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to persist latest committed epoch: %w", err))
+		c.Events.Error.Trigger(errors.Errorf("failed to persist latest commitment: %w", err))
 	}
 }
 
-func (c *ChainStorage) LatestAcceptedEpoch() (latestAcceptedEpoch epoch.Index) {
+func (c *ChainStorage) LatestStateMutationEpoch() (latestStateMutationEpoch epoch.Index) {
 	c.Settings.RLock()
 	defer c.Settings.RUnlock()
 
-	return c.Settings.LatestAcceptedEpoch
+	return c.Settings.LatestStateMutationEpoch
 }
 
-func (c *ChainStorage) SetLatestAcceptedEpoch(latestAcceptedEpoch epoch.Index) {
+func (c *ChainStorage) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.Index) {
 	c.Settings.Lock()
 	defer c.Settings.Unlock()
 
-	c.Settings.LatestAcceptedEpoch = latestAcceptedEpoch
+	c.Settings.LatestStateMutationEpoch = latestStateMutationEpoch
 
 	if err := c.Settings.ToFile(); err != nil {
-		c.Events.Error.Trigger(errors.Errorf("failed to persist latest accepted epoch: %w", err))
+		c.Events.Error.Trigger(errors.Errorf("failed to persist latest state mutation epoch: %w", err))
 	}
 }
 
@@ -140,14 +143,6 @@ func (c *ChainStorage) SetCommitment(index epoch.Index, commitment *commitment.C
 
 func (c *ChainStorage) LedgerstateStorage() (ledgerstateStorage kvstore.KVStore) {
 	return c.permanentStorage(LedgerStateStorageType)
-}
-
-func (c *ChainStorage) StateTreeStorage() (stateTreeStorage kvstore.KVStore) {
-	return c.permanentStorage(StateTreeStorageType)
-}
-
-func (c *ChainStorage) ManaTreeStorage() (manaTreeStorage kvstore.KVStore) {
-	return c.permanentStorage(ManaTreeStorageType)
 }
 
 func (c *ChainStorage) CommitmentRootsStorage(index epoch.Index) kvstore.KVStore {
