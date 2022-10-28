@@ -1,4 +1,4 @@
-package commitmenttracker
+package epochtracker
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/event"

@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/votes/commitmenttracker"
+	"github.com/iotaledger/goshimmer/packages/core/votes/epochtracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 )
 
@@ -42,7 +42,7 @@ func (g *Gadget) LastConfirmedEpoch() epoch.Index {
 }
 
 func (g *Gadget) setup() {
-	g.tangle.VirtualVoting.Events.CommitmentTracker.VotersUpdated.Attach(event.NewClosure[*commitmenttracker.VoterUpdatedEvent](func(evt *commitmenttracker.VoterUpdatedEvent) {
+	g.tangle.VirtualVoting.Events.EpochTracker.VotersUpdated.Attach(event.NewClosure[*epochtracker.VoterUpdatedEvent](func(evt *epochtracker.VoterUpdatedEvent) {
 		g.refreshEpochConfirmation(evt.PrevLatestEpochIndex, evt.NewLatestEpochIndex)
 	}))
 }

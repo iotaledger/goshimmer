@@ -1,4 +1,4 @@
-package commitmenttracker
+package epochtracker
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -11,19 +11,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes/latestvotes"
 )
 
-type CommitmentTracker struct {
+type EpochTracker struct {
 	Events *Events
 
-	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, CommitmentVotePower]]
+	votesPerIdentity *memstorage.Storage[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]]
 	votersPerEpoch   *memstorage.Storage[epoch.Index, *set.AdvancedSet[identity.ID]]
 
 	validatorSet        *validator.Set
 	cutoffIndexCallback func() epoch.Index
 }
 
-func NewCommitmentTracker(validatorSet *validator.Set, cutoffIndexCallback func() epoch.Index) *CommitmentTracker {
-	return &CommitmentTracker{
-		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, CommitmentVotePower]](),
+func NewEpochTracker(validatorSet *validator.Set, cutoffIndexCallback func() epoch.Index) *EpochTracker {
+	return &EpochTracker{
+		votesPerIdentity: memstorage.New[identity.ID, *latestvotes.LatestVotes[epoch.Index, EpochVotePower]](),
 		votersPerEpoch:   memstorage.New[epoch.Index, *set.AdvancedSet[identity.ID]](),
 
 		validatorSet:        validatorSet,
@@ -32,14 +32,14 @@ func NewCommitmentTracker(validatorSet *validator.Set, cutoffIndexCallback func(
 	}
 }
 
-func (c *CommitmentTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[identity.ID] {
+func (c *EpochTracker) epochVoters(epochIndex epoch.Index) *set.AdvancedSet[identity.ID] {
 	epochVoters, _ := c.votersPerEpoch.RetrieveOrCreate(epochIndex, func() *set.AdvancedSet[identity.ID] {
 		return set.NewAdvancedSet[identity.ID]()
 	})
 	return epochVoters
 }
 
-func (c *CommitmentTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power CommitmentVotePower) {
+func (c *EpochTracker) TrackVotes(epochIndex epoch.Index, voterID identity.ID, power EpochVotePower) {
 	voter, exists := c.validatorSet.Get(voterID)
 	if !exists {
 		return
@@ -51,8 +51,8 @@ func (c *CommitmentTracker) TrackVotes(epochIndex epoch.Index, voterID identity.
 		return
 	}
 
-	votersVotes, _ := c.votesPerIdentity.RetrieveOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, CommitmentVotePower] {
-		return latestvotes.NewLatestVotes[epoch.Index, CommitmentVotePower](voter)
+	votersVotes, _ := c.votesPerIdentity.RetrieveOrCreate(voterID, func() *latestvotes.LatestVotes[epoch.Index, EpochVotePower] {
+		return latestvotes.NewLatestVotes[epoch.Index, EpochVotePower](voter)
 	})
 
 	_, previousHighestIndex := votersVotes.Store(epochIndex, power)
@@ -70,7 +70,7 @@ func (c *CommitmentTracker) TrackVotes(epochIndex epoch.Index, voterID identity.
 	})
 }
 
-func (c *CommitmentTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
+func (c *EpochTracker) Voters(epochIndex epoch.Index) (voters *validator.Set) {
 	voters = validator.NewSet()
 	epochVoters := c.epochVoters(epochIndex)
 	if epochVoters.IsEmpty() {
@@ -88,7 +88,7 @@ func (c *CommitmentTracker) Voters(epochIndex epoch.Index) (voters *validator.Se
 	return
 }
 
-func (c *CommitmentTracker) EvictEpoch(indexToEvict epoch.Index) {
+func (c *EpochTracker) EvictEpoch(indexToEvict epoch.Index) {
 	identities, exists := c.votersPerEpoch.Get(indexToEvict)
 	if !exists {
 		return
@@ -116,13 +116,13 @@ func (c *CommitmentTracker) EvictEpoch(indexToEvict epoch.Index) {
 	c.votersPerEpoch.Delete(indexToEvict)
 }
 
-// region CommitmentVotePower //////////////////////////////////////////////////////////////////////////////////////////////
+// region EpochVotePower //////////////////////////////////////////////////////////////////////////////////////////////
 
-type CommitmentVotePower struct {
+type EpochVotePower struct {
 	Index epoch.Index
 }
 
-func (p CommitmentVotePower) Compare(other CommitmentVotePower) int {
+func (p EpochVotePower) Compare(other EpochVotePower) int {
 	if p.Index-other.Index < 0 {
 		return -1
 	} else if p.Index-other.Index > 0 {
