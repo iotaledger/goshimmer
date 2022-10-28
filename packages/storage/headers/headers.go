@@ -22,6 +22,6 @@ func New(disk *diskutil.DiskUtil) (newHeaderStorage *Headers, err error) {
 	return newHeaderStorage, nil
 }
 
-func (c *Headers) Shutdown() {
-	c.Commitments.Close()
+func (c *Headers) Shutdown() (err error) {
+	return c.Commitments.Close()
 }

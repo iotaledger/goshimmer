@@ -35,7 +35,7 @@ type Manager struct {
 func NewManager(storage *storage.Storage, opts ...options.Option[Manager]) (new *Manager) {
 	return options.Apply(&Manager{
 		Events:         NewEvents(),
-		EpochMutations: NewEpochMutations(storage.Headers.LatestCommitment().Index()),
+		EpochMutations: NewEpochMutations(storage.LatestCommitment().Index()),
 
 		storage:                    storage,
 		pendingConflictsCounters:   shrinkingmap.New[epoch.Index, uint64](),
@@ -47,7 +47,7 @@ func (m *Manager) IncreaseConflictsCounter(index epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	if index <= m.storage.Headers.LatestCommitment().Index() {
+	if index <= m.storage.LatestCommitment().Index() {
 		return
 	}
 
@@ -58,7 +58,7 @@ func (m *Manager) DecreaseConflictsCounter(index epoch.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	if index <= m.storage.Headers.LatestCommitment().Index() {
+	if index <= m.storage.LatestCommitment().Index() {
 		return
 	}
 
@@ -77,13 +77,13 @@ func (m *Manager) SetAcceptanceTime(acceptanceTime time.Time) {
 
 	m.acceptanceTime = acceptanceTime
 
-	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.Headers.LatestCommitment().Index() {
+	if index := epoch.IndexFromTime(acceptanceTime); index > m.storage.LatestCommitment().Index() {
 		m.tryCommitEpoch(index)
 	}
 }
 
 func (m *Manager) tryCommitEpoch(index epoch.Index) {
-	for i := m.storage.Headers.LatestCommitment().Index() + 1; i <= index; i++ {
+	for i := m.storage.LatestCommitment().Index() + 1; i <= index; i++ {
 		if !m.isCommittable(i) || !m.createCommitment(i) {
 			return
 		}
@@ -95,7 +95,7 @@ func (m *Manager) isCommittable(ei epoch.Index) (isCommittable bool) {
 }
 
 func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts bool) {
-	for index := m.storage.Headers.LatestCommitment().Index(); index <= ei; index++ {
+	for index := m.storage.LatestCommitment().Index(); index <= ei; index++ {
 		if count, _ := m.pendingConflictsCounters.Get(index); count != 0 {
 			return false
 		}
@@ -105,7 +105,7 @@ func (m *Manager) hasNoPendingConflicts(ei epoch.Index) (hasNoPendingConflicts b
 }
 
 func (m *Manager) createCommitment(index epoch.Index) (success bool) {
-	latestCommitment := m.storage.Headers.LatestCommitment()
+	latestCommitment := m.storage.LatestCommitment()
 	if index != latestCommitment.Index()+1 {
 		m.Events.Error.Trigger(errors.Errorf("cannot create commitment for epoch %d, latest commitment is for epoch %d", index, latestCommitment.Index()))
 
@@ -125,7 +125,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	// TODO: obtain and commit to cumulative weight
 	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)
 
-	if err = m.storage.Headers.SetLatestCommitment(newCommitment); err != nil {
+	if err = m.storage.SetLatestCommitment(newCommitment); err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to set latest commitment: %w", err))
 	}
 

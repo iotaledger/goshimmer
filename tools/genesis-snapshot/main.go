@@ -150,10 +150,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	snapshot.ReadSnapshot(fileHandle, e)
 
 	fmt.Println("--- Settings ---")
-	fmt.Printf("%+v\n", e.Storage.Headers.Settings)
+	fmt.Printf("%+v\n", e.Storage.Settings)
 
 	fmt.Println("--- Commitments ---")
-	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Headers.Commitments.Get(0)))
+	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Commitments.LoadCommitment(0)))
 
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {

@@ -15,9 +15,9 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	Headers *headers.Headers
-	Ledger  *ledger.Ledger
-	Tangle  *tangle.Tangle
+	*headers.Headers
+	Ledger *ledger.Ledger
+	Tangle *tangle.Tangle
 
 	database *database.Manager
 }
@@ -57,9 +57,10 @@ func New(folder string, databaseVersion database.Version) (newStorage *Storage, 
 	return newStorage, nil
 }
 
-func (c *Storage) Shutdown() {
+func (c *Storage) Shutdown() (err error) {
 	c.database.Shutdown()
-	c.Headers.Shutdown()
+
+	return c.Headers.Shutdown()
 }
 
 func (c *Storage) permanentStores() (unspentOutputsStorage, unspentOutputIDsStorage, consensusWeightsStorage kvstore.KVStore, err error) {

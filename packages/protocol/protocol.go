@@ -189,13 +189,13 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 		return
 	}
 
-	fmt.Println(">> checkchain", p.storage.Headers.ChainID(), chain.ForkingPoint.ID())
-	if mainChain := p.storage.Headers.ChainID(); chain.ForkingPoint.ID() == mainChain {
+	fmt.Println(">> checkchain", p.storage.ChainID(), chain.ForkingPoint.ID())
+	if mainChain := p.storage.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
-		if candidateChain := candidateStorage.Headers.ChainID(); chain.ForkingPoint.ID() == candidateChain {
+		if candidateChain := candidateStorage.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.ProcessBlockFromPeer(block, src)
 		}
 	}

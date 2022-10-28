@@ -254,8 +254,8 @@ func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 			})
 		}
 
-		if txEpoch > l.ChainStorage.Headers.LatestStateMutationEpoch() {
-			if err := l.ChainStorage.Headers.SetLatestStateMutationEpoch(txEpoch); err != nil {
+		if txEpoch > l.ChainStorage.LatestStateMutationEpoch() {
+			if err := l.ChainStorage.SetLatestStateMutationEpoch(txEpoch); err != nil {
 				l.Events.Error.Trigger(errors.Errorf("failed to update latest state mutation epoch: %w", err))
 			}
 		}
@@ -270,7 +270,7 @@ func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, pre
 		return
 	}
 
-	if oldEpoch <= l.ChainStorage.Headers.LatestCommitment().Index() || newEpoch <= l.ChainStorage.Headers.LatestCommitment().Index() {
+	if oldEpoch <= l.ChainStorage.LatestCommitment().Index() || newEpoch <= l.ChainStorage.LatestCommitment().Index() {
 		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
 		return
 	}

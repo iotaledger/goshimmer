@@ -26,12 +26,12 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		panic(err)
 	}
 
-	snapshotEpoch := engine.Storage.Headers.LatestCommitment().Index()
+	snapshotEpoch := engine.Storage.LatestCommitment().Index()
 	snapshotStart := snapshotEpoch - epoch.Index(depth)
 
 	// Settings
 	{
-		settingsBytes := lo.PanicOnErr(engine.Storage.Headers.Settings.Bytes())
+		settingsBytes := lo.PanicOnErr(engine.Storage.Settings.Bytes())
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(settingsBytes)))
 		binary.Write(fileHandle, binary.LittleEndian, settingsBytes)
 	}
@@ -43,7 +43,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		// Commitment size
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr((&commitment.Commitment{}).Bytes()))))
 		for epochIndex := epoch.Index(0); epochIndex <= snapshotEpoch; epochIndex++ {
-			binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(engine.Storage.Headers.Commitments.Get(int(epochIndex))).Bytes()))
+			binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(lo.PanicOnErr(engine.Storage.LoadCommitment(epochIndex)).Bytes()))
 		}
 	}
 
@@ -136,9 +136,9 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Epoch Diffs -- must be in reverse order to allow Ledger rollback
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-engine.Storage.Headers.Settings.LatestStateMutationEpoch()))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-engine.Storage.LatestStateMutationEpoch()))
 
-		for epochIndex := engine.Storage.Headers.Settings.LatestStateMutationEpoch(); epochIndex >= snapshotEpoch; epochIndex-- {
+		for epochIndex := engine.Storage.LatestStateMutationEpoch(); epochIndex >= snapshotEpoch; epochIndex-- {
 			// Epoch Index
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 

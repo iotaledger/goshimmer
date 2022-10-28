@@ -33,7 +33,7 @@ func Test(t *testing.T) {
 
 	chainStorage, err = New(storageDirectory, 1)
 	require.NoError(t, err)
-	fmt.Println(chainStorage.Commitment(0), chainStorage.Commitment(1))
+	fmt.Println(chainStorage.LoadCommitment(0), chainStorage.LoadCommitment(1))
 	require.Equal(t, epoch.Index(10), chainStorage.LatestStateMutationEpoch())
 
 	fmt.Println(chainStorage.BlockStorage.Get(emptyBlock.ID()))

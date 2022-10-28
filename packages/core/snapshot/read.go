@@ -24,22 +24,22 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		binary.Read(fileHandle, binary.LittleEndian, &settingsSize)
 		settingsBytes := make([]byte, settingsSize)
 		binary.Read(fileHandle, binary.LittleEndian, settingsBytes)
-		engine.Storage.Headers.Settings.FromBytes(settingsBytes)
+		engine.Storage.Settings.FromBytes(settingsBytes)
 	}
 
 	// Committments
 	{
 		ProcessChunks(NewChunkedReader[commitment.Commitment](fileHandle), func(chunk []*commitment.Commitment) {
 			for _, commitment := range chunk {
-				if err := engine.Storage.Headers.Commitments.Set(int(commitment.Index()), commitment); err != nil {
+				if err := engine.Storage.StoreCommitment(commitment.Index(), commitment); err != nil {
 					panic(err)
 				}
 			}
 		})
 	}
 
-	engine.SnapshotCommitment = lo.PanicOnErr(engine.Storage.Headers.Commitments.Get(int(engine.Storage.Headers.LatestCommitment().Index())))
-	if err := engine.Storage.Headers.SetChainID(engine.SnapshotCommitment.ID()); err != nil {
+	engine.SnapshotCommitment = lo.PanicOnErr(engine.Storage.LoadCommitment(engine.Storage.LatestCommitment().Index()))
+	if err := engine.Storage.SetChainID(engine.SnapshotCommitment.ID()); err != nil {
 		panic(err)
 	}
 
@@ -112,7 +112,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 				engine.Ledger.ApplyCreatedDiff,
 			)
 
-			engine.Storage.Ledger.RollbackEpochStateDiff(engine.Storage.Headers.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.Storage.Ledger.RollbackEpochStateDiff(engine.Storage.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
 	}
 }

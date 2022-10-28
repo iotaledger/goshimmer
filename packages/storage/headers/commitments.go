@@ -9,7 +9,7 @@ import (
 )
 
 type Commitments struct {
-	*storable.Slice[commitment.Commitment, *commitment.Commitment]
+	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
 }
 
 func NewCommitments(path string) (newCommitment *Commitments, err error) {
@@ -19,22 +19,26 @@ func NewCommitments(path string) (newCommitment *Commitments, err error) {
 	}
 
 	return &Commitments{
-		Slice: commitmentsSlice,
+		slice: commitmentsSlice,
 	}, nil
 }
 
-func (c *Commitments) Commitment(index epoch.Index) (commitment *commitment.Commitment, err error) {
-	if commitment, err = c.Get(int(index)); err != nil {
+func (c *Commitments) StoreCommitment(index epoch.Index, commitment *commitment.Commitment) (err error) {
+	if err = c.slice.Set(int(index), commitment); err != nil {
+		return errors.Errorf("failed to store commitment for epoch %d: %w", index, err)
+	}
+
+	return nil
+}
+
+func (c *Commitments) LoadCommitment(index epoch.Index) (commitment *commitment.Commitment, err error) {
+	if commitment, err = c.slice.Get(int(index)); err != nil {
 		return nil, errors.Errorf("failed to get commitment for epoch %d: %w", index, err)
 	}
 
 	return commitment, nil
 }
 
-func (c *Commitments) SetCommitment(index epoch.Index, commitment *commitment.Commitment) (err error) {
-	if err = c.Set(int(index), commitment); err != nil {
-		return errors.Errorf("failed to store commitment for epoch %d: %w", index, err)
-	}
-
-	return nil
+func (c *Commitments) Close() (err error) {
+	return c.slice.Close()
 }

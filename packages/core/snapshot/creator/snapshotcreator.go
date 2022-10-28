@@ -31,8 +31,12 @@ import (
 func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
 	now := time.Now()
 
-	e.Storage.Commitments.Set(0, &commitment.Commitment{})
-	e.Storage.SetChain(lo.PanicOnErr(e.Storage.Commitments.Get(0)).ID())
+	if err := e.Storage.StoreCommitment(0, &commitment.Commitment{}); err != nil {
+		panic(err)
+	}
+	if err := e.Storage.SetChainID(lo.PanicOnErr(e.Storage.LoadCommitment(0)).ID()); err != nil {
+		panic(err)
+	}
 
 	// prepare outputsWithMetadata
 	outputsWithMetadata := make([]*storage2.OutputWithMetadata, 0)
@@ -43,10 +47,12 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		e.Storage.ActivityLogStorage.Store(&tangle.ActivityEntry{
+		if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
 			Index: 0,
 			ID:    nodeID,
-		})
+		}); err != nil {
+			panic(err)
+		}
 	}
 
 	e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
@@ -71,19 +77,23 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	e.Storage.ActivityLogStorage.Store(&tangle.ActivityEntry{
+	if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
 		Index: 0,
 		ID:    genesisPledgeID,
-	})
+	}); err != nil {
+		panic(err)
+	}
 
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		e.Storage.ActivityLogStorage.Store(&tangle.ActivityEntry{
+		if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
 			Index: 0,
 			ID:    nodeID,
-		})
+		}); err != nil {
+			panic(err)
+		}
 	}
 
 	e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
