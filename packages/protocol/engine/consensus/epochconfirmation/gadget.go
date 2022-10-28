@@ -28,13 +28,13 @@ type Gadget struct {
 
 func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() (int64, error), opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
-		lastConfirmedEpoch:             lastConfirmedEpoch,
-		totalWeightCallback:            totalWeightCallback,
 		optsEpochConfirmationThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
 
 		a.tangle = tangle
+		a.lastConfirmedEpoch = lastConfirmedEpoch
+		a.totalWeightCallback = totalWeightCallback
 	}, (*Gadget).setup)
 }
 

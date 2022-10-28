@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -33,24 +34,26 @@ type Gadget struct {
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
-	acceptanceOrder         *causalorder.CausalOrder[models.BlockID, *Block]
+	totalWeightCallback     func() (int64, error)
 
 	optsMarkerAcceptanceThreshold   float64
+	optsConfirmationThreshold       float64
 	optsConflictAcceptanceThreshold float64
 }
 
-func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget) {
+func New(tangle *tangle.Tangle, totalWeightCallback func() (int64, error), opts ...options.Option[Gadget]) (gadget *Gadget) {
 	return options.Apply(&Gadget{
 		optsMarkerAcceptanceThreshold:   0.67,
+		optsConfirmationThreshold:       0.67,
 		optsConflictAcceptanceThreshold: 0.67,
 	}, opts, func(a *Gadget) {
 		a.Events = NewEvents()
 
 		a.tangle = tangle
+		a.totalWeightCallback = totalWeightCallback
 		a.evictionManager = tangle.EvictionManager.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
-		a.acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
@@ -111,6 +114,12 @@ func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	a.evictionManager.RLock()
 	defer a.evictionManager.RUnlock()
+
+	totalWeight, err := a.totalWeightCallback()
+	if err != nil {
+		panic(err)
+	}
+
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		if markerIndex == 0 {
 			continue
@@ -119,8 +128,16 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		marker := markers.NewMarker(sequenceID, markerIndex)
 
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
-		if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-			a.propagateAcceptance(marker)
+		if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsConfirmationThreshold) {
+			// we have enough weight to confirm based on total weight
+			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
+				a.propagateAcceptance(marker)
+				// todo propagadeconfirmation
+			}
+		} else {
+			if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+				a.propagateAcceptance(marker)
+			}
 		}
 	}
 }
@@ -152,7 +169,7 @@ func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (a *Gadget) propagateAcceptance(marker markers.Marker) {
+func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) {
 	bookerBlock, blockExists := a.tangle.BlockFromMarker(marker)
 	if !blockExists {
 		return
@@ -164,6 +181,14 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 		return
 	}
 
+	var acceptanceOrder *causalorder.CausalOrder[models.BlockID, *Block]
+	if confirmed {
+		acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
+
+	} else {
+		acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+	}
+
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
@@ -171,7 +196,7 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 			continue
 		}
 
-		a.acceptanceOrder.Queue(walkerBlock)
+		acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
 			if a.isBlockAccepted(parentBlockID) {
@@ -215,8 +240,6 @@ func (a *Gadget) acceptanceFailed(block *Block, err error) {
 func (a *Gadget) evictEpoch(index epoch.Index) {
 	a.evictionManager.Lock()
 	defer a.evictionManager.Unlock()
-
-	a.acceptanceOrder.EvictEpoch(index)
 
 	storage := a.blocks.Get(index, false)
 	if storage != nil {
@@ -333,6 +356,12 @@ func WithMarkerAcceptanceThreshold(acceptanceThreshold float64) options.Option[G
 func WithConflictAcceptanceThreshold(acceptanceThreshold float64) options.Option[Gadget] {
 	return func(gadget *Gadget) {
 		gadget.optsConflictAcceptanceThreshold = acceptanceThreshold
+	}
+}
+
+func WithConfirmationThreshold(confirmationThreshold float64) options.Option[Gadget] {
+	return func(gadget *Gadget) {
+		gadget.optsConfirmationThreshold = confirmationThreshold
 	}
 }
 

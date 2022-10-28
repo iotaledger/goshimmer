@@ -11,8 +11,9 @@ import (
 
 // Block represents a Block annotated with OTV related metadata.
 type Block struct {
-	accepted bool
-	queued   bool
+	accepted  bool
+	confirmed bool
+	queued    bool
 
 	*virtualvoting.Block
 }
@@ -37,6 +38,24 @@ func (b *Block) SetAccepted() (wasUpdated bool) {
 
 	if wasUpdated = !b.accepted; wasUpdated {
 		b.accepted = true
+	}
+
+	return
+}
+
+func (b *Block) IsConfirmed() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.confirmed
+}
+
+func (b *Block) SetConfirmed() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.confirmed; wasUpdated {
+		b.confirmed = true
 	}
 
 	return
