@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
@@ -281,11 +280,6 @@ func registerLocalMetrics() {
 		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
 		deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
 	}
-
-	// mana pledge events
-	deps.Protocol.Engine().ManaTracker.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
-		addPledge(ev)
-	}))
 
 	deps.Protocol.Events.Engine.NotarizationManager.EpochCommitted.Attach(onEpochCommitted)
 }

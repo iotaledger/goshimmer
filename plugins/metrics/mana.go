@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -142,23 +141,6 @@ func AveragePledgeAccess() manamodels.IssuerMap {
 		result[issuerID] = int64(pledgeLog.GetAccessAverage())
 	}
 	return result
-}
-
-// addPledge populates the pledge logs for the issuer.
-func addPledge(event *mana.PledgedEvent) {
-	pledgesLock.Lock()
-	defer pledgesLock.Unlock()
-	pledgeLog := pledges[event.IssuerID]
-	if pledgeLog == nil {
-		pledgeLog = &PledgeLog{}
-	}
-	switch event.ManaType {
-	case manamodels.AccessMana:
-		pledgeLog.AddAccess(event.Amount)
-	case manamodels.ConsensusMana:
-		pledgeLog.AddConsensus(event.Amount)
-	}
-	pledges[event.IssuerID] = pledgeLog
 }
 
 func measureMana() {

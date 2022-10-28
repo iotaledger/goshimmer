@@ -258,8 +258,6 @@ func (e *Engine) initManaTracker() {
 
 	e.ChainStorage.State.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
-
-	e.Events.ManaTracker = e.ManaTracker.Events
 }
 
 func (e *Engine) initSybilProtection() {

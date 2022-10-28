@@ -6,7 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -21,7 +20,6 @@ const (
 // ManaBuffer holds recent data related to mana in the dashboard. Used to fill frontend on page load/reload.
 type ManaBuffer struct {
 	// Events store PledgedEvent and RevokedEvent structs in chronological order.
-	Events          []mana.Event
 	eventsMutex     sync.RWMutex
 	ValueBlks       []*ManaValueBlkData
 	valueBlksMutex  sync.RWMutex
@@ -34,53 +32,10 @@ type ManaBuffer struct {
 // NewManaBuffer creates and initializes a new, empty buffer.
 func NewManaBuffer() *ManaBuffer {
 	return &ManaBuffer{
-		Events:     make([]mana.Event, 0),
 		ValueBlks:  make([]*ManaValueBlkData, 0),
 		MapOverall: make(map[manamodels.Type]*ManaNetworkListBlkData),
 		MapOnline:  make(map[manamodels.Type]*ManaNetworkListBlkData),
 	}
-}
-
-// StoreEvent stores an event in the buffer. If it is full, drops the oldest event.
-func (m *ManaBuffer) StoreEvent(event mana.Event) {
-	m.eventsMutex.Lock()
-	defer m.eventsMutex.Unlock()
-	if len(m.Events) >= maxManaEventsBufferSize {
-		// drop oldest event if buffer is full
-		m.Events = m.Events[1:]
-	}
-	m.Events = append(m.Events, event)
-}
-
-// SendEvents send all events in the buffer through the provided websocket connection.
-func (m *ManaBuffer) SendEvents(ws *websocket.Conn) error {
-	m.eventsMutex.RLock()
-	defer m.eventsMutex.RUnlock()
-	for _, ev := range m.Events {
-		var blk *wsblk
-		switch ev.Type() {
-		case mana.EventTypePledge:
-			blk = &wsblk{
-				Type: MsgTypeManaInitPledge,
-				Data: ev.ToJSONSerializable(),
-			}
-		case mana.EventTypeRevoke:
-			blk = &wsblk{
-				Type: MsgTypeManaInitRevoke,
-				Data: ev.ToJSONSerializable(),
-			}
-		default:
-			return errors.Errorf("unexpected mana event type")
-		}
-		if err := sendJSON(ws, blk); err != nil {
-			return errors.Errorf("failed to send mana event to client: %w", err)
-		}
-	}
-	// signal to frontend that all initial values are sent
-	if err := sendJSON(ws, &wsblk{MsgTypeManaInitDone, nil}); err != nil {
-		return errors.Errorf("failed to send mana event to client: %w", err)
-	}
-	return nil
 }
 
 // StoreValueBlk stores a value blk in the buffer. If it is full, drops the oldest blk.
