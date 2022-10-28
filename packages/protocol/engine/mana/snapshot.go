@@ -30,7 +30,7 @@ func (t *Tracker) processOutputs(outputsWithMetadata []*chainstorage.OutputWithM
 			continue
 		}
 
-		baseVector := t.baseManaVectors[manaType]
+		baseVector := t.vectorByType(manaType)
 
 		var pledgeID identity.ID
 		switch manaType {

@@ -1,4 +1,4 @@
-package notarization
+package proofs
 
 import (
 	"sync/atomic"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 )
 
 const (
@@ -30,7 +31,7 @@ type EventMock struct {
 }
 
 // NewEventMock creates a new EventMock.
-func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
+func NewEventMock(t *testing.T, notarizationManager *notarization.Manager) *EventMock {
 	e := &EventMock{
 		test: t,
 	}

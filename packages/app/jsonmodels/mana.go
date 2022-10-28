@@ -1,7 +1,6 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -30,12 +29,6 @@ type GetAllManaResponse struct {
 	Error              string                 `json:"error,omitempty"`
 }
 
-// EventLogsJSON is a events log in JSON.
-type EventLogsJSON struct {
-	Pledge []*mana.PledgedEventJSON `json:"pledge"`
-	Revoke []*mana.RevokedEventJSON `json:"revoke"`
-}
-
 // GetEventLogsRequest is the request.
 type GetEventLogsRequest struct {
 	IssuerIDs []string `json:"nodeIDs"`
@@ -45,10 +38,9 @@ type GetEventLogsRequest struct {
 
 // GetEventLogsResponse is the response.
 type GetEventLogsResponse struct {
-	Logs      map[string]*EventLogsJSON `json:"logs"`
-	Error     string                    `json:"error,omitempty"`
-	StartTime int64                     `json:"startTime"`
-	EndTime   int64                     `json:"endTime"`
+	Error     string `json:"error,omitempty"`
+	StartTime int64  `json:"startTime"`
+	EndTime   int64  `json:"endTime"`
 }
 
 // GetNHighestResponse holds info about nodes and their mana values.

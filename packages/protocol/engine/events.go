@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -26,7 +25,6 @@ type Events struct {
 	EvictionManager     *eviction.Events
 	NotarizationManager *notarization.Events
 	BlockRequester      *eventticker.Events[models.BlockID]
-	ManaTracker         *mana.Events
 
 	event.LinkableCollection[Events, *Events]
 }
@@ -44,6 +42,5 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 		EvictionManager:     eviction.NewEvents(),
 		NotarizationManager: notarization.NewEvents(),
 		BlockRequester:      eventticker.NewEvents[models.BlockID](),
-		ManaTracker:         mana.NewEvents(),
 	}
 })

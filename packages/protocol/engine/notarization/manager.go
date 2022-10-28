@@ -29,7 +29,7 @@ type Manager struct {
 	acceptanceTime             time.Time
 	optsMinCommittableEpochAge time.Duration
 
-	sync.RWMutex
+	sync.Mutex
 }
 
 func NewManager(storage *chainstorage.ChainStorage, opts ...options.Option[Manager]) (new *Manager) {

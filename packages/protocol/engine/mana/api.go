@@ -3,8 +3,9 @@ package mana
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
 // GetHighestManaIssuers returns the n highest type mana issuers in descending order.
@@ -14,8 +15,8 @@ func (t *Tracker) GetHighestManaIssuers(manaType manamodels.Type, n uint) ([]man
 	if !t.QueryAllowed() {
 		return []manamodels.Issuer{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	bmv := t.baseManaVectors[manaType]
-	return bmv.GetHighestManaIssuers(n)
+
+	return t.vectorByType(manaType).GetHighestManaIssuers(n)
 }
 
 // GetHighestManaIssuersFraction returns the highest mana that own 'p' percent of total mana.
@@ -25,8 +26,8 @@ func (t *Tracker) GetHighestManaIssuersFraction(manaType manamodels.Type, p floa
 	if !t.QueryAllowed() {
 		return []manamodels.Issuer{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	bmv := t.baseManaVectors[manaType]
-	return bmv.GetHighestManaIssuersFraction(p)
+
+	return t.vectorByType(manaType).GetHighestManaIssuersFraction(p)
 }
 
 // GetManaMap returns type mana perception of the issuer.
@@ -34,8 +35,8 @@ func (t *Tracker) GetManaMap(manaType manamodels.Type) (manamodels.IssuerMap, ti
 	if !t.QueryAllowed() {
 		return manamodels.IssuerMap{}, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	manaBaseVector := t.baseManaVectors[manaType]
-	return manaBaseVector.GetManaMap()
+
+	return t.vectorByType(manaType).GetManaMap()
 }
 
 // GetCMana is a wrapper for the approval weight.
@@ -52,8 +53,8 @@ func (t *Tracker) GetTotalMana(manaType manamodels.Type) (int64, time.Time, erro
 	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	manaBaseVector := t.baseManaVectors[manaType]
-	manaMap, updateTime, err := manaBaseVector.GetManaMap()
+
+	manaMap, updateTime, err := t.vectorByType(manaType).GetManaMap()
 	if err != nil {
 		return 0, time.Now(), err
 	}
@@ -70,8 +71,8 @@ func (t *Tracker) GetAccessMana(issuerID identity.ID) (int64, time.Time, error) 
 	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	accessManaVector := t.baseManaVectors[manamodels.AccessMana]
-	return accessManaVector.GetMana(issuerID)
+
+	return t.vectorByType(manamodels.AccessMana).GetMana(issuerID)
 }
 
 // GetConsensusMana returns the consensus mana of the issuer specified.
@@ -79,8 +80,8 @@ func (t *Tracker) GetConsensusMana(issuerID identity.ID) (int64, time.Time, erro
 	if !t.QueryAllowed() {
 		return 0, time.Now(), manamodels.ErrQueryNotAllowed
 	}
-	consensusManaVector := t.baseManaVectors[manamodels.ConsensusMana]
-	return consensusManaVector.GetMana(issuerID)
+
+	return t.vectorByType(manamodels.ConsensusMana).GetMana(issuerID)
 }
 
 // TODO: this should be processed on another level based on mana maps available in the manager
@@ -105,7 +106,7 @@ func (t *Tracker) GetAllManaMaps() (map[manamodels.Type]manamodels.IssuerMap, er
 		return make(map[manamodels.Type]manamodels.IssuerMap), manamodels.ErrQueryNotAllowed
 	}
 	res := make(map[manamodels.Type]manamodels.IssuerMap)
-	for manaType := range t.baseManaVectors {
+	for _, manaType := range []manamodels.Type{manamodels.AccessMana, manamodels.ConsensusMana} {
 		res[manaType], _, _ = t.GetManaMap(manaType)
 	}
 	return res, nil
@@ -150,5 +151,16 @@ func (t *Tracker) QueryAllowed() (allowed bool) {
 	// return deps.Tangle.Bootstrapped() || debuggingEnabled\
 
 	// query allowed only when base mana vectors have been initialized
-	return len(t.baseManaVectors) > 0
+	return t.consensusManaVector != nil && t.accessManaVector != nil
+}
+
+func (t *Tracker) vectorByType(manaType manamodels.Type) (manaVector *manamodels.ManaBaseVector) {
+	switch manaType {
+	case manamodels.AccessMana:
+		return t.accessManaVector
+	case manamodels.ConsensusMana:
+		return t.consensusManaVector
+	default:
+		panic("unknown mana type")
+	}
 }

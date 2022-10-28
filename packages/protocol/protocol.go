@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
@@ -143,8 +142,8 @@ func (p *Protocol) initMainEngine() {
 func (p *Protocol) initChainManager() {
 	p.chainManager = chainmanager.NewManager(p.Engine().SnapshotCommitment)
 
-	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
-		p.chainManager.ProcessCommitment(event.Commitment)
+	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		p.chainManager.ProcessCommitment(commitment)
 	}))
 }
 

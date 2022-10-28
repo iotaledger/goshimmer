@@ -9,14 +9,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 )
 
@@ -45,26 +43,13 @@ func configureManaFeed() {
 			sendManaMapOverall()
 		case MsgTypeManaMapOnline:
 			sendManaMapOnline()
-		case MsgTypeManaPledge:
-			sendManaPledge(task.Param(1).(*mana.PledgedEvent))
-		case MsgTypeManaRevoke:
-			sendManaRevoke(task.Param(1).(*mana.RevokedEvent))
 		}
 		task.Return(nil)
 	}, workerpool.WorkerCount(manaFeedWorkerCount), workerpool.QueueSize(manaFeedWorkerQueueSize))
 }
 
 func runManaFeed() {
-	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
-	})
-	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
-		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
-	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
-		// TODO: use linkable events on protocol level
-		deps.Protocol.Engine().ManaTracker.Events.Pledged.Attach(notifyManaPledge)
-		deps.Protocol.Engine().ManaTracker.Events.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
@@ -196,22 +181,6 @@ func sendManaMapOnline() {
 		Data: consensusPayload,
 	})
 	ManaBufferInstance().StoreMapOnline(accessPayload, consensusPayload)
-}
-
-func sendManaPledge(ev *mana.PledgedEvent) {
-	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsBlock(&wsblk{
-		Type: MsgTypeManaPledge,
-		Data: ev.ToJSONSerializable(),
-	})
-}
-
-func sendManaRevoke(ev *mana.RevokedEvent) {
-	ManaBufferInstance().StoreEvent(ev)
-	broadcastWsBlock(&wsblk{
-		Type: MsgTypeManaRevoke,
-		Data: ev.ToJSONSerializable(),
-	})
 }
 
 // endregion
