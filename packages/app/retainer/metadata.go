@@ -29,6 +29,7 @@ type cachedMetadata struct {
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
 	Acceptance    *blockWithTime[*acceptance.Block]
+	//Confirmation  *blockWithTime[*confirmation.Block]
 
 	sync.RWMutex
 }
@@ -129,6 +130,10 @@ type blockMetadataModel struct {
 	// acceptance.Block
 	Accepted     bool      `serix:"23"`
 	AcceptedTime time.Time `serix:"24"`
+
+	// confirmation.Block
+	Confirmed     bool      `serix:"25"`
+	ConfirmedTime time.Time `serix:"26"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.

@@ -48,7 +48,13 @@ func (r *Retainer) BlockMetadata(blockID models.BlockID) (metadata *BlockMetadat
 		return blockMetadata, blockExists
 	}
 
-	return r.blockStorage.Get(blockID)
+	metadata, exists = r.blockStorage.Get(blockID)
+	if exists && !metadata.M.Confirmed && blockID.Index() <= r.protocol.Engine().LastConfirmedEpoch() {
+		metadata.M.Confirmed = true
+		metadata.M.ConfirmedTime = blockID.Index().EndTime()
+	}
+
+	return metadata, exists
 }
 
 func (r *Retainer) setupEvents() {
