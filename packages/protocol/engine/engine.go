@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eventticker"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 
 	// "github.com/iotaledger/goshimmer/packages/core/snapshot"
@@ -163,7 +164,10 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.ChainStorage.LatestConfirmedEpoch(), e.optsConsensusOptions...)
+	e.Consensus = consensus.New(e.Tangle, e.ChainStorage.LatestConfirmedEpoch(), func() (int64, error) {
+		totalMana, _, err := e.ManaTracker.GetTotalMana(manamodels.ConsensusMana)
+		return totalMana, err
+	}, e.optsConsensusOptions...)
 
 	e.Events.Consensus = e.Consensus.Events
 
@@ -258,7 +262,6 @@ func (e *Engine) initManaTracker() {
 
 func (e *Engine) initSybilProtection() {
 	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana, e.optsSybilProtectionOptions...)
-
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
 }
 

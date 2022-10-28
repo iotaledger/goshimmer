@@ -6,8 +6,10 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -47,7 +49,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.optsValidatorSet = validator.NewSet()
 			}
 
-			t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+			t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, func() epoch.Index {
+				return 0
+			}, func(id markers.SequenceID) markers.Index {
+				return 1
+			}, t.optsTangle...)
 		}
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
