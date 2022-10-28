@@ -41,7 +41,9 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 	// Ledgerstate
 	{
 		ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
-			engine.Ledger.LoadOutputsWithMetadata, engine.ManaTracker.LoadOutputsWithMetadata, engine.ChainStorage.State.Import)
+			engine.Ledger.LoadOutputsWithMetadata, engine.ManaTracker.LoadOutputsWithMetadata, func(chunk []*chainstorage.OutputWithMetadata) {
+				engine.ChainStorage.State.Import(engine.ChainStorage.LatestCommitment().Index(), chunk)
+			})
 	}
 
 	// Solid Entry Points
@@ -76,7 +78,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		var numEpochs uint32
 		binary.Read(fileHandle, binary.LittleEndian, &numEpochs)
 
-		for i := uint32(0); i < numEpochs; i++ {
+		for i := uint32(1); i <= numEpochs; i++ {
 			var epochIndex epoch.Index
 			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
 
@@ -86,12 +88,6 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
 				func(createdChunk []*chainstorage.OutputWithMetadata) {
 					diff.ApplyCreatedOutputs(createdChunk)
-
-					for _, createdOutputWithMetadata := range createdChunk {
-						engine.ChainStorage.DiffStorage.StoreCreated(createdOutputWithMetadata)
-					}
-
-					engine.ManaTracker.RollbackOutputs(epochIndex, createdChunk, true)
 				},
 				engine.Ledger.ApplySpentDiff,
 			)
@@ -100,17 +96,11 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
 				func(spentChunk []*chainstorage.OutputWithMetadata) {
 					diff.ApplyDeletedOutputs(spentChunk)
-
-					for _, spentOutputWithMetadata := range spentChunk {
-						engine.ChainStorage.DiffStorage.StoreSpent(spentOutputWithMetadata)
-					}
-
-					engine.ManaTracker.RollbackOutputs(epochIndex, spentChunk, false)
 				},
 				engine.Ledger.ApplyCreatedDiff,
 			)
 
-			engine.ChainStorage.State.Apply(diff)
+			engine.ChainStorage.State.Apply(engine.ChainStorage.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
 	}
 }

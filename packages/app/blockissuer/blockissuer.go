@@ -46,7 +46,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		identity: localIdentity,
 		protocol: protocol,
 		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() epoch.Index {
-			return protocol.Engine().ChainStorage.LatestCommittedEpoch()
+			return protocol.Engine().ChainStorage.LatestCommitment().Index()
 		}),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(
@@ -59,7 +59,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			},
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
-				latestCommitment := i.protocol.Engine().NotarizationManager.LatestCommitment()
+				latestCommitment := i.protocol.Engine().ChainStorage.LatestCommitment()
 				if err != nil {
 					return nil, 0, err
 				}

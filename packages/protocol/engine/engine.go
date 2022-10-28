@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -19,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 
-	// "github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
@@ -209,7 +207,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.ChainStorage, append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...)
+	e.NotarizationManager = notarization.NewManager(e.ChainStorage)
 
 	e.Consensus.AcceptanceGadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -290,7 +288,6 @@ func (e *Engine) initBlockRequester() {
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
-	fmt.Println(">> MainEngin ProcessBlock")
 	e.Inbox.ProcessReceivedBlock(block, source)
 }
 

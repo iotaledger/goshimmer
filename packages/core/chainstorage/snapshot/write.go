@@ -27,6 +27,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	}
 
 	snapshotEpoch := engine.ChainStorage.LatestCommitment().Index()
+	snapshotStart := snapshotEpoch - epoch.Index(depth)
 
 	// Settings
 	{
@@ -99,7 +100,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Solid Entry Points
 	{
 		var solidEntryPointsCount uint32
-		for epochIndex := startEpoch; epochIndex <= snapshotEpoch; epochIndex++ {
+		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
 			solidEntryPointsCount += uint32(engine.ChainStorage.SolidEntryPointsStorage.GetAll(epochIndex).Size())
 		}
 
@@ -109,7 +110,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 		dummyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
 		binary.Write(fileHandle, binary.LittleEndian, uint32(len(lo.PanicOnErr(dummyBlock.Bytes()))))
 
-		for epochIndex := startEpoch; epochIndex <= snapshotEpoch; epochIndex++ {
+		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
 			engine.ChainStorage.SolidEntryPointsStorage.Stream(epochIndex, func(block *models.Block) {
 				binary.Write(fileHandle, binary.LittleEndian, lo.PanicOnErr(block.Bytes()))
 			})
@@ -119,9 +120,9 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Activity Log
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-startEpoch+1))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-snapshotStart+1))
 
-		for epochIndex := startEpoch; epochIndex <= snapshotEpoch; epochIndex++ {
+		for epochIndex := snapshotStart; epochIndex <= snapshotEpoch; epochIndex++ {
 			// Activity Log count
 			binary.Write(fileHandle, binary.LittleEndian, uint32(engine.ChainStorage.ActivityLogStorage.GetAll(epochIndex).Size()))
 			// Activity Log size
@@ -135,9 +136,9 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 	// Epoch Diffs -- must be in reverse order to allow Ledger rollback
 	{
 		// Number of epochs
-		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-startEpoch))
+		binary.Write(fileHandle, binary.LittleEndian, uint32(snapshotEpoch-engine.ChainStorage.Settings.LatestStateMutationEpoch))
 
-		for epochIndex := snapshotEpoch; epochIndex >= startEpoch; epochIndex-- {
+		for epochIndex := engine.ChainStorage.Settings.LatestStateMutationEpoch; epochIndex >= snapshotEpoch; epochIndex-- {
 			// Epoch Index
 			binary.Write(fileHandle, binary.LittleEndian, epochIndex)
 

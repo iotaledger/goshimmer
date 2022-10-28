@@ -13,8 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
-const EpochDelay = 2
-
 type Tracker struct {
 	ledger          *ledger.Ledger
 	chainStorage    *chainstorage.ChainStorage
