@@ -180,7 +180,7 @@ func (e *Engine) initBlockStorage() {
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.ChainStorage, append(e.optsNotarizationManagerOptions, notarization.ManaEpochDelay(mana.EpochDelay))...)
+	e.NotarizationManager = notarization.NewManager(e.ChainStorage)
 
 	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
