@@ -4,11 +4,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
+	"github.com/iotaledger/goshimmer/packages/storage/ledger"
 )
 
 // LoadOutputsWithMetadata loads OutputWithMetadata from a snapshot file to the storage.
-func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.OutputWithMetadata) {
+func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*ledger.OutputWithMetadata) {
 	for _, outputWithMetadata := range outputsWithMetadata {
 		newOutputMetadata := NewOutputMetadata(outputWithMetadata.ID())
 		newOutputMetadata.SetAccessManaPledgeID(outputWithMetadata.AccessManaPledgeID())
@@ -23,7 +23,7 @@ func (l *Ledger) LoadOutputsWithMetadata(outputsWithMetadata []*chainstorage.Out
 }
 
 // ApplySpentDiff applies the spent output to the Ledgerstate.
-func (l *Ledger) ApplySpentDiff(spentOutputs []*chainstorage.OutputWithMetadata) {
+func (l *Ledger) ApplySpentDiff(spentOutputs []*ledger.OutputWithMetadata) {
 	for _, spent := range spentOutputs {
 		l.Storage.outputStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
 		l.Storage.outputMetadataStorage.Delete(lo.PanicOnErr(spent.ID().Bytes()))
@@ -33,7 +33,7 @@ func (l *Ledger) ApplySpentDiff(spentOutputs []*chainstorage.OutputWithMetadata)
 }
 
 // ApplyCreatedDiff applies the created output to the Ledgerstate.
-func (l *Ledger) ApplyCreatedDiff(createdOutputs []*chainstorage.OutputWithMetadata) {
+func (l *Ledger) ApplyCreatedDiff(createdOutputs []*ledger.OutputWithMetadata) {
 	for _, created := range createdOutputs {
 		outputMetadata := NewOutputMetadata(created.ID())
 		outputMetadata.SetAccessManaPledgeID(created.AccessManaPledgeID())

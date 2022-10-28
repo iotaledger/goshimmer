@@ -1,4 +1,4 @@
-package chainstorage
+package tangle
 
 import (
 	"github.com/cockroachdb/errors"
@@ -11,13 +11,15 @@ import (
 )
 
 type SolidEntryPointsStorage struct {
-	chainStorage *ChainStorage
+	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func (s *SolidEntryPointsStorage) Store(block *models.Block) {
-	if err := s.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
-		s.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store solid entry point block %s: %w", block.ID, err))
+func (s *SolidEntryPointsStorage) Store(block *models.Block) (err error) {
+	if err = s.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
+		return errors.Errorf("failed to store solid entry point block %s: %w", block.ID, err)
 	}
+
+	return nil
 }
 
 func (s *SolidEntryPointsStorage) Get(blockID models.BlockID) (block *models.Block, err error) {
@@ -47,10 +49,12 @@ func (s *SolidEntryPointsStorage) GetAll(index epoch.Index) (rootBlocks *set.Adv
 	return
 }
 
-func (s *SolidEntryPointsStorage) Delete(blockID models.BlockID) {
-	if err := s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
-		s.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err))
+func (s *SolidEntryPointsStorage) Delete(blockID models.BlockID) (err error) {
+	if err = s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
+		return errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
 	}
+
+	return nil
 }
 
 func (s *SolidEntryPointsStorage) Stream(index epoch.Index, callback func(*models.Block)) {
@@ -63,8 +67,4 @@ func (s *SolidEntryPointsStorage) Stream(index epoch.Index, callback func(*model
 		callback(block)
 		return true
 	})
-}
-
-func (s *SolidEntryPointsStorage) Storage(index epoch.Index) (storage kvstore.KVStore) {
-	return s.chainStorage.bucketedStorage(index, SolidEntryPointsStorageType)
 }

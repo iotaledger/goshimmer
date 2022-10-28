@@ -9,11 +9,12 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage/ledger"
+	"github.com/iotaledger/goshimmer/packages/storage/tangle"
 )
 
 func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
@@ -23,28 +24,32 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		binary.Read(fileHandle, binary.LittleEndian, &settingsSize)
 		settingsBytes := make([]byte, settingsSize)
 		binary.Read(fileHandle, binary.LittleEndian, settingsBytes)
-		engine.ChainStorage.Settings.FromBytes(settingsBytes)
+		engine.Storage.Headers.Settings.FromBytes(settingsBytes)
 	}
 
 	// Committments
 	{
 		ProcessChunks(NewChunkedReader[commitment.Commitment](fileHandle), func(chunk []*commitment.Commitment) {
 			for _, commitment := range chunk {
-				engine.ChainStorage.Commitments.Set(int(commitment.Index()), commitment)
+				if err := engine.Storage.Headers.Commitments.Set(int(commitment.Index()), commitment); err != nil {
+					panic(err)
+				}
 			}
 		})
 	}
 
-	engine.SnapshotCommitment = lo.PanicOnErr(engine.ChainStorage.Commitments.Get(int(engine.ChainStorage.LatestCommitment().Index())))
-	engine.ChainStorage.SetChain(engine.SnapshotCommitment.ID())
+	engine.SnapshotCommitment = lo.PanicOnErr(engine.Storage.Headers.Commitments.Get(int(engine.Storage.Headers.LatestCommitment().Index())))
+	if err := engine.Storage.Headers.SetChainID(engine.SnapshotCommitment.ID()); err != nil {
+		panic(err)
+	}
 
 	// Ledgerstate
 	{
-		ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
+		ProcessChunks(NewChunkedReader[ledger.OutputWithMetadata](fileHandle),
 			engine.Ledger.LoadOutputsWithMetadata,
 			engine.ManaTracker.LoadOutputsWithMetadata,
-			func(chunk []*chainstorage.OutputWithMetadata) {
-				engine.ChainStorage.State.ImportUnspentOutputIDs(lo.Map(chunk, (*chainstorage.OutputWithMetadata).ID))
+			func(chunk []*ledger.OutputWithMetadata) {
+				engine.Storage.Ledger.ImportUnspentOutputIDs(lo.Map(chunk, (*ledger.OutputWithMetadata).ID))
 			},
 		)
 	}
@@ -54,7 +59,9 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		ProcessChunks(NewChunkedReader[models.Block](fileHandle), func(chunk []*models.Block) {
 			for _, block := range chunk {
 				block.DetermineID()
-				engine.ChainStorage.SolidEntryPointsStorage.Store(block)
+				if err := engine.Storage.Tangle.SolidEntryPointsStorage.Store(block); err != nil {
+					panic(err)
+				}
 			}
 		})
 	}
@@ -67,10 +74,12 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		for i := uint32(0); i < numEpochs; i++ {
 			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
 				for _, id := range chunk {
-					engine.ChainStorage.ActivityLogStorage.Store(&chainstorage.ActivityEntry{
+					if err := engine.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
 						Index: epoch.Index(i),
 						ID:    *id,
-					})
+					}); err != nil {
+						panic(err)
+					}
 				}
 			})
 		}
@@ -85,25 +94,25 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			var epochIndex epoch.Index
 			binary.Read(fileHandle, binary.LittleEndian, &epochIndex)
 
-			diff := chainstorage.NewStateDiff()
+			diff := ledger.NewMemoryStateDiff()
 
 			// Created
-			ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
-				func(createdChunk []*chainstorage.OutputWithMetadata) {
+			ProcessChunks(NewChunkedReader[ledger.OutputWithMetadata](fileHandle),
+				func(createdChunk []*ledger.OutputWithMetadata) {
 					diff.ApplyCreatedOutputs(createdChunk)
 				},
 				engine.Ledger.ApplySpentDiff,
 			)
 
 			// Spent
-			ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
-				func(spentChunk []*chainstorage.OutputWithMetadata) {
+			ProcessChunks(NewChunkedReader[ledger.OutputWithMetadata](fileHandle),
+				func(spentChunk []*ledger.OutputWithMetadata) {
 					diff.ApplyDeletedOutputs(spentChunk)
 				},
 				engine.Ledger.ApplyCreatedDiff,
 			)
 
-			engine.ChainStorage.State.RollbackEpochStateDiff(engine.ChainStorage.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.Storage.Ledger.RollbackEpochStateDiff(engine.Storage.Headers.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
 	}
 }

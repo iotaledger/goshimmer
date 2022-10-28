@@ -1,4 +1,4 @@
-package chainstorage
+package tangle
 
 import (
 	"github.com/cockroachdb/errors"
@@ -10,13 +10,15 @@ import (
 )
 
 type BlockStorage struct {
-	chainStorage *ChainStorage
+	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func (b *BlockStorage) Store(block *models.Block) {
-	if err := b.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
-		b.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store block %s: %w", block.ID, err))
+func (b *BlockStorage) Store(block *models.Block) (err error) {
+	if err = b.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
+		return errors.Errorf("failed to store block %s: %w", block.ID, err)
 	}
+
+	return nil
 }
 
 func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err error) {
@@ -38,12 +40,10 @@ func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err err
 	return
 }
 
-func (b *BlockStorage) Delete(blockID models.BlockID) {
-	if err := b.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
-		b.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete block %s: %w", blockID, err))
+func (b *BlockStorage) Delete(blockID models.BlockID) (err error) {
+	if err = b.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
+		return errors.Errorf("failed to delete block %s: %w", blockID, err)
 	}
-}
 
-func (b *BlockStorage) Storage(index epoch.Index) (storage kvstore.KVStore) {
-	return b.chainStorage.bucketedStorage(index, BlockStorageType)
+	return nil
 }

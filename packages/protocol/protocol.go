@@ -12,10 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage/snapshot"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/chainmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol"
@@ -25,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 const (
@@ -46,8 +46,8 @@ type Protocol struct {
 	activeEngineMutex    sync.RWMutex
 	engine               *engine.Engine
 	candidateEngine      *engine.Engine
-	storage              *chainstorage.ChainStorage
-	candidateStorage     *chainstorage.ChainStorage
+	storage              *storage.Storage
+	candidateStorage     *storage.Storage
 	mainChain            commitment.ID
 	candidateChain       commitment.ID
 	optsBaseDirectory    string
@@ -90,7 +90,7 @@ func (p *Protocol) initDisk() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = lo.PanicOnErr(chainstorage.NewChainStorage(p.disk.Path(mainBaseDir), DatabaseVersion))
+	p.storage = lo.PanicOnErr(storage.New(p.disk.Path(mainBaseDir), DatabaseVersion))
 }
 
 func (p *Protocol) initCongestionControl() {
@@ -189,13 +189,13 @@ func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) {
 		return
 	}
 
-	fmt.Println(">> checkchain", p.storage.Chain(), chain.ForkingPoint.ID())
-	if mainChain := p.storage.Chain(); chain.ForkingPoint.ID() == mainChain {
+	fmt.Println(">> checkchain", p.storage.Headers.ChainID(), chain.ForkingPoint.ID())
+	if mainChain := p.storage.Headers.ChainID(); chain.ForkingPoint.ID() == mainChain {
 		p.Engine().ProcessBlockFromPeer(block, src)
 	}
 
 	if candidateEngine, candidateStorage := p.CandidateEngine(), p.CandidateStorage(); candidateEngine != nil && candidateStorage != nil {
-		if candidateChain := candidateStorage.Chain(); chain.ForkingPoint.ID() == candidateChain {
+		if candidateChain := candidateStorage.Headers.ChainID(); chain.ForkingPoint.ID() == candidateChain {
 			candidateEngine.ProcessBlockFromPeer(block, src)
 		}
 	}
@@ -215,7 +215,7 @@ func (p *Protocol) CandidateEngine() (instance *engine.Engine) {
 	return p.candidateEngine
 }
 
-func (p *Protocol) CandidateStorage() (chainstorage *chainstorage.ChainStorage) {
+func (p *Protocol) CandidateStorage() (chainstorage *storage.Storage) {
 	p.activeEngineMutex.RLock()
 	defer p.activeEngineMutex.RUnlock()
 

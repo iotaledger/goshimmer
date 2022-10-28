@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/model"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
+	"github.com/iotaledger/goshimmer/packages/storage/ledger"
 )
 
 // ManaBaseVector represents a base mana vector.
@@ -67,7 +67,7 @@ func (m *ManaBaseVector) InitializeWithData(dataByIssuer map[identity.ID]int64) 
 	}
 }
 
-func (m *ManaBaseVector) GetIDBasedOnManaType(output *chainstorage.OutputWithMetadata) (pledgeID identity.ID) {
+func (m *ManaBaseVector) GetIDBasedOnManaType(output *ledger.OutputWithMetadata) (pledgeID identity.ID) {
 	if m.Type() == ConsensusMana {
 		return output.ConsensusManaPledgeID()
 	}

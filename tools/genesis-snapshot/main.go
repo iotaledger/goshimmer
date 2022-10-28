@@ -5,21 +5,22 @@ import (
 	"log"
 	"os"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage/snapshot"
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage/snapshot/creator"
-	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/ledger"
 )
 
 const (
@@ -109,7 +110,7 @@ func main() {
 }
 
 func createTempEngine() *engine.Engine {
-	chainStorage, err := chainstorage.NewChainStorage(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
+	chainStorage, err := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 	if err != nil {
 		panic(err)
 	}
@@ -149,10 +150,10 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	snapshot.ReadSnapshot(fileHandle, e)
 
 	fmt.Println("--- Settings ---")
-	fmt.Printf("%+v\n", e.ChainStorage.Settings)
+	fmt.Printf("%+v\n", e.Storage.Headers.Settings)
 
 	fmt.Println("--- Commitments ---")
-	fmt.Printf("%+v\n", lo.PanicOnErr(e.ChainStorage.Commitments.Get(0)))
+	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Headers.Commitments.Get(0)))
 
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
@@ -165,20 +166,20 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	e.ChainStorage.SolidEntryPointsStorage.Stream(0, func(b *models.Block) {
+	e.Storage.Tangle.SolidEntryPointsStorage.Stream(0, func(b *models.Block) {
 		fmt.Printf("%+v\n", b)
 	})
 
 	fmt.Println("--- ActivityLog ---")
-	e.ChainStorage.ActivityLogStorage.Stream(0, func(id identity.ID) {
+	e.Storage.Tangle.ActivityLogStorage.Stream(0, func(id identity.ID) {
 		fmt.Printf("%d: %+v\n", 0, id)
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.ChainStorage.DiffStorage.StreamSpent(0, func(owm *chainstorage.OutputWithMetadata) {
+	e.Storage.Ledger.LedgerStateDiffs.StreamSpent(0, func(owm *ledgerStorage.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
-	e.ChainStorage.DiffStorage.StreamCreated(0, func(owm *chainstorage.OutputWithMetadata) {
+	e.Storage.Ledger.LedgerStateDiffs.StreamCreated(0, func(owm *ledgerStorage.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 }

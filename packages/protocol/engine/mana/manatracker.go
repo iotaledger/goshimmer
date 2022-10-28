@@ -4,24 +4,25 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/ledger"
 )
 
 type Tracker struct {
 	ledger              *ledger.Ledger
-	chainStorage        *chainstorage.ChainStorage
+	chainStorage        *storage.Storage
 	accessManaVector    *manamodels.ManaBaseVector
 	consensusManaVector *manamodels.ManaBaseVector
 
 	cManaTargetEpoch epoch.Index
 }
 
-func NewTracker(l *ledger.Ledger, chainStorage *chainstorage.ChainStorage, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
+func NewTracker(l *ledger.Ledger, chainStorage *storage.Storage, opts ...options.Option[Tracker]) (manaTracker *Tracker) {
 	return options.Apply(&Tracker{
 		ledger:              l,
 		chainStorage:        chainStorage,
@@ -30,11 +31,16 @@ func NewTracker(l *ledger.Ledger, chainStorage *chainstorage.ChainStorage, opts 
 	}, opts)
 }
 
-func (t *Tracker) OnConsensusWeightsUpdated(event *chainstorage.ConsensusWeightsUpdatedEvent) {
-	t.applyUpdatesToConsensusVector(event.AmountAndDiffByIdentity)
+func (t *Tracker) UpdateConsensusWeights(weightUpdates map[identity.ID]*ledgerStorage.TimedBalance) {
+	t.consensusManaVector.Lock()
+	defer t.consensusManaVector.Unlock()
+
+	for id, updateMana := range weightUpdates {
+		t.consensusManaVector.SetMana(id, manamodels.NewManaBase(updateMana.Balance))
+	}
 }
 
-func (t *Tracker) OnTransactionAccepted(txMeta *ledger.TransactionMetadata) {
+func (t *Tracker) UpdateMana(txMeta *ledger.TransactionMetadata) {
 	t.ledger.Storage.CachedTransaction(txMeta.ID()).Consume(func(transaction utxo.Transaction) {
 		devnetTransaction := transaction.(*devnetvm.Transaction)
 
@@ -53,11 +59,6 @@ func (t *Tracker) OnTransactionAccepted(txMeta *ledger.TransactionMetadata) {
 			InputInfos: inputInfos,
 		})
 	})
-}
-
-// bookAccessMana books access mana for a transaction.
-func (t *Tracker) bookAccessMana(txInfo *manamodels.TxInfo) {
-	t.bookTransaction(txInfo)
 }
 
 func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, inputInfos []manamodels.InputInfo) {
@@ -88,7 +89,7 @@ func (t *Tracker) gatherInputInfos(inputs devnetvm.Inputs) (totalAmount int64, i
 	return totalAmount, inputInfos
 }
 
-func (t *Tracker) bookTransaction(txInfo *manamodels.TxInfo) {
+func (t *Tracker) bookAccessMana(txInfo *manamodels.TxInfo) {
 	t.accessManaVector.Lock()
 	defer t.accessManaVector.Unlock()
 
@@ -96,19 +97,4 @@ func (t *Tracker) bookTransaction(txInfo *manamodels.TxInfo) {
 		t.accessManaVector.GetOldManaAndRevoke(inputInfo.PledgeID[manamodels.AccessMana], inputInfo.Amount)
 	}
 	t.accessManaVector.GetOldManaAndPledge(txInfo.PledgeID[manamodels.AccessMana], txInfo.TotalBalance)
-}
-
-// BookEpoch takes care of the booking of consensus mana for the given committed epoch.
-func (t *Tracker) applyUpdatesToConsensusVector(weightsUpdate map[identity.ID]*chainstorage.TimedBalance) {
-	t.consensusManaVector.Lock()
-	defer t.consensusManaVector.Unlock()
-
-	for id, updateMana := range weightsUpdate {
-		t.consensusManaVector.SetMana(id, manamodels.NewManaBase(updateMana.Balance))
-	}
-}
-
-func (t *Tracker) cleanupManaVectors() {
-	t.accessManaVector.RemoveZeroIssuers()
-	t.consensusManaVector.RemoveZeroIssuers()
 }
