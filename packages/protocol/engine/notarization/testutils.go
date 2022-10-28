@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
 const (
@@ -22,8 +24,8 @@ type EventMock struct {
 	test           *testing.T
 
 	attached []struct {
-		*event.Event[*EpochCommittedEvent]
-		*event.Closure[*EpochCommittedEvent]
+		*event.Event[*commitment.Commitment]
+		*event.Closure[*commitment.Commitment]
 	}
 }
 
@@ -35,7 +37,7 @@ func NewEventMock(t *testing.T, notarizationManager *Manager) *EventMock {
 
 	// attach all events
 	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommittable))
-	//notarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaVectorUpdate))
+	// notarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaVectorUpdate))
 
 	return e
 }
@@ -76,8 +78,8 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 }
 
 // EpochCommittable is the mocked EpochCommittable event.
-func (e *EventMock) EpochCommittable(event *EpochCommittedEvent) {
-	e.Called(event.EI)
+func (e *EventMock) EpochCommittable(commitment *commitment.Commitment) {
+	e.Called(commitment.Index())
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 

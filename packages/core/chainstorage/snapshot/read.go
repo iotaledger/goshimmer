@@ -41,9 +41,12 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 	// Ledgerstate
 	{
 		ProcessChunks(NewChunkedReader[chainstorage.OutputWithMetadata](fileHandle),
-			engine.Ledger.LoadOutputsWithMetadata, engine.ManaTracker.LoadOutputsWithMetadata, func(chunk []*chainstorage.OutputWithMetadata) {
-				engine.ChainStorage.State.Import(engine.ChainStorage.LatestCommitment().Index(), chunk)
-			})
+			engine.Ledger.LoadOutputsWithMetadata,
+			engine.ManaTracker.LoadOutputsWithMetadata,
+			func(chunk []*chainstorage.OutputWithMetadata) {
+				engine.ChainStorage.State.ImportUnspentOutputIDs(lo.Map(chunk, (*chainstorage.OutputWithMetadata).ID))
+			},
+		)
 	}
 
 	// Solid Entry Points
@@ -100,7 +103,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 				engine.Ledger.ApplyCreatedDiff,
 			)
 
-			engine.ChainStorage.State.Apply(engine.ChainStorage.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.ChainStorage.State.RollbackEpochStateDiff(engine.ChainStorage.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
 	}
 }

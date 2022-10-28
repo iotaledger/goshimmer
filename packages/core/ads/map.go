@@ -31,7 +31,7 @@ func (m *Map[K, V, VPtr]) Root() (root types.Identifier) {
 }
 
 // Set sets the output to unspent outputs set.
-func (m *Map[K, V, VPtr]) Set(key K, value V) {
+func (m *Map[K, V, VPtr]) Set(key K, value VPtr) {
 	valueBytes := lo.PanicOnErr(value.Bytes())
 	if len(valueBytes) == 0 {
 		panic("value cannot be empty")
@@ -59,15 +59,16 @@ func (m *Map[K, V, VPtr]) Has(key K) (has bool) {
 }
 
 // Get returns the value for the given key.
-func (m *Map[K, V, VPtr]) Get(key K) (value V, exists bool) {
+func (m *Map[K, V, VPtr]) Get(key K) (value VPtr, exists bool) {
 	valueBytes := lo.PanicOnErr(m.tree.Get(lo.PanicOnErr(key.Bytes())))
 	if len(valueBytes) == 0 {
 		return value, false
 	}
-	var valuePtr VPtr = new(V)
-	if _, err := valuePtr.FromBytes(valueBytes); err != nil {
+
+	value = new(V)
+	if _, err := value.FromBytes(valueBytes); err != nil {
 		panic(err)
 	}
 
-	return *valuePtr, true
+	return value, true
 }

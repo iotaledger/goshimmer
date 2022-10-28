@@ -134,6 +134,7 @@ var _ Event = &PledgedEvent{}
 type RevokedEvent struct {
 	IssuerID      identity.ID
 	Amount        int64
+	Time          time.Time
 	ManaType      manamodels.Type // shall only be consensus for now
 	TransactionID utxo.TransactionID
 	InputID       utxo.OutputID
@@ -145,6 +146,7 @@ type RevokedEventJSON struct {
 	IssuerID string `json:"issuerID"`
 	TxID     string `json:"txID"`
 	Amount   int64  `json:"amount"`
+	Time     int64  `json:"time"`
 	InputID  string `json:"inputID"`
 }
 

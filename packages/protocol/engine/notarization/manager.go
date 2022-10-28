@@ -112,31 +112,22 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 		return false
 	}
 
+	m.pendingConflictsCounters.Delete(index)
+
 	acceptedBlocks, acceptedTransactions, activeValidators, err := m.EpochMutations.Commit(index)
 	if err != nil {
 		m.Events.Error.Trigger(errors.Errorf("failed to commit mutations: %w", err))
 
 		return false
 	}
-	stateRoot, manaRoot := m.storage.State.Apply(m.storage.DiffStorage.StateDiff(index))
+	stateRoot, manaRoot := m.storage.State.ApplyEpoch(index)
 
 	// TODO: obtain and commit to cumulative weight
 	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)
 
 	m.storage.SetLatestCommitment(newCommitment)
 
-	m.pendingConflictsCounters.Delete(index)
-
-	// TODO: FIX UPDATES
-	m.Events.ConsensusWeightsUpdated.Trigger(&ConsensusWeightsUpdatedEvent{
-		EI:                      index,
-		AmountAndDiffByIdentity: nil,
-	})
-
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{
-		EI:         index,
-		Commitment: newCommitment,
-	})
+	m.Events.EpochCommitted.Trigger(newCommitment)
 
 	return true
 }
