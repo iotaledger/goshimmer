@@ -69,6 +69,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 			return true
 		})
 
+		// TODO: seek back to this location instead of scanning the collection twice
 		// Output count
 		binary.Write(fileHandle, binary.LittleEndian, outputCount)
 
@@ -145,6 +146,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 				createdCount++
 			})
 
+			// TODO: seek back to this location instead of scanning the collection twice
 			// Created count
 			binary.Write(fileHandle, binary.LittleEndian, createdCount)
 			// OutputWithMetadata size
@@ -158,6 +160,7 @@ func WriteSnapshot(filePath string, engine *engine.Engine, depth int) {
 				spentCount++
 			})
 
+			// TODO: seek back to this location instead of scanning the collection twice
 			// Spent count
 			binary.Write(fileHandle, binary.LittleEndian, spentCount)
 			// OutputWithMetadata size
