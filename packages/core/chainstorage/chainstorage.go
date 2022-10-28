@@ -50,7 +50,7 @@ func NewChainStorage(folder string, databaseVersion database.Version) (chainStor
 	chainStorage = &ChainStorage{
 		Events: NewEvents(),
 	}
-	chainStorage.State = New(chainStorage.permanentStorage(StateTreeStorageType), chainStorage.permanentStorage(ManaTreeStorageType))
+	chainStorage.State = NewState(chainStorage)
 	chainStorage.BlockStorage = &BlockStorage{chainStorage}
 	chainStorage.DiffStorage = &DiffStorage{chainStorage}
 	chainStorage.SolidEntryPointsStorage = &SolidEntryPointsStorage{chainStorage}

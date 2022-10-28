@@ -223,7 +223,7 @@ func (e *Engine) initNotarizationManager() {
 func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.ChainStorage, e.optsManaTrackerOptions...)
 
-	e.NotarizationManager.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
+	e.ChainStorage.State.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
 
 	e.Events.ManaTracker = e.ManaTracker.Events
@@ -236,8 +236,8 @@ func (e *Engine) initSybilProtection() {
 }
 
 func (e *Engine) initEvictionManager() {
-	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(event *notarization.EpochCommittedEvent) {
-		e.EvictionState.EvictUntil(event.EI, e.EntryPointsManager.SolidEntryPoints(event.EI))
+	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
+		e.EvictionState.EvictUntil(commitment.Index(), e.EntryPointsManager.SolidEntryPoints(commitment.Index()))
 	}))
 
 	e.Events.EvictionManager = e.EvictionState.Events
