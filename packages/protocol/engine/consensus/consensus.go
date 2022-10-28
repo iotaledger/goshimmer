@@ -26,7 +26,7 @@ type Consensus struct {
 
 func New(tangle *tangle.Tangle, lastConfirmedEpoch epoch.Index, totalWeightCallback func() (int64, error), opts ...options.Option[Consensus]) *Consensus {
 	return options.Apply(new(Consensus), opts, func(c *Consensus) {
-		c.AcceptanceGadget = acceptance.New(tangle, c.optsAcceptanceGadget...)
+		c.AcceptanceGadget = acceptance.New(tangle, totalWeightCallback, c.optsAcceptanceGadget...)
 		c.EpochConfirmationGadget = epochconfirmation.New(tangle, lastConfirmedEpoch, totalWeightCallback, c.optsEpochConfirmationGadget...)
 		c.ConflictResolver = conflictresolver.New(tangle.Ledger.ConflictDAG, func(conflictID utxo.TransactionID) (weight int64) {
 			return tangle.VirtualVoting.ConflictVoters(conflictID).TotalWeight()

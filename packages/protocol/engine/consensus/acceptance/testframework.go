@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -63,10 +64,16 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 					t.optsValidatorSet = validator.NewSet()
 				}
 
-				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangleOptions...)
+				t.optsTangle = tangle.New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, func() epoch.Index {
+					return 0
+				}, func(id markers.SequenceID) markers.Index {
+					return 1
+				}, t.optsTangleOptions...)
 			}
 
-			t.Gadget = New(t.optsTangle, t.optsGadgetOptions...)
+			t.Gadget = New(t.optsTangle, func() (int64, error) {
+				return t.ValidatorSet.TotalWeight(), nil
+			}, t.optsGadgetOptions...)
 		}
 
 		if t.TangleTestFramework == nil {
@@ -79,6 +86,14 @@ func (t *TestFramework) setupEvents() {
 	t.Gadget.Events.BlockAccepted.Hook(event.NewClosure(func(metadata *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("ACCEPTED: %s", metadata.ID())
+		}
+
+		atomic.AddUint32(&(t.acceptedBlocks), 1)
+	}))
+
+	t.Gadget.Events.BlockConfirmed.Hook(event.NewClosure(func(metadata *Block) {
+		if debug.GetEnabled() {
+			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
 
 		atomic.AddUint32(&(t.acceptedBlocks), 1)

@@ -179,6 +179,10 @@ func (e *Engine) initClock() {
 		e.Clock.SetAcceptedTime(block.IssuingTime())
 	}))
 
+	e.Events.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
+		e.Clock.SetConfirmedTime(block.IssuingTime())
+	}))
+
 	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
 		e.Clock.SetConfirmedTime(epochIndex.EndTime())
 	}))

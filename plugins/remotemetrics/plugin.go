@@ -147,7 +147,7 @@ func configureBlockFinalizedMetrics() {
 	} else if Parameters.MetricsLevel == Info {
 		deps.Protocol.Events.Engine.Ledger.TransactionAccepted.Attach(event.NewClosure(onTransactionConfirmed))
 	} else {
-		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
 			onBlockFinalized(block.ModelsBlock)
 		}))
 	}

@@ -88,6 +88,11 @@ func (r *Retainer) setupEvents() {
 		cm.setAcceptanceBlock(block)
 	}))
 
+	r.protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
+		cm := r.createOrGetCachedMetadata(block.ID())
+		cm.setConfirmationBlock(block)
+	}))
+
 	r.protocol.Events.Engine.EvictionManager.EpochEvicted.Attach(event.NewClosure(r.storeAndEvictEpoch))
 }
 

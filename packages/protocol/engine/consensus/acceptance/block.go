@@ -82,7 +82,7 @@ func (b *Block) SetQueued() (wasUpdated bool) {
 func NewRootBlock(blockID models.BlockID) *Block {
 	virtualVotingBlock := virtualvoting.NewRootBlock(blockID)
 
-	return NewBlock(virtualVotingBlock, WithAccepted(true))
+	return NewBlock(virtualVotingBlock, WithAccepted(true), WithConfirmed(true))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,6 +95,11 @@ func WithAccepted(accepted bool) options.Option[Block] {
 	}
 }
 
+func WithConfirmed(confirmed bool) options.Option[Block] {
+	return func(b *Block) {
+		b.confirmed = confirmed
+	}
+}
 func WithQueued(queued bool) options.Option[Block] {
 	return func(b *Block) {
 		b.queued = queued

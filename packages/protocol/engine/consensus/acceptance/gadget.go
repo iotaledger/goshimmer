@@ -78,6 +78,11 @@ func (a *Gadget) isBlockAccepted(blockID models.BlockID) bool {
 	return exists && block.IsAccepted()
 }
 
+func (a *Gadget) isBlockConfirmed(blockID models.BlockID) bool {
+	block, exists := a.block(blockID)
+	return exists && block.IsConfirmed()
+}
+
 func (a *Gadget) isMarkerAccepted(marker markers.Marker) bool {
 	if marker.Index() == 0 {
 		return true
@@ -131,12 +136,11 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 		if validator.IsThresholdReached(totalWeight, a.tangle.ValidatorSet.TotalWeight(), a.optsConfirmationThreshold) {
 			// we have enough weight to confirm based on total weight
 			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
-				a.propagateAcceptance(marker)
-				// todo propagadeconfirmation
+				a.propagateAcceptance(marker, true)
 			}
 		} else {
 			if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-				a.propagateAcceptance(marker)
+				a.propagateAcceptance(marker, false)
 			}
 		}
 	}
@@ -199,7 +203,7 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) {
 		acceptanceOrder.Queue(walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
-			if a.isBlockAccepted(parentBlockID) {
+			if !confirmed && a.isBlockAccepted(parentBlockID) || confirmed && a.isBlockConfirmed(parentBlockID) {
 				continue
 			}
 
@@ -230,6 +234,30 @@ func (a *Gadget) markAsAccepted(block *Block) (err error) {
 		}
 	}
 
+	return nil
+}
+
+func (a *Gadget) markAsConfirmed(block *Block) (err error) {
+	if a.evictionManager.IsTooOld(block.ID()) {
+		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
+	}
+
+	if block.SetAccepted() {
+		// If block has been orphaned before acceptance, remove the flag from the block. Otherwise, remove the block from TimedHeap.
+		if block.IsExplicitlyOrphaned() {
+			a.tangle.SetOrphaned(block.Block.Block.Block, false)
+		}
+
+		a.Events.BlockAccepted.Trigger(block)
+
+		// set ConfirmationState of payload (applicable only to transactions)
+		if tx, ok := block.Payload().(*devnetvm.Transaction); ok {
+			a.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
+		}
+	}
+	if block.SetConfirmed() {
+		a.Events.BlockConfirmed.Trigger(block)
+	}
 	return nil
 }
 

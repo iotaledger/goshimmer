@@ -92,6 +92,11 @@ func configure(plugin *node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
+		}
+	}))
+
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastConfirmedBlock = block
 		}
 	}))
@@ -261,6 +266,7 @@ type tangleTime struct {
 
 	AcceptedBlockID  string `json:"acceptedBlockID"`
 	ConfirmedBlockID string `json:"confirmedBlockID"`
+	ConfirmedEpoch   int64  `json:"confirmedEpoch"`
 }
 
 type memmetrics struct {
@@ -372,6 +378,7 @@ func currentNodeStatus() *nodestatus {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlock.ID().Base58(),
 		ConfirmedBlockID: lastConfirmedBlock.ID().Base58(),
+		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
 		ATT:              tm.AcceptedTime().UnixNano(),
 		RATT:             tm.RelativeAcceptedTime().UnixNano(),
 		CTT:              tm.ConfirmedTime().UnixNano(),

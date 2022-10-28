@@ -50,10 +50,13 @@ func configure(_ *node.Plugin) {
 	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if lastAcceptedBlock == nil || lastAcceptedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastAcceptedBlock = block
+		}
+	}))
+	deps.Protocol.Events.Engine.Consensus.Acceptance.BlockConfirmed.Attach(event.NewClosure(func(block *acceptance.Block) {
+		if lastConfirmedBlock == nil || lastConfirmedBlock.IssuingTime().Before(block.IssuingTime()) {
 			lastConfirmedBlock = block
 		}
 	}))
-
 	deps.Server.GET("info", getInfo)
 }
 
@@ -127,10 +130,12 @@ func getInfo(c echo.Context) error {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlockID.Base58(),
 		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
-		ATT:              tm.AcceptedTime().UnixNano(),
-		RATT:             tm.RelativeAcceptedTime().UnixNano(),
-		CTT:              tm.ConfirmedTime().UnixNano(),
-		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
+		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
+
+		ATT:  tm.AcceptedTime().UnixNano(),
+		RATT: tm.RelativeAcceptedTime().UnixNano(),
+		CTT:  tm.ConfirmedTime().UnixNano(),
+		RCTT: tm.RelativeConfirmedTime().UnixNano(),
 	}
 
 	accessMana, tAccess, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(deps.Local.ID())

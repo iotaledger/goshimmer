@@ -29,7 +29,7 @@ type cachedMetadata struct {
 	VirtualVoting *blockWithTime[*virtualvoting.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
 	Acceptance    *blockWithTime[*acceptance.Block]
-	//Confirmation  *blockWithTime[*confirmation.Block]
+	Confirmation  *blockWithTime[*acceptance.Block]
 
 	sync.RWMutex
 }
@@ -60,6 +60,12 @@ func (c *cachedMetadata) setAcceptanceBlock(block *acceptance.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.Acceptance = newBlockWithTime(block)
+}
+
+func (c *cachedMetadata) setConfirmationBlock(block *acceptance.Block) {
+	c.Lock()
+	defer c.Unlock()
+	c.Confirmation = newBlockWithTime(block)
 }
 
 func (c *cachedMetadata) setSchedulerBlock(block *scheduler.Block) {
@@ -132,8 +138,9 @@ type blockMetadataModel struct {
 	AcceptedTime time.Time `serix:"24"`
 
 	// confirmation.Block
-	Confirmed     bool      `serix:"25"`
-	ConfirmedTime time.Time `serix:"26"`
+	Confirmed        bool      `serix:"25"`
+	ConfirmedTime    time.Time `serix:"26"`
+	ConfirmedByEpoch bool      `serix:"27"`
 }
 
 // NewBlockMetadata creates a new BlockMetadata instance. It does not set the ID, as it is not known at this point.
@@ -192,6 +199,9 @@ func newBlockMetadata(cm *cachedMetadata) (b *BlockMetadata) {
 		copyFromAcceptanceBlock(cm.Acceptance, b)
 	}
 
+	if cm.Confirmation != nil {
+		copyFromConfirmedBlock(cm.Confirmation, b)
+	}
 	return b
 }
 
@@ -249,6 +259,12 @@ func copyFromAcceptanceBlock(blockWithTime *blockWithTime[*acceptance.Block], bl
 	block := blockWithTime.Block
 	blockMetadata.M.Accepted = block.IsAccepted()
 	blockMetadata.M.AcceptedTime = blockWithTime.Time
+}
+
+func copyFromConfirmedBlock(blockWithTime *blockWithTime[*acceptance.Block], blockMetadata *BlockMetadata) {
+	block := blockWithTime.Block
+	blockMetadata.M.Confirmed = block.IsConfirmed()
+	blockMetadata.M.ConfirmedTime = blockWithTime.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -9,10 +9,11 @@ import (
 )
 
 type Events struct {
-	BlockAccepted *event.Linkable[*Block]
-	EpochClosed   *event.Linkable[*memstorage.Storage[models.BlockID, *Block]]
-	Reorg         *event.Linkable[utxo.TransactionID]
-	Error         *event.Linkable[error]
+	BlockAccepted  *event.Linkable[*Block]
+	BlockConfirmed *event.Linkable[*Block]
+	EpochClosed    *event.Linkable[*memstorage.Storage[models.BlockID, *Block]]
+	Reorg          *event.Linkable[utxo.TransactionID]
+	Error          *event.Linkable[error]
 
 	event.LinkableCollection[Events, *Events]
 }
