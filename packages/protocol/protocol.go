@@ -77,13 +77,13 @@ func New(dispatcher network.Endpoint, opts ...options.Option[Protocol]) (protoco
 		(*Protocol).initMainEngine,
 		(*Protocol).initChainManager,
 		(*Protocol).initTipManager,
-		(*Protocol).importSnapshot,
 	)
 }
 
 func (p *Protocol) Run() {
 	p.activateEngine(p.engine)
 	p.initNetworkProtocol()
+	p.importSnapshotFile(p.optsSnapshotPath)
 }
 
 func (p *Protocol) initDisk() {
@@ -98,12 +98,6 @@ func (p *Protocol) initCongestionControl() {
 	p.CongestionControl = congestioncontrol.New(p.optsCongestionControlOptions...)
 
 	p.Events.CongestionControl = p.CongestionControl.Events
-}
-
-func (p *Protocol) importSnapshot() {
-	if err := p.importSnapshotFile(p.optsSnapshotPath); err != nil {
-		panic(err)
-	}
 }
 
 func (p *Protocol) initNetworkProtocol() {
@@ -229,18 +223,16 @@ func (p *Protocol) CandidateStorage() (chainstorage *chainstorage.ChainStorage) 
 	return p.candidateStorage
 }
 
-func (p *Protocol) importSnapshotFile(filePath string) (err error) {
-	if err = p.disk.WithFile(filePath, func(fileHandle *os.File) {
+func (p *Protocol) importSnapshotFile(filePath string) {
+	if err := p.disk.WithFile(filePath, func(fileHandle *os.File) {
 		snapshot.ReadSnapshot(fileHandle, p.Engine())
 	}); err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			return
 		}
 
-		return errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err)
+		panic(errors.Errorf("failed to read snapshot from file '%s': %w", filePath, err))
 	}
-
-	return
 }
 
 func (p *Protocol) activateEngine(engine *engine.Engine) (err error) {

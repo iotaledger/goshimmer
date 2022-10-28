@@ -85,6 +85,8 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 		})
 	}
 
+	e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
+
 	snapshot.WriteSnapshot(snapshotFileName, e, 0)
 }
 
