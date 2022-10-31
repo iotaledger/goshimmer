@@ -120,7 +120,7 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 
 		return false
 	}
-	stateRoot, manaRoot := m.storage.Permanent.ApplyEpoch(index, m.storage.LedgerStateDiffs.StateDiff(index))
+	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
 
 	// TODO: obtain and commit to cumulative weight
 	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)

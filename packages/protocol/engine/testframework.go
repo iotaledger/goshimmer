@@ -29,7 +29,7 @@ type TestFramework struct {
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {
-	chainStorage, _ := storage.New(test.TempDir(), 1)
+	chainStorage := storage.New(test.TempDir(), 1)
 	return options.Apply(&TestFramework{
 		test: test,
 	}, opts, func(t *TestFramework) {

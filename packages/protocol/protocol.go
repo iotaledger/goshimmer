@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -90,7 +89,7 @@ func (p *Protocol) initDisk() {
 }
 
 func (p *Protocol) initMainChainStorage() {
-	p.storage = lo.PanicOnErr(storage.New(p.disk.Path(mainBaseDir), DatabaseVersion))
+	p.storage = storage.New(p.disk.Path(mainBaseDir), DatabaseVersion)
 }
 
 func (p *Protocol) initCongestionControl() {

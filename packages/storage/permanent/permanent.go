@@ -1,12 +1,11 @@
 package permanent
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/iotaledger/hive.go/core/types"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
@@ -14,8 +13,7 @@ import (
 )
 
 type Permanent struct {
-	Events *Events
-
+	Events           *Events
 	Settings         *Settings
 	Commitments      *Commitments
 	UnspentOutputs   *UnspentOutputs
@@ -23,40 +21,30 @@ type Permanent struct {
 	ConsensusWeights *ConsensusWeights
 }
 
-func New(disk *diskutil.DiskUtil, unspentOutputsStorage, unspentOutputIDsStore, consensusWeightStore kvstore.KVStore) (newHeaderStorage *Permanent, err error) {
-	newHeaderStorage = &Permanent{
+func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
+	return &Permanent{
 		Events:           NewEvents(),
 		Settings:         NewSettings(disk.Path("settings.bin")),
-		UnspentOutputs:   &UnspentOutputs{unspentOutputsStorage},
-		UnspentOutputIDs: NewUnspentOutputIDs(unspentOutputIDsStore),
-		ConsensusWeights: NewConsensusWeights(consensusWeightStore),
+		Commitments:      NewCommitments(disk.Path("commitments.bin")),
+		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsRealm}))),
+		UnspentOutputIDs: NewUnspentOutputIDs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsRealm}))),
+		ConsensusWeights: NewConsensusWeights(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsRealm}))),
 	}
-	if newHeaderStorage.Commitments, err = NewCommitments(disk.Path("commitments.bin")); err != nil {
-		return nil, errors.Errorf("failed to create commitments storage: %w", err)
-	}
-
-	return newHeaderStorage, nil
 }
 
-func (p *Permanent) ApplyEpoch(index epoch.Index, stateDiff *models.MemoryStateDiff) (stateRoot, manaRoot types.Identifier) {
+func (p *Permanent) ApplyStateDiff(index epoch.Index, stateDiff *models.StateDiff) (stateRoot, manaRoot types.Identifier) {
 	return p.applyStateDiff(index, stateDiff, p.UnspentOutputIDs.Store, void(p.UnspentOutputIDs.Delete))
 }
 
-func (p *Permanent) RollbackEpochStateDiff(index epoch.Index, stateDiff *models.MemoryStateDiff) (stateRoot, manaRoot types.Identifier) {
+func (p *Permanent) RollbackStateDiff(index epoch.Index, stateDiff *models.StateDiff) (stateRoot, manaRoot types.Identifier) {
 	return p.applyStateDiff(index, stateDiff, void(p.UnspentOutputIDs.Delete), p.UnspentOutputIDs.Store)
-}
-
-func (p *Permanent) ImportUnspentOutputIDs(outputIDs []utxo.OutputID) {
-	for _, outputID := range outputIDs {
-		p.UnspentOutputIDs.Store(outputID)
-	}
 }
 
 func (p *Permanent) Shutdown() (err error) {
 	return p.Commitments.Close()
 }
 
-func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.MemoryStateDiff, create, delete func(id utxo.OutputID)) (stateRoot, manaRoot types.Identifier) {
+func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.StateDiff, create, delete func(id utxo.OutputID)) (stateRoot, manaRoot types.Identifier) {
 	for it := stateDiff.CreatedOutputs.Iterator(); it.HasNext(); {
 		create(it.Next())
 	}
@@ -96,3 +84,11 @@ func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.MemorySt
 func void[A, B any](f func(A) B) func(A) {
 	return func(a A) { f(a) }
 }
+
+type realm = byte
+
+const (
+	unspentOutputsRealm realm = iota
+	unspentOutputIDsRealm
+	consensusWeightsRealm
+)

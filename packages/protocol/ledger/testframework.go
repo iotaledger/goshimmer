@@ -70,7 +70,7 @@ type TestFramework struct {
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	tmpDir := test.TempDir()
-	chainStorage, _ := storage.New(tmpDir, 1)
+	chainStorage := storage.New(tmpDir, 1)
 
 	return options.Apply(&TestFramework{
 		test:                test,

@@ -97,13 +97,13 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger 
 	}, opts)
 
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(chainStorage.Permanent.UnspentOutputs),
+		conflictdag.WithStore(chainStorage.UnspentOutputs),
 		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
 	}, ledger.optConflictDAG...)...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
-	ledger.Storage = newStorage(ledger, chainStorage.Permanent.UnspentOutputs)
+	ledger.Storage = newStorage(ledger, chainStorage.UnspentOutputs)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)

@@ -109,7 +109,7 @@ func (s *LedgerStateDiffs) StreamCreatedOutputs(index epoch.Index, callback func
 	return
 }
 
-func (s *LedgerStateDiffs) StateDiff(index epoch.Index) (diff *models.MemoryStateDiff) {
+func (s *LedgerStateDiffs) StateDiff(index epoch.Index) (diff *models.StateDiff) {
 	diff = models.NewMemoryStateDiff()
 	s.StreamCreatedOutputs(index, diff.ApplyCreatedOutput)
 	s.StreamSpentOutputs(index, diff.ApplyDeletedOutput)

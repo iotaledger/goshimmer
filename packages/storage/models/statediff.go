@@ -7,21 +7,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 )
 
-type MemoryStateDiff struct {
+type StateDiff struct {
 	CreatedOutputs         *set.AdvancedSet[utxo.OutputID]
 	DeletedOutputs         *set.AdvancedSet[utxo.OutputID]
 	ConsensusWeightUpdates map[identity.ID]int64
 }
 
-func NewMemoryStateDiff() (stateDiff *MemoryStateDiff) {
-	return &MemoryStateDiff{
+func NewMemoryStateDiff() (stateDiff *StateDiff) {
+	return &StateDiff{
 		CreatedOutputs:         set.NewAdvancedSet[utxo.OutputID](),
 		DeletedOutputs:         set.NewAdvancedSet[utxo.OutputID](),
 		ConsensusWeightUpdates: make(map[identity.ID]int64),
 	}
 }
 
-func (m *MemoryStateDiff) ApplyCreatedOutputs(createdOutputs []*OutputWithMetadata) (self *MemoryStateDiff) {
+func (m *StateDiff) ApplyCreatedOutputs(createdOutputs []*OutputWithMetadata) (self *StateDiff) {
 	for _, createdOutput := range createdOutputs {
 		m.ApplyCreatedOutput(createdOutput)
 	}
@@ -29,7 +29,7 @@ func (m *MemoryStateDiff) ApplyCreatedOutputs(createdOutputs []*OutputWithMetada
 	return m
 }
 
-func (m *MemoryStateDiff) ApplyCreatedOutput(createdOutput *OutputWithMetadata) {
+func (m *StateDiff) ApplyCreatedOutput(createdOutput *OutputWithMetadata) {
 	m.CreatedOutputs.Add(createdOutput.ID())
 
 	if iotaBalance, exists := createdOutput.IOTABalance(); exists {
@@ -37,7 +37,7 @@ func (m *MemoryStateDiff) ApplyCreatedOutput(createdOutput *OutputWithMetadata) 
 	}
 }
 
-func (m *MemoryStateDiff) ApplyDeletedOutputs(deletedOutputs []*OutputWithMetadata) (self *MemoryStateDiff) {
+func (m *StateDiff) ApplyDeletedOutputs(deletedOutputs []*OutputWithMetadata) (self *StateDiff) {
 	for _, deletedOutput := range deletedOutputs {
 		m.ApplyDeletedOutput(deletedOutput)
 	}
@@ -45,7 +45,7 @@ func (m *MemoryStateDiff) ApplyDeletedOutputs(deletedOutputs []*OutputWithMetada
 	return m
 }
 
-func (m *MemoryStateDiff) ApplyDeletedOutput(deletedOutput *OutputWithMetadata) {
+func (m *StateDiff) ApplyDeletedOutput(deletedOutput *OutputWithMetadata) {
 	if !m.CreatedOutputs.Delete(deletedOutput.ID()) {
 		m.DeletedOutputs.Add(deletedOutput.ID())
 	}

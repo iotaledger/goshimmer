@@ -12,15 +12,15 @@ type Commitments struct {
 	slice *storable.Slice[commitment.Commitment, *commitment.Commitment]
 }
 
-func NewCommitments(path string) (newCommitment *Commitments, err error) {
+func NewCommitments(path string) (newCommitment *Commitments) {
 	commitmentsSlice, err := storable.NewSlice[commitment.Commitment](path)
 	if err != nil {
-		return nil, errors.Errorf("failed to create commitments file: %w", err)
+		panic(errors.Errorf("failed to create commitments file: %w", err))
 	}
 
 	return &Commitments{
 		slice: commitmentsSlice,
-	}, nil
+	}
 }
 
 func (c *Commitments) Store(index epoch.Index, commitment *commitment.Commitment) (err error) {

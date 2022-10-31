@@ -7,3 +7,7 @@ import (
 type UnspentOutputs struct {
 	kvstore.KVStore
 }
+
+func NewUnspentOutputs(store kvstore.KVStore) (newUnspentOutputs *UnspentOutputs) {
+	return &UnspentOutputs{store}
+}

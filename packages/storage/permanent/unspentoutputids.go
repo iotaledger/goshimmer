@@ -18,6 +18,12 @@ func NewUnspentOutputIDs(store kvstore.KVStore) (newUnspentOutputIDs *UnspentOut
 	}
 }
 
+func (u *UnspentOutputIDs) Import(outputIDs []utxo.OutputID) {
+	for _, outputID := range outputIDs {
+		u.Store(outputID)
+	}
+}
+
 func (u *UnspentOutputIDs) Store(id utxo.OutputID) {
 	u.unspentOutputIDs.Add(id)
 }

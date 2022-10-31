@@ -21,12 +21,12 @@ func Test(t *testing.T) {
 
 	chainStorage, err := New(storageDirectory, 1)
 	require.NoError(t, err)
-	chainStorage.SetLatestStateMutationEpoch(10)
+	chainStorage.Settings.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
-	chainStorage.StoreCommitment(0, genesisCommitment)
-	chainStorage.StoreCommitment(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
-	chainStorage.StoreBlock(emptyBlock)
-	fmt.Println(chainStorage.LoadBlock(emptyBlock.ID()))
+	chainStorage.Commitments.Store(0, genesisCommitment)
+	chainStorage.Commitments.Store(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
+	chainStorage.Blocks.Store(emptyBlock)
+	fmt.Println(chainStorage.Blocks.Load(emptyBlock.ID()))
 
 	chainStorage.database.Flush(0)
 
@@ -34,10 +34,10 @@ func Test(t *testing.T) {
 
 	chainStorage, err = New(storageDirectory, 1)
 	require.NoError(t, err)
-	fmt.Println(lo.PanicOnErr(chainStorage.LoadCommitment(0)), lo.PanicOnErr(chainStorage.LoadCommitment(1)))
-	require.Equal(t, epoch.Index(10), chainStorage.LatestStateMutationEpoch())
+	fmt.Println(lo.PanicOnErr(chainStorage.Commitments.Load(0)), lo.PanicOnErr(chainStorage.Commitments.Load(1)))
+	require.Equal(t, epoch.Index(10), chainStorage.Settings.LatestStateMutationEpoch())
 
-	fmt.Println(chainStorage.LoadBlock(emptyBlock.ID()))
+	fmt.Println(chainStorage.Blocks.Load(emptyBlock.ID()))
 
 	chainStorage.Shutdown()
 }

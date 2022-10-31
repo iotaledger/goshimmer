@@ -23,7 +23,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		binary.Read(fileHandle, binary.LittleEndian, &settingsSize)
 		settingsBytes := make([]byte, settingsSize)
 		binary.Read(fileHandle, binary.LittleEndian, settingsBytes)
-		engine.Storage.Permanent.Settings.FromBytes(settingsBytes)
+		engine.Storage.Settings.FromBytes(settingsBytes)
 	}
 
 	// Committments
@@ -48,7 +48,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			engine.Ledger.LoadOutputsWithMetadata,
 			engine.ManaTracker.LoadOutputsWithMetadata,
 			func(chunk []*storageModels.OutputWithMetadata) {
-				engine.Storage.Permanent.ImportUnspentOutputIDs(lo.Map(chunk, (*storageModels.OutputWithMetadata).ID))
+				engine.Storage.UnspentOutputIDs.Import(lo.Map(chunk, (*storageModels.OutputWithMetadata).ID))
 			},
 		)
 	}
@@ -108,7 +108,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 				engine.Ledger.ApplyCreatedDiff,
 			)
 
-			engine.Storage.Permanent.RollbackEpochStateDiff(engine.Storage.Settings.LatestStateMutationEpoch()-epoch.Index(i), diff)
+			engine.Storage.RollbackStateDiff(engine.Storage.Settings.LatestStateMutationEpoch()-epoch.Index(i), diff)
 		}
 	}
 }
