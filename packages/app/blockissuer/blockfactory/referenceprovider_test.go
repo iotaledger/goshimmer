@@ -31,8 +31,8 @@ func TestReferenceProvider_References1(t *testing.T) {
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX1.0", "TX1.1")), models.WithIssuer(tangleTF.Identity("V2").PublicKey()))
 	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol.Engine, func() (epoch.Index, error) {
-		return 0, nil
+	rp := NewReferenceProvider(tf.Protocol.Engine, func() epoch.Index {
+		return 0
 	})
 
 	checkReferences(t, rp, nil, tangleTF.BlockIDs("Block3", "Block4"), map[models.ParentsType]models.BlockIDs{
@@ -57,8 +57,8 @@ func TestBlockFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX0.0")), models.WithIssuer(tangleTF.Identity("V1").PublicKey()))
 	tangleTF.IssueBlocks("Block0", "Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol.Engine, func() (epoch.Index, error) {
-		return 0, nil
+	rp := NewReferenceProvider(tf.Protocol.Engine, func() epoch.Index {
+		return 0
 	})
 
 	// Verify that like references are set correctly.
@@ -110,8 +110,8 @@ func TestBlockFactory_WeakReferencesConsumed(t *testing.T) {
 	tangleTF.CreateBlock("Block4", models.WithPayload(tangleTF.CreateTransaction("TX4", 1, "TX2.0", "TX3.0")))
 	tangleTF.IssueBlocks("Block1", "Block2", "Block3", "Block4").WaitUntilAllTasksProcessed()
 
-	rp := NewReferenceProvider(tf.Protocol.Engine, func() (epoch.Index, error) {
-		return 0, nil
+	rp := NewReferenceProvider(tf.Protocol.Engine, func() epoch.Index {
+		return 0
 	})
 
 	{

@@ -2,14 +2,15 @@ package protocol
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/core/debug"
 	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
@@ -17,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func TestProtocol(t *testing.T) {
@@ -27,9 +29,10 @@ func TestProtocol(t *testing.T) {
 	endpoint1 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil1 := diskutil.New(t.TempDir())
 
-	require.NoError(t, creator.CreateSnapshot(diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+	s := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
+	creator.CreateSnapshot(s, diskUtil1.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
-	}))
+	})
 
 	protocol1 := New(endpoint1, WithBaseDirectory(diskUtil1.Path()), WithSnapshotPath(diskUtil1.Path("snapshot.bin")))
 	protocol1.Run()
@@ -58,9 +61,10 @@ func TestProtocol(t *testing.T) {
 	endpoint2 := testNetwork.Join(identity.GenerateIdentity().ID())
 	diskUtil2 := diskutil.New(t.TempDir())
 
-	require.NoError(t, creator.CreateSnapshot(diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
+	s2 := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), DatabaseVersion)
+	creator.CreateSnapshot(s2, diskUtil2.Path("snapshot.bin"), 100, make([]byte, 32, 32), map[identity.ID]uint64{
 		identity.GenerateIdentity().ID(): 100,
-	}))
+	})
 
 	protocol2 := New(endpoint2, WithBaseDirectory(diskUtil2.Path()), WithSnapshotPath(diskUtil2.Path("snapshot.bin")))
 	protocol2.Run()
@@ -77,8 +81,8 @@ func TestProtocol(t *testing.T) {
 		Neighbor:   identity.ID{},
 	})
 
-	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.activeInstance))
-	_ = engine.NewTestFramework(t, engine.WithEngine(protocol2.activeInstance))
+	tf1 := engine.NewTestFramework(t, engine.WithEngine(protocol1.Engine()))
+	_ = engine.NewTestFramework(t, engine.WithEngine(protocol2.Engine()))
 
 	tf1.Tangle.CreateBlock("A", models.WithStrongParents(tf1.Tangle.BlockIDs("Genesis")))
 	tf1.Tangle.IssueBlocks("A")

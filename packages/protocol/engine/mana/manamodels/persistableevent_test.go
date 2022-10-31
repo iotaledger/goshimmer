@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/hive.go/core/marshalutil"
@@ -17,11 +18,11 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(ev.Type)
 	marshalUtil.WriteByte(byte(ev.ManaType))
-	marshalUtil.WriteBytes(ev.IssuerID.Bytes())
+	marshalUtil.WriteBytes(lo.PanicOnErr(ev.IssuerID.Bytes()))
 	marshalUtil.WriteTime(ev.Time)
-	marshalUtil.WriteBytes(ev.TransactionID.Bytes())
+	marshalUtil.WriteBytes(lo.PanicOnErr(ev.TransactionID.Bytes()))
 	marshalUtil.WriteInt64(ev.Amount)
-	marshalUtil.WriteBytes(ev.InputID.Bytes())
+	marshalUtil.WriteBytes(lo.PanicOnErr(ev.InputID.Bytes()))
 
 	bytes := marshalUtil.Bytes()
 	assert.Equal(t, bytes, ev.Bytes(), "should be equal")

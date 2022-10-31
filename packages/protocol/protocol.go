@@ -139,7 +139,7 @@ func (p *Protocol) initMainEngine() {
 }
 
 func (p *Protocol) initChainManager() {
-	p.chainManager = chainmanager.NewManager(p.Engine().SnapshotCommitment)
+	p.chainManager = chainmanager.NewManager(p.Engine().Storage.Settings.LatestCommitment())
 
 	p.Events.Engine.NotarizationManager.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
 		p.chainManager.ProcessCommitment(commitment)

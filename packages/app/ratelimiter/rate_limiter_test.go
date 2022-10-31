@@ -45,7 +45,7 @@ func TestPeerRateLimiter_ExtendLimit(t *testing.T) {
 	testPeer := newTestPeer()
 	limitExtensionCount := 3
 	for i := 0; i < limitExtensionCount; i++ {
-		prl.ExtendLimit(testPeer, 1)
+		prl.ExtendLimit(testPeer.ID(), 1)
 	}
 	testCount(t, prl, testPeer, defaultTestLimit+limitExtensionCount)
 }
@@ -59,18 +59,18 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 		rl := event.RateLimit
 		eventCalled.Inc()
 		assert.Equal(t, int32(expectedActivity), activityCount.Load())
-		assert.Equal(t, testPeer, p)
+		assert.Equal(t, testPeer.ID(), p)
 		assert.Equal(t, defaultTestInterval, rl.Interval)
 		assert.Equal(t, testLimit, rl.Limit)
 	}))
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
-		prl.Count(testPeer)
+		prl.Count(testPeer.ID())
 	}
 	assert.Eventually(t, func() bool { return eventCalled.Load() == 1 }, time.Second, time.Millisecond)
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
-		prl.Count(testPeer)
+		prl.Count(testPeer.ID())
 	}
 	assert.Never(t, func() bool { return eventCalled.Load() > 1 }, time.Second, time.Millisecond)
 }

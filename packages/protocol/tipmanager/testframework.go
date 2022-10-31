@@ -1,5 +1,4 @@
 package tipmanager
-/*
 
 import (
 	"fmt"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -68,8 +69,11 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			// TODO: need to activate it with an engine t.TipManager.Activate()
 		}
 		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)))
+	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis, (*TestFramework).activateEngine)
+}
 
-	}, (*TestFramework).setupEvents, (*TestFramework).createGenesis)
+func (t *TestFramework) activateEngine() {
+	t.TipManager.ActivateEngine(engine.New(storage.New(t.test.TempDir(), 1)))
 }
 
 func (t *TestFramework) setupEvents() {
@@ -171,9 +175,8 @@ func (t *TestFramework) AssertTipsRemoved(count uint32) {
 }
 
 func (t *TestFramework) AssertTips(actualTips, expectedTips models.BlockIDs) {
-
 	assert.Equal(t.test, len(expectedTips), len(actualTips), "expected %d tips but got %d", len(actualTips), len(actualTips))
-	for expectedBlockID, _ := range expectedTips {
+	for expectedBlockID := range expectedTips {
 		_, exists := actualTips[expectedBlockID]
 		assert.True(t.test, exists, "expected tip %s", expectedBlockID)
 	}
@@ -206,5 +209,3 @@ func WithClock(c *clock.Clock) options.Option[TestFramework] {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-*/

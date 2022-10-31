@@ -3,6 +3,7 @@ package manamodels
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 
 func TestIDFromStr(t *testing.T) {
 	_identity := identity.GenerateIdentity()
-	ID, err := IDFromStr(base58.Encode(_identity.ID().Bytes()))
+	ID, err := IDFromStr(base58.Encode(lo.PanicOnErr(_identity.ID().Bytes())))
 	assert.NoError(t, err)
 	assert.Equal(t, _identity.ID(), ID)
 }

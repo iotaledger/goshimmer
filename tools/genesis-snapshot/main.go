@@ -104,18 +104,13 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	creator.CreateSnapshot(createTempEngine(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	creator.CreateSnapshot(createTempStorage(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
 
 	diagnosticPrintSnapshotFromFile(snapshotFileName)
 }
 
-func createTempEngine() *engine.Engine {
-	chainStorage, err := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
-	if err != nil {
-		panic(err)
-	}
-
-	return engine.New(chainStorage)
+func createTempStorage() (s *storage.Storage) {
+	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
@@ -145,15 +140,17 @@ func init() {
 }
 
 func diagnosticPrintSnapshotFromFile(filePath string) {
-	e := createTempEngine()
+	s := createTempStorage()
+	e := engine.New(s)
 	fileHandle := lo.PanicOnErr(os.Open(filePath))
+
 	snapshot.ReadSnapshot(fileHandle, e)
 
 	fmt.Println("--- Settings ---")
-	fmt.Printf("%+v\n", e.Storage.Settings)
+	fmt.Printf("%+v\n", s.Settings)
 
 	fmt.Println("--- Commitments ---")
-	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Commitments.Load(0)))
+	fmt.Printf("%+v\n", lo.PanicOnErr(s.Commitments.Load(0)))
 
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {

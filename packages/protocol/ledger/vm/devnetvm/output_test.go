@@ -87,7 +87,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(lo.PanicOnErr( nextAlias.ID().Bytes()), lo.PanicOnErr( originAlias.ID().Bytes())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -102,7 +102,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(lo.PanicOnErr( nextAlias.ID().Bytes()),lo.PanicOnErr(  originAlias.ID().Bytes())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -122,7 +122,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(lo.PanicOnErr( nextAlias.ID().Bytes()), lo.PanicOnErr( originAlias.ID().Bytes())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -141,7 +141,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(lo.PanicOnErr( nextAlias.ID().Bytes()), lo.PanicOnErr( originAlias.ID().Bytes())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -581,7 +581,7 @@ func TestAliasOutput_IsSelfGoverned(t *testing.T) {
 func TestAliasOutput_ObjectStorageKey(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		assert.Equal(t, alias.outputID.Bytes(), alias.ObjectStorageKey())
+		assert.Equal(t, lo.PanicOnErr( alias.outputID.Bytes()), alias.ObjectStorageKey())
 	})
 }
 
@@ -657,7 +657,7 @@ func TestAliasOutput_SetID(t *testing.T) {
 		alias := dummyAliasOutput()
 		newID := randOutputID()
 		alias.SetID(newID)
-		assert.Equal(t, alias.ID().Bytes(), newID.Bytes())
+		assert.Equal(t, lo.PanicOnErr( alias.ID().Bytes()),lo.PanicOnErr(  newID.Bytes()))
 	})
 }
 
@@ -775,7 +775,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorMint: 500,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(lo.PanicOnErr( alias.ID().Bytes())))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(500), balance)
 		assert.True(t, updated.Address().Equals(alias.GetAliasAddress()))
@@ -787,7 +787,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorIOTA: DustThresholdAliasOutputIOTA,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(lo.PanicOnErr( alias.ID().Bytes())))
 		assert.False(t, ok)
 		assert.Equal(t, uint64(0), balance)
 		balance, ok = updated.Balances().Get(ColorIOTA)
@@ -804,10 +804,10 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorMint: 500,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(lo.PanicOnErr( alias.ID().Bytes())))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(500), balance)
-		assert.True(t, updated.Address().Equals(NewAliasAddress(alias.ID().Bytes())))
+		assert.True(t, updated.Address().Equals(NewAliasAddress(lo.PanicOnErr( alias.ID().Bytes()))))
 	})
 }
 
@@ -1694,7 +1694,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( o.id.Bytes()), lo.PanicOnErr( castedRestored.id.Bytes()))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
 		assert.True(t, o.timelock.Equal(castedRestored.timelock))
@@ -1710,7 +1710,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( o.id.Bytes()), lo.PanicOnErr( castedRestored.id.Bytes()))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1728,7 +1728,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( o.id.Bytes()), lo.PanicOnErr( castedRestored.id.Bytes()))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1746,7 +1746,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( o.id.Bytes()), lo.PanicOnErr( castedRestored.id.Bytes()))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
 		assert.True(t, o.timelock.Equal(castedRestored.timelock))
@@ -1765,7 +1765,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( o.id.Bytes()), lo.PanicOnErr( castedRestored.id.Bytes()))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1830,7 +1830,7 @@ func TestExtendedLockedOutput_ID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		id := output.ID()
-		assert.Equal(t, output.id.Bytes(), id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( output.id.Bytes()), lo.PanicOnErr( id.Bytes()))
 	})
 }
 
@@ -1839,7 +1839,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		input, ok := output.Input().(*UTXOInput)
 		assert.True(t, ok)
-		assert.Equal(t, input.ReferencedOutputID().Bytes(), output.ID().Bytes())
+		assert.Equal(t, lo.PanicOnErr( input.ReferencedOutputID().Bytes()), lo.PanicOnErr( output.ID().Bytes()))
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
@@ -1859,7 +1859,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 func TestExtendedLockedOutput_ObjectStorageKey(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
-		assert.Equal(t, output.ID().Bytes(), output.ObjectStorageKey())
+		assert.Equal(t, lo.PanicOnErr( output.ID().Bytes()), output.ObjectStorageKey())
 	})
 }
 
@@ -1875,7 +1875,7 @@ func TestExtendedLockedOutput_SetID(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		newID := randOutputID()
 		output.SetID(newID)
-		assert.Equal(t, newID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, lo.PanicOnErr( newID.Bytes()), lo.PanicOnErr( output.ID().Bytes()))
 	})
 }
 
@@ -1945,7 +1945,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, ColorMint: 100})
 		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
 		assert.True(t, ok)
-		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( output.id.Bytes()), lo.PanicOnErr( updated.id.Bytes()))
 		assert.True(t, updated.address.Equals(output.address))
 		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
 		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))
@@ -1953,7 +1953,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		assert.Equal(t, output.payload, updated.payload)
 		mintBalance, valid := output.Balances().Get(ColorMint)
 		assert.True(t, valid)
-		coloredBalance, uValid := updated.Balances().Get(blake2b.Sum256(output.ID().Bytes()))
+		coloredBalance, uValid := updated.Balances().Get(blake2b.Sum256(lo.PanicOnErr( output.ID().Bytes())))
 		assert.True(t, uValid)
 		assert.Equal(t, mintBalance, coloredBalance)
 	})
@@ -1963,7 +1963,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, {8}: 100})
 		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
 		assert.True(t, ok)
-		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.Equal(t, lo.PanicOnErr( output.id.Bytes()), lo.PanicOnErr( updated.id.Bytes()))
 		assert.True(t, updated.address.Equals(output.address))
 		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
 		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))

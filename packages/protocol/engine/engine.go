@@ -39,7 +39,6 @@ type Engine struct {
 	Events             *Events
 	Storage            *storage.Storage
 	Ledger             *ledger.Ledger
-	SnapshotCommitment *commitment.Commitment
 	Inbox              *inbox.Inbox
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
@@ -69,7 +68,7 @@ type Engine struct {
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
-func New(chainStorage *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
+func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
 			Clock:              clock.New(),
@@ -77,9 +76,7 @@ func New(chainStorage *storage.Storage, opts ...options.Option[Engine]) (engine 
 			ValidatorSet:       validator.NewSet(),
 			EvictionState:      eviction.NewState[models.BlockID](),
 			EntryPointsManager: NewEntryPointsManager(),
-
-			Storage:            chainStorage,
-			SnapshotCommitment: new(commitment.Commitment),
+			Storage:            storageInstance,
 
 			optsEntryPointsDepth:      3,
 			optsBootstrappedThreshold: 10 * time.Second,

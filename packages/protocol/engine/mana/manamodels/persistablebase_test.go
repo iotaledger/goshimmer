@@ -32,7 +32,7 @@ func TestPersistableBaseMana_Bytes(t *testing.T) {
 func TestPersistableBaseMana_ObjectStorageKey(t *testing.T) {
 	p := newPersistableMana()
 	key := p.ObjectStorageKey()
-	assert.Equal(t, identity.ID{}.Bytes(), key, "should be equal")
+	assert.Equal(t, lo.PanicOnErr(identity.ID{}.Bytes()), key, "should be equal")
 }
 
 func TestPersistableBaseMana_ObjectStorageValue(t *testing.T) {

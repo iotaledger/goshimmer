@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
@@ -821,7 +822,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ls := ledger.New(ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
+			ls := ledger.New(storage.New(t.TempDir(), 1), ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ls.Shutdown()
 
 			tt.test.Scenario.CreateConflicts(t, ls.ConflictDAG)
