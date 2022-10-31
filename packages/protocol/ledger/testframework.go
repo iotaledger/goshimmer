@@ -19,11 +19,11 @@ import (
 	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/goshimmer/packages/storage"
 )
 
 func init() {
@@ -70,7 +70,7 @@ type TestFramework struct {
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (newTestFramework *TestFramework) {
 	tmpDir := test.TempDir()
-	chainStorage, _ := chainstorage.NewChainStorage(tmpDir, 1)
+	chainStorage := storage.New(tmpDir, 1)
 
 	return options.Apply(&TestFramework{
 		test:                test,

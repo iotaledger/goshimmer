@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
+	"github.com/iotaledger/goshimmer/packages/storage"
 
 	"github.com/iotaledger/goshimmer/packages/core/validator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock"
@@ -39,7 +39,7 @@ import (
 
 type Engine struct {
 	Events             *Events
-	ChainStorage       *chainstorage.ChainStorage
+	Storage            *storage.Storage
 	Ledger             *ledger.Ledger
 	SnapshotCommitment *commitment.Commitment
 	Inbox              *inbox.Inbox
@@ -71,7 +71,7 @@ type Engine struct {
 	optsBlockRequester             []options.Option[eventticker.EventTicker[models.BlockID]]
 }
 
-func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]) (engine *Engine) {
+func New(chainStorage *storage.Storage, opts ...options.Option[Engine]) (engine *Engine) {
 	return options.Apply(
 		&Engine{
 			Clock:              clock.New(),
@@ -80,7 +80,7 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Engine]
 			EvictionState:      eviction.NewState[models.BlockID](),
 			EntryPointsManager: NewEntryPointsManager(),
 
-			ChainStorage:       chainStorage,
+			Storage:            chainStorage,
 			SnapshotCommitment: new(commitment.Commitment),
 
 			optsEntryPointsDepth:      3,
@@ -144,7 +144,7 @@ func (e *Engine) initInbox() {
 }
 
 func (e *Engine) initLedger() {
-	e.Ledger = ledger.New(e.ChainStorage, e.optsLedgerOptions...)
+	e.Ledger = ledger.New(e.Storage, e.optsLedgerOptions...)
 
 	e.Events.Ledger = e.Ledger.Events
 }
@@ -162,7 +162,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.ChainStorage.LatestConfirmedEpoch(), func() (int64, error) {
+	e.Consensus = consensus.New(e.Tangle, e.Storage.LatestConfirmedEpoch(), func() (int64, error) {
 		totalMana, _, err := e.ManaTracker.GetTotalMana(manamodels.ConsensusMana)
 		return totalMana, err
 	}, e.optsConsensusOptions...)
@@ -170,7 +170,7 @@ func (e *Engine) initConsensus() {
 	e.Events.Consensus = e.Consensus.Events
 
 	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		e.ChainStorage.SetLatestConfirmedEpoch(epochIndex)
+		e.Storage.SetLatestConfirmedEpoch(epochIndex)
 	}))
 }
 
@@ -202,16 +202,20 @@ func (e *Engine) initTSCManager() {
 
 func (e *Engine) initBlockStorage() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		e.ChainStorage.BlockStorage.Store(block.ModelsBlock)
+		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
+		}
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.ChainStorage.BlockStorage.Delete(block.ID())
+		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to delete block with %s: %w", block.ID(), err))
+		}
 	}))
 }
 
 func (e *Engine) initNotarizationManager() {
-	e.NotarizationManager = notarization.NewManager(e.ChainStorage)
+	e.NotarizationManager = notarization.NewManager(e.Storage)
 
 	e.Consensus.AcceptanceGadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
@@ -254,10 +258,10 @@ func (e *Engine) initNotarizationManager() {
 }
 
 func (e *Engine) initManaTracker() {
-	e.ManaTracker = mana.NewTracker(e.Ledger, e.ChainStorage, e.optsManaTrackerOptions...)
+	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
 
-	e.ChainStorage.State.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.OnConsensusWeightsUpdated))
-	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.OnTransactionAccepted))
+	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.UpdateConsensusWeights))
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
 }
 
 func (e *Engine) initSybilProtection() {
@@ -296,7 +300,7 @@ func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 	var err error
 	if e.EvictionState.IsRootBlock(id) {
-		block, err = e.ChainStorage.BlockStorage.Get(id)
+		block, err = e.Storage.Blocks.Load(id)
 		exists = block != nil && err == nil
 		return
 	}
@@ -309,7 +313,7 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return nil, false
 	}
 
-	block, err = e.ChainStorage.BlockStorage.Get(id)
+	block, err = e.Storage.Blocks.Load(id)
 	exists = block != nil && err == nil
 
 	return

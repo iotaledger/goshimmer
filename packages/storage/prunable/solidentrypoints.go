@@ -1,4 +1,4 @@
-package chainstorage
+package prunable
 
 import (
 	"github.com/cockroachdb/errors"
@@ -10,17 +10,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-type SolidEntryPointsStorage struct {
-	chainStorage *ChainStorage
+type SolidEntryPoints struct {
+	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func (s *SolidEntryPointsStorage) Store(block *models.Block) {
-	if err := s.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
-		s.chainStorage.Events.Error.Trigger(errors.Errorf("failed to store solid entry point block %s: %w", block.ID, err))
+func (s *SolidEntryPoints) Store(block *models.Block) (err error) {
+	if err = s.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
+		return errors.Errorf("failed to store solid entry point block %s: %w", block.ID, err)
 	}
+
+	return nil
 }
 
-func (s *SolidEntryPointsStorage) Get(blockID models.BlockID) (block *models.Block, err error) {
+func (s *SolidEntryPoints) Get(blockID models.BlockID) (block *models.Block, err error) {
 	blockBytes, err := s.Storage(blockID.Index()).Get(lo.PanicOnErr(blockID.Bytes()))
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -39,7 +41,7 @@ func (s *SolidEntryPointsStorage) Get(blockID models.BlockID) (block *models.Blo
 	return
 }
 
-func (s *SolidEntryPointsStorage) GetAll(index epoch.Index) (rootBlocks *set.AdvancedSet[*models.Block]) {
+func (s *SolidEntryPoints) GetAll(index epoch.Index) (rootBlocks *set.AdvancedSet[*models.Block]) {
 	rootBlocks = set.NewAdvancedSet[*models.Block]()
 	s.Stream(index, func(block *models.Block) {
 		rootBlocks.Add(block)
@@ -47,13 +49,15 @@ func (s *SolidEntryPointsStorage) GetAll(index epoch.Index) (rootBlocks *set.Adv
 	return
 }
 
-func (s *SolidEntryPointsStorage) Delete(blockID models.BlockID) {
-	if err := s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
-		s.chainStorage.Events.Error.Trigger(errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err))
+func (s *SolidEntryPoints) Delete(blockID models.BlockID) (err error) {
+	if err = s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
+		return errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
 	}
+
+	return nil
 }
 
-func (s *SolidEntryPointsStorage) Stream(index epoch.Index, callback func(*models.Block)) {
+func (s *SolidEntryPoints) Stream(index epoch.Index, callback func(*models.Block)) {
 	s.Storage(index).Iterate([]byte{}, func(blockIDBytes kvstore.Key, blockBytes kvstore.Value) bool {
 		blockID := new(models.BlockID)
 		blockID.FromBytes(blockIDBytes)
@@ -63,8 +67,4 @@ func (s *SolidEntryPointsStorage) Stream(index epoch.Index, callback func(*model
 		callback(block)
 		return true
 	})
-}
-
-func (s *SolidEntryPointsStorage) Storage(index epoch.Index) (storage kvstore.KVStore) {
-	return s.chainStorage.bucketedStorage(index, SolidEntryPointsStorageType)
 }

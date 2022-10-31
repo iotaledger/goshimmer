@@ -11,12 +11,13 @@ import (
 	"github.com/iotaledger/hive.go/core/syncutils"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
-	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +29,7 @@ type Ledger struct {
 	Events *Events
 
 	// ChainStorage is used to access storage for the ledger state.
-	ChainStorage *chainstorage.ChainStorage
+	ChainStorage *storage.Storage
 
 	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
@@ -80,7 +81,7 @@ type Ledger struct {
 }
 
 // New returns a new Ledger from the given optionsLedger.
-func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]) (ledger *Ledger) {
+func New(chainStorage *storage.Storage, opts ...options.Option[Ledger]) (ledger *Ledger) {
 	ledger = options.Apply(&Ledger{
 		Events:       NewEvents(),
 		ChainStorage: chainStorage,
@@ -96,13 +97,13 @@ func New(chainStorage *chainstorage.ChainStorage, opts ...options.Option[Ledger]
 	}, opts)
 
 	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
-		conflictdag.WithStore(chainStorage.LedgerstateStorage()),
+		conflictdag.WithStore(chainStorage.UnspentOutputs),
 		conflictdag.WithCacheTimeProvider(ledger.optsCacheTimeProvider),
 	}, ledger.optConflictDAG...)...)
 
 	ledger.Events.ConflictDAG = ledger.ConflictDAG.Events
 
-	ledger.Storage = newStorage(ledger, chainStorage.LedgerstateStorage())
+	ledger.Storage = newStorage(ledger, chainStorage.UnspentOutputs)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
@@ -234,7 +235,7 @@ func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 			inputID := it.Next()
 			l.Storage.CachedOutput(inputID).Consume(func(output utxo.Output) {
 				l.Storage.CachedOutputMetadata(inputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.DiffStorage.StoreSpent); err != nil {
+					if err := l.storeOutputInDiff(txEpoch, inputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreSpentOutput); err != nil {
 						l.Events.Error.Trigger(errors.Errorf("could not store spent output in diff: %w", err))
 					}
 				})
@@ -246,15 +247,17 @@ func (l *Ledger) storeTransactionInEpochDiff(txMeta *TransactionMetadata) {
 			outputID := it.Next()
 			l.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 				l.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.DiffStorage.StoreCreated); err != nil {
+					if err := l.storeOutputInDiff(txEpoch, outputID, output, outputMetadata, l.ChainStorage.LedgerStateDiffs.StoreCreatedOutput); err != nil {
 						l.Events.Error.Trigger(errors.Errorf("could not store created output in diff: %w", err))
 					}
 				})
 			})
 		}
 
-		if txEpoch > l.ChainStorage.LatestStateMutationEpoch() {
-			l.ChainStorage.SetLatestStateMutationEpoch(txEpoch)
+		if txEpoch > l.ChainStorage.Settings.LatestStateMutationEpoch() {
+			if err := l.ChainStorage.Settings.SetLatestStateMutationEpoch(txEpoch); err != nil {
+				l.Events.Error.Trigger(errors.Errorf("failed to update latest state mutation epoch: %w", err))
+			}
 		}
 	})
 }
@@ -267,20 +270,20 @@ func (l *Ledger) rollbackTransactionInEpochDiff(txMeta *TransactionMetadata, pre
 		return
 	}
 
-	if oldEpoch <= l.ChainStorage.LatestCommitment().Index() || newEpoch <= l.ChainStorage.LatestCommitment().Index() {
+	if oldEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() || newEpoch <= l.ChainStorage.Settings.LatestCommitment().Index() {
 		l.Events.Error.Trigger(errors.Errorf("inclusion time of transaction changed for already committed epoch: previous Index %d, new Index %d", oldEpoch, newEpoch))
 		return
 	}
 
 	l.Storage.CachedTransaction(txMeta.ID()).Consume(func(tx utxo.Transaction) {
-		l.ChainStorage.DiffStorage.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
+		l.ChainStorage.LedgerStateDiffs.DeleteSpentOutputs(oldEpoch, l.Utils.ResolveInputs(tx.Inputs()))
 	})
 
-	l.ChainStorage.DiffStorage.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
+	l.ChainStorage.LedgerStateDiffs.DeleteCreatedOutputs(oldEpoch, txMeta.OutputIDs())
 }
 
-func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*chainstorage.OutputWithMetadata) error) (err error) {
-	outputWithMetadata := chainstorage.NewOutputWithMetadata(
+func (l *Ledger) storeOutputInDiff(txEpoch epoch.Index, outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata, storeFunc func(*models.OutputWithMetadata) error) (err error) {
+	outputWithMetadata := models.NewOutputWithMetadata(
 		txEpoch, outputID, output, outputMetadata.CreationTime(),
 		outputMetadata.ConsensusManaPledgeID(),
 		outputMetadata.AccessManaPledgeID(),
