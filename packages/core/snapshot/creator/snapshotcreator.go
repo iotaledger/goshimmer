@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
@@ -26,13 +26,13 @@ import (
 // | empty  | genesisSeed  |
 // | node1  | empty/burned |
 // | node2  | empty/burned |
-func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
+func CreateSnapshot(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) {
 	now := time.Now()
 
-	if err := e.Storage.Commitments.Store(0, &commitment.Commitment{}); err != nil {
+	if err := s.Commitments.Store(0, &commitment.Commitment{}); err != nil {
 		panic(err)
 	}
-	if err := e.Storage.Settings.SetChainID(lo.PanicOnErr(e.Storage.Commitments.Load(0)).ID()); err != nil {
+	if err := s.Settings.SetChainID(lo.PanicOnErr(s.Commitments.Load(0)).ID()); err != nil {
 		panic(err)
 	}
 
@@ -45,14 +45,17 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.ActiveNodes.Store(0, nodeID); err != nil {
+		if err := s.ActiveNodes.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
 
-	e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
+	// create ledger
+	l := ledger.New(s)
 
-	snapshot.WriteSnapshot(snapshotFileName, e, 0)
+	l.LoadOutputsWithMetadata(outputsWithMetadata)
+
+	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }
 
 // CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
@@ -63,7 +66,7 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 // | genesisSeed | genesisSeed |
 // | node1       | node1       |
 // | node2       | node2       |
-func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
+func CreateSnapshotForIntegrationTest(s *storage.Storage, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
 	outputsWithMetadata := make([]*models.OutputWithMetadata, 0)
 
@@ -72,7 +75,7 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	if err := e.Storage.ActiveNodes.Store(0, genesisPledgeID); err != nil {
+	if err := s.ActiveNodes.Store(0, genesisPledgeID); err != nil {
 		panic(err)
 	}
 
@@ -80,14 +83,17 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.ActiveNodes.Store(0, nodeID); err != nil {
+		if err := s.ActiveNodes.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
 
-	e.Ledger.LoadOutputsWithMetadata(outputsWithMetadata)
+	// create ledger
+	l := ledger.New(s)
 
-	snapshot.WriteSnapshot(snapshotFileName, e, 0)
+	l.LoadOutputsWithMetadata(outputsWithMetadata)
+
+	snapshot.WriteSnapshot(snapshotFileName, s, l, 0)
 }
 
 var outputCounter uint16 = 1

@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
@@ -56,7 +57,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
 		models.WithLatestConfirmedEpoch(0),
-		models.WithCommitment(commitment.New(commitment.EmptyMerkleRoot, 0, commitment.EmptyMerkleRoot)),
+		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
 	dataBlk := models.NewBlock(
@@ -68,7 +69,7 @@ func TestIsFaucetReq(t *testing.T) {
 		models.WithNonce(0),
 		models.WithSignature(ed25519.EmptySignature),
 		models.WithLatestConfirmedEpoch(0),
-		models.WithCommitment(commitment.New(commitment.EmptyMerkleRoot, 0, commitment.EmptyMerkleRoot)),
+		models.WithCommitment(commitment.New(0, commitment.ID{}, types.Identifier{}, 0)),
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetBlk))

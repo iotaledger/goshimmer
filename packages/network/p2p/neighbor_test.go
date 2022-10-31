@@ -19,12 +19,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/goshimmer/packages/core/libp2putil/libp2ptesting"
-	gp "github.com/iotaledger/goshimmer/packages/network/gossip/gossipproto"
+	p2pproto "github.com/iotaledger/goshimmer/packages/network/p2p/proto"
 )
 
 var (
-	testPacket1             = &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: []byte("foo")}}}
-	testPacket2             = &gp.Packet{Body: &gp.Packet_Block{Block: &gp.Block{Data: []byte("bar")}}}
+	testPacket1             = &p2pproto.Negotiation{}
 	log                     = logger.NewExampleLogger("p2p_test")
 	protocolID  protocol.ID = "testgossip/0.0.1"
 )
@@ -56,8 +55,7 @@ func TestNeighborWrite(t *testing.T) {
 	defer neighborA.disconnect()
 	var countA uint32
 	neighborA.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		gpPacket := event.Packet.(*gp.Packet)
-		assert.Equal(t, testPacket2.String(), gpPacket.String())
+		_ = event.Packet.(*p2pproto.Negotiation)
 		atomic.AddUint32(&countA, 1)
 	}))
 	neighborA.readLoop()
@@ -67,15 +65,14 @@ func TestNeighborWrite(t *testing.T) {
 
 	var countB uint32
 	neighborB.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
-		gpPacket := event.Packet.(*gp.Packet)
-		assert.Equal(t, testPacket1.String(), gpPacket.String())
+		_ = event.Packet.(*p2pproto.Negotiation)
 		atomic.AddUint32(&countB, 1)
 	}))
 	neighborB.readLoop()
 
 	err := neighborA.protocols[protocolID].WritePacket(testPacket1)
 	require.NoError(t, err)
-	err = neighborB.protocols[protocolID].WritePacket(testPacket2)
+	err = neighborB.protocols[protocolID].WritePacket(testPacket1)
 	require.NoError(t, err)
 
 	assert.Eventually(t, func() bool { return atomic.LoadUint32(&countA) == 1 }, time.Second, 10*time.Millisecond)
@@ -87,7 +84,7 @@ func newTestNeighbor(name string, stream network.Stream) *Neighbor {
 }
 
 func packetFactory() proto.Message {
-	return &gp.Packet{}
+	return &p2pproto.Negotiation{}
 }
 
 func newTestPeer(name string) *peer.Peer {

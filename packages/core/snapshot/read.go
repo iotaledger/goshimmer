@@ -37,8 +37,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		})
 	}
 
-	engine.SnapshotCommitment = lo.PanicOnErr(engine.Storage.Commitments.Load(engine.Storage.Settings.LatestCommitment().Index()))
-	if err := engine.Storage.Settings.SetChainID(engine.SnapshotCommitment.ID()); err != nil {
+	if err := engine.Storage.Settings.SetChainID(engine.Storage.Settings.LatestCommitment().ID()); err != nil {
 		panic(err)
 	}
 

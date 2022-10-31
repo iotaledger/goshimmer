@@ -19,8 +19,7 @@ func Test(t *testing.T) {
 	emptyBlock := models.NewBlock(models.WithStrongParents(models.NewBlockIDs(models.EmptyBlockID)))
 	require.NoError(t, emptyBlock.DetermineID())
 
-	chainStorage, err := New(storageDirectory, 1)
-	require.NoError(t, err)
+	chainStorage := New(storageDirectory, 1)
 	chainStorage.Settings.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 	chainStorage.Commitments.Store(0, genesisCommitment)
@@ -32,8 +31,7 @@ func Test(t *testing.T) {
 
 	chainStorage.Shutdown()
 
-	chainStorage, err = New(storageDirectory, 1)
-	require.NoError(t, err)
+	chainStorage = New(storageDirectory, 1)
 	fmt.Println(lo.PanicOnErr(chainStorage.Commitments.Load(0)), lo.PanicOnErr(chainStorage.Commitments.Load(1)))
 	require.Equal(t, epoch.Index(10), chainStorage.Settings.LatestStateMutationEpoch())
 
