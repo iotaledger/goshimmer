@@ -128,7 +128,7 @@ func (o *VirtualVoting) track(block *Block) (tracked bool) {
 	}
 
 	o.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
-	o.epochTracker.TrackVotes(block.ID().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
+	o.epochTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), epochtracker.EpochVotePower{Index: block.ID().Index()})
 
 	return true
 }
