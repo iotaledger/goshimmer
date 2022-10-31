@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/storage/models"
@@ -18,7 +19,13 @@ const (
 // region StateDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type LedgerStateDiffs struct {
-	BucketedStorage func(index epoch.Index) kvstore.KVStore
+	Storage func(index epoch.Index) kvstore.KVStore
+}
+
+func NewLedgerStateDiffs(database *database.Manager, storagePrefix byte) (newLedgerStateDiffs *LedgerStateDiffs) {
+	return &LedgerStateDiffs{
+		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
+	}
 }
 
 func (s *LedgerStateDiffs) StoreSpentOutput(outputWithMetadata *models.OutputWithMetadata) (err error) {
@@ -37,7 +44,7 @@ func (s *LedgerStateDiffs) StoreCreatedOutput(outputWithMetadata *models.OutputW
 	return s.store(store, outputWithMetadata)
 }
 
-func (s *LedgerStateDiffs) GetSpent(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *models.OutputWithMetadata, err error) {
+func (s *LedgerStateDiffs) LoadSpentOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *models.OutputWithMetadata, err error) {
 	store, err := s.SpentStorage(index)
 	if err != nil {
 		return nil, errors.Errorf("failed to extend realm for storage: %w", err)
@@ -45,7 +52,7 @@ func (s *LedgerStateDiffs) GetSpent(index epoch.Index, outputID utxo.OutputID) (
 	return s.get(store, outputID)
 }
 
-func (s *LedgerStateDiffs) GetCreated(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *models.OutputWithMetadata, err error) {
+func (s *LedgerStateDiffs) LoadCreatedOutput(index epoch.Index, outputID utxo.OutputID) (outputWithMetadata *models.OutputWithMetadata, err error) {
 	store, err := s.CreatedStorage(index)
 	if err != nil {
 		return nil, errors.Errorf("failed to extend realm for storage: %w", err)
@@ -54,7 +61,7 @@ func (s *LedgerStateDiffs) GetCreated(index epoch.Index, outputID utxo.OutputID)
 	return s.get(store, outputID)
 }
 
-func (s *LedgerStateDiffs) DeleteSpent(index epoch.Index, outputID utxo.OutputID) (err error) {
+func (s *LedgerStateDiffs) DeleteSpentOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
 	store, err := s.SpentStorage(index)
 	if err != nil {
 		return errors.Errorf("failed to extend realm for storage: %w", err)
@@ -63,7 +70,7 @@ func (s *LedgerStateDiffs) DeleteSpent(index epoch.Index, outputID utxo.OutputID
 	return s.delete(store, outputID)
 }
 
-func (s *LedgerStateDiffs) DeleteCreated(index epoch.Index, outputID utxo.OutputID) (err error) {
+func (s *LedgerStateDiffs) DeleteCreatedOutput(index epoch.Index, outputID utxo.OutputID) (err error) {
 	store, err := s.CreatedStorage(index)
 	if err != nil {
 		return errors.Errorf("failed to extend realm for storage: %w", err)
@@ -74,7 +81,7 @@ func (s *LedgerStateDiffs) DeleteCreated(index epoch.Index, outputID utxo.Output
 
 func (s *LedgerStateDiffs) DeleteSpentOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
 	for it := outputIDs.Iterator(); it.HasNext(); {
-		if err = s.DeleteSpent(index, it.Next()); err != nil {
+		if err = s.DeleteSpentOutput(index, it.Next()); err != nil {
 			return
 		}
 	}
@@ -84,7 +91,7 @@ func (s *LedgerStateDiffs) DeleteSpentOutputs(index epoch.Index, outputIDs utxo.
 
 func (s *LedgerStateDiffs) DeleteCreatedOutputs(index epoch.Index, outputIDs utxo.OutputIDs) (err error) {
 	for it := outputIDs.Iterator(); it.HasNext(); {
-		if err = s.DeleteCreated(index, it.Next()); err != nil {
+		if err = s.DeleteCreatedOutput(index, it.Next()); err != nil {
 			return
 		}
 	}
@@ -123,11 +130,11 @@ func (s *LedgerStateDiffs) StateDiff(index epoch.Index) (diff *models.StateDiff)
 }
 
 func (s *LedgerStateDiffs) SpentStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
-	return s.BucketedStorage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
+	return s.Storage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 }
 
 func (s *LedgerStateDiffs) CreatedStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
-	return s.BucketedStorage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
+	return s.Storage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 }
 
 func (s *LedgerStateDiffs) store(store kvstore.KVStore, outputWithMetadata *models.OutputWithMetadata) (err error) {

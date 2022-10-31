@@ -73,7 +73,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 		for i := uint32(0); i < numEpochs; i++ {
 			ProcessChunks(NewChunkedReader[identity.ID](fileHandle), func(chunk []*identity.ID) {
 				for _, id := range chunk {
-					if err := engine.Storage.ActivityLog.Store(epoch.Index(i), *id); err != nil {
+					if err := engine.Storage.ActiveNodes.Store(epoch.Index(i), *id); err != nil {
 						panic(err)
 					}
 				}

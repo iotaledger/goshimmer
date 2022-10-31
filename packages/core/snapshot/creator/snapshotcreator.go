@@ -45,7 +45,7 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.ActivityLog.Store(0, nodeID); err != nil {
+		if err := e.Storage.ActiveNodes.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
@@ -72,7 +72,7 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
 	outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	if err := e.Storage.ActivityLog.Store(0, genesisPledgeID); err != nil {
+	if err := e.Storage.ActiveNodes.Store(0, genesisPledgeID); err != nil {
 		panic(err)
 	}
 
@@ -80,7 +80,7 @@ func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string,
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
 		outputsWithMetadata = append(outputsWithMetadata, models.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.ActivityLog.Store(0, nodeID); err != nil {
+		if err := e.Storage.ActiveNodes.Store(0, nodeID); err != nil {
 			panic(err)
 		}
 	}

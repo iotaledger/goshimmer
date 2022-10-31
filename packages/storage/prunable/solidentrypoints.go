@@ -6,12 +6,19 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type SolidEntryPoints struct {
 	Storage func(index epoch.Index) kvstore.KVStore
+}
+
+func NewSolidEntryPoints(database *database.Manager, storagePrefix byte) (newSolidEntryPoints *SolidEntryPoints) {
+	return &SolidEntryPoints{
+		Storage: lo.Bind([]byte{storagePrefix}, database.Get),
+	}
 }
 
 func (s *SolidEntryPoints) Store(block *models.Block) (err error) {
@@ -22,39 +29,39 @@ func (s *SolidEntryPoints) Store(block *models.Block) (err error) {
 	return nil
 }
 
-func (s *SolidEntryPoints) Get(blockID models.BlockID) (block *models.Block, err error) {
-	blockBytes, err := s.Storage(blockID.Index()).Get(lo.PanicOnErr(blockID.Bytes()))
-	if err != nil {
-		if errors.Is(err, kvstore.ErrKeyNotFound) {
-			return nil, nil
-		}
-
-		return nil, errors.Errorf("failed to get solid entry point block %s: %w", blockID, err)
-	}
-
-	block = new(models.Block)
-	if _, err = block.FromBytes(blockBytes); err != nil {
-		return nil, errors.Errorf("failed to parse solid entry point block %s: %w", blockID, err)
-	}
-	block.SetID(blockID)
-
-	return
-}
-
-func (s *SolidEntryPoints) GetAll(index epoch.Index) (rootBlocks *set.AdvancedSet[*models.Block]) {
-	rootBlocks = set.NewAdvancedSet[*models.Block]()
-	s.Stream(index, func(block *models.Block) {
-		rootBlocks.Add(block)
-	})
-	return
-}
-
 func (s *SolidEntryPoints) Delete(blockID models.BlockID) (err error) {
 	if err = s.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
 		return errors.Errorf("failed to delete solid entry point block %s: %w", blockID, err)
 	}
 
 	return nil
+}
+
+func (s *SolidEntryPoints) Load(id models.BlockID) (block *models.Block, err error) {
+	blockBytes, err := s.Storage(id.Index()).Get(lo.PanicOnErr(id.Bytes()))
+	if err != nil {
+		if errors.Is(err, kvstore.ErrKeyNotFound) {
+			return nil, nil
+		}
+
+		return nil, errors.Errorf("failed to get solid entry point block %s: %w", id, err)
+	}
+
+	block = new(models.Block)
+	if _, err = block.FromBytes(blockBytes); err != nil {
+		return nil, errors.Errorf("failed to parse solid entry point block %s: %w", id, err)
+	}
+	block.SetID(id)
+
+	return
+}
+
+func (s *SolidEntryPoints) LoadAll(index epoch.Index) (solidEntryPoints *set.AdvancedSet[*models.Block]) {
+	solidEntryPoints = set.NewAdvancedSet[*models.Block]()
+	s.Stream(index, func(block *models.Block) {
+		solidEntryPoints.Add(block)
+	})
+	return
 }
 
 func (s *SolidEntryPoints) Stream(index epoch.Index, callback func(*models.Block)) {
