@@ -10,6 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
+const (
+	spentOutputsPrefix byte = iota
+	createdOutputsPrefix
+)
+
 // region StateDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type LedgerStateDiffs struct {
@@ -118,11 +123,11 @@ func (s *LedgerStateDiffs) StateDiff(index epoch.Index) (diff *models.StateDiff)
 }
 
 func (s *LedgerStateDiffs) SpentStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
-	return s.BucketedStorage(index).WithExtendedRealm([]byte{spentType})
+	return s.BucketedStorage(index).WithExtendedRealm([]byte{spentOutputsPrefix})
 }
 
 func (s *LedgerStateDiffs) CreatedStorage(index epoch.Index) (storage kvstore.KVStore, err error) {
-	return s.BucketedStorage(index).WithExtendedRealm([]byte{createdType})
+	return s.BucketedStorage(index).WithExtendedRealm([]byte{createdOutputsPrefix})
 }
 
 func (s *LedgerStateDiffs) store(store kvstore.KVStore, outputWithMetadata *models.OutputWithMetadata) (err error) {
@@ -170,16 +175,5 @@ func (s *LedgerStateDiffs) delete(store kvstore.KVStore, outputID utxo.OutputID)
 	}
 	return
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region realm ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type realm = byte
-
-const (
-	spentType realm = iota
-	createdType
-)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

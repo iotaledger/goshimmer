@@ -12,6 +12,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
+const (
+	unspentOutputsPrefix byte = iota
+	unspentOutputIDsPrefix
+	consensusWeightsPrefix
+)
+
 type Permanent struct {
 	Events           *Events
 	Settings         *Settings
@@ -26,9 +32,9 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 		Events:           NewEvents(),
 		Settings:         NewSettings(disk.Path("settings.bin")),
 		Commitments:      NewCommitments(disk.Path("commitments.bin")),
-		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsRealm}))),
-		UnspentOutputIDs: NewUnspentOutputIDs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsRealm}))),
-		ConsensusWeights: NewConsensusWeights(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsRealm}))),
+		UnspentOutputs:   NewUnspentOutputs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputsPrefix}))),
+		UnspentOutputIDs: NewUnspentOutputIDs(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{unspentOutputIDsPrefix}))),
+		ConsensusWeights: NewConsensusWeights(lo.PanicOnErr(database.PermanentStorage().WithRealm([]byte{consensusWeightsPrefix}))),
 	}
 }
 
@@ -84,11 +90,3 @@ func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.StateDif
 func void[A, B any](f func(A) B) func(A) {
 	return func(a A) { f(a) }
 }
-
-type realm = byte
-
-const (
-	unspentOutputsRealm realm = iota
-	unspentOutputIDsRealm
-	consensusWeightsRealm
-)

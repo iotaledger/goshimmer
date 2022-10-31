@@ -1,10 +1,16 @@
 package prunable
 
 import (
-	"github.com/iotaledger/hive.go/core/kvstore"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+)
+
+const (
+	blocksPrefix byte = iota
+	solidEntryPointsPrefix
+	activityLogPrefix
+	ledgerStateDiffsPrefix
 )
 
 type Prunable struct {
@@ -12,49 +18,13 @@ type Prunable struct {
 	SolidEntryPoints *SolidEntryPoints
 	ActivityLog      *ActivityLog
 	LedgerStateDiffs *LedgerStateDiffs
-
-	database *database.Manager
 }
 
 func New(database *database.Manager) (newPrunable *Prunable) {
-	newPrunable = &Prunable{
-		database: database,
-	}
-	newPrunable.Blocks = &Blocks{newPrunable.bucketedStore(BlockRealm)}
-	newPrunable.SolidEntryPoints = &SolidEntryPoints{newPrunable.bucketedStore(SolidEntryPointsRealm)}
-	newPrunable.ActivityLog = &ActivityLog{newPrunable.bucketedStore(ActivityLogRealm)}
-	newPrunable.LedgerStateDiffs = &LedgerStateDiffs{BucketedStorage: newPrunable.bucketedStore(LedgerStateDiffsRealm)}
-
-	return newPrunable
-}
-
-func (c *Prunable) bucketedStore(realm realm) (bucketedStore func(index epoch.Index) kvstore.KVStore) {
-	return newBucketedStorage(c.database, realm).Store
-}
-
-// region bucketedStore ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type bucketedStore struct {
-	database *database.Manager
-	realm    realm
-}
-
-func newBucketedStorage(database *database.Manager, realm realm) (newBucketedStore *bucketedStore) {
-	return &bucketedStore{
-		database: database,
-		realm:    realm,
+	return &Prunable{
+		Blocks:           &Blocks{lo.Bind([]byte{blocksPrefix}, database.Get)},
+		SolidEntryPoints: &SolidEntryPoints{lo.Bind([]byte{solidEntryPointsPrefix}, database.Get)},
+		ActivityLog:      &ActivityLog{lo.Bind([]byte{activityLogPrefix}, database.Get)},
+		LedgerStateDiffs: &LedgerStateDiffs{BucketedStorage: lo.Bind([]byte{ledgerStateDiffsPrefix}, database.Get)},
 	}
 }
-
-func (b *bucketedStore) Store(index epoch.Index) kvstore.KVStore {
-	return b.database.Get(index, []byte{byte(b.realm)})
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-const (
-	BlockRealm realm = iota
-	LedgerStateDiffsRealm
-	SolidEntryPointsRealm
-	ActivityLogRealm
-)
