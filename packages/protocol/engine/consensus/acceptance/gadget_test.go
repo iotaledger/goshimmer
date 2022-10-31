@@ -22,6 +22,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 
 	tf := NewTestFramework(t,
 		WithGadgetOptions(
+			WithConfirmationThreshold(0.5),
 			WithConflictAcceptanceThreshold(0.5),
 			WithMarkerAcceptanceThreshold(0.5),
 		),
@@ -52,6 +53,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block1": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 1): false,
 	}))
@@ -64,6 +67,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block2": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 2): false,
 	}))
@@ -77,6 +82,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block1": true,
 		"Block3": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 1): true,
@@ -92,6 +98,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block2": true,
 		"Block4": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 2): true,
@@ -107,6 +114,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block3": true,
 		"Block5": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 3): true,
@@ -122,6 +130,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block4": true,
 		"Block6": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 4): true,
@@ -139,6 +148,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block5": true,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 5): true,
@@ -154,6 +164,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block7":   true,
 		"Block7.1": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 6): true,
@@ -170,6 +181,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block7.1": true,
 		"Block7.2": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(0, 7): true,
@@ -184,6 +196,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block8": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{}))
 
 	tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
@@ -195,6 +209,8 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block9": false,
 	}))
+
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(1, 5): false,
@@ -209,6 +225,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block10": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(1, 6): false,
@@ -221,6 +238,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block11": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{}))
 
@@ -236,6 +254,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block12": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{}))
 
@@ -248,6 +267,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block13": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(2, 6): false,
@@ -262,6 +282,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 	tf.ValidateAcceptedBlocks(lo.MergeMaps(initialAcceptedBlocks, map[string]bool{
 		"Block14": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(2, 6): false,
@@ -280,6 +301,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block13": true,
 		"Block15": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(2, 6): true,
@@ -302,6 +324,7 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 		"Block15": true,
 		"Block16": false,
 	}))
+	tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 	tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 		markers.NewMarker(2, 7): true,
@@ -316,10 +339,10 @@ func TestGadget_update_conflictsStepwise(t *testing.T) {
 }
 
 func TestGadget_update_multipleSequences(t *testing.T) {
-	debug.SetEnabled(true)
+	debug.SetEnabled(false)
 	defer debug.SetEnabled(false)
 
-	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
+	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66), WithConfirmationThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(20))
 	tf.CreateIdentity("B", validator.WithWeight(30))
 
@@ -366,6 +389,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			"Block14": false,
 			"Block15": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(0, 1): false,
 			markers.NewMarker(0, 2): false,
@@ -379,8 +404,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			markers.NewMarker(2, 6): false,
 			markers.NewMarker(2, 7): false,
 		}))
-
 		tf.AssertBlockAccepted(0)
+		tf.AssertBlockConfirmed(0)
 	}
 
 	tf.CreateBlock("Block16", models.WithStrongParents(tf.BlockIDs("Block15")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -398,6 +423,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			"Block15": true,
 			"Block16": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(0, 1): true,
 			markers.NewMarker(0, 2): true,
@@ -409,6 +436,7 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			markers.NewMarker(2, 8): false,
 		}))
 		tf.AssertBlockAccepted(9)
+		tf.AssertBlockConfirmed(9)
 	}
 
 	tf.CreateBlock("Block17", models.WithStrongParents(tf.BlockIDs("Block10")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -422,6 +450,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			"Block10": true,
 			"Block17": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(1, 5): true,
 			markers.NewMarker(1, 6): true,
@@ -429,6 +459,8 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			markers.NewMarker(1, 8): false,
 		}))
 		tf.AssertBlockAccepted(14)
+		tf.AssertBlockConfirmed(14)
+
 	}
 
 	tf.CreateBlock("Block18", models.WithStrongParents(tf.BlockIDs("Block5")), models.WithIssuer(tf.Identity("B").PublicKey()))
@@ -438,11 +470,14 @@ func TestGadget_update_multipleSequences(t *testing.T) {
 			"Block5":  true,
 			"Block18": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(0, 5): true,
 			markers.NewMarker(0, 6): false,
 		}))
 		tf.AssertBlockAccepted(15)
+		tf.AssertBlockConfirmed(15)
 	}
 }
 
@@ -468,6 +503,7 @@ func TestGadget_update_reorg(t *testing.T) {
 			"Block1": false,
 			"Block2": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{
 			"Tx1": confirmation.Pending,
@@ -487,6 +523,7 @@ func TestGadget_update_reorg(t *testing.T) {
 			"Block1": true,
 			"Block3": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{
 			"Tx1": confirmation.Accepted,
@@ -504,6 +541,7 @@ func TestGadget_update_reorg(t *testing.T) {
 			"Block2": true,
 			"Block4": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
@@ -520,6 +558,7 @@ func TestGadget_update_reorg(t *testing.T) {
 			"Block4": true,
 			"Block5": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
 
 		tf.ValidateConflictAcceptance(lo.MergeMaps(initialAcceptedConflicts, map[string]confirmation.State{}))
 
@@ -530,7 +569,10 @@ func TestGadget_update_reorg(t *testing.T) {
 }
 
 func TestGadget_unorphan(t *testing.T) {
-	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
+	debug.SetEnabled(true)
+	defer debug.SetEnabled(false)
+
+	tf := NewTestFramework(t, WithGadgetOptions(WithMarkerAcceptanceThreshold(0.66), WithConfirmationThreshold(0.66)), WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(3))))))
 	tf.CreateIdentity("A", validator.WithWeight(20))
 	tf.CreateIdentity("B", validator.WithWeight(30))
 
@@ -553,6 +595,8 @@ func TestGadget_unorphan(t *testing.T) {
 			"Block4": false,
 			"Block5": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(0, 1): false,
 			markers.NewMarker(0, 2): false,
@@ -562,6 +606,8 @@ func TestGadget_unorphan(t *testing.T) {
 		}))
 
 		tf.AssertBlockAccepted(0)
+		tf.AssertBlockConfirmed(0)
+
 	}
 
 	for _, alias := range []string{"Block1", "Block2", "Block3", "Block4", "Block5"} {
@@ -591,6 +637,8 @@ func TestGadget_unorphan(t *testing.T) {
 			"Block5": true,
 			"Block6": false,
 		}))
+		tf.ValidateConfirmedBlocks(initialAcceptedBlocks)
+
 		tf.ValidateAcceptedMarker(lo.MergeMaps(initialAcceptedMarkers, map[markers.Marker]bool{
 			markers.NewMarker(0, 1): true,
 			markers.NewMarker(0, 2): true,
@@ -600,6 +648,8 @@ func TestGadget_unorphan(t *testing.T) {
 			markers.NewMarker(0, 6): false,
 		}))
 		tf.AssertBlockAccepted(5)
+		tf.AssertBlockConfirmed(5)
+
 		tf.AssertOrphanedBlocks(tf.BlockIDs())
 		tf.AssertOrphanedCount(0)
 	}

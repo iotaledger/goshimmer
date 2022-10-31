@@ -39,6 +39,8 @@ type Gadget struct {
 	optsMarkerAcceptanceThreshold   float64
 	optsConfirmationThreshold       float64
 	optsConflictAcceptanceThreshold float64
+	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *Block]
+	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *Block]
 }
 
 func New(tangle *tangle.Tangle, totalWeightCallback func() (int64, error), opts ...options.Option[Gadget]) (gadget *Gadget) {
@@ -54,6 +56,9 @@ func New(tangle *tangle.Tangle, totalWeightCallback func() (int64, error), opts 
 		a.evictionManager = tangle.EvictionManager.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
+
+		a.acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+		a.confirmationOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
@@ -138,10 +143,8 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 			if validator.IsThresholdReached(totalWeight, markerVoters.TotalWeight(), a.optsConfirmationThreshold) && a.setMarkerAccepted(marker) {
 				a.propagateAcceptance(marker, true)
 			}
-		} else {
-			if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-				a.propagateAcceptance(marker, false)
-			}
+		} else if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
+			a.propagateAcceptance(marker, false)
 		}
 	}
 }
@@ -180,27 +183,26 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker, confirmed bool) {
 	}
 
 	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
-	if !blockExists || block.IsAccepted() {
+	if !blockExists || block.IsAccepted() && !confirmed || block.IsConfirmed() && confirmed {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
-	}
-
-	var acceptanceOrder *causalorder.CausalOrder[models.BlockID, *Block]
-	if confirmed {
-		acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsConfirmed, a.markAsConfirmed, a.acceptanceFailed)
-
-	} else {
-		acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 	}
 
 	pastConeWalker := walker.New[*Block](false).Push(block)
 	for pastConeWalker.HasNext() {
 		walkerBlock := pastConeWalker.Next()
-		if !walkerBlock.SetQueued() {
-			continue
+
+		var acceptanceQueued, confirmationQueued bool
+		if acceptanceQueued = walkerBlock.SetAcceptanceQueued(); acceptanceQueued {
+			a.acceptanceOrder.Queue(walkerBlock)
+		}
+		if confirmationQueued = walkerBlock.SetConfirmationQueued(); confirmationQueued {
+			a.confirmationOrder.Queue(walkerBlock)
 		}
 
-		acceptanceOrder.Queue(walkerBlock)
+		if !acceptanceQueued && !confirmationQueued {
+			continue
+		}
 
 		for _, parentBlockID := range walkerBlock.Parents() {
 			if !confirmed && a.isBlockAccepted(parentBlockID) || confirmed && a.isBlockConfirmed(parentBlockID) {
@@ -255,9 +257,11 @@ func (a *Gadget) markAsConfirmed(block *Block) (err error) {
 			a.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), block.IssuingTime())
 		}
 	}
+
 	if block.SetConfirmed() {
 		a.Events.BlockConfirmed.Trigger(block)
 	}
+
 	return nil
 }
 

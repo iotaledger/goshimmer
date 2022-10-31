@@ -162,7 +162,7 @@ func (e *Engine) initTangle() {
 }
 
 func (e *Engine) initConsensus() {
-	e.Consensus = consensus.New(e.Tangle, e.Storage.LatestConfirmedEpoch(), func() (int64, error) {
+	e.Consensus = consensus.New(e.Tangle, e.Storage.Permanent.Settings.LatestConfirmedEpoch(), func() (int64, error) {
 		totalMana, _, err := e.ManaTracker.GetTotalMana(manamodels.ConsensusMana)
 		return totalMana, err
 	}, e.optsConsensusOptions...)
@@ -170,7 +170,7 @@ func (e *Engine) initConsensus() {
 	e.Events.Consensus = e.Consensus.Events
 
 	e.Events.Consensus.EpochConfirmation.EpochConfirmed.Attach(event.NewClosure(func(epochIndex epoch.Index) {
-		e.Storage.SetLatestConfirmedEpoch(epochIndex)
+		e.Storage.Permanent.Settings.SetLatestConfirmedEpoch(epochIndex)
 	}))
 }
 

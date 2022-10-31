@@ -30,6 +30,7 @@ type TestFramework struct {
 
 	test              *testing.T
 	acceptedBlocks    uint32
+	confirmedBlocks   uint32
 	conflictsAccepted uint32
 	conflictsRejected uint32
 	reorgCount        uint32
@@ -96,7 +97,7 @@ func (t *TestFramework) setupEvents() {
 			t.test.Logf("CONFIRMED: %s", metadata.ID())
 		}
 
-		atomic.AddUint32(&(t.acceptedBlocks), 1)
+		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	}))
 
 	t.Gadget.Events.Reorg.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
@@ -127,6 +128,10 @@ func (t *TestFramework) AssertBlockAccepted(blocksAccepted uint32) {
 	assert.Equal(t.test, blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks), "expected %d blocks to be accepted but got %d", blocksAccepted, atomic.LoadUint32(&t.acceptedBlocks))
 }
 
+func (t *TestFramework) AssertBlockConfirmed(blocksConfirmed uint32) {
+	assert.Equal(t.test, blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks), "expected %d blocks to be accepted but got %d", blocksConfirmed, atomic.LoadUint32(&t.confirmedBlocks))
+}
+
 func (t *TestFramework) AssertConflictsAccepted(conflictsAccepted uint32) {
 	assert.Equal(t.test, conflictsAccepted, atomic.LoadUint32(&t.conflictsAccepted), "expected %d conflicts to be accepted but got %d", conflictsAccepted, atomic.LoadUint32(&t.acceptedBlocks))
 }
@@ -139,10 +144,17 @@ func (t *TestFramework) AssertReorgs(reorgCount uint32) {
 	assert.Equal(t.test, reorgCount, atomic.LoadUint32(&t.reorgCount), "expected %d reorgs but got %d", reorgCount, atomic.LoadUint32(&t.reorgCount))
 }
 
-func (t *TestFramework) ValidateAcceptedBlocks(expectedConflictIDs map[string]bool) {
-	for blockID, blockExpectedAccepted := range expectedConflictIDs {
+func (t *TestFramework) ValidateAcceptedBlocks(expectedAcceptedBlocks map[string]bool) {
+	for blockID, blockExpectedAccepted := range expectedAcceptedBlocks {
 		actualBlockAccepted := t.Gadget.IsBlockAccepted(t.Block(blockID).ID())
 		assert.Equal(t.test, blockExpectedAccepted, actualBlockAccepted, "Block %s should be accepted=%t but is %t", blockID, blockExpectedAccepted, actualBlockAccepted)
+	}
+}
+
+func (t *TestFramework) ValidateConfirmedBlocks(expectedConfirmedBlocks map[string]bool) {
+	for blockID, blockExpectedConfirmed := range expectedConfirmedBlocks {
+		actualBlockConfirmed := t.Gadget.isBlockConfirmed(t.Block(blockID).ID())
+		assert.Equal(t.test, blockExpectedConfirmed, actualBlockConfirmed, "Block %s should be accepted=%t but is %t", blockID, blockExpectedConfirmed, actualBlockConfirmed)
 	}
 }
 

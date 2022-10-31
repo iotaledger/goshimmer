@@ -11,9 +11,10 @@ import (
 
 // Block represents a Block annotated with OTV related metadata.
 type Block struct {
-	accepted  bool
-	confirmed bool
-	queued    bool
+	accepted           bool
+	confirmed          bool
+	acceptanceQueued   bool
+	confirmationQueued bool
 
 	*virtualvoting.Block
 }
@@ -61,19 +62,37 @@ func (b *Block) SetConfirmed() (wasUpdated bool) {
 	return
 }
 
-func (b *Block) IsQueued() bool {
+func (b *Block) IsAcceptanceQueued() bool {
 	b.RLock()
 	defer b.RUnlock()
 
-	return b.queued
+	return b.acceptanceQueued
 }
 
-func (b *Block) SetQueued() (wasUpdated bool) {
+func (b *Block) SetAcceptanceQueued() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
-	if wasUpdated = !b.queued; wasUpdated {
-		b.queued = true
+	if wasUpdated = !b.acceptanceQueued; wasUpdated {
+		b.acceptanceQueued = true
+	}
+
+	return
+}
+
+func (b *Block) IsConfirmationQueued() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.confirmationQueued
+}
+
+func (b *Block) SetConfirmationQueued() (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.confirmationQueued; wasUpdated {
+		b.confirmationQueued = true
 	}
 
 	return
@@ -102,7 +121,7 @@ func WithConfirmed(confirmed bool) options.Option[Block] {
 }
 func WithQueued(queued bool) options.Option[Block] {
 	return func(b *Block) {
-		b.queued = queued
+		b.acceptanceQueued = queued
 	}
 }
 
