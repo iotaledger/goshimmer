@@ -12,9 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
 )
 
-// TestApprovalWeightManager_updateSequenceVoters tests the ApprovalWeightManager's functionality regarding sequences.
-// The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
-func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
+// TestSequenceTracker_TrackVotes tests the SequenceTracker's functionality regarding tracking sequence votes.
+func TestSequenceTracker_TrackVotes(t *testing.T) {
 	debug.SetEnabled(true)
 	tf := NewTestFramework[votes.MockedVotePower](t)
 
