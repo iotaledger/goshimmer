@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/ledger"
+	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/prunable"
 )
 
 const (
@@ -153,7 +153,7 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	fmt.Printf("%+v\n", e.Storage.Settings)
 
 	fmt.Println("--- Commitments ---")
-	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Commitments.LoadCommitment(0)))
+	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Commitments.Load(0)))
 
 	fmt.Println("--- Ledgerstate ---")
 	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
@@ -166,20 +166,20 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	e.Storage.Tangle.SolidEntryPointsStorage.Stream(0, func(b *models.Block) {
+	e.Storage.Prunable.SolidEntryPoints.Stream(0, func(b *models.Block) {
 		fmt.Printf("%+v\n", b)
 	})
 
 	fmt.Println("--- ActivityLog ---")
-	e.Storage.Tangle.ActivityLogStorage.Stream(0, func(id identity.ID) {
+	e.Storage.StreamActivities(0, func(id identity.ID) {
 		fmt.Printf("%d: %+v\n", 0, id)
 	})
 
 	fmt.Println("--- Diffs ---")
-	e.Storage.Ledger.LedgerStateDiffs.StreamSpent(0, func(owm *ledgerStorage.OutputWithMetadata) {
+	e.Storage.StreamSpentOutputs(0, func(owm *ledgerStorage.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
-	e.Storage.Ledger.LedgerStateDiffs.StreamCreated(0, func(owm *ledgerStorage.OutputWithMetadata) {
+	e.Storage.StreamCreatedOutputs(0, func(owm *ledgerStorage.OutputWithMetadata) {
 		fmt.Printf("%d: %+v\n", 0, owm)
 	})
 }

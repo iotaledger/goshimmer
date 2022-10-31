@@ -12,7 +12,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/storage/ledger"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
@@ -558,12 +558,12 @@ type EpochDiff struct {
 
 type epochDiffModel struct {
 	Index   epoch.Index
-	Spent   []*ledger.OutputWithMetadata `serix:"0"`
-	Created []*ledger.OutputWithMetadata `serix:"1"`
+	Spent   []*models.OutputWithMetadata `serix:"0"`
+	Created []*models.OutputWithMetadata `serix:"1"`
 }
 
 // NewEpochDiff returns a new EpochDiff object.
-func NewEpochDiff(spent []*ledger.OutputWithMetadata, created []*ledger.OutputWithMetadata) (new *EpochDiff) {
+func NewEpochDiff(spent []*models.OutputWithMetadata, created []*models.OutputWithMetadata) (new *EpochDiff) {
 	return model.NewImmutable[EpochDiff](&epochDiffModel{
 		Spent:   spent,
 		Created: created,
@@ -571,12 +571,12 @@ func NewEpochDiff(spent []*ledger.OutputWithMetadata, created []*ledger.OutputWi
 }
 
 // Spent returns the outputs spent for this epoch diff.
-func (e *EpochDiff) Spent() []*ledger.OutputWithMetadata {
+func (e *EpochDiff) Spent() []*models.OutputWithMetadata {
 	return e.M.Spent
 }
 
 // Created returns the outputs created for this epoch diff.
-func (e *EpochDiff) Created() []*ledger.OutputWithMetadata {
+func (e *EpochDiff) Created() []*models.OutputWithMetadata {
 	return e.M.Created
 }
 

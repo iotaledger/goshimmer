@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/types"
 	"github.com/stretchr/testify/require"
 
@@ -22,10 +23,10 @@ func Test(t *testing.T) {
 	require.NoError(t, err)
 	chainStorage.SetLatestStateMutationEpoch(10)
 	genesisCommitment := commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
-	chainStorage.SetCommitment(0, genesisCommitment)
-	chainStorage.SetCommitment(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
-	chainStorage.BlockStorage.Store(emptyBlock)
-	fmt.Println(chainStorage.BlockStorage.Get(emptyBlock.ID()))
+	chainStorage.StoreCommitment(0, genesisCommitment)
+	chainStorage.StoreCommitment(1, commitment.New(1, genesisCommitment.ID(), types.Identifier{}, 0))
+	chainStorage.StoreBlock(emptyBlock)
+	fmt.Println(chainStorage.LoadBlock(emptyBlock.ID()))
 
 	chainStorage.database.Flush(0)
 
@@ -33,10 +34,10 @@ func Test(t *testing.T) {
 
 	chainStorage, err = New(storageDirectory, 1)
 	require.NoError(t, err)
-	fmt.Println(chainStorage.LoadCommitment(0), chainStorage.LoadCommitment(1))
+	fmt.Println(lo.PanicOnErr(chainStorage.LoadCommitment(0)), lo.PanicOnErr(chainStorage.LoadCommitment(1)))
 	require.Equal(t, epoch.Index(10), chainStorage.LatestStateMutationEpoch())
 
-	fmt.Println(chainStorage.BlockStorage.Get(emptyBlock.ID()))
+	fmt.Println(chainStorage.LoadBlock(emptyBlock.ID()))
 
 	chainStorage.Shutdown()
 }

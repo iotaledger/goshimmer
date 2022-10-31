@@ -1,4 +1,4 @@
-package ledger
+package models
 
 import (
 	"github.com/iotaledger/hive.go/core/generics/set"

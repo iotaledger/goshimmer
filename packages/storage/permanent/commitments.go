@@ -1,4 +1,4 @@
-package headers
+package permanent
 
 import (
 	"github.com/cockroachdb/errors"
@@ -23,7 +23,7 @@ func NewCommitments(path string) (newCommitment *Commitments, err error) {
 	}, nil
 }
 
-func (c *Commitments) StoreCommitment(index epoch.Index, commitment *commitment.Commitment) (err error) {
+func (c *Commitments) Store(index epoch.Index, commitment *commitment.Commitment) (err error) {
 	if err = c.slice.Set(int(index), commitment); err != nil {
 		return errors.Errorf("failed to store commitment for epoch %d: %w", index, err)
 	}
@@ -31,7 +31,7 @@ func (c *Commitments) StoreCommitment(index epoch.Index, commitment *commitment.
 	return nil
 }
 
-func (c *Commitments) LoadCommitment(index epoch.Index) (commitment *commitment.Commitment, err error) {
+func (c *Commitments) Load(index epoch.Index) (commitment *commitment.Commitment, err error) {
 	if commitment, err = c.slice.Get(int(index)); err != nil {
 		return nil, errors.Errorf("failed to get commitment for epoch %d: %w", index, err)
 	}

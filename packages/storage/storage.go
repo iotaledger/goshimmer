@@ -7,19 +7,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/core/diskutil"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/storage/headers"
-	"github.com/iotaledger/goshimmer/packages/storage/ledger"
-	"github.com/iotaledger/goshimmer/packages/storage/tangle"
+	"github.com/iotaledger/goshimmer/packages/storage/permanent"
+	"github.com/iotaledger/goshimmer/packages/storage/prunable"
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	*headers.Headers
-	Ledger *ledger.Ledger
-	Tangle *tangle.Tangle
-
 	database *database.Manager
+
+	*permanent.Permanent
+	*prunable.Prunable
 }
 
 func New(folder string, databaseVersion database.Version) (newStorage *Storage, err error) {
@@ -32,24 +30,23 @@ func New(folder string, databaseVersion database.Version) (newStorage *Storage, 
 		),
 	}
 
-	if newStorage.Headers, err = headers.New(diskutil.New(folder, true)); err != nil {
-		return nil, errors.Errorf("failed to create header storage: %w", err)
-	}
-
 	unspentOutputsStorage, unspentOutputIDsStorage, consensusWeightsStorage, err := newStorage.permanentStores()
 	if err != nil {
 		return nil, errors.Errorf("failed to create ledger storages: %w", err)
 	}
 
-	newStorage.Ledger = ledger.New(
+	if newStorage.Permanent, err = permanent.New(
+		diskutil.New(folder, true),
 		unspentOutputsStorage,
 		unspentOutputIDsStorage,
 		consensusWeightsStorage,
-		newStorage.bucketedStore(LedgerStateDiffsRealm),
-	)
+	); err != nil {
+		return nil, errors.Errorf("failed to create header storage: %w", err)
+	}
 
-	newStorage.Tangle = tangle.New(
+	newStorage.Prunable = prunable.New(
 		newStorage.bucketedStore(BlockRealm),
+		newStorage.bucketedStore(LedgerStateDiffsRealm),
 		newStorage.bucketedStore(SolidEntryPointsRealm),
 		newStorage.bucketedStore(ActivityLogRealm),
 	)
@@ -60,7 +57,7 @@ func New(folder string, databaseVersion database.Version) (newStorage *Storage, 
 func (c *Storage) Shutdown() (err error) {
 	c.database.Shutdown()
 
-	return c.Headers.Shutdown()
+	return c.Permanent.Shutdown()
 }
 
 func (c *Storage) permanentStores() (unspentOutputsStorage, unspentOutputIDsStorage, consensusWeightsStorage kvstore.KVStore, err error) {

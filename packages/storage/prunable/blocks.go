@@ -1,4 +1,4 @@
-package tangle
+package prunable
 
 import (
 	"github.com/cockroachdb/errors"
@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
-type BlockStorage struct {
+type Blocks struct {
 	Storage func(index epoch.Index) kvstore.KVStore
 }
 
-func (b *BlockStorage) Store(block *models.Block) (err error) {
+func (b *Blocks) Store(block *models.Block) (err error) {
 	if err = b.Storage(block.ID().Index()).Set(lo.PanicOnErr(block.ID().Bytes()), lo.PanicOnErr(block.Bytes())); err != nil {
 		return errors.Errorf("failed to store block %s: %w", block.ID, err)
 	}
@@ -21,7 +21,7 @@ func (b *BlockStorage) Store(block *models.Block) (err error) {
 	return nil
 }
 
-func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err error) {
+func (b *Blocks) Load(blockID models.BlockID) (block *models.Block, err error) {
 	blockBytes, err := b.Storage(blockID.Index()).Get(lo.PanicOnErr(blockID.Bytes()))
 	if err != nil {
 		if errors.Is(err, kvstore.ErrKeyNotFound) {
@@ -40,7 +40,7 @@ func (b *BlockStorage) Get(blockID models.BlockID) (block *models.Block, err err
 	return
 }
 
-func (b *BlockStorage) Delete(blockID models.BlockID) (err error) {
+func (b *Blocks) Delete(blockID models.BlockID) (err error) {
 	if err = b.Storage(blockID.Index()).Delete(lo.PanicOnErr(blockID.Bytes())); err != nil {
 		return errors.Errorf("failed to delete block %s: %w", blockID, err)
 	}

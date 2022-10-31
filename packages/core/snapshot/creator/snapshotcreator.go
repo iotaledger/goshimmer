@@ -8,16 +8,14 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/types/confirmation"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	storage2 "github.com/iotaledger/goshimmer/packages/storage/ledger"
-	"github.com/iotaledger/goshimmer/packages/storage/tangle"
-
-	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/prunable"
 )
 
 // CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
@@ -39,18 +37,15 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 	}
 
 	// prepare outputsWithMetadata
-	outputsWithMetadata := make([]*storage2.OutputWithMetadata, 0)
+	outputsWithMetadata := make([]*ledgerStorage.OutputWithMetadata, 0)
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
-	outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	outputsWithMetadata = append(outputsWithMetadata, ledgerStorage.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
 	for nodeID, value := range nodesToPledge {
 		// pledge to ID but send funds to random address
 		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
-			Index: 0,
-			ID:    nodeID,
-		}); err != nil {
+		outputsWithMetadata = append(outputsWithMetadata, ledgerStorage.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		if err := e.Storage.StoreActivity(0, nodeID); err != nil {
 			panic(err)
 		}
 	}
@@ -70,28 +65,22 @@ func CreateSnapshot(e *engine.Engine, snapshotFileName string, genesisTokenAmoun
 // | node2       | node2       |
 func CreateSnapshotForIntegrationTest(e *engine.Engine, snapshotFileName string, genesisTokenAmount uint64, genesisSeedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) {
 	now := time.Now()
-	outputsWithMetadata := make([]*storage2.OutputWithMetadata, 0)
+	outputsWithMetadata := make([]*ledgerStorage.OutputWithMetadata, 0)
 
 	// This is the same seed used to derive the faucet ID.
 	genesisPledgeID := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
 	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, genesisPledgeID, now)
-	outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+	outputsWithMetadata = append(outputsWithMetadata, ledgerStorage.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
 
-	if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
-		Index: 0,
-		ID:    genesisPledgeID,
-	}); err != nil {
+	if err := e.Storage.StoreActivity(0, genesisPledgeID); err != nil {
 		panic(err)
 	}
 
 	for nodeSeedBytes, value := range nodesToPledge {
 		nodeID := identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()
 		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeID, now)
-		outputsWithMetadata = append(outputsWithMetadata, storage2.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
-		if err := e.Storage.Tangle.ActivityLogStorage.Store(&tangle.ActivityEntry{
-			Index: 0,
-			ID:    nodeID,
-		}); err != nil {
+		outputsWithMetadata = append(outputsWithMetadata, ledgerStorage.NewOutputWithMetadata(0, output.ID(), output, outputMetadata.CreationTime(), outputMetadata.ConsensusManaPledgeID(), outputMetadata.AccessManaPledgeID()))
+		if err := e.Storage.StoreActivity(0, nodeID); err != nil {
 			panic(err)
 		}
 	}

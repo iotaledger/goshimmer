@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/storage"
-	ledgerStorage "github.com/iotaledger/goshimmer/packages/storage/ledger"
+	"github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 type Tracker struct {
@@ -31,7 +31,7 @@ func NewTracker(l *ledger.Ledger, chainStorage *storage.Storage, opts ...options
 	}, opts)
 }
 
-func (t *Tracker) UpdateConsensusWeights(weightUpdates map[identity.ID]*ledgerStorage.TimedBalance) {
+func (t *Tracker) UpdateConsensusWeights(weightUpdates map[identity.ID]*models.TimedBalance) {
 	t.consensusManaVector.Lock()
 	defer t.consensusManaVector.Unlock()
 

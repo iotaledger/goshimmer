@@ -169,11 +169,15 @@ func (e *Engine) initTSCManager() {
 
 func (e *Engine) initBlockStorage() {
 	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
-		e.Storage.Tangle.BlockStorage.Store(block.ModelsBlock)
+		if err := e.Storage.Blocks.Store(block.ModelsBlock); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to store block with %s: %w", block.ID(), err))
+		}
 	}))
 
 	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
-		e.Storage.Tangle.BlockStorage.Delete(block.ID())
+		if err := e.Storage.Blocks.Delete(block.ID()); err != nil {
+			e.Events.Error.Trigger(errors.Errorf("failed to delete block with %s: %w", block.ID(), err))
+		}
 	}))
 }
 
@@ -223,7 +227,7 @@ func (e *Engine) initNotarizationManager() {
 func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
 
-	e.Storage.Ledger.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.UpdateConsensusWeights))
+	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.UpdateConsensusWeights))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
 }
 
@@ -264,7 +268,7 @@ func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
 func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 	var err error
 	if e.EvictionState.IsRootBlock(id) {
-		block, err = e.Storage.Tangle.BlockStorage.Get(id)
+		block, err = e.Storage.Blocks.Load(id)
 		exists = block != nil && err == nil
 		return
 	}
@@ -277,7 +281,7 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 		return nil, false
 	}
 
-	block, err = e.Storage.Tangle.BlockStorage.Get(id)
+	block, err = e.Storage.Blocks.Load(id)
 	exists = block != nil && err == nil
 
 	return
