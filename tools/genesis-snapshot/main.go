@@ -163,8 +163,8 @@ func diagnosticPrintSnapshotFromFile(filePath string) {
 	})
 
 	fmt.Println("--- SEPs ---")
-	e.Storage.SolidEntryPoints.Stream(0, func(b *models.Block) {
-		fmt.Printf("%+v\n", b)
+	e.Storage.EntryPoints.Stream(0, func(blockID models.BlockID) {
+		fmt.Printf("%+v\n", blockID)
 	})
 
 	fmt.Println("--- ActivityLog ---")

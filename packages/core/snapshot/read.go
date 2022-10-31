@@ -54,10 +54,9 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Solid Entry Points
 	{
-		ProcessChunks(NewChunkedReader[models.Block](fileHandle), func(chunk []*models.Block) {
-			for _, block := range chunk {
-				block.DetermineID()
-				if err := engine.Storage.SolidEntryPoints.Store(block); err != nil {
+		ProcessChunks(NewChunkedReader[models.BlockID](fileHandle), func(chunk []*models.BlockID) {
+			for _, blockID := range chunk {
+				if err := engine.Storage.EntryPoints.Store(*blockID); err != nil {
 					panic(err)
 				}
 			}

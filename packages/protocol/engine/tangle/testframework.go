@@ -22,7 +22,7 @@ type TestFramework struct {
 
 	optsLedger          *ledger.Ledger
 	optsLedgerOptions   []options.Option[ledger.Ledger]
-	optsEvictionManager *eviction.State[models.BlockID]
+	optsEvictionState *eviction.State[models.BlockID]
 	optsValidatorSet    *validator.Set
 	optsTangle          []options.Option[Tangle]
 
@@ -39,15 +39,15 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 				t.optsLedger = ledger.New(chainStorage, t.optsLedgerOptions...)
 			}
 
-			if t.optsEvictionManager == nil {
-				t.optsEvictionManager = eviction.NewState[models.BlockID]()
+			if t.optsEvictionState == nil {
+				t.optsEvictionState = eviction.NewState[models.BlockID]()
 			}
 
 			if t.optsValidatorSet == nil {
 				t.optsValidatorSet = validator.NewSet()
 			}
 
-			t.Tangle = New(t.optsLedger, t.optsEvictionManager, t.optsValidatorSet, t.optsTangle...)
+			t.Tangle = New(t.optsLedger, t.optsEvictionState, t.optsValidatorSet, t.optsTangle...)
 		}
 
 		t.VirtualVotingTestFramework = virtualvoting.NewTestFramework(
@@ -86,9 +86,9 @@ func WithLedgerOptions(opts ...options.Option[ledger.Ledger]) options.Option[Tes
 	}
 }
 
-func WithEvictionManager(evictionManager *eviction.State[models.BlockID]) options.Option[TestFramework] {
+func WithEvictionState(evictionState *eviction.State[models.BlockID]) options.Option[TestFramework] {
 	return func(t *TestFramework) {
-		t.optsEvictionManager = evictionManager
+		t.optsEvictionState = evictionState
 	}
 }
 

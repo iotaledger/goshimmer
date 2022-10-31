@@ -64,7 +64,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 			test,
 			tangle.WithTangleOptions(t.optsTangle...),
 			tangle.WithValidatorSet(t.optsValidatorSet),
-			tangle.WithEvictionManager(t.optsEvictionManager),
+			tangle.WithEvictionState(t.optsEvictionManager),
 		)
 
 		if t.optsIsBlockAcceptedFunc == nil {
@@ -77,7 +77,6 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		if t.Scheduler == nil {
 			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionManager.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
-
 	}, (*TestFramework).setupEvents)
 }
 
@@ -168,6 +167,7 @@ func (t *TestFramework) TotalMana() (totalMana int64) {
 	}
 	return
 }
+
 func (t *TestFramework) ManaMap() map[identity.ID]int64 {
 	return t.issuersMana
 }
@@ -242,6 +242,7 @@ func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*acceptance.Block
 		tf.optsBlockAcceptedEvent = blockAcceptedEvent
 	}
 }
+
 func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
 	return func(tf *TestFramework) {
 		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc

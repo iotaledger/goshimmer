@@ -164,7 +164,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	tf.SetMarkersAccepted(acceptedMarkers...)
 	tf.SetAcceptedTime(tf.Block("Marker-2/3").IssuingTime())
 
-	// Even without any confirmations, it should be possible to attach to genesis.
+	// As we advance ATT, Genesis should be beyond TSC, and thus invalid.
 	tf.AssertIsPastConeTimestampCorrect("Genesis", false)
 
 	// case 0 - only one block can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.

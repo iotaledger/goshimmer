@@ -89,11 +89,12 @@ func Test_PruneSequences(t *testing.T) {
 			structureDetails := markers.NewStructureDetails()
 			structureDetails.SetPastMarkerGap(100)
 
-			if expectedSequenceID == 0 {
+			switch expectedSequenceID {
+			case 0:
 				structureDetails.SetPastMarkers(markers.NewMarkers())
-			} else if expectedSequenceID == 1 {
+			case 1:
 				structureDetails.SetPastMarkers(markers.NewMarkers(markers.NewMarker(0, 1)))
-			} else {
+			default:
 				structureDetails.SetPastMarkers(markers.NewMarkers(
 					markers.NewMarker(expectedSequenceID-1, 1),
 					markers.NewMarker(expectedSequenceID-2, 1),
