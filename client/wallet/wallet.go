@@ -25,7 +25,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
@@ -1908,12 +1907,12 @@ func (wallet *Wallet) waitForStateAliasBalanceConfirmation(preStateAliasBalance 
 // derivePledgeIDs returns the mana pledge IDs from the provided options.
 func (wallet *Wallet) derivePledgeIDs(aIDFromOptions, cIDFromOptions string) (aID, cID identity.ID, err error) {
 	// determine pledge IDs
-	aID, err = manamodels.IDFromStr(aIDFromOptions)
+	aID, err = identity.DecodeIDBase58(aIDFromOptions)
 	if err != nil {
 		return
 	}
 
-	cID, err = manamodels.IDFromStr(cIDFromOptions)
+	cID, err = identity.DecodeIDBase58(cIDFromOptions)
 	return
 }
 

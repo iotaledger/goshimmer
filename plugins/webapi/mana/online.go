@@ -3,6 +3,7 @@ package mana
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/lo"
@@ -24,9 +25,11 @@ func getOnlineConsensusHandler(c echo.Context) error {
 
 // getOnlineHandler handles the request.
 func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
-	manaMap, t, err := deps.Protocol.Engine().ManaTracker.GetManaMap(manaType)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, jsonmodels.GetOnlineResponse{Error: err.Error()})
+	var manaMap map[identity.ID]int64
+	if manaType == manamodels.AccessMana {
+		manaMap = deps.Protocol.Engine().ManaTracker.ManaMap()
+	} else {
+		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
 	}
 	knownPeers := deps.Discovery.GetVerifiedPeers()
 	resp := make([]jsonmodels.OnlineIssuerStr, 0)
@@ -51,6 +54,6 @@ func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 
 	return c.JSON(http.StatusOK, jsonmodels.GetOnlineResponse{
 		Online:    resp,
-		Timestamp: t.Unix(),
+		Timestamp: time.Now().Unix(),
 	})
 }

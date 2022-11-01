@@ -5,11 +5,9 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
@@ -39,11 +37,9 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
 		engine.Consensus.IsBlockAccepted,
-		func() (manaDistribution map[identity.ID]int64) {
-			return firstReturn(engine.ManaTracker.GetManaMap(manamodels.AccessMana))
-		}, func() (totalMana int64) {
-			return firstReturn(engine.ManaTracker.GetTotalMana(manamodels.AccessMana))
-		}, c.optsSchedulerOptions...,
+		engine.ManaTracker.ManaMap,
+		engine.ManaTracker.TotalMana,
+		c.optsSchedulerOptions...,
 	)
 
 	engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(c.scheduler.AddBlock))
@@ -74,10 +70,6 @@ func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, ex
 	defer c.schedulerMutex.RUnlock()
 
 	return c.scheduler.Block(id)
-}
-
-func firstReturn[A any](a A, b ...any) A {
-	return a
 }
 
 func WithSchedulerOptions(opts ...options.Option[scheduler.Scheduler]) options.Option[CongestionControl] {

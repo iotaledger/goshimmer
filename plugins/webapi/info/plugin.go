@@ -3,6 +3,7 @@ package info
 import (
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/autopeering/peer"
 	"github.com/iotaledger/hive.go/core/generics/event"
@@ -133,13 +134,13 @@ func getInfo(c echo.Context) error {
 		RCTT:             tm.RelativeConfirmedTime().UnixNano(),
 	}
 
-	accessMana, tAccess, _ := deps.Protocol.Engine().ManaTracker.GetAccessMana(deps.Local.ID())
-	consensusMana, tConsensus, _ := deps.Protocol.Engine().ManaTracker.GetConsensusMana(deps.Local.ID())
+	accessMana, _ := deps.Protocol.Engine().ManaTracker.Mana(deps.Local.ID())
+	consensusMana, _ := deps.Protocol.Engine().SybilProtection.Weight(deps.Local.ID())
 	nodeMana := jsonmodels.Mana{
 		Access:             accessMana,
-		AccessTimestamp:    tAccess,
+		AccessTimestamp:    time.Now(),
 		Consensus:          consensusMana,
-		ConsensusTimestamp: tConsensus,
+		ConsensusTimestamp: time.Now(),
 	}
 
 	issuerQueueSizes := make(map[string]int)

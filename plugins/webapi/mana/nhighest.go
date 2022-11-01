@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // getNHighestAccessHandler handles a /mana/access/nhighest request.
@@ -26,7 +27,13 @@ func nHighestHandler(c echo.Context, manaType manamodels.Type) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}
-	highestNodes, t, err := deps.Protocol.Engine().ManaTracker.GetHighestManaIssuers(manaType, uint(number))
+	var manaMap map[identity.ID]int64
+	if manaType == manamodels.AccessMana {
+		manaMap = deps.Protocol.Engine().ManaTracker.ManaMap()
+	} else {
+		manaMap = deps.Protocol.Engine().SybilProtection.Weights()
+	}
+	highestNodes, t, err := manamodels.GetHighestManaIssuers(uint(number), manaMap)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetNHighestResponse{Error: err.Error()})
 	}

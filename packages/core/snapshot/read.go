@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 
@@ -43,13 +44,15 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 
 	// Ledgerstate
 	{
+		stateDiff := storageModels.NewMemoryStateDiff()
 		ProcessChunks(NewChunkedReader[storageModels.OutputWithMetadata](fileHandle),
 			engine.Ledger.LoadOutputsWithMetadata,
 			engine.ManaTracker.LoadOutputsWithMetadata,
-			func(chunk []*storageModels.OutputWithMetadata) {
-				engine.Storage.UnspentOutputIDs.Import(lo.Map(chunk, (*storageModels.OutputWithMetadata).ID))
-			},
+			lo.Void(stateDiff.ApplyCreatedOutputs),
 		)
+		fmt.Println(">> Applying state diff?")
+		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
+		fmt.Println(">> Applying state diff!")
 	}
 
 	// Solid Entry Points
@@ -74,6 +77,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 					if err := engine.Storage.ActiveNodes.Store(epoch.Index(i), *id); err != nil {
 						panic(err)
 					}
+					engine.SybilProtection.AddValidator(*id, epoch.Index(i).EndTime())
 				}
 			})
 		}

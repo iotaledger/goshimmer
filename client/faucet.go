@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
@@ -29,11 +28,11 @@ func (api *GoShimmerAPI) BroadcastFaucetRequest(base58EncodedAddr string, powTar
 	var aManaPledgeID identity.ID
 	var cManaPledgeID identity.ID
 	if len(pledgeIDs) > 1 {
-		aManaPledgeIDFromString, err := manamodels.IDFromStr(pledgeIDs[0])
+		aManaPledgeIDFromString, err := identity.DecodeIDBase58(pledgeIDs[0])
 		if err == nil {
 			aManaPledgeID = aManaPledgeIDFromString
 		}
-		cManaPledgeIDFromString, err := manamodels.IDFromStr(pledgeIDs[1])
+		cManaPledgeIDFromString, err := identity.DecodeIDBase58(pledgeIDs[1])
 		if err == nil {
 			cManaPledgeID = cManaPledgeIDFromString
 		}
@@ -70,11 +69,11 @@ func (api *GoShimmerAPI) SendFaucetRequestAPI(base58EncodedAddr string, powTarge
 	if accessPledgeID == "" && consensusPledgeID == "" {
 		return nil, errors.Errorf("accessPledgeID and consensusPledgeID must not be empty")
 	}
-	aManaPledgeIDFromString, err := manamodels.IDFromStr(accessPledgeID)
+	aManaPledgeIDFromString, err := identity.DecodeIDBase58(accessPledgeID)
 	if err == nil {
 		aManaPledgeID = aManaPledgeIDFromString
 	}
-	cManaPledgeIDFromString, err := manamodels.IDFromStr(consensusPledgeID)
+	cManaPledgeIDFromString, err := identity.DecodeIDBase58(consensusPledgeID)
 	if err == nil {
 		cManaPledgeID = cManaPledgeIDFromString
 	}

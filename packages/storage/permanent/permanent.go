@@ -39,11 +39,11 @@ func New(disk *diskutil.DiskUtil, database *database.Manager) (p *Permanent) {
 }
 
 func (p *Permanent) ApplyStateDiff(index epoch.Index, stateDiff *models.StateDiff) (stateRoot, manaRoot types.Identifier) {
-	return p.applyStateDiff(index, stateDiff, p.UnspentOutputIDs.Store, void(p.UnspentOutputIDs.Delete))
+	return p.applyStateDiff(index, stateDiff, p.UnspentOutputIDs.Store, lo.Void(p.UnspentOutputIDs.Delete))
 }
 
 func (p *Permanent) RollbackStateDiff(index epoch.Index, stateDiff *models.StateDiff) (stateRoot, manaRoot types.Identifier) {
-	return p.applyStateDiff(index, stateDiff, void(p.UnspentOutputIDs.Delete), p.UnspentOutputIDs.Store)
+	return p.applyStateDiff(index, stateDiff, lo.Void(p.UnspentOutputIDs.Delete), p.UnspentOutputIDs.Store)
 }
 
 func (p *Permanent) Shutdown() (err error) {
@@ -65,8 +65,12 @@ func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.StateDif
 			continue
 		}
 
-		timedBalance := lo.Return1(p.ConsensusWeights.Load(id))
-		if index == timedBalance.LastUpdated {
+		timedBalance, exists := p.ConsensusWeights.Load(id)
+		if !exists {
+			timedBalance = &models.TimedBalance{
+				LastUpdated: -1,
+			}
+		} else if index == timedBalance.LastUpdated {
 			continue
 		}
 
@@ -85,8 +89,4 @@ func (p *Permanent) applyStateDiff(index epoch.Index, stateDiff *models.StateDif
 	p.Events.ConsensusWeightsUpdated.Trigger(consensusWeightUpdates)
 
 	return p.UnspentOutputIDs.Root(), p.ConsensusWeights.Root()
-}
-
-func void[A, B any](f func(A) B) func(A) {
-	return func(a A) { f(a) }
 }
