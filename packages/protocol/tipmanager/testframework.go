@@ -33,6 +33,7 @@ type TestFramework struct {
 	engine               *engine.Engine
 	mockAcceptance       *acceptance.MockAcceptanceGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
+	storage              *storage.Storage
 	scheduledBlocksMutex sync.RWMutex
 
 	test       *testing.T
@@ -50,11 +51,12 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		test:            test,
 		mockAcceptance:  acceptance.NewMockAcceptanceGadget(),
 		scheduledBlocks: shrinkingmap.New[models.BlockID, *scheduler.Block](),
-		optsGenesisTime: time.Now().Add(-5 * time.Hour),
+		storage:         storage.New(test.TempDir(), 1),
+		optsGenesisTime: time.Now().Add(-1 * time.Hour),
 	}, opts, func(t *TestFramework) {
 		epoch.GenesisTime = t.optsGenesisTime.Unix()
 
-		t.engine = engine.New(storage.New(test.TempDir(), 1), engine.WithTangleOptions(t.optsTangleOptions...))
+		t.engine = engine.New(t.storage, engine.WithTangleOptions(t.optsTangleOptions...))
 
 		t.TestFramework = tangle.NewTestFramework(
 			test,
@@ -70,6 +72,8 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		t.TipManager.ActivateEngine(t.engine)
+		t.TipManager.AcceptanceGadget = t.mockAcceptance
+
 		t.SetAcceptedTime(t.optsGenesisTime)
 
 		t.TestFramework.ModelsTestFramework.SetBlock("Genesis", models.NewEmptyBlock(models.EmptyBlockID, models.WithIssuingTime(t.optsGenesisTime)))
@@ -184,6 +188,11 @@ func (t *TestFramework) AssertTips(actualTips, expectedTips models.BlockIDs) {
 
 func (t *TestFramework) AssertTipCount(expectedTipCount int) {
 	assert.Equal(t.test, expectedTipCount, t.TipManager.TipCount(), "expected %d tip count but got %d", t.TipManager.TipCount(), expectedTipCount)
+}
+
+func (t *TestFramework) Shutdown() {
+	event.Loop.WaitUntilAllTasksProcessed()
+	t.engine.Shutdown()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

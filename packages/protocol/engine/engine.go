@@ -117,6 +117,11 @@ func (e *Engine) Evict(index epoch.Index) {
 	e.EvictionState.EvictUntil(index, solidEntryPoints)
 }
 
+func (e *Engine) Shutdown() {
+	e.Ledger.Shutdown()
+	e.Storage.Shutdown()
+}
+
 func (e *Engine) initInbox() {
 	e.Inbox = inbox.New()
 

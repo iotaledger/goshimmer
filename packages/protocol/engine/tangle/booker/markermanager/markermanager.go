@@ -71,7 +71,6 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ProcessBlock(block MappedEntity
 }
 
 func (m *MarkerManager[IndexedID, MappedEntity]) EvictEpoch(epochIndex epoch.Index) {
-	fmt.Println(">> evicting epoch", epochIndex)
 	m.evictMarkerBlockMapping(epochIndex)
 	m.evictSequences(epochIndex)
 }
@@ -100,7 +99,6 @@ func (m *MarkerManager[IndexedID, MappedEntity]) evictMarkerBlockMapping(epochIn
 		m.markerBlockMappingEviction.Delete(epochIndex)
 
 		markerSet.ForEach(func(marker markers.Marker) {
-			fmt.Println("<<<<<<<<<<<<<<")
 			m.markerBlockMapping.Delete(marker)
 		})
 	}
@@ -228,13 +226,11 @@ func (m *MarkerManager[IndexedID, MappedEntity]) ForEachMarkerReferencingMarker(
 // BlockFromMarker retrieves the Block of the given Marker.
 func (m *MarkerManager[IndexedID, MappedEntity]) BlockFromMarker(marker markers.Marker) (block MappedEntity, exists bool) {
 	block, exists = m.markerBlockMapping.Get(marker)
-	fmt.Println(">> BlockFromMarker", m.markerBlockMapping, marker, exists, m.markerBlockMapping.Size())
 	return
 }
 
 // addMarkerBlockMapping associates a Block with the given Marker.
 func (m *MarkerManager[IndexedID, MappedEntity]) addMarkerBlockMapping(marker markers.Marker, block MappedEntity) {
-	fmt.Println(">> addMarkerBlockMapping", marker, block.ID())
 	m.markerBlockMapping.Set(marker, block)
 	markerSet, _ := m.markerBlockMappingEviction.RetrieveOrCreate(block.ID().Index(), func() set.Set[markers.Marker] { return set.New[markers.Marker](true) })
 	markerSet.Add(marker)

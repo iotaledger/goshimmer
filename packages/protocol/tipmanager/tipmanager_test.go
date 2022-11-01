@@ -18,6 +18,8 @@ import (
 
 func TestTipManager_DataBlockTips(t *testing.T) {
 	tf := NewTestFramework(t)
+	defer tf.Shutdown()
+
 	tipManager := tf.TipManager
 
 	// without any tip -> genesis
@@ -98,6 +100,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
+	defer tf.Shutdown()
 
 	createTestTangleTSC(tf)
 
@@ -149,6 +152,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 		WithTipManagerOptions(WithTimeSinceConfirmationThreshold(5*time.Minute)),
 		WithTangleOptions(tangle.WithBookerOptions(booker.WithMarkerManagerOptions(markermanager.WithSequenceManagerOptions[models.BlockID, *booker.Block](markers.WithMaxPastMarkerDistance(10))))),
 	)
+	defer tf.Shutdown()
 
 	createTestTangleTSC(tf)
 
