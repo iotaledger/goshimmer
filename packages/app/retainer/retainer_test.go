@@ -132,9 +132,11 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	assert.Equal(t, meta.M.WeakChildren, blocksToBlockIDs(block.WeakChildren()))
 	assert.Equal(t, meta.M.LikedInsteadChildren, blocksToBlockIDs(block.LikedInsteadChildren()))
 	assert.Equal(t, meta.M.Booked, block.IsBooked())
-	assert.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
-	assert.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
-	assert.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
+	if meta.M.StructureDetails != nil {
+		assert.EqualValues(t, meta.M.StructureDetails.IsPastMarker, block.StructureDetails().IsPastMarker())
+		assert.EqualValues(t, meta.M.StructureDetails.Rank, block.StructureDetails().Rank())
+		assert.EqualValues(t, meta.M.StructureDetails.PastMarkerGap, block.StructureDetails().PastMarkerGap())
+	}
 
 	pastMarkers := markers.NewMarkers()
 	for sequenceID, index := range meta.M.StructureDetails.PastMarkers {
@@ -146,7 +148,8 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	assert.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
 	assert.Equal(t, meta.M.Tracked, true)
 	assert.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
-	assert.Equal(t, meta.M.Scheduled, block.IsScheduled())
+	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.
+	// assert.Equal(t, meta.M.Scheduled, block.IsScheduled())
 	assert.Equal(t, meta.M.Skipped, block.IsSkipped())
 	assert.Equal(t, meta.M.Dropped, block.IsDropped())
 	assert.Equal(t, meta.M.Accepted, false)
@@ -224,6 +227,7 @@ func createBlockMetadata() *BlockMetadata {
 	meta.M.AcceptedTime = time.Now()
 	return meta
 }
+
 func printPrettyJSON(t *testing.T, b []byte) {
 	var prettyJSON bytes.Buffer
 	require.NoError(t, json.Indent(&prettyJSON, b, "", "    "))
