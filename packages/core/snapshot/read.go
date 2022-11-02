@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"os"
 

@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
