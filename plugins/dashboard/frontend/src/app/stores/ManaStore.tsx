@@ -78,17 +78,20 @@ class PledgeEvent extends ManaEvent{
     }
 }
 
-class RevokeEvent extends ManaEvent{
+class RevokeEvent extends ManaEvent {
     amount: number;
 
-    constructor(nodeID: string, time: Date,  txID: string, amount: number) {
+    constructor(nodeID: string, time: Date, txID: string, amount: number) {
         super(nodeID, time, txID);
         this.amount = amount;
     }
 }
 
-const emptyRow = (<tr><td colSpan={4}>There are no nodes to view with the current search parameters.</td></tr>)
-const emptyListItem = (<ListGroupItem>There are no events to view with the current search parameters.</ListGroupItem>)
+const emptyRow = (<tr>
+    <td key={'emptyRow'} colSpan={4}>There are no nodes to view with the current search parameters.</td>
+</tr>)
+const emptyListItem = (
+    <ListGroupItem key={'emptyItem'}>There are no events to view with the current search parameters.</ListGroupItem>)
 
 // every 10 seconds, a new value arrives, so this is roughly 17 mins
 const maxStoredManaValues = 100;
@@ -343,7 +346,7 @@ export class ManaStore {
     }
 
     nodeList = (leaderBoard: Array<Node>, manaSum: number) => {
-        if (leaderBoard === null || undefined) {
+        if (leaderBoard === null || leaderBoard == undefined) {
             return []
         }
         let feed = [];

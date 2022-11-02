@@ -103,12 +103,12 @@ func registerManaMetrics() {
 func collectManaMetrics() {
 	accessManaMap.Reset()
 	for nodeID, value := range metrics.AccessManaMap() {
-		accessManaMap.WithLabelValues(nodeID.String()).Set(value)
+		accessManaMap.WithLabelValues(nodeID.String()).Set(float64(value))
 	}
 	accessPercentile.Set(metrics.AccessPercentile())
 	consensusManaMap.Reset()
 	for nodeID, value := range metrics.ConsensusManaMap() {
-		consensusManaMap.WithLabelValues(nodeID.String()).Set(value)
+		consensusManaMap.WithLabelValues(nodeID.String()).Set(float64(value))
 	}
 	consensusPercentile.Set(metrics.ConsensusPercentile())
 	averageNeighborsAccess.Set(metrics.AverageNeighborsAccess())
@@ -117,12 +117,12 @@ func collectManaMetrics() {
 	accessPledges := metrics.AveragePledgeAccess()
 	averageAccessPledge.Reset()
 	for nodeID, value := range accessPledges {
-		averageAccessPledge.WithLabelValues(nodeID.String(), "bm2").Set(value)
+		averageAccessPledge.WithLabelValues(nodeID.String(), "access").Set(float64(value))
 	}
 
 	consensusPledges := metrics.AveragePledgeConsensus()
 	averageConsensusPledge.Reset()
 	for nodeID, value := range consensusPledges {
-		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm1").Set(value)
+		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm1").Set(float64(value))
 	}
 }

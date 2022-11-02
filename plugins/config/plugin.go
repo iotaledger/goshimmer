@@ -29,7 +29,7 @@ var (
 
 // Init triggers the Init event.
 func Init(container *dig.Container) {
-	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin, container})
+	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin: Plugin, Container: container})
 }
 
 func init() {

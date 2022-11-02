@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/network/p2p/proto";
+
+package p2p;
+
+message Negotiation {}

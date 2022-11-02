@@ -9,8 +9,9 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
-	manaPlugin "github.com/iotaledger/goshimmer/plugins/blocklayer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/hive.go/core/generics/lo"
+	"github.com/iotaledger/hive.go/core/identity"
 )
 
 // getPercentileHandler handles the request.
@@ -19,44 +20,29 @@ func getPercentileHandler(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	ID, err := mana.IDFromStr(request.NodeID)
+	ID, err := identity.DecodeIDBase58(request.IssuerID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
 	}
-	if request.NodeID == "" {
+	if request.IssuerID == "" {
 		ID = deps.Local.ID()
 	}
-	t := time.Now()
-	access, tAccess, err := manaPlugin.GetManaMap(mana.AccessMana, t)
+
+	accessPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().ManaTracker.ManaMap())
+	consensusPercentile := manamodels.Percentile(ID, deps.Protocol.CandidateEngine().SybilProtection.Weights())
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
-	}
-	accessPercentile, err := access.GetPercentile(ID)
-	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
-			accessPercentile = 0
-		} else {
-			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
-		}
-	}
-	consensus, tConsensus, err := manaPlugin.GetManaMap(mana.ConsensusMana, t)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.GetPercentileResponse{Error: err.Error()})
-	}
-	consensusPercentile, err := consensus.GetPercentile(ID)
-	if err != nil {
-		if errors.Is(err, mana.ErrNodeNotFoundInBaseManaVector) {
+		if errors.Is(err, manamodels.ErrIssuerNotFoundInBaseManaVector) {
 			consensusPercentile = 0
 		} else {
 			return c.JSON(http.StatusBadRequest, jsonmodels.GetManaResponse{Error: err.Error()})
 		}
 	}
 	return c.JSON(http.StatusOK, jsonmodels.GetPercentileResponse{
-		ShortNodeID:        ID.String(),
-		NodeID:             base58.Encode(ID.Bytes()),
+		ShortIssuerID:      ID.String(),
+		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessPercentile,
-		AccessTimestamp:    tAccess.Unix(),
+		AccessTimestamp:    time.Now().Unix(),
 		Consensus:          consensusPercentile,
-		ConsensusTimestamp: tConsensus.Unix(),
+		ConsensusTimestamp: time.Now().Unix(),
 	})
 }

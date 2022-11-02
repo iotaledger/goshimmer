@@ -17,56 +17,56 @@ const (
 	routeGetNHighestConsensusMana = "mana/consensus/nhighest"
 	routePending                  = "mana/pending"
 	routePastConsensusEventLogs   = "mana/consensus/logs"
-	routeAllowedPledgeNodeIDs     = "mana/allowedManaPledge"
+	routeAllowedPledgeIssuerIDs   = "mana/allowedManaPledge"
 )
 
-// GetOwnMana returns the access and consensus mana of the node this api client is communicating with.
+// GetOwnMana returns the access and consensus mana of the issuer this api client is communicating with.
 func (api *GoShimmerAPI) GetOwnMana() (*jsonmodels.GetManaResponse, error) {
 	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&jsonmodels.GetManaRequest{NodeID: ""}, res); err != nil {
+		&jsonmodels.GetManaRequest{IssuerID: ""}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetManaFullNodeID returns the access and consensus mana of the node specified in the argument.
-// Note, that for the node to understand which nodeID we are referring to, short node ID is not sufficient.
-func (api *GoShimmerAPI) GetManaFullNodeID(fullNodeID string) (*jsonmodels.GetManaResponse, error) {
+// GetManaFullIssuerID returns the access and consensus mana of the issuer specified in the argument.
+// Note, that for the issuer to understand which issuerID we are referring to, short issuer ID is not sufficient.
+func (api *GoShimmerAPI) GetManaFullIssuerID(fullIssuerID string) (*jsonmodels.GetManaResponse, error) {
 	res := &jsonmodels.GetManaResponse{}
 	if err := api.do(http.MethodGet, routeGetMana,
-		&jsonmodels.GetManaRequest{NodeID: fullNodeID}, res); err != nil {
+		&jsonmodels.GetManaRequest{IssuerID: fullIssuerID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetMana returns the access and consensus mana a node has based on its shortNodeID.
-func (api *GoShimmerAPI) GetMana(shortNodeID string) (*jsonmodels.GetManaResponse, error) {
-	// ask the node about the full mana map and filter out based on shortID
+// GetMana returns the access and consensus mana a issuer has based on its shortIssuerID.
+func (api *GoShimmerAPI) GetMana(shortIssuerID string) (*jsonmodels.GetManaResponse, error) {
+	// ask the issuer about the full mana map and filter out based on shortID
 	allManaRes := &jsonmodels.GetAllManaResponse{}
 	if err := api.do(http.MethodGet, routeGetAllMana,
 		nil, allManaRes); err != nil {
 		return nil, err
 	}
-	res := &jsonmodels.GetManaResponse{ShortNodeID: shortNodeID}
-	// look for node's mana values in the map
-	for _, nodeStr := range allManaRes.Access {
-		if nodeStr.ShortNodeID == shortNodeID {
-			res.Access = nodeStr.Mana
+	res := &jsonmodels.GetManaResponse{ShortIssuerID: shortIssuerID}
+	// look for issuer's mana values in the map
+	for _, issuerStr := range allManaRes.Access {
+		if issuerStr.ShortIssuerID == shortIssuerID {
+			res.Access = issuerStr.Mana
 			break
 		}
 	}
-	for _, nodeStr := range allManaRes.Consensus {
-		if nodeStr.ShortNodeID == shortNodeID {
-			res.Consensus = nodeStr.Mana
+	for _, issuerStr := range allManaRes.Consensus {
+		if issuerStr.ShortIssuerID == shortIssuerID {
+			res.Consensus = issuerStr.Mana
 			break
 		}
 	}
 	return res, nil
 }
 
-// GetAllMana returns the mana perception of the node in the network.
+// GetAllMana returns the mana perception of the issuer in the network.
 func (api *GoShimmerAPI) GetAllMana() (*jsonmodels.GetAllManaResponse, error) {
 	res := &jsonmodels.GetAllManaResponse{}
 	if err := api.do(http.MethodGet, routeGetAllMana,
@@ -76,17 +76,17 @@ func (api *GoShimmerAPI) GetAllMana() (*jsonmodels.GetAllManaResponse, error) {
 	return res, nil
 }
 
-// GetManaPercentile returns the mana percentile for access and consensus mana of a node.
-func (api *GoShimmerAPI) GetManaPercentile(fullNodeID string) (*jsonmodels.GetPercentileResponse, error) {
+// GetManaPercentile returns the mana percentile for access and consensus mana of a issuer.
+func (api *GoShimmerAPI) GetManaPercentile(fullIssuerID string) (*jsonmodels.GetPercentileResponse, error) {
 	res := &jsonmodels.GetPercentileResponse{}
 	if err := api.do(http.MethodGet, routeGetManaPercentile,
-		&jsonmodels.GetPercentileRequest{NodeID: fullNodeID}, res); err != nil {
+		&jsonmodels.GetPercentileRequest{IssuerID: fullIssuerID}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetOnlineAccessMana returns the sorted list of online access mana of nodes.
+// GetOnlineAccessMana returns the sorted list of online access mana of issuers.
 func (api *GoShimmerAPI) GetOnlineAccessMana() (*jsonmodels.GetOnlineResponse, error) {
 	res := &jsonmodels.GetOnlineResponse{}
 	if err := api.do(http.MethodGet, routeGetOnlineAccessMana,
@@ -96,7 +96,7 @@ func (api *GoShimmerAPI) GetOnlineAccessMana() (*jsonmodels.GetOnlineResponse, e
 	return res, nil
 }
 
-// GetOnlineConsensusMana returns the sorted list of online consensus mana of nodes.
+// GetOnlineConsensusMana returns the sorted list of online consensus mana of issuers.
 func (api *GoShimmerAPI) GetOnlineConsensusMana() (*jsonmodels.GetOnlineResponse, error) {
 	res := &jsonmodels.GetOnlineResponse{}
 	if err := api.do(http.MethodGet, routeGetOnlineConsensusMana,
@@ -128,20 +128,20 @@ func (api *GoShimmerAPI) GetNHighestConsensusMana(n int) (*jsonmodels.GetNHighes
 	return res, nil
 }
 
-// GetConsensusEventLogs returns the consensus event logs or the nodeIDs specified.
-func (api *GoShimmerAPI) GetConsensusEventLogs(nodeIDs []string) (*jsonmodels.GetEventLogsResponse, error) {
+// GetConsensusEventLogs returns the consensus event logs or the issuerIDs specified.
+func (api *GoShimmerAPI) GetConsensusEventLogs(issuerIDs []string) (*jsonmodels.GetEventLogsResponse, error) {
 	res := &jsonmodels.GetEventLogsResponse{}
 	if err := api.do(http.MethodGet, routePastConsensusEventLogs,
-		&jsonmodels.GetEventLogsRequest{NodeIDs: nodeIDs}, res); err != nil {
+		&jsonmodels.GetEventLogsRequest{IssuerIDs: issuerIDs}, res); err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
-func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (*jsonmodels.AllowedManaPledgeResponse, error) {
+// GetAllowedManaPledgeIssuerIDs returns the list of allowed mana pledge IDs.
+func (api *GoShimmerAPI) GetAllowedManaPledgeIssuerIDs() (*jsonmodels.AllowedManaPledgeResponse, error) {
 	res := &jsonmodels.AllowedManaPledgeResponse{}
-	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
+	if err := api.do(http.MethodGet, routeAllowedPledgeIssuerIDs, nil, res); err != nil {
 		return nil, err
 	}
 

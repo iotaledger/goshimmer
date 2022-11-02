@@ -4,6 +4,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
@@ -45,14 +46,14 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
-	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{uint64(len(data))})
+	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{AmountBytes: uint64(len(data))})
 }
 
 func createHeartbeat() *packet.Heartbeat {
 	// get own ID
 	nodeID := make([]byte, len(identity.ID{}))
 	if deps.Local != nil {
-		copy(nodeID, deps.Local.ID().Bytes())
+		copy(nodeID, lo.PanicOnErr(deps.Local.ID().Bytes()))
 	}
 
 	var outboundIDs [][]byte
@@ -63,7 +64,7 @@ func createHeartbeat() *packet.Heartbeat {
 	outboundIDs = make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
 		outboundIDs[i] = make([]byte, len(identity.ID{}))
-		copy(outboundIDs[i], neighbor.ID().Bytes())
+		copy(outboundIDs[i], lo.PanicOnErr(neighbor.ID().Bytes()))
 	}
 
 	// get inboundIDs (accepted neighbors)
@@ -71,7 +72,7 @@ func createHeartbeat() *packet.Heartbeat {
 	inboundIDs = make([][]byte, len(incomingNeighbors))
 	for i, neighbor := range incomingNeighbors {
 		inboundIDs[i] = make([]byte, len(identity.ID{}))
-		copy(inboundIDs[i], neighbor.ID().Bytes())
+		copy(inboundIDs[i], lo.PanicOnErr(neighbor.ID().Bytes()))
 	}
 
 	return &packet.Heartbeat{NetworkID: []byte(banner.SimplifiedAppVersion), OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}

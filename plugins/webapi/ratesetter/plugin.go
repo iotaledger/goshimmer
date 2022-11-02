@@ -7,8 +7,8 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -17,8 +17,8 @@ const PluginName = "WebAPIRateSetterEndpoint"
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server      *echo.Echo
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 var (
@@ -37,8 +37,8 @@ func configure(_ *node.Plugin) {
 
 func getRateSetterEstimate(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.RateSetter{
-		Rate:     deps.Tangle.RateSetter.Rate(),
-		Size:     deps.Tangle.RateSetter.Size(),
-		Estimate: deps.Tangle.RateSetter.Estimate(),
+		Rate:     deps.BlockIssuer.Rate(),
+		Size:     deps.BlockIssuer.Size(),
+		Estimate: deps.BlockIssuer.Estimate(),
 	})
 }

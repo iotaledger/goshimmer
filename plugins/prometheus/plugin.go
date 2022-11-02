@@ -16,8 +16,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/metrics/net"
-	"github.com/iotaledger/goshimmer/packages/node/gossip"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
@@ -40,16 +39,11 @@ type dependencies struct {
 	dig.In
 	AutopeeringPlugin     *node.Plugin `name:"autopeering" optional:"true"`
 	Local                 *peer.Local
-	GossipMgr             *gossip.Manager `optional:"true"`
 	AutoPeeringConnMetric *net.ConnMetric `optional:"true"`
 }
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-
-	if Parameters.WorkerpoolMetrics {
-		registerWorkerpoolMetrics()
-	}
 
 	if Parameters.GoMetrics {
 		registry.MustRegister(prometheus.NewGoCollector())
@@ -75,10 +69,6 @@ func configure(plugin *node.Plugin) {
 
 	if metrics.Parameters.Global {
 		registerClientsMetrics()
-	}
-
-	if metrics.Parameters.ManaResearch {
-		registerManaResearchMetrics()
 	}
 }
 

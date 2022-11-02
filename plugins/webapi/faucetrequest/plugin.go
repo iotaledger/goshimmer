@@ -9,11 +9,11 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 var (
@@ -25,8 +25,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangleold.Tangle
+	Server      *echo.Echo
+	Protocol    *protocol.Protocol
+	BlockIssuer *blockissuer.BlockIssuer
 }
 
 // Plugin gets the plugin instance.
@@ -58,22 +59,22 @@ func requestFunds(c echo.Context) error {
 	var accessManaPledgeID identity.ID
 	var consensusManaPledgeID identity.ID
 	if request.AccessManaPledgeID != "" {
-		accessManaPledgeID, err = mana.IDFromStr(request.AccessManaPledgeID)
+		accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid access mana node ID"})
 		}
 	}
 
 	if request.ConsensusManaPledgeID != "" {
-		consensusManaPledgeID, err = mana.IDFromStr(request.ConsensusManaPledgeID)
+		consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid consensus mana node ID"})
 		}
 	}
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
-
-	blk, err := deps.Tangle.BlockFactory.IssuePayload(faucetPayload)
+	// TODO: finish when issuing blocks if figured out
+	blk, err := deps.BlockIssuer.IssuePayload(faucetPayload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.FaucetRequestResponse{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}

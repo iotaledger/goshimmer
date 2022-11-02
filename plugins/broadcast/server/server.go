@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 type connection struct {
@@ -74,7 +74,7 @@ func handleConnection(conn net.Conn, log *node.Plugin, shutdownSignal <-chan str
 
 	idx := int(index.Load())
 	connectionList[idx] = connection{
-		bufferedConn: buffconn.NewBufferedConnection(conn, tangleold.MaxBlockSize),
+		bufferedConn: buffconn.NewBufferedConnection(conn, models.MaxBlockSize),
 		log:          log,
 		active:       true,
 	}
@@ -85,7 +85,7 @@ func handleConnection(conn net.Conn, log *node.Plugin, shutdownSignal <-chan str
 
 	select {
 	case data := <-bufferedConnDataReceived:
-		// No input required. For debugging it will be printed.
+		// No input required. For debugging, it will be printed.
 		connectionList[idx].log.LogDebugf("Data received:%v", data)
 	case <-shutdownSignal:
 		connectionList[idx].log.LogInfof("Shutdown signal received")

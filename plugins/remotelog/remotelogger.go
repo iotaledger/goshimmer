@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/iotaledger/hive.go/core/logger"
 
-	"github.com/iotaledger/goshimmer/packages/node/clock"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
@@ -35,7 +35,7 @@ func (r *RemoteLoggerConn) SendLogMsg(level logger.Level, name, msg string) {
 		level.CapitalString(),
 		name,
 		msg,
-		clock.SyncedTime(),
+		time.Now(),
 		remoteLogType,
 	}
 

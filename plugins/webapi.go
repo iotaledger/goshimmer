@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ratesetter"
 	"github.com/iotaledger/goshimmer/plugins/webapi/scheduler"
-	"github.com/iotaledger/goshimmer/plugins/webapi/snapshot"
 	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
@@ -33,7 +32,7 @@ var WebAPI = node.Plugins(
 	epoch.Plugin,
 	mana.Plugin,
 	ledgerstate.Plugin,
-	snapshot.Plugin,
+	//snapshot.Plugin,
 	weightprovider.Plugin,
 	ratesetter.Plugin,
 	scheduler.Plugin,

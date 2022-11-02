@@ -28,13 +28,13 @@ func measureCPUUsage() {
 	if err == nil && len(percent) > 0 {
 		p = percent[0]
 	}
-	metrics.Events.CPUUsage.Trigger(&metrics.CPUUsageEvent{p})
+	metrics.Events.CPUUsage.Trigger(&metrics.CPUUsageEvent{CPUPercent: p})
 }
 
 func measureMemUsage() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	metrics.Events.MemUsage.Trigger(&metrics.MemUsageEvent{m.Alloc})
+	metrics.Events.MemUsage.Trigger(&metrics.MemUsageEvent{MemAllocBytes: m.Alloc})
 }
 
 // MemUsage returns the current memory allocated as bytes.

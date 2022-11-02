@@ -16,11 +16,11 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/node"
 
-	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
 
 	netPkg "github.com/iotaledger/goshimmer/packages/app/metrics/net"
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
-	"github.com/iotaledger/goshimmer/packages/node/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 )
 
@@ -41,8 +41,8 @@ type dependencies struct {
 	Discovery             *discover.Protocol
 	Selection             *selection.Protocol
 	Local                 *peer.Local
-	P2PMgr                *p2p.Manager           `optional:"true"`
-	ManaFunc              mana.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
+	P2PMgr                *p2p.Manager                 `optional:"true"`
+	ManaFunc              manamodels.ManaRetrievalFunc `optional:"true" name:"manaFunc"`
 	AutoPeeringConnMetric *netPkg.ConnMetric
 }
 

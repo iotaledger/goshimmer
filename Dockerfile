@@ -5,8 +5,8 @@
 ARG REMOTE_DEBUGGING=0
 
 ############################
-# golang 1.18-bullseye multi-arch
-FROM golang:1.18.1-bullseye AS build
+# golang 1.19-bullseye multi-arch
+FROM golang:1.19-bullseye AS build
 
 ARG RUN_TEST=0
 ARG BUILD_TAGS=rocksdb
@@ -126,10 +126,13 @@ COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /app/goshimmer
 
 # Copy configuration and snapshot from the previous stage
 COPY config.default.json /app/config.json
-COPY --from=build /tmp/snapshot.bin /app/snapshot.bin
+
 
 # Fix permission issue when mounting volumes
-COPY --chown=nonroot:nonroot --from=build /tmp/db/ /app/
+COPY --chown=nonroot:nonroot --from=build /tmp/db/ /app/db/
+
+COPY --chown=nonroot:nonroot --from=build /tmp/snapshot.bin /app/snapshot.bin
+
 
 # We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0
 FROM prepare-runtime as debugger-enabled-0

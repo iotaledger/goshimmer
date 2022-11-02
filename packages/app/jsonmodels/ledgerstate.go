@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/core/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -490,8 +490,10 @@ type OutputMetadata struct {
 // NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
-		OutputID:              NewOutputID(outputMetadata.ID()),
-		ConflictIDs:           lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		OutputID: NewOutputID(outputMetadata.ID()),
+		ConflictIDs: lo.Map(lo.Map(outputMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
+			return lo.PanicOnErr(t.Bytes())
+		}), base58.Encode),
 		FirstConsumer:         outputMetadata.FirstConsumer().Base58(),
 		ConfirmedConsumer:     confirmedConsumerID.Base58(),
 		ConfirmationState:     outputMetadata.ConfirmationState(),
@@ -525,11 +527,11 @@ type ConflictWeight struct {
 	Parents           []string           `json:"parents"`
 	ConflictIDs       []string           `json:"conflictIDs,omitempty"`
 	ConfirmationState confirmation.State `json:"confirmationState"`
-	ApprovalWeight    float64            `json:"approvalWeight"`
+	ApprovalWeight    int64              `json:"approvalWeight"`
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw float64) ConflictWeight {
+func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
 		ID: conflict.ID().Base58(),
 		Parents: func() []string {
@@ -633,8 +635,8 @@ func NewTransaction(transaction *devnetvm.Transaction) *Transaction {
 	return &Transaction{
 		Version:           transaction.Essence().Version(),
 		Timestamp:         transaction.Essence().Timestamp().Unix(),
-		AccessPledgeID:    base58.Encode(transaction.Essence().AccessPledgeID().Bytes()),
-		ConsensusPledgeID: base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes()),
+		AccessPledgeID:    base58.Encode(lo.PanicOnErr(transaction.Essence().AccessPledgeID().Bytes())),
+		ConsensusPledgeID: base58.Encode(lo.PanicOnErr(transaction.Essence().ConsensusPledgeID().Bytes())),
 		Inputs:            inputs,
 		Outputs:           outputs,
 		UnlockBlocks:      unlockBlocks,
@@ -735,7 +737,9 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:         transactionMetadata.ID().Base58(),
-		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		ConflictIDs:           lo.Map(lo.Map(transactionMetadata.ConflictIDs().Slice(), func(t utxo.TransactionID) []byte {
+			return lo.PanicOnErr(t.Bytes())
+		}), base58.Encode),
 		Booked:                transactionMetadata.IsBooked(),
 		BookedTime:            transactionMetadata.BookingTime().Unix(),
 		ConfirmationState:     transactionMetadata.ConfirmationState(),

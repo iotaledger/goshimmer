@@ -1,0 +1,108 @@
+package tsc
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+)
+
+// TestOrphanageTSC tests whether orphanage due to Time-Since-Acceptance works properly.
+// This tests creates a network, spams some blocks so that all nodes see each other as active,
+// and then splits the network into two partitions - one with majority weight. Blocks are issued on each partition and after that network is merged.
+// After the network is merged, blocks issued in minority partition should be orphaned on nodes from that partition.
+// Blocks from majority partition should become available on all nodes.
+func TestOrphanageTSC(t *testing.T) {
+	const tscThreshold = 30 * time.Second
+
+	snapshotInfo := tests.OrphanageSnapshotDetails
+
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_orphanage_tsc", 4,
+		framework.CreateNetworkConfig{
+			StartSynced: true,
+			Faucet:      false,
+			Activity:    true,
+			Autopeering: false,
+			PeerMaster:  false,
+			Snapshot:    snapshotInfo,
+		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+			conf.UseNodeSeedAsWalletSeed = true
+			conf.TimeSinceConfirmationThreshold = tscThreshold
+			conf.ValidatorActivityWindow = 10 * time.Minute
+			return conf
+		}))
+
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
+	const delayBetweenDataMessages = 500 * time.Millisecond
+
+	var (
+		node1 = n.Peers()[0]
+		node2 = n.Peers()[1]
+		node3 = n.Peers()[2]
+		node4 = n.Peers()[3]
+	)
+
+	// merge partitions
+	err = n.DoManualPeering(ctx)
+	require.NoError(t, err)
+	log.Println("Waiting for nodes to become bootstrapped...")
+	require.Eventually(t, func() bool {
+		bootstrapped := true
+		for _, peer := range n.Peers() {
+			bootstrapped = bootstrapped && tests.Bootstrapped(t, peer)
+		}
+
+		return bootstrapped
+	}, tests.Timeout, tests.Tick)
+	log.Println("Waiting for nodes to become bootstrapped... done")
+	log.Printf("Sending %d data blocks to the whole network", 10)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), 10, delayBetweenDataMessages)
+
+	partition1 := []*framework.Node{node4}
+	partition2 := []*framework.Node{node2, node3, node1}
+
+	// split partitions
+	err = n.CreatePartitionsManualPeering(ctx, partition1, partition2)
+	require.NoError(t, err)
+
+	// check consensus mana
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
+	log.Printf("node1 (%s): %d", node1.ID().String(), tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
+	log.Printf("node2 (%s): %d", node2.ID().String(), tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[2], tests.Mana(t, node3).Consensus)
+	log.Printf("node3 (%s): %d", node3.ID().String(), tests.Mana(t, node3).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[3], tests.Mana(t, node4).Consensus)
+	log.Printf("node4 (%s): %d", node4.ID().String(), tests.Mana(t, node4).Consensus)
+
+	log.Printf("Sending %d data blocks on minority partition", 30)
+	blocksToOrphan := tests.SendDataBlocksWithDelay(t, partition1, 30, delayBetweenDataMessages)
+	log.Printf("Sending %d data blocks on majority partition", 10)
+	blocksToConfirm := tests.SendDataBlocksWithDelay(t, partition2, 10, delayBetweenDataMessages)
+
+	// merge partitions
+	err = n.DoManualPeering(ctx)
+	require.NoError(t, err)
+
+	// sleep 10 seconds to make sure that TSC threshold is exceeded
+	time.Sleep(tscThreshold)
+
+	log.Printf("Sending %d data messages to make sure that all nodes share the same view", 30)
+	tests.SendDataBlocksWithDelay(t, n.Peers(), 30, delayBetweenDataMessages)
+
+	fmt.Println(blocksToOrphan)
+
+	tests.RequireBlocksAvailable(t, n.Peers(), blocksToConfirm, time.Minute, tests.Tick, true)
+	tests.RequireBlocksOrphaned(t, partition1, blocksToOrphan, time.Minute, tests.Tick)
+}

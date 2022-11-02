@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/network/p2p"
 )
 
 var (

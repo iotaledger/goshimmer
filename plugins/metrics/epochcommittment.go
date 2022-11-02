@@ -5,23 +5,23 @@ import (
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/notarization"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 )
 
 var (
-	lastCommittedEpoch      = epoch.NewECRecord(epoch.Index(0))
+	lastCommittedEpoch      = new(commitment.Commitment)
 	lastCommittedEpochMutex sync.RWMutex
 )
 
-var onEpochCommitted = event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+var onEpochCommitted = event.NewClosure(func(commitment *commitment.Commitment) {
 	lastCommittedEpochMutex.Lock()
 	defer lastCommittedEpochMutex.Unlock()
-	lastCommittedEpoch = event.ECRecord
+
+	lastCommittedEpoch = commitment
 })
 
 // LastCommittedEpoch returns the last committed epoch.
-func LastCommittedEpoch() *epoch.ECRecord {
+func LastCommittedEpoch() *commitment.Commitment {
 	lastCommittedEpochMutex.RLock()
 	defer lastCommittedEpochMutex.RUnlock()
 	return lastCommittedEpoch

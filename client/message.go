@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/app/retainer"
 )
 
 const (
@@ -29,8 +30,8 @@ func (api *GoShimmerAPI) GetBlock(base58EncodedID string) (*jsonmodels.Block, er
 }
 
 // GetBlockMetadata is the handler for the /blocks/:blockID/metadata endpoint.
-func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels.BlockMetadata, error) {
-	res := &jsonmodels.BlockMetadata{}
+func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*retainer.BlockMetadata, error) {
+	res := retainer.NewBlockMetadata()
 
 	if err := api.do(
 		http.MethodGet,
@@ -40,6 +41,8 @@ func (api *GoShimmerAPI) GetBlockMetadata(base58EncodedID string) (*jsonmodels.B
 	); err != nil {
 		return nil, err
 	}
+
+	res.SetID(res.M.Id)
 
 	return res, nil
 }

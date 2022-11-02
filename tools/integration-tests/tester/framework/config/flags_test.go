@@ -29,7 +29,7 @@ func TestLowerCamelCase(t *testing.T) {
 
 func TestCreateFlags(t *testing.T) {
 	var config GoShimmer
-	config.POW.Enabled = true
-	config.POW.Difficulty = 10
-	assert.Contains(t, config.CreateFlags(), "--pow.difficulty=10")
+	config.BlockIssuer.Enabled = true
+	config.BlockIssuer.RateSetter.Initial = 10
+	assert.Contains(t, config.CreateFlags(), "--blockissuer.rateSetter.initial=10")
 }

@@ -1,11 +1,14 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/core/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/core/tangleold"
-	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/hive.go/core/identity"
+
+	"github.com/iotaledger/goshimmer/packages/core/validator"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 )
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////
@@ -112,13 +115,14 @@ type GetConflictVotersResponse struct {
 }
 
 // NewGetConflictVotersResponse returns a GetConflictVotersResponse from the given details.
-func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *tangleold.Voters) *GetConflictVotersResponse {
+func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *validator.Set) *GetConflictVotersResponse {
 	return &GetConflictVotersResponse{
 		ConflictID: conflictID.Base58(),
 		Voters: func() (votersStr []string) {
 			votersStr = make([]string, 0)
-			voters.ForEach(func(voter tangleold.Voter) {
+			voters.ForEach(func(_ identity.ID, voter *validator.Validator) bool {
 				votersStr = append(votersStr, voter.String())
+				return true
 			})
 			return
 		}(),
@@ -163,7 +167,7 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs tangleold.BlockIDs) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, blockIDs models.BlockIDs) *GetTransactionAttachmentsResponse {
 	var blockIDsBase58 []string
 	for blockID := range blockIDs {
 		blockIDsBase58 = append(blockIDsBase58, blockID.Base58())
@@ -194,7 +198,7 @@ type PostPayloadResponse struct {
 }
 
 // NewPostPayloadResponse returns a PostPayloadResponse from the given tangleold.Block.
-func NewPostPayloadResponse(block *tangleold.Block) *PostPayloadResponse {
+func NewPostPayloadResponse(block *models.Block) *PostPayloadResponse {
 	return &PostPayloadResponse{
 		ID: block.ID().Base58(),
 	}
