@@ -124,7 +124,6 @@ func (m *Manager) createCommitment(index epoch.Index) (success bool) {
 	stateRoot, manaRoot := m.storage.ApplyStateDiff(index, m.storage.LedgerStateDiffs.StateDiff(index))
 
 	// TODO: obtain and commit to cumulative weight
-	fmt.Println(">> COMMITTING: ", acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot)
 	newCommitment := commitment.New(index, latestCommitment.ID(), commitment.NewRoots(acceptedBlocks.Root(), acceptedTransactions.Root(), activeValidators.Root(), stateRoot, manaRoot).ID(), 0)
 
 	if err = m.storage.Settings.SetLatestCommitment(newCommitment); err != nil {

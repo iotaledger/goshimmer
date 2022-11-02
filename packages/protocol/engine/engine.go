@@ -187,40 +187,41 @@ func (e *Engine) initBlockStorage() {
 func (e *Engine) initNotarizationManager() {
 	e.NotarizationManager = notarization.NewManager(e.Storage)
 
-	e.Consensus.Gadget.Events.BlockAccepted.Attach(onlyIfBootstrapped(e, func(block *acceptance.Block) {
+	e.Consensus.Gadget.Events.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
 		if err := e.NotarizationManager.AddAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted block %s to epoch: %w", block.ID(), err))
 		}
 	}))
-	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(onlyIfBootstrapped(e, func(block *blockdag.Block) {
+	e.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
 		if err := e.NotarizationManager.RemoveAcceptedBlock(block.ModelsBlock); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to remove orphaned block %s from epoch: %w", block.ID(), err))
 		}
 	}))
 
-	e.Ledger.Events.TransactionAccepted.Attach(onlyIfBootstrapped(e, func(txMeta *ledger.TransactionMetadata) {
+	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(txMeta *ledger.TransactionMetadata) {
 		if err := e.NotarizationManager.AddAcceptedTransaction(txMeta); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to add accepted transaction %s to epoch: %w", txMeta.ID(), err))
 		}
 	}))
-	e.Ledger.Events.TransactionInclusionUpdated.Attach(onlyIfBootstrapped(e, func(event *ledger.TransactionInclusionUpdatedEvent) {
+	e.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
 		if err := e.NotarizationManager.UpdateTransactionInclusion(event.TransactionID, epoch.IndexFromTime(event.PreviousInclusionTime), epoch.IndexFromTime(event.InclusionTime)); err != nil {
 			e.Events.Error.Trigger(errors.Errorf("failed to update transaction inclusion time %s in epoch: %w", event.TransactionID, err))
 		}
 	}))
 	// TODO: add transaction orphaned event
 
-	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(onlyIfBootstrapped(e, func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	e.Ledger.ConflictDAG.Events.ConflictCreated.Hook(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		e.NotarizationManager.IncreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(event.ID).IssuingTime()))
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(onlyIfBootstrapped(e, func(conflictID utxo.TransactionID) {
+	e.Ledger.ConflictDAG.Events.ConflictAccepted.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
 	}))
-	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(onlyIfBootstrapped(e, func(conflictID utxo.TransactionID) {
+	e.Ledger.ConflictDAG.Events.ConflictRejected.Hook(event.NewClosure(func(conflictID utxo.TransactionID) {
 		e.NotarizationManager.DecreaseConflictsCounter(epoch.IndexFromTime(e.Tangle.GetEarliestAttachment(conflictID).IssuingTime()))
 	}))
 
-	e.Clock.Events.AcceptanceTimeUpdated.Attach(onlyIfBootstrapped(e, func(event *clock.TimeUpdate) {
+	// Epochs are committed whenever ATT advances, start committing only when bootstrapped.
+	e.Clock.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *clock.TimeUpdate) {
 		e.NotarizationManager.SetAcceptanceTime(event.NewTime)
 	}))
 
@@ -298,15 +299,6 @@ func (e *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {
 	exists = block != nil && err == nil
 
 	return
-}
-
-func onlyIfBootstrapped[E any](engine *Engine, handler func(event E)) *event.Closure[E] {
-	return event.NewClosure(func(event E) {
-		if !engine.IsBootstrapped() {
-			return
-		}
-		handler(event)
-	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

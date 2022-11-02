@@ -50,9 +50,7 @@ func ReadSnapshot(fileHandle *os.File, engine *engine.Engine) {
 			engine.ManaTracker.LoadOutputsWithMetadata,
 			lo.Void(stateDiff.ApplyCreatedOutputs),
 		)
-		fmt.Println(">> Applying state diff?")
 		engine.Storage.ApplyStateDiff(engine.Storage.Settings.LatestStateMutationEpoch(), stateDiff)
-		fmt.Println(">> Applying state diff!")
 	}
 
 	// Solid Entry Points
