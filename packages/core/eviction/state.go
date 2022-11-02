@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 )
@@ -20,7 +19,7 @@ type State[ID epoch.IndexedID] struct {
 	sync.RWMutex
 }
 
-func NewState[ID epoch.IndexedID]() (newManager *State[ID]) {
+func NewState[ID epoch.IndexedID]() (newState *State[ID]) {
 	var emptyID ID
 
 	return &State[ID]{
@@ -34,8 +33,7 @@ func NewState[ID epoch.IndexedID]() (newManager *State[ID]) {
 // process inside the components.
 func (m *State[ID]) Lockable() (newLockableState *LockableState[ID]) {
 	return &LockableState[ID]{
-		State:         m,
-		StarvingMutex: syncutils.NewStarvingMutex(),
+		State: m,
 	}
 }
 
@@ -97,7 +95,7 @@ func (m *State[ID]) setEvictedEpochAndUpdateRootBlocks(index epoch.Index, rootBl
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LockableManager //////////////////////////////////////////////////////////////////////////////////////////////
+// region LockableState ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // LockableState is a wrapper around the Manager that contains an additional Mutex used to synchronize the eviction
 // process in the individual components.
@@ -105,9 +103,8 @@ type LockableState[ID epoch.IndexedID] struct {
 	// Manager is the underlying Manager.
 	*State[ID]
 
-	// StarvingMutex is the mutex that is used to synchronize the eviction process, it needs to be a starving mutex
-	// as the eviction process can read-lock multiple times.
-	*syncutils.StarvingMutex
+	// RWMutex is the mutex that is used to synchronize the eviction process.
+	sync.RWMutex
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

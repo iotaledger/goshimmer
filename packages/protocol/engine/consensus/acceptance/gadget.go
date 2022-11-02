@@ -29,7 +29,7 @@ type Gadget struct {
 	Events *Events
 
 	tangle                  *tangle.Tangle
-	evictionManager         *eviction.LockableState[models.BlockID]
+	evictionState         *eviction.LockableState[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
@@ -47,25 +47,25 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 		a.Events = NewEvents()
 
 		a.tangle = tangle
-		a.evictionManager = tangle.EvictionState.Lockable()
+		a.evictionState = tangle.EvictionState.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
-		a.acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
+		a.acceptanceOrder = causalorder.New(a.evictionState.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)
 	}, (*Gadget).setup)
 }
 
 // IsMarkerAccepted returns whether the given marker is accepted.
 func (a *Gadget) IsMarkerAccepted(marker markers.Marker) (accepted bool) {
-	a.evictionManager.RLock()
-	defer a.evictionManager.RUnlock()
+	a.evictionState.RLock()
+	defer a.evictionState.RUnlock()
 
 	return a.isMarkerAccepted(marker)
 }
 
 // IsBlockAccepted returns whether the given block is accepted.
 func (a *Gadget) IsBlockAccepted(blockID models.BlockID) (accepted bool) {
-	a.evictionManager.RLock()
-	defer a.evictionManager.RUnlock()
+	a.evictionState.RLock()
+	defer a.evictionState.RUnlock()
 
 	return a.isBlockAccepted(blockID)
 }
@@ -95,22 +95,23 @@ func (a *Gadget) FirstUnacceptedIndex(sequenceID markers.SequenceID) (firstUnacc
 
 // Block retrieves a Block with metadata from the in-memory storage of the Gadget.
 func (a *Gadget) Block(id models.BlockID) (block *Block, exists bool) {
-	a.evictionManager.RLock()
-	defer a.evictionManager.RUnlock()
+	a.evictionState.RLock()
+	defer a.evictionState.RUnlock()
 
 	return a.block(id)
 }
 
 func (a *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *Block, exists bool) {
-	a.evictionManager.RLock()
-	defer a.evictionManager.RUnlock()
+	a.evictionState.RLock()
+	defer a.evictionState.RUnlock()
 
 	return a.getOrRegisterBlock(blockID)
 }
 
 func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
-	a.evictionManager.RLock()
-	defer a.evictionManager.RUnlock()
+	a.evictionState.RLock()
+
+	var queuedBlocks []*Block
 	for markerIndex := prevMaxSupportedIndex; markerIndex <= newMaxSupportedIndex; markerIndex++ {
 		if markerIndex == 0 {
 			continue
@@ -120,8 +121,13 @@ func (a *Gadget) RefreshSequenceAcceptance(sequenceID markers.SequenceID, newMax
 
 		markerVoters := a.tangle.VirtualVoting.MarkerVoters(marker)
 		if a.tangle.ValidatorSet.IsThresholdReached(markerVoters.TotalWeight(), a.optsMarkerAcceptanceThreshold) && a.setMarkerAccepted(marker) {
-			a.propagateAcceptance(marker)
+			queuedBlocks = append(queuedBlocks, a.propagateAcceptance(marker)...)
 		}
+	}
+	a.evictionState.RUnlock()
+	// EVICTION
+	for _, block := range queuedBlocks {
+		a.acceptanceOrder.Queue(block)
 	}
 }
 
@@ -136,11 +142,11 @@ func (a *Gadget) setup() {
 
 	a.tangle.Booker.Events.SequenceEvicted.Attach(event.NewClosure(a.evictSequence))
 
-	a.evictionManager.Events.EpochEvicted.Attach(event.NewClosure(a.evictEpoch))
+	a.evictionState.Events.EpochEvicted.Attach(event.NewClosure(a.evictEpoch))
 }
 
 func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
-	if a.evictionManager.IsRootBlock(id) {
+	if a.evictionState.IsRootBlock(id) {
 		return NewRootBlock(id), true
 	}
 
@@ -152,13 +158,13 @@ func (a *Gadget) block(id models.BlockID) (block *Block, exists bool) {
 	return storage.Get(id)
 }
 
-func (a *Gadget) propagateAcceptance(marker markers.Marker) {
+func (a *Gadget) propagateAcceptance(marker markers.Marker) (queuedBlocks []*Block) {
 	bookerBlock, blockExists := a.tangle.BlockFromMarker(marker)
 	if !blockExists {
 		return
 	}
 
-	block, blockExists := a.getOrRegisterBlock(bookerBlock.ID())
+	block, blockExists := a.GetOrRegisterBlock(bookerBlock.ID())
 	if !blockExists || block.IsAccepted() {
 		// this can happen when block was a root block and while processing this method, the root blocks method has already been replaced
 		return
@@ -171,7 +177,7 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 			continue
 		}
 
-		a.acceptanceOrder.Queue(walkerBlock)
+		queuedBlocks = append(queuedBlocks, walkerBlock)
 
 		for _, parentBlockID := range walkerBlock.Parents() {
 			if a.isBlockAccepted(parentBlockID) {
@@ -184,10 +190,12 @@ func (a *Gadget) propagateAcceptance(marker markers.Marker) {
 			}
 		}
 	}
+
+	return
 }
 
 func (a *Gadget) markAsAccepted(block *Block) (err error) {
-	if a.evictionManager.IsTooOld(block.ID()) {
+	if a.evictionState.IsTooOld(block.ID()) {
 		return errors.Errorf("block with %s belongs to an evicted epoch", block.ID())
 	}
 
@@ -213,10 +221,10 @@ func (a *Gadget) acceptanceFailed(block *Block, err error) {
 }
 
 func (a *Gadget) evictEpoch(index epoch.Index) {
-	a.evictionManager.Lock()
-	defer a.evictionManager.Unlock()
-
 	a.acceptanceOrder.EvictEpoch(index)
+
+	a.evictionState.Lock()
+	defer a.evictionState.Unlock()
 
 	storage := a.blocks.Get(index, false)
 	if storage != nil {
@@ -226,8 +234,8 @@ func (a *Gadget) evictEpoch(index epoch.Index) {
 }
 
 func (a *Gadget) evictSequence(sequenceID markers.SequenceID) {
-	a.evictionManager.Lock()
-	defer a.evictionManager.Unlock()
+	a.evictionState.Lock()
+	defer a.evictionState.Unlock()
 
 	if !a.lastAcceptedMarker.Delete(sequenceID) {
 		a.Events.Error.Trigger(errors.Errorf("could not evict sequenceID=%s", sequenceID))
@@ -253,7 +261,7 @@ func (a *Gadget) getOrRegisterBlock(blockID models.BlockID) (block *Block, exist
 }
 
 func (a *Gadget) registerBlock(virtualVotingBlock *virtualvoting.Block) (block *Block, err error) {
-	if a.evictionManager.IsTooOld(virtualVotingBlock.ID()) {
+	if a.evictionState.IsTooOld(virtualVotingBlock.ID()) {
 		return nil, errors.Errorf("block %s belongs to an evicted epoch", virtualVotingBlock.ID())
 	}
 
