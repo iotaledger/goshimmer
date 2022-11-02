@@ -29,7 +29,7 @@ type Gadget struct {
 	Events *Events
 
 	tangle                  *tangle.Tangle
-	evictionManager         *eviction.LockableManager[models.BlockID]
+	evictionManager         *eviction.LockableState[models.BlockID]
 	blocks                  *memstorage.EpochStorage[models.BlockID, *Block]
 	lastAcceptedMarker      *memstorage.Storage[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex sync.Mutex
@@ -47,7 +47,7 @@ func New(tangle *tangle.Tangle, opts ...options.Option[Gadget]) (gadget *Gadget)
 		a.Events = NewEvents()
 
 		a.tangle = tangle
-		a.evictionManager = tangle.EvictionManager.Lockable()
+		a.evictionManager = tangle.EvictionState.Lockable()
 		a.lastAcceptedMarker = memstorage.New[markers.SequenceID, markers.Index]()
 		a.blocks = memstorage.NewEpochStorage[models.BlockID, *Block]()
 		a.acceptanceOrder = causalorder.New(a.evictionManager.State, a.GetOrRegisterBlock, (*Block).IsAccepted, a.markAsAccepted, a.acceptanceFailed)

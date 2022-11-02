@@ -25,7 +25,7 @@ type VirtualVoting struct {
 	blocks          *memstorage.EpochStorage[models.BlockID, *Block]
 	conflictTracker *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
 	sequenceTracker *sequencetracker.SequenceTracker[BlockVotePower]
-	evictionManager *eviction.LockableManager[models.BlockID]
+	evictionManager *eviction.LockableState[models.BlockID]
 
 	*booker.Booker
 }
@@ -34,7 +34,7 @@ func New(booker *booker.Booker, validatorSet *validator.Set, opts ...options.Opt
 	return options.Apply(&VirtualVoting{
 		ValidatorSet:    validatorSet,
 		blocks:          memstorage.NewEpochStorage[models.BlockID, *Block](),
-		evictionManager: booker.BlockDAG.EvictionManager.Lockable(),
+		evictionManager: booker.BlockDAG.EvictionState.Lockable(),
 		Booker:          booker,
 	}, opts, func(o *VirtualVoting) {
 		o.conflictTracker = conflicttracker.NewConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower](o.Booker.Ledger.ConflictDAG, validatorSet)

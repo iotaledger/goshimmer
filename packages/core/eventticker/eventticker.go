@@ -19,7 +19,7 @@ import (
 type EventTicker[T epoch.IndexedID] struct {
 	Events *Events[T]
 
-	evictionManager      *eviction.LockableManager[T]
+	evictionManager      *eviction.LockableState[T]
 	timedExecutor        *timed.Executor
 	scheduledTickers     *memstorage.EpochStorage[T, *timed.ScheduledTask]
 	scheduledTickerCount int

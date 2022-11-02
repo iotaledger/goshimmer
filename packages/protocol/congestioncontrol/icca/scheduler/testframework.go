@@ -75,7 +75,7 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t
 		}
 
 		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionManager.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
+			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState.State, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
 		}
 	}, (*TestFramework).setupEvents)
 }

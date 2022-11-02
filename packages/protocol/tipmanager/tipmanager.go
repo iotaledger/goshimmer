@@ -161,7 +161,7 @@ func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {
 	// only add genesis if no tips are available
 	if len(tips) == 0 {
 		fmt.Println("selecting genesis block because tip pool empty")
-		for i, it := 0, t.tangle.EvictionManager.RootBlocks().Iterator(); it.HasNext() && i < count; i++ {
+		for i, it := 0, t.tangle.EvictionState.RootBlocks().Iterator(); it.HasNext() && i < count; i++ {
 			blockID := it.Next()
 			if block, exists := t.blockRetrieverFunc(blockID); exists {
 				parents.Add(block.ID())
